@@ -1275,10 +1275,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const normalizedMessage = rawMessage.replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED') || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+      // Ne jamais exposer un code SQL/RPC brut à l'utilisateur. Le pré-contrôle
+      // startSolo peut devenir périmé entre le tap et la consommation atomique,
+      // donc cette garde serveur reste nécessaire mais doit produire le même UX.
       void loadKeepBattleSoloDailyStatus().then((status) => {
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
-        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit ?? 0} parties Solo du jour. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`, [{ text: 'OK' }]);
-      }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', 'Tes parties Solo reviennent automatiquement demain. Le Battle en ligne reste disponible.', [{ text: 'OK' }]));
+        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd’hui. Prochain rechargement : ${resetLabel}. Tu peux continuer en Battle en ligne.`, [{ text: 'OK' }]);
+      }).catch(() => Alert.alert('Tes parties Solo du jour sont terminées', 'Tes parties Solo reviennent automatiquement demain. Tu peux continuer en Battle en ligne.', [{ text: 'OK' }]));
       return;
     }
     Alert.alert('Battle indisponible', 'Impossible de démarrer cette partie pour le moment. Réessaie dans quelques instants.');
