@@ -19,7 +19,7 @@ export async function loadProfileSaleSuggestions(limit = 8): Promise<ProfileSale
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_profile_sale_suggestions', { p_limit: limit });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  return (Array.isArray(data) ? data : []).map((row: any): ProfileSaleSuggestion => ({
     offerId: String(row.offer_id ?? ''),
     sellerId: String(row.seller_id ?? ''),
     sellerUsername: String(row.seller_username ?? ''),
