@@ -1273,9 +1273,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const showSoloStartError = (error: unknown) => {
     const err = error as any;
     const rawMessage = [err?.message, err?.details, err?.hint, err?.code, typeof error === 'string' ? error : ''].filter(Boolean).join(' ');
-    const normalizedMessage = rawMessage.replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+    // PostgREST/Supabase can wrap the database exception with punctuation,
+    // a numeric limit or JSON-ish text. Never let that internal token reach
+    // an Alert: classify from a punctuation-free canonical string.
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED') || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
       // Ne jamais exposer un code SQL/RPC brut à l'utilisateur. Le pré-contrôle
       // startSolo peut devenir périmé entre le tap et la consommation atomique,
       // donc cette garde serveur reste nécessaire mais doit produire le même UX.
