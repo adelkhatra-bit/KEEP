@@ -1303,9 +1303,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // le démarrage de la partie si ça échoue).
       void updateSoloPresenceTheme(themeCode).catch(() => {});
     } catch (e: any) {
-      const message = String(e?.message || e || '');
-      if (message.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-        const limit = Number(message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/)?.[1] || 0);
+      const rawMessage = String(e?.message || e || '');
+      const message = rawMessage.replace(/\\n/g, ' ');
+      const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
+        || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
+      if (message.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+        const limit = Number(dailyLimitMatch?.[1] || 0);
         Alert.alert(
           'Limite Solo atteinte',
           limit > 0
@@ -1313,10 +1316,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             : 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.',
         );
       } else {
-        const friendlyMessage = message.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')
-          ? 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.'
-          : 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.';
-        Alert.alert('Loki Music Battle', friendlyMessage);
+        Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
       }
     }
     finally { setBusy(false); }
