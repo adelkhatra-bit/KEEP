@@ -23,7 +23,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
-import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
+import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack } from '../services/keepBattleExperienceService';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadMyMatchPreferences, loadOutgoingBattleChallenges, reportSoloBattleResult, respondBattleChallenge, saveMyMatchPreferences, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
@@ -1325,13 +1325,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Adel (01/09/2026) : "souhaitez-vous ... enregistrer dans la session le
   // Battle musical, oui ou non" demandé avant CHAQUE partie -- plus de
   // sauvegarde automatique par défaut.
-  const startSolo = () => {
+  const startSolo = async () => {
     if (busy) return;
     // Adel (08/09/2026) : "en mode démo ... il n'est pas possible de faire un
     // Battle ni appuyé dessus automatiquement, ça lui fait un popup" -- même
     // garde que "Battle en ligne" (openOnline ci-dessous), qui manquait ici :
     // un invité/démo pouvait lancer un Battle solo sans jamais être bloqué.
     if (!enabled) { onRequireAccount?.(); return; }
+    setBusy(true);
+    try {
+      const status = await loadKeepBattleSoloDailyStatus();
+      if (status.remaining <= 0) {
+        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit} parties Solo du jour. Ton compteur se recharge automatiquement demain.`);
+        return;
+      }
+    } catch {
+      // Le serveur fera le contrôle atomique au démarrage : ne jamais bloquer
+      // une partie uniquement parce que le pré-contrôle réseau a échoué.
+    } finally {
+      setBusy(false);
+    }
     Alert.alert(
       'Sauvegarder ce Battle ?',
       'Veux-tu retrouver les morceaux de cette partie dans Mes Sessions à la fin (les garder, les réécouter ou les effacer) ?',
