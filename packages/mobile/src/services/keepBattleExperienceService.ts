@@ -106,6 +106,21 @@ function simplifyArtistCredit(raw: string): string {
 // etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
+export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number; remaining: number; resetsAt: string | null };
+
+export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDailyStatus> {
+  const { data, error } = await client().rpc('keep_battle_solo_daily_status');
+  if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_STATUS_UNAVAILABLE'));
+  const raw = data as any;
+  return {
+    plan: String(raw.plan || 'FREE').toUpperCase(),
+    used: Math.max(0, Number(raw.used || 0)),
+    limit: Math.max(0, Number(raw.limit || 0)),
+    remaining: Math.max(0, Number(raw.remaining || 0)),
+    resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+  };
+}
+
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
   // Build and validate the playable pack BEFORE consuming a daily start.
   // A catalogue/network failure must never burn one of the user's Solo slots.
