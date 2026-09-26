@@ -1272,23 +1272,19 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const showSoloStartError = (error: unknown) => {
     const rawMessage = String((error as any)?.message || error || '');
-    const normalizedMessage = rawMessage
-      .replace(/\\\\n/g, ' ')
-      .replace(/\\\\_/g, '_')
-      .replace(/\\\\:/g, ':')
-      .replace(/\\\\/g, '')
-      .replace(/\\n/g, ' ')
-      .replace(/\\_/g, '_')
-      .replace(/\\:/g, ':');
-    const dailyLimitMatch = normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
-      || normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
-    if (normalizedMessage.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-      const limit = Number(dailyLimitMatch?.[1] || 0);
+    // Supabase/PostgREST peut renvoyer le code serveur échappé, avec des
+    // guillemets, antislashs ou ponctuations différentes. On ne montre
+    // jamais ce code technique au joueur : la présence du marqueur suffit.
+    const normalizedMessage = rawMessage.replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
+    if (normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
+      const tail = normalizedMessage.split('BATTLE_SOLO_DAILY_LIMIT_REACHED')[1] || '';
+      const limit = Number(tail.match(/(\d+)/)?.[1] || 0);
       Alert.alert(
-        'Tes parties Solo du jour sont terminées',
+        'Solo terminé pour aujourd’hui',
         limit > 0
-          ? `Tu as joué tes ${limit} parties Solo disponibles aujourd’hui. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.`
-          : 'Tes parties Solo du jour sont terminées. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.',
+          ? `Tu as utilisé tes ${limit} parties Solo du jour. Elles reviennent automatiquement demain. Tu peux continuer en Battle en ligne.`
+          : 'Tu as utilisé tes parties Solo du jour. Elles reviennent automatiquement demain. Tu peux continuer en Battle en ligne.',
+        [{ text: 'OK' }],
       );
       return;
     }
