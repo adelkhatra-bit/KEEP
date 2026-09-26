@@ -1143,6 +1143,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
 
+      <View style={s.topMetricsBar}>
+        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setMenuOpen(true); setExpandedMenuItem('free'); }} accessibilityLabel={`${freeBalance ?? 0} Free disponibles`}>
+          <Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => setCommunityMode((v) => v === 'followers' ? null : 'followers')}><Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => setRepriseListOpen(true)}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => switchProfileTab('TRACKS')}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.topMetricItem, s.topMetricLast]} onPress={() => setCommunityMode((v) => v === 'following' ? null : 'following')}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
+      </View>
+      {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
+
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
@@ -1224,7 +1235,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         ) : null}
       </ProfileMotionReveal>
 
-      {marketplaceEnabled && !accountRequired ? (
+      {!accountRequired ? (
         <ProfileOpportunityRail
           suggestion={profileSaleSuggestions[profileSaleSuggestionIndex] ?? null}
           onSuggestionPress={profileSaleSuggestions[profileSaleSuggestionIndex] ? () => navigation.navigate('PublicUserProfile', { username: profileSaleSuggestions[profileSaleSuggestionIndex].sellerUsername }) : undefined}
@@ -1311,23 +1322,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           Un vendeur ne doit jamais voir un CTA d'achat sur sa propre offre ;
           la gestion (modifier/retirer) vit déjà dans le menu "Vendre mes
           playlists" (PlaylistSalePanel). Remplacé par un simple statut. */}
-      <View style={s.communitySection}>
-        {/* Adel (09/09/2026) : "abonnement on devrait le descendre a la
-            place du bouton reprise et reprise le remonter a la place de
-            abonnement ... des fois il peut avoir 15 reprises mais
-            uniquement trois abonnes ... c'est comme si il s'est
-            indirectement abonne" -- Reprises (portee reelle, y compris les
-            gens non abonnes qui ont quand meme garde un morceau) rejoint
-            Abonnes ; Abonnements descend a cote de Morceaux. */}
-        <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés', hint: 'Personnes qui suivent ton profil et peuvent retrouver plus facilement tes nouvelles découvertes.', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-          { value: profileUserKeepCount, label: 'Reprises', hint: 'Nombre de fois où tes découvertes ont été reprises par la communauté.', onPress: () => setRepriseListOpen(true) },
-          { value: profileTotalKeepCount, label: 'Morceaux', hint: 'Morceaux actuellement présents dans ton univers musical.', onPress: () => switchProfileTab('TRACKS') },
-          { value: profileFollowingCount, label: 'Abonnements', hint: 'Profils musicaux que tu suis actuellement.', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-        ]} />
-        {!accountRequired && communityMode ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
-      </View>
-
       {!accountRequired && growthStatus ? (
         growthStatus.audienceProUnlocked ? (
           // Adel (15/09/2026) : "je veux que quand on clique dessus, il y
@@ -1651,6 +1645,11 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
+  topMetricsBar:{marginHorizontal:18,marginTop:6,minHeight:54,flexDirection:'row',alignItems:'stretch',backgroundColor:colors.backgroundCard,borderRadius:14,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  topMetricItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:2,borderRightWidth:1,borderRightColor:colors.border},
+  topMetricFree:{backgroundColor:'rgba(34,197,94,.12)'},topMetricLast:{borderRightWidth:0},
+  topMetricValue:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},topMetricLabel:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:2},
+  topMetricsCommunity:{marginHorizontal:18},
   communitySection:{marginHorizontal:18,gap:2},
   ownerCollectionRail:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   ownerCollectionRailHeader:{flexDirection:'row',alignItems:'center',gap:10},
