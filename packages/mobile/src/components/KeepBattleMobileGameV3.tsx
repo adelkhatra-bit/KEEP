@@ -1297,7 +1297,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', limit > 0 ? `Tu as utilisé tes ${limit} parties Solo du jour. Elles reviennent automatiquement demain.` : 'Tes parties Solo reviennent automatiquement demain.', [{ text: 'OK' }]));
       return;
     }
-    Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
+    Alert.alert('Battle indisponible', 'Impossible de démarrer cette partie pour le moment. Réessaie dans quelques instants.');
   };
 
   const runStartSolo = async (saveSession: boolean) => {
