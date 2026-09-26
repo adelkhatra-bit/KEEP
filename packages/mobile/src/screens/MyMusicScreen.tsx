@@ -615,22 +615,49 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const closeSellModal = () => { setSellTarget(null); setSellPriceCents(null); };
 
-  const toggleSaleTrack = (trackId: string) => {
-    // (21/09/2026) : un morceau déjà dans une offre active ne peut pas être
-    // rebundlé silencieusement dans une nouvelle sélection -- il faut
-    // d'abord modifier/retirer l'offre existante (bouton "🏷️ En vente").
-    if (myOfferedTrackIds[trackId]) return;
-    setSelectedSaleTrackIds((current) => {
-      const next = new Set(current);
-      if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
-      return next;
-    });
+  const setSaleTrackVisibility = async (trackId: string, visibility: 'PUBLIC' | 'PRIVATE') => {
+    const track = localKeptTracks.find((item) => item.id === trackId);
+    if (!track) throw new Error('TRACK_NOT_FOUND');
+    if (!isLocalGuest && !isDemoMode) await persistOwnTrackVisibility(track, visibility);
+    useSessionHistoryStore.setState((state) => ({
+      sessions: state.sessions.map((session) => ({
+        ...session,
+        tracks: session.tracks.map((item) => item.status === 'kept' && trackIdentity(item.track) === trackIdentity(track) ? { ...item, visibility } : item),
+      })),
+    }));
   };
 
-  const cancelSaleSelection = () => {
+  const toggleSaleTrack = async (trackId: string) => {
+    // Une pépite cochée devient immédiatement privée : elle disparaît de tous
+    // les Swipes/profils publics avant même la publication de la collection.
+    // La décocher la remet publique. Le serveur reste la source de vérité.
+    if (myOfferedTrackIds[trackId] || trackVisibilityBusy === trackId) return;
+    const wasSelected = selectedSaleTrackIds.has(trackId);
+    setTrackVisibilityBusy(trackId);
+    try {
+      await setSaleTrackVisibility(trackId, wasSelected ? 'PUBLIC' : 'PRIVATE');
+      setSelectedSaleTrackIds((current) => {
+        const next = new Set(current);
+        if (wasSelected) next.delete(trackId); else next.add(trackId);
+        return next;
+      });
+      await syncUnsyncedKeeps();
+    } catch (e: any) {
+      Alert.alert('Collection', e?.message ?? 'Impossible de modifier la visibilité de ce morceau.');
+    } finally {
+      setTrackVisibilityBusy(null);
+    }
+  };
+
+  const cancelSaleSelection = async () => {
+    // Annuler = aucune vente : les morceaux simplement cochés retrouvent leur
+    // visibilité publique. Une offre déjà publiée n'est jamais touchée ici.
+    const ids = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
+    await Promise.all(ids.map((id) => setSaleTrackVisibility(id, 'PUBLIC').catch(() => undefined)));
     setSaleSelectionMode(false);
     setSelectedSaleTrackIds(new Set());
     setSaleEditOfferTarget(null);
+    await syncUnsyncedKeeps().catch(() => undefined);
   };
 
   const createSaleSelection = () => {
@@ -738,6 +765,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           onPress: async () => {
             try {
               await removeTrackFromOffer(offered.offerId, track.id);
+              await persistOwnTrackVisibility(track, 'PUBLIC');
               setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[track.id]; return next; });
             } catch {
               Alert.alert('Collection', 'Impossible de retirer ce morceau de la collection pour le moment.');
@@ -798,7 +826,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
       await refreshSaleState();
-      if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) cancelSaleSelection();
+      if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) {
+        // Publication réussie : vider la sélection SANS republier les pépites.
+        setSaleSelectionMode(false);
+        setSelectedSaleTrackIds(new Set());
+        setSaleEditOfferTarget(null);
+      }
       closeSellModal();
     } catch (e: any) {
       const raw = String(e?.message || e || '');
@@ -1322,7 +1355,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `${selectedSaleTrackIds.size} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
           </View>
           <View style={styles.stickySelectionActions}>
-            <TouchableOpacity style={styles.selectionCancelButton} onPress={cancelSaleSelection}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.selectionCancelButton} onPress={() => void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
             {saleEditOfferTarget ? (
               <TouchableOpacity style={[styles.selectionAddButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}>
                 <Text style={styles.selectionAddText}>＋ AJOUTER ({selectedSaleTrackIds.size})</Text>
