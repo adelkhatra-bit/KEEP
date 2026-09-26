@@ -24,7 +24,7 @@ import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
-import { shareProfileTrack } from '../services/sharingService';
+import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -1094,8 +1094,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <Text style={styles.visitorActionIcon}>⚡</Text><Text style={styles.visitorActionLabel}>{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}</Text>
                 </TouchableOpacity>
               ) : <View style={styles.visitorActionChipPlaceholder} />}
-              <TouchableOpacity style={[styles.visitorActionChip, isFollowing && styles.visitorActionChipFollowing]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
-                <Text style={styles.visitorActionIcon}>{followBusy ? '…' : isFollowing ? '✓' : '+'}</Text><Text style={styles.visitorActionLabel}>{isFollowing ? 'ABONNÉ' : 'SUIVRE'}</Text>
+              <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>
+                <Text style={styles.visitorActionIcon}>↗</Text><Text style={styles.visitorActionLabel}>PARTAGER</Text>
               </TouchableOpacity>
             </View>
           ) : null}
