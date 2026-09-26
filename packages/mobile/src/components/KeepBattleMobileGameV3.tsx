@@ -1316,7 +1316,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           'Limite Solo atteinte',
           limit > 0
             ? `Tu as joué tes ${limit} parties Solo disponibles aujourd’hui. Reviens demain pour continuer.`
-            : 'Tu as atteint ta limite de parties Solo pour aujourd’hui. Reviens demain pour continuer.',
+            : 'Tes parties Solo du jour sont terminées. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.',
         );
       } else {
         Alert.alert('Loki Music Battle', 'Impossible de démarrer le Battle pour le moment. Réessaie dans quelques instants.');
@@ -1339,7 +1339,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       const status = await loadKeepBattleSoloDailyStatus();
       if (status.remaining <= 0) {
-        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit} parties Solo du jour. Ton compteur se recharge automatiquement demain.`);
+        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit} parties incluses aujourd’hui. Elles se rechargent automatiquement demain. Le Battle en ligne reste disponible.`);
         return;
       }
     } catch {
