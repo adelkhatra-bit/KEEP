@@ -1271,30 +1271,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // contrôles manuels ("je suis disponible, j'appuie et ça repart").
 
   const showSoloStartError = (error: unknown) => {
-    const rawMessage = [
-      String((error as any)?.message || ''),
-      String((error as any)?.details || ''),
-      String((error as any)?.hint || ''),
-      String((error as any)?.code || ''),
-      String(error || ''),
-      (() => { try { return JSON.stringify(error); } catch { return ''; } })(),
-    ].join(' ');
-    // Supabase/PostgREST peut renvoyer le code serveur échappé, avec des
-    // guillemets, antislashs ou ponctuations différentes. On ne montre
-    // jamais ce code technique au joueur : la présence du marqueur suffit.
+    const rawMessage = String((error as any)?.message || (error as any)?.details || error || '');
     const normalizedMessage = rawMessage.replace(/[^A-Z0-9]+/gi, '_').toUpperCase();
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const soloLimitMarker = 'BATTLESOLODAILYLIMITREACHED';
-    if (compactMessage.includes(soloLimitMarker) || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
-      // Ne jamais extraire le premier nombre de toute la réponse PostgREST
-      // (code HTTP, position SQL, etc.). Seul un nombre accolé explicitement
-      // au marqueur métier peut représenter la limite quotidienne.
-      const explicitLimit = rawMessage.toUpperCase().match(/BATTLE(?:_|\\s|\\\\|-) *SOLO(?:_|\\s|\\\\|-) *DAILY(?:_|\\s|\\\\|-) *LIMIT(?:_|\\s|\\\\|-) *REACHED(?:_|\\s|\\\\|:|=|-)*(\\d+)/)?.[1];
-      const limit = Number(explicitLimit || 0);
+    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED') || normalizedMessage.includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
       void loadKeepBattleSoloDailyStatus().then((status) => {
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
-        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit ?? limit} parties Solo du jour. Il t’en reste 0. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`, [{ text: 'OK' }]);
-      }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', limit > 0 ? `Tu as utilisé tes ${limit} parties Solo du jour. Elles reviennent automatiquement demain.` : 'Tes parties Solo reviennent automatiquement demain.', [{ text: 'OK' }]));
+        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé tes ${status.limit ?? 0} parties Solo du jour. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`, [{ text: 'OK' }]);
+      }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', 'Tes parties Solo reviennent automatiquement demain. Le Battle en ligne reste disponible.', [{ text: 'OK' }]));
       return;
     }
     Alert.alert('Battle indisponible', 'Impossible de démarrer cette partie pour le moment. Réessaie dans quelques instants.');
