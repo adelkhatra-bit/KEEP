@@ -158,6 +158,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
+  const accountRequired = isLocalGuest || isDemoMode;
   const [planCode, setPlanCode] = useState('FREE');
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
@@ -288,7 +289,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [navigation]);
 
-  const accountRequired = isLocalGuest || isDemoMode;
   useEffect(() => {
     let live = true;
     if (!user || accountRequired) {
