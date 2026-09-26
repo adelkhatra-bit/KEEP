@@ -1306,9 +1306,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       const rawMessage = String(e?.message || e || '');
       // Supabase/PostgREST peut échapper les séparateurs dans le message
       // d'exception. Normalise-les avant d'afficher une erreur utilisateur.
-      const message = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_');
-      const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\\s*[:_]\\s*(\\d+)/i)
-        || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\\d+)/i);
+      const message = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_').replace(/\\:/g, ':');
+      const dailyLimitMatch = message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
+        || message.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
       if (message.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
         const limit = Number(dailyLimitMatch?.[1] || 0);
         Alert.alert(
