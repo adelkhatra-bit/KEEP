@@ -1272,7 +1272,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const showSoloStartError = (error: unknown) => {
     const rawMessage = String((error as any)?.message || error || '');
-    const normalizedMessage = rawMessage.replace(/\\n/g, ' ').replace(/\\_/g, '_').replace(/\\:/g, ':').replace(/\\/g, '');
+    const normalizedMessage = rawMessage
+      .replace(/\\\\n/g, ' ')
+      .replace(/\\\\_/g, '_')
+      .replace(/\\\\:/g, ':')
+      .replace(/\\\\/g, '')
+      .replace(/\\n/g, ' ')
+      .replace(/\\_/g, '_')
+      .replace(/\\:/g, ':');
     const dailyLimitMatch = normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED\s*[:_]\s*(\d+)/i)
       || normalizedMessage.match(/BATTLE_SOLO_DAILY_LIMIT_REACHED[^0-9]*(\d+)/i);
     if (normalizedMessage.toUpperCase().includes('BATTLE_SOLO_DAILY_LIMIT_REACHED')) {
