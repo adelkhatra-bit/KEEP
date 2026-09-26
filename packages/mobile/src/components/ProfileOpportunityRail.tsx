@@ -42,14 +42,6 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
 
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
-  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
-  const priceLabel = suggestion
-    ? suggestion.paymentMode === 'FREE'
-      ? `${suggestion.freePrice ?? 0} FREE`
-      : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`
-    : null;
-  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
-  const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
