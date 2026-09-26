@@ -117,7 +117,11 @@ export default function ProfileStyleCard({
       ]),
     );
     loop.start();
-    const waveLoop = Animated.loop(Animated.timing(waveMotion, { toValue: 1, duration: 3600, useNativeDriver: true }));
+    waveMotion.setValue(0);
+    const waveLoop = Animated.loop(Animated.sequence([
+      Animated.timing(waveMotion, { toValue: 1, duration: 1500, useNativeDriver: true }),
+      Animated.timing(waveMotion, { toValue: 0, duration: 1500, useNativeDriver: true }),
+    ]));
     waveLoop.start();
     return () => { loop.stop(); waveLoop.stop(); };
   }, [locked, pulse, reduceMotion, waveMotion]);
@@ -140,7 +144,7 @@ export default function ProfileStyleCard({
     <>
       <View style={s.topRow}>
         <Pressable
-          style={[s.badge, locked && s.badgeLocked, unlocked && s.badgeUnlocked]}
+          style={[s.badge, locked && s.badgeLocked, unlocked && s.badgeUnlocked, locked && !reduceMotion && { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }]}
           onPress={onBadgePress}
           disabled={!onBadgePress}
           accessibilityRole={onBadgePress ? 'button' : undefined}
