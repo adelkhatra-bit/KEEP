@@ -1062,13 +1062,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <View style={[styles.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.kindBadgeText, { color: certificationColors.ring }]}>{kindLabel}</Text></View>
                   {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
                 </View>
-                <View style={styles.identityMeta}>
-                  {viewer?.id !== profile.id && (
-                    <TouchableOpacity style={[styles.followButton, isFollowing && styles.followButtonActive]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
-                      <Text style={[styles.followButtonText, isFollowing && styles.followButtonTextActive]}>{isFollowing ? 'Abonné(e)' : '+ Suivre'}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+
               </View>
             </View>
           </View>
@@ -1085,14 +1079,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <Text style={styles.visitorActionIcon}>⚡</Text><Text style={styles.visitorActionLabel}>{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}</Text>
                 </TouchableOpacity>
               ) : <View style={styles.visitorActionChipPlaceholder} />}
-              <TouchableOpacity
-                style={[styles.visitorActionChip, isFollowing && styles.visitorActionChipFollowing]}
-                onPress={toggleFollow}
-                disabled={followBusy}
-                accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}
-              >
-                <Text style={styles.visitorActionIcon}>{followBusy ? '…' : isFollowing ? '✓' : '+'}</Text>
-                <Text style={styles.visitorActionLabel}>{isFollowing ? 'ABONNÉ' : 'SUIVRE'}</Text>
+              <TouchableOpacity style={[styles.visitorActionChip, isFollowing && styles.visitorActionChipFollowing]} onPress={toggleFollow} disabled={followBusy} accessibilityLabel={isFollowing ? 'Ne plus suivre' : 'Suivre'}>
+                <Text style={styles.visitorActionIcon}>{followBusy ? '…' : isFollowing ? '✓' : '+'}</Text><Text style={styles.visitorActionLabel}>{isFollowing ? 'ABONNÉ' : 'SUIVRE'}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -1169,13 +1157,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileCounterRow kind="connections" items={[
             { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
             { value: socialKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
-          ]} />
-          {!isLocalGuest && !isDemoMode && communityMode === 'followers' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
-          <ProfileCounterRow kind="keeps" items={[
-            { value: directKeepCount, label: 'Morceaux' },
+            { value: directKeepCount, label: 'Morceaux', onPress: () => setActiveTab('TRACKS') },
             { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
           ]} />
-          {!isLocalGuest && !isDemoMode && communityMode === 'following' ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
+          {!isLocalGuest && !isDemoMode && communityMode ? <CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /> : null}
         </View>
 
         <View style={styles.collectionHeader}>
