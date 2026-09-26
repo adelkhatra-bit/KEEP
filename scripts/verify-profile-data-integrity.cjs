@@ -36,8 +36,8 @@ for (const marker of ["profileKeptTracks.filter((entry) => entry.visibility === 
   if (!profile.includes(marker)) failures.push(`OWN PROFILE PRIVACY MARKER MISSING: ${marker}`);
 }
 if (profile.includes('accessibilityLabel="Modifier mon profil"')) failures.push('DUPLICATE MODIFIER BUTTON REINTRODUCED');
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
-  if (!profile.includes(marker)) failures.push(`OWN PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+for (const marker of ["topMetricsBar", "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
+  if (!profile.includes(marker)) failures.push(`OWN PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (profile.includes('function Stat({value,label}')) failures.push('OWN PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
@@ -45,14 +45,14 @@ const viewedProfile = read('packages/mobile/src/screens/PublicUserProfileScreen.
 for (const marker of ['loadPublicProfileKeeps', 'canonicalKeeps']) {
   if (!viewedProfile.includes(marker)) failures.push(`PUBLIC PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
-  if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections'", "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
+  if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
 const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
-for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFFF', fontSize: 13", "value: { color: '#FFFFFF', fontSize: 20"]) {
-  if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER STYLE CONTRACT MISSING: ${marker}`);
+for (const marker of ["kind?: 'connections' | 'keeps'", "accessibilityRole=\"button\"", "onPress={item.onPress}"]) {
+  if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER INTERACTION CONTRACT MISSING: ${marker}`);
 }
 
 const publicShare = read('packages/mobile/share-profile.html');
