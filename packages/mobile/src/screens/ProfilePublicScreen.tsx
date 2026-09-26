@@ -1320,10 +1320,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
             gens non abonnes qui ont quand meme garde un morceau) rejoint
             Abonnes ; Abonnements descend a cote de Morceaux. */}
         <ProfileCounterRow kind="connections" items={[
-          { value: profileFollowerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-          { value: profileUserKeepCount, label: 'Reprises', onPress: () => setRepriseListOpen(true) },
-          { value: profileTotalKeepCount, label: 'Morceaux', onPress: () => switchProfileTab('TRACKS') },
-          { value: profileFollowingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+          { value: profileFollowerCount, label: 'Abonnés', hint: 'Personnes qui suivent ton profil et peuvent retrouver plus facilement tes nouvelles découvertes.', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+          { value: profileUserKeepCount, label: 'Reprises', hint: 'Nombre de fois où tes découvertes ont été reprises par la communauté.', onPress: () => setRepriseListOpen(true) },
+          { value: profileTotalKeepCount, label: 'Morceaux', hint: 'Morceaux actuellement présents dans ton univers musical.', onPress: () => switchProfileTab('TRACKS') },
+          { value: profileFollowingCount, label: 'Abonnements', hint: 'Profils musicaux que tu suis actuellement.', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
         ]} />
         {!accountRequired && communityMode ? <CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /> : null}
       </View>
