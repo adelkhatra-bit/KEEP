@@ -1,4 +1,5 @@
 name: KEEP — Web public officiel
+# Workflow definition is registered from default branch; runtime deploy source stays reconcile/claude-main-20260825.
 
 on:
   push:
