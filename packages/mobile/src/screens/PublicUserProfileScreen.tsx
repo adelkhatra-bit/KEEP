@@ -260,6 +260,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: true, playlists, events }));
   };
 
+  const reopenMarketBanner = () => {
+    if (!profile?.id) return;
+    const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
+    const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
+    const events = marketBannerEventIds.join(',');
+    setMarketBannerVisible(true);
+    void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists, events }));
+  };
+
   useEffect(() => {
     if (!profile?.id) { setPublicVibes([]); return undefined; }
     let live = true;
@@ -1183,6 +1192,21 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
+        {marketplaceEnabled && !marketBannerVisible && saleOffers.length > 0 ? (
+          <TouchableOpacity
+            style={styles.marketplaceReopenButton}
+            onPress={reopenMarketBanner}
+            accessibilityLabel="Voir les découvertes à débloquer"
+          >
+            <Text style={styles.marketplaceReopenIcon}>✦</Text>
+            <View style={styles.marketplaceReopenCopy}>
+              <Text style={styles.marketplaceReopenTitle}>VOIR LES DÉCOUVERTES</Text>
+              <Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} à découvrir</Text>
+            </View>
+            <Text style={styles.marketplaceReopenArrow}>›</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {marketplaceEnabled && marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
@@ -1706,6 +1730,12 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   sellerSignalMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
   sellerSignalArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
   marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  marketplaceReopenButton:{marginHorizontal:18,marginTop:10,minHeight:48,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
+  marketplaceReopenIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},
+  marketplaceReopenCopy:{flex:1,minWidth:0},
+  marketplaceReopenTitle:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
+  marketplaceReopenMeta:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:2},
+  marketplaceReopenArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'700'},
   marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:8},marketplaceHideButton:{minHeight:28,paddingHorizontal:8,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},marketplaceHideText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
   marketplacePulseLine:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6},
