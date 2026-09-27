@@ -1177,6 +1177,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       ? offer.genres.slice(0, 3).join(' · ')
                       : 'Mix musical secret';
                     return (
+                      <View key={`sale-carousel-wrap:${offer.offerId}`} style={styles.saleCarouselItem}>
                       <ProfileStyleCard
                         key={`sale-carousel:${offer.offerId}`}
                         title={offer.playlistName || `Collection #${index + 1}`}
@@ -1196,6 +1197,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                           : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}`}
                         style={styles.saleCarouselCard}
                       />
+                      <TouchableOpacity
+                        style={styles.immersiveLaunchButton}
+                        onPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
+                        accessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
+                      >
+                        <Text style={styles.immersiveLaunchText}>▶ ÉCOUTER 15 S</Text>
+                      </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </ScrollView>
@@ -1656,6 +1665,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   marketplaceCountText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.5},
   saleCarouselContent:{gap:12,paddingTop:12,paddingRight:14},
+  saleCarouselItem:{width:260},
   saleCarouselCard:{width:260,marginBottom:0},
   saleCarouselHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:10},
     marketplaceFeaturedList:{gap:10,marginTop:12},
