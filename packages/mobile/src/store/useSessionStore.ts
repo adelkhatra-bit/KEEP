@@ -19,9 +19,9 @@ const RECOGNITION_TICK_MS = 700;
 const MIN_RECOGNITION_ATTEMPT_GAP_MS = 5000;
 const NEW_MATCH_COOLDOWN_MS = 6000;
 const SAME_TRACK_COOLDOWN_MS = 7000;
-const SILENCE_CHECK_INTERVAL_MS = 15000;
+const SILENCE_CHECK_INTERVAL_MS = 1000;
 export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 15;
-const SILENCE_PROMPT_GRACE_MS = 60 * 1000;
+export const SILENCE_PROMPT_GRACE_MS = 30 * 1000;
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -316,9 +316,9 @@ function recognitionSampleDurationMs() {
   // Premier essai court = résultat plus vite. Après un no-match, Loki donne au
   // fournisseur un extrait plus long pour améliorer la couverture sans rendre
   // chaque tentative lente par défaut.
-  if (consecutiveNoMatches >= 3) return 10500;
-  if (consecutiveNoMatches >= 1) return 8000;
-  return 5500;
+  if (consecutiveNoMatches >= 3) return 9500;
+  if (consecutiveNoMatches >= 1) return 7000;
+  return 4500;
 }
 
 function clearTimers() {
@@ -411,6 +411,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               (peak) => { samplePeak = peak; },
             );
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
+        // Le minuteur de veille mesure le silence musical réel, pas l'absence de
+        // correspondance catalogue : une musique inconnue mais audible maintient
+        // donc l'écoute active. Un signal suffisamment fort remet le chrono à zéro.
+        if (samplePeak !== null && samplePeak >= WEAK_SIGNAL_PEAK) lastDetectionAt = Date.now();
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         if (!recognition) {
