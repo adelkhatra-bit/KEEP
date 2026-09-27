@@ -294,16 +294,18 @@ jobs:
           grep -q '__keep_route' /tmp/keep-dynamic.html
 
       - name: Install real browser engines
+        # Publication is already live and SHA-verified above. Keep the public
+        # deploy fast; exhaustive cross-engine audits belong to guardian CI.
         run: |
           npm install --no-save @playwright/test@1.55.0
-          npx playwright install chromium firefox webkit --with-deps
+          npx playwright install chromium --with-deps
 
       - name: Live browser matrix — no blank page and refresh survives
         shell: bash
         run: |
           mkdir -p artifacts/public-browser-matrix
           cat > keep-public-browser-matrix.cjs <<'JS'
-          const { chromium, firefox, webkit, devices } = require('@playwright/test');
+          const { chromium, devices } = require('@playwright/test');
           const fs = require('fs');
           const BASE = 'https://adelkhatra-bit.github.io/KEEP';
           const routes = [
@@ -315,8 +317,7 @@ jobs:
           const scenarios = [
             { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 900 } } },
             { name: 'android-pixel7', engine: chromium, context: { ...devices['Pixel 7'] } },
-            { name: 'iphone-safari', engine: webkit, context: { ...devices['iPhone 15'] } },
-            { name: 'desktop-firefox', engine: firefox, context: { viewport: { width: 1366, height: 768 } } },
+            { name: 'mobile-390x844', engine: chromium, context: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
           ];
           const blank = (text, html) => !text || text.trim().length < 4 || !html || html.trim().length < 20;
           const bad404 = text => /File not found|404 There isn't a GitHub Pages site here/i.test(text || '');
