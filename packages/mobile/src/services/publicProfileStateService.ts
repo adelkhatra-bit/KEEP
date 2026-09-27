@@ -121,7 +121,7 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
   const trackIds = Array.from(new Set(rows.map((row) => row.track.id).filter(Boolean)));
   const firstOrigins = new Map<string, { profileId: string; username: string }>();
   for (let start = 0; start < trackIds.length; start += 100) {
-    const { data } = await client.rpc('keep_track_first_discoveries', { p_track_ids: trackIds.slice(start, start + 100) }).catch(() => ({ data: [] as any[] }));
+    const { data } = await Promise.resolve(client.rpc('keep_track_first_discoveries', { p_track_ids: trackIds.slice(start, start + 100) })).then((result) => result, () => ({ data: [] as any[] } as any));
     for (const row of (data ?? []) as any[]) if (row?.track_id && row?.profile_id) firstOrigins.set(String(row.track_id), { profileId: String(row.profile_id), username: String(row.username || '') });
   }
   rows = rows.map((row) => {
