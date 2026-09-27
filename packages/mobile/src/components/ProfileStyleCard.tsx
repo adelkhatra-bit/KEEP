@@ -245,9 +245,9 @@ export default function ProfileStyleCard({
           onPress={onPlayPress}
           accessibilityRole="button"
           accessibilityLabel={playAccessibilityLabel ?? `Écouter ${title}`}
-          style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked, playing && s.playActive]}
+          style={[s.play, locked && s.playLocked, locked && s.playLockedWide, unlocked && s.playUnlocked, playing && s.playActive]}
         >
-          <Text style={s.playText}>{playing ? 'Ⅱ' : '▶'}</Text>
+          <Text style={s.playText}>{playing ? 'Ⅱ' : locked ? '▶ ÉCOUTER' : '▶'}</Text>
         </Pressable>
       ) : (
         <View pointerEvents="none" style={[s.play, locked && s.playLocked, unlocked && s.playUnlocked]}>
@@ -341,6 +341,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   playLocked: { borderColor: colors.primaryLight },
+  playLockedWide: { width: 96, paddingHorizontal: 12, borderRadius: 17, backgroundColor: colors.primary },
   playUnlocked: { borderColor: colors.keep },
   playActive: { transform: [{ scale: 1.06 }], backgroundColor: colors.primary },
   playText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
