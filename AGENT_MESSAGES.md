@@ -1873,3 +1873,7 @@ Correctif local prêt pour le job Guardian 36313348951 : le workflow attendait e
 
 Je prends la coordination inter-IA GitHub-native: audit des briques existantes puis ajout du poste de commandement manquant (docs/config/workflow) pour réduire les confusions, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T11:32:14.210Z] codex
+
+Coordination GitHub-native renforcée: ajout du poste de commandement docs/ops/GITHUB_AI_COMMAND_CENTER.md, de la config machine-lisible config/github-ai-command-center.json et du workflow .github/workflows/agent-command-triage.yml. Le triage commente chaque issue, recommande l'agent (codex/claude/design), propose les workflows utiles et rappelle keep-ai-relay + AGENT_MESSAGES + agent-lock comme chaîne canonique. PROJECT_STATE.md et .context/activeContext.md mis à jour.
+

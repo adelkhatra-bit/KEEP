@@ -113,3 +113,10 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Lire avant action : `AGENT_MESSAGES.md`, `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`, `docs/mockups/ProfileStylesMarketplace.html`, `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
 - Conserver les commits UI déjà présents : `654ed541`, `ca41db86`, `a9ddb531` ; les auditer avant toute réécriture.
 - Ordre : profil visité → profil propriétaire → MyMusic → PlaylistSalePanel → onboarding → Super Admin → tests 390×844/web.
+
+## 2026-09-27 — Poste de commandement GitHub natif inter-IA
+- Ajout de `docs/ops/GITHUB_AI_COMMAND_CENTER.md` comme doc canonique de coordination.
+- Ajout de `config/github-ai-command-center.json` pour un routage machine-lisible des tâches agents.
+- Ajout du workflow `/.github/workflows/agent-command-triage.yml` qui publie un commentaire de routage unique sur chaque issue et recommande l’agent / les workflows à lancer.
+- Coordination canonique inchangée : `keep-ai-relay` / `public.ai_relay_messages` + `AGENT_MESSAGES.md` + `scripts/agent-lock.cjs`.
+- Impact attendu : moins de confusion entre IA, moins de tâches sans owner clair, meilleur handoff GitHub-native sans second canal.

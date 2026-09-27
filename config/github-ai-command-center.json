@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "repository": "adelkhatra-bit/KEEP",
+  "sourceBranch": "reconcile/claude-main-20260825",
+  "coordination": {
+    "relay": "keep-ai-relay",
+    "table": "public.ai_relay_messages",
+    "journalFile": "AGENT_MESSAGES.md",
+    "lockScript": "scripts/agent-lock.cjs",
+    "issueTemplate": ".github/ISSUE_TEMPLATE/agent_task.md",
+    "routingCommentMarker": "<!-- keep-ai-command-center -->"
+  },
+  "labels": {
+    "base": [
+      "ai-routed"
+    ],
+    "agent": {
+      "codex": "ai:codex",
+      "claude": "ai:claude",
+      "design": "ai:design"
+    },
+    "scope": {
+      "ci": "scope:ci",
+      "data": "scope:data",
+      "product": "scope:product",
+      "general": "scope:general"
+    }
+  },
+  "routing": [
+    {
+      "id": "ci",
+      "agent": "codex",
+      "scope": "ci",
+      "keywords": [
+        "ci",
+        "workflow",
+        "github actions",
+        "guardian",
+        "build",
+        "deploy",
+        "deployment",
+        "pages",
+        "testflight",
+        "eas",
+        "codeql",
+        "smoke",
+        "failure",
+        "failing",
+        "rouge"
+      ],
+      "recommendedWorkflows": [
+        "full-stack-ci.yml",
+        "mobile-ci.yml",
+        "keep-dual-viewport-guardian.yml",
+        "keep-human-guardian.yml",
+        "codeql.yml"
+      ]
+    },
+    {
+      "id": "data",
+      "agent": "claude",
+      "scope": "data",
+      "keywords": [
+        "supabase",
+        "migration",
+        "migrations",
+        "rls",
+        "sql",
+        "rpc",
+        "database",
+        "db",
+        "auth",
+        "storage",
+        "edge function"
+      ],
+      "recommendedWorkflows": [
+        "verify-migrations.yml",
+        "data-preservation.yml",
+        "full-stack-ci.yml"
+      ]
+    },
+    {
+      "id": "design",
+      "agent": "design",
+      "scope": "product",
+      "keywords": [
+        "ui",
+        "ux",
+        "design",
+        "profil",
+        "profile",
+        "onboarding",
+        "390x844",
+        "responsive",
+        "layout",
+        "copy",
+        "battle ux"
+      ],
+      "recommendedWorkflows": [
+        "keep-human-guardian.yml",
+        "keep-dual-viewport-guardian.yml",
+        "mobile-web-importmeta-diagnostic.yml"
+      ]
+    }
+  ],
+  "defaultRoute": {
+    "id": "general",
+    "agent": "codex",
+    "scope": "general",
+    "recommendedWorkflows": [
+      "full-stack-ci.yml"
+    ]
+  },
+  "guardrails": [
+    "Lire CLAUDE.md, AGENTS.md et AGENT_MESSAGES.md avant d'agir",
+    "Prendre un verrou agent avant toute édition",
+    "Ne pas toucher les écrans UI déjà réservés par un autre agent",
+    "Reporter toute cause racine réelle dans docs/ERROR_LEDGER.md",
+    "Ne pas créer de deuxième canal de coordination"
+  ]
+}

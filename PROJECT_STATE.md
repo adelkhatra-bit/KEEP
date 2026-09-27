@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T15:41:05.791Z
-- Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `2767c3a` (2767c3ac6029be1a82e29e772648b7d8dd407bab) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- Date du dernier commit : 2026-09-22T17:39:04+02:00
+- Régénéré le : 2026-09-27T11:32:09.230Z
+- Branche : `copilot/fix-github-actions-job-failure-again`
+- Dernier commit : `d014701c` (d014701cceb27042a5b5b0c9e6633808e5c53dee) — chore: plan github ai command center
+- Date du dernier commit : 2026-09-27T11:30:31Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,16 +125,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `2767c3a` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- `d85c8d9` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout DiscoverScreen (spec Adel 22/09/2026)
-- `8cd3a09` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout HomeScreenCompact (spec Adel 22/09/2026)
-- `d7df56a` (2026-09-22, adelkhatra-bit) — style(mobile): migrer HomeScreenCompact/Discover/Parties vers les tokens colors.ts (design system strict)
-- `b7ec85b` (2026-09-22, adelkhatra-bit) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
-- `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
-- `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
+- `d014701c` (2026-09-27, copilot-swe-agent[bot]) — chore: plan github ai command center
+- `a738df79` (2026-09-27, copilot-swe-agent[bot]) — fix(ci): rely on Battle setup invariants in guardian
+- `c72c779c` (2026-09-27, copilot-swe-agent[bot]) — chore: remove unrelated audio asset drift
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -178,6 +171,12 @@ agent) et messages des sessions de chat (non versionnés).
   Suppression impossible par les agents IA : le token de l'app GitHub n'a pas
   la permission `workflows`. Action manuelle : github.com →
   `.github/workflows/eas-build-ios.yml` → Delete file → commit.
+- **Coordination inter-IA GitHub-native (27/09/2026)** : doc canonique ajoutée
+  dans `docs/ops/GITHUB_AI_COMMAND_CENTER.md`, config partagée
+  `config/github-ai-command-center.json` et workflow
+  `agent-command-triage.yml` pour publier un commentaire de routage unique sur
+  les issues. À observer sur les prochaines issues pour confirmer le routage,
+  la création de labels et l’absence de bruit excessif.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

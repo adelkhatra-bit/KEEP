@@ -1,0 +1,151 @@
+name: KEEP — Agent command triage
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled, unlabeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: agent-command-triage-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.event_name == 'workflow_dispatch' || github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Route issue for AI coordination
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import textwrap
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          if not os.environ.get("GITHUB_EVENT_PATH") or not Path(os.environ["GITHUB_EVENT_PATH"]).exists():
+              raise SystemExit("No event payload available.")
+
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          issue = event.get("issue")
+          if not issue:
+              raise SystemExit(0)
+
+          config = json.loads(Path("config/github-ai-command-center.json").read_text())
+          token = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          marker = config["coordination"]["routingCommentMarker"]
+          title = issue.get("title") or ""
+          body = issue.get("body") or ""
+          number = issue["number"]
+          text = f"{title}\n{body}".lower()
+
+          def contains_any(keywords):
+              return any(keyword.lower() in text for keyword in keywords)
+
+          route = None
+          for candidate in config["routing"]:
+              if contains_any(candidate.get("keywords", [])):
+                  route = candidate
+                  break
+          if route is None:
+              route = config["defaultRoute"]
+
+          label_names = set(config["labels"]["base"])
+          agent_label = config["labels"]["agent"].get(route["agent"])
+          scope_label = config["labels"]["scope"].get(route["scope"])
+          if agent_label:
+              label_names.add(agent_label)
+          if scope_label:
+              label_names.add(scope_label)
+
+          recommended = route.get("recommendedWorkflows", [])
+          workflows_md = "\n".join(f"- `{name}`" for name in recommended) or "- aucun"
+          guardrails_md = "\n".join(f"- {line}" for line in config.get("guardrails", []))
+
+          comment_body = textwrap.dedent(f"""\
+          {marker}
+          ## 🤖 Routage automatique IA KEEP
+
+          - **Type détecté** : `{route['id']}`
+          - **Agent recommandé** : `{route['agent']}`
+          - **Scope** : `{route['scope']}`
+          - **Branche source** : `{config['sourceBranch']}`
+          - **Relais canonique** : `{config['coordination']['relay']}` / `{config['coordination']['table']}`
+          - **Journal partagé** : `{config['coordination']['journalFile']}`
+          - **Verrou** : `{config['coordination']['lockScript']}`
+
+          ### Workflows recommandés
+          {workflows_md}
+
+          ### Garde-fous
+          {guardrails_md}
+
+          ### Discipline d'exécution
+          - prendre un verrou avant édition ;
+          - poster dans `AGENT_MESSAGES.md` avant/après tâche significative ;
+          - ne jamais créer un second canal de coordination ;
+          - si la tâche touche l'UI verrouillée, demander l'arbitrage de l'owner actuel.
+          """)
+
+          api_base = f"https://api.github.com/repos/{repo}"
+          headers = {
+              "Authorization": "Bearer " + token,
+              "Accept": "application/vnd.github+json",
+              "User-Agent": "keep-agent-command-triage"
+          }
+
+          def request(method, url, data=None):
+              payload = None if data is None else json.dumps(data).encode("utf-8")
+              req = urllib.request.Request(url, data=payload, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req) as resp:
+                      return json.loads(resp.read().decode("utf-8")) if resp.length != 0 else None
+              except urllib.error.HTTPError as exc:
+                  body = exc.read().decode("utf-8", errors="replace")
+                  if exc.code == 422:
+                      return {"status": 422, "body": body}
+                  raise RuntimeError(f"{method} {url} failed: {exc.code} {body}") from exc
+
+          label_palette = {
+              "ai-routed": ("5319e7", "Issue routée par le poste de commandement IA"),
+              "ai:codex": ("1d76db", "Issue recommandée pour Codex / CI / infra"),
+              "ai:claude": ("0e8a16", "Issue recommandée pour Claude / data / Supabase"),
+              "ai:design": ("fbca04", "Issue recommandée pour Design / UX / UI"),
+              "scope:ci": ("b60205", "Scope CI / build / workflow"),
+              "scope:data": ("0052cc", "Scope données / Supabase / auth"),
+              "scope:product": ("d4c5f9", "Scope UX / UI / produit"),
+              "scope:general": ("cfd3d7", "Scope général")
+          }
+
+          for label in sorted(label_names):
+              color, description = label_palette.get(label, ("cfd3d7", "Label IA KEEP"))
+              result = request("POST", f"{api_base}/labels", {
+                  "name": label,
+                  "color": color,
+                  "description": description
+              })
+              if isinstance(result, dict) and result.get("status") == 422:
+                  pass
+
+          request("POST", f"{api_base}/issues/{number}/labels", {"labels": sorted(label_names)})
+
+          comments = request("GET", f"{api_base}/issues/{number}/comments?per_page=100") or []
+          existing = next((comment for comment in comments if marker in (comment.get("body") or "")), None)
+          if existing:
+              request("PATCH", f"{api_base}/issues/comments/{existing['id']}", {"body": comment_body})
+          else:
+              request("POST", f"{api_base}/issues/{number}/comments", {"body": comment_body})
+          PY
