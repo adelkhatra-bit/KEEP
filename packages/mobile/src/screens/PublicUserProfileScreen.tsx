@@ -1471,17 +1471,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           )}
         </View>
 
-        {immersivePreviewOffer ? (
-          <PlaylistSaleImmersivePreview
-            offer={immersivePreviewOffer}
-            visible={Boolean(immersivePreviewOffer)}
-            busy={purchaseBusyId === immersivePreviewOffer.offerId}
-            onClose={() => setImmersivePreviewOffer(null)}
-            onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
-            purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
-          />
-        ) : null}
-
         {(() => {
           const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
           if (!configuredSocials.length) return null;
@@ -1511,6 +1500,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
         })()}
       </ScrollView>
+
+      {immersivePreviewOffer ? (
+        <PlaylistSaleImmersivePreview
+          offer={immersivePreviewOffer}
+          visible
+          busy={purchaseBusyId === immersivePreviewOffer.offerId}
+          onClose={() => setImmersivePreviewOffer(null)}
+          onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
+          purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
+        />
+      ) : null}
 
       <MusicSwipeDeckModal
         visible={swipeOpen}
