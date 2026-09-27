@@ -11,7 +11,7 @@ import { APP_NAME } from '../config/brand';
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
-const MAX_SAMPLE_DURATION_MS = 8000;
+const MAX_SAMPLE_DURATION_MS = 11000;
 const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;
 // Retour utilisateur 31/08/2026 (apres desactivation d'autoGainControl) :
 // l'animation reste peu sensible specifiquement sur iPhone -- devrait bouger
