@@ -1140,6 +1140,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
       </View>
 
+      {battleFeatureEnabled && !accountRequired ? (
+        <View style={s.ownerBattleTopRow}>
+          <TouchableOpacity
+            style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
+            disabled={battleAvailabilityBusy}
+            onPress={() => { void setBattleAvailable(!battleAvailable); }}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: battleAvailable }}
+            accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+          >
+            <PresenceDot online={battleAvailable} />
+            <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
@@ -1212,22 +1228,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.ownerActionChipIcon}>⚡</Text><Text style={s.ownerActionChipText}>BATTLE</Text>
           </TouchableOpacity>
         </View>
-        {battleFeatureEnabled && !accountRequired ? (
-          <View style={s.ownerBattleMicroRow}>
-            <TouchableOpacity
-              style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
-              disabled={battleAvailabilityBusy}
-              onPress={() => { void setBattleAvailable(!battleAvailable); }}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: battleAvailable }}
-              accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-            >
-              <PresenceDot online={battleAvailable} />
-              <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
-            </TouchableOpacity>
-            {battleStats ? <Text style={s.ownerBattleSummaryText}>🏆 {battleStats.wins}{battleRank ? ` · #${battleRank}` : ''}{battleInProgress ? ' · EN COURS' : ''}</Text> : null}
-          </View>
-        ) : null}
+
       </ProfileMotionReveal>
 
       {!accountRequired ? (
@@ -1629,6 +1630,7 @@ ownerActionChipIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
 ownerActionChipText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
 ownerBattleSummary:{minHeight:32,marginTop:6,borderRadius:10,alignItems:'center',justifyContent:'center'},
 ownerBattleSummaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',letterSpacing:.3},
+ownerBattleTopRow:{minHeight:30,paddingHorizontal:18,marginTop:-2,marginBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'flex-end'},
 ownerBattleMicroRow:{minHeight:28,marginTop:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
 ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:8,paddingVertical:4,borderRadius:999,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},
 ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:`${colors.success}18`},
