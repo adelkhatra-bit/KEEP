@@ -1485,6 +1485,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       emptyTitle="Aucun morceau public à prévisualiser."
       backLabel="REVENIR AU PROFIL"
       previewOnly
+      onOpenSourceProfile={(username) => { setProfileSwipeOpen(false); navigation.navigate('PublicProfile', { username }); }}
       onClose={() => setProfileSwipeOpen(false)}
     />
 
@@ -1540,6 +1541,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
       previewOnly
+      onOpenSourceProfile={(username) => { setSelectionSwipe(null); navigation.navigate('PublicProfile', { username }); }}
       onClose={() => setSelectionSwipe(null)}
     />
 
