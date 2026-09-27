@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, PanResponder, Platform, StyleSheet, Text, View } from 'react-native';
 
 export type SwipeDirection = 'LEFT' | 'RIGHT';
 
@@ -56,7 +56,9 @@ export default function SwipeDeck({
   };
 
   const responder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => enabled && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => enabled && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+    onMoveShouldSetPanResponder: (_, gesture) => enabled && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
     onPanResponderMove: (_, gesture) => {
       if (!enabled || animating.current) return;
       x.setValue(gesture.dx);
@@ -74,7 +76,7 @@ export default function SwipeDeck({
   const leftOpacity = x.interpolate({ inputRange: [-130, -28, 0], outputRange: [1, .15, 0], extrapolate: 'clamp' });
   const rightOpacity = x.interpolate({ inputRange: [0, 28, 130], outputRange: [0, .15, 1], extrapolate: 'clamp' });
 
-  return <View style={styles.shell}>
+  return <View style={[styles.shell, Platform.OS === 'web' && styles.shellWeb]}>
     <Animated.View style={[styles.badge, styles.leftBadge, { opacity: leftOpacity }]} pointerEvents="none"><Text style={styles.leftText}>{leftLabel}</Text></Animated.View>
     <Animated.View style={[styles.badge, styles.rightBadge, { opacity: rightOpacity }]} pointerEvents="none"><Text style={styles.rightText}>{rightLabel}</Text></Animated.View>
     <Animated.View {...responder.panHandlers} style={{ transform: [{ translateX: x }, { rotate }] }}>{children}</Animated.View>
@@ -84,6 +86,7 @@ export default function SwipeDeck({
 
 const styles = StyleSheet.create({
   shell:{width:'100%',position:'relative'},
+  shellWeb:{touchAction:'pan-y',userSelect:'none'} as any,
   badge:{position:'absolute',top:18,zIndex:10,borderWidth:2,borderRadius:10,paddingHorizontal:10,paddingVertical:6},
   leftBadge:{right:18,borderColor:'#FF5F83',transform:[{rotate:'7deg'}]},
   rightBadge:{left:18,borderColor:'#68F2B1',transform:[{rotate:'-7deg'}]},
