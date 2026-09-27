@@ -1849,3 +1849,11 @@ Retour attendu : tables/RPC concernés, anomalie exacte, proposition additive, t
 
 ### Statuts
 Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE / DEPLOYED.
+
+
+## 2026-09-27 — CHEF DE PROJET / BATTLE UX
+- Signal utilisateur: le code backend brut BATTLE_SOLO_DAILY_LIMIT_REACHED:40 est apparu dans l'UI Battle.
+- Correction chef de projet: commit ec40e885d2ce1f79e3a65ab5c353e2d039db0e55, normalisation élargie du token avant affichage; l'utilisateur doit voir uniquement le message produit avec quota/reset.
+- Consigne QA/Codex/Claude: vérifier ce SHA sur web mobile 390x844 et rechercher toute autre exposition directe de codes RPC/SQL dans Alert.alert/Toast. Ne pas modifier les règles métier Battle.
+- Design: profils propriétaire/visiteur doivent converger vers la même grammaire visuelle; compteurs en haut; rail opportunités compact et actionnable; aucune carte morte.
+- Marketplace: toute offre doit expliciter ECOUTER puis le mode de déblocage/paiement; édition propriétaire doit permettre ajout/retrait de morceaux sans casser la confidentialité des titres proposés.
