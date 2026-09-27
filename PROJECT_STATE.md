@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-27T12:13:25.525Z
+- Régénéré le : 2026-09-27T14:29:05.036Z
 - Branche : `copilot/fix-github-actions-job-failure-again`
-- Dernier commit : `4080195a` (4080195a3752037e76bcad1172ce3b78abd31f29) — docs(ops): publish dependency review and label sync handoff
-- Date du dernier commit : 2026-09-27T12:13:06Z
+- Dernier commit : `89c0460f` (89c0460f99a0d3ececfcb9b5c96ce88b460b65a6) — chore(ops): checkpoint intelligent web deploy scope
+- Date du dernier commit : 2026-09-27T14:28:27Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,10 +125,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `4080195a` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish dependency review and label sync handoff
-- `7d16c925` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add dependency review and label sync
-- `ace8b7c5` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish stale hygiene handoff
-- `84c36d4f` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add stale hygiene and incident intake
+- `89c0460f` (2026-09-27, copilot-swe-agent[bot]) — chore(ops): checkpoint intelligent web deploy scope
+- `6c60bfc0` (2026-09-27, copilot-swe-agent[bot]) — feat: add modular ci impact routing
+- `9846da99` (2026-09-27, copilot-swe-agent[bot]) — chore: start modular ci integration
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

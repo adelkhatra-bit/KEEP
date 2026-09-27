@@ -40,6 +40,7 @@ const payload = {
   deployMode,
   hasRuntimeWebImpact,
   hasAdminImpact,
+  outputKeys: ['deploy_mode', 'browser_matrix', 'full_http_smoke', 'admin_smoke'],
   shouldRunBrowserMatrix: hasRuntimeWebImpact,
   shouldRunFullHttpSmoke: hasRuntimeWebImpact,
   shouldRunAdminSmoke: hasAdminImpact || deployMode === 'admin-only',

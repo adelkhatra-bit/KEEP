@@ -1925,3 +1925,11 @@ Je traite la nouvelle exigence prioritaire architecture CI KEEP : intégration d
 
 Je prends le chantier CI impact/scope intelligent pour éviter les rebuilds inutiles sur chaque push et fiabiliser le 'poussé => visible', sans toucher aux écrans UI réservés.
 
+## [2026-09-27T14:29:05.057Z] codex
+
+Intégration en cours: scope de déploiement web intelligent sur web-preview-pages.yml via resolve-ci-impact + resolve-web-deploy-scope, triggers resserrés, browser matrix conditionnelle, docs/mémoire mises à jour.
+
+## [2026-09-27T14:29:23.801Z] codex
+
+Terminé localement: web-preview-pages.yml utilise désormais resolve-ci-impact + resolve-web-deploy-scope; pushs backend/Supabase n’allument plus Pages, scope admin-only allège les smokes, validation locale OK (source-of-truth avec env GitHub, freeTooling 100%, git diff --check).
+
