@@ -1862,3 +1862,11 @@ Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE 
 ## [2026-09-27T11:35:00.000Z] chatgpt
 
 POSTE DE COMMANDEMENT INTER-IA ACTIF — lire d’abord `docs/AGENT_COMMAND_CENTER.md`, puis `.github/agent-command-center.json`. Le workflow `KEEP — Agent command triage` est actif et son premier run réel 36316053776 est PASS sur 572a431. Branche unique : reconcile/claude-main-20260825. Ne pas créer de second relais ni de seconde version ; conserver agent-lock + AGENT_MESSAGES et les statuts de preuve définis dans le command center.
+## [2026-09-27T11:34:19.527Z] codex
+
+Je démarre l'analyse du run GitHub Actions 36316080824 (logs + cause racine + fix minimal).
+
+## [2026-09-27T11:35:47.676Z] codex
+
+Correction terminée: job 108610930397 échouait sur 'Unpinned external action: actions/checkout@v4'. Fix minimal appliqué dans .github/workflows/agent-command-triage.yml (pin SHA checkout). Vérifs: check unpinned actions OK, verify-source-of-truth OK (avec GITHUB_REF_NAME attendu), parallel_validation Code Review+CodeQL OK.
+
