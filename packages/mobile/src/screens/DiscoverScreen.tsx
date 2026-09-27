@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -373,6 +373,16 @@ export default function DiscoverScreen({ navigation }: any) {
   const nextProfile = () => {
     if (filteredProfiles.length) setProfileIndex((value) => (value + 1) % filteredProfiles.length);
   };
+  const previousProfile = () => {
+    if (filteredProfiles.length) setProfileIndex((value) => (value - 1 + filteredProfiles.length) % filteredProfiles.length);
+  };
+  const profileDeckPan = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx <= -38 || gesture.vx <= -0.35) nextProfile();
+      else if (gesture.dx >= 38 || gesture.vx >= 0.35) previousProfile();
+    },
+  }), [filteredProfiles.length]);
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
@@ -462,7 +472,7 @@ export default function DiscoverScreen({ navigation }: any) {
         ) : !currentProfile ? (
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>{profileQuery ? `Aucun profil ne correspond à ${profileQuery.replace(/^@/, '')}.` : hasSearched ? 'Aucun profil public dans ce rayon. Élargis la jauge puis relance la recherche.' : 'Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.'}</Text></View>
         ) : (
-          <View style={styles.profileCard}>
+          <View style={styles.profileCard} {...profileDeckPan.panHandlers}>
             <TouchableOpacity activeOpacity={0.85} onPress={openCurrentProfile} style={styles.coverWrap} accessibilityLabel={`Ouvrir le profil de ${currentProfile.username}`}>
               {currentProfile.avatarUrl && avatarFailedFor !== currentProfile.id ? <Image source={{ uri: currentProfile.avatarUrl }} style={styles.cover} onError={() => setAvatarFailedFor(currentProfile.id)} /> : <View style={[styles.cover, styles.coverFallback]}><Text style={styles.coverInitial}>{currentProfile.username.slice(0,1).toUpperCase()}</Text></View>}
               {compareFeatureEnabled ? (
@@ -478,6 +488,7 @@ export default function DiscoverScreen({ navigation }: any) {
               <View key={genre} style={styles.genreChip}><Text style={styles.genreChipText}>{genre}</Text></View>
             ))}</View>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
+            {filteredProfiles.length > 1 ? <View style={styles.deckNav}><TouchableOpacity style={styles.deckArrow} onPress={previousProfile} accessibilityLabel="Profil précédent"><Text style={styles.deckArrowText}>‹</Text></TouchableOpacity><Text style={styles.deckCount}>{profileIndex % filteredProfiles.length + 1} / {filteredProfiles.length} · glisse à gauche ou à droite</Text><TouchableOpacity style={styles.deckArrow} onPress={nextProfile} accessibilityLabel="Profil suivant"><Text style={styles.deckArrowText}>›</Text></TouchableOpacity></View> : null}
             <View style={styles.cardActions}>
               <TouchableOpacity style={[styles.actionButton, styles.superButton, { flex: 1 }]} onPress={openCurrentProfile} accessibilityLabel="Voir le profil">
                 <Text style={styles.superIcon}>VOIR LE PROFIL</Text>
@@ -498,7 +509,8 @@ const styles = StyleSheet.create({
   sectionTitle:{color:colors.white,fontSize:16,fontWeight:'900'},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17},
   lockBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},lockText:{color:colors.white,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keepPressed},trialText:{color:colors.keep,fontSize:9,fontWeight:'900'},
   searchPanel:{padding:10,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,marginBottom:8},radiusHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:5},radiusLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900'},radiusValue:{minWidth:54,paddingHorizontal:8,paddingVertical:4,borderRadius:10,backgroundColor:colors.backgroundCard,alignItems:'center'},radiusValueText:{color:colors.white,fontSize:9,fontWeight:'900'},radiusTrack:{height:3,borderRadius:3,backgroundColor:colors.border,overflow:'hidden'},radiusFill:{height:3,borderRadius:3,backgroundColor:colors.primary},radiusChoices:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:6,marginBottom:5},radiusChoice:{minWidth:44,minHeight:44,paddingHorizontal:4,borderRadius:8,alignItems:'center',justifyContent:'center'},radiusChoiceOn:{backgroundColor:colors.primary},radiusChoiceText:{color:colors.white,fontSize:12,fontWeight:'800'},radiusChoiceTextOn:{color:colors.white},searchButton:{minHeight:48,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2},searchButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:.4},searchHint:{color:colors.textMuted,fontSize:8,marginTop:5,textAlign:'center'},
-  lockCard:{padding:16,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:colors.white,fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:colors.primaryLight,fontSize:12,fontWeight:'900',marginTop:12},
+  deckNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8,marginBottom:4},deckArrow:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},deckArrowText:{color:colors.white,fontSize:30,lineHeight:32,fontWeight:'700'},deckCount:{flex:1,textAlign:'center',color:colors.textMuted,fontSize:11,fontWeight:'800'},
+    lockCard:{padding:16,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center'},lockIcon:{fontSize:26,marginBottom:8},lockTitle:{color:colors.white,fontSize:16,fontWeight:'900',textAlign:'center'},lockBody:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},lockCta:{color:colors.primaryLight,fontSize:12,fontWeight:'900',marginTop:12},
   emptyCard:{padding:18,borderRadius:18,backgroundColor:colors.background,borderWidth:1,borderColor:colors.border},
   profileCard:{padding:10,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},coverWrap:{position:'relative',alignItems:'center',alignSelf:'center'},cover:{width:198,height:198,borderRadius:16,backgroundColor:colors.backgroundCard},coverFallback:{alignItems:'center',justifyContent:'center'},coverInitial:{color:colors.white,fontSize:72,fontWeight:'900'},affinityBadge:{position:'absolute',top:10,right:10,minWidth:44,minHeight:32,paddingHorizontal:10,borderRadius:12,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},affinityBadgeText:{color:colors.white,fontSize:13,fontWeight:'900'},profileNameRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,marginTop:10},profileName:{color:colors.white,fontSize:21,fontWeight:'900',textAlign:'center'},profileBio:{color:colors.textMutedGrey,fontSize:14,lineHeight:19,textAlign:'center',marginTop:3},proximity:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:3},genreChips:{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',gap:6,marginTop:8},genreChip:{paddingHorizontal:10,paddingVertical:5,borderRadius:12,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},genreChipText:{color:colors.white,fontSize:11,fontWeight:'800'},cardActions:{flexDirection:'row',justifyContent:'center',alignItems:'center',gap:12,marginTop:10},actionButton:{width:64,height:64,borderRadius:32,alignItems:'center',justifyContent:'center'},passButton:{backgroundColor:colors.pass},passIcon:{color:colors.white,fontSize:23,fontWeight:'900'},superButton:{backgroundColor:colors.primary},superIcon:{fontSize:23},keepButton:{width:68,height:68,borderRadius:34,backgroundColor:colors.keep,shadowColor:colors.keep,shadowOpacity:0.5,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:7},keepButtonOn:{backgroundColor:colors.keepPressed},keepIcon:{color:colors.black,fontSize:24,fontWeight:'900'},
 });
