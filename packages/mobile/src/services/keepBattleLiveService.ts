@@ -20,6 +20,9 @@ export type KeepBattleLivePlayer = {
   // le salon deja cree (BATTLE_TARGET_NO_CREDIT).
   remainingFree: number;
   hasPaidAccess: boolean;
+  soloRoundIndex?: number | null;
+  soloRoundTotal?: number | null;
+  soloRoundRemaining?: number | null;
 };
 
 export type KeepBattleIncomingChallenge = {
@@ -59,8 +62,8 @@ function str(row: any, camel: string, snake: string, fallback = '') {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function heartbeatSoloBattle(themeCode: string): Promise<void> {
-  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX' });
+export async function heartbeatSoloBattle(themeCode: string, roundIndex?: number, roundTotal?: number): Promise<void> {
+  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX', p_round_index: roundIndex ?? null, p_round_total: roundTotal ?? null });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
 }
 
@@ -107,6 +110,9 @@ export async function loadLiveSoloPlayers(limit = 12, roundCount = 8): Promise<K
     preferredRoundCount: Number(row?.preferredRoundCount ?? row?.preferred_round_count ?? 8) || 8,
     remainingFree: Number(row?.remainingFree ?? row?.remaining_free ?? 0) || 0,
     hasPaidAccess: Boolean(row?.hasPaidAccess ?? row?.has_paid_access ?? false),
+    soloRoundIndex: row?.soloRoundIndex ?? row?.solo_round_index ?? null,
+    soloRoundTotal: row?.soloRoundTotal ?? row?.solo_round_total ?? null,
+    soloRoundRemaining: row?.soloRoundRemaining ?? row?.solo_round_remaining ?? null,
   })).filter((row) => row.profileId) : [];
 }
 
