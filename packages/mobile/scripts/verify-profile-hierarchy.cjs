@@ -56,7 +56,7 @@ assertOrdered(visitor, [
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
-assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:14,gap:2}', 'Visited unified counter frame');
+assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:4,marginBottom:8,gap:2}', 'Visited compact top counter frame');
 assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
 assertIncludes(visitor, "title=\"SWIPE\"", 'Visited animated Swipe action');
 assertIncludes(visitor, "title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}", 'Visited animated Battle action');
