@@ -1164,6 +1164,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           {viewer?.id !== profile.id ? (
+            <>
+            <TouchableOpacity
+              style={[styles.followPrimaryButton, isFollowing && styles.followPrimaryButtonOn]}
+              disabled={followBusy}
+              onPress={() => void toggleFollow()}
+              accessibilityRole="button"
+              accessibilityLabel={isFollowing ? `Se désabonner de ${profile.username}` : `S'abonner à ${profile.username}`}
+            >
+              <Text style={[styles.followPrimaryButtonText, isFollowing && styles.followPrimaryButtonTextOn]}>
+                {followBusy ? '…' : isFollowing ? '✓ ABONNÉ' : '+ S’ABONNER'}
+              </Text>
+            </TouchableOpacity>
             <View style={styles.visitorActionRow}>
               {tracks.length > 0 ? (
                 <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Swiper les découvertes de ${profile.username}`}>
@@ -1179,6 +1191,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <Text style={styles.visitorActionIcon}>↗</Text><Text style={styles.visitorActionLabel}>PARTAGER</Text>
               </TouchableOpacity>
             </View>
+            </>
           ) : null}
         </ProfileMotionReveal>
 
@@ -1696,6 +1709,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+    followPrimaryButton:{marginTop:14,minHeight:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,paddingHorizontal:18},followPrimaryButtonOn:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},followPrimaryButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:0.7},followPrimaryButtonTextOn:{color:colors.primaryLight},
     visitorActionRow:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:12},
   visitorActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
   visitorActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
