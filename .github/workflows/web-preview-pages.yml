@@ -22,9 +22,13 @@ permissions:
   pages: write
   id-token: write
 
+# Runtime publication is intentionally serialized, never cancelled.
+# Several KEEP agents can push within seconds. Cancelling an in-flight Pages
+# deployment allowed a later docs/workflow commit to leave users on an older
+# runtime SHA even though the runtime fix existed on the working branch.
 concurrency:
   group: keep-pages-reconcile-claude-main-20260825
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -277,6 +281,11 @@ jobs:
           grep -q 'Tarifs Loki' /tmp/keep-pricing.html
           curl --retry 5 --retry-delay 2 -fsSL "$base/refund/" -o /tmp/keep-refund.html
           grep -q 'Remboursement et droit de rétractation' /tmp/keep-refund.html
+          # A green Pages deployment must prove that the public site serves
+          # THIS exact runtime commit, not merely that the URL returns HTTP 200.
+          curl --retry 10 --retry-delay 3 -fsSL -H 'Cache-Control: no-cache' "$base/version.json?sha=$GITHUB_SHA" -o /tmp/keep-version.json
+          grep -q "$GITHUB_SHA" /tmp/keep-version.json
+          echo "LIVE SHA VERIFIED: $GITHUB_SHA"
           curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
           grep -q 'Loki' /tmp/keep-admin.html
           dynamic_code="$(curl -sS -o /tmp/keep-dynamic.html -w '%{http_code}' "$base/profile/__keep_route_smoke__/")"
