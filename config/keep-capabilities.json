@@ -63,7 +63,9 @@
     "web-preview-pages.yml",
     "app-store-native-preflight.yml",
     "codeql.yml",
-    "verify-migrations.yml"
+    "verify-migrations.yml",
+    "ci-impact-analysis.yml",
+    "profile-marketplace-contract.yml"
   ],
   "protectedFiles": [
     "packages/mobile/App.tsx",
@@ -404,6 +406,55 @@
             "contains": [
               "\"labelDefinitions\"",
               "\"no-stale\""
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ci-impact-analysis",
+        "name": "CI impact analysis and targeted routing",
+        "category": "automation",
+        "evidence": [
+          {
+            "path": ".github/workflows/ci-impact-analysis.yml",
+            "contains": [
+              "KEEP — CI Impact Analysis",
+              "scripts/resolve-ci-impact.cjs"
+            ]
+          },
+          {
+            "path": "config/github-ai-command-center.json",
+            "contains": [
+              "\"ciArchitecture\"",
+              "\"PROFILE_MARKETPLACE\""
+            ]
+          },
+          {
+            "path": "scripts/resolve-ci-impact.cjs",
+            "contains": [
+              "STANDARD_FIELDS",
+              "resolveImpact"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "profile-marketplace-contract",
+        "name": "Targeted browser contract for PROFILE_MARKETPLACE",
+        "category": "quality",
+        "evidence": [
+          {
+            "path": ".github/workflows/profile-marketplace-contract.yml",
+            "contains": [
+              "KEEP — PROFILE_MARKETPLACE Contract",
+              "packages/mobile/scripts/profile-marketplace-contract.cjs"
+            ]
+          },
+          {
+            "path": "packages/mobile/scripts/profile-marketplace-contract.cjs",
+            "contains": [
+              "PROFILE_MARKETPLACE CONTRACT: PASS",
+              "__keepAudioDebug"
             ]
           }
         ]

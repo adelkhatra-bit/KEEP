@@ -1,0 +1,78 @@
+name: KEEP — CI Impact Analysis
+
+on:
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'packages/admin/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'config/github-ai-command-center.json'
+      - 'config/keep-capabilities.json'
+      - 'scripts/resolve-ci-impact.cjs'
+      - '.github/workflows/ci-impact-analysis.yml'
+      - '.github/workflows/profile-marketplace-contract.yml'
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'packages/admin/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'config/github-ai-command-center.json'
+      - 'config/keep-capabilities.json'
+      - 'scripts/resolve-ci-impact.cjs'
+      - '.github/workflows/ci-impact-analysis.yml'
+      - '.github/workflows/profile-marketplace-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Resolve changed files
+        id: diff
+        shell: bash
+        run: |
+          mkdir -p artifacts/ci-impact
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
+          git diff --name-only "$BASE_SHA" "${{ github.sha }}" > artifacts/ci-impact/changed-files.txt
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+      - name: Compute targeted CI scope
+        run: |
+          node scripts/resolve-ci-impact.cjs \
+            --base "${{ steps.diff.outputs.base_sha }}" \
+            --head "${{ github.sha }}" \
+            --sha "${{ github.sha }}" \
+            --files-from artifacts/ci-impact/changed-files.txt \
+            --json-out artifacts/ci-impact/impact.json \
+            --md-out artifacts/ci-impact/impact.md
+          cat artifacts/ci-impact/impact.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload impact artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-impact-${{ github.run_id }}
+          path: artifacts/ci-impact
+          if-no-files-found: error

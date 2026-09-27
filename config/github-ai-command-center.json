@@ -107,7 +107,8 @@
         "mobile-ci.yml",
         "keep-dual-viewport-guardian.yml",
         "keep-human-guardian.yml",
-        "codeql.yml"
+        "codeql.yml",
+        "profile-marketplace-contract.yml"
       ]
     },
     {
@@ -153,7 +154,8 @@
       "recommendedWorkflows": [
         "keep-human-guardian.yml",
         "keep-dual-viewport-guardian.yml",
-        "mobile-web-importmeta-diagnostic.yml"
+        "mobile-web-importmeta-diagnostic.yml",
+        "profile-marketplace-contract.yml"
       ]
     }
   ],
@@ -171,5 +173,419 @@
     "Ne pas toucher les écrans UI déjà réservés par un autre agent",
     "Reporter toute cause racine réelle dans docs/ERROR_LEDGER.md",
     "Ne pas créer de deuxième canal de coordination"
-  ]
+  ],
+  "ciArchitecture": {
+    "pipeline": [
+      "DIFF",
+      "MODULE_AFFECTE",
+      "DEPENDANCES",
+      "TESTS_CIBLES",
+      "BUILD_CIBLE",
+      "TEST_NAVIGATEUR",
+      "PUBLICATION"
+    ],
+    "standardOutputFields": [
+      "MODULE",
+      "DÉPENDANCES IMPACTÉES",
+      "FICHIERS MODIFIÉS",
+      "TESTS LANCÉS",
+      "TESTS NON NÉCESSAIRES",
+      "SHA",
+      "VERSION WEB TESTÉE",
+      "DESKTOP",
+      "390×844",
+      "DÉPLOIEMENT",
+      "ERREURS RESTANTES"
+    ],
+    "levels": {
+      "LOCAL_TARGETED": "Lint/typecheck du périmètre + tests du module touché.",
+      "INTEGRATION": "Module touché + consommateurs directs quand une dépendance partagée change.",
+      "GLOBAL": "Réservé aux releases, builds natifs, navigation globale, SHARED_CORE critique, grosses migrations et déclenchements manuels."
+    },
+    "webDeploymentRules": [
+      "Documentation seule → aucun rebuild application.",
+      "Workflow CI seul → aucun rebuild application.",
+      "Tests seuls → aucun rebuild production.",
+      "Code mobile/web impactant le runtime → build web ciblé + preview + test navigateur réel.",
+      "Ne jamais reconstruire une seconde fois exactement le même SHA uniquement pour le promouvoir."
+    ],
+    "modules": {
+      "PROFILE": {
+        "matchers": [
+          "regex:^packages/mobile/src/screens/(ProfilePublicScreen|PublicUserProfileScreen)\\.tsx$",
+          "regex:^packages/mobile/src/services/(profileService|publicProfileStateService|profilePresenceService)\\.ts$",
+          "regex:^packages/mobile/src/components/Profile[A-Z].*\\.tsx$"
+        ],
+        "dependsOn": [
+          "AUTH",
+          "SUPABASE",
+          "STORAGE",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "profile-personnel",
+          "profile-visiteur",
+          "persistance-apres-reload",
+          "profile-desktop",
+          "profile-390x844"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "PROFILE_MARKETPLACE": {
+        "matchers": [
+          "regex:^packages/mobile/src/components/(PlaylistSaleImmersivePreview|ProfileStyleCard|ProfileOpportunityRail)\\.tsx$",
+          "regex:^packages/mobile/src/services/(playlistSaleService|profileSaleSuggestionService)\\.ts$",
+          "regex:^packages/mobile/src/screens/PublicUserProfileScreen\\.tsx$"
+        ],
+        "dependsOn": [
+          "PROFILE",
+          "AUDIO_CORE",
+          "SUPABASE",
+          "AUTH",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "profile-marketplace-contract-browser",
+          "profile-marketplace-desktop",
+          "profile-marketplace-390x844"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "LISTEN_MIC": {
+        "matchers": [
+          "regex:^packages/mobile/src/screens/HomeScreenCompact\\.tsx$",
+          "regex:^packages/mobile/src/services/(micCapture|keepMusicCoreRecognition|nativeFirstRecognitionProvider|musicEngine)\\.ts$",
+          "regex:^packages/mobile/src/store/useSessionStore\\.ts$"
+        ],
+        "dependsOn": [
+          "AUDIO_CORE",
+          "PERMISSIONS",
+          "SUPABASE",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "listen-mic-permission",
+          "listen-mic-active",
+          "listen-mic-recognition",
+          "listen-mic-stop-release"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "AUDIO_CORE": {
+        "matchers": [
+          "regex:^packages/mobile/src/services/(audioPreviewService|trackPreviewResolver)\\.ts$",
+          "regex:^packages/mobile/src/components/(TrackPreviewButton|TrackListenControls)\\.tsx$"
+        ],
+        "dependsOn": [
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "audio-core-preview",
+          "profile-marketplace-contract-browser",
+          "playlists-audio",
+          "battle-audio",
+          "swipe-audio"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "PLAYLISTS": {
+        "matchers": [
+          "regex:^packages/mobile/src/screens/MyMusicScreen\\.tsx$",
+          "regex:^packages/mobile/src/components/PlaylistSalePanel\\.tsx$",
+          "regex:^packages/mobile/src/store/usePlaylistStore\\.ts$"
+        ],
+        "dependsOn": [
+          "AUTH",
+          "SUPABASE",
+          "AUDIO_CORE",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "playlists-affichage",
+          "playlists-ouverture",
+          "playlists-lecture",
+          "playlists-modification",
+          "playlists-retour-reglages-avances"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "BATTLE": {
+        "matchers": [
+          "regex:^packages/mobile/src/services/keepBattle.*\\.ts$",
+          "regex:^packages/mobile/src/components/.*Battle.*\\.tsx$",
+          "regex:^packages/mobile/src/screens/PartiesScreen\\.tsx$"
+        ],
+        "dependsOn": [
+          "AUTH",
+          "SUPABASE",
+          "AUDIO_CORE",
+          "FREE_CREDITS",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "battle-lancement",
+          "battle-solo",
+          "battle-invitation",
+          "battle-audio",
+          "battle-changement-morceau",
+          "battle-resultat"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "PARTIES": {
+        "matchers": [
+          "regex:^packages/mobile/src/screens/PartiesScreen\\.tsx$",
+          "regex:^packages/mobile/src/services/(creatorEventService|event.*|party.*|notificationService)\\.ts$"
+        ],
+        "dependsOn": [
+          "AUTH",
+          "SUPABASE",
+          "NOTIFICATIONS",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "parties-creation",
+          "parties-rsvp",
+          "parties-notifications"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "AUTH": {
+        "matchers": [
+          "regex:^packages/mobile/src/screens/(auth/.*|onboarding/.*)\\.(ts|tsx)$",
+          "regex:^packages/mobile/src/services/(authService|guestUpgradeService|accountEmailService|edgeFunctionClient)\\.ts$"
+        ],
+        "dependsOn": [
+          "SUPABASE_AUTH",
+          "PROFILE"
+        ],
+        "tests": [
+          "auth-login",
+          "auth-signup",
+          "auth-cross-profile",
+          "auth-cross-marketplace",
+          "auth-cross-playlists",
+          "auth-cross-battle",
+          "auth-cross-parties",
+          "auth-cross-super-admin"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "SUPABASE": {
+        "matchers": [
+          "prefix:supabase/migrations/",
+          "prefix:supabase/functions/",
+          "regex:^packages/mobile/src/services/supabaseClient\\.ts$"
+        ],
+        "dependsOn": [
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "supabase-targeted-consumers"
+        ],
+        "buildTargets": [],
+        "runtimeWebImpact": false,
+        "submodules": {
+          "AUTH": {
+            "matchers": [
+              "regex:(auth|password|email|username)"
+            ],
+            "consumers": [
+              "AUTH"
+            ]
+          },
+          "PROFILE_DATA": {
+            "matchers": [
+              "regex:(profile|profiles|social_links|public_profile|presence)"
+            ],
+            "consumers": [
+              "PROFILE",
+              "AUTH"
+            ]
+          },
+          "STORAGE": {
+            "matchers": [
+              "regex:(storage|avatar|bucket)"
+            ],
+            "consumers": [
+              "PROFILE"
+            ]
+          },
+          "MARKETPLACE": {
+            "matchers": [
+              "regex:(playlist_sale|marketplace|sale_offer|sale_preview)"
+            ],
+            "consumers": [
+              "PROFILE_MARKETPLACE"
+            ]
+          },
+          "BATTLE": {
+            "matchers": [
+              "regex:(battle|arena|salon)"
+            ],
+            "consumers": [
+              "BATTLE"
+            ]
+          },
+          "EVENTS": {
+            "matchers": [
+              "regex:(event|party|rsvp)"
+            ],
+            "consumers": [
+              "PARTIES"
+            ]
+          },
+          "NOTIFICATIONS": {
+            "matchers": [
+              "regex:(notification|push)"
+            ],
+            "consumers": [
+              "PARTIES",
+              "PROFILE"
+            ]
+          }
+        }
+      },
+      "SUPER_ADMIN": {
+        "matchers": [
+          "prefix:packages/admin/"
+        ],
+        "dependsOn": [
+          "AUTH",
+          "SUPABASE",
+          "FEATURE_FLAGS",
+          "REMOTE_CONFIG"
+        ],
+        "tests": [
+          "super-admin-targeted"
+        ],
+        "buildTargets": [
+          "admin-build"
+        ],
+        "runtimeWebImpact": false
+      },
+      "NAVIGATION": {
+        "matchers": [
+          "regex:^packages/mobile/src/navigation/Navigation\\.tsx$"
+        ],
+        "dependsOn": [
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "global-390x844-journey"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "SHARED_CORE": {
+        "matchers": [
+          "regex:^package(-lock)?\\.json$",
+          "regex:^packages/mobile/(package\\.json|app\\.json|eas\\.json)$",
+          "prefix:packages/music/",
+          "prefix:packages/mobile/src/theme/",
+          "prefix:packages/mobile/src/types",
+          "prefix:packages/mobile/src/store/",
+          "regex:^packages/mobile/index\\.js$"
+        ],
+        "dependsOn": [],
+        "tests": [
+          "full-stack-regression",
+          "global-390x844-journey",
+          "web-preview-build"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      },
+      "SWIPE": {
+        "matchers": [
+          "regex:^packages/mobile/src/components/(MusicSwipeDeckModal|SwipeDeck)\\.tsx$",
+          "regex:^packages/mobile/src/screens/DiscoverScreen\\.tsx$"
+        ],
+        "dependsOn": [
+          "AUDIO_CORE",
+          "SHARED_CORE"
+        ],
+        "tests": [
+          "swipe-audio",
+          "swipe-desktop",
+          "swipe-390x844"
+        ],
+        "buildTargets": [
+          "web-preview"
+        ],
+        "runtimeWebImpact": true
+      }
+    },
+    "browserContracts": {
+      "PROFILE_MARKETPLACE": {
+        "workflow": "profile-marketplace-contract.yml",
+        "targetModule": "PROFILE_MARKETPLACE",
+        "routePath": "/profile/selleralpha",
+        "viewports": [
+          {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          {
+            "name": "390x844",
+            "width": 390,
+            "height": 844
+          }
+        ],
+        "selectors": {
+          "saleBadgeText": "SÉLECTION EXCLUSIVE",
+          "previewLaunchLabel": "Lancer la préécoute anonyme de toute la collection Sélection Exclusive Nuit",
+          "previewTapLabel": "Extrait masqué, appuie pour lire ou mettre en pause",
+          "modalCloseLabel": "Fermer l'aperçu"
+        },
+        "fixture": {
+          "username": "selleralpha",
+          "profileId": "11111111-1111-1111-1111-111111111111",
+          "offerId": "22222222-2222-2222-2222-222222222222",
+          "playlistId": "keep-selection:selleralpha:exclusive-night",
+          "playlistName": "Sélection Exclusive Nuit",
+          "previewUrl": "https://media.keep.test/profile-marketplace-preview.wav"
+        },
+        "assertions": [
+          "Profil visiteur chargé",
+          "Bloc SÉLECTION EXCLUSIVE visible",
+          "Préécoute anonyme lançable",
+          "Modale immersive visible",
+          "Preview disponible",
+          "Audio réellement démarré",
+          "Pause / reprise réelles",
+          "Fermeture de la modale"
+        ]
+      }
+    }
+  }
 }

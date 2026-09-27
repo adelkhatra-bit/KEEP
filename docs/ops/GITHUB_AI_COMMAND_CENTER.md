@@ -186,6 +186,70 @@ Les autres IA doivent donc désormais auditer en priorité :
 - `/.github/workflows/stale-hygiene.yml`
 - `/.github/ISSUE_TEMPLATE/incident_report.yml`
 
+## Architecture CI modulaire (priorité KEEP)
+
+La CI ciblée KEEP doit désormais suivre la chaîne unique suivante :
+
+`DIFF → MODULE AFFECTÉ → DÉPENDANCES → TESTS CIBLÉS → BUILD CIBLÉ → TEST NAVIGATEUR → PUBLICATION`
+
+La configuration machine-lisible vit désormais dans `config/github-ai-command-center.json > ciArchitecture` et doit rester la **seule** matrice de référence pour :
+
+- les modules (`PROFILE`, `PROFILE_MARKETPLACE`, `LISTEN_MIC`, `AUDIO_CORE`, `PLAYLISTS`, `BATTLE`, `PARTIES`, `AUTH`, `SUPABASE`, `SUPER_ADMIN`, `NAVIGATION`, `SHARED_CORE`, `SWIPE`) ;
+- leurs dépendances directes ;
+- leurs consommateurs directs ;
+- les niveaux `LOCAL_TARGETED`, `INTEGRATION`, `GLOBAL` ;
+- les règles de rebuild web et la sortie standard obligatoire.
+
+### Règle de propagation
+
+On ne raisonne plus seulement « fichier modifié = module ». Le résolveur `scripts/resolve-ci-impact.cjs` calcule :
+
+1. module(s) touché(s) par le diff ;
+2. dépendances directes à garder visibles dans le rapport ;
+3. consommateurs directs à revalider si la brique touchée est partagée ;
+4. tests à lancer et tests explicitement non nécessaires ;
+5. nécessité (ou non) d’un rebuild/runtime web.
+
+**Aucune propagation récursive** à toute l’application n’est autorisée sans raison démontrée.
+
+### Workflows intégrés
+
+- `ci-impact-analysis.yml` : produit le routage CI ciblé et publie la sortie standard.
+- `profile-marketplace-contract.yml` : exécute le contrat navigateur prioritaire `PROFILE_MARKETPLACE` quand le diff le requiert.
+
+### Contrat prioritaire `PROFILE_MARKETPLACE`
+
+Le contrat navigateur prioritaire est stocké dans `ciArchitecture.browserContracts.PROFILE_MARKETPLACE` et verrouille désormais, sur **desktop + 390×844** :
+
+- profil visiteur chargé ;
+- bloc `SÉLECTION EXCLUSIVE` visible ;
+- bouton `ÉCOUTER` / préécoute anonyme réellement lançable ;
+- modale `PlaylistSaleImmersivePreview` visible ;
+- preview disponible ;
+- audio réellement démarré ;
+- pause / reprise réelles ;
+- fermeture de la modale.
+
+Le PASS n’est donc plus accordé sur la simple présence d’un bouton dans le TSX.
+
+### Sortie standard obligatoire
+
+Chaque workflow ciblé doit publier exactement les champs suivants :
+
+- `MODULE`
+- `DÉPENDANCES IMPACTÉES`
+- `FICHIERS MODIFIÉS`
+- `TESTS LANCÉS`
+- `TESTS NON NÉCESSAIRES`
+- `SHA`
+- `VERSION WEB TESTÉE`
+- `DESKTOP`
+- `390×844`
+- `DÉPLOIEMENT`
+- `ERREURS RESTANTES`
+
+Cette sortie standard est générée par `scripts/resolve-ci-impact.cjs` pour éviter un second système parallèle.
+
 ## Digest Ops / IA
 
 Le workflow `/.github/workflows/ai-ops-digest.yml` construit un digest

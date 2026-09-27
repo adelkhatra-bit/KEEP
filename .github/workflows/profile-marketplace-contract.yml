@@ -1,0 +1,155 @@
+name: KEEP — PROFILE_MARKETPLACE Contract
+
+on:
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'config/github-ai-command-center.json'
+      - 'config/keep-capabilities.json'
+      - 'scripts/resolve-ci-impact.cjs'
+      - 'packages/mobile/scripts/profile-marketplace-contract.cjs'
+      - '.github/workflows/profile-marketplace-contract.yml'
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/**'
+      - 'packages/music/**'
+      - 'supabase/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'config/github-ai-command-center.json'
+      - 'config/keep-capabilities.json'
+      - 'scripts/resolve-ci-impact.cjs'
+      - 'packages/mobile/scripts/profile-marketplace-contract.cjs'
+      - '.github/workflows/profile-marketplace-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  profile-marketplace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve changed files
+        id: diff
+        shell: bash
+        run: |
+          mkdir -p artifacts/profile-marketplace-contract
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
+          git diff --name-only "$BASE_SHA" "${{ github.sha }}" > artifacts/profile-marketplace-contract/changed-files.txt
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+      - name: Compute impact for PROFILE_MARKETPLACE
+        id: impact
+        shell: bash
+        run: |
+          node scripts/resolve-ci-impact.cjs \
+            --base "${{ steps.diff.outputs.base_sha }}" \
+            --head "${{ github.sha }}" \
+            --sha "${{ github.sha }}" \
+            --files-from artifacts/profile-marketplace-contract/changed-files.txt \
+            --json-out artifacts/profile-marketplace-contract/impact.json \
+            --md-out artifacts/profile-marketplace-contract/impact.md
+          node -e "const fs=require('fs'); const report=JSON.parse(fs.readFileSync('artifacts/profile-marketplace-contract/impact.json','utf8')); const run=report.impact.shouldRunProfileMarketplaceContract ? 'true' : 'false'; fs.appendFileSync(process.env.GITHUB_OUTPUT, 'should_run='+run+'\n');"
+          cat artifacts/profile-marketplace-contract/impact.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Skip untouched scope
+        if: steps.impact.outputs.should_run != 'true'
+        run: echo 'PROFILE_MARKETPLACE non impacté directement ou via dépendance partagée.'
+      - name: Typecheck mobile
+        if: steps.impact.outputs.should_run == 'true'
+        run: npm --workspace packages/mobile run type-check
+      - name: Install Chromium
+        if: steps.impact.outputs.should_run == 'true'
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start KEEP Web runtime
+        if: steps.impact.outputs.should_run == 'true'
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/keep-profile-marketplace.log 2>&1 &
+          echo $! >/tmp/keep-profile-marketplace.pid
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/keep-profile-marketplace.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/keep-profile-marketplace.log
+          exit 1
+      - name: Run PROFILE_MARKETPLACE browser contract
+        if: steps.impact.outputs.should_run == 'true'
+        run: node packages/mobile/scripts/profile-marketplace-contract.cjs
+      - name: Publish standard output
+        if: always()
+        shell: bash
+        run: |
+          EXECUTED_TESTS=''
+          DESKTOP='NON TESTÉ'
+          MOBILE390='NON TESTÉ'
+          WEB_VERSION='NON TESTÉE'
+          ERRORS='AUCUNE'
+          if [ "${{ steps.impact.outputs.should_run }}" = 'true' ]; then
+            EXECUTED_TESTS='profile-marketplace-contract-browser, profile-marketplace-desktop, profile-marketplace-390x844'
+            WEB_VERSION='http://127.0.0.1:8081/profile/selleralpha'
+            if [ -f artifacts/profile-marketplace-contract/report.txt ]; then
+              DESKTOP='PASS'
+              MOBILE390='PASS'
+            else
+              DESKTOP='FAIL'
+              MOBILE390='FAIL'
+              ERRORS='ÉCHEC DU CONTRAT PROFILE_MARKETPLACE'
+            fi
+          else
+            ERRORS='AUCUNE — scope non impacté'
+          fi
+          node scripts/resolve-ci-impact.cjs \
+            --base "${{ steps.diff.outputs.base_sha }}" \
+            --head "${{ github.sha }}" \
+            --sha "${{ github.sha }}" \
+            --files-from artifacts/profile-marketplace-contract/changed-files.txt \
+            --executed-tests "$EXECUTED_TESTS" \
+            --desktop "$DESKTOP" \
+            --mobile390 "$MOBILE390" \
+            --web-version "$WEB_VERSION" \
+            --deployment "AUCUNE PUBLICATION — contrat CI ciblé" \
+            --errors "$ERRORS" \
+            --md-out artifacts/profile-marketplace-contract/final-report.md
+          cat artifacts/profile-marketplace-contract/final-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Show runtime log on failure
+        if: failure()
+        run: cat /tmp/keep-profile-marketplace.log || true
+      - name: Upload PROFILE_MARKETPLACE evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: profile-marketplace-contract-${{ github.run_id }}
+          path: artifacts/profile-marketplace-contract
+          if-no-files-found: ignore
