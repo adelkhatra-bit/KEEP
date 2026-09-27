@@ -1516,6 +1516,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [selectedBattlePlayerIds, setSelectedBattlePlayerIds] = React.useState<Set<string>>(new Set());
   const [startingGroupBattle, setStartingGroupBattle] = React.useState(false);
   const [selectionRequired, setSelectionRequired] = React.useState(false);
+  const startGlow = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(startGlow, { toValue: 1, duration: 650, useNativeDriver: false }),
+      Animated.timing(startGlow, { toValue: 0, duration: 650, useNativeDriver: false }),
+    ]));
+    loop.start(); return () => loop.stop();
+  }, [startGlow]);
   const isPlayerSelectable = React.useCallback((player: KeepBattleLivePlayer) => {
     if (insufficientForOpponent(player)) return false;
     if (outgoingPendingTargetIds.has(player.profileId)) return false;
@@ -2094,7 +2102,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           TOUJOURS atteignables quelle que soit la hauteur d'écran, au lieu
           de dépendre d'une marge fixe qui ne marche que sur certains
           appareils. */}
-      <ScrollView scrollEnabled={false} bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
+      <ScrollView scrollEnabled bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
       <Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}>
         <View style={s.visual}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{incoming[0] ? 'PAUSE' : audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{incoming[0] ? 'INVITATION BATTLE' : audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
@@ -2460,16 +2468,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Text style={[s.battleSelectionCount, selectionRequired && { color: colors.error }] }>{selectedLiveBattlePlayers.length ? `${selectedLiveBattlePlayers.length} adversaire${selectedLiveBattlePlayers.length > 1 ? 's' : ''} · ${selectedLiveBattlePlayers.length + 1} joueurs au total` : selectionRequired ? '⚠ SÉLECTIONNE AU MOINS 1 JOUEUR' : 'Sélectionne au moins 1 adversaire'}</Text>
           <Text style={s.battleSelectionHint}>{eligiblePlayerCount} joueur{eligiblePlayerCount > 1 ? 's' : ''} disponible{eligiblePlayerCount > 1 ? 's' : ''} · mise {stakeForRounds(roundCount)} Free chacun</Text>
         </View>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
-          accessibilityState={{ disabled: !canStartSelectedBattle }}
-          disabled={startingGroupBattle || challengeBusyId || !creditReady || insufficientForRoundCount(roundCount)}
-          style={[s.battleStartButton, selectionRequired && { borderColor: colors.error, borderWidth: 2 }, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonDisabled]}
-          onPress={() => { void startSelectedBattle(); }}
-        >
-          <Text style={[s.battleStartButtonText, !canStartSelectedBattle && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : !creditReady ? 'VÉRIFICATION…' : insufficientForRoundCount(roundCount) ? 'FREE INSUFFISANTS' : 'DÉMARRER'}</Text>
-        </TouchableOpacity>
+        <Animated.View style={[s.battleStartGlow, { borderColor: startGlow.interpolate({ inputRange: [0, 1], outputRange: [colors.primary, colors.primaryLight] }), opacity: startGlow.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }]}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
+            accessibilityState={{ disabled: !creditReady || insufficientForRoundCount(roundCount) }}
+            disabled={startingGroupBattle || challengeBusyId || !creditReady || insufficientForRoundCount(roundCount)}
+            style={[s.battleStartButton, selectionRequired && { borderColor: colors.error }, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonDisabled]}
+            onPress={() => { void startSelectedBattle(); }}
+          >
+            <Text style={[s.battleStartButtonText, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : !creditReady ? 'VÉRIFICATION…' : insufficientForRoundCount(roundCount) ? 'FREE INSUFFISANTS' : 'DÉMARRER'}</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </View>;
   }
@@ -2613,11 +2623,12 @@ const s = StyleSheet.create({
   battleStatusBadgeTextMuted: { color: colors.textMuted },
   battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
   battleSelectionCount: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  battleStartGlow: { borderWidth: 2, borderRadius: 20, padding: 2 },
   battleStartButton: { minHeight: 46, minWidth: 112, paddingHorizontal: 16, borderRadius: 18, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   battleStartButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, opacity: .72 },
   battleStartButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   battleStartButtonTextDisabled: { color: colors.textMuted },
-  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 4 },
+  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 96 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
   squareTileFill: { flex: 1, justifyContent: 'space-between' }, squareTileImage: { resizeMode: 'cover' },
