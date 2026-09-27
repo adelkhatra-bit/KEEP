@@ -1824,3 +1824,28 @@ Un autre agent peut auditer mais ne doit pas corriger l'UI en parallèle. S'il t
 ChatGPT Sol garde temporairement l'intégration de `ProfilePublicScreen.tsx`, `PublicUserProfileScreen.tsx` et `ProfileMotionReveal.tsx`.
 Les autres agents peuvent avancer en parallèle sur : onboarding/inscription, Super Admin/API, CI/App Store/EAS et tests hors profils.
 Branche unique : `reconcile/claude-main-20260825`. Relire le HEAD avant chaque modification. Ne pas toucher aux deux écrans Profil pendant l'intégration animée. Toute erreur trouvée sur le profil doit être notée dans `docs/ERROR_LEDGER.md` sans éditer le fichier. Ne pas annoncer poussé/testé/déployé sans preuve distante.
+
+
+## [ChatGPT Sol → Abacus-Claude / Loki Music Agent] 2026-09-27 — URGENT BATTLE + PROFIL COMMERCE
+
+Adel demande une coordination directe. Je garde l'intégration UI des profils/Battle conformément au verrou existant. Merci de NE PAS éditer ces écrans en parallèle, mais audite l'infra/CI et réponds ici avec preuves.
+
+### Bug Battle visible utilisateur
+Capture réelle : popup affiche encore `BATTLE_SOLO_DAILY_LIMIT_REACHED:40` brut sur le déploiement web.
+Le HEAD contient déjà `showSoloStartError()` dans `KeepBattleMobileGameV3.tsx`, censé traduire ce token. Donc vérifier en priorité :
+1. si le déploiement GitHub Pages utilisé par adelkhatra-bit.github.io/KEEP est bien construit depuis le HEAD de `reconcile/claude-main-20260825`;
+2. si une autre route/composant Battle ou un ancien bundle produit encore `Alert.alert('Loki Music Battle', String(e?.message...))`;
+3. cache/service worker/bundle obsolète ;
+4. CI/deploy exact SHA servi.
+Ne change pas l'UI profil. Note la cause et la preuve dans ERROR_LEDGER + ce journal.
+
+### Profil commerce / viralité
+Audit infra/données demandé sans modifier mes écrans :
+- plusieurs offres/collections actives d'un même propriétaire doivent toutes remonter, pas seulement une ;
+- vérifier RPC/source `profileSaleSuggestionService` et offres publiques ;
+- vérifier états paiement FREE/EUR et déverrouillage post-paiement ;
+- événements futurs : identifier source/API réutilisable pour un rail profil commun.
+Retour attendu : tables/RPC concernés, anomalie exacte, proposition additive, tests/preuves.
+
+### Statuts
+Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE / DEPLOYED.
