@@ -127,6 +127,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
   const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY' | 'COLLECTIONS'>('LIBRARY');
+  const [mobileSection, setMobileSection] = useState<'TRACKS' | 'EDIT' | 'ORGANIZE'>('TRACKS');
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -1280,14 +1281,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </ScrollView>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' ? <View style={styles.tabs}>{LIBRARY_TABS.map((tab) => (
-        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} accessibilityLabel={tab.label}>
-          <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>
-          {activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}
+      {workspaceTab === 'LIBRARY' ? <View style={styles.mobileAccordion}>
+        <TouchableOpacity style={[styles.mobileAccordionRow, mobileSection === 'TRACKS' && styles.mobileAccordionRowOn]} onPress={() => { setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>♫</Text></View>
+          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Mes morceaux · {localKeptEntries.length}</Text><Text style={styles.mobileAccordionHint}>Écoute, trie et organise ta bibliothèque</Text></View>
+          <Text style={styles.mobileAccordionChevron}>{mobileSection === 'TRACKS' ? '⌃' : '⌄'}</Text>
         </TouchableOpacity>
-      ))}</View> : null}
+        {mobileSection !== 'TRACKS' ? <TouchableOpacity style={styles.mobileAccordionRow} onPress={() => { setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>✎</Text></View>
+          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Modifier ma bibliothèque</Text><Text style={styles.mobileAccordionHint}>Public, privé, retirer, classer</Text></View><Text style={styles.mobileAccordionChevron}>⌄</Text>
+        </TouchableOpacity> : null}
+        {mobileSection !== 'ORGANIZE' ? <TouchableOpacity style={styles.mobileAccordionRow} onPress={() => { setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
+          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>☷</Text></View>
+          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Organisation</Text><Text style={styles.mobileAccordionHint}>Styles, artistes, filtres et tri</Text></View><Text style={styles.mobileAccordionChevron}>⌄</Text>
+        </TouchableOpacity> : null}
+        {mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}><View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+          <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
+        ))}</View></View> : null}
+      </View> : null}
 
-      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' ? (
+      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
           <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setManageHelpVisible((value) => !value)} accessibilityLabel="Expliquer le mode modification"><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '?'}</Text></TouchableOpacity>
           <View style={styles.manageGuideCopy}>
@@ -1313,14 +1326,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
       ) : null}
-      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>À QUOI SERT CE MODE ?</Text><Text style={styles.manageHelpText}>Il affiche les commandes directement sur chaque morceau pour modifier sa visibilité, le retirer ou le classer. Vert = modification active. Violet = consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
+      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>À QUOI SERT CE MODE ?</Text><Text style={styles.manageHelpText}>Il affiche les commandes directement sur chaque morceau pour modifier sa visibilité, le retirer ou le classer. Vert = modification active. Violet = consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
 
-      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
         <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki Music RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
         <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
       </TouchableOpacity> : null}
 
-      {workspaceTab === 'LIBRARY' && localKeptEntries.length ? <View style={styles.libraryStrip}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && localKeptEntries.length ? <View style={styles.libraryStrip}>
         <View style={styles.stat}><Text style={styles.statValue}>{publicKeepCount}</Text><Text style={[styles.statLabel, styles.statLabelPublic]}>PUBLIC</Text></View>
         <View style={styles.stat}><Text style={styles.statValue}>{privateKeepCount}</Text><Text style={[styles.statLabel, styles.statLabelPrivate]}>PRIVÉ</Text></View>
         <View style={styles.stat}><Text style={styles.statValue}>{localKeptEntries.length}</Text><Text style={styles.statLabel}>TOTAL</Text></View>
@@ -1334,7 +1347,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
         <View style={styles.originFilters}>
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
@@ -1355,10 +1368,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
         <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text><Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity> : null}
-      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' && analysis && analysisExpanded ? <View style={styles.analysisCard}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' && analysis && analysisExpanded ? <View style={styles.analysisCard}>
         <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
         {topGenres.length ? (
           <TouchableOpacity
@@ -1650,7 +1663,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  workspaceTabs:{marginHorizontal:12,marginTop:10,padding:3,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',gap:4},workspaceTab:{flex:1,minHeight:40,borderRadius:13,alignItems:'center',justifyContent:'center'},workspaceTabOn:{backgroundColor:colors.primary},workspaceTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},workspaceTabTextOn:{color:colors.white},collectionDashboard:{flex:1,marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,minHeight:0},collectionDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},collectionDashboardHeadCopy:{flex:1,minWidth:0},collectionDashboardTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},collectionDashboardHint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:3},collectionMenuButton:{width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionMenuButtonText:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},collectionQuickActions:{flexDirection:'row',gap:8,marginTop:12},collectionAllMusicButton:{flex:1,minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},collectionAllMusicButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},collectionCreateCompact:{minHeight:44,paddingHorizontal:11,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCreateCompactText:{color:colors.white,fontSize:9,fontWeight:'900'},collectionDashboardSectionTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:16,marginBottom:3},collectionDashboardList:{flex:1,minHeight:0},collectionDashboardRail:{gap:9,paddingTop:7,paddingBottom:120},collectionDashboardCard:{width:'100%',padding:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},collectionDashboardCardMain:{minHeight:82,flexDirection:'row',alignItems:'center',gap:11},collectionDashboardCover:{width:58,height:58,borderRadius:13,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionDashboardCoverText:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},collectionDashboardCardCopy:{flex:1,minWidth:0},collectionDashboardKicker:{color:colors.success,fontSize:8,fontWeight:'900',letterSpacing:.6},collectionDashboardName:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:5},collectionDashboardMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:5},collectionDashboardChevron:{color:colors.primaryLight,fontSize:26,fontWeight:'700'},collectionDashboardActions:{flexDirection:'row',gap:7,marginTop:7},collectionManageButton:{flex:1,minHeight:38,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionManageButtonText:{color:'#FFF',fontSize:8,fontWeight:'900'},collectionSettingsButton:{flex:1,minHeight:38,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},collectionSettingsButtonText:{color:colors.textPrimary,fontSize:8,fontWeight:'900'},collectionDashboardEmptyCard:{padding:18,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center'},collectionDashboardEmptyTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},collectionDashboardEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:6,textAlign:'center'},collectionDashboardSpacer:{flex:1},
+  mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
+  mobileAccordionRow:{minHeight:58,paddingHorizontal:11,paddingVertical:8,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:10},
+  mobileAccordionRowOn:{borderColor:colors.primary},
+  mobileAccordionIcon:{width:36,height:36,borderRadius:10,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  mobileAccordionIconText:{color:colors.primaryLight,fontSize:17,fontWeight:'900'},
+  mobileAccordionCopy:{flex:1,minWidth:0},
+  mobileAccordionTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  mobileAccordionHint:{color:colors.textMuted,fontSize:9,marginTop:2},
+  mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
+  mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
+    workspaceTabs:{marginHorizontal:12,marginTop:10,padding:3,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',gap:4},workspaceTab:{flex:1,minHeight:40,borderRadius:13,alignItems:'center',justifyContent:'center'},workspaceTabOn:{backgroundColor:colors.primary},workspaceTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},workspaceTabTextOn:{color:colors.white},collectionDashboard:{flex:1,marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,minHeight:0},collectionDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},collectionDashboardHeadCopy:{flex:1,minWidth:0},collectionDashboardTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},collectionDashboardHint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:3},collectionMenuButton:{width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionMenuButtonText:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},collectionQuickActions:{flexDirection:'row',gap:8,marginTop:12},collectionAllMusicButton:{flex:1,minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},collectionAllMusicButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},collectionCreateCompact:{minHeight:44,paddingHorizontal:11,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCreateCompactText:{color:colors.white,fontSize:9,fontWeight:'900'},collectionDashboardSectionTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:16,marginBottom:3},collectionDashboardList:{flex:1,minHeight:0},collectionDashboardRail:{gap:9,paddingTop:7,paddingBottom:120},collectionDashboardCard:{width:'100%',padding:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},collectionDashboardCardMain:{minHeight:82,flexDirection:'row',alignItems:'center',gap:11},collectionDashboardCover:{width:58,height:58,borderRadius:13,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionDashboardCoverText:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},collectionDashboardCardCopy:{flex:1,minWidth:0},collectionDashboardKicker:{color:colors.success,fontSize:8,fontWeight:'900',letterSpacing:.6},collectionDashboardName:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:5},collectionDashboardMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:5},collectionDashboardChevron:{color:colors.primaryLight,fontSize:26,fontWeight:'700'},collectionDashboardActions:{flexDirection:'row',gap:7,marginTop:7},collectionManageButton:{flex:1,minHeight:38,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionManageButtonText:{color:'#FFF',fontSize:8,fontWeight:'900'},collectionSettingsButton:{flex:1,minHeight:38,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},collectionSettingsButtonText:{color:colors.textPrimary,fontSize:8,fontWeight:'900'},collectionDashboardEmptyCard:{padding:18,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center'},collectionDashboardEmptyTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},collectionDashboardEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:6,textAlign:'center'},collectionDashboardSpacer:{flex:1},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
