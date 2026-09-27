@@ -1195,7 +1195,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-
         {/* Compteurs du profil visite : bloc compact unique, toujours avant les collections. */}
         <View style={styles.unifiedCounters}>
           <ProfileCounterRow kind="connections" items={[
@@ -1207,6 +1206,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
           ]} />
         </View>
+
+
+
 
         {marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
