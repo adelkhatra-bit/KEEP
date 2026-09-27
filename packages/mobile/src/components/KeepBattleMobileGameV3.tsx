@@ -2108,7 +2108,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           face de l'invité" -- rangée compacte (avatar + pseudo + bouton),
           au lieu de cartes empilées verticalement dans un scroll horizontal
           qui poussait le bouton hors de l'écran visible. */}
-      {enabled ? <View style={s.live}><View style={s.liveHeader}><View style={s.dot} /><Text style={s.liveTitle}>{(() => { const count = livePlayers.filter((p) => !insufficientForOpponent(p)).length; return count ? `${count} joueur${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''}` : livePlayers.length ? 'Aucun adversaire avec assez de Free' : 'Tu es visible pour les Battles'; })()}</Text></View>{livePlayers.length ? <View style={s.liveList}>{livePlayers.slice(0, 3).map((p) => <View key={p.profileId} style={[s.liveRowCompact, insufficientForOpponent(p) && s.liveRowInsufficient]}><TouchableOpacity style={s.liveRowLeft} onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={32} /><PresenceDot online /><View style={s.liveRowIdentity}><Text numberOfLines={1} style={s.liveRowName}>{p.username}{p.skillTier ? ` · ${tierLabel(p.skillTier)}` : ''}</Text>{insufficientForOpponent(p) ? <Text style={s.liveRowCreditWarning}>🎁 ${p.remainingFree}/${stakeForRounds(roundCount)} Free · indisponible</Text> : null}</View></TouchableOpacity>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; const selfShort = insufficientForRoundCount(roundCount); const targetShort = insufficientForOpponent(p); const creditBlocked = selfShort || targetShort; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked || creditBlocked} style={[s.battleButton, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, blocked && s.battleButtonBlocked, creditBlocked && s.battleButtonCreditBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.battleButtonText, sent && s.battleButtonSentText, blocked && s.battleButtonBlockedText, creditBlocked && s.battleButtonCreditBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : selfShort ? 'MES FREE INSUFF.' : targetShort ? `${p.remainingFree}/${stakeForRounds(roundCount)} FREE` : 'BATTLE'}</Text></TouchableOpacity>; })()}</View>)}</View> : null}</View> : null}
+      {enabled ? <View style={s.live}><View style={s.liveHeader}><View style={s.dot} /><Text style={s.liveTitle}>{(() => { const count = livePlayers.filter((p) => !insufficientForOpponent(p)).length; return count ? `${count} joueur${count > 1 ? 's' : ''} disponible${count > 1 ? 's' : ''}` : livePlayers.length ? 'Aucun adversaire avec assez de Free' : 'Tu es visible pour les Battles'; })()}</Text></View>{livePlayers.length ? <View style={s.liveList}>{livePlayers.slice(0, 3).map((p) => <View key={p.profileId} style={[s.liveRowCompact, insufficientForOpponent(p) && s.liveRowInsufficient]}><TouchableOpacity style={s.liveRowLeft} onPress={(event) => { event.stopPropagation(); openPlayerStats(p); }}><Avatar name={p.username} url={p.avatarUrl} size={32} /><PresenceDot online /><View style={s.liveRowIdentity}><Text numberOfLines={1} style={s.liveRowName}>{p.username}{p.skillTier ? ` · ${tierLabel(p.skillTier)}` : ''}</Text>{insufficientForOpponent(p) ? <Text style={s.liveRowCreditWarning}>🎁 ${p.remainingFree}/${stakeForRounds(roundCount)} Free · indisponible</Text> : null}</View></TouchableOpacity>{(() => { const sent = outgoingPendingTargetIds.has(p.profileId); const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now; const blocked = blockedMs > 0; const selfShort = insufficientForRoundCount(roundCount); const targetShort = insufficientForOpponent(p); const creditBlocked = selfShort || targetShort; return <TouchableOpacity disabled={Boolean(challengeBusyId) || sent || blocked || creditBlocked} style={[s.battleButton, challengeBusyId === p.profileId && s.battleButtonSending, sent && s.battleButtonSent, blocked && s.battleButtonBlocked, creditBlocked && s.battleButtonCreditBlocked, challengeBusyId && challengeBusyId !== p.profileId && s.actionDisabled]} onPress={() => { void challenge(p); }}><Text style={[s.battleButtonText, sent && s.battleButtonSentText, blocked && s.battleButtonBlockedText, creditBlocked && s.battleButtonCreditBlockedText]}>{challengeBusyId === p.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : sent ? 'ENVOYÉ ✓' : selfShort ? 'MES FREE INSUFF.' : targetShort ? `${p.remainingFree}/${stakeForRounds(roundCount)} FREE` : 'BATTLE'}</Text></TouchableOpacity>; })()}</View>)}</View> : null}</View> : null}
       </ScrollView>
       {renderPlayerStatsModal()}
     </View>;
@@ -2425,7 +2425,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // statut en lecture seule -- l'action de lancement passe par la
         // case à cocher + la barre fixe "Démarrer la Battle" ci-dessous.
         const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? 'En attente' : short ? 'Crédits insuffisants' : 'Prêt';
-        return <View key={p.profileId} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
+        return <TouchableOpacity key={p.profileId} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !selectable }} disabled={!selectable} activeOpacity={0.82} onPress={() => toggleBattlePlayerSelection(p)} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
           <TouchableOpacity
             accessibilityRole="checkbox"
             accessibilityState={{ checked: selected, disabled: !selectable }}
@@ -2433,18 +2433,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             disabled={!selectable}
             hitSlop={8}
             style={[s.battleCheckbox, selected && s.battleCheckboxOn, !selectable && s.battleCheckboxDisabled]}
-            onPress={() => toggleBattlePlayerSelection(p)}
+            onPress={(event) => { event.stopPropagation(); toggleBattlePlayerSelection(p); }}
           >
             {selected ? <Text style={s.battleCheckboxMark}>✓</Text> : null}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => openPlayerStats(p)}><Avatar name={p.username} url={p.avatarUrl} size={48} /><View style={s.browseAvatarDot}><PresenceDot online /></View></TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <TouchableOpacity onPress={() => openPlayerStats(p)} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>
+            <TouchableOpacity onPress={(event) => { event.stopPropagation(); openPlayerStats(p); }} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>
             {/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de cocher la case. */}
             <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
           </View>
           <View style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted]}>{statusLabel}</Text></View>
-        </View>;
+        </TouchableOpacity>;
       })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}
       </ScrollView>
       {/* Adel (21/09/2026) : barre fixe "Démarrer la Battle" -- remplace le
@@ -2597,10 +2597,10 @@ const s = StyleSheet.create({
   // (21/09/2026) refonte "Joueurs disponibles" -- sélection multiple + barre
   // fixe. Design System KEEP : violet = action principale, gris = secondaire
   // ou désactivé, jamais de couleur seule pour un statut (texte toujours présent).
-  browseScroll: { flex: 1 }, browseScrollContent: { paddingBottom: 12 },
+  browseScroll: { flex: 1 }, browseScrollContent: { paddingBottom: 92 },
   browsePlayerSelected: { borderColor: colors.primary, borderWidth: 2, backgroundColor: `${colors.primary}1A` },
   browsePlayerIneligible: { opacity: 0.5 },
-  battleCheckbox: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center' },
+  battleCheckbox: { width: 42, height: 42, borderRadius: 21, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center' },
   battleCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primaryLight },
   battleCheckboxDisabled: { opacity: 0.4 },
   battleCheckboxMark: { color: '#FFF', fontSize: 14, fontWeight: '900' },
@@ -2608,9 +2608,9 @@ const s = StyleSheet.create({
   battleStatusBadgeText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
   battleStatusBadgeMuted: { opacity: 0.75 },
   battleStatusBadgeTextMuted: { color: colors.textMuted },
-  battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 18, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
+  battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
   battleSelectionCount: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
-  battleStartButton: { minHeight: 50, minWidth: 118, paddingHorizontal: 16, borderRadius: 18, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  battleStartButton: { minHeight: 46, minWidth: 112, paddingHorizontal: 16, borderRadius: 18, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   battleStartButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, opacity: .72 },
   battleStartButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   battleStartButtonTextDisabled: { color: colors.textMuted },
