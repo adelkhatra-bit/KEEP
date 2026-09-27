@@ -192,6 +192,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
   const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
   const [manageMusicMode, setManageMusicMode] = useState(false);
+  const [manageHelpVisible, setManageHelpVisible] = useState(false);
 
   useEffect(() => {
     if (!route?.params?.openManageMusic) return;
@@ -1278,10 +1279,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
-          <View style={styles.manageGuideIcon}><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '♫'}</Text></View>
+          <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setManageHelpVisible((value) => !value)} accessibilityLabel="Expliquer le mode modification"><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '?'}</Text></TouchableOpacity>
           <View style={styles.manageGuideCopy}>
             <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODE MODIFICATION' : 'MODIFIER MA BIBLIOTHÈQUE'}</Text>
-            <Text style={styles.manageGuideText} numberOfLines={2}>{manageMusicMode ? 'Les commandes apparaissent sur chaque morceau. Appuie sur Terminer quand tu as fini.' : 'Afficher les commandes pour rendre privé/public, retirer ou classer tes morceaux.'}</Text>
+            <Text style={styles.manageGuideText} numberOfLines={1}>{manageMusicMode ? 'Commandes actives sur chaque morceau · touche ? pour comprendre' : 'Privé/public · retirer · classer · touche ? pour comprendre'}</Text>
           </View>
           <TouchableOpacity
             style={[styles.manageModeButton, manageMusicMode && styles.manageModeButtonActive]}
@@ -1302,6 +1303,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
       ) : null}
+      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>À QUOI SERT CE MODE ?</Text><Text style={styles.manageHelpText}>Il affiche les commandes directement sur chaque morceau pour modifier sa visibilité, le retirer ou le classer. Vert = modification active. Violet = consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
 
       {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
         <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki Music RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
@@ -1649,6 +1651,9 @@ const styles = StyleSheet.create({
   autoVibesHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginBottom:8},
   manageGuide:{marginHorizontal:12,marginTop:7,paddingHorizontal:10,paddingVertical:7,borderRadius:14,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10},
   manageGuideActive:{borderColor:colors.keep,backgroundColor:colors.successFaint},
+  manageHelpBox:{marginHorizontal:12,marginTop:6,paddingHorizontal:12,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
+  manageHelpTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.6},
+  manageHelpText:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:4},
   manageModeButton:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   manageModeButtonActive:{borderColor:colors.keep},
   manageModeButtonText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
