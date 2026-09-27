@@ -1325,7 +1325,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   badgeLabel="✓ PUBLIÉE"
                   priceLabel={priceLabel}
                   fullWidth={false}
-                  onPress={() => Alert.alert('Collection exclusive', `${offer.playlistName}\n${offer.trackCount ?? 0} morceaux · ${styleLabel}\nAccès : ${priceLabel}`)}
+                  onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}
                   accessibilityLabel={`Collection ${offer.playlistName}, ${offer.trackCount ?? 0} morceaux, ${priceLabel}`}
                   actionLabel="GÉRER"
                   onActionPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}
