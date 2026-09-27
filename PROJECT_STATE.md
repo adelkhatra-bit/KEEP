@@ -183,6 +183,13 @@ agent) et messages des sessions de chat (non versionnés).
   `free-tooling-audit.yml`. L’audit local a validé **100% (10/10)** sur le
   périmètre gratuit réellement contrôlable depuis le dépôt GitHub ; à surveiller
   sur les prochains runs programmés.
+- **Modules GitHub gratuits additionnels (27/09/2026)** : ajout de
+  `actionlint.yml`, `scorecards.yml`, `release-drafter.yml`,
+  `.github/release-drafter.yml` et `.github/ISSUE_TEMPLATE/config.yml` pour
+  brancher le lint workflows, OpenSSF Scorecards, les notes de release
+  automatiques et des points d’entrée explicites vers le centre de commande IA.
+  L’inventaire `freeTooling` doit désormais rester à **100%** sur ce périmètre
+  étendu ; premiers runs GitHub à observer.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

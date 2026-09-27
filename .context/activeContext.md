@@ -126,3 +126,10 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `scripts/audit-free-tooling-coverage.cjs` calcule la couverture et échoue si elle tombe sous `100%`.
 - `/.github/workflows/free-tooling-audit.yml` exécute cet audit en manuel, en cron et sur push ciblé, puis publie le résumé + un artifact.
 - Résultat local validé pendant cette session : `FREE TOOLING COVERAGE: 100% (10/10)`.
+
+## 2026-09-27 — Modules GitHub gratuits additionnels branchés
+- `/.github/workflows/actionlint.yml` lint maintenant les workflows/actions templates et réduit les faux rouges de syntaxe GitHub Actions.
+- `/.github/workflows/scorecards.yml` publie un scan OpenSSF Scorecards gratuit pour la posture supply-chain/sécurité open source.
+- `/.github/workflows/release-drafter.yml` + `/.github/release-drafter.yml` maintiennent automatiquement un brouillon de release notes relié aux labels `scope:*`.
+- `/.github/ISSUE_TEMPLATE/config.yml` expose directement aux humains/IA les liens vers le centre de commande GitHub IA et le relais ChatGPT ↔ Claude.
+- L’inventaire `freeTooling` couvre désormais aussi ces briques et doit rester à `100%` dans l’audit automatisé.

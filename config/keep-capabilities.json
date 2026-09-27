@@ -48,11 +48,14 @@
     ]
   },
   "requiredWorkflows": [
+    "actionlint.yml",
     "mobile-ci.yml",
     "full-stack-ci.yml",
     "free-tooling-audit.yml",
     "keep-human-guardian.yml",
     "keep-dual-viewport-guardian.yml",
+    "release-drafter.yml",
+    "scorecards.yml",
     "web-preview-pages.yml",
     "app-store-native-preflight.yml",
     "codeql.yml",
@@ -158,6 +161,13 @@
             ]
           },
           {
+            "path": ".github/ISSUE_TEMPLATE/config.yml",
+            "contains": [
+              "Centre de commandement GitHub IA KEEP",
+              "Relais IA ChatGPT ↔ Claude Code"
+            ]
+          },
+          {
             "path": ".github/pull_request_template.md",
             "contains": [
               "KEEP — contrôle anti-régression"
@@ -250,6 +260,55 @@
             "contains": [
               "macos-latest",
               "eas build --local"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "workflow-lint-actionlint",
+        "name": "Workflow linting with actionlint",
+        "category": "github",
+        "evidence": [
+          {
+            "path": ".github/workflows/actionlint.yml",
+            "contains": [
+              "KEEP — Actionlint",
+              "actionlint -color"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ossf-scorecards",
+        "name": "OpenSSF Scorecards security posture",
+        "category": "security",
+        "evidence": [
+          {
+            "path": ".github/workflows/scorecards.yml",
+            "contains": [
+              "KEEP — OpenSSF Scorecards",
+              "ossf/scorecard-action"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "release-drafter",
+        "name": "Automated draft release notes",
+        "category": "github",
+        "evidence": [
+          {
+            "path": ".github/workflows/release-drafter.yml",
+            "contains": [
+              "KEEP — Release Drafter",
+              "release-drafter/release-drafter"
+            ]
+          },
+          {
+            "path": ".github/release-drafter.yml",
+            "contains": [
+              "## Coordination IA",
+              "docs/ops/GITHUB_AI_COMMAND_CENTER.md"
             ]
           }
         ]

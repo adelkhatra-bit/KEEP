@@ -148,15 +148,26 @@ périmètre gratuit et réellement contrôlable dans le dépôt.
 Cela couvre notamment :
 
 - GitHub Actions CI ;
+- actionlint sur les workflows GitHub ;
 - GitHub Pages ;
 - CodeQL ;
+- OpenSSF Scorecards ;
 - Dependabot ;
 - artifacts ;
 - templates + CODEOWNERS ;
+- Release Drafter ;
 - relais IA ;
 - triage automatique des issues ;
 - triggers `workflow_dispatch` / `schedule` ;
 - build iOS local gratuit sur runners macOS GitHub publics.
+
+Les autres IA doivent donc désormais auditer en priorité :
+
+- `/.github/workflows/actionlint.yml`
+- `/.github/workflows/scorecards.yml`
+- `/.github/workflows/release-drafter.yml`
+- `/.github/release-drafter.yml`
+- `/.github/ISSUE_TEMPLATE/config.yml`
 
 ## Définition du “100% coordination”
 

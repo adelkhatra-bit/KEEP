@@ -9,6 +9,18 @@ jour : 2026-09-20. Branche `reconcile/claude-main-20260825`.
 - **Auth** (authentification sécurisée sans clé à copier, type OAuth) : **FAIL**
 - **Plugin ready** (Action ChatGPT branchable telle quelle) : **FAIL**
 
+## 2026-09-27 — Nouveaux modules GitHub gratuits branchés
+
+- **Workflow linting** : `/.github/workflows/actionlint.yml`
+- **Posture supply-chain open source** : `/.github/workflows/scorecards.yml`
+- **Brouillon automatique des notes de release** : `/.github/workflows/release-drafter.yml` + `/.github/release-drafter.yml`
+- **Point d’entrée GitHub explicite pour humains/IA** : `/.github/ISSUE_TEMPLATE/config.yml`
+
+Pour toute IA qui reprend le dépôt : lire aussi `docs/ops/GITHUB_AI_COMMAND_CENTER.md`,
+`PROJECT_STATE.md`, `.context/activeContext.md` et `AGENT_MESSAGES.md` avant
+d’agir. L’audit `freeTooling` couvre désormais aussi ces modules et doit rester
+à `100%`.
+
 ## Pourquoi Auth = FAIL
 
 Tentative de remplacer la clé API par un flux OAuth (connexion Super Admin

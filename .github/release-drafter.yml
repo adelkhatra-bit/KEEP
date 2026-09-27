@@ -1,0 +1,54 @@
+name-template: 'KEEP v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+change-template: '- $TITLE (#$NUMBER) — @$AUTHOR'
+change-title-escapes: '\<*_&'
+no-changes-template: '- Aucun changement catégorisé pour cette release.'
+categories:
+  - title: '⚙️ CI / Ops'
+    when:
+      labels:
+        - 'scope:ci'
+  - title: '🗄️ Données / Backend'
+    when:
+      labels:
+        - 'scope:data'
+  - title: '🎯 Produit / UX'
+    when:
+      labels:
+        - 'scope:product'
+  - title: '🧰 Maintenance'
+    when:
+      labels:
+        - 'scope:general'
+        - 'chore'
+        - 'dependencies'
+  - type: 'pre-exclude'
+    when:
+      label: 'skip-changelog'
+  - type: 'version-resolver'
+    semver-increment: 'minor'
+    when:
+      labels:
+        - 'feature'
+        - 'enhancement'
+  - type: 'version-resolver'
+    semver-increment: 'patch'
+    when:
+      labels:
+        - 'fix'
+        - 'bug'
+        - 'bugfix'
+        - 'scope:ci'
+        - 'scope:data'
+        - 'scope:product'
+        - 'scope:general'
+template: |
+  ## Résumé
+
+  $CHANGES
+
+  ## Coordination IA
+
+  - Centre de commande : `docs/ops/GITHUB_AI_COMMAND_CENTER.md`
+  - Journal partagé : `AGENT_MESSAGES.md`
+  - Mémoire projet : `PROJECT_STATE.md`

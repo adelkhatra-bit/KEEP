@@ -1,0 +1,42 @@
+name: KEEP — Actionlint
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/*.yml'
+      - '.github/workflows/*.yaml'
+      - '.github/ISSUE_TEMPLATE/*.md'
+      - '.github/ISSUE_TEMPLATE/config.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/*.yml'
+      - '.github/workflows/*.yaml'
+      - '.github/ISSUE_TEMPLATE/*.md'
+      - '.github/ISSUE_TEMPLATE/config.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actionlint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSLf https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz -o /tmp/actionlint.tgz
+          tar -xzf /tmp/actionlint.tgz -C /tmp actionlint
+          sudo mv /tmp/actionlint /usr/local/bin/actionlint
+          actionlint -version
+      - name: Lint GitHub workflows and templates
+        run: actionlint -color

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Centre de commandement GitHub IA KEEP
+    url: https://github.com/adelkhatra-bit/KEEP/blob/reconcile/claude-main-20260825/docs/ops/GITHUB_AI_COMMAND_CENTER.md
+    about: Lire le flux de coordination inter-IA, les workflows recommandés et les garde-fous avant d’ouvrir une demande non standard.
+  - name: Relais IA ChatGPT ↔ Claude Code
+    url: https://github.com/adelkhatra-bit/KEEP/blob/reconcile/claude-main-20260825/AI/AI_bridge.md
+    about: Vérifier l’état du relais, des handoffs et des consignes inter-IA déjà publiées.

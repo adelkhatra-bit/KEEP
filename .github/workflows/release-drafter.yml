@@ -1,0 +1,24 @@
+name: KEEP — Release Drafter
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-drafter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  draft_release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Update draft release notes
+        uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9 # v7.7.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
