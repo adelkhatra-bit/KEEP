@@ -18,7 +18,7 @@ on:
       - '.github/workflows/web-preview-pages.yml'
   workflow_dispatch:
 
-# PUBLIC DEPLOY CONTRACT: reconcile/claude-main-20260825 is the only source
+# ACTIONS REGISTRATION REFRESHED ON DEFAULT BRANCH.\n# PUBLIC DEPLOY CONTRACT: reconcile/claude-main-20260825 is the only source
 # for https://adelkhatra-bit.github.io/KEEP. A successful deployment must
 # expose this exact commit through /KEEP/version.json.
 
