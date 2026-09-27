@@ -1100,7 +1100,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           Battle et un côté les soirées ... par défaut ça revient toujours à
           soirée" -- deux onglets au lieu de mélanger les deux dans le même
           flux ; Soirées reste l'onglet par défaut. */}
-      {partiesTab === 'BATTLE' ? <TouchableOpacity style={styles.partyFocusBack} onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); }}><Text style={styles.partyFocusBackText}>‹  Retour aux soirées</Text></TouchableOpacity> : null}
+      
       {/* Adel (03/09/2026) : "il doit être en soirée, il doit être dans
           Battle, il est de partout pour pas le louper" -- bandeaux fixes
           d'invite/revanche rendus ICI, avant le choix du sous-onglet, pour
@@ -1134,7 +1134,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('PLAYLIST'); setEventTab('PLAYLIST'); }}><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>♫</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Musique de la soirée</Text><Text style={styles.partyHomeMeta}>Retrouve la playlist de l’événement</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           {battleFeatureEnabled ? <TouchableOpacity style={styles.partyHomeChoice} onPress={() => setPartiesTab('BATTLE')}><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>⚡</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Battle</Text><Text style={styles.partyHomeMeta}>Jeu musical indépendant des soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity> : null}
         </View> : <>
-          <TouchableOpacity style={styles.partyFocusBack} onPress={() => setPartyHome(true)}><Text style={styles.partyFocusBackText}>‹  Retour</Text></TouchableOpacity>
+          
         {!eventAccess || !['CREATOR_PRO','VENUE_PRO'].includes(eventAccess.planCode) ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 À partir de {minEventFollowers} abonnés : Creator Pro 9,99 € · 2 événements/mois. Venue Pro 29,99 € · événements illimités.</Text></TouchableOpacity>
           : !audienceReady ? <TouchableOpacity style={styles.creatorHint} onPress={() => void openCreate()}><Text style={styles.creatorHintText}>🔒 Audience événements : {followers}/{minEventFollowers} abonnés. La formule est prête, il reste à atteindre le seuil communautaire.</Text></TouchableOpacity>
             : eventAccess.planCode === 'CREATOR_PRO' ? <TouchableOpacity style={styles.creatorHint} onPress={() => !canCreate && navigation.navigate('Offers',{focusPlan:'VENUE_PRO',sourceFeature:'CREATE_EVENT'})}><Text style={styles.creatorHintText}>{canCreate ? `Creator Pro : ta création du mois est disponible · seuil ${minEventFollowers} abonnés atteint.` : 'Limite du mois atteinte · Venue Pro débloque les événements en illimité.'}</Text></TouchableOpacity>
