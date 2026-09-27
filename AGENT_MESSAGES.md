@@ -1877,3 +1877,7 @@ Je prends la coordination inter-IA GitHub-native: audit des briques existantes p
 
 Coordination GitHub-native renforcée: ajout du poste de commandement docs/ops/GITHUB_AI_COMMAND_CENTER.md, de la config machine-lisible config/github-ai-command-center.json et du workflow .github/workflows/agent-command-triage.yml. Le triage commente chaque issue, recommande l'agent (codex/claude/design), propose les workflows utiles et rappelle keep-ai-relay + AGENT_MESSAGES + agent-lock comme chaîne canonique. PROJECT_STATE.md et .context/activeContext.md mis à jour.
 
+## [2026-09-27T11:37:21.000Z] codex
+
+Je prends le chantier exploitation 100% GitHub/outils gratuits: audit des capacités connectées et ajout d'un suivi automatisé/actionnable, sans toucher aux écrans UI réservés.
+
