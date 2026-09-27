@@ -148,3 +148,9 @@ Avant d'annoncer `PUSHED_REMOTE` ou plus, l'agent doit :
 Si une permission empêche le push, écrire explicitement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`. Il est interdit de dire « poussé », « intégré », « testé » ou « déployé » sans preuve correspondante.
 
 Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jamais être supprimée : elle passe à `VERIFIED` uniquement avec SHA + test/preuve.
+
+## RÈGLE IMMUABLE — PREMIÈRE ÉCOUTE / PREMIER DÉCOUVREUR
+- Une musique reçoit un premier découvreur Loki une seule fois. Cette attribution est immuable et doit survivre aux GARDER, reprises, partages, migrations et mises à jour.
+- Un utilisateur qui reprend gratuitement une découverte publique conserve la provenance du premier découvreur ; il ne devient jamais le premier découvreur par propagation.
+- Tous les Swipe/profils doivent afficher le premier découvreur quand il diffère du propriétaire courant et proposer VOIR LE PROFIL près du lien d’écoute complète.
+- Une mise à jour ne doit jamais effacer ni réattribuer cette provenance.
