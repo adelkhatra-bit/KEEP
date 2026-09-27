@@ -1,21 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 import type { ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 
 type Props = {
   suggestions?: ProfileSaleSuggestion[];
+  viewerKey?: string;
   onSuggestionPress?: (suggestion: ProfileSaleSuggestion) => void;
   onListenPress?: (suggestion: ProfileSaleSuggestion) => void;
   onParticipatePress: () => void;
   onOffersPress: () => void;
 };
 
-export default function ProfileOpportunityRail({ suggestions = [], onSuggestionPress, onListenPress, onParticipatePress, onOffersPress }: Props) {
+export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', onSuggestionPress, onListenPress, onParticipatePress, onOffersPress }: Props) {
   const drift = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const [tipIndex, setTipIndex] = React.useState(0);
   const [suggestionVisible, setSuggestionVisible] = useState(true);
+  const storageKey = `keep:profile-opportunity-rail:${viewerKey}`;
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(storageKey).then((value) => { if (live) setSuggestionVisible(value !== 'hidden'); }).catch(() => {});
+    return () => { live = false; };
+  }, [storageKey]);
+  const hideRail = () => { setSuggestionVisible(false); void AsyncStorage.setItem(storageKey, 'hidden'); };
+  const showRail = () => { setSuggestionVisible(true); void AsyncStorage.setItem(storageKey, 'visible'); };
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const suggestion = suggestions[activeSuggestionIndex] ?? null;
   useEffect(() => {
@@ -48,9 +58,16 @@ export default function ProfileOpportunityRail({ suggestions = [], onSuggestionP
   }, [activeSuggestionIndex, suggestions.length]);
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
+  if (!suggestionVisible) return (
+    <TouchableOpacity style={s.reopenRail} onPress={showRail} accessibilityLabel="Voir les découvertes">
+      <Text style={s.reopenIcon}>✦</Text><View style={{flex:1}}><Text style={s.reopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={s.reopenMeta}>Sélections · soirées · opportunités</Text></View><Text style={s.reopenArrow}>›</Text>
+    </TouchableOpacity>
+  );
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
-      {suggestionVisible ? <TouchableOpacity style={[s.card, s.suggestion]} onPress={() => suggestion && onSuggestionPress?.(suggestion)} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
+    <View style={s.wrapper}>
+      <View style={s.railHeader}><Text style={s.railHeaderTitle}>POUR TOI</Text><TouchableOpacity onPress={hideRail} style={s.hideRailButton} accessibilityLabel="Masquer les découvertes"><Text style={s.hideRailText}>Masquer</Text></TouchableOpacity></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
+      <TouchableOpacity style={[s.card, s.suggestion]} onPress={() => suggestion && onSuggestionPress?.(suggestion)} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ À ÉCOUTER · À DÉBLOQUER</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
         {suggestion ? <View style={s.saleLine}><Text style={s.saleBadge}>SÉLECTION EXCLUSIVE</Text><Text style={s.price}>{price}</Text></View> : null}
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
@@ -58,12 +75,7 @@ export default function ProfileOpportunityRail({ suggestions = [], onSuggestionP
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion ? `${suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`} · ${genres} · À DÉBLOQUER` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
         {suggestion ? <View style={s.saleActions}><TouchableOpacity style={s.listen} onPress={(event) => { event.stopPropagation?.(); suggestion && (onListenPress ?? onSuggestionPress)?.(suggestion); }} accessibilityLabel="Écouter un extrait"><Text style={s.listenText}>▶ ÉCOUTER</Text></TouchableOpacity><View style={s.saleTag}><Text style={s.saleTagText}>{suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`}</Text></View></View> : null}
         {suggestions.length > 1 ? <View style={s.offerPager}><TouchableOpacity onPress={(event) => { event.stopPropagation?.(); setActiveSuggestionIndex((value) => (value - 1 + suggestions.length) % suggestions.length); }}><Text style={s.offerPagerArrow}>‹</Text></TouchableOpacity><Text style={s.offerPagerText}>{activeSuggestionIndex + 1}/{suggestions.length}</Text><TouchableOpacity onPress={(event) => { event.stopPropagation?.(); setActiveSuggestionIndex((value) => (value + 1) % suggestions.length); }}><Text style={s.offerPagerArrow}>›</Text></TouchableOpacity></View> : null}
-        <TouchableOpacity style={s.dismissSuggestion} onPress={(event) => { event.stopPropagation?.(); setSuggestionVisible(false); }} accessibilityLabel="Masquer cette bannière"><Text style={s.dismissSuggestionText}>Masquer</Text></TouchableOpacity>
-      </TouchableOpacity> : (
-        <TouchableOpacity style={[s.card, s.reopenSuggestion]} onPress={() => setSuggestionVisible(true)} accessibilityLabel="Voir les découvertes">
-          <Text style={s.reopenIcon}>✦</Text><View style={{flex:1}}><Text style={s.reopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={s.reopenMeta}>Écouter · débloquer · revenir acheter</Text></View><Text style={s.reopenArrow}>›</Text>
-        </TouchableOpacity>
-      )}
+      </TouchableOpacity>
 
       <TouchableOpacity style={[s.card, s.participate]} onPress={tipIndex === 0 ? onParticipatePress : tipIndex === 1 ? onParticipatePress : onOffersPress} accessibilityLabel={tip.title}>
         <Text style={s.kicker}>{tip.kicker}</Text>
@@ -71,11 +83,17 @@ export default function ProfileOpportunityRail({ suggestions = [], onSuggestionP
         <Text style={s.body}>{tip.body}</Text>
         <View style={s.tipFooter}><View style={s.tipDots}>{tips.map((_, index) => <View key={index} style={[s.tipDot, index === tipIndex && s.tipDotOn]} />)}</View><Text style={s.tipCta}>EN SAVOIR PLUS →</Text></View>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const s=StyleSheet.create({
+  wrapper:{marginTop:2},
+  railHeader:{marginHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  railHeaderTitle:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:1},
+  hideRailButton:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},hideRailText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
+  reopenRail:{marginHorizontal:18,marginVertical:8,minHeight:52,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
   rail:{paddingHorizontal:18,paddingVertical:8,gap:10},
   card:{width:276,minHeight:132,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
