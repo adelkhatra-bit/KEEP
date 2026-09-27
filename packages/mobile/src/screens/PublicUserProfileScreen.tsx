@@ -91,6 +91,7 @@ function chunks<T>(items: T[], size = QUERY_CHUNK_SIZE): T[][] {
 
 export default function PublicUserProfileScreen({ route, navigation }: any) {
   const username = route?.params?.username as string | undefined;
+  const openSaleOfferId = route?.params?.openSaleOfferId as string | undefined;
   const viewer = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -511,6 +512,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!profile) return;
     void openFolderSwipe(vibe.name, () => loadPublicSmartAlbumTracks(profile.id, vibe.id), `vibe:${vibe.id}`);
   };
+
+  useEffect(() => {
+    if (!openSaleOfferId || !saleOffers.length) return;
+    const offer = saleOffers.find((row) => row.offerId === openSaleOfferId);
+    if (!offer) return;
+    unlockWebAudioForGesture();
+    setImmersivePreviewOffer(offer);
+    navigation?.setParams?.({ openSaleOfferId: undefined });
+  }, [openSaleOfferId, saleOffers, navigation]);
 
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
     const ownerViewingSelf = Boolean(viewer?.id && profile?.id && viewer.id === profile.id);
