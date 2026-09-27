@@ -540,7 +540,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 vérité, plus jamais un texte à mettre à jour à la main
                 quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l'adversaire. Sans-faute (ex. 8/8) : Loki ajoute +{battleRules.perfectDuelBonusFree} Free offerts par la plateforme. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : chacun engage sa mise. À 2, le gagnant prend la mise perdue par l'adversaire. À 3 et plus, les joueurs encore en course continuent entre eux ; chaque abandon est une défaite et sa mise alimente les gains. Si les autres abandonnent, le dernier joueur restant gagne les Free accumulés. Si la partie va jusqu'au bout, le classement final applique la répartition prévue pour le podium. Sans-faute (ex. 8/8) : Loki ajoute +{battleRules.perfectDuelBonusFree} Free.</Text>
               <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu'à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
