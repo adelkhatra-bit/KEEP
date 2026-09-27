@@ -136,7 +136,7 @@ jobs:
           rm -rf _site
           mkdir -p _site/admin-preview _site/share-profile _site/superadmin \
             _site/privacy _site/privacy-choices _site/terms _site/support _site/mentions-legales \
-            _site/pricing _site/refund
+            _site/pricing _site/refund _site/banner-marketplace-maquette
           cp -R packages/mobile/dist-web/. _site/
           cp -R packages/admin/out/. _site/admin-preview/
           cp packages/mobile/share-profile.html _site/share-profile/index.html
@@ -148,6 +148,7 @@ jobs:
           cp packages/mobile/legal/mentions-legales.html _site/mentions-legales/index.html
           cp packages/mobile/legal/pricing.html _site/pricing/index.html
           cp packages/mobile/legal/refund.html _site/refund/index.html
+          cp packages/mobile/public/banner-marketplace-maquette.html _site/banner-marketplace-maquette/index.html
 
           cat > _site/superadmin/index.html <<'HTML'
           <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Loki Super Admin</title><script>location.replace('/KEEP/admin-preview/'+location.search+location.hash)</script><a href="/KEEP/admin-preview/">Ouvrir Loki Super Admin</a>
@@ -199,6 +200,7 @@ jobs:
           test -f _site/mentions-legales/index.html
           test -f _site/pricing/index.html
           test -f _site/refund/index.html
+          test -f _site/banner-marketplace-maquette/index.html
           test -f _site/playlist-sale/index.html
           test -f _site/playlist-sale-history/index.html
           test -f _site/keep-share.png
