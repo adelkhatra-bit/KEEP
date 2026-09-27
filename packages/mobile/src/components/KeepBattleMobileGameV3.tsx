@@ -798,7 +798,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // ce même défi toujours "ACCEPTED" et rouvrait la même arène aussitôt,
       // rendant × et QUITTER inopérants en pratique. Un défi accepté ne doit
       // faire entrer dans l'arène qu'UNE seule fois.
-      const accepted = outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId && !autoJoinedChallengeIds.has(x.id));
+      // Une réponse sociale ne doit JAMAIS interrompre une partie en cours.
+      // L'entrée dans l'arène acceptée est différée jusqu'à la fin du Solo.
+      const accepted = !solo ? outbox.find((x) => x.status === 'ACCEPTED' && x.arenaId && !autoJoinedChallengeIds.has(x.id)) : undefined;
       if (accepted?.arenaId) {
         autoJoinedChallengeIds.add(accepted.id);
         await stopTrackPreview();
@@ -823,8 +825,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // à un refus explicite (DECLINED), qui reste affiché une seule fois
       // (handledOutgoingIds) et jamais pendant une manche solo en cours.
       const freshFeedback = outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id));
-      const soloRoundInProgress = Boolean(solo) && !soloAnswer;
-      if (!soloRoundInProgress) {
+      // Zéro popup pendant TOUTE la session Solo, y compris entre deux manches.
+      // Le refus reste non traité et sera affiché seulement après la sortie du Solo.
+      const gameplayInProgress = Boolean(solo) || Boolean(arena);
+      if (!gameplayInProgress) {
         for (const feedback of freshFeedback) {
           handledOutgoingIds.add(feedback.id);
           Alert.alert(
@@ -978,39 +982,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setIncoming((rows) => rows.filter((x) => x.id !== item.id));
   }, [incoming, now]);
 
-  React.useEffect(() => {
-    if (!solo) return;
-    if (activeIncomingId && pausedSoloRemaining === null && !soloAnswer) {
-      setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS);
-      setAudioReady(false);
-      void stopTrackPreview();
-      return;
-    }
-    if (!activeIncomingId && pausedSoloRemaining !== null && !soloAnswer) {
-      const round = solo.rounds[soloIndex];
-      const savedRemaining = pausedSoloRemaining;
-      setPausedSoloRemaining(null);
-      soloStartedAtRef.current = 0; setSoloStartedAt(0);
-      setAudioReady(false);
-      let alive = true;
-      void (async () => {
-        while (alive) {
-          const ok = await playVerified(`solo-resume:${round.trackId}:${soloIndex}`, round.previewUrl, savedRemaining + 800);
-          if (!alive) return;
-          if (ok) {
-            setAudioReady(true);
-            soloStartedAtRef.current = Date.now() - (ROUND_MS - savedRemaining); setSoloStartedAt(soloStartedAtRef.current);
-            return;
-          }
-          await wait(500);
-        }
-      })();
-      return () => { alive = false; };
-    }
-  }, [solo, soloIndex, soloAnswer, activeIncomingId, pausedSoloRemaining, audioReady, soloStartedAt, playVerified]);
+  // Les invitations restent en file d'attente pendant le Solo. Elles ne
+  // mettent plus en pause la musique, le chrono ou les réponses.
 
   React.useEffect(() => {
-    if (!solo || activeIncomingId || !audioReady || soloAnswer) return;
+    if (!solo || !audioReady || soloAnswer) return;
     // Adel (02/09/2026) : lit soloStartedAtRef (toujours à jour de façon
     // synchrone) plutôt que displayedSoloRemaining -- ce dernier peut encore
     // porter la valeur figée du rendu PRÉCÉDENT au moment précis où la manche
