@@ -250,6 +250,25 @@ export default function Users() {
     finally { setBusy(null); }
   };
 
+  const resetTestOverrides = async () => {
+    if (!selected || !supabase) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Réinitialiser les valeurs de test de @${selected.username} et reprendre les vraies données ?`)) return;
+    setBusy('resetTests'); setError(null);
+    try {
+      const [{ error: followerError }, { error: bypassError }] = await Promise.all([
+        supabase.rpc('admin_set_follower_count_override', { p_profile_id: selected.id, p_override: null }),
+        supabase.rpc('admin_set_feature_flag_test_bypass', { p_profile_id: selected.id, p_flag_key: 'playlist_marketplace', p_enabled: false }),
+      ]);
+      if (followerError) throw followerError;
+      if (bypassError) throw bypassError;
+      setFollowerOverride('');
+      setMarketplaceTestBypass(false);
+      await refreshSelected();
+      setMessage(`Mode test réinitialisé pour @${selected.username} : les compteurs et accès reprennent maintenant les données réelles.`);
+    } catch (e: any) { setError(e?.message ?? 'Impossible de réinitialiser les valeurs de test.'); }
+    finally { setBusy(null); }
+  };
+
   const saveFollowerOverride = async (value: number | null) => {
     if (!selected || !supabase) return;
     setBusy('followerOverride'); setError(null);
@@ -463,6 +482,7 @@ export default function Users() {
               {snapshot.profile.follower_count_override != null && <button onClick={()=>void saveFollowerOverride(null)} disabled={busy!==null} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>Revenir au réel</button>}
             </div>
             {snapshot.profile.follower_count_override != null && <div style={{color:'#ffb454',fontSize:11,marginTop:8,fontWeight:700}}>⚠ Actif : ce compte est actuellement vu avec {snapshot.profile.follower_count_override} abonnés (valeur de test).</div>}
+            {(snapshot.profile.follower_count_override != null || marketplaceTestBypass===true) && <button onClick={()=>void resetTestOverrides()} disabled={busy!==null} style={{marginTop:12,width:'100%',background:'#2a2236',border:'1px solid #b788ff',color:'#fff',borderRadius:10,padding:'11px 14px',fontWeight:900,cursor:busy!==null?'wait':'pointer'}}>↺ RESET TESTS · REPRENDRE LES VRAIES DONNÉES</button>}
           </div>
 
           {/* Adel (21/09/2026) : bug réel -- forcer les abonnés ne suffit
