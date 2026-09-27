@@ -1,3 +1,6 @@
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP — Instructions agents (Codex CLI, et tout agent qui lit AGENTS.md)
 
 Ce dépôt est aussi piloté par Claude Code, qui suit `CLAUDE.md` (racine du repo) —
