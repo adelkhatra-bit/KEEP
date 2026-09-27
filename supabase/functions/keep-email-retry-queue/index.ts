@@ -36,6 +36,7 @@ async function processEmailQueue() {
 
   let processed = 0;
   let failed = 0;
+  let blocked = 0;
   let exhausted = 0;
 
   for (const email of pending || []) {
@@ -68,19 +69,30 @@ async function processEmailQueue() {
       }).eq("id", email.id);
       processed += 1;
     } else {
-      const nextRetry = retryCount + 1;
-      await admin.from("email_queue").update({
-        status: nextRetry >= maxRetries ? "failed" : "pending",
-        retry_count: nextRetry,
-        error_message: sent.detail ? `${sent.error}:${sent.detail}` : sent.error,
-      }).eq("id", email.id);
-      failed += 1;
+      const detail = sent.detail ? `${sent.error}:${sent.detail}` : sent.error;
+      const providerConfigBlocked = /unrecognised IP address|unauthorized|key not found|sender.*not.*verified/i.test(detail);
+      if (providerConfigBlocked) {
+        await admin.from("email_queue").update({
+          status: "pending",
+          retry_count: retryCount,
+          error_message: detail,
+        }).eq("id", email.id);
+        blocked += 1;
+      } else {
+        const nextRetry = retryCount + 1;
+        await admin.from("email_queue").update({
+          status: nextRetry >= maxRetries ? "failed" : "pending",
+          retry_count: nextRetry,
+          error_message: detail,
+        }).eq("id", email.id);
+        failed += 1;
+      }
     }
 
-    if (processed + failed + exhausted >= 10) break;
+    if (processed + failed + blocked + exhausted >= 10) break;
   }
 
-  return { processed, failed, exhausted };
+  return { processed, failed, blocked, exhausted };
 }
 
 Deno.serve(async (req: Request) => {
