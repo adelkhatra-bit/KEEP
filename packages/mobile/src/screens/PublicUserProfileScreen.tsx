@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
@@ -36,6 +37,7 @@ import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutL
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
+import { loadUpcomingEvents } from '../services/creatorEventService';
 
 type PublicKeepTrack = {
   id: string;
@@ -160,6 +162,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  const [marketBannerVisible, setMarketBannerVisible] = useState(true);
+  const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
+  const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
+  const [marketBannerOffersLoaded, setMarketBannerOffersLoaded] = useState(false);
   const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
   const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
   const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
@@ -210,9 +216,50 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   useEffect(() => {
     if (!marketplaceEnabled || !profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
-    loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) setSaleOffers(rows); }).catch(() => { if (live) setSaleOffers([]); });
+    loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } }).catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
     return () => { live = false; };
   }, [marketplaceEnabled, profile?.id]);
+  useEffect(() => {
+    if (!profile?.id) return undefined;
+    let live = true;
+    setMarketBannerEventsLoaded(false);
+    loadUpcomingEvents(profile.id).then((rows) => {
+      if (!live) return;
+      setMarketBannerEventIds(rows.filter((row) => row.creatorId === profile.id && row.moderationStatus === 'APPROVED').map((row) => row.id).sort());
+      setMarketBannerEventsLoaded(true);
+    }).catch(() => { if (live) { setMarketBannerEventIds([]); setMarketBannerEventsLoaded(true); } });
+    return () => { live = false; };
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id || !marketBannerOffersLoaded || !marketBannerEventsLoaded) return;
+    const viewerKey = viewer?.id || 'guest';
+    const key = `keep:profile-market-banner:${viewerKey}:${profile.id}`;
+    const playlistSignature = saleOffers.map((row) => row.offerId).sort().join(',');
+    const eventSignature = marketBannerEventIds.join(',');
+    let live = true;
+    AsyncStorage.getItem(key).then((raw) => {
+      if (!live) return;
+      if (!raw) { setMarketBannerVisible(true); return; }
+      try {
+        const saved = JSON.parse(raw);
+        const hasNew = saved.playlists !== playlistSignature || saved.events !== eventSignature;
+        setMarketBannerVisible(!saved.manuallyClosed || hasNew);
+        if (hasNew) void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists: playlistSignature, events: eventSignature }));
+      } catch { setMarketBannerVisible(true); }
+    }).catch(() => setMarketBannerVisible(true));
+    return () => { live = false; };
+  }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, saleOffers, marketBannerEventIds]);
+
+  const hideMarketBanner = () => {
+    if (!profile?.id) return;
+    const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
+    const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
+    const events = marketBannerEventIds.join(',');
+    setMarketBannerVisible(false);
+    void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: true, playlists, events }));
+  };
+
   useEffect(() => {
     if (!profile?.id) { setPublicVibes([]); return undefined; }
     let live = true;
@@ -1136,7 +1183,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {marketplaceEnabled ? (
+        {marketplaceEnabled && marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -1148,6 +1195,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
                 </View>
               ) : null}
+              <TouchableOpacity onPress={hideMarketBanner} accessibilityLabel="Masquer les nouveautés" style={styles.marketplaceHideButton}><Text style={styles.marketplaceHideText}>Masquer</Text></TouchableOpacity>
             </View>
             <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute 15 secondes avant d’acheter · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
             {saleOffers.length === 0 ? (
@@ -1658,7 +1706,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   sellerSignalMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
   sellerSignalArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
   marketplaceSection:{marginHorizontal:18,marginTop:14,padding:14,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
-  marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:8},marketplaceHideButton:{minHeight:28,paddingHorizontal:8,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},marketplaceHideText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
   marketplacePulseLine:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6},
   marketplaceLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},
