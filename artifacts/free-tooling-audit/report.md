@@ -2,7 +2,7 @@
 
 - Branche source produit : `reconcile/claude-main-20260825`
 - Cible de couverture : **100%**
-- Couverture observée : **100%** (14/14)
+- Couverture observée : **100%** (15/15)
 
 ## Résultats
 
@@ -38,6 +38,7 @@
 - catégorie : `github`
 - OK — `.github/ISSUE_TEMPLATE/agent_task.md` → labels: agent-task
 - OK — `.github/ISSUE_TEMPLATE/design_review.yml` → name: Revue design IA ; scope:product
+- OK — `.github/ISSUE_TEMPLATE/incident_report.yml` → name: Incident production ; [incident]
 - OK — `.github/ISSUE_TEMPLATE/config.yml` → Centre de commandement GitHub IA KEEP ; Relais IA ChatGPT ↔ Claude Code
 - OK — `.github/pull_request_template.md` → KEEP — contrôle anti-régression
 - OK — `.github/CODEOWNERS` → /.github/ @adelkhatra-bit
@@ -87,4 +88,9 @@
 - catégorie : `automation`
 - OK — `.github/workflows/ai-ops-digest.yml` → KEEP — AI ops digest ; Build AI ops digest
 - OK — `scripts/build-ai-ops-digest.cjs` → Digest Ops / IA KEEP ; AI OPS DIGEST:
+
+### ✅ Careful stale hygiene for scalable triage
+- id : `stale-hygiene`
+- catégorie : `automation`
+- OK — `.github/workflows/stale-hygiene.yml` → KEEP — Stale hygiene ; actions/stale@
 

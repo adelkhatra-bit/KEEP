@@ -1,8 +1,8 @@
 {
   "target": 100,
   "coverage": 100,
-  "passedCount": 14,
-  "totalCount": 14,
+  "passedCount": 15,
+  "totalCount": 15,
   "results": [
     {
       "id": "github-actions-ci",
@@ -126,6 +126,15 @@
           ],
           "ok": true,
           "reason": "evidence OK: .github/ISSUE_TEMPLATE/design_review.yml"
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/incident_report.yml",
+          "contains": [
+            "name: Incident production",
+            "[incident]"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/ISSUE_TEMPLATE/incident_report.yml"
         },
         {
           "path": ".github/ISSUE_TEMPLATE/config.yml",
@@ -340,6 +349,23 @@
           ],
           "ok": true,
           "reason": "evidence OK: scripts/build-ai-ops-digest.cjs"
+        }
+      ]
+    },
+    {
+      "id": "stale-hygiene",
+      "name": "Careful stale hygiene for scalable triage",
+      "category": "automation",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/stale-hygiene.yml",
+          "contains": [
+            "KEEP — Stale hygiene",
+            "actions/stale@"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/stale-hygiene.yml"
         }
       ]
     }

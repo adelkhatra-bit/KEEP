@@ -1905,3 +1905,7 @@ Autonomie GitHub encore renforcée: ajout du digest planifié  +  pour résumer 
 
 Je continue le renforcement de l’autonomie GitHub/IA: audit des briques gratuites encore manquantes puis ajout ciblé des plus utiles pour l’anticipation, le triage et l’exploitation à grande échelle, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T12:07:08.846Z] codex
+
+Nouveau lot autonomie GitHub ajouté:  pour l’hygiène prudente des issues/PRs dormantes et  pour structurer les incidents réels. L’inventaire freeTooling monte à 15/15 et la mémoire projet/doc a été mise à jour pour que les futures IA utilisent ces entrées au lieu d’improviser leur propre triage.
+

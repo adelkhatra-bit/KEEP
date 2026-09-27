@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-27T11:59:32.261Z
+- Régénéré le : 2026-09-27T12:07:13.469Z
 - Branche : `copilot/fix-github-actions-job-failure-again`
-- Dernier commit : `c7489d11` (c7489d11f4a60374da32946ba1a2af356a636e5d) — feat(ops): add ai ops digest and design intake
-- Date du dernier commit : 2026-09-27T11:58:56Z
+- Dernier commit : `84c36d4f` (84c36d4fb6e37b89ad875654a3d846b4a8e28f11) — feat(ops): add stale hygiene and incident intake
+- Date du dernier commit : 2026-09-27T12:06:56Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,10 +125,10 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `84c36d4f` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add stale hygiene and incident intake
+- `8efdd23b` (2026-09-27, copilot-swe-agent[bot]) — chore: plan stale hygiene and incident intake
+- `629e0d4c` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish ai ops digest handoff
 - `c7489d11` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add ai ops digest and design intake
-- `532bedf0` (2026-09-27, copilot-swe-agent[bot]) — chore: plan ai ops digest automation
-- `169eea60` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish expanded github ai tooling handoff
-- `01524da8` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add more github free tooling
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
