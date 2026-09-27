@@ -304,3 +304,11 @@ fait.
 - Rien ne disparaît : `Voir tous les morceaux` conserve la vue détaillée et toutes les actions sociales.
 - Point technique à corriger : dossiers payants reliés à leur vraie offre, pas à `saleOffers[0]`.
 - Statut : design poussé ; intégration code démarrée ensuite sur la branche unique.
+
+
+## 2026-09-27 — Poste de commandement inter-IA
+- Porte d’entrée canonique : `docs/AGENT_COMMAND_CENTER.md`.
+- Configuration machine-lisible : `.github/agent-command-center.json`.
+- Triage automatique : `.github/workflows/agent-command-triage.yml`.
+- Premier run réel du triage : GitHub Actions run `36316053776` = **SUCCESS** sur `572a431a92b765c108ff0fa6e5c7b8e77d208d37`.
+- Toute IA doit conserver la branche unique `reconcile/claude-main-20260825`, utiliser le verrou/journal existants et respecter les états LOCAL_ONLY → COMMITTED_LOCAL → PUSHED_REMOTE → TESTED_REMOTE → DEPLOYED.
