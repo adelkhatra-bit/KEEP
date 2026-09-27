@@ -846,7 +846,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let alive = true;
     const tick = async () => {
       if (!alive) return;
-      if (solo) await heartbeatSoloBattle(solo.themeCode).catch(() => {});
+      if (solo) await heartbeatSoloBattle(solo.themeCode, soloIndex, solo.rounds.length).catch(() => {});
       await refreshSocial();
     };
     void tick();
