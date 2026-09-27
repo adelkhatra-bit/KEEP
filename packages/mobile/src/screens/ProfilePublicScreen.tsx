@@ -64,6 +64,7 @@ const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'free', icon: '💛', label: 'Mon solde Free' },
   { key: 'profile', icon: '👤', label: 'Réglages du profil' },
   { key: 'notifications', icon: '🔔', label: 'Notifications' },
+  { key: 'identityCard', icon: '▦', label: 'Ma carte d’identité musicale & QR' },
   { key: 'share', icon: '↗', label: 'Inviter / partager mon profil' },
   { key: 'music', icon: '🎧', label: 'Services musicaux' },
   { key: 'offers', icon: '💳', label: 'Offres & crédits' },
@@ -1116,6 +1117,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <Text style={s.shareTitle}>Réglages du profil</Text>
       <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo et tes informations de profil.</Text>
       <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES</Text></TouchableOpacity>
+    </>;
+
+    if (key === 'identityCard') return <>
+      <Text style={s.shareTitle}>Ma carte d’identité musicale</Text>
+      <Text style={s.shareSubtitle}>Ton QR personnel ouvre directement ton profil Loki Music. Ta carte affiche ton identité, tes styles et tes statistiques et peut être partagée ou enregistrée par capture.</Text>
+      <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }}><Text style={s.shareActionPrimaryText}>AFFICHER MA CARTE & MON QR</Text></TouchableOpacity>
+      <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  COPIER MON LIEN DE PROFIL</Text><Text style={s.shareActionHint}>À coller dans une bio, un message ou un réseau social</Text></TouchableOpacity>
     </>;
 
     if (key === 'share') return <>
