@@ -1192,21 +1192,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {marketplaceEnabled && !marketBannerVisible && (saleOffers.length > 0 || marketBannerEventIds.length > 0) ? (
-          <TouchableOpacity
-            style={styles.marketplaceReopenButton}
-            onPress={reopenMarketBanner}
-            accessibilityLabel="Voir les découvertes à débloquer"
-          >
-            <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}>
-              <Text style={styles.marketplaceReopenTitle}>VOIR LES DÉCOUVERTES</Text>
-              <Text style={styles.marketplaceReopenMeta}>{saleOffers.length > 0 ? `${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''}` : ''}{saleOffers.length > 0 && marketBannerEventIds.length > 0 ? ' · ' : ''}{marketBannerEventIds.length > 0 ? `${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''}` : ''}</Text>
-            </View>
-            <Text style={styles.marketplaceReopenArrow}>›</Text>
-          </TouchableOpacity>
-        ) : null}
-
         {marketplaceEnabled && marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
@@ -1219,7 +1204,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
                 </View>
               ) : null}
-              <TouchableOpacity onPress={hideMarketBanner} accessibilityLabel="Masquer les nouveautés" style={styles.marketplaceHideButton}><Text style={styles.marketplaceHideText}>Masquer</Text></TouchableOpacity>
             </View>
             <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute 15 secondes avant d’acheter · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
             {saleOffers.length === 0 ? (
