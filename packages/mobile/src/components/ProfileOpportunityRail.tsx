@@ -29,6 +29,21 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const showRail = () => { setSuggestionVisible(true); void AsyncStorage.setItem(storageKey, 'visible'); };
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const suggestion = suggestions[activeSuggestionIndex] ?? null;
+  // Une nouvelle publication doit rouvrir automatiquement la zone même si
+  // l'utilisateur l'avait masquée auparavant. Le masquage reste valable
+  // pour le contenu courant, jamais pour une nouvelle pépite.
+  useEffect(() => {
+    const newestOfferId = suggestions[0]?.offerId;
+    if (!newestOfferId) return;
+    const latestKey = `${storageKey}:latest-offer`;
+    AsyncStorage.getItem(latestKey).then((previousOfferId) => {
+      if (previousOfferId && previousOfferId !== newestOfferId) {
+        setSuggestionVisible(true);
+        void AsyncStorage.setItem(storageKey, 'visible');
+      }
+      void AsyncStorage.setItem(latestKey, newestOfferId);
+    }).catch(() => {});
+  }, [storageKey, suggestions]);
   useEffect(() => {
     drift.setValue(0);
     const loop = Animated.loop(Animated.sequence([
@@ -47,14 +62,16 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
     return () => { loop.stop(); pulseLoop.stop(); reopenLoop.stop(); };
   }, [drift, pulse, reopenGlow]);
   useEffect(() => {
-    const timer = setInterval(() => setTipIndex((value) => (value + 1) % 3), 5200);
+    const timer = setInterval(() => setTipIndex((value) => (value + 1) % 5), 5200);
     return () => clearInterval(timer);
   }, []);
 
   const tips = [
-    { kicker: '◆ FAIS CIRCULER TES PÉPITES', title: 'Partage ton profil, Loki propage le reste.', body: 'Tes abonnés et les personnes qui ont aimé ou gardé une découverte attribuée à ton profil peuvent retrouver tes nouveautés, sélections et événements.' },
-    { kicker: '◆ CRÉE TON RENDEZ-VOUS', title: 'Une soirée devient une occasion de revenir.', body: 'Crée un événement : ton activité peut apparaître ici sans ajouter un nouveau bloc au profil.' },
-    { kicker: '◆ CONSTRUIS TA COMMUNAUTÉ', title: 'Une découverte reconnue à ton nom continue de vivre.', body: 'Plus tes découvertes sont gardées et partagées, plus ton profil crée des raisons naturelles de revenir.' },
+    { kicker: '◆ FAIS CIRCULER TES PÉPITES', title: 'Ta découverte peut devenir la prochaine pépite de quelqu’un.', body: 'Publie une sélection : tes abonnés et ceux qui ont déjà gardé tes découvertes peuvent retrouver tes nouveautés.' },
+    { kicker: '◆ À L’OREILLE, PAS À LA POCHETTE', title: 'Écoute d’abord. Débloque seulement si ça te parle.', body: 'Les sélections se découvrent par le son : moins de biais, plus de vraies surprises musicales.' },
+    { kicker: '◆ CONSTRUIS TA COMMUNAUTÉ', title: 'Chaque pépite peut ramener quelqu’un vers ton univers.', body: 'Quand une découverte est reconnue à ton nom, elle crée un lien durable entre ton profil et ceux qui la gardent.' },
+    { kicker: '◆ NOUVEAU DROP', title: 'Une nouvelle sélection vient de tomber.', body: 'Les nouveautés des profils que tu suis remontent automatiquement ici pour être écoutées sans chercher.' },
+    { kicker: '◆ CRÉE TON RENDEZ-VOUS', title: 'Une soirée donne une raison de revenir.', body: 'Publie ton événement et transforme ton activité musicale en rendez-vous avec ta communauté.' },
   ];
   const tip = tips[tipIndex];
 
@@ -72,7 +89,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   );
   return (
     <View style={s.wrapper}>
-      <View style={s.railHeader}><Text style={s.railHeaderTitle}>POUR TOI</Text></View>
+      <View style={s.railHeader}><Text style={s.railHeaderTitle}>POUR TOI</Text><TouchableOpacity style={s.hideRailButton} onPress={hideRail} accessibilityLabel="Masquer Pour toi"><Text style={s.hideRailText}>MASQUER</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={() => suggestion && onSuggestionPress?.(suggestion)} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ À ÉCOUTER · À DÉBLOQUER</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
