@@ -1192,12 +1192,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {!marketBannerVisible && (saleOffers.length > 0 || marketBannerEventIds.length > 0) ? (
-          <TouchableOpacity style={styles.marketplaceReopenButton} onPress={reopenMarketBanner} accessibilityLabel="Voir les découvertes">
-            <Text style={styles.marketplaceReopenIcon}>✦</Text><View style={{flex:1}}><Text style={styles.marketplaceReopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={styles.marketplaceReopenMeta}>{`Sélections · soirées · nouveautés de ${profile.username}`}</Text></View><Text style={styles.marketplaceReopenArrow}>›</Text>
-          </TouchableOpacity>
-        ) : null}
-
         {marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
@@ -1205,8 +1199,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <Text style={styles.marketplaceKicker}>SÉLECTION EXCLUSIVE</Text>
                 <Text style={styles.sectionTitle}>Découvre avant tout le monde</Text>
               </View>
-              <TouchableOpacity onPress={hideMarketBanner} style={styles.marketplaceHideButton} accessibilityLabel="Masquer les découvertes"><Text style={styles.marketplaceHideText}>Masquer</Text></TouchableOpacity>
-              {saleOffers.length > 0 ? (
+               {saleOffers.length > 0 ? (
                 <View style={styles.marketplaceCountPill}>
                   <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
                 </View>
