@@ -227,6 +227,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   const [eventTab, setEventTab] = useState<'LOBBY' | 'CLASSEMENT' | 'PLAYLIST'>('LOBBY');
   const [leaderboard, setLeaderboard] = useState<KeepBattleGlobalLeaderboardEntry[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [myRankingOpen, setMyRankingOpen] = useState(false);
   const [myRankingLoading, setMyRankingLoading] = useState(false);
   const [myFreeBreakdown, setMyFreeBreakdown] = useState<FreeCreditBreakdown | null>(null);
@@ -976,13 +977,17 @@ export default function PartiesScreen({ navigation, route }: any) {
       {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
       {!leaderboardLoading && leaderboard.length ? (
         <View style={styles.leaderboardPanel}>
-          <View style={styles.leaderboardHeader}>
-            <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
-              <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.leaderboardHint}>👆 Touche un joueur pour voir ses stats</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={leaderboardOpen ? "Masquer le classement global" : "Afficher le classement global"} style={styles.leaderboardHeader} onPress={() => setLeaderboardOpen((value) => !value)}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
+              <Text style={styles.leaderboardHint}>{leaderboardOpen ? 'Touche un joueur pour voir ses stats' : 'Podium et classement des joueurs'}</Text>
+            </View>
+            <Text style={styles.leaderboardChevron}>{leaderboardOpen ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {leaderboardOpen ? <>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Ouvrir mon classement et mon historique de Free" style={styles.myRankingButton} onPress={openMyRanking}>
+            <Text style={styles.myRankingButtonText}>MON CLASSEMENT</Text>
+          </TouchableOpacity>
           {leaderboard.length ? (
             <View style={styles.podium}>
               {[1, 0, 2].map((rank) => {
@@ -1025,6 +1030,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               <Text style={styles.leaderboardChevron}>›</Text>
             </TouchableOpacity>
           ))}
+          </> : null}
         </View>
       ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
     </>
