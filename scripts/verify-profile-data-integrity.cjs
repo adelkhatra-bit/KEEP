@@ -45,7 +45,7 @@ const viewedProfile = read('packages/mobile/src/screens/PublicUserProfileScreen.
 for (const marker of ['loadPublicProfileKeeps', 'canonicalKeeps']) {
   if (!viewedProfile.includes(marker)) failures.push(`PUBLIC PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"'", "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
+for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
   if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
