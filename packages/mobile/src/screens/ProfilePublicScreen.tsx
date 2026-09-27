@@ -1233,6 +1233,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired ? (
         <ProfileOpportunityRail
+          viewerKey={user.id}
           suggestions={profileSaleSuggestions}
           onSuggestionPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
           onListenPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
