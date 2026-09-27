@@ -32,3 +32,39 @@ export function navigateToSharedProfile(username: string, attempt = 0) {
   }
   (navigationRef.navigate as any)('PublicProfile', { username: clean });
 }
+
+
+export function navigateFromNotificationData(data: Record<string, unknown> | null | undefined, attempt = 0) {
+  const payload = data || {};
+  if (!navigationRef.isReady()) {
+    if (attempt >= 20) return;
+    setTimeout(() => navigateFromNotificationData(payload, attempt + 1), 150);
+    return;
+  }
+  const arenaId = String(payload.arenaId ?? payload.arena_id ?? '').trim();
+  if (arenaId) {
+    (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
+    return;
+  }
+  const eventId = String(payload.eventId ?? payload.event_id ?? '').trim();
+  if (eventId) {
+    (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { eventId, openEvent: true } });
+    return;
+  }
+  const username = String(payload.username ?? payload.profileUsername ?? payload.creator_username ?? '').trim().replace(/^@+/, '');
+  if (username) {
+    (navigationRef.navigate as any)('PublicProfile', { username });
+    return;
+  }
+  const offerId = String(payload.offerId ?? payload.offer_id ?? '').trim();
+  if (offerId) {
+    (navigationRef.navigate as any)('Main', { screen: 'MyMusic', params: { manageSaleOfferId: offerId } });
+    return;
+  }
+  const entryId = String(payload.entryId ?? payload.entry_id ?? '').trim();
+  if (entryId) {
+    (navigationRef.navigate as any)('Main', { screen: 'Listen', params: { entryId } });
+    return;
+  }
+  (navigationRef.navigate as any)('Notifications');
+}
