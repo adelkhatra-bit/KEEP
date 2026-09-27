@@ -49,6 +49,7 @@
   },
   "requiredWorkflows": [
     "actionlint.yml",
+    "ai-ops-digest.yml",
     "mobile-ci.yml",
     "full-stack-ci.yml",
     "free-tooling-audit.yml",
@@ -158,6 +159,13 @@
             "path": ".github/ISSUE_TEMPLATE/agent_task.md",
             "contains": [
               "labels: agent-task"
+            ]
+          },
+          {
+            "path": ".github/ISSUE_TEMPLATE/design_review.yml",
+            "contains": [
+              "name: Revue design IA",
+              "scope:product"
             ]
           },
           {
@@ -309,6 +317,27 @@
             "contains": [
               "## Coordination IA",
               "docs/ops/GITHUB_AI_COMMAND_CENTER.md"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ai-ops-digest",
+        "name": "Scheduled AI ops digest for anticipation",
+        "category": "automation",
+        "evidence": [
+          {
+            "path": ".github/workflows/ai-ops-digest.yml",
+            "contains": [
+              "KEEP — AI ops digest",
+              "Build AI ops digest"
+            ]
+          },
+          {
+            "path": "scripts/build-ai-ops-digest.cjs",
+            "contains": [
+              "Digest Ops / IA KEEP",
+              "AI OPS DIGEST:"
             ]
           }
         ]

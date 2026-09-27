@@ -1,0 +1,63 @@
+name: Revue design IA
+description: Demande structurée pour un audit ou une évolution UX/UI orientée IA KEEP
+title: "[design] "
+labels:
+  - agent-task
+  - scope:product
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Décris ici le besoin design de façon exploitable par une IA sans ambiguïté.
+  - type: input
+    id: surface
+    attributes:
+      label: Zone à revoir
+      description: Écran, composant ou flux concerné
+      placeholder: ex. Profil visité / Battle / Onboarding
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Plateforme prioritaire
+      options:
+        - Web
+        - iPhone
+        - Android
+        - Desktop large
+        - Toutes
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème observé
+      description: Ce qui est confus, trop faible, trop lourd ou non viral
+      placeholder: Décris les symptômes réels, pas seulement la solution imaginée.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu
+      description: Ce que l’IA doit améliorer sans supprimer les fonctions existantes
+      placeholder: ex. clarifier le hero, rendre l’action principale évidente, garder toutes les données
+    validations:
+      required: true
+  - type: textarea
+    id: guardrails
+    attributes:
+      label: Garde-fous
+      description: Ce que l’IA ne doit surtout pas casser ou toucher
+      placeholder: ex. ne pas toucher Navigation.tsx, garder les 5 onglets, aucune suppression de fonction
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Preuve
+      description: Capture, run, URL, log, commit ou retour utilisateur
+      placeholder: Colle ici les éléments de preuve disponibles.
+    validations:
+      required: false

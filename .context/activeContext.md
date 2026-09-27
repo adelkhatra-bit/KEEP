@@ -133,3 +133,9 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `/.github/workflows/release-drafter.yml` + `/.github/release-drafter.yml` maintiennent automatiquement un brouillon de release notes relié aux labels `scope:*`.
 - `/.github/ISSUE_TEMPLATE/config.yml` expose directement aux humains/IA les liens vers le centre de commande GitHub IA et le relais ChatGPT ↔ Claude.
 - L’inventaire `freeTooling` couvre désormais aussi ces briques et doit rester à `100%` dans l’audit automatisé.
+
+## 2026-09-27 — Anticipation IA renforcée
+- `/.github/workflows/ai-ops-digest.yml` exécute un digest planifié des signaux GitHub utiles aux IA (workflows rouges, PRs ouvertes, issues agents, bugs, couverture free tooling).
+- `scripts/build-ai-ops-digest.cjs` publie ce digest dans `artifacts/ai-ops-digest/`.
+- `/.github/ISSUE_TEMPLATE/design_review.yml` structure les demandes UX/UI pour réduire l’ambiguïté et mieux router les futures IA design/produit.
+- Le périmètre `freeTooling` doit désormais aussi couvrir ce digest ops/IA.

@@ -15,6 +15,8 @@ jour : 2026-09-20. Branche `reconcile/claude-main-20260825`.
 - **Posture supply-chain open source** : `/.github/workflows/scorecards.yml`
 - **Brouillon automatique des notes de release** : `/.github/workflows/release-drafter.yml` + `/.github/release-drafter.yml`
 - **Point d’entrée GitHub explicite pour humains/IA** : `/.github/ISSUE_TEMPLATE/config.yml`
+- **Digest planifié des signaux GitHub utiles aux IA** : `/.github/workflows/ai-ops-digest.yml` + `scripts/build-ai-ops-digest.cjs`
+- **Entrée design structurée** : `/.github/ISSUE_TEMPLATE/design_review.yml`
 
 Pour toute IA qui reprend le dépôt : lire aussi `docs/ops/GITHUB_AI_COMMAND_CENTER.md`,
 `PROJECT_STATE.md`, `.context/activeContext.md` et `AGENT_MESSAGES.md` avant

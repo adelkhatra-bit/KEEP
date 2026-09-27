@@ -156,6 +156,7 @@ Cela couvre notamment :
 - artifacts ;
 - templates + CODEOWNERS ;
 - Release Drafter ;
+- digest Ops / IA planifié ;
 - relais IA ;
 - triage automatique des issues ;
 - triggers `workflow_dispatch` / `schedule` ;
@@ -168,6 +169,23 @@ Les autres IA doivent donc désormais auditer en priorité :
 - `/.github/workflows/release-drafter.yml`
 - `/.github/release-drafter.yml`
 - `/.github/ISSUE_TEMPLATE/config.yml`
+- `/.github/workflows/ai-ops-digest.yml`
+- `scripts/build-ai-ops-digest.cjs`
+- `/.github/ISSUE_TEMPLATE/design_review.yml`
+
+## Digest Ops / IA
+
+Le workflow `/.github/workflows/ai-ops-digest.yml` construit un digest
+machine/humain avec :
+
+- les workflows rouges récents sur la branche source ;
+- les PR ouvertes ;
+- les issues agents ouvertes ;
+- les bugs ouverts ;
+- la dernière couverture `freeTooling`.
+
+Le rapport est publié dans `artifacts/ai-ops-digest/report.md` et doit être relu
+par toute IA qui reprend un chantier CI/ops important.
 
 ## Définition du “100% coordination”
 

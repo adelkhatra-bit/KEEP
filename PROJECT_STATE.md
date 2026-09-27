@@ -191,6 +191,11 @@ agent) et messages des sessions de chat (non versionnés).
   automatiques et des points d’entrée explicites vers le centre de commande IA.
   L’inventaire `freeTooling` doit désormais rester à **100%** sur ce périmètre
   étendu ; premiers runs GitHub à observer.
+- **Anticipation Ops / IA (27/09/2026)** : ajout du workflow
+  `ai-ops-digest.yml`, du script `scripts/build-ai-ops-digest.cjs` et du
+  formulaire `.github/ISSUE_TEMPLATE/design_review.yml` pour donner aux futures
+  IA un résumé planifié des signaux GitHub et une entrée design plus structurée.
+  À observer sur les premiers runs réels GitHub après intégration.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

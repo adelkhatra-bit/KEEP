@@ -1,0 +1,54 @@
+name: KEEP — AI ops digest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 5 * * 1-5'
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/ai-ops-digest.yml'
+      - '.github/workflows/free-tooling-audit.yml'
+      - '.github/workflows/agent-command-triage.yml'
+      - '.github/ISSUE_TEMPLATE/design_review.yml'
+      - 'scripts/build-ai-ops-digest.cjs'
+      - 'scripts/audit-free-tooling-coverage.cjs'
+      - 'config/keep-capabilities.json'
+      - 'docs/ops/GITHUB_AI_COMMAND_CENTER.md'
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: ai-ops-digest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Refresh free tooling audit snapshot
+        run: node scripts/audit-free-tooling-coverage.cjs
+      - name: Build AI ops digest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          KEEP_SOURCE_BRANCH: reconcile/claude-main-20260825
+        run: node scripts/build-ai-ops-digest.cjs
+      - name: Publish summary
+        run: cat artifacts/ai-ops-digest/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ai-ops-digest-${{ github.run_id }}
+          path: artifacts/ai-ops-digest
+          if-no-files-found: error
+          retention-days: 7
