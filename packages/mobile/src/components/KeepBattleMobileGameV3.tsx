@@ -1277,7 +1277,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // a numeric limit or JSON-ish text. Never let that internal token reach
     // an Alert: classify from a punctuation-free canonical string.
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
+    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(rawMessage) || compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
       // Ne jamais exposer un code SQL/RPC brut à l'utilisateur. Le pré-contrôle
       // startSolo peut devenir périmé entre le tap et la consommation atomique,
       // donc cette garde serveur reste nécessaire mais doit produire le même UX.
