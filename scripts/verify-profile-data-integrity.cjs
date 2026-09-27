@@ -36,7 +36,7 @@ for (const marker of ["profileKeptTracks.filter((entry) => entry.visibility === 
   if (!profile.includes(marker)) failures.push(`OWN PROFILE PRIVACY MARKER MISSING: ${marker}`);
 }
 if (profile.includes('accessibilityLabel="Modifier mon profil"')) failures.push('DUPLICATE MODIFIER BUTTON REINTRODUCED');
-for (const marker of ["topMetricsBar", "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
+for (const marker of ["topMetricsBar", ">Abonnés</Text>", ">Reprises</Text>", ">Morceaux</Text>", ">Abonnements</Text>"]) {
   if (!profile.includes(marker)) failures.push(`OWN PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (profile.includes('function Stat({value,label}')) failures.push('OWN PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
@@ -51,7 +51,7 @@ for (const marker of ["import ProfileCounterRow from '../components/ProfileCount
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
 const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
-for (const marker of ["kind?: 'connections' | 'keeps'", "accessibilityRole=\"button\"", "onPress={item.onPress}"]) {
+for (const marker of ["kind?: 'connections' | 'keeps'", "accessibilityRole=\"button\"", "onPress={handlePress}", "item.onPress?.()"]) {
   if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER INTERACTION CONTRACT MISSING: ${marker}`);
 }
 
