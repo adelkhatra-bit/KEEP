@@ -1140,27 +1140,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
       </View>
 
-      {battleFeatureEnabled && !accountRequired ? (
-        <View style={s.ownerBattleTopRow}>
-          <TouchableOpacity
-            style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
-            disabled={battleAvailabilityBusy}
-            onPress={() => { void setBattleAvailable(!battleAvailable); }}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: battleAvailable }}
-            accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-          >
-            <PresenceDot online={battleAvailable} />
-            <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
           <View style={s.identityText}>
-            <View style={s.usernameLine}><Text style={s.username}>{user.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
+            <View style={s.usernameLine}>
+              <Text style={s.username}>{user.username}</Text>
+              <ProfileCertificationBadge tier={certificationTier} compact />
+              {battleFeatureEnabled && !accountRequired ? (
+                <TouchableOpacity
+                  style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
+                  disabled={battleAvailabilityBusy}
+                  onPress={() => { void setBattleAvailable(!battleAvailable); }}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: battleAvailable }}
+                  accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+                >
+                  <PresenceDot online={battleAvailable} />
+                  <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <View style={s.profileMetaLeft}>
               {/* Adel (07/09/2026) : "quand il a la pastille payante ... il a
                   la possibilité de cliquer dessus et il peut changer DJ etc."
