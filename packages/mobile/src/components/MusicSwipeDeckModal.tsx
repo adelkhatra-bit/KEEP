@@ -496,22 +496,14 @@ export default function MusicSwipeDeckModal({
             </SwipeDeck>
           </View>
 
-          {sourceUsername ? (
-            <View style={s.sourceIdentityBottom}>
-              {sourceAvatarUrl ? <Image source={{ uri: sourceAvatarUrl }} style={s.sourceAvatar} /> : <View style={s.sourceAvatarFallback}><Text style={s.sourceAvatarText}>{sourceUsername.replace(/^@/, '').slice(0,1).toUpperCase()}</Text></View>}
-              <View style={s.sourceIdentityCopy}>
-                <Text style={s.sourceIdentityKicker}>TU ÉCOUTES L’UNIVERS DE</Text>
-                <Text style={s.sourceIdentityName}>{sourceUsername.replace(/^@/, '')}</Text>
-              </View>
-            </View>
-          ) : null}
+
           <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
-                <Text style={s.passButtonText}>✕ PASSER</Text>
+                <Text style={s.passButtonText}>PASSER</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel={resolvedBackLabel}>
-                <Text style={s.backDecisionText}>‹ {resolvedBackLabel}</Text>
+                <Text style={s.backDecisionText}>‹ PROFIL</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
@@ -519,7 +511,7 @@ export default function MusicSwipeDeckModal({
                 disabled={controlsLocked}
                 accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]}>{currentAlreadyKept ? '✓ DÉJÀ DANS TA COLLECTION' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
