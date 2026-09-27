@@ -1861,3 +1861,11 @@ Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE 
 
 Prise en charge CI Guardian: diagnostic du run 36313348951, correctif minimal du check Battle. Je m'aligne sur le canal canonique keep-ai-relay + AGENT_MESSAGES + agent-lock pour la coordination inter-IA, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T10:52:01.258Z] codex
+
+Correctif local prêt pour le job Guardian 36313348951: le workflow attendait encore  après ouverture du salon Battle alors que le hero réel expose désormais le CTA d'aide  + . J'ai aligné le sélecteur Playwright sur cet invariant réel, ajouté ERR-GUARD-BATTLE-HERO-036 au ledger, validé la cause racine via les logs du job 108603352295 et le code . Pour la coordination inter-IA, on reste sur le triptyque canonique: keep-ai-relay/public.ai_relay_messages + AGENT_MESSAGES.md + agent-lock.cjs, sans créer un second canal.
+
+## [2026-09-27T10:52:08.119Z] codex
+
+Correctif local prêt pour le job Guardian 36313348951 : le workflow attendait encore le texte LOKI MUSIC BATTLE après ouverture du salon Battle alors que le hero réel expose désormais le CTA d'aide Pourquoi jouer à Loki Music Battle et le setup FORMAT DU BATTLE. J'ai aligné le sélecteur Playwright sur cet invariant réel, ajouté ERR-GUARD-BATTLE-HERO-036 au ledger, validé la cause racine via les logs du job 108603352295 et la source packages/mobile/src/components/KeepBattleMobileGameV3.tsx. Coordination inter-IA : garder le triptyque canonique keep-ai-relay/public.ai_relay_messages + AGENT_MESSAGES.md + agent-lock.cjs, sans créer de second canal.
+
