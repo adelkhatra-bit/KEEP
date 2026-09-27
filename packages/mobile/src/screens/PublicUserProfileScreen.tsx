@@ -1140,8 +1140,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>✦ PÉPITES EN MOUVEMENT</Text>
-                <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
+                <Text style={styles.marketplaceKicker}>SÉLECTION EXCLUSIVE</Text>
+                <Text style={styles.sectionTitle}>Découvre avant tout le monde</Text>
               </View>
               {saleOffers.length > 0 ? (
                 <View style={styles.marketplaceCountPill}>
@@ -1149,7 +1149,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
               ) : null}
             </View>
-            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute avant de savoir · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
+            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute 15 secondes avant d’acheter · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
             {saleOffers.length === 0 ? (
               <TouchableOpacity
                 style={styles.marketplaceEmpty}
