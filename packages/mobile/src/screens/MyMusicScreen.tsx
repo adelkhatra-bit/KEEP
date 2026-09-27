@@ -630,10 +630,41 @@ export default function MyMusicScreen({ navigation, route }: any) {
   };
 
   const toggleSaleTrack = async (trackId: string) => {
-    // Une pépite cochée devient immédiatement privée : elle disparaît de tous
-    // les Swipes/profils publics avant même la publication de la collection.
-    // La décocher la remet publique. Le serveur reste la source de vérité.
-    if (myOfferedTrackIds[trackId] || trackVisibilityBusy === trackId) return;
+    const offered = myOfferedTrackIds[trackId];
+    const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
+    const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);
+    if (lockedByAnotherOffer || trackVisibilityBusy === trackId) return;
+
+    // Édition d'un album publié : une case cochée = morceau réellement inclus.
+    // Décocher retire immédiatement le morceau de CET album ; cocher un morceau
+    // disponible l'ajoute immédiatement. L'offre, son prix et son historique
+    // restent intacts grâce aux RPC add/remove existantes.
+    if (saleEditOfferTarget) {
+      setTrackVisibilityBusy(trackId);
+      try {
+        if (includedInEditedOffer) {
+          const result = await removeTrackFromOffer(saleEditOfferTarget.offerId, trackId);
+          setSelectedSaleTrackIds((current) => { const next = new Set(current); next.delete(trackId); return next; });
+          setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[trackId]; return next; });
+          if (result.offerClosed) {
+            Alert.alert('Collection', 'Le dernier morceau a été retiré : la collection est maintenant fermée.');
+            setSaleSelectionMode(false);
+            setSaleEditOfferTarget(null);
+          }
+        } else {
+          await addTracksToOffer(saleEditOfferTarget.offerId, [trackId]);
+          setSelectedSaleTrackIds((current) => new Set(current).add(trackId));
+        }
+        await refreshSaleState();
+      } catch (e: any) {
+        Alert.alert('Collection', e?.message ?? 'Impossible de modifier les morceaux de cette collection.');
+      } finally {
+        setTrackVisibilityBusy(null);
+      }
+      return;
+    }
+
+    // Création d'une nouvelle collection : sélection locale puis publication.
     const wasSelected = selectedSaleTrackIds.has(trackId);
     setTrackVisibilityBusy(trackId);
     try {
@@ -1441,8 +1472,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <View style={styles.stickySelectionActions}>
             <TouchableOpacity style={styles.selectionCancelButton} onPress={() => void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
             {saleEditOfferTarget ? (
-              <TouchableOpacity style={[styles.selectionAddButton, !selectedSaleTrackIds.size && styles.selectionCreateDisabled]} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}>
-                <Text style={styles.selectionAddText}>＋ AJOUTER ({selectedSaleTrackIds.size})</Text>
+              <TouchableOpacity style={styles.selectionAddButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: saleEditOfferTarget.offerId, manageSaleOfferName: saleEditOfferTarget.playlistName })}>
+                <Text style={styles.selectionAddText}>PRIX · € / FREE · STATUT</Text>
               </TouchableOpacity>
             ) : (
               <>
