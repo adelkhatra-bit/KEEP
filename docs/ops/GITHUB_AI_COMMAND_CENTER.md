@@ -163,6 +163,7 @@ Cela couvre notamment :
 - templates + CODEOWNERS ;
 - Release Drafter ;
 - digest Ops / IA planifié ;
+- déploiement web guidé par l’impact ;
 - sync automatique des labels GitHub ;
 - hygiène prudente des issues/PRs dormantes ;
 - relais IA ;
@@ -180,11 +181,28 @@ Les autres IA doivent donc désormais auditer en priorité :
 - `/.github/workflows/ai-ops-digest.yml`
 - `scripts/build-ai-ops-digest.cjs`
 - `/.github/ISSUE_TEMPLATE/design_review.yml`
+- `/.github/workflows/ci-impact-analysis.yml`
+- `scripts/resolve-ci-impact.cjs`
+- `scripts/resolve-web-deploy-scope.cjs`
 - `/.github/workflows/dependency-review.yml`
 - `/.github/workflows/sync-github-labels.yml`
 - `scripts/sync-github-labels.cjs`
 - `/.github/workflows/stale-hygiene.yml`
 - `/.github/ISSUE_TEMPLATE/incident_report.yml`
+
+## Déploiement web intelligent
+
+Le workflow `/.github/workflows/web-preview-pages.yml` s’appuie maintenant sur :
+
+- `scripts/resolve-ci-impact.cjs` pour calculer les modules réellement touchés ;
+- `scripts/resolve-web-deploy-scope.cjs` pour décider si le push exige :
+  - un **full-site** avec matrice navigateur complète ;
+  - un scope **admin-only** plus léger ;
+  - et donc quels smokes/tests lourds sont vraiment nécessaires.
+
+Objectif : conserver la chaîne GitHub Pages unique, garder un `push => visible`
+rapide et réduire les rebuilds / audits navigateur inutiles quand le runtime
+public n’est pas impacté.
 
 ## Architecture CI modulaire (priorité KEEP)
 

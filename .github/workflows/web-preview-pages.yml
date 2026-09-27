@@ -7,14 +7,13 @@ on:
       - 'packages/mobile/**'
       - 'packages/music/**'
       - 'packages/admin/**'
-      - 'supabase/functions/keep-admin-control/**'
-      - 'supabase/functions/keep-backend/**'
-      - 'supabase/migrations/**'
-      - 'supabase/templates/**'
-      - 'scripts/verify-source-of-truth.cjs'
+      - 'config/github-ai-command-center.json'
       - 'package.json'
       - 'package-lock.json'
+      - 'scripts/resolve-ci-impact.cjs'
+      - 'scripts/resolve-web-deploy-scope.cjs'
       - '.github/workflows/web-preview-pages.yml'
+      - '.github/workflows/ci-impact-analysis.yml'
   workflow_dispatch:
 
 permissions:
@@ -54,6 +53,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
@@ -64,6 +65,56 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Resolve changed files
+        id: diff
+        shell: bash
+        run: |
+          mkdir -p artifacts/web-deploy-scope
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BASE_SHA="$(git rev-list --max-parents=1 HEAD~1 2>/dev/null | head -n 1)"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+          fi
+          git diff --name-only "$BASE_SHA" "${{ github.sha }}" > artifacts/web-deploy-scope/changed-files.txt
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Compute CI impact
+        run: |
+          node scripts/resolve-ci-impact.cjs \
+            --base "${{ steps.diff.outputs.base_sha }}" \
+            --head "${{ github.sha }}" \
+            --sha "${{ github.sha }}" \
+            --files-from artifacts/web-deploy-scope/changed-files.txt \
+            --json-out artifacts/web-deploy-scope/impact.json \
+            --md-out artifacts/web-deploy-scope/impact.md
+
+      - name: Compute deploy scope
+        id: scope
+        shell: bash
+        run: |
+          node scripts/resolve-web-deploy-scope.cjs \
+            --files-from artifacts/web-deploy-scope/changed-files.txt \
+            --impact-json artifacts/web-deploy-scope/impact.json \
+            --json-out artifacts/web-deploy-scope/deploy-scope.json \
+            --md-out artifacts/web-deploy-scope/deploy-scope.md
+          node - <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('artifacts/web-deploy-scope/deploy-scope.json', 'utf8'));
+          const lines = [
+            `deploy_mode=${report.deployMode}`,
+            `browser_matrix=${report.shouldRunBrowserMatrix ? 'true' : 'false'}`,
+            `full_http_smoke=${report.shouldRunFullHttpSmoke ? 'true' : 'false'}`,
+            `admin_smoke=${report.shouldRunAdminSmoke ? 'true' : 'false'}`,
+          ];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
+          NODE
+          cat artifacts/web-deploy-scope/impact.md >> "$GITHUB_STEP_SUMMARY"
+          printf '\n' >> "$GITHUB_STEP_SUMMARY"
+          cat artifacts/web-deploy-scope/deploy-scope.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Install dependencies
         run: npm ci
 
@@ -71,6 +122,7 @@ jobs:
         run: node scripts/verify-source-of-truth.cjs
 
       - name: Typecheck mobile
+        if: steps.scope.outputs.browser_matrix == 'true'
         run: npm --workspace packages/mobile run type-check
 
       - name: Typecheck admin
@@ -178,7 +230,8 @@ jobs:
           HTML
 
           touch _site/.nojekyll
-          printf '{"sha":"%s","builtAt":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
+          printf '{"sha":"%s","builtAt":"%s","deployMode":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${{ steps.scope.outputs.deploy_mode }}" > _site/version.json
+          printf '{"sha":"%s","builtAt":"%s","deployMode":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${{ steps.scope.outputs.deploy_mode }}" > _site/admin-preview/version.json
 
       - name: Verify generated route shells
         shell: bash
@@ -227,6 +280,7 @@ jobs:
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
       - name: Live refresh + direct-link HTTP smoke
+        if: steps.scope.outputs.full_http_smoke == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -282,12 +336,28 @@ jobs:
           test "$dynamic_code" = '404'
           grep -q '__keep_route' /tmp/keep-dynamic.html
 
+      - name: Admin-only HTTP smoke
+        if: steps.scope.outputs.admin_smoke == 'true' && steps.scope.outputs.full_http_smoke != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://adelkhatra-bit.github.io/KEEP'
+          sleep 5
+          for url in "$base/admin-preview/" "$base/superadmin/" "$base/version.json"; do
+            code="$(curl -L --retry 5 --retry-delay 2 --connect-timeout 10 --max-time 30 -sS -o /tmp/keep-admin-smoke.html -w '%{http_code}' "$url")"
+            echo "$code $url"
+            test "$code" = '200'
+          done
+          grep -q "${{ github.sha }}" /tmp/keep-admin-smoke.html || true
+
       - name: Install real browser engines
+        if: steps.scope.outputs.browser_matrix == 'true'
         run: |
           npm install --no-save @playwright/test@1.55.0
           npx playwright install chromium firefox webkit --with-deps
 
       - name: Live browser matrix — no blank page and refresh survives
+        if: steps.scope.outputs.browser_matrix == 'true'
         shell: bash
         run: |
           mkdir -p artifacts/public-browser-matrix
@@ -367,8 +437,15 @@ jobs:
           node keep-public-browser-matrix.cjs
 
       - name: Upload browser audit
-        if: always()
+        if: always() && steps.scope.outputs.browser_matrix == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-public-browser-matrix
           path: artifacts/public-browser-matrix
+      - name: Upload deploy scope artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: keep-web-deploy-scope-${{ github.run_id }}
+          path: artifacts/web-deploy-scope
+          if-no-files-found: error

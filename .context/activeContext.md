@@ -149,3 +149,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `/.github/workflows/dependency-review.yml` analyse automatiquement les changements de dépendances en PR et échoue sur les vulnérabilités `high`+.
 - `/.github/workflows/sync-github-labels.yml` + `scripts/sync-github-labels.cjs` synchronisent les labels du command center (`ai:*`, `scope:*`, `stale`, `no-stale`, `blocked`, `security`, `work-in-progress`).
 - `config/github-ai-command-center.json` contient désormais `labelDefinitions`, utilisé à la fois par le triage et par la sync des labels pour éviter la duplication.
+
+## 2026-09-27 — Déploiement web guidé par l’impact
+- `scripts/resolve-web-deploy-scope.cjs` complète `resolve-ci-impact.cjs` pour classifier chaque push en `full-site` ou `admin-only`.
+- `web-preview-pages.yml` n’est plus déclenché par des changements Supabase/backend sans impact GitHub Pages.
+- La matrice navigateur et le smoke HTTP complet ne tournent plus quand le runtime public n’est pas réellement touché ; l’admin garde un smoke ciblé.

@@ -207,6 +207,11 @@ agent) et messages des sessions de chat (non versionnés).
   synchroniser les labels du command center à partir de
   `config/github-ai-command-center.json`. À observer sur les premiers runs
   GitHub réels après intégration.
+- **Déploiement web intelligent (27/09/2026)** : `web-preview-pages.yml`
+  consomme désormais l’analyse d’impact (`ci-impact-analysis.yml`,
+  `resolve-ci-impact.cjs`, `resolve-web-deploy-scope.cjs`) pour éviter les
+  rebuilds et matrices navigateur inutiles quand le runtime public n’est pas
+  touché, tout en gardant la chaîne GitHub Pages unique.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

@@ -1921,3 +1921,7 @@ Nouveau lot autonomie GitHub ajouté:  pour analyser automatiquement les dépend
 
 Je traite la nouvelle exigence prioritaire architecture CI KEEP : intégration de la matrice modules/dependances/tests dans le command center existant + analyseur d'impact CI + contrat navigateur PROFILE_MARKETPLACE desktop/390x844 avec preuve d'audio réellement démarré. Je garde le relais canonique keep-ai-relay/AGENT_MESSAGES.md/agent-lock et je n'introduis pas de système parallèle.
 
+## [2026-09-27T14:26:26.606Z] codex
+
+Je prends le chantier CI impact/scope intelligent pour éviter les rebuilds inutiles sur chaque push et fiabiliser le 'poussé => visible', sans toucher aux écrans UI réservés.
+
