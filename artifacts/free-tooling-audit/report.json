@@ -1,8 +1,8 @@
 {
   "target": 100,
   "coverage": 100,
-  "passedCount": 15,
-  "totalCount": 15,
+  "passedCount": 17,
+  "totalCount": 17,
   "results": [
     {
       "id": "github-actions-ci",
@@ -366,6 +366,58 @@
           ],
           "ok": true,
           "reason": "evidence OK: .github/workflows/stale-hygiene.yml"
+        }
+      ]
+    },
+    {
+      "id": "dependency-review",
+      "name": "Pull request dependency security review",
+      "category": "security",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/dependency-review.yml",
+          "contains": [
+            "KEEP — Dependency review",
+            "actions/dependency-review-action"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/dependency-review.yml"
+        }
+      ]
+    },
+    {
+      "id": "label-sync",
+      "name": "Command center label bootstrap and sync",
+      "category": "automation",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/sync-github-labels.yml",
+          "contains": [
+            "KEEP — Sync GitHub labels",
+            "Sync GitHub labels from command center config"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/sync-github-labels.yml"
+        },
+        {
+          "path": "scripts/sync-github-labels.cjs",
+          "contains": [
+            "SYNC LABELS:",
+            "keep-sync-github-labels"
+          ],
+          "ok": true,
+          "reason": "evidence OK: scripts/sync-github-labels.cjs"
+        },
+        {
+          "path": "config/github-ai-command-center.json",
+          "contains": [
+            "\"labelDefinitions\"",
+            "\"no-stale\""
+          ],
+          "ok": true,
+          "reason": "evidence OK: config/github-ai-command-center.json"
         }
       ]
     }

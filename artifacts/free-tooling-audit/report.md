@@ -2,7 +2,7 @@
 
 - Branche source produit : `reconcile/claude-main-20260825`
 - Cible de couverture : **100%**
-- Couverture observée : **100%** (15/15)
+- Couverture observée : **100%** (17/17)
 
 ## Résultats
 
@@ -93,4 +93,16 @@
 - id : `stale-hygiene`
 - catégorie : `automation`
 - OK — `.github/workflows/stale-hygiene.yml` → KEEP — Stale hygiene ; actions/stale@
+
+### ✅ Pull request dependency security review
+- id : `dependency-review`
+- catégorie : `security`
+- OK — `.github/workflows/dependency-review.yml` → KEEP — Dependency review ; actions/dependency-review-action
+
+### ✅ Command center label bootstrap and sync
+- id : `label-sync`
+- catégorie : `automation`
+- OK — `.github/workflows/sync-github-labels.yml` → KEEP — Sync GitHub labels ; Sync GitHub labels from command center config
+- OK — `scripts/sync-github-labels.cjs` → SYNC LABELS: ; keep-sync-github-labels
+- OK — `config/github-ai-command-center.json` → "labelDefinitions" ; "no-stale"
 

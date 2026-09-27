@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-27T12:07:13.469Z
+- Régénéré le : 2026-09-27T12:13:25.525Z
 - Branche : `copilot/fix-github-actions-job-failure-again`
-- Dernier commit : `84c36d4f` (84c36d4fb6e37b89ad875654a3d846b4a8e28f11) — feat(ops): add stale hygiene and incident intake
-- Date du dernier commit : 2026-09-27T12:06:56Z
+- Dernier commit : `4080195a` (4080195a3752037e76bcad1172ce3b78abd31f29) — docs(ops): publish dependency review and label sync handoff
+- Date du dernier commit : 2026-09-27T12:13:06Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,10 +125,10 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `4080195a` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish dependency review and label sync handoff
+- `7d16c925` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add dependency review and label sync
+- `ace8b7c5` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish stale hygiene handoff
 - `84c36d4f` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add stale hygiene and incident intake
-- `8efdd23b` (2026-09-27, copilot-swe-agent[bot]) — chore: plan stale hygiene and incident intake
-- `629e0d4c` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish ai ops digest handoff
-- `c7489d11` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add ai ops digest and design intake
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
