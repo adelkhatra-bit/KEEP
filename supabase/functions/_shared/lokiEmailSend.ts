@@ -126,6 +126,10 @@ export async function sendBrevo(to: string, subject: string, html: string, text:
 export async function sendTransactionalEmail(to: string, subject: string, html: string, text: string, tag: string, logTag: string): Promise<EmailSendResult> {
   const mjKey = await integrationSecret("MAILJET_API_KEY");
   const mjSecret = await integrationSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) return sendMailjet(to, subject, html, text, logTag);
+  if (mjKey && mjSecret) {
+    const mailjet = await sendMailjet(to, subject, html, text, logTag);
+    if (mailjet.ok) return mailjet;
+    console.warn(`[${logTag}] Mailjet unavailable, falling back to Brevo`);
+  }
   return sendBrevo(to, subject, html, text, tag, logTag);
 }
