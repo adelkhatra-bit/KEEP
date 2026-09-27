@@ -1279,7 +1279,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try { serialized = JSON.stringify(error); } catch { serialized = String(error ?? ''); }
     const rawMessage = [err?.message, err?.details, err?.hint, err?.code, typeof error === 'string' ? error : '', serialized].filter(Boolean).join(' ');
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
+    const soloLimitReached = compactMessage.includes('BATTLESOLODAILYLIMITREACHED') || (compactMessage.includes('DAILYLIMITREACHED') && compactMessage.includes('BATTLE'));
+    if (soloLimitReached) {
       // Ne jamais exposer un code SQL/RPC brut à l'utilisateur. Le pré-contrôle
       // startSolo peut devenir périmé entre le tap et la consommation atomique,
       // donc cette garde serveur reste nécessaire mais doit produire le même UX.
