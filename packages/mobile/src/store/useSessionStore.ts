@@ -310,15 +310,15 @@ let consecutiveWeakSamples = 0;
 // à 0.004 dans micCapture.ts) : sous cette valeur, même après amplification
 // x10, le signal est trop faible pour qu'une empreinte fiable en sorte --
 // c'est distinct d'un vrai "aucune correspondance" catalogue.
-const WEAK_SIGNAL_PEAK = 0.05;
+const WEAK_SIGNAL_PEAK = 0.018;
 
 function recognitionSampleDurationMs() {
   // Premier essai court = résultat plus vite. Après un no-match, Loki donne au
   // fournisseur un extrait plus long pour améliorer la couverture sans rendre
   // chaque tentative lente par défaut.
-  if (consecutiveNoMatches >= 3) return 7500;
-  if (consecutiveNoMatches >= 1) return 6000;
-  return 4500;
+  if (consecutiveNoMatches >= 3) return 10500;
+  if (consecutiveNoMatches >= 1) return 8000;
+  return 5500;
 }
 
 function clearTimers() {
