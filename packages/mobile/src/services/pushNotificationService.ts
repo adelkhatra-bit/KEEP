@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
+import { navigateFromNotificationData } from '../navigation/navigationRef';
 
 /**
  * Enregistrement du token push réel + pont temps réel web.
@@ -24,6 +25,9 @@ export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
 let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
 let webToastTimer: ReturnType<typeof setTimeout> | null = null;
 let trackActionSubscription: Notifications.EventSubscription | null = null;
+let notificationTapSubscription: Notifications.EventSubscription | null = null;
+let lastTapKey = '';
+let lastTapAt = 0;
 
 function battleLike(type: unknown, title: unknown, data?: Record<string, unknown> | null) {
   const normalized = String(type || data?.type || data?.notificationType || '').toUpperCase();
@@ -47,6 +51,25 @@ Notifications.setNotificationHandler({
     };
   },
 });
+
+function routeNotificationTap(response: Notifications.NotificationResponse | null | undefined) {
+  if (!response) return;
+  if (response.actionIdentifier === TRACK_KEEP_ACTION || response.actionIdentifier === TRACK_PASS_ACTION) return;
+  const request = response.notification.request;
+  const data = (request.content.data || {}) as Record<string, unknown>;
+  const key = String(request.identifier || data.notificationId || data.id || JSON.stringify(data));
+  const now = Date.now();
+  if (key && key === lastTapKey && now - lastTapAt < 2500) return;
+  lastTapKey = key;
+  lastTapAt = now;
+  navigateFromNotificationData(data);
+}
+
+function installNotificationTapRouter() {
+  if (Platform.OS === 'web' || notificationTapSubscription) return;
+  notificationTapSubscription = Notifications.addNotificationResponseReceivedListener(routeNotificationTap);
+  void Notifications.getLastNotificationResponseAsync().then(routeNotificationTap).catch(() => {});
+}
 
 function showWebKeepToast(title: string, body: string, row?: Record<string, unknown>) {
   const doc = (globalThis as any)?.document as Document | undefined;
@@ -238,6 +261,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     const realtime = await startWebRealtimeNotificationBridge().catch(() => false);
     return { ok: realtime, reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable' };
   }
+  installNotificationTapRouter();
   if (!Device.isDevice) {
     return { ok: false, reason: 'simulator_no_push' };
   }
