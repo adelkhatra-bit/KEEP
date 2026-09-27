@@ -1140,15 +1140,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>
       </View>
 
-      <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
-        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setCommunityMode(null); setMenuOpen(true); setExpandedMenuItem('free'); }}><Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => setCommunityMode((v) => v === 'followers' ? null : 'followers')}><Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); setRepriseListOpen(true); }}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); switchProfileTab('TRACKS'); }}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.topMetricItem, s.topMetricLast]} onPress={() => setCommunityMode((v) => v === 'following' ? null : 'following')}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
-      </View>
-      {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>{communityMode === 'followers' ? 'Tes abonnés' : 'Tes abonnements'}</Text><TouchableOpacity hitSlop={12} onPress={() => setCommunityMode(null)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
-
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
@@ -1195,6 +1186,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
+      <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
+        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setCommunityMode(null); setMenuOpen(true); setExpandedMenuItem('free'); }}><Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => setCommunityMode((v) => v === 'followers' ? null : 'followers')}><Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); setRepriseListOpen(true); }}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
+        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); switchProfileTab('TRACKS'); }}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.topMetricItem, s.topMetricLast]} onPress={() => setCommunityMode((v) => v === 'following' ? null : 'following')}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
+      </View>
+      {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>{communityMode === 'followers' ? 'Tes abonnés' : 'Tes abonnements'}</Text><TouchableOpacity hitSlop={12} onPress={() => setCommunityMode(null)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
+
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         {/* DESIGN_SYSTEM v3 (21/09/2026) : SWIPE devient l'action plein-largeur
