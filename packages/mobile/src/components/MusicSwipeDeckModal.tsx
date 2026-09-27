@@ -40,6 +40,7 @@ type Props = {
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
+  onOpenSourceProfile?: (username: string) => void;
 };
 
 export default function MusicSwipeDeckModal({
@@ -59,6 +60,7 @@ export default function MusicSwipeDeckModal({
   onClose,
   onKeep,
   onPass,
+  onOpenSourceProfile,
 }: Props) {
   const [round, setRound] = useState(0);
   const [index, setIndex] = useState(0);
@@ -516,6 +518,7 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
+          {sourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(sourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil de ${sourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ VOIR LE PROFIL · @{sourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
           {fullTrackUrl ? <TouchableOpacity style={s.fullTrackButton} onPress={() => { void openFullTrack(); }} accessibilityLabel={`Écouter le morceau entier sur ${fullTrackPlatform || 'la plateforme'}`}><Text style={s.fullTrackButtonText}>↗ ÉCOUTER EN ENTIER · {fullTrackPlatform}</Text></TouchableOpacity> : null}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
