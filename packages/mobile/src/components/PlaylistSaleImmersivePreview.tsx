@@ -374,6 +374,7 @@ const s = StyleSheet.create({
   checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
+  buyGlowShell: { width: '100%', borderWidth: 1, borderRadius: 18, padding: 2 },
   buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   buyButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 0.25 },
