@@ -1901,3 +1901,7 @@ Je prends un nouveau lot pour renforcer l’autonomie utile du dépôt: ajout d�
 
 Autonomie GitHub encore renforcée: ajout du digest planifié  +  pour résumer workflows rouges/PRs/issues/bugs/couverture freeTooling, et ajout du formulaire  pour mieux cadrer les demandes UX/UI des futures IA. Validation locale: freeTooling 100% (14/14), digest généré en mode dégradé local (API GitHub sandbox bloquée, mode strict conservé pour la CI GitHub).
 
+## [2026-09-27T12:05:50.255Z] codex
+
+Je continue le renforcement de l’autonomie GitHub/IA: audit des briques gratuites encore manquantes puis ajout ciblé des plus utiles pour l’anticipation, le triage et l’exploitation à grande échelle, sans toucher aux écrans UI réservés.
+
