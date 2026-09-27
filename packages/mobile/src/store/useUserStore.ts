@@ -71,8 +71,11 @@ function clearLocalMusicIdentity() {
   // d'authentification d'un même compte ne doit jamais vider l'historique déjà
   // hydraté depuis AsyncStorage : c'était la cause de sessions qui semblaient
   // disparaître après un reload.
-  useSessionHistoryStore.getState().clearSessions();
-  void useSessionHistoryStore.persist.clearStorage();
+  // IMPORTANT: l'historique d'écoute appartient à l'utilisateur et ne doit
+  // jamais être détruit par une transition d'authentification ou une mise à
+  // jour. La séparation par compte doit se faire par stockage/synchronisation,
+  // pas par effacement. Seule l'action explicite de suppression d'une session
+  // peut retirer son affichage.
   usePlaylistStore.setState({ playlists: [], isLoading: false });
   musicEngine.resetLocalLibrary();
 }
