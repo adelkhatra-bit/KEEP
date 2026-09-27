@@ -64,6 +64,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const bars = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0.3))).current;
   const secretPulse = useRef(new Animated.Value(0)).current;
   const revealGlow = useRef(new Animated.Value(0)).current;
+  const ctaGlow = useRef(new Animated.Value(0)).current;
   const reduceMotionRef = useRef(false);
   const previewKeyRef = useRef(`playlist-sale-immersive:${offer.playlistId}`);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,8 +167,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       Animated.timing(revealGlow, { toValue: 0, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     glow.start();
-    return () => { cancelled = true; loops.forEach((l) => l.stop()); pulse.stop(); glow.stop(); };
-  }, [visible, bars, secretPulse, revealGlow]);
+    const cta = Animated.loop(Animated.sequence([
+      Animated.timing(ctaGlow, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+      Animated.timing(ctaGlow, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
+    ]));
+    cta.start();
+    return () => { cancelled = true; loops.forEach((l) => l.stop()); pulse.stop(); glow.stop(); cta.stop(); };
+  }, [visible, bars, secretPulse, revealGlow, ctaGlow]);
 
   function togglePlayPause() {
     // Le déverrouillage web doit se produire synchroniquement dans le tap.
@@ -247,7 +253,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={[s.previewControls, compact && s.previewControlsCompact]}>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
-              <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ' : '▶'}</Text></TouchableOpacity>
+              <Animated.View style={[s.ctaGlowShell,{borderColor:ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]})}]}><TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ' : '▶'}</Text></TouchableOpacity></Animated.View>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
             </View>
           ) : null}
@@ -286,7 +292,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 </Text>
               </TouchableOpacity>
 
-              <Animated.View style={{ transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }}>
+              <Animated.View style={[s.buyGlowShell,{ borderColor: ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}), transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }]}>
               <TouchableOpacity
                 style={[s.buyButton, !waiverAccepted && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy}
@@ -356,7 +362,8 @@ const s = StyleSheet.create({
   previewControlsCompact:{marginTop:4},
   previewControlButton: { flex: 1, minHeight: 42, borderRadius: 21, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   previewControlText: { color: colors.textMuted, fontSize: 10, fontWeight: '900' },
-  previewPlayButton: { flex: 1.15, minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  ctaGlowShell:{flex:1.15,borderWidth:2,borderRadius:25,padding:2,backgroundColor:colors.backgroundElevated},
+  previewPlayButton: { minHeight: 42, borderRadius: 21, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center' },
   previewPlayText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   protectionBadge: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, alignSelf: 'center' },
   protectionBadgeText: { color: colors.primaryLight, fontSize: 10, fontWeight: '700', textAlign: 'center' },
