@@ -1947,7 +1947,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     backToArenaHome();
   }, [arena, backToArenaHome]);
 
-  const closeBattleArena = React.useCallback(() => {
+  const closeBattleArenaNow = React.useCallback(() => {
     void stopTrackPreview();
     // Adel (02/09/2026) : "je suis sorti du Battle ... il tourne encore" --
     // fermer l'écran doit prévenir le serveur (forfait si la partie était
@@ -1967,6 +1967,23 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setSolo(null);
     setBuildingArena(null);
   }, [arena?.id]);
+
+  const closeBattleArena = React.useCallback(() => {
+    if (arena?.status !== 'ACTIVE') {
+      closeBattleArenaNow();
+      return;
+    }
+    const stake = stakeForRounds(arena.roundCount);
+    Alert.alert(
+      'Quitter le Battle ?',
+      `La partie est en cours. Si tu quittes maintenant, tu perds le Battle et ${stake} Free seront débités.`,
+      [
+        { text: 'RESTER', style: 'cancel' },
+        { text: `QUITTER · -${stake} FREE`, style: 'destructive', onPress: closeBattleArenaNow },
+      ],
+      { cancelable: true },
+    );
+  }, [arena?.status, arena?.roundCount, closeBattleArenaNow]);
 
   const answerArena = async (choice: string) => {
     if (!arena || arena.status !== 'ACTIVE' || arena.round?.answered || arena.round?.revealed || pending) return;
