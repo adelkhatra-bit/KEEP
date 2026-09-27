@@ -116,6 +116,18 @@ function normalizeKeepRow(row: any, fallbackVisibility: 'PUBLIC' | 'PRIVATE' = '
 async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
   if (!supabase || !rows.length) return rows;
   const client = supabase;
+  // Source canonique: le premier utilisateur ayant réellement découvert le titre
+  // via Écouter. Une copie/reprise sociale ne peut jamais remplacer ce nom.
+  const trackIds = Array.from(new Set(rows.map((row) => row.track.id).filter(Boolean)));
+  const firstOrigins = new Map<string, { profileId: string; username: string }>();
+  for (let start = 0; start < trackIds.length; start += 100) {
+    const { data } = await client.rpc('keep_track_first_discoveries', { p_track_ids: trackIds.slice(start, start + 100) }).catch(() => ({ data: [] as any[] }));
+    for (const row of (data ?? []) as any[]) if (row?.track_id && row?.profile_id) firstOrigins.set(String(row.track_id), { profileId: String(row.profile_id), username: String(row.username || '') });
+  }
+  rows = rows.map((row) => {
+    const origin = firstOrigins.get(row.track.id);
+    return origin ? { ...row, sourceUserId: origin.profileId, sourceProfileId: origin.profileId, sourceUsername: origin.username || row.sourceUsername } : row;
+  });
   const allSourceIds = Array.from(new Set(rows
     .map((row) => row.sourceProfileId || row.sourceUserId)
     .filter(Boolean) as string[]));
