@@ -207,8 +207,6 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
-          <View style={s.promiseBox}><Animated.Text style={[s.marketing, { opacity: teaserOpacity }]}>{TEASER_LINES[teaserIndex]}</Animated.Text><Text style={s.teaserDots}>{TEASER_LINES.map((_, i) => i === teaserIndex ? '●' : '·').join('  ')}</Text></View>
-
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
             resetKey={trackIndex}
@@ -256,11 +254,6 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               <Text style={s.protectionBadgeText}>15 s · identité masquée</Text>
             </View>
           ) : null}
-
-          <TouchableOpacity style={s.detailsToggle} onPress={() => setDetailsOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }}>
-            <Text style={s.detailsToggleText}>{detailsOpen ? 'Moins d’infos' : 'En savoir plus'}</Text><Text style={s.detailsChevron}>{detailsOpen ? '⌃' : '⌄'}</Text>
-          </TouchableOpacity>
-          {detailsOpen ? <Text style={s.explainer}>{EXPLAINER_LINES[explainerIndex]}</Text> : null}
 
           {/* Adel (21/09/2026, décision 2) : "documente clairement dans
               l'UI que le vendeur doit confirmer réception, et prévois un
