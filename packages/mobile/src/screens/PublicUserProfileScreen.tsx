@@ -214,11 +214,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [navigation]);
   useEffect(() => {
-    if (!marketplaceEnabled || !profile?.id) { setSaleOffers([]); return undefined; }
+    if (!profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } }).catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
     return () => { live = false; };
-  }, [marketplaceEnabled, profile?.id]);
+  }, [profile?.id]);
   useEffect(() => {
     if (!profile?.id) return undefined;
     let live = true;
@@ -1192,7 +1192,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {marketplaceEnabled && marketBannerVisible ? (
+        {marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
