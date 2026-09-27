@@ -1233,9 +1233,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired ? (
         <ProfileOpportunityRail
-          suggestion={profileSaleSuggestions[profileSaleSuggestionIndex] ?? null}
-          onSuggestionPress={profileSaleSuggestions[profileSaleSuggestionIndex] ? () => navigation.navigate('PublicUserProfile', { username: profileSaleSuggestions[profileSaleSuggestionIndex].sellerUsername, openSaleOfferId: profileSaleSuggestions[profileSaleSuggestionIndex].offerId }) : undefined}
-          onListenPress={profileSaleSuggestions[profileSaleSuggestionIndex] ? () => navigation.navigate('PublicUserProfile', { username: profileSaleSuggestions[profileSaleSuggestionIndex].sellerUsername, openSaleOfferId: profileSaleSuggestions[profileSaleSuggestionIndex].offerId }) : undefined}
+          suggestions={profileSaleSuggestions}
+          onSuggestionPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
+          onListenPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
           onParticipatePress={() => navigation.navigate('PlaylistSale')}
           onOffersPress={() => navigation.navigate('Offers')}
         />
