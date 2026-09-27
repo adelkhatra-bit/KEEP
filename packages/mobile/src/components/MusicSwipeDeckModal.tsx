@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
@@ -93,6 +93,25 @@ export default function MusicSwipeDeckModal({
   const current = deckTracks[index];
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
+  const fullTrackUrl = current?.externalUrls?.spotify
+    || current?.externalUrls?.appleMusic
+    || current?.externalUrls?.deezer
+    || current?.externalUrls?.youtube
+    || current?.externalUrls?.universal
+    || current?.externalUrls?.youtubeSearch
+    || null;
+  const fullTrackPlatform = current?.externalUrls?.spotify ? 'SPOTIFY'
+    : current?.externalUrls?.appleMusic ? 'APPLE MUSIC'
+    : current?.externalUrls?.deezer ? 'DEEZER'
+    : current?.externalUrls?.youtube ? 'YOUTUBE'
+    : current?.externalUrls?.universal ? 'LA PLATEFORME'
+    : current?.externalUrls?.youtubeSearch ? 'YOUTUBE'
+    : null;
+  const openFullTrack = useCallback(async () => {
+    if (!fullTrackUrl) return;
+    await stopTrackPreview();
+    try { await Linking.openURL(fullTrackUrl); } catch {}
+  }, [fullTrackUrl]);
   // Le Swipe social boucle par défaut et demande Public/Privé. Tous les
   // morceaux publics restent écoutables, même déjà présents chez le visiteur.
   const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
@@ -497,7 +516,8 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          <View style={s.decisionBand}>
+          {fullTrackUrl ? <TouchableOpacity style={s.fullTrackButton} onPress={() => { void openFullTrack(); }} accessibilityLabel={`Écouter le morceau entier sur ${fullTrackPlatform || 'la plateforme'}`}><Text style={s.fullTrackButtonText}>↗ ÉCOUTER EN ENTIER · {fullTrackPlatform}</Text></TouchableOpacity> : null}
+                    <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>PASSER</Text>
@@ -593,7 +613,7 @@ const s = StyleSheet.create({
   card:{height:500,maxHeight:'70%',borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},
   gradientFake:{padding:20,paddingTop:90,backgroundColor:'rgba(9,6,16,.68)'},autoRow:{flexDirection:'row',alignItems:'center',marginBottom:8},dot:{width:8,height:8,borderRadius:4,marginRight:6},dotOn:{backgroundColor:'#68F2B1'},dotOff:{backgroundColor:'#756B84'},autoText:{color:'#FFFFFF',fontSize:10,fontWeight:'800'},manualPlayButton:{alignSelf:'flex-start',minHeight:34,paddingHorizontal:14,borderRadius:17,backgroundColor:colors.keep,marginBottom:9},manualPlayText:{color:'#0B0E0B',fontSize:11,fontWeight:'900',lineHeight:34},trackTitle:{color:'#FFF',fontSize:28,lineHeight:32,fontWeight:'900'},artist:{color:'#F0EAF7',fontSize:16,fontWeight:'800',marginTop:6},album:{color:'#FFFFFF',fontSize:12,marginTop:3},
-  decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:46,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:13,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:12,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:13,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:12},
+  fullTrackButton:{minHeight:40,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#6E4BA3',backgroundColor:'#171020',alignItems:'center',justifyContent:'center',paddingHorizontal:12},fullTrackButtonText:{color:'#D8C5FF',fontSize:11,fontWeight:'900',letterSpacing:.35,textAlign:'center'},decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:46,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:13,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:12,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:13,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:12},
   empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},preparingHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:7,maxWidth:300},backButton:{marginTop:18,minHeight:46,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:13},
   keepOverlay:{flex:1,backgroundColor:'rgba(4,3,8,.82)',alignItems:'center',justifyContent:'center',paddingHorizontal:22},
   keepPromptCard:{width:'100%',maxWidth:390,borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:20,shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:10},elevation:16},
