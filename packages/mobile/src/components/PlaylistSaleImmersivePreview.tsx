@@ -58,6 +58,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const bars = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0.3))).current;
   const secretPulse = useRef(new Animated.Value(0)).current;
   const revealGlow = useRef(new Animated.Value(0)).current;
@@ -78,6 +79,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     if (!available || available.length === 0) return;
     const safeIdx = ((idx % available.length) + available.length) % available.length;
     setTrackIndex(safeIdx);
+    setPreviewError(null);
     clearCountdown();
     // La durée est renvoyée par le service afin que le compte à rebours reste
     // synchronisé avec l'extrait réellement joué.
@@ -89,7 +91,12 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     ).then((durationMs) => {
       setSecondsLeft(Math.round(durationMs / 1000));
       countdownRef.current = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
-    }).catch(() => {});
+    }).catch(() => {
+      clearCountdown();
+      setPlaying(false);
+      setSecondsLeft(0);
+      setPreviewError('Lecture impossible. Appuie sur ▶ pour réessayer.');
+    });
   }
 
   // Reset + chargement des extraits à chaque ouverture -- jamais de case
@@ -106,6 +113,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     tracksRef.current = null;
     setTrackIndex(0);
     setPlaying(false);
+    setPreviewError(null);
     let live = true;
     loadPlaylistSaleOfferPreviewTracks(offer.playlistId).then((loaded) => {
       if (!live) return;
@@ -115,7 +123,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       // On lance donc immédiatement la première pépite dès que la RPC masquée
       // a livré les previews, sans imposer un deuxième tap « Écouter ».
       if (loaded.length > 0) playTrackAt(0);
-    }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; } });
+    }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; setPreviewError('Les extraits protégés ne sont pas disponibles pour le moment.'); } });
     // La carte reste stable, mais une seule accroche courte tourne doucement
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
     const teaserTimer = setInterval(() => {
@@ -230,7 +238,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   ? 'Chargement des extraits...'
                   : tracksUnavailable
                     ? 'Aperçu indisponible pour le moment'
-                    : `${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · pause'}`}
+                    : previewError || `${trackIndex + 1}/${tracks!.length}${playing ? ` · 0:${String(secondsLeft).padStart(2, '0')}` : ' · appuie sur ▶ pour écouter'}`}
               </Text>
             </TouchableOpacity>
           </SwipeDeck>
@@ -245,7 +253,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={s.protectionBadge}>
-              <Text style={s.protectionBadgeText}>12 s · identité masquée</Text>
+              <Text style={s.protectionBadgeText}>15 s · identité masquée</Text>
             </View>
           ) : null}
 
