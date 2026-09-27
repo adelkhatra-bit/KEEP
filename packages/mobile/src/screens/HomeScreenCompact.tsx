@@ -725,15 +725,28 @@ const WAVE_BARS = 13;
 function ListenWaveform({ active, recognizing, micLevel, idle }: { active: boolean; recognizing: boolean; micLevel: number; idle?: boolean }) {
   const anims = useRef(Array.from({ length: WAVE_BARS }, () => new Animated.Value(0.15))).current;
   useEffect(() => {
-    if (!active) { anims.forEach((a) => a.stopAnimation()); return undefined; }
+    if (!active) {
+      anims.forEach((a) => { a.stopAnimation(); a.setValue(0.15); });
+      return undefined;
+    }
+    // L'onde doit rester manifestement vivante pendant TOUTE la session.
+    // Avant ce correctif elle ne bougeait que lorsque micLevel changeait :
+    // entre deux callbacks de capture (et sur certains Safari/iPhone où le
+    // niveau arrive par paquets), l'interface semblait figée alors que le
+    // micro continuait réellement à écouter.
     const level = Math.max(0, Math.min(1, micLevel));
-    const base = idle ? 0.06 : recognizing ? 0.42 : 0.18;
-    anims.forEach((a, i) => {
-      const wave = 0.5 + 0.5 * Math.sin(i * 1.35 + (idle ? 0 : level * 6));
-      const peak = idle ? 0.08 : Math.max(0.12, Math.min(1, base + level * 0.9 * wave));
-      Animated.timing(a, { toValue: peak, duration: 240, easing: Easing.out(Easing.ease), useNativeDriver: false }).start();
+    const energy = idle ? 0.10 : Math.max(recognizing ? 0.34 : 0.20, Math.pow(level, 0.45));
+    const loops = anims.map((a, i) => {
+      const low = Math.max(0.10, energy * (0.28 + (i % 3) * 0.08));
+      const high = Math.min(1, energy + 0.22 + ((i * 7) % 5) * 0.06);
+      const loop = Animated.loop(Animated.sequence([
+        Animated.timing(a, { toValue: high, duration: 180 + (i % 4) * 45, easing: Easing.out(Easing.ease), useNativeDriver: false }),
+        Animated.timing(a, { toValue: low, duration: 210 + ((i + 2) % 4) * 45, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      ]));
+      loop.start();
+      return loop;
     });
-    return undefined;
+    return () => loops.forEach((loop) => loop.stop());
   }, [active, recognizing, micLevel, idle, anims]);
   return (
     <View pointerEvents="none" style={s.waveRow}>
