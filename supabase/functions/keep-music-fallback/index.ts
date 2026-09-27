@@ -129,7 +129,9 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
 // rapportés en test réel (30/08/2026) -- en dessous du seuil, KEEP traite
 // ça comme une non-reconnaissance et laisse la cascade continuer (source
 // sans clé) plutôt que d'afficher un résultat non fiable.
-const MIN_ACR_SCORE = 65;
+// Ambient phone capture is noisier than direct audio. 55 keeps weak guesses out
+// while accepting repeatable matches that were previously discarded at 61/100.
+const MIN_ACR_SCORE = 55;
 
 async function hmacSha1Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
