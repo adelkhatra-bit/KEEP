@@ -144,3 +144,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `/.github/workflows/stale-hygiene.yml` marque prudemment les issues/PRs dormantes pour garder un backlog exploitable à grande échelle.
 - `/.github/ISSUE_TEMPLATE/incident_report.yml` structure les incidents réels avec gravité, surface, impact, reproduction et preuve.
 - Les futures IA doivent utiliser ces deux entrées avant de bricoler des tickets ou de laisser le backlog dériver.
+
+## 2026-09-27 — Dépendances et labels GitHub synchronisés
+- `/.github/workflows/dependency-review.yml` analyse automatiquement les changements de dépendances en PR et échoue sur les vulnérabilités `high`+.
+- `/.github/workflows/sync-github-labels.yml` + `scripts/sync-github-labels.cjs` synchronisent les labels du command center (`ai:*`, `scope:*`, `stale`, `no-stale`, `blocked`, `security`, `work-in-progress`).
+- `config/github-ai-command-center.json` contient désormais `labelDefinitions`, utilisé à la fois par le triage et par la sync des labels pour éviter la duplication.

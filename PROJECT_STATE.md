@@ -201,6 +201,12 @@ agent) et messages des sessions de chat (non versionnés).
   fermer automatiquement les PR, et de
   `.github/ISSUE_TEMPLATE/incident_report.yml` pour structurer les incidents
   réels avant triage IA. À observer sur les premiers cycles programmés.
+- **Dépendances / labels GitHub (27/09/2026)** : ajout de
+  `dependency-review.yml` pour analyser les dépendances en PR et de
+  `sync-github-labels.yml` + `scripts/sync-github-labels.cjs` pour
+  synchroniser les labels du command center à partir de
+  `config/github-ai-command-center.json`. À observer sur les premiers runs
+  GitHub réels après intégration.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

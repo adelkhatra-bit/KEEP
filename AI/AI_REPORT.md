@@ -19,6 +19,8 @@ jour : 2026-09-20. Branche `reconcile/claude-main-20260825`.
 - **Entrée design structurée** : `/.github/ISSUE_TEMPLATE/design_review.yml`
 - **Hygiène des tickets dormants** : `/.github/workflows/stale-hygiene.yml`
 - **Entrée incident structurée** : `/.github/ISSUE_TEMPLATE/incident_report.yml`
+- **Revue de dépendances en PR** : `/.github/workflows/dependency-review.yml`
+- **Sync des labels GitHub** : `/.github/workflows/sync-github-labels.yml` + `scripts/sync-github-labels.cjs`
 
 Pour toute IA qui reprend le dépôt : lire aussi `docs/ops/GITHUB_AI_COMMAND_CENTER.md`,
 `PROJECT_STATE.md`, `.context/activeContext.md` et `AGENT_MESSAGES.md` avant
