@@ -1199,11 +1199,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <Text style={styles.marketplaceKicker}>COLLECTIONS DE @{profile.username}</Text>
                 <Text style={styles.sectionTitle}>À écouter · à débloquer</Text>
               </View>
-               {saleOffers.length > 0 ? (
-                <View style={styles.marketplaceCountPill}>
-                  <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
-                </View>
-              ) : null}
+              <View style={styles.marketplaceHeaderActions}>
+                {saleOffers.length > 0 ? (
+                  <View style={styles.marketplaceCountPill}>
+                    <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
+                  <Text style={styles.marketplaceHideText}>MASQUER</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} pépites · écoute protégée 15 s` : 'Les nouvelles collections apparaîtront ici'}</Text></View>
             {saleOffers.length === 0 ? (
@@ -1268,7 +1273,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </>
             )}
           </ProfileMotionReveal>
-        ) : null}
+        ) : (
+          <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
+            <Text style={styles.marketplaceReopenIcon}>✦</Text>
+            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>VOIR SES PÉPITES</Text><Text style={styles.marketplaceReopenMeta}>Collections · nouveautés · soirées</Text></View>
+            <Text style={styles.marketplaceReopenArrow}>›</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.collectionHeader}>
           <Text style={styles.collectionTitle}>Ses styles</Text>
@@ -1720,7 +1731,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceReopenTitle:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
   marketplaceReopenMeta:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:2},
   marketplaceReopenArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'700'},
-  marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:8},marketplaceHideButton:{minHeight:28,paddingHorizontal:8,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},marketplaceHideText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
+  marketplaceHeaderActions:{alignItems:'flex-end',gap:6},marketplaceHideButton:{minHeight:26,paddingHorizontal:9,borderRadius:13,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},marketplaceHideText:{color:colors.textMuted,fontSize:8,fontWeight:'900'},marketplaceReopenBar:{marginHorizontal:18,marginTop:8,minHeight:54,paddingHorizontal:13,borderRadius:17,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:10},marketplaceReopenIcon:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},marketplaceReopenCopy:{flex:1},marketplaceReopenTitle:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.6},marketplaceReopenMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:2},marketplaceReopenArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},marketplaceHeaderRow:{flexDirection:'row',alignItems:'flex-start',gap:8},marketplaceHideButton:{minHeight:28,paddingHorizontal:8,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},marketplaceHideText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
   marketplaceKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:4},
   marketplacePulseLine:{flexDirection:'row',alignItems:'center',gap:7,marginTop:6},
   marketplaceLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},
