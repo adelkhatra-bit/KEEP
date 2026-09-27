@@ -1955,8 +1955,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // est toujours ACTIVE dès la création).
   React.useEffect(() => {
     if (!arena || arena.status !== 'WAITING' || arena.seats.length > 0) return;
-    backToArenaHome();
-  }, [arena, backToArenaHome]);
+    // Ne jamais appeler le handler utilisateur ici : il ouvre une confirmation
+    // et peut transformer un simple état réseau transitoire en sortie serveur.
+    // Une arène WAITING vide/ancienne est seulement détachée de l'écran.
+    void stopTrackPreview();
+    setArena(null);
+    setBuildingArena(null);
+  }, [arena?.id, arena?.status, arena?.seats.length, setArena]);
 
   const closeBattleArenaNow = React.useCallback(() => {
     void stopTrackPreview();
