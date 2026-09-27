@@ -715,7 +715,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setActiveTab('MUSIQUES');
     setOriginFilter('LISTEN');
     setManageMusicMode(true);
-    setSelectedSaleTrackIds(new Set());
+    // IMPORTANT mobile UX: les morceaux déjà inclus doivent être cochés
+    // immédiatement. L'utilisateur voit donc l'état réel de l'album dès
+    // l'ouverture, au lieu d'une sélection vide trompeuse.
+    const includedIds = Object.entries(myOfferedTrackIds)
+      .filter(([, row]) => row.offerId === offer.offerId)
+      .map(([trackId]) => trackId);
+    setSelectedSaleTrackIds(new Set(includedIds));
     setSaleEditOfferTarget({ offerId: offer.offerId, playlistName: offer.playlistName });
     setSaleSelectionMode(true);
   };
@@ -785,6 +791,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // son offerId réel, sans jamais recréer ni perdre les autres morceaux.
   const editExistingTrackOffer = (track: CanonicalTrack) => {
     const offered = myOfferedTrackIds[track.id];
+    const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
+    const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);
     if (!offered) return;
     Alert.alert(
       'Gérer cette collection',
@@ -1011,14 +1019,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
     return (
       <View key={key} style={styles.trackRowOuter}>
         {saleSelectionMode && localEntry ? <TouchableOpacity
-          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offered && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
+          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, lockedByAnotherOffer && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
           onPress={() => notOwnDiscovery
             ? Alert.alert('Non éligible', `« ${track.title} » ne peut pas rejoindre cette collection : elle vient d’un autre utilisateur. Seul son découvreur d’origine peut l’intégrer à une collection exclusive.`)
             : toggleSaleTrack(track.id)}
-          disabled={Boolean(offered)}
+          disabled={lockedByAnotherOffer}
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(offered || notOwnDiscovery) }}
-          accessibilityLabel={notOwnDiscovery ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur` : offered ? `${track.title} déjà dans une collection publiée, ouvre cette collection pour la modifier` : `Sélectionner ${track.title}`}
+          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(lockedByAnotherOffer || notOwnDiscovery) }}
+          accessibilityLabel={notOwnDiscovery ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur` : lockedByAnotherOffer ? `${track.title} appartient à une autre collection` : includedInEditedOffer ? `${track.title} est déjà dans cette collection` : `Sélectionner ${track.title}`}
         ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
           <TrackActionRow
