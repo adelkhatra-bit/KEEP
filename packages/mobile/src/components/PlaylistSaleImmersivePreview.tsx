@@ -46,9 +46,11 @@ interface Props {
   onConfirmPurchase: (offer: PublicPlaylistSaleOffer) => void;
   busy?: boolean;
   purchaseEnabled?: boolean;
+  sourceUsername?: string;
+  onOpenProfile?: () => void;
 }
 
-export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true }: Props) {
+export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, sourceUsername, onOpenProfile }: Props) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const compact = windowHeight < 760 || windowWidth < 360;
   const [explainerIndex] = useState(0);
@@ -213,6 +215,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </View>
           </Animated.View>
           <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel}</Text>
+          {sourceUsername && onOpenProfile ? <TouchableOpacity style={s.profileLink} onPress={onOpenProfile} accessibilityLabel={`Voir le profil de ${sourceUsername}`}><Text style={s.profileLinkText}>VOIR LE PROFIL · @{sourceUsername}</Text></TouchableOpacity> : null}
           
           <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{offer.paymentMode === 'FREE' ? 'PRIX EN FREE' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
 
@@ -310,8 +313,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </>
           ) : (
             <View style={s.nativePreviewNotice}>
-              <Text style={s.nativePreviewTitle}>APERÇU MOBILE ACTIF</Text>
-              <Text style={s.nativePreviewText}>Tu peux écouter les extraits anonymes et parcourir les collections verrouillées. L’achat n’est pas activé dans cette version mobile.</Text>
+              <Text style={s.nativePreviewTitle}>PAIEMENT À ACTIVER</Text>
+              <Text style={s.nativePreviewText}>Le créateur doit avoir un lien de paiement personnel actif pour débloquer cette collection.</Text>
             </View>
           )}
           </ScrollView>
@@ -337,6 +340,8 @@ const s = StyleSheet.create({
   playlistName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', marginTop: 3 },
   secretHook: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 5 },
   meta: { color: colors.textMutedGrey, fontSize: 12, marginTop: 2 },
+  profileLink: { alignSelf: 'flex-start', marginTop: 7, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
+  profileLinkText: { color: colors.primaryLight, fontSize: 10, fontWeight: '900' },
   secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
   totalPricePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
   totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
