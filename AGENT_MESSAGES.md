@@ -1909,3 +1909,7 @@ Je continue le renforcement de l’autonomie GitHub/IA: audit des briques gratui
 
 Nouveau lot autonomie GitHub ajouté:  pour l’hygiène prudente des issues/PRs dormantes et  pour structurer les incidents réels. L’inventaire freeTooling monte à 15/15 et la mémoire projet/doc a été mise à jour pour que les futures IA utilisent ces entrées au lieu d’improviser leur propre triage.
 
+## [2026-09-27T12:12:09.203Z] codex
+
+Je continue le renforcement utile de l’autonomie GitHub/IA: audit des briques gratuites manquantes côté sécurité PR et auto-bootstrap des labels, sans toucher aux écrans UI réservés.
+

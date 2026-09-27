@@ -119,23 +119,14 @@ jobs:
                       return {"status": 422, "body": body}
                   raise RuntimeError(f"{method} {url} failed: {exc.code} {body}") from exc
 
-          label_palette = {
-              "ai-routed": ("5319e7", "Issue routée par le poste de commandement IA"),
-              "ai:codex": ("1d76db", "Issue recommandée pour Codex / CI / infra"),
-              "ai:claude": ("0e8a16", "Issue recommandée pour Claude / data / Supabase"),
-              "ai:design": ("fbca04", "Issue recommandée pour Design / UX / UI"),
-              "scope:ci": ("b60205", "Scope CI / build / workflow"),
-              "scope:data": ("0052cc", "Scope données / Supabase / auth"),
-              "scope:product": ("d4c5f9", "Scope UX / UI / produit"),
-              "scope:general": ("cfd3d7", "Scope général")
-          }
+          label_palette = config.get("labelDefinitions", {})
 
           for label in sorted(label_names):
-              color, description = label_palette.get(label, ("cfd3d7", "Label IA KEEP"))
+              meta = label_palette.get(label, {"color": "cfd3d7", "description": "Label IA KEEP"})
               result = request("POST", f"{api_base}/labels", {
                   "name": label,
-                  "color": color,
-                  "description": description
+                  "color": meta.get("color", "cfd3d7"),
+                  "description": meta.get("description", "Label IA KEEP")
               })
               if isinstance(result, dict) and result.get("status") == 422:
                   pass

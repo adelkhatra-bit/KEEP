@@ -26,6 +26,60 @@
       "general": "scope:general"
     }
   },
+  "labelDefinitions": {
+    "ai-routed": {
+      "color": "5319e7",
+      "description": "Issue routée par le poste de commandement IA"
+    },
+    "ai:codex": {
+      "color": "1d76db",
+      "description": "Issue recommandée pour Codex / CI / infra"
+    },
+    "ai:claude": {
+      "color": "0e8a16",
+      "description": "Issue recommandée pour Claude / data / Supabase"
+    },
+    "ai:design": {
+      "color": "fbca04",
+      "description": "Issue recommandée pour Design / UX / UI"
+    },
+    "scope:ci": {
+      "color": "b60205",
+      "description": "Scope CI / build / workflow"
+    },
+    "scope:data": {
+      "color": "0052cc",
+      "description": "Scope données / Supabase / auth"
+    },
+    "scope:product": {
+      "color": "d4c5f9",
+      "description": "Scope UX / UI / produit"
+    },
+    "scope:general": {
+      "color": "cfd3d7",
+      "description": "Scope général"
+    },
+    "stale": {
+      "color": "ededed",
+      "description": "Ticket inactif à revoir avant clôture ou reprise"
+    },
+    "no-stale": {
+      "color": "0052cc",
+      "description": "Ticket exempté de l’hygiène stale automatique"
+    },
+    "blocked": {
+      "color": "d93f0b",
+      "description": "Ticket bloqué par une dépendance externe ou un prérequis manquant"
+    },
+    "work-in-progress": {
+      "color": "fbca04",
+      "description": "PR active à ne pas fermer automatiquement"
+    },
+    "security": {
+      "color": "b60205",
+      "description": "Sujet sécurité à traiter avec prudence"
+    }
+  },
   "routing": [
     {
       "id": "ci",

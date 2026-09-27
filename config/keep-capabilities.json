@@ -50,6 +50,7 @@
   "requiredWorkflows": [
     "actionlint.yml",
     "ai-ops-digest.yml",
+    "dependency-review.yml",
     "mobile-ci.yml",
     "full-stack-ci.yml",
     "free-tooling-audit.yml",
@@ -58,6 +59,7 @@
     "release-drafter.yml",
     "scorecards.yml",
     "stale-hygiene.yml",
+    "sync-github-labels.yml",
     "web-preview-pages.yml",
     "app-store-native-preflight.yml",
     "codeql.yml",
@@ -360,6 +362,48 @@
             "contains": [
               "KEEP — Stale hygiene",
               "actions/stale@"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "dependency-review",
+        "name": "Pull request dependency security review",
+        "category": "security",
+        "evidence": [
+          {
+            "path": ".github/workflows/dependency-review.yml",
+            "contains": [
+              "KEEP — Dependency review",
+              "actions/dependency-review-action"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "label-sync",
+        "name": "Command center label bootstrap and sync",
+        "category": "automation",
+        "evidence": [
+          {
+            "path": ".github/workflows/sync-github-labels.yml",
+            "contains": [
+              "KEEP — Sync GitHub labels",
+              "Sync GitHub labels from command center config"
+            ]
+          },
+          {
+            "path": "scripts/sync-github-labels.cjs",
+            "contains": [
+              "SYNC LABELS:",
+              "keep-sync-github-labels"
+            ]
+          },
+          {
+            "path": "config/github-ai-command-center.json",
+            "contains": [
+              "\"labelDefinitions\"",
+              "\"no-stale\""
             ]
           }
         ]

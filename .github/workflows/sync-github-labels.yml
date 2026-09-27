@@ -1,0 +1,38 @@
+name: KEEP — Sync GitHub labels
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 6 * * 1'
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'config/github-ai-command-center.json'
+      - '.github/workflows/sync-github-labels.yml'
+      - '.github/workflows/agent-command-triage.yml'
+      - '.github/ISSUE_TEMPLATE/*.yml'
+      - '.github/ISSUE_TEMPLATE/*.md'
+      - 'scripts/sync-github-labels.cjs'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sync-github-labels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Sync GitHub labels from command center config
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/sync-github-labels.cjs

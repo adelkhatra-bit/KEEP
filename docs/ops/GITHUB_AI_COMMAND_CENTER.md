@@ -44,6 +44,11 @@ Le workflow `/.github/workflows/agent-command-triage.yml` :
 - rappelle les **workflows à lancer** ;
 - republie un commentaire unique de coordination avec un marqueur stable.
 
+Le workflow `/.github/workflows/sync-github-labels.yml` complète ce triage en
+créant/synchronisant automatiquement les labels définis dans
+`config/github-ai-command-center.json`, y compris `stale`, `no-stale`,
+`blocked`, `security` et `work-in-progress`.
+
 ### 3. Exécution
 
 Avant tout code :
@@ -152,11 +157,13 @@ Cela couvre notamment :
 - GitHub Pages ;
 - CodeQL ;
 - OpenSSF Scorecards ;
+- dependency review sur les PRs ;
 - Dependabot ;
 - artifacts ;
 - templates + CODEOWNERS ;
 - Release Drafter ;
 - digest Ops / IA planifié ;
+- sync automatique des labels GitHub ;
 - hygiène prudente des issues/PRs dormantes ;
 - relais IA ;
 - triage automatique des issues ;
@@ -173,6 +180,9 @@ Les autres IA doivent donc désormais auditer en priorité :
 - `/.github/workflows/ai-ops-digest.yml`
 - `scripts/build-ai-ops-digest.cjs`
 - `/.github/ISSUE_TEMPLATE/design_review.yml`
+- `/.github/workflows/dependency-review.yml`
+- `/.github/workflows/sync-github-labels.yml`
+- `scripts/sync-github-labels.cjs`
 - `/.github/workflows/stale-hygiene.yml`
 - `/.github/ISSUE_TEMPLATE/incident_report.yml`
 
