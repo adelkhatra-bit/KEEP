@@ -1620,6 +1620,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         requiresAccount={!viewer || isLocalGuest}
         onClose={() => { setSwipeOpen(false); setBrowseFilter(null); setFolderSwipeTracks([]); setFolderSwipeTitle(''); }}
         onKeep={addCanonicalToMyKeep}
+        onOpenSourceProfile={(username) => { setSwipeOpen(false); navigation.navigate('PublicProfile', { username }); }}
       />
 
       {/* Adel (09/09/2026) : "meme design que le profil normal" -- meme
