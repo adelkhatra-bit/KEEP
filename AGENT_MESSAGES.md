@@ -1857,3 +1857,8 @@ Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE 
 - Consigne QA/Codex/Claude: vérifier ce SHA sur web mobile 390x844 et rechercher toute autre exposition directe de codes RPC/SQL dans Alert.alert/Toast. Ne pas modifier les règles métier Battle.
 - Design: profils propriétaire/visiteur doivent converger vers la même grammaire visuelle; compteurs en haut; rail opportunités compact et actionnable; aucune carte morte.
 - Marketplace: toute offre doit expliciter ECOUTER puis le mode de déblocage/paiement; édition propriétaire doit permettre ajout/retrait de morceaux sans casser la confidentialité des titres proposés.
+
+
+## [2026-09-27T11:35:00.000Z] chatgpt
+
+POSTE DE COMMANDEMENT INTER-IA ACTIF — lire d’abord `docs/AGENT_COMMAND_CENTER.md`, puis `.github/agent-command-center.json`. Le workflow `KEEP — Agent command triage` est actif et son premier run réel 36316053776 est PASS sur 572a431. Branche unique : reconcile/claude-main-20260825. Ne pas créer de second relais ni de seconde version ; conserver agent-lock + AGENT_MESSAGES et les statuts de preuve définis dans le command center.
