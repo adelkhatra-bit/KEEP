@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import type { ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
@@ -15,6 +15,7 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
   const drift = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const [tipIndex, setTipIndex] = React.useState(0);
+  const [suggestionVisible, setSuggestionVisible] = useState(true);
   useEffect(() => {
     drift.setValue(0);
     const loop = Animated.loop(Animated.sequence([
@@ -44,14 +45,19 @@ export default function ProfileOpportunityRail({ suggestion, onSuggestionPress, 
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
-      <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
+      {suggestionVisible ? <TouchableOpacity style={[s.card, s.suggestion]} onPress={onSuggestionPress} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ À ÉCOUTER · À DÉBLOQUER</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
         {suggestion ? <View style={s.saleLine}><Text style={s.saleBadge}>SÉLECTION EXCLUSIVE</Text><Text style={s.price}>{price}</Text></View> : null}
         {suggestion ? <View style={s.personRow}>{suggestion.sellerAvatarUrl ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar} /> : <View style={s.avatarFallback}><Text style={s.avatarLetter}>{suggestion.sellerUsername.slice(0,1).toUpperCase()}</Text></View>}<View style={s.personText}><Text style={s.title} numberOfLines={1}>{suggestion.playlistName}</Text><Text style={s.meta} numberOfLines={1}>{suggestion.sellerUsername} · {suggestion.trackCount} pépite{suggestion.trackCount > 1 ? 's' : ''}</Text></View></View> : <Text style={s.title}>Ton prochain univers arrive…</Text>}
         {suggestion ? <Text style={s.ctaHint}>Écoute avant de débloquer · paiement sécurisé après ton choix</Text> : null}
         <View style={s.marqueeClip}><Animated.Text numberOfLines={1} style={[s.marquee,{transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:[0,-26]})}]}]}>{suggestion ? `${suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`} · ${genres} · À DÉBLOQUER` : `${genres} · DÉCOUVRE →`}</Animated.Text></View>
         {suggestion ? <View style={s.saleActions}><TouchableOpacity style={s.listen} onPress={(event) => { event.stopPropagation?.(); (onListenPress ?? onSuggestionPress)?.(); }} accessibilityLabel="Écouter un extrait"><Text style={s.listenText}>▶ ÉCOUTER</Text></TouchableOpacity><View style={s.saleTag}><Text style={s.saleTagText}>{suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')} ${suggestion.currencyCode === 'EUR' ? '€' : suggestion.currencyCode}`}</Text></View></View> : null}
-      </TouchableOpacity>
+        <TouchableOpacity style={s.dismissSuggestion} onPress={(event) => { event.stopPropagation?.(); setSuggestionVisible(false); }} accessibilityLabel="Masquer cette bannière"><Text style={s.dismissSuggestionText}>Masquer</Text></TouchableOpacity>
+      </TouchableOpacity> : (
+        <TouchableOpacity style={[s.card, s.reopenSuggestion]} onPress={() => setSuggestionVisible(true)} accessibilityLabel="Voir les découvertes">
+          <Text style={s.reopenIcon}>✦</Text><View style={{flex:1}}><Text style={s.reopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={s.reopenMeta}>Écouter · débloquer · revenir acheter</Text></View><Text style={s.reopenArrow}>›</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity style={[s.card, s.participate]} onPress={tipIndex === 0 ? onParticipatePress : tipIndex === 1 ? onParticipatePress : onOffersPress} accessibilityLabel={tip.title}>
         <Text style={s.kicker}>{tip.kicker}</Text>
@@ -69,6 +75,8 @@ const s=StyleSheet.create({
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
   aura:{position:'absolute',right:-30,top:-55,width:160,height:160,borderRadius:80,backgroundColor:colors.primaryLight},
   participate:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
+  dismissSuggestion:{position:'absolute',right:9,bottom:8,minHeight:24,paddingHorizontal:8,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},dismissSuggestionText:{color:colors.textMuted,fontSize:8,fontWeight:'800'},
+  reopenSuggestion:{minHeight:70,backgroundColor:colors.backgroundElevated,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},reopenIcon:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},reopenTitle:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},reopenMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:3},reopenArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'700'},
   top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   kicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   liveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.success},
