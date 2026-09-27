@@ -1204,7 +1204,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             action secondaire (grise), conformément à la hiérarchie des
             couleurs v3 (violet = actions principales uniquement). */}
         <View style={s.ownerQuickActions}>
-          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipPrimary]} onPress={openProfileSwipe} accessibilityLabel="Voir mon profil public">
+          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipPrimary]} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon univers en Swipe">
             <Text style={s.ownerActionChipIcon}>▶</Text><Text style={s.ownerActionChipText}>APERÇU</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipSuccess]} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Créer ou gérer mes pépites">
