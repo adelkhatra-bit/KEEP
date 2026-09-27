@@ -1035,6 +1035,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const deleteBusy = trackDeleteBusy === key;
     const busy = visibilityBusy || deleteBusy;
     const offered = myOfferedTrackIds[track.id];
+    const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
+    const lockedByAnotherOffer = Boolean(saleEditOfferTarget && offered && !includedInEditedOffer);
     const expanded = expandedTrackKeys.has(key);
     // Adel (21/09/2026) : un morceau reçu d'un autre profil (pas sa propre
     // découverte) ne peut jamais être mis en vente -- cadenas visible dans
@@ -1375,7 +1377,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'COLLECTIONS' ? <View style={styles.collectionDashboardSpacer} /> : activeTab === 'MUSIQUES' ? (
         <FlatList
-          data={originFilter === 'USERS' ? socialRepriseTracks : ownDiscoveryTracks}
+          data={originFilter === 'USERS' ? socialRepriseTracks : saleEditOfferTarget
+            ? ownDiscoveryTracks
+                .filter((track) => !myOfferedTrackIds[track.id] || myOfferedTrackIds[track.id].offerId === saleEditOfferTarget.offerId)
+                .sort((a, b) => Number(selectedSaleTrackIds.has(b.id)) - Number(selectedSaleTrackIds.has(a.id)))
+            : ownDiscoveryTracks}
           renderItem={({ item }) => renderTrack(item)}
           keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
