@@ -1,3 +1,6 @@
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP — SOURCE UNIQUE POUR CLAUDE CODE ET TOUS LES AGENTS
 
 Ce fichier est une barrière anti-confusion. Il complète `AGENTS.md` et ne crée **aucune deuxième version** du projet.
