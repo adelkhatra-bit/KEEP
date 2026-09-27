@@ -113,3 +113,11 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Lire avant action : `AGENT_MESSAGES.md`, `docs/PROFILE_STYLE_COMMERCE_REDESIGN.md`, `docs/mockups/ProfileStylesMarketplace.html`, `docs/audit/AUDIT_UX_FUNNEL_20260924.md`.
 - Conserver les commits UI déjà présents : `654ed541`, `ca41db86`, `a9ddb531` ; les auditer avant toute réécriture.
 - Ordre : profil visité → profil propriétaire → MyMusic → PlaylistSalePanel → onboarding → Super Admin → tests 390×844/web.
+
+
+## 2026-09-27 — Poste de commandement inter-IA
+- Porte d’entrée canonique : `docs/AGENT_COMMAND_CENTER.md`.
+- Configuration machine-lisible : `.github/agent-command-center.json`.
+- Triage automatique : `.github/workflows/agent-command-triage.yml`.
+- Premier run réel du triage : GitHub Actions run `36316053776` = **SUCCESS** sur `572a431a92b765c108ff0fa6e5c7b8e77d208d37`.
+- Toute IA doit conserver la branche unique `reconcile/claude-main-20260825`, utiliser le verrou/journal existants et respecter les états LOCAL_ONLY → COMMITTED_LOCAL → PUSHED_REMOTE → TESTED_REMOTE → DEPLOYED.
