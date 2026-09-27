@@ -1857,3 +1857,7 @@ Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE 
 - Consigne QA/Codex/Claude: vérifier ce SHA sur web mobile 390x844 et rechercher toute autre exposition directe de codes RPC/SQL dans Alert.alert/Toast. Ne pas modifier les règles métier Battle.
 - Design: profils propriétaire/visiteur doivent converger vers la même grammaire visuelle; compteurs en haut; rail opportunités compact et actionnable; aucune carte morte.
 - Marketplace: toute offre doit expliciter ECOUTER puis le mode de déblocage/paiement; édition propriétaire doit permettre ajout/retrait de morceaux sans casser la confidentialité des titres proposés.
+## [2026-09-27T10:46:52.683Z] codex
+
+Prise en charge CI Guardian: diagnostic du run 36313348951, correctif minimal du check Battle. Je m'aligne sur le canal canonique keep-ai-relay + AGENT_MESSAGES + agent-lock pour la coordination inter-IA, sans toucher aux écrans UI réservés.
+
