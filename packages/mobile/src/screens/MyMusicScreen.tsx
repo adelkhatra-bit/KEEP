@@ -125,6 +125,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
+  const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY' | 'COLLECTIONS'>('LIBRARY');
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -1155,14 +1156,23 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
 
-      <View style={styles.tabs}>{LIBRARY_TABS.map((tab) => (
+      <View style={styles.workspaceTabs}>
+        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'LIBRARY' && styles.workspaceTabOn]} onPress={() => setWorkspaceTab('LIBRARY')}><Text style={[styles.workspaceTabText, workspaceTab === 'LIBRARY' && styles.workspaceTabTextOn]}>MA MUSIQUE</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'COLLECTIONS' && styles.workspaceTabOn]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setActiveTab('MUSIQUES'); }}><Text style={[styles.workspaceTabText, workspaceTab === 'COLLECTIONS' && styles.workspaceTabTextOn]}>MES COLLECTIONS · {existingOffersForAdd.length}</Text></TouchableOpacity>
+      </View>
+      {workspaceTab === 'COLLECTIONS' ? <View style={styles.collectionDashboard}>
+        <View style={styles.collectionDashboardHead}><View><Text style={styles.collectionDashboardTitle}>COLLECTIONS EXCLUSIVES</Text><Text style={styles.collectionDashboardHint}>Ouvre une collection pour ajouter ou retirer des morceaux.</Text></View><TouchableOpacity style={styles.collectionCreateCompact} onPress={() => { setWorkspaceTab('LIBRARY'); setActiveTab('MUSIQUES'); setOriginFilter('LISTEN'); setSaleSelectionMode(true); }}><Text style={styles.collectionCreateCompactText}>＋ CRÉER</Text></TouchableOpacity></View>
+        {existingOffersForAdd.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.collectionDashboardRail}>{existingOffersForAdd.map((offer) => <TouchableOpacity key={offer.offerId} style={styles.collectionDashboardCard} onPress={() => { setWorkspaceTab('LIBRARY'); setActiveTab('MUSIQUES'); setOriginFilter('LISTEN'); setSelectedSaleTrackIds(new Set()); setSaleEditOfferTarget({ offerId: offer.offerId, playlistName: offer.playlistName }); setSaleSelectionMode(true); }}><Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text><Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text><Text style={styles.collectionDashboardMeta}>{Object.values(myOfferedTrackIds).filter((row) => row.offerId === offer.offerId).length} morceaux · {(offer.priceCents / 100).toFixed(2).replace('.', ',')}€</Text><Text style={styles.collectionDashboardAction}>GÉRER ›</Text></TouchableOpacity>)}</ScrollView> : <Text style={styles.collectionDashboardEmpty}>Aucune collection publiée. Tes morceaux disponibles restent prêts à être sélectionnés.</Text>}
+      </View> : null}
+
+      {workspaceTab === 'LIBRARY' ? <View style={styles.tabs}>{LIBRARY_TABS.map((tab) => (
         <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} accessibilityLabel={tab.label}>
           <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>
           {activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}
         </TouchableOpacity>
-      ))}</View>
+      ))}</View> : null}
 
-      {activeTab === 'MUSIQUES' ? (
+      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
           <View style={styles.manageGuideIcon}><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '♫'}</Text></View>
           <View style={styles.manageGuideCopy}>
@@ -1189,12 +1199,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
-      {activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
+      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' ? <TouchableOpacity style={[styles.vibeBar, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing}>
         <View style={styles.vibeBarCopy}><Text style={styles.vibeBarTitle}>{analyzing ? 'Loki Music RANGE…' : sortGateLabel(sortAccess)}</Text><Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Le rangement se met à jour automatiquement.' : sortAccess?.allowed ? 'Essai disponible · tu gardes le contrôle des noms.' : 'Creator Pro requis, ou gagne un essai avec ta communauté.'}</Text></View>
         <Text style={styles.vibeArrow}>{sortAccess?.allowed || sortAccess?.unlimited ? '✦' : '🔒'}</Text>
       </TouchableOpacity> : null}
 
-      {localKeptEntries.length ? <View style={styles.libraryStrip}>
+      {workspaceTab === 'LIBRARY' && localKeptEntries.length ? <View style={styles.libraryStrip}>
         <View style={styles.stat}><Text style={styles.statValue}>{publicKeepCount}</Text><Text style={[styles.statLabel, styles.statLabelPublic]}>PUBLIC</Text></View>
         <View style={styles.stat}><Text style={styles.statValue}>{privateKeepCount}</Text><Text style={[styles.statLabel, styles.statLabelPrivate]}>PRIVÉ</Text></View>
         <View style={styles.stat}><Text style={styles.statValue}>{localKeptEntries.length}</Text><Text style={styles.statLabel}>TOTAL</Text></View>
@@ -1208,7 +1218,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </View> : null}
 
-      {activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
+      {workspaceTab === 'LIBRARY' && activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
         <View style={styles.originFilters}>
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
@@ -1229,10 +1239,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </View> : null}
 
-      {activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
+      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
         <Text style={styles.analysisSummaryText} numberOfLines={2}>{analysisMessage}</Text><Text style={styles.analysisChevron}>{analysisExpanded ? '⌃' : '⌄'}</Text>
       </TouchableOpacity> : null}
-      {activeTab === 'VIBES' && analysis && analysisExpanded ? <View style={styles.analysisCard}>
+      {workspaceTab === 'LIBRARY' && activeTab === 'VIBES' && analysis && analysisExpanded ? <View style={styles.analysisCard}>
         <Text style={styles.analysisLine}>{t('myMusic.songsAnalyzed', { count: analysis.totalTracks })}</Text>
         {topGenres.length ? (
           <TouchableOpacity
@@ -1258,7 +1268,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
-      {activeTab === 'MUSIQUES' ? (
+      {workspaceTab === 'COLLECTIONS' ? <View style={styles.collectionDashboardSpacer} /> : activeTab === 'MUSIQUES' ? (
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks : ownDiscoveryTracks}
           renderItem={({ item }) => renderTrack(item)}
@@ -1520,6 +1530,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  workspaceTabs:{marginHorizontal:12,marginTop:10,padding:3,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',gap:4},workspaceTab:{flex:1,minHeight:40,borderRadius:13,alignItems:'center',justifyContent:'center'},workspaceTabOn:{backgroundColor:colors.primary},workspaceTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},workspaceTabTextOn:{color:colors.white},collectionDashboard:{marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated},collectionDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},collectionDashboardTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},collectionDashboardHint:{color:colors.textMuted,fontSize:9,marginTop:3},collectionCreateCompact:{minHeight:36,paddingHorizontal:11,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCreateCompactText:{color:colors.white,fontSize:9,fontWeight:'900'},collectionDashboardRail:{gap:9,paddingTop:10,paddingBottom:2},collectionDashboardCard:{width:210,minHeight:118,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard},collectionDashboardKicker:{color:colors.success,fontSize:8,fontWeight:'900',letterSpacing:.6},collectionDashboardName:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:7},collectionDashboardMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:5},collectionDashboardAction:{color:colors.primaryLight,fontSize:9,fontWeight:'900',marginTop:10},collectionDashboardEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:10},collectionDashboardSpacer:{flex:1},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
