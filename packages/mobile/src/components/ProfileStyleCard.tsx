@@ -331,6 +331,8 @@ const s = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
+    zIndex: 10,
+    elevation: 10,
     width: 34,
     height: 34,
     borderRadius: 17,
