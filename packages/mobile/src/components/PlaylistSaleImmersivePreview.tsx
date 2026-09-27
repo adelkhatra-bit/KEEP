@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Modal, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Modal, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -49,6 +49,8 @@ interface Props {
 }
 
 export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true }: Props) {
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const compact = windowHeight < 760 || windowWidth < 360;
   const [explainerIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [teaserIndex, setTeaserIndex] = useState(0);
@@ -192,10 +194,11 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
-        <View style={s.card}>
+        <View style={[s.card, compact && s.cardCompact, { maxHeight: Math.max(520, windowHeight - 24) }]}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} accessibilityLabel="Fermer l'aperçu"><Text style={s.closeBtnText}>✕</Text></TouchableOpacity>
 
-          <Animated.View style={[s.secretHero, { transform: [{ scale: secretPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]}>
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={s.content}>
+          <Animated.View style={[s.secretHero, compact && s.secretHeroCompact, { transform: [{ scale: secretPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }]}>
             <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
             <View style={s.secretHeroCopy}>
               <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
@@ -223,7 +226,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               onPress={togglePlayPause}
               accessibilityLabel="Extrait masqué, appuie pour lire ou mettre en pause"
             >
-              <View style={s.visual}>
+              <View style={[s.visual, compact && s.visualCompact]}>
                 <Animated.View pointerEvents="none" style={[s.mysteryGlow, { opacity: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.42] }), transform: [{ scale: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] }) }] }]} />
                 <View style={s.mysteryLock}><Text style={s.mysteryLockText}>?</Text></View>
                 {bars.map((bar, i) => (
@@ -242,7 +245,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           </SwipeDeck>
 
           {!tracksLoading && !tracksUnavailable ? (
-            <View style={s.previewControls}>
+            <View style={[s.previewControls, compact && s.previewControlsCompact]}>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}><Text style={s.previewControlText}>‹ PRÉCÉDENT</Text></TouchableOpacity>
               <TouchableOpacity style={s.previewPlayButton} onPress={togglePlayPause}><Text style={s.previewPlayText}>{playing ? 'Ⅱ' : '▶'}</Text></TouchableOpacity>
               <TouchableOpacity style={s.previewControlButton} onPress={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}><Text style={s.previewControlText}>SUIVANT ›</Text></TouchableOpacity>
@@ -305,6 +308,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               <Text style={s.nativePreviewText}>Tu peux écouter les extraits anonymes et parcourir les collections verrouillées. L’achat n’est pas activé dans cette version mobile.</Text>
             </View>
           )}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -313,15 +317,18 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,0.86)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundElevated, borderRadius: 26, borderWidth: 1, borderColor: colors.border, padding: 20, position: 'relative' },
+  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundElevated, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 14, position: 'relative', overflow: 'hidden' },
+  cardCompact:{padding:10,borderRadius:20},
+  content:{paddingTop:2,paddingBottom:4},
   closeBtn: { position: 'absolute', right: 12, top: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', zIndex: 5 },
   closeBtnText: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  secretHero: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6, padding: 12, borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary },
-  secretVinyl: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#09090D', borderWidth: 5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  secretHero: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, padding: 10, paddingRight:44, borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary },
+  secretHeroCompact:{paddingVertical:7,minHeight:64},
+  secretVinyl: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#09090D', borderWidth: 5, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   secretVinylNote: { color: colors.primaryLight, fontSize: 28, fontWeight: '900' },
   secretHeroCopy: { flex: 1 },
   eyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
-  playlistName: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', marginTop: 3 },
+  playlistName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', marginTop: 3 },
   secretHook: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 5 },
   meta: { color: colors.textMutedGrey, fontSize: 12, marginTop: 2 },
   secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
@@ -333,8 +340,9 @@ const s = StyleSheet.create({
   marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3, minHeight: 18 },
   teaserDots: { color: colors.primaryLight, fontSize: 10, textAlign: 'center', marginTop: 2, letterSpacing: 1 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
-  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 92, position: 'relative', overflow: 'hidden', borderRadius: 18 },
-  mysteryGlow: { position: 'absolute', width: 116, height: 116, borderRadius: 58, backgroundColor: colors.primary, top: -12 },
+  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72, position: 'relative', overflow: 'hidden', borderRadius: 18 },
+  visualCompact:{height:58},
+  mysteryGlow: { position: 'absolute', width: 92, height: 92, borderRadius: 46, backgroundColor: colors.primary, top: -12 },
   mysteryLock: { position: 'absolute', top: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   mysteryLockText: { color: colors.primaryLight, fontSize: 24, fontWeight: '900' },
   mysteryCaption: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 7 },
@@ -344,21 +352,22 @@ const s = StyleSheet.create({
   detailsToggle: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingVertical: 5, paddingHorizontal: 10 },
   detailsToggleText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
   detailsChevron: { color: colors.primaryLight, fontSize: 14, fontWeight: '900' },
-  previewControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
+  previewControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 6 },
+  previewControlsCompact:{marginTop:4},
   previewControlButton: { flex: 1, minHeight: 42, borderRadius: 21, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   previewControlText: { color: colors.textMuted, fontSize: 10, fontWeight: '900' },
   previewPlayButton: { flex: 1.15, minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   previewPlayText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   protectionBadge: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primary, alignSelf: 'center' },
   protectionBadgeText: { color: colors.primaryLight, fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  manualNotice: { marginTop: 4, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  manualNotice: { marginTop: 4, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
-  waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10, padding: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
+  waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 7, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
-  buyButton: { minHeight: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   buyButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 0.25 },
   buyButtonTextDisabled: { color: colors.textMuted },
