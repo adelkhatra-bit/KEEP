@@ -1146,7 +1146,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
                 accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
               >
-                <Text style={styles.marketplaceEmptyText}>Aucune pépite à révéler pour le moment</Text>
+                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
               </TouchableOpacity>
             ) : (
               <>
