@@ -1,3 +1,6 @@
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # INDEX — Loki Music
 
 > Point d'entrée unique pour **n'importe quel dev ou IA**. But : tout retrouver, ne rien oublier.
@@ -145,3 +148,10 @@ gh workflow run app-store-submit.yml \
 ```
 
 > Le workflow utilise les secrets GitHub existants (`ASC_API_KEY_P8_BASE64`, `ASC_KEY_ID`, `ASC_ISSUER_ID`) — aucun `.p8` à fournir manuellement.
+
+
+## RTK — Économie de tokens
+- Fichier de règles : `.rtk/AGENTS_RULES.md`
+- Obligatoire de le consulter avant tout code
+- Outil : github.com/rtk-ai/rtk
+- Objectif : réduire la consommation de tokens IA
