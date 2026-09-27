@@ -58,7 +58,7 @@ assertOrdered(visitor, [
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
 assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:4,marginBottom:8,gap:2}', 'Visited compact top counter frame');
 assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
-assertIncludes(visitor, "title=\"SWIPE\"", 'Visited animated Swipe action');
+assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profile.username}`}', 'Visited current Swipe action');
 assertIncludes(visitor, "title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}", 'Visited animated Battle action');
 assertIncludes(owner, "title=\"JOUER EN SOLO\"", 'Owner animated solo Battle action');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
