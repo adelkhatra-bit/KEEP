@@ -1915,7 +1915,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       return;
     }
     void stopTrackPreview();
-    if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
+    const activeArenaId = arenaIdLiveRef.current;
+    if (activeArenaId && !activeArenaId.startsWith('PENDING_')) void leaveKeepBattleArena(activeArenaId).catch(() => {});
     setArena(null);
     setBuildingArena(null);
   }, [arena?.id]);
@@ -2460,7 +2461,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
             accessibilityState={{ disabled: !creditReady || insufficientForRoundCount(roundCount) }}
             disabled={Boolean(startingGroupBattle || challengeBusyId || !creditReady || insufficientForRoundCount(roundCount))}
-            style={[s.battleStartButton, selectionRequired && { borderColor: colors.error }, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonDisabled]}
+            style={[s.battleStartButton, selectionRequired && { borderColor: colors.danger }, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonDisabled]}
             onPress={() => { void startSelectedBattle(); }}
           >
             <Text style={[s.battleStartButtonText, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : !creditReady ? 'VÉRIFICATION…' : insufficientForRoundCount(roundCount) ? 'FREE INSUFFISANTS' : 'DÉMARRER'}</Text>
