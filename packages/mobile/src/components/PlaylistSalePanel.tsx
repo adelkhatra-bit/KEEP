@@ -305,16 +305,19 @@ export default function PlaylistSalePanel({ navigation }: any) {
                         <TouchableOpacity
                           style={s.manageTracksBtn}
                           disabled={busy}
-                          onPress={() => navigation.navigate('Main', {
+                          onPress={() => navigation.replace('Main', {
                             screen: 'Playlists',
                             params: {
-                              manageSaleOfferId: item.offerId || item.playlistId,
-                              manageSaleOfferName: item.playlistName,
+                              screen: 'MyMusic',
+                              params: {
+                                manageSaleOfferId: item.offerId || item.playlistId,
+                                manageSaleOfferName: item.playlistName,
+                              },
                             },
                           })}
-                          accessibilityLabel={`Modifier les morceaux de ${item.playlistName}`}
+                          accessibilityLabel={`Modifier les musiques de ${item.playlistName}`}
                         >
-                          <Text style={s.manageTracksBtnText}>♫ Morceaux</Text>
+                          <Text style={s.manageTracksBtnText}>✎ MODIFIER</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={s.editBtn}
