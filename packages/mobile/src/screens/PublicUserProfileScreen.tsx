@@ -1144,16 +1144,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 
-        <View style={styles.unifiedCounters}>
-          <ProfileCounterRow kind="connections" items={[
-            { value: followerCount, label: 'Abonnés', hint: 'Voir sa communauté.', onPress: () => setCommunityMode(communityMode === 'followers' ? null : 'followers') },
-            { value: socialKeepCount, label: 'Reprises', hint: 'Impact public de ses découvertes dans la communauté.', onPress: () => setRepriseListOpen(true) },
-            { value: directKeepCount, label: 'Morceaux', hint: 'Ouvre ses morceaux publics.', onPress: () => setActiveTab('TRACKS') },
-            { value: followingCount, label: 'Abonnements', hint: 'Voir les profils suivis.', onPress: () => setCommunityMode(communityMode === 'following' ? null : 'following') },
-          ]} />
-        </View>
-        {communityMode ? <View style={styles.topCommunityPanel}><CommunityConnectionsPanel userId={profile.id} navigation={navigation} mode={communityMode} /></View> : null}
-
         <ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>
           <View style={styles.identity}>
             {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{(profile.username || 'K').replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>}
