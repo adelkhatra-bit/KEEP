@@ -16,6 +16,7 @@ type Props = {
 export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', onSuggestionPress, onListenPress, onParticipatePress, onOffersPress }: Props) {
   const drift = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const reopenGlow = useRef(new Animated.Value(0)).current;
   const [tipIndex, setTipIndex] = React.useState(0);
   const [suggestionVisible, setSuggestionVisible] = useState(true);
   const storageKey = `keep:profile-opportunity-rail:${viewerKey}`;
@@ -38,9 +39,13 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
       Animated.timing(pulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
       Animated.timing(pulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
     ]));
-    loop.start(); pulseLoop.start();
-    return () => { loop.stop(); pulseLoop.stop(); };
-  }, [drift, pulse]);
+    const reopenLoop = Animated.loop(Animated.sequence([
+      Animated.timing(reopenGlow,{toValue:1,duration:1100,useNativeDriver:false}),
+      Animated.timing(reopenGlow,{toValue:0,duration:1100,useNativeDriver:false}),
+    ]));
+    loop.start(); pulseLoop.start(); reopenLoop.start();
+    return () => { loop.stop(); pulseLoop.stop(); reopenLoop.stop(); };
+  }, [drift, pulse, reopenGlow]);
   useEffect(() => {
     const timer = setInterval(() => setTipIndex((value) => (value + 1) % 3), 5200);
     return () => clearInterval(timer);
@@ -59,13 +64,15 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const genres = suggestion?.genres?.length ? suggestion.genres.join(' · ') : 'Sélection musicale';
   const price = suggestion ? (suggestion.paymentMode === 'FREE' ? `${suggestion.freePrice ?? 0} FREE` : `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`) : null;
   if (!suggestionVisible) return (
-    <TouchableOpacity style={s.reopenRail} onPress={showRail} accessibilityLabel="Voir les découvertes">
-      <Text style={s.reopenIcon}>✦</Text><View style={{flex:1}}><Text style={s.reopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={s.reopenMeta}>Sélections · soirées · opportunités</Text></View><Text style={s.reopenArrow}>›</Text>
-    </TouchableOpacity>
+    <Animated.View style={[s.reopenGlowShell,{borderColor:reopenGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}),shadowOpacity:reopenGlow.interpolate({inputRange:[0,1],outputRange:[0.18,0.7]})}]}>
+      <TouchableOpacity style={s.reopenRail} onPress={showRail} accessibilityLabel="Voir les découvertes">
+        <Text style={s.reopenIcon}>✦</Text><View style={{flex:1}}><Text style={s.reopenTitle}>VOIR LES DÉCOUVERTES</Text><Text style={s.reopenMeta}>Sélections · soirées · opportunités</Text></View><Text style={s.reopenArrow}>›</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
   return (
     <View style={s.wrapper}>
-      <View style={s.railHeader}><Text style={s.railHeaderTitle}>POUR TOI</Text><TouchableOpacity onPress={hideRail} style={s.hideRailButton} accessibilityLabel="Masquer les découvertes"><Text style={s.hideRailText}>Masquer</Text></TouchableOpacity></View>
+      <View style={s.railHeader}><Text style={s.railHeaderTitle}>POUR TOI</Text></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail} snapToInterval={286} decelerationRate="fast">
       <TouchableOpacity style={[s.card, s.suggestion]} onPress={() => suggestion && onSuggestionPress?.(suggestion)} disabled={!suggestion || !onSuggestionPress} accessibilityLabel={suggestion ? `Suggestion Loki de ${suggestion.sellerUsername}` : 'Suggestions Loki en préparation'}>
         <Animated.View pointerEvents="none" style={[s.aura,{opacity:pulse.interpolate({inputRange:[0,1],outputRange:[.08,.24]}),transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.8,1.2]})}]}]} /><View style={s.top}><Text style={s.kicker}>✦ À ÉCOUTER · À DÉBLOQUER</Text><Animated.View style={[s.liveDot,{transform:[{scale:pulse.interpolate({inputRange:[0,1],outputRange:[.75,1.25]})}]}]} /></View>
@@ -93,7 +100,8 @@ const s=StyleSheet.create({
   railHeader:{marginHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   railHeaderTitle:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:1},
   hideRailButton:{minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},hideRailText:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
-  reopenRail:{marginHorizontal:18,marginVertical:8,minHeight:52,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
+  reopenGlowShell:{marginHorizontal:18,marginVertical:8,borderWidth:2,borderRadius:18,padding:2,backgroundColor:colors.backgroundElevated,shadowColor:colors.primary,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:5},
+  reopenRail:{minHeight:52,paddingHorizontal:13,borderRadius:14,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:10},
   rail:{paddingHorizontal:18,paddingVertical:8,gap:10},
   card:{width:276,minHeight:132,borderRadius:18,padding:12,borderWidth:1,overflow:'hidden'},
   suggestion:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
