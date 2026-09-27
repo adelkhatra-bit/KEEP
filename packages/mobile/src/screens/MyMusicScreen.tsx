@@ -127,7 +127,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
   const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY' | 'COLLECTIONS'>('LIBRARY');
-  const [mobileSection, setMobileSection] = useState<'TRACKS' | 'EDIT' | 'ORGANIZE'>('TRACKS');
+  const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -1239,66 +1239,44 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.servicesButton} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux"><Text style={styles.servicesButtonText}>＋ Services</Text></TouchableOpacity>
       </View>
 
-      <View style={styles.workspaceTabs}>
-        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'LIBRARY' && styles.workspaceTabOn]} onPress={() => setWorkspaceTab('LIBRARY')}><Text style={[styles.workspaceTabText, workspaceTab === 'LIBRARY' && styles.workspaceTabTextOn]}>MA MUSIQUE</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'COLLECTIONS' && styles.workspaceTabOn]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setActiveTab('MUSIQUES'); }}><Text style={[styles.workspaceTabText, workspaceTab === 'COLLECTIONS' && styles.workspaceTabTextOn]}>ALBUMS EN VENTE · {existingOffersForAdd.length}</Text></TouchableOpacity>
-      </View>
-      {workspaceTab === 'COLLECTIONS' ? <View style={styles.collectionDashboard}>
+      {mobileSection === 'HOME' ? <View style={styles.focusHome}>
+        <Text style={styles.focusHomeTitle}>Que veux-tu faire ?</Text>
+        <Text style={styles.focusHomeHint}>Choisis une action. Une seule fonction s’ouvre à la fois.</Text>
+        <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>♫</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Mes morceaux · {localKeptEntries.length}</Text><Text style={styles.focusChoiceHint}>Écouter et retrouver mes musiques</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>✎</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Modifier ma bibliothèque</Text><Text style={styles.focusChoiceHint}>Public, privé, retirer et classer</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
+          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>☷</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Organisation</Text><Text style={styles.focusChoiceHint}>Styles, artistes, filtres et tri</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>◆</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Albums en vente · {existingOffersForAdd.length}</Text><Text style={styles.focusChoiceHint}>Morceaux, prix, € / FREE et publication</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
+        </TouchableOpacity>
+      </View> : <View style={styles.focusBar}>
+        <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
+        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{workspaceTab === 'COLLECTIONS' ? 'Albums en vente' : mobileSection === 'EDIT' ? 'Modifier ma bibliothèque' : mobileSection === 'ORGANIZE' ? 'Organisation' : 'Mes morceaux'}</Text><Text style={styles.focusBarHint}>Une fonction à la fois</Text></View>
+      </View>}
+
+      {workspaceTab === 'COLLECTIONS' && mobileSection !== 'HOME' ? <View style={styles.collectionDashboard}>
         <View style={styles.collectionDashboardHead}>
-          <View style={styles.collectionDashboardHeadCopy}>
-            <Text style={styles.collectionDashboardTitle}>ALBUMS EN VENTE</Text>
-            <Text style={styles.collectionDashboardHint}>Tout gérer ici : morceaux, prix, paiement et publication.</Text>
-          </View>
-          <TouchableOpacity style={styles.collectionMenuButton} onPress={openNewCollection} accessibilityLabel="Créer un nouvel album">
-            <Text style={styles.collectionMenuButtonText}>＋</Text>
-          </TouchableOpacity>
+          <View style={styles.collectionDashboardHeadCopy}><Text style={styles.collectionDashboardTitle}>ALBUMS EN VENTE</Text><Text style={styles.collectionDashboardHint}>Morceaux, prix, paiement et publication.</Text></View>
+          <TouchableOpacity style={styles.collectionMenuButton} onPress={openNewCollection} accessibilityLabel="Créer un nouvel album"><Text style={styles.collectionMenuButtonText}>＋</Text></TouchableOpacity>
         </View>
-        <View style={styles.collectionQuickActions}>
-          <TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic} accessibilityLabel="Voir toutes mes musiques disponibles">
-            <Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text>
-          </TouchableOpacity>
-        </View>
+        <View style={styles.collectionQuickActions}><TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic}><Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text></TouchableOpacity></View>
         <Text style={styles.collectionDashboardSectionTitle}>ALBUMS PUBLIÉS · {existingOffersForAdd.length}</Text>
         <ScrollView style={styles.collectionDashboardList} contentContainerStyle={styles.collectionDashboardRail} showsVerticalScrollIndicator={false}>
           {existingOffersForAdd.length ? existingOffersForAdd.map((offer) => {
             const trackCount = Object.values(myOfferedTrackIds).filter((row) => row.offerId === offer.offerId).length;
-            return <View key={offer.offerId} style={styles.collectionDashboardCard}>
-              <TouchableOpacity style={styles.collectionDashboardCardMain} onPress={() => openCollectionManager(offer)} accessibilityLabel={`Gérer les musiques de ${offer.playlistName}`}>
-                <View style={styles.collectionDashboardCover}><Text style={styles.collectionDashboardCoverText}>♫</Text></View>
-                <View style={styles.collectionDashboardCardCopy}>
-                  <Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text>
-                  <Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text>
-                  <Text style={styles.collectionDashboardMeta}>{trackCount} morceau{trackCount > 1 ? 'x' : ''} · {(offer.priceCents / 100).toFixed(2).replace('.', ',')}€</Text>
-                </View>
-                <Text style={styles.collectionDashboardChevron}>›</Text>
-              </TouchableOpacity>
-              <View style={styles.collectionDashboardActions}>
-                <TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity>
-              </View>
-            </View>;
-          }) : <View style={styles.collectionDashboardEmptyCard}><Text style={styles.collectionDashboardEmptyTitle}>Aucun album publié</Text><Text style={styles.collectionDashboardEmpty}>Toutes tes musiques disponibles restent accessibles avec le bouton ci-dessus pour composer ton premier album.</Text></View>}
+            return <View key={offer.offerId} style={styles.collectionDashboardCard}><TouchableOpacity style={styles.collectionDashboardCardMain} onPress={() => openCollectionManager(offer)}><View style={styles.collectionDashboardCover}><Text style={styles.collectionDashboardCoverText}>♫</Text></View><View style={styles.collectionDashboardCardCopy}><Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text><Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text><Text style={styles.collectionDashboardMeta}>{trackCount} morceau{trackCount > 1 ? 'x' : ''} · {(offer.priceCents / 100).toFixed(2).replace('.', ',')}€</Text></View><Text style={styles.collectionDashboardChevron}>›</Text></TouchableOpacity><View style={styles.collectionDashboardActions}><TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity><TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity></View></View>;
+          }) : <View style={styles.collectionDashboardEmptyCard}><Text style={styles.collectionDashboardEmptyTitle}>Aucun album publié</Text><Text style={styles.collectionDashboardEmpty}>Compose ton premier album avec tes musiques disponibles.</Text></View>}
         </ScrollView>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' ? <View style={styles.mobileAccordion}>
-        <TouchableOpacity style={[styles.mobileAccordionRow, mobileSection === 'TRACKS' && styles.mobileAccordionRowOn]} onPress={() => { setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
-          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>♫</Text></View>
-          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Mes morceaux · {localKeptEntries.length}</Text><Text style={styles.mobileAccordionHint}>Écoute, trie et organise ta bibliothèque</Text></View>
-          <Text style={styles.mobileAccordionChevron}>{mobileSection === 'TRACKS' ? '⌃' : '⌄'}</Text>
-        </TouchableOpacity>
-        {mobileSection !== 'TRACKS' ? <TouchableOpacity style={styles.mobileAccordionRow} onPress={() => { setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
-          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>✎</Text></View>
-          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Modifier ma bibliothèque</Text><Text style={styles.mobileAccordionHint}>Public, privé, retirer, classer</Text></View><Text style={styles.mobileAccordionChevron}>⌄</Text>
-        </TouchableOpacity> : null}
-        {mobileSection !== 'ORGANIZE' ? <TouchableOpacity style={styles.mobileAccordionRow} onPress={() => { setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
-          <View style={styles.mobileAccordionIcon}><Text style={styles.mobileAccordionIconText}>☷</Text></View>
-          <View style={styles.mobileAccordionCopy}><Text style={styles.mobileAccordionTitle}>Organisation</Text><Text style={styles.mobileAccordionHint}>Styles, artistes, filtres et tri</Text></View><Text style={styles.mobileAccordionChevron}>⌄</Text>
-        </TouchableOpacity> : null}
-        {mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}><View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
-          <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
-        ))}</View></View> : null}
-      </View> : null}
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}><View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+        <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
+      ))}</View></View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
@@ -1397,7 +1375,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
-      {workspaceTab === 'COLLECTIONS' ? null : activeTab === 'MUSIQUES' ? (
+      {mobileSection === 'HOME' || workspaceTab === 'COLLECTIONS' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks : saleEditOfferTarget
             ? ownDiscoveryTracks
@@ -1663,6 +1641,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  focusHome:{marginHorizontal:12,marginTop:10,gap:8},
+  focusHomeTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
+  focusHomeHint:{color:colors.textMuted,fontSize:12,marginBottom:4},
+  focusChoice:{minHeight:66,paddingHorizontal:12,paddingVertical:9,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:11},
+  focusChoiceIcon:{width:40,height:40,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  focusChoiceIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  focusChoiceCopy:{flex:1,minWidth:0},focusChoiceTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusChoiceHint:{color:colors.textMuted,fontSize:10,marginTop:2},focusChoiceArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},
+  focusBar:{marginHorizontal:12,marginTop:9,marginBottom:5,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:9},
+  focusBack:{width:38,height:38,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},focusBackText:{color:colors.primaryLight,fontSize:30,fontWeight:'700',lineHeight:32},focusBarCopy:{flex:1},focusBarTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusBarHint:{color:colors.textMuted,fontSize:9,marginTop:1},
   mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
   mobileAccordionRow:{minHeight:58,paddingHorizontal:11,paddingVertical:8,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:10},
   mobileAccordionRowOn:{borderColor:colors.primary},
