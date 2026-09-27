@@ -1665,7 +1665,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON UNIVERS</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MA CARTE</Text></TouchableOpacity>
+          <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  COPIER MON LIEN & MON PROFIL</Text><Text style={s.shareActionHint}>À coller dans une bio, un message ou un réseau social</Text></TouchableOpacity>
           <TouchableOpacity style={s.cancelShare} onPress={() => setQrOpen(false)}><Text style={s.cancelShareText}>FERMER</Text></TouchableOpacity>
           </ScrollView>
         </View>
