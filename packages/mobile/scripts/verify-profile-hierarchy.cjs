@@ -47,7 +47,7 @@ const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   '<View style={styles.unifiedCounters}>',
   '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
-  '<Text style={styles.sectionTitle}>Découvre avant tout le monde</Text>',
+  '<Text style={styles.sectionTitle}>À écouter · à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
