@@ -10,6 +10,7 @@ const [owner, name] = repo.split('/');
 const branch = process.env.KEEP_SOURCE_BRANCH || 'reconcile/claude-main-20260825';
 const token = process.env.GITHUB_TOKEN || '';
 const apiBase = process.env.GITHUB_API_URL || 'https://api.github.com';
+const strictMode = process.env.KEEP_AI_DIGEST_STRICT === '1';
 const headers = {
   'Accept': 'application/vnd.github+json',
   'User-Agent': 'keep-ai-ops-digest',
@@ -25,6 +26,17 @@ async function request(endpoint) {
   return response.json();
 }
 
+async function safeRequest(endpoint, fallback, warnings) {
+  try {
+    return await request(endpoint);
+  } catch (error) {
+    const message = `${endpoint} -> ${error.message}`;
+    if (strictMode) throw error;
+    warnings.push(message);
+    return fallback;
+  }
+}
+
 function issueToLine(issue) {
   return `- #${issue.number} — ${issue.title} (${issue.html_url})`;
 }
@@ -38,11 +50,12 @@ function prToLine(pr) {
 }
 
 async function main() {
+  const warnings = [];
   const [runs, prs, agentIssues, bugIssues] = await Promise.all([
-    request(`/repos/${owner}/${name}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=20`),
-    request(`/repos/${owner}/${name}/pulls?state=open&base=${encodeURIComponent(branch)}&per_page=10`),
-    request(`/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent('agent-task')}&per_page=10`),
-    request(`/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent('bug')}&per_page=10`),
+    safeRequest(`/repos/${owner}/${name}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=20`, { workflow_runs: [] }, warnings),
+    safeRequest(`/repos/${owner}/${name}/pulls?state=open&base=${encodeURIComponent(branch)}&per_page=10`, [], warnings),
+    safeRequest(`/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent('agent-task')}&per_page=10`, [], warnings),
+    safeRequest(`/repos/${owner}/${name}/issues?state=open&labels=${encodeURIComponent('bug')}&per_page=10`, [], warnings),
   ]);
 
   const workflowRuns = Array.isArray(runs.workflow_runs) ? runs.workflow_runs : [];
@@ -67,6 +80,7 @@ async function main() {
     openAgentIssueCount: (Array.isArray(agentIssues) ? agentIssues : []).filter((issue) => !issue.pull_request).length,
     openBugIssueCount: (Array.isArray(bugIssues) ? bugIssues : []).filter((issue) => !issue.pull_request).length,
     freeToolingCoverage,
+    warnings,
     recentFailures: recentFailures.map((run) => ({ name: run.name, conclusion: run.conclusion, html_url: run.html_url })),
     openPullRequests: openPrs.map((pr) => ({ number: pr.number, title: pr.title, html_url: pr.html_url })),
     openAgentIssues: openAgentIssues.map((issue) => ({ number: issue.number, title: issue.title, html_url: issue.html_url })),
@@ -90,6 +104,10 @@ async function main() {
     lines.push(`- Couverture free tooling : **${freeToolingCoverage.coverage}%** (${freeToolingCoverage.passedCount}/${freeToolingCoverage.totalCount})`);
   }
 
+  if (warnings.length) {
+    lines.push(`- Avertissements sources GitHub : **${warnings.length}**`);
+  }
+
   lines.push('', '## Workflows rouges récents', '');
   if (recentFailures.length) lines.push(...recentFailures.map(runToLine));
   else lines.push('- Aucun workflow rouge récent dans la fenêtre inspectée.');
@@ -108,10 +126,14 @@ async function main() {
 
   lines.push('', '## Usage par les IA', '', '- Relire ce digest avant une tâche d’ops/CI importante.', '- Croiser avec `PROJECT_STATE.md`, `.context/activeContext.md`, `AGENT_MESSAGES.md` et `docs/ops/GITHUB_AI_COMMAND_CENTER.md`.', '- Si un workflow rouge est causé par un changement réel, consigner la cause racine dans `docs/ERROR_LEDGER.md`.');
 
+  if (warnings.length) {
+    lines.push('', '## Avertissements', '', ...warnings.map((warning) => `- ${warning}`));
+  }
+
   fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(report, null, 2));
   fs.writeFileSync(path.join(outDir, 'report.md'), `${lines.join('\n')}\n`);
 
-  console.log(`AI OPS DIGEST: failures=${report.failedWorkflowCount} prs=${report.openPullRequestCount} agentIssues=${report.openAgentIssueCount} bugs=${report.openBugIssueCount}`);
+  console.log(`AI OPS DIGEST: failures=${report.failedWorkflowCount} prs=${report.openPullRequestCount} agentIssues=${report.openAgentIssueCount} bugs=${report.openBugIssueCount} warnings=${warnings.length}`);
 }
 
 main().catch((error) => {

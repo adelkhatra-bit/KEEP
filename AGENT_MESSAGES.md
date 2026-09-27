@@ -1897,3 +1897,7 @@ Modules GitHub gratuits additionnels branchés et validés: actionlint, OpenSSF 
 
 Je prends un nouveau lot pour renforcer l’autonomie utile du dépôt: ajout d’un digest ops/IA automatique des signaux GitHub et d’une entrée design structurée pour mieux orienter les futures IA, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T11:59:27.571Z] codex
+
+Autonomie GitHub encore renforcée: ajout du digest planifié  +  pour résumer workflows rouges/PRs/issues/bugs/couverture freeTooling, et ajout du formulaire  pour mieux cadrer les demandes UX/UI des futures IA. Validation locale: freeTooling 100% (14/14), digest généré en mode dégradé local (API GitHub sandbox bloquée, mode strict conservé pour la CI GitHub).
+

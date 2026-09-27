@@ -1,0 +1,367 @@
+{
+  "generatedAt": "2026-09-27T11:59:21.634Z",
+  "repository": "adelkhatra-bit/KEEP",
+  "branch": "reconcile/claude-main-20260825",
+  "workflowRunCount": 0,
+  "failedWorkflowCount": 0,
+  "openPullRequestCount": 0,
+  "openAgentIssueCount": 0,
+  "openBugIssueCount": 0,
+  "freeToolingCoverage": {
+    "target": 100,
+    "coverage": 100,
+    "passedCount": 14,
+    "totalCount": 14,
+    "results": [
+      {
+        "id": "github-actions-ci",
+        "name": "GitHub Actions CI multi-workflow",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/full-stack-ci.yml",
+            "contains": [
+              "name: KEEP — CI complète",
+              "workflow_dispatch:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/full-stack-ci.yml"
+          },
+          {
+            "path": ".github/workflows/mobile-ci.yml",
+            "contains": [
+              "workflow_dispatch:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/mobile-ci.yml"
+          }
+        ]
+      },
+      {
+        "id": "github-pages-deploy",
+        "name": "GitHub Pages deployment chain",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/web-preview-pages.yml",
+            "contains": [
+              "actions/deploy-pages",
+              "workflow_dispatch:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/web-preview-pages.yml"
+          }
+        ]
+      },
+      {
+        "id": "codeql-security",
+        "name": "CodeQL security scanning",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/codeql.yml",
+            "contains": [
+              "github/codeql-action/init",
+              "schedule:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/codeql.yml"
+          }
+        ]
+      },
+      {
+        "id": "dependabot-updates",
+        "name": "Dependabot npm + GitHub Actions",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/dependabot.yml",
+            "contains": [
+              "package-ecosystem: npm",
+              "package-ecosystem: github-actions"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/dependabot.yml"
+          }
+        ]
+      },
+      {
+        "id": "artifacts-evidence",
+        "name": "GitHub artifacts for audit evidence",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/keep-dual-viewport-guardian.yml",
+            "contains": [
+              "actions/upload-artifact"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/keep-dual-viewport-guardian.yml"
+          },
+          {
+            "path": ".github/workflows/app-store-native-preflight.yml",
+            "contains": [
+              "actions/upload-artifact"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/app-store-native-preflight.yml"
+          }
+        ]
+      },
+      {
+        "id": "issues-pr-governance",
+        "name": "GitHub templates + CODEOWNERS",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/ISSUE_TEMPLATE/agent_task.md",
+            "contains": [
+              "labels: agent-task"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/ISSUE_TEMPLATE/agent_task.md"
+          },
+          {
+            "path": ".github/ISSUE_TEMPLATE/design_review.yml",
+            "contains": [
+              "name: Revue design IA",
+              "scope:product"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/ISSUE_TEMPLATE/design_review.yml"
+          },
+          {
+            "path": ".github/ISSUE_TEMPLATE/config.yml",
+            "contains": [
+              "Centre de commandement GitHub IA KEEP",
+              "Relais IA ChatGPT ↔ Claude Code"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/ISSUE_TEMPLATE/config.yml"
+          },
+          {
+            "path": ".github/pull_request_template.md",
+            "contains": [
+              "KEEP — contrôle anti-régression"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/pull_request_template.md"
+          },
+          {
+            "path": ".github/CODEOWNERS",
+            "contains": [
+              "/.github/ @adelkhatra-bit"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/CODEOWNERS"
+          }
+        ]
+      },
+      {
+        "id": "ai-relay",
+        "name": "AI relay between ChatGPT and Claude",
+        "category": "automation",
+        "passed": true,
+        "evidence": [
+          {
+            "path": "AI/AI_bridge.md",
+            "contains": [
+              "keep-ai-relay",
+              "GET /keep-ai-relay?op=state"
+            ],
+            "ok": true,
+            "reason": "evidence OK: AI/AI_bridge.md"
+          },
+          {
+            "path": ".github/workflows/deploy-keep-ai-relay.yml",
+            "contains": [
+              "functions deploy keep-ai-relay",
+              "workflow_dispatch:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/deploy-keep-ai-relay.yml"
+          }
+        ]
+      },
+      {
+        "id": "agent-command-center",
+        "name": "GitHub-native AI command center",
+        "category": "automation",
+        "passed": true,
+        "evidence": [
+          {
+            "path": "docs/ops/GITHUB_AI_COMMAND_CENTER.md",
+            "contains": [
+              "poste de commandement GitHub-native",
+              "agent-command-triage.yml"
+            ],
+            "ok": true,
+            "reason": "evidence OK: docs/ops/GITHUB_AI_COMMAND_CENTER.md"
+          },
+          {
+            "path": ".github/workflows/agent-command-triage.yml",
+            "contains": [
+              "issues:",
+              "workflow_dispatch:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/agent-command-triage.yml"
+          }
+        ]
+      },
+      {
+        "id": "manual-and-scheduled-triggers",
+        "name": "workflow_dispatch + schedule for unattended audits",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/keep-human-guardian.yml",
+            "contains": [
+              "workflow_dispatch:",
+              "schedule:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/keep-human-guardian.yml"
+          },
+          {
+            "path": ".github/workflows/codeql.yml",
+            "contains": [
+              "schedule:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/codeql.yml"
+          }
+        ]
+      },
+      {
+        "id": "free-macos-ios-build",
+        "name": "Free macOS local iOS build on public GitHub runners",
+        "category": "delivery",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/auto-eas-build.yml",
+            "contains": [
+              "runs-on: macos-latest",
+              "eas build --local"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/auto-eas-build.yml"
+          },
+          {
+            "path": "AI/AI_bridge.md",
+            "contains": [
+              "macos-latest",
+              "eas build --local"
+            ],
+            "ok": true,
+            "reason": "evidence OK: AI/AI_bridge.md"
+          }
+        ]
+      },
+      {
+        "id": "workflow-lint-actionlint",
+        "name": "Workflow linting with actionlint",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/actionlint.yml",
+            "contains": [
+              "KEEP — Actionlint",
+              "actionlint -color"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/actionlint.yml"
+          }
+        ]
+      },
+      {
+        "id": "ossf-scorecards",
+        "name": "OpenSSF Scorecards security posture",
+        "category": "security",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/scorecards.yml",
+            "contains": [
+              "KEEP — OpenSSF Scorecards",
+              "ossf/scorecard-action"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/scorecards.yml"
+          }
+        ]
+      },
+      {
+        "id": "release-drafter",
+        "name": "Automated draft release notes",
+        "category": "github",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/release-drafter.yml",
+            "contains": [
+              "KEEP — Release Drafter",
+              "release-drafter/release-drafter"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/release-drafter.yml"
+          },
+          {
+            "path": ".github/release-drafter.yml",
+            "contains": [
+              "## Coordination IA",
+              "docs/ops/GITHUB_AI_COMMAND_CENTER.md"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/release-drafter.yml"
+          }
+        ]
+      },
+      {
+        "id": "ai-ops-digest",
+        "name": "Scheduled AI ops digest for anticipation",
+        "category": "automation",
+        "passed": true,
+        "evidence": [
+          {
+            "path": ".github/workflows/ai-ops-digest.yml",
+            "contains": [
+              "KEEP — AI ops digest",
+              "Build AI ops digest"
+            ],
+            "ok": true,
+            "reason": "evidence OK: .github/workflows/ai-ops-digest.yml"
+          },
+          {
+            "path": "scripts/build-ai-ops-digest.cjs",
+            "contains": [
+              "Digest Ops / IA KEEP",
+              "AI OPS DIGEST:"
+            ],
+            "ok": true,
+            "reason": "evidence OK: scripts/build-ai-ops-digest.cjs"
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": [
+    "/repos/adelkhatra-bit/KEEP/pulls?state=open&base=reconcile%2Fclaude-main-20260825&per_page=10 -> /repos/adelkhatra-bit/KEEP/pulls?state=open&base=reconcile%2Fclaude-main-20260825&per_page=10 -> 403 Blocked by DNS monitoring proxy",
+    "/repos/adelkhatra-bit/KEEP/actions/runs?branch=reconcile%2Fclaude-main-20260825&per_page=20 -> /repos/adelkhatra-bit/KEEP/actions/runs?branch=reconcile%2Fclaude-main-20260825&per_page=20 -> 403 Blocked by DNS monitoring proxy",
+    "/repos/adelkhatra-bit/KEEP/issues?state=open&labels=agent-task&per_page=10 -> /repos/adelkhatra-bit/KEEP/issues?state=open&labels=agent-task&per_page=10 -> 403 Blocked by DNS monitoring proxy",
+    "/repos/adelkhatra-bit/KEEP/issues?state=open&labels=bug&per_page=10 -> /repos/adelkhatra-bit/KEEP/issues?state=open&labels=bug&per_page=10 -> 403 Blocked by DNS monitoring proxy"
+  ],
+  "recentFailures": [],
+  "openPullRequests": [],
+  "openAgentIssues": [],
+  "openBugIssues": []
+}

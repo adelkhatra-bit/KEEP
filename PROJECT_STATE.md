@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-27T11:49:55.175Z
+- Régénéré le : 2026-09-27T11:59:32.261Z
 - Branche : `copilot/fix-github-actions-job-failure-again`
-- Dernier commit : `01524da8` (01524da8d8053114fb1b2bda0e0f702524b362ee) — feat(ops): add more github free tooling
-- Date du dernier commit : 2026-09-27T11:49:46Z
+- Dernier commit : `c7489d11` (c7489d11f4a60374da32946ba1a2af356a636e5d) — feat(ops): add ai ops digest and design intake
+- Date du dernier commit : 2026-09-27T11:58:56Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,10 +125,10 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `c7489d11` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add ai ops digest and design intake
+- `532bedf0` (2026-09-27, copilot-swe-agent[bot]) — chore: plan ai ops digest automation
+- `169eea60` (2026-09-27, copilot-swe-agent[bot]) — docs(ops): publish expanded github ai tooling handoff
 - `01524da8` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): add more github free tooling
-- `8a5fb515` (2026-09-27, copilot-swe-agent[bot]) — chore: plan github free tooling expansion
-- `dd5c9773` (2026-09-27, copilot-swe-agent[bot]) — feat(ops): audit github free tooling coverage
-- `02bebd0c` (2026-09-27, copilot-swe-agent[bot]) — chore: plan free tooling audit automation
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

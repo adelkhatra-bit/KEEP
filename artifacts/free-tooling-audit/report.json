@@ -1,8 +1,8 @@
 {
   "target": 100,
   "coverage": 100,
-  "passedCount": 13,
-  "totalCount": 13,
+  "passedCount": 14,
+  "totalCount": 14,
   "results": [
     {
       "id": "github-actions-ci",
@@ -117,6 +117,15 @@
           ],
           "ok": true,
           "reason": "evidence OK: .github/ISSUE_TEMPLATE/agent_task.md"
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/design_review.yml",
+          "contains": [
+            "name: Revue design IA",
+            "scope:product"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/ISSUE_TEMPLATE/design_review.yml"
         },
         {
           "path": ".github/ISSUE_TEMPLATE/config.yml",
@@ -305,6 +314,32 @@
           ],
           "ok": true,
           "reason": "evidence OK: .github/release-drafter.yml"
+        }
+      ]
+    },
+    {
+      "id": "ai-ops-digest",
+      "name": "Scheduled AI ops digest for anticipation",
+      "category": "automation",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/ai-ops-digest.yml",
+          "contains": [
+            "KEEP — AI ops digest",
+            "Build AI ops digest"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/ai-ops-digest.yml"
+        },
+        {
+          "path": "scripts/build-ai-ops-digest.cjs",
+          "contains": [
+            "Digest Ops / IA KEEP",
+            "AI OPS DIGEST:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: scripts/build-ai-ops-digest.cjs"
         }
       ]
     }

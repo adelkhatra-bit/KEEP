@@ -2,7 +2,7 @@
 
 - Branche source produit : `reconcile/claude-main-20260825`
 - Cible de couverture : **100%**
-- Couverture observée : **100%** (13/13)
+- Couverture observée : **100%** (14/14)
 
 ## Résultats
 
@@ -37,6 +37,7 @@
 - id : `issues-pr-governance`
 - catégorie : `github`
 - OK — `.github/ISSUE_TEMPLATE/agent_task.md` → labels: agent-task
+- OK — `.github/ISSUE_TEMPLATE/design_review.yml` → name: Revue design IA ; scope:product
 - OK — `.github/ISSUE_TEMPLATE/config.yml` → Centre de commandement GitHub IA KEEP ; Relais IA ChatGPT ↔ Claude Code
 - OK — `.github/pull_request_template.md` → KEEP — contrôle anti-régression
 - OK — `.github/CODEOWNERS` → /.github/ @adelkhatra-bit
@@ -80,4 +81,10 @@
 - catégorie : `github`
 - OK — `.github/workflows/release-drafter.yml` → KEEP — Release Drafter ; release-drafter/release-drafter
 - OK — `.github/release-drafter.yml` → ## Coordination IA ; docs/ops/GITHUB_AI_COMMAND_CENTER.md
+
+### ✅ Scheduled AI ops digest for anticipation
+- id : `ai-ops-digest`
+- catégorie : `automation`
+- OK — `.github/workflows/ai-ops-digest.yml` → KEEP — AI ops digest ; Build AI ops digest
+- OK — `scripts/build-ai-ops-digest.cjs` → Digest Ops / IA KEEP ; AI OPS DIGEST:
 

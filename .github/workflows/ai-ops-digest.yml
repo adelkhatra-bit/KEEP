@@ -42,6 +42,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           KEEP_SOURCE_BRANCH: reconcile/claude-main-20260825
+          KEEP_AI_DIGEST_STRICT: '1'
         run: node scripts/build-ai-ops-digest.cjs
       - name: Publish summary
         run: cat artifacts/ai-ops-digest/report.md >> "$GITHUB_STEP_SUMMARY"
