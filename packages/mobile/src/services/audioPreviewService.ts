@@ -621,10 +621,10 @@ export async function stopTrackPreview(key?: string): Promise<void> {
 // simultanément offset aléatoire, pitch-shift et voix off sur seulement 5-8 s ;
 // sur mobile cela multipliait les seeks/rates/décodeurs et pouvait donner
 // l'impression que Play bloquait. On garde une fenêtre courte et propre.
-const SECRET_PREVIEW_DURATION_MS = 12000;
+const SECRET_PREVIEW_DURATION_MS = 15000;
 
 /**
- * Joue un extrait propre de 12 s. Aucun titre/artiste/visuel n'est exposé :
+ * Joue un extrait propre de 15 s. Aucun titre/artiste/visuel n'est exposé :
  * le masquage reste assuré côté serveur et UI, sans dégrader le flux audio.
  */
 export async function playAntiShazamPreviewSegment(
@@ -640,7 +640,7 @@ export async function playAntiShazamPreviewSegment(
     if (canUseWebAudio()) {
       // Démarrage à zéro : beaucoup de previews AAC iTunes sont courtes et
       // un seek 20-50 s pouvait tomber hors de la zone décodable sur iOS.
-      await playWebSegment(key, previewUrl, 0, durationMs, onStateChange, onEnded);
+      await playWebSegment(key, previewUrl, 0, durationMs, onStateChange, onEnded, false);
       return durationMs;
     }
 
