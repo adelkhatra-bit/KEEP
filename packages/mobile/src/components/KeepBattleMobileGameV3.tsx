@@ -1515,6 +1515,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // remplace, jamais une seconde logique parallèle.
   const [selectedBattlePlayerIds, setSelectedBattlePlayerIds] = React.useState<Set<string>>(new Set());
   const [startingGroupBattle, setStartingGroupBattle] = React.useState(false);
+  const [selectionRequired, setSelectionRequired] = React.useState(false);
   const isPlayerSelectable = React.useCallback((player: KeepBattleLivePlayer) => {
     if (insufficientForOpponent(player)) return false;
     if (outgoingPendingTargetIds.has(player.profileId)) return false;
@@ -1526,6 +1527,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setSelectedBattlePlayerIds((prev) => {
       const next = new Set(prev);
       if (next.has(player.profileId)) next.delete(player.profileId); else next.add(player.profileId);
+      setSelectionRequired(false);
       return next;
     });
   };
@@ -1546,7 +1548,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const startSelectedBattle = async () => {
     if (startingGroupBattle || challengeBusyId) return;
     const targets = livePlayers.filter((p) => selectedBattlePlayerIds.has(p.profileId));
-    if (targets.length < 1) return;
+    if (targets.length < 1) { setSelectionRequired(true); return; }
+    setSelectionRequired(false);
     setStartingGroupBattle(true);
     try {
       let sentCount = 0;
@@ -2454,15 +2457,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           logique métier, uniquement l'UI de déclenchement qui change. */}
       <View style={s.battleSelectionFooter}>
         <View style={s.battleSelectionCopy}>
-          <Text style={s.battleSelectionCount}>{selectedLiveBattlePlayers.length ? `${selectedLiveBattlePlayers.length} adversaire${selectedLiveBattlePlayers.length > 1 ? 's' : ''} · ${selectedLiveBattlePlayers.length + 1} joueurs au total` : 'Sélectionne au moins 1 adversaire'}</Text>
+          <Text style={[s.battleSelectionCount, selectionRequired && { color: colors.error }] }>{selectedLiveBattlePlayers.length ? `${selectedLiveBattlePlayers.length} adversaire${selectedLiveBattlePlayers.length > 1 ? 's' : ''} · ${selectedLiveBattlePlayers.length + 1} joueurs au total` : selectionRequired ? '⚠ SÉLECTIONNE AU MOINS 1 JOUEUR' : 'Sélectionne au moins 1 adversaire'}</Text>
           <Text style={s.battleSelectionHint}>{eligiblePlayerCount} joueur{eligiblePlayerCount > 1 ? 's' : ''} disponible{eligiblePlayerCount > 1 ? 's' : ''} · mise {stakeForRounds(roundCount)} Free chacun</Text>
         </View>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Démarrer la Battle avec les joueurs sélectionnés"
           accessibilityState={{ disabled: !canStartSelectedBattle }}
-          disabled={!canStartSelectedBattle}
-          style={[s.battleStartButton, !canStartSelectedBattle && s.battleStartButtonDisabled]}
+          disabled={startingGroupBattle || challengeBusyId || !creditReady || insufficientForRoundCount(roundCount)}
+          style={[s.battleStartButton, selectionRequired && { borderColor: colors.error, borderWidth: 2 }, (!creditReady || insufficientForRoundCount(roundCount)) && s.battleStartButtonDisabled]}
           onPress={() => { void startSelectedBattle(); }}
         >
           <Text style={[s.battleStartButtonText, !canStartSelectedBattle && s.battleStartButtonTextDisabled]}>{startingGroupBattle ? 'DÉMARRAGE…' : !creditReady ? 'VÉRIFICATION…' : insufficientForRoundCount(roundCount) ? 'FREE INSUFFISANTS' : 'DÉMARRER'}</Text>
