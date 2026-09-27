@@ -1272,12 +1272,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const showSoloStartError = (error: unknown) => {
     const err = error as any;
-    const rawMessage = [err?.message, err?.details, err?.hint, err?.code, typeof error === 'string' ? error : ''].filter(Boolean).join(' ');
-    // PostgREST/Supabase can wrap the database exception with punctuation,
-    // a numeric limit or JSON-ish text. Never let that internal token reach
-    // an Alert: classify from a punctuation-free canonical string.
+    // Supabase/PostgREST can nest the database token in message/details/hint,
+    // but on web it can also arrive as an object/stringified payload. Flatten
+    // the whole error so an internal RPC code is never shown to the player.
+    let serialized = '';
+    try { serialized = JSON.stringify(error); } catch { serialized = String(error ?? ''); }
+    const rawMessage = [err?.message, err?.details, err?.hint, err?.code, typeof error === 'string' ? error : '', serialized].filter(Boolean).join(' ');
     const compactMessage = rawMessage.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(rawMessage) || compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
+    if (compactMessage.includes('BATTLESOLODAILYLIMITREACHED')) {
       // Ne jamais exposer un code SQL/RPC brut à l'utilisateur. Le pré-contrôle
       // startSolo peut devenir périmé entre le tap et la consommation atomique,
       // donc cette garde serveur reste nécessaire mais doit produire le même UX.
