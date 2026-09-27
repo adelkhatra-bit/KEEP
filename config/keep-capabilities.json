@@ -57,6 +57,7 @@
     "keep-dual-viewport-guardian.yml",
     "release-drafter.yml",
     "scorecards.yml",
+    "stale-hygiene.yml",
     "web-preview-pages.yml",
     "app-store-native-preflight.yml",
     "codeql.yml",
@@ -166,6 +167,13 @@
             "contains": [
               "name: Revue design IA",
               "scope:product"
+            ]
+          },
+          {
+            "path": ".github/ISSUE_TEMPLATE/incident_report.yml",
+            "contains": [
+              "name: Incident production",
+              "[incident]"
             ]
           },
           {
@@ -338,6 +346,20 @@
             "contains": [
               "Digest Ops / IA KEEP",
               "AI OPS DIGEST:"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stale-hygiene",
+        "name": "Careful stale hygiene for scalable triage",
+        "category": "automation",
+        "evidence": [
+          {
+            "path": ".github/workflows/stale-hygiene.yml",
+            "contains": [
+              "KEEP — Stale hygiene",
+              "actions/stale@"
             ]
           }
         ]

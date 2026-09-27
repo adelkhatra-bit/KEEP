@@ -139,3 +139,8 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `scripts/build-ai-ops-digest.cjs` publie ce digest dans `artifacts/ai-ops-digest/`.
 - `/.github/ISSUE_TEMPLATE/design_review.yml` structure les demandes UX/UI pour réduire l’ambiguïté et mieux router les futures IA design/produit.
 - Le périmètre `freeTooling` doit désormais aussi couvrir ce digest ops/IA.
+
+## 2026-09-27 — Hygiène backlog + incidents structurés
+- `/.github/workflows/stale-hygiene.yml` marque prudemment les issues/PRs dormantes pour garder un backlog exploitable à grande échelle.
+- `/.github/ISSUE_TEMPLATE/incident_report.yml` structure les incidents réels avec gravité, surface, impact, reproduction et preuve.
+- Les futures IA doivent utiliser ces deux entrées avant de bricoler des tickets ou de laisser le backlog dériver.

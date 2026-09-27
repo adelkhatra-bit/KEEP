@@ -1,0 +1,47 @@
+name: KEEP — Stale hygiene
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7 6 * * 2,5'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: stale-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Mark dormant issues and PRs carefully
+        uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          days-before-issue-stale: 45
+          days-before-issue-close: 14
+          days-before-pr-stale: 30
+          days-before-pr-close: -1
+          stale-issue-label: stale
+          stale-pr-label: stale
+          exempt-issue-labels: no-stale,security,blocked,agent-task
+          exempt-pr-labels: no-stale,security,work-in-progress
+          exempt-draft-pr: true
+          remove-stale-when-updated: true
+          operations-per-run: 100
+          stale-issue-message: >
+            Cette issue n’a eu aucune activité récente. Si elle reste utile pour KEEP,
+            ajoute un commentaire ou retire le label `stale`; sinon elle sera fermée
+            automatiquement dans 14 jours pour garder un backlog exploitable par les IA.
+          close-issue-message: >
+            Fermeture automatique de cette issue après période stale sans nouvelle
+            activité. Si le sujet redevient prioritaire, rouvre-la avec une preuve
+            actuelle ou ouvre une nouvelle issue structurée.
+          stale-pr-message: >
+            Cette PR semble inactive. Si elle doit rester ouverte, ajoute un commentaire
+            ou pousse une mise à jour ; sinon elle restera marquée `stale` pour aider
+            les IA et les humains à trier les branches actives.

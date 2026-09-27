@@ -1,0 +1,74 @@
+name: Incident production
+description: Déclarer un incident réel web/mobile/admin/backend avec le contexte utile au triage IA
+title: "[incident] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Utilise ce formulaire pour les incidents réels ou urgents. Plus le signal est précis, plus le triage IA sera utile.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Gravité
+      options:
+        - Critique
+        - Haute
+        - Moyenne
+        - Faible
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface touchée
+      options:
+        - Web public
+        - Mobile iPhone
+        - Mobile Android
+        - Super Admin
+        - Backend / Supabase
+        - CI / GitHub Actions
+        - Multi-surface
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptôme exact
+      description: Ce que l’utilisateur ou l’agent voit vraiment
+      placeholder: Message brut, page blanche, bouton inactif, run CI rouge, perte de données, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Ce qui est bloqué ou dégradé
+      placeholder: ex. impossible de se connecter, impossible de partager, flux Battle inutilisable
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Étapes de reproduction
+      description: Étapes minimales pour revoir le problème
+      placeholder: 1. Ouvrir... 2. Cliquer... 3. Observer...
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Preuve
+      description: Lien GitHub Actions, capture, URL, log, commit, SHA ou vidéo
+      placeholder: Colle ici le maximum de preuves utiles.
+    validations:
+      required: false
+  - type: textarea
+    id: expectation
+    attributes:
+      label: Comportement attendu
+      description: Ce qui aurait dû se passer
+    validations:
+      required: true

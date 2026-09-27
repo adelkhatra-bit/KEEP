@@ -196,6 +196,11 @@ agent) et messages des sessions de chat (non versionnés).
   formulaire `.github/ISSUE_TEMPLATE/design_review.yml` pour donner aux futures
   IA un résumé planifié des signaux GitHub et une entrée design plus structurée.
   À observer sur les premiers runs réels GitHub après intégration.
+- **Hygiène backlog / incidents (27/09/2026)** : ajout de
+  `stale-hygiene.yml` pour marquer/fermer prudemment les issues mortes sans
+  fermer automatiquement les PR, et de
+  `.github/ISSUE_TEMPLATE/incident_report.yml` pour structurer les incidents
+  réels avant triage IA. À observer sur les premiers cycles programmés.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

@@ -157,6 +157,7 @@ Cela couvre notamment :
 - templates + CODEOWNERS ;
 - Release Drafter ;
 - digest Ops / IA planifié ;
+- hygiène prudente des issues/PRs dormantes ;
 - relais IA ;
 - triage automatique des issues ;
 - triggers `workflow_dispatch` / `schedule` ;
@@ -172,6 +173,8 @@ Les autres IA doivent donc désormais auditer en priorité :
 - `/.github/workflows/ai-ops-digest.yml`
 - `scripts/build-ai-ops-digest.cjs`
 - `/.github/ISSUE_TEMPLATE/design_review.yml`
+- `/.github/workflows/stale-hygiene.yml`
+- `/.github/ISSUE_TEMPLATE/incident_report.yml`
 
 ## Digest Ops / IA
 
@@ -186,6 +189,18 @@ machine/humain avec :
 
 Le rapport est publié dans `artifacts/ai-ops-digest/report.md` et doit être relu
 par toute IA qui reprend un chantier CI/ops important.
+
+## Hygiène stale à grande échelle
+
+Le workflow `/.github/workflows/stale-hygiene.yml` aide à garder un backlog
+actionnable :
+
+- issues sans activité depuis 45 jours → marquées `stale`, puis fermées 14 jours plus tard ;
+- PR sans activité depuis 30 jours → marquées `stale`, mais **jamais fermées automatiquement** ;
+- labels `no-stale`, `security`, `blocked`, `agent-task` et PR draft exemptés.
+
+Le but n’est pas de supprimer du contexte, mais d’éviter qu’un dépôt chargé soit
+pollué par des tickets morts que les IA et les humains doivent relire inutilement.
 
 ## Définition du “100% coordination”
 
