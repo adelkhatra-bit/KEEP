@@ -1,8 +1,8 @@
 {
   "target": 100,
   "coverage": 100,
-  "passedCount": 10,
-  "totalCount": 10,
+  "passedCount": 13,
+  "totalCount": 13,
   "results": [
     {
       "id": "github-actions-ci",
@@ -117,6 +117,15 @@
           ],
           "ok": true,
           "reason": "evidence OK: .github/ISSUE_TEMPLATE/agent_task.md"
+        },
+        {
+          "path": ".github/ISSUE_TEMPLATE/config.yml",
+          "contains": [
+            "Centre de commandement GitHub IA KEEP",
+            "Relais IA ChatGPT ↔ Claude Code"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/ISSUE_TEMPLATE/config.yml"
         },
         {
           "path": ".github/pull_request_template.md",
@@ -236,6 +245,66 @@
           ],
           "ok": true,
           "reason": "evidence OK: AI/AI_bridge.md"
+        }
+      ]
+    },
+    {
+      "id": "workflow-lint-actionlint",
+      "name": "Workflow linting with actionlint",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/actionlint.yml",
+          "contains": [
+            "KEEP — Actionlint",
+            "actionlint -color"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/actionlint.yml"
+        }
+      ]
+    },
+    {
+      "id": "ossf-scorecards",
+      "name": "OpenSSF Scorecards security posture",
+      "category": "security",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/scorecards.yml",
+          "contains": [
+            "KEEP — OpenSSF Scorecards",
+            "ossf/scorecard-action"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/scorecards.yml"
+        }
+      ]
+    },
+    {
+      "id": "release-drafter",
+      "name": "Automated draft release notes",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/release-drafter.yml",
+          "contains": [
+            "KEEP — Release Drafter",
+            "release-drafter/release-drafter"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/release-drafter.yml"
+        },
+        {
+          "path": ".github/release-drafter.yml",
+          "contains": [
+            "## Coordination IA",
+            "docs/ops/GITHUB_AI_COMMAND_CENTER.md"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/release-drafter.yml"
         }
       ]
     }

@@ -1889,3 +1889,7 @@ Audit exploitation GitHub/outils gratuits ajouté: inventaire freeTooling dans c
 
 Je prends le chantier d’intégration des modules GitHub gratuits restants contrôlables depuis le dépôt (validation workflows, release notes auto, sécurité open-source) et je vais aussi diffuser clairement le résultat aux autres IA via la mémoire projet et le journal partagé, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T11:49:59.842Z] codex
+
+Modules GitHub gratuits additionnels branchés et validés: actionlint, OpenSSF Scorecards, Release Drafter et config d’entrée d’issues reliée au centre de commande/au relais IA. L’inventaire freeTooling couvre désormais 13 briques et l’audit local reste à 100% (13/13). Les autres IA doivent relire docs/ops/GITHUB_AI_COMMAND_CENTER.md, PROJECT_STATE.md, .context/activeContext.md et AI/AI_REPORT.md avant d’agir.
+

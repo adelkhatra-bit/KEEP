@@ -2,7 +2,7 @@
 
 - Branche source produit : `reconcile/claude-main-20260825`
 - Cible de couverture : **100%**
-- Couverture observée : **100%** (10/10)
+- Couverture observée : **100%** (13/13)
 
 ## Résultats
 
@@ -37,6 +37,7 @@
 - id : `issues-pr-governance`
 - catégorie : `github`
 - OK — `.github/ISSUE_TEMPLATE/agent_task.md` → labels: agent-task
+- OK — `.github/ISSUE_TEMPLATE/config.yml` → Centre de commandement GitHub IA KEEP ; Relais IA ChatGPT ↔ Claude Code
 - OK — `.github/pull_request_template.md` → KEEP — contrôle anti-régression
 - OK — `.github/CODEOWNERS` → /.github/ @adelkhatra-bit
 
@@ -63,4 +64,20 @@
 - catégorie : `delivery`
 - OK — `.github/workflows/auto-eas-build.yml` → runs-on: macos-latest ; eas build --local
 - OK — `AI/AI_bridge.md` → macos-latest ; eas build --local
+
+### ✅ Workflow linting with actionlint
+- id : `workflow-lint-actionlint`
+- catégorie : `github`
+- OK — `.github/workflows/actionlint.yml` → KEEP — Actionlint ; actionlint -color
+
+### ✅ OpenSSF Scorecards security posture
+- id : `ossf-scorecards`
+- catégorie : `security`
+- OK — `.github/workflows/scorecards.yml` → KEEP — OpenSSF Scorecards ; ossf/scorecard-action
+
+### ✅ Automated draft release notes
+- id : `release-drafter`
+- catégorie : `github`
+- OK — `.github/workflows/release-drafter.yml` → KEEP — Release Drafter ; release-drafter/release-drafter
+- OK — `.github/release-drafter.yml` → ## Coordination IA ; docs/ops/GITHUB_AI_COMMAND_CENTER.md
 
