@@ -1283,8 +1283,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // donc cette garde serveur reste nécessaire mais doit produire le même UX.
       void loadKeepBattleSoloDailyStatus().then((status) => {
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
-        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd’hui. Prochain rechargement : ${resetLabel}. Tu peux continuer en Battle en ligne.`, [{ text: 'OK' }]);
-      }).catch(() => Alert.alert('Tes parties Solo du jour sont terminées', 'Tes parties Solo reviennent automatiquement demain. Tu peux continuer en Battle en ligne.', [{ text: 'OK' }]));
+        const limitLabel = status.limit != null && status.limit > 0 ? `${status.limit} parties Solo incluses` : 'ton quota Solo';
+        Alert.alert('Solo terminé pour aujourd’hui', `Tu as utilisé ${limitLabel}. Retour automatique : ${resetLabel}. Le Battle en ligne reste disponible.`, [{ text: 'OK' }]);
+      }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', 'Ton quota Solo revient automatiquement demain. Le Battle en ligne reste disponible.', [{ text: 'OK' }]));
       return;
     }
     Alert.alert('Battle indisponible', 'Impossible de démarrer cette partie pour le moment. Réessaie dans quelques instants.');
