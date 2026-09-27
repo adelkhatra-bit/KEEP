@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { KeepVisibility } from '../types';
-import { useSessionStore } from '../store/useSessionStore';
+import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
@@ -89,6 +89,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
+  const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
   const signalScan = useRef(new Animated.Value(0)).current;
   const [screenCopy, setScreenCopy] = useState<{ emptyTitle: string | null; emptySubtitle: string | null }>({ emptyTitle: null, emptySubtitle: null });
@@ -252,6 +253,18 @@ export default function HomeScreenCompact({ navigation }: any) {
     const timer = setInterval(() => setElapsed(formatElapsed(startedAt)), 1000);
     return () => clearInterval(timer);
   }, [isActive, startedAt]);
+
+  useEffect(() => {
+    if (!showEndPrompt) {
+      setSilencePromptSeconds(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
+      return undefined;
+    }
+    const deadline = Date.now() + SILENCE_PROMPT_GRACE_MS;
+    const update = () => setSilencePromptSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 250);
+    return () => clearInterval(timer);
+  }, [showEndPrompt]);
 
   const isLiveMic = !musicEngine.isDemoMode;
   useEffect(() => {
@@ -661,7 +674,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       <Modal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>{t('session.endPromptTitle')}</Text>
-          <Text style={s.modalBody}>{t('session.endPromptBody')}</Text>
+          <Text style={s.modalBody}>Je n’entends plus de musique. Tu écoutes toujours ? Sans réponse, l’écoute s’arrête automatiquement et Loki revient à l’accueil dans {silencePromptSeconds} s.</Text>
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={dismissEndPrompt}><Text style={s.modalBtnText}>{t('session.continueListening')}</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={finishSession}><Text style={s.modalEndText}>{t('session.endNow')}</Text></TouchableOpacity>
