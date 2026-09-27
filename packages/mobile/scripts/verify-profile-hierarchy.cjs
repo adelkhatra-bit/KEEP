@@ -23,8 +23,8 @@ function assertIncludes(source, marker, label) {
 
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
-  '<View style={s.topMetricsBar}',
   '<ProfileMotionReveal motionKey={`owner-hero:${user.id}`}',
+  '<View style={s.topMetricsBar}',
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   'title="GÉRER MES MUSIQUES"',
