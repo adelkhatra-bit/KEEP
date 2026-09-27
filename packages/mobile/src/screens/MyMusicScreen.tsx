@@ -193,6 +193,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
   const [manageMusicMode, setManageMusicMode] = useState(false);
   const [manageHelpVisible, setManageHelpVisible] = useState(false);
+  const toggleManageMusicMode = () => {
+    const next = !manageMusicMode;
+    setManageMusicMode(next);
+    Alert.alert(
+      next ? 'Modification activée' : 'Modification terminée',
+      next
+        ? 'Tu peux maintenant toucher les commandes de chaque morceau pour le rendre privé/public, le retirer ou le classer. Rien ne change tant que tu ne choisis pas une action.'
+        : 'Tu reviens à la consultation normale. Tes morceaux et tes réglages sont conservés.'
+    );
+  };
 
   useEffect(() => {
     if (!route?.params?.openManageMusic) return;
