@@ -1229,7 +1229,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       <View style={styles.workspaceTabs}>
         <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'LIBRARY' && styles.workspaceTabOn]} onPress={() => setWorkspaceTab('LIBRARY')}><Text style={[styles.workspaceTabText, workspaceTab === 'LIBRARY' && styles.workspaceTabTextOn]}>MA MUSIQUE</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'COLLECTIONS' && styles.workspaceTabOn]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setActiveTab('MUSIQUES'); }}><Text style={[styles.workspaceTabText, workspaceTab === 'COLLECTIONS' && styles.workspaceTabTextOn]}>MES COLLECTIONS · {existingOffersForAdd.length}</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.workspaceTab, workspaceTab === 'COLLECTIONS' && styles.workspaceTabOn]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setActiveTab('MUSIQUES'); }}><Text style={[styles.workspaceTabText, workspaceTab === 'COLLECTIONS' && styles.workspaceTabTextOn]}>ALBUMS EN VENTE · {existingOffersForAdd.length}</Text></TouchableOpacity>
       </View>
       {workspaceTab === 'COLLECTIONS' ? <View style={styles.collectionDashboard}>
         <View style={styles.collectionDashboardHead}>
@@ -1265,7 +1265,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </TouchableOpacity>
               <View style={styles.collectionDashboardActions}>
                 <TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale')}><Text style={styles.collectionSettingsButtonText}>PRIX / STATUT</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity>
               </View>
             </View>;
           }) : <View style={styles.collectionDashboardEmptyCard}><Text style={styles.collectionDashboardEmptyTitle}>Aucun album publié</Text><Text style={styles.collectionDashboardEmpty}>Toutes tes musiques disponibles restent accessibles avec le bouton ci-dessus pour composer ton premier album.</Text></View>}
