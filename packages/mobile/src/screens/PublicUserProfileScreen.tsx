@@ -1192,7 +1192,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {marketplaceEnabled && !marketBannerVisible && saleOffers.length > 0 ? (
+        {marketplaceEnabled && !marketBannerVisible && (saleOffers.length > 0 || marketBannerEventIds.length > 0) ? (
           <TouchableOpacity
             style={styles.marketplaceReopenButton}
             onPress={reopenMarketBanner}
@@ -1201,7 +1201,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
             <View style={styles.marketplaceReopenCopy}>
               <Text style={styles.marketplaceReopenTitle}>VOIR LES DÉCOUVERTES</Text>
-              <Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} à découvrir</Text>
+              <Text style={styles.marketplaceReopenMeta}>{saleOffers.length > 0 ? `${saleOffers.length} collection${saleOffers.length > 1 ? 's' : ''}` : ''}{saleOffers.length > 0 && marketBannerEventIds.length > 0 ? ' · ' : ''}{marketBannerEventIds.length > 0 ? `${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''}` : ''}</Text>
             </View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
