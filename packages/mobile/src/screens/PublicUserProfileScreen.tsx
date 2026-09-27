@@ -1588,6 +1588,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           onClose={() => setImmersivePreviewOffer(null)}
           onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
           purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
+          sourceUsername={profile.username}
+          onOpenProfile={() => setImmersivePreviewOffer(null)}
         />
       ) : null}
 
