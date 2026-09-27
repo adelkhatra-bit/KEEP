@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-27T11:32:09.230Z
+- Régénéré le : 2026-09-27T11:38:48.463Z
 - Branche : `copilot/fix-github-actions-job-failure-again`
-- Dernier commit : `d014701c` (d014701cceb27042a5b5b0c9e6633808e5c53dee) — chore: plan github ai command center
-- Date du dernier commit : 2026-09-27T11:30:31Z
+- Dernier commit : `02bebd0c` (02bebd0c4f796e92383f12b243683dda7de4d3b8) — chore: plan free tooling audit automation
+- Date du dernier commit : 2026-09-27T11:37:44Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,9 +125,9 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `02bebd0c` (2026-09-27, copilot-swe-agent[bot]) — chore: plan free tooling audit automation
+- `d903905e` (2026-09-27, copilot-swe-agent[bot]) — feat(coordination): add github ai command center
 - `d014701c` (2026-09-27, copilot-swe-agent[bot]) — chore: plan github ai command center
-- `a738df79` (2026-09-27, copilot-swe-agent[bot]) — fix(ci): rely on Battle setup invariants in guardian
-- `c72c779c` (2026-09-27, copilot-swe-agent[bot]) — chore: remove unrelated audio asset drift
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -177,6 +177,12 @@ agent) et messages des sessions de chat (non versionnés).
   `agent-command-triage.yml` pour publier un commentaire de routage unique sur
   les issues. À observer sur les prochaines issues pour confirmer le routage,
   la création de labels et l’absence de bruit excessif.
+- **Audit “100% modules gratuits” (27/09/2026)** : ajout de l’inventaire
+  `freeTooling` dans `config/keep-capabilities.json`, du script
+  `scripts/audit-free-tooling-coverage.cjs` et du workflow
+  `free-tooling-audit.yml`. L’audit local a validé **100% (10/10)** sur le
+  périmètre gratuit réellement contrôlable depuis le dépôt GitHub ; à surveiller
+  sur les prochains runs programmés.
 - Détail exhaustif des chantiers non urgents : `BACKLOG.md`.
 
 ---

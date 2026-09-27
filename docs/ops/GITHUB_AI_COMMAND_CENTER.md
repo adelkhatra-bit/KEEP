@@ -14,6 +14,8 @@ Le centre de commande repose sur quatre briques complémentaires :
 3. **`scripts/agent-lock.cjs`** — verrou anti-collision avant toute édition.
 4. **`agent-command-triage.yml`** — commentaire de routage GitHub maintenu
    automatiquement sur chaque issue.
+5. **`free-tooling-audit.yml`** — audit automatique de l’exploitation des
+   modules gratuits contrôlables depuis le dépôt.
 
 ## Source de vérité
 
@@ -135,6 +137,26 @@ node scripts/agent-lock.cjs release codex
   preuve correspondante.
 - **Jamais** de réécriture silencieuse d’un workflow rouge : la cause racine
   doit être écrite dans `docs/ERROR_LEDGER.md`.
+
+## Audit d’exploitation “100%”
+
+Le workflow `/.github/workflows/free-tooling-audit.yml` exécute
+`scripts/audit-free-tooling-coverage.cjs` et vérifie que l’inventaire
+`freeTooling` de `config/keep-capabilities.json` reste à **100%** sur le
+périmètre gratuit et réellement contrôlable dans le dépôt.
+
+Cela couvre notamment :
+
+- GitHub Actions CI ;
+- GitHub Pages ;
+- CodeQL ;
+- Dependabot ;
+- artifacts ;
+- templates + CODEOWNERS ;
+- relais IA ;
+- triage automatique des issues ;
+- triggers `workflow_dispatch` / `schedule` ;
+- build iOS local gratuit sur runners macOS GitHub publics.
 
 ## Définition du “100% coordination”
 

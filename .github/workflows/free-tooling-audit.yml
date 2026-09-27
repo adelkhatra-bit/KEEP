@@ -1,0 +1,49 @@
+name: KEEP — Free tooling audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'config/keep-capabilities.json'
+      - 'scripts/audit-free-tooling-coverage.cjs'
+      - 'scripts/verify-capability-inventory.cjs'
+      - '.github/workflows/free-tooling-audit.yml'
+      - '.github/workflows/agent-command-triage.yml'
+      - '.github/workflows/deploy-keep-ai-relay.yml'
+      - '.github/dependabot.yml'
+      - '.github/CODEOWNERS'
+      - '.github/ISSUE_TEMPLATE/agent_task.md'
+      - '.github/pull_request_template.md'
+      - 'docs/ops/GITHUB_AI_COMMAND_CENTER.md'
+      - 'AI/AI_bridge.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: free-tooling-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Audit GitHub + free tooling coverage
+        run: node scripts/audit-free-tooling-coverage.cjs
+      - name: Publish summary
+        run: cat artifacts/free-tooling-audit/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: free-tooling-audit-${{ github.run_id }}
+          path: artifacts/free-tooling-audit
+          if-no-files-found: error
+          retention-days: 7

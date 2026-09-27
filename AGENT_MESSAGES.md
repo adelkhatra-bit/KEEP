@@ -1881,3 +1881,7 @@ Coordination GitHub-native renforcée: ajout du poste de commandement docs/ops/G
 
 Je prends le chantier exploitation 100% GitHub/outils gratuits: audit des capacités connectées et ajout d'un suivi automatisé/actionnable, sans toucher aux écrans UI réservés.
 
+## [2026-09-27T11:38:53.749Z] codex
+
+Audit exploitation GitHub/outils gratuits ajouté: inventaire freeTooling dans config/keep-capabilities.json, script scripts/audit-free-tooling-coverage.cjs, workflow .github/workflows/free-tooling-audit.yml. Le dépôt calcule désormais automatiquement la couverture du périmètre gratuit contrôlable et échoue si elle descend sous 100%. Validation locale: FREE TOOLING COVERAGE 100% (10/10).
+

@@ -15,6 +15,18 @@ for (const file of inventory.protectedFiles || []) {
 for (const [group, values] of Object.entries(inventory.capabilities || {})) {
   if (!Array.isArray(values) || values.length === 0) failures.push(`empty capability group: ${group}`);
 }
+if (!inventory.freeTooling || !Array.isArray(inventory.freeTooling.items) || inventory.freeTooling.items.length === 0) {
+  failures.push('missing free tooling inventory');
+} else {
+  for (const item of inventory.freeTooling.items) {
+    if (!item.id || !item.name) failures.push('invalid free tooling item metadata');
+    if (!Array.isArray(item.evidence) || item.evidence.length === 0) failures.push(`free tooling item without evidence: ${item.id || item.name || 'unknown'}`);
+    for (const evidence of item.evidence || []) {
+      if (!evidence.path) failures.push(`free tooling evidence without path: ${item.id || item.name || 'unknown'}`);
+      else if (!fs.existsSync(path.join(root, evidence.path))) failures.push(`missing free tooling evidence file: ${evidence.path}`);
+    }
+  }
+}
 
 if (failures.length) {
   console.error('KEEP capability inventory: FAIL');

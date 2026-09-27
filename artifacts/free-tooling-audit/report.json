@@ -1,0 +1,243 @@
+{
+  "target": 100,
+  "coverage": 100,
+  "passedCount": 10,
+  "totalCount": 10,
+  "results": [
+    {
+      "id": "github-actions-ci",
+      "name": "GitHub Actions CI multi-workflow",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/full-stack-ci.yml",
+          "contains": [
+            "name: KEEP — CI complète",
+            "workflow_dispatch:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/full-stack-ci.yml"
+        },
+        {
+          "path": ".github/workflows/mobile-ci.yml",
+          "contains": [
+            "workflow_dispatch:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/mobile-ci.yml"
+        }
+      ]
+    },
+    {
+      "id": "github-pages-deploy",
+      "name": "GitHub Pages deployment chain",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/web-preview-pages.yml",
+          "contains": [
+            "actions/deploy-pages",
+            "workflow_dispatch:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/web-preview-pages.yml"
+        }
+      ]
+    },
+    {
+      "id": "codeql-security",
+      "name": "CodeQL security scanning",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/codeql.yml",
+          "contains": [
+            "github/codeql-action/init",
+            "schedule:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/codeql.yml"
+        }
+      ]
+    },
+    {
+      "id": "dependabot-updates",
+      "name": "Dependabot npm + GitHub Actions",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/dependabot.yml",
+          "contains": [
+            "package-ecosystem: npm",
+            "package-ecosystem: github-actions"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/dependabot.yml"
+        }
+      ]
+    },
+    {
+      "id": "artifacts-evidence",
+      "name": "GitHub artifacts for audit evidence",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/keep-dual-viewport-guardian.yml",
+          "contains": [
+            "actions/upload-artifact"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/keep-dual-viewport-guardian.yml"
+        },
+        {
+          "path": ".github/workflows/app-store-native-preflight.yml",
+          "contains": [
+            "actions/upload-artifact"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/app-store-native-preflight.yml"
+        }
+      ]
+    },
+    {
+      "id": "issues-pr-governance",
+      "name": "GitHub templates + CODEOWNERS",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/ISSUE_TEMPLATE/agent_task.md",
+          "contains": [
+            "labels: agent-task"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/ISSUE_TEMPLATE/agent_task.md"
+        },
+        {
+          "path": ".github/pull_request_template.md",
+          "contains": [
+            "KEEP — contrôle anti-régression"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/pull_request_template.md"
+        },
+        {
+          "path": ".github/CODEOWNERS",
+          "contains": [
+            "/.github/ @adelkhatra-bit"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/CODEOWNERS"
+        }
+      ]
+    },
+    {
+      "id": "ai-relay",
+      "name": "AI relay between ChatGPT and Claude",
+      "category": "automation",
+      "passed": true,
+      "evidence": [
+        {
+          "path": "AI/AI_bridge.md",
+          "contains": [
+            "keep-ai-relay",
+            "GET /keep-ai-relay?op=state"
+          ],
+          "ok": true,
+          "reason": "evidence OK: AI/AI_bridge.md"
+        },
+        {
+          "path": ".github/workflows/deploy-keep-ai-relay.yml",
+          "contains": [
+            "functions deploy keep-ai-relay",
+            "workflow_dispatch:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/deploy-keep-ai-relay.yml"
+        }
+      ]
+    },
+    {
+      "id": "agent-command-center",
+      "name": "GitHub-native AI command center",
+      "category": "automation",
+      "passed": true,
+      "evidence": [
+        {
+          "path": "docs/ops/GITHUB_AI_COMMAND_CENTER.md",
+          "contains": [
+            "poste de commandement GitHub-native",
+            "agent-command-triage.yml"
+          ],
+          "ok": true,
+          "reason": "evidence OK: docs/ops/GITHUB_AI_COMMAND_CENTER.md"
+        },
+        {
+          "path": ".github/workflows/agent-command-triage.yml",
+          "contains": [
+            "issues:",
+            "workflow_dispatch:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/agent-command-triage.yml"
+        }
+      ]
+    },
+    {
+      "id": "manual-and-scheduled-triggers",
+      "name": "workflow_dispatch + schedule for unattended audits",
+      "category": "github",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/keep-human-guardian.yml",
+          "contains": [
+            "workflow_dispatch:",
+            "schedule:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/keep-human-guardian.yml"
+        },
+        {
+          "path": ".github/workflows/codeql.yml",
+          "contains": [
+            "schedule:"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/codeql.yml"
+        }
+      ]
+    },
+    {
+      "id": "free-macos-ios-build",
+      "name": "Free macOS local iOS build on public GitHub runners",
+      "category": "delivery",
+      "passed": true,
+      "evidence": [
+        {
+          "path": ".github/workflows/auto-eas-build.yml",
+          "contains": [
+            "runs-on: macos-latest",
+            "eas build --local"
+          ],
+          "ok": true,
+          "reason": "evidence OK: .github/workflows/auto-eas-build.yml"
+        },
+        {
+          "path": "AI/AI_bridge.md",
+          "contains": [
+            "macos-latest",
+            "eas build --local"
+          ],
+          "ok": true,
+          "reason": "evidence OK: AI/AI_bridge.md"
+        }
+      ]
+    }
+  ]
+}

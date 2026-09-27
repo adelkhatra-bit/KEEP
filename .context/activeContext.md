@@ -120,3 +120,9 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Ajout du workflow `/.github/workflows/agent-command-triage.yml` qui publie un commentaire de routage unique sur chaque issue et recommande l’agent / les workflows à lancer.
 - Coordination canonique inchangée : `keep-ai-relay` / `public.ai_relay_messages` + `AGENT_MESSAGES.md` + `scripts/agent-lock.cjs`.
 - Impact attendu : moins de confusion entre IA, moins de tâches sans owner clair, meilleur handoff GitHub-native sans second canal.
+
+## 2026-09-27 — Audit “100% outils gratuits” contrôlables
+- `config/keep-capabilities.json` contient maintenant un inventaire `freeTooling` des modules gratuits réellement pilotables depuis le dépôt.
+- `scripts/audit-free-tooling-coverage.cjs` calcule la couverture et échoue si elle tombe sous `100%`.
+- `/.github/workflows/free-tooling-audit.yml` exécute cet audit en manuel, en cron et sur push ciblé, puis publie le résumé + un artifact.
+- Résultat local validé pendant cette session : `FREE TOOLING COVERAGE: 100% (10/10)`.
