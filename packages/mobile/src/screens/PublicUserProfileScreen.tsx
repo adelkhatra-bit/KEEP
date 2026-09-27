@@ -1195,6 +1195,19 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
+
+        {/* Compteurs du profil visite : bloc compact unique, toujours avant les collections. */}
+        <View style={styles.unifiedCounters}>
+          <ProfileCounterRow kind="connections" items={[
+            { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+            { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
+          ]} />
+          <ProfileCounterRow kind="keeps" items={[
+            { value: tracks.length, label: 'Morceaux' },
+            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+          ]} />
+        </View>
+
         {marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
