@@ -2416,7 +2416,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // (21/09/2026) : le bouton BATTLE par joueur devient un badge de
         // statut en lecture seule -- l'action de lancement passe par la
         // case à cocher + la barre fixe "Démarrer la Battle" ci-dessous.
-        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? 'En attente' : short ? 'Crédits insuffisants' : 'Prêt';
+        const soloRemaining = Number(p.soloRoundRemaining ?? 0);
+        const inSolo = soloRemaining > 0;
+        const approxSeconds = soloRemaining * Math.ceil((ROUND_MS + 800) / 1000);
+        const waitLabel = approxSeconds >= 60 ? `~${Math.ceil(approxSeconds / 60)} min` : `~${approxSeconds}s`;
+        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? (inSolo ? `En attente · SOLO ${soloRemaining}` : 'En attente') : short ? 'Crédits insuffisants' : inSolo ? `SOLO · ${soloRemaining} restant${soloRemaining > 1 ? 's' : ''} · ${waitLabel}` : 'Disponible';
         return <TouchableOpacity key={p.profileId} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !selectable }} disabled={!selectable} activeOpacity={0.82} onPress={() => toggleBattlePlayerSelection(p)} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
           <TouchableOpacity
             accessibilityRole="checkbox"
@@ -2433,7 +2437,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={{ flex: 1 }}>
             <TouchableOpacity onPress={(event) => { event.stopPropagation(); openPlayerStats(p); }} style={s.browseNameRow}><Text style={s.browseName}>{p.username}</Text>{livePlayerTiers[p.profileId] ? <ProfileCertificationBadge tier={livePlayerTiers[p.profileId]} compact /> : null}{rankBadge ? <Text style={s.browseRankBadge}>{rankBadge}</Text> : null}<Text style={s.browseChevron}>›</Text></TouchableOpacity>
             {/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de cocher la case. */}
-            <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
+            <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : inSolo ? `🎧 Partie en cours · invitation après le Solo` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
           </View>
           <View style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted]}>{statusLabel}</Text></View>
         </TouchableOpacity>;
