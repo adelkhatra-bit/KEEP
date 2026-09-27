@@ -23,19 +23,17 @@ function assertIncludes(source, marker, label) {
 
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
-  '{user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}',
-  'accessibilityLabel="Inviter ou partager mon profil"',
+  '<View style={s.topMetricsBar}',
+  '<ProfileMotionReveal motionKey={`owner-hero:${user.id}`}',
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
-  '<View style={s.communitySection}>',
-  "{ value: profileFollowerCount, label: 'Abonnés',",
-  '<CommunityConnectionsPanel userId={user.id}',
-  "{ value: profileTotalKeepCount, label: 'Morceaux'",
+  'title="GÉRER MES MUSIQUES"',
+  'accessibilityLabel="Partager mon profil Loki Music"',
   '<Text style={s.dnaTitle}>Tes styles dominants</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
 ], 'Owner profile collective hierarchy');
 
-if ((owner.match(/accessibilityLabel="Inviter ou partager mon profil"/g) || []).length !== 1) {
+if ((owner.match(/accessibilityLabel="Partager mon profil Loki Music"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one PARTAGER action');
 }
 if ((owner.match(/accessibilityLabel="Prévisualiser mon univers en Swipe"/g) || []).length !== 1) {
@@ -43,16 +41,13 @@ if ((owner.match(/accessibilityLabel="Prévisualiser mon univers en Swipe"/g) ||
 }
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
-assertIncludes(owner, 'communitySection:{marginHorizontal:18,gap:2}', 'Owner community counter frame');
+assertIncludes(owner, 'topMetricsBar:{marginHorizontal:18,', 'Owner compact counter frame');
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
-  '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
-  '<Text style={styles.sectionTitle}>À débloquer</Text>',
   '<View style={styles.unifiedCounters}>',
-  "{ value: followerCount, label: 'Abonnés'",
-  '<CommunityConnectionsPanel userId={profile.id}',
-  "{ value: directKeepCount, label: 'Morceaux' }",
+  '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
+  '<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
