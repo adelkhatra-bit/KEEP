@@ -1131,7 +1131,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.marketplaceKicker}>✦ PÉPITES EN MOUVEMENT</Text>
-                <Text style={styles.sectionTitle}>À découvrir</Text>
+                <Text style={styles.sectionTitle}>Découvertes à débloquer</Text>
               </View>
               {saleOffers.length > 0 ? (
                 <View style={styles.marketplaceCountPill}>
@@ -1141,9 +1141,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
             <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>Écoute avant de savoir · {saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres cachés</Text></View>
             {saleOffers.length === 0 ? (
-              <View style={styles.marketplaceEmpty}>
+              <TouchableOpacity
+                style={styles.marketplaceEmpty}
+                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
+                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
+              >
                 <Text style={styles.marketplaceEmptyText}>Aucune pépite à révéler pour le moment</Text>
-              </View>
+              </TouchableOpacity>
             ) : (
               <>
                 <ScrollView
