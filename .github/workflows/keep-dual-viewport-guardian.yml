@@ -221,9 +221,10 @@ jobs:
             await openSalon.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,openSalon,'Open Battle salon');
             // Le hero Battle n'affiche plus un titre "LOKI MUSIC BATTLE" brut :
-            // on verrouille donc un invariant toujours exposé par l'écran réel
-            // (CTA d'aide + setup Battle) au lieu d'un wording retiré du produit.
-            await page.getByLabel('Pourquoi jouer à Loki Music Battle').last().waitFor({state:'visible',timeout:15000});
+            // on verrouille donc un invariant visuel réellement rendu par
+            // l'écran (baseline du hero + setup Battle) au lieu d'un wording
+            // retiré du produit.
+            await page.getByText('⚡ Écoute · réponds · affronte',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('FORMAT DU BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('10 s / titre',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByText('JOUER SOLO',{exact:true}).last().waitFor({state:'visible',timeout:15000});
