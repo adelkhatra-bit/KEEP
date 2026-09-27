@@ -401,9 +401,8 @@ export default function DiscoverScreen({ navigation }: any) {
     setFollowing(false);
     setFollowBusy(false);
     if (!supabase || !user?.id || !currentProfile?.id || isLocalGuest || isDemoMode) return () => { live = false; };
-    void supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('followee_id', currentProfile.id).maybeSingle()
-      .then(({ data }) => { if (live) setFollowing(Boolean(data)); })
-      .catch(() => {});
+    void Promise.resolve(supabase.from('follows').select('follower_id').eq('follower_id', user.id).eq('followee_id', currentProfile.id).maybeSingle())
+      .then(({ data }) => { if (live) setFollowing(Boolean(data)); }, () => {});
     return () => { live = false; };
   }, [currentProfile?.id, user?.id, isLocalGuest, isDemoMode]);
   const toggleFollow = async () => {
