@@ -16,14 +16,14 @@ import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { loadKeepBattleGlobalLeaderboard, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
-import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
+import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
-import { loadMyPlaylistSaleOffers, PlaylistSaleOffer } from '../services/playlistSaleService';
+import { loadMyPlaylistSaleOffers, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
@@ -40,6 +40,8 @@ import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
+import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
+import { buildPayoutCheckoutUrl } from '../services/payoutLinkService';
 import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
@@ -184,6 +186,45 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
+  const [opportunityPreviewOffer, setOpportunityPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
+  const [opportunityPurchaseBusy, setOpportunityPurchaseBusy] = useState(false);
+  const [marketplacePurchaseEnabled, setMarketplacePurchaseEnabled] = useState(false);
+  useEffect(() => { let live = true; isPlaylistMarketplaceEnabled().then((enabled) => live && setMarketplacePurchaseEnabled(enabled)); return () => { live = false; }; }, []);
+  const openOpportunityPreview = async (suggestion: ProfileSaleSuggestion) => {
+    unlockWebAudioForGesture();
+    try {
+      const offers = await loadPlaylistSaleOffersForProfile(suggestion.sellerId);
+      const offer = offers.find((row) => row.offerId === suggestion.offerId);
+      if (!offer) throw new Error('OFFER_NOT_FOUND');
+      setOpportunityPreviewOffer(offer);
+    } catch {
+      Alert.alert('Découverte', 'Cette sélection n’est plus disponible pour le moment.');
+    }
+  };
+  const buyOpportunityOffer = async (offer: PublicPlaylistSaleOffer) => {
+    if (opportunityPurchaseBusy) return;
+    setOpportunityPurchaseBusy(true);
+    try {
+      if (offer.paymentMode === 'FREE') {
+        await purchasePlaylistOfferWithFree(offer.offerId);
+        setOpportunityPreviewOffer(null);
+        Alert.alert('Débloquée', 'La sélection est maintenant disponible dans ton Loki Music.');
+        return;
+      }
+      if (!marketplacePurchaseEnabled) {
+        Alert.alert('Paiement', 'Le paiement externe n’est pas activé sur cet appareil.');
+        return;
+      }
+      const request = await requestPlaylistPurchase(offer.offerId);
+      if (!request.payoutLink) throw new Error('PAYOUT_LINK_MISSING');
+      const checkoutUrl = buildPayoutCheckoutUrl(request.payoutLink, request.amountCents, request.currencyCode);
+      await Linking.openURL(checkoutUrl);
+    } catch {
+      Alert.alert('Paiement', 'Impossible de démarrer le déblocage pour le moment.');
+    } finally {
+      setOpportunityPurchaseBusy(false);
+    }
+  };
   const [profileSaleSuggestionIndex, setProfileSaleSuggestionIndex] = useState(0);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
@@ -1235,10 +1276,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <ProfileOpportunityRail
           viewerKey={user.id}
           suggestions={profileSaleSuggestions}
-          onSuggestionPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
-          onListenPress={(suggestion) => navigation.navigate('PublicUserProfile', { username: suggestion.sellerUsername, openSaleOfferId: suggestion.offerId })}
+          onSuggestionPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
+          onListenPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
           onParticipatePress={() => navigation.navigate('PlaylistSale')}
           onOffersPress={() => navigation.navigate('Offers')}
+        />
+      ) : null}
+
+      {opportunityPreviewOffer ? (
+        <PlaylistSaleImmersivePreview
+          offer={opportunityPreviewOffer}
+          visible
+          busy={opportunityPurchaseBusy}
+          onClose={() => setOpportunityPreviewOffer(null)}
+          onConfirmPurchase={(offer) => { void buyOpportunityOffer(offer); }}
+          purchaseEnabled={opportunityPreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
         />
       ) : null}
 
