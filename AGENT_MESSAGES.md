@@ -1893,3 +1893,7 @@ Je prends le chantier d’intégration des modules GitHub gratuits restants cont
 
 Modules GitHub gratuits additionnels branchés et validés: actionlint, OpenSSF Scorecards, Release Drafter et config d’entrée d’issues reliée au centre de commande/au relais IA. L’inventaire freeTooling couvre désormais 13 briques et l’audit local reste à 100% (13/13). Les autres IA doivent relire docs/ops/GITHUB_AI_COMMAND_CENTER.md, PROJECT_STATE.md, .context/activeContext.md et AI/AI_REPORT.md avant d’agir.
 
+## [2026-09-27T11:58:04.597Z] codex
+
+Je prends un nouveau lot pour renforcer l’autonomie utile du dépôt: ajout d’un digest ops/IA automatique des signaux GitHub et d’une entrée design structurée pour mieux orienter les futures IA, sans toucher aux écrans UI réservés.
+
