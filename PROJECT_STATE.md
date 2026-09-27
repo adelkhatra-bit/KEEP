@@ -1,3 +1,6 @@
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP (Loki Music) — État du projet (source de vérité unique)
 
 Ce fichier est le tableau de bord central pour **toute IA** qui travaille sur ce
