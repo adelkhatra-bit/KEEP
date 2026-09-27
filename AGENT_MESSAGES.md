@@ -1885,3 +1885,7 @@ Je prends le chantier exploitation 100% GitHub/outils gratuits: audit des capaci
 
 Audit exploitation GitHub/outils gratuits ajouté: inventaire freeTooling dans config/keep-capabilities.json, script scripts/audit-free-tooling-coverage.cjs, workflow .github/workflows/free-tooling-audit.yml. Le dépôt calcule désormais automatiquement la couverture du périmètre gratuit contrôlable et échoue si elle descend sous 100%. Validation locale: FREE TOOLING COVERAGE 100% (10/10).
 
+## [2026-09-27T11:48:12.533Z] codex
+
+Je prends le chantier d’intégration des modules GitHub gratuits restants contrôlables depuis le dépôt (validation workflows, release notes auto, sécurité open-source) et je vais aussi diffuser clairement le résultat aux autres IA via la mémoire projet et le journal partagé, sans toucher aux écrans UI réservés.
+
