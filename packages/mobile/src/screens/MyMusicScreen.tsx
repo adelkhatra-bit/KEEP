@@ -1284,10 +1284,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
-          <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setManageHelpVisible((value) => !value)} accessibilityLabel="Expliquer le mode modification"><Text style={styles.manageGuideIconText}>{manageMusicMode ? '✓' : '?'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setManageHelpVisible((value) => !value)} accessibilityLabel="Afficher les informations sur le mode modification"><Text style={styles.manageGuideIconText}>i</Text></TouchableOpacity>
           <View style={styles.manageGuideCopy}>
-            <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODE MODIFICATION' : 'MODIFIER MA BIBLIOTHÈQUE'}</Text>
-            <Text style={styles.manageGuideText} numberOfLines={1}>{manageMusicMode ? 'Commandes actives sur chaque morceau · touche ? pour comprendre' : 'Privé/public · retirer · classer · touche ? pour comprendre'}</Text>
+            <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODIFICATION ACTIVÉE' : 'MODE MODIFICATION'}</Text>
+            <Text style={styles.manageGuideText} numberOfLines={1}>{manageMusicMode ? 'Public/privé · retirer · classer : commandes actives' : 'Active les commandes public/privé, retirer et classer'}</Text>
           </View>
           <TouchableOpacity
             style={[styles.manageModeButton, manageMusicMode && styles.manageModeButtonActive]}
@@ -1300,15 +1300,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
               return next;
             })}
             accessibilityRole="button"
-            accessibilityLabel={manageMusicMode ? 'Terminer la gestion des musiques' : 'Ouvrir toutes les commandes de gestion'}
+            accessibilityLabel={manageMusicMode ? 'Désactiver le mode modification' : 'Activer le mode modification'}
           >
             <Text style={[styles.manageModeButtonText, manageMusicMode && styles.manageModeButtonTextActive]}>
-              {manageMusicMode ? 'TERMINER' : 'MODIFIER'}
+              {manageMusicMode ? 'DÉSACTIVER' : 'ACTIVER'}
             </Text>
           </TouchableOpacity>
         </View>
       ) : null}
-      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>À QUOI SERT CE MODE ?</Text><Text style={styles.manageHelpText}>Il affiche les commandes directement sur chaque morceau pour modifier sa visibilité, le retirer ou le classer. Vert = modification active. Violet = consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
+      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>MODE MODIFICATION</Text><Text style={styles.manageHelpText}>ACTIVER affiche les commandes sur chaque morceau : rendre public ou privé, retirer et classer. DÉSACTIVER revient à la consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
