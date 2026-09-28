@@ -1304,7 +1304,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     <Text style={styles.marketplaceBrowseAllText}>{showAllSaleOffers ? 'RÉDUIRE' : `VOIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>{showAllSaleOffers ? '⌃' : '⌄'}</Text>
                   </TouchableOpacity>
                 ) : null}
-                <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })} accessibilityLabel={`Voir le profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>@{profile.username} · VOIR LE PROFIL ›</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Vendu par @{profile.username}</Text></TouchableOpacity>
                 <Text style={styles.saleCarouselHint}>Aperçu sans révéler les titres · une collection déjà acquise reste signalée</Text>
               </>
             )}
