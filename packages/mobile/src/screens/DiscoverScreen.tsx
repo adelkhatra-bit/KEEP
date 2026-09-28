@@ -13,6 +13,7 @@ import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { isFeatureEnabled } from '../services/featureFlagService';
+import MotionActionButton from '../components/MotionActionButton';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -464,7 +465,15 @@ export default function DiscoverScreen({ navigation }: any) {
         <View style={styles.usernameSearch}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
           <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un utilisateur Loki Music par pseudo" />
-          {profileQuery ? <TouchableOpacity style={styles.usernameClear} onPress={() => { setProfileQuery(''); setProfileIndex(0); }} accessibilityLabel="Effacer la recherche"><Text style={styles.usernameClearText}>×</Text></TouchableOpacity> : null}
+          {profileQuery ? <MotionActionButton
+            variant="ghost"
+            size="small"
+            onPress={() => { setProfileQuery(''); setProfileIndex(0); }}
+            accessibilityLabel="Effacer la recherche"
+            accessibilityHint="Réinitialise la recherche par pseudo"
+          >
+            ×
+          </MotionActionButton> : null}
         </View>
         <View style={styles.searchPanel}>
           <View style={styles.radiusHeader}><Text style={styles.radiusLabel}>1 · DISTANCE</Text><View style={styles.radiusValue}><Text style={styles.radiusValueText}>{radiusKm >= 20000 ? 'MONDE' : `${radiusKm} KM`}</Text></View></View>
@@ -472,7 +481,16 @@ export default function DiscoverScreen({ navigation }: any) {
           <View style={styles.radiusChoices}>{DISCOVERY_RADII.map((value) => (
             <TouchableOpacity key={value} style={[styles.radiusChoice, radiusKm === value && styles.radiusChoiceOn]} onPress={() => { setRadiusKm(value); resetSearchResults(); }} accessibilityLabel={value >= 20000 ? 'Rayon Monde' : `Rayon ${value} kilomètres`}><Text style={[styles.radiusChoiceText, radiusKm === value && styles.radiusChoiceTextOn]}>{value >= 20000 ? 'Monde' : value}</Text></TouchableOpacity>
           ))}</View>
-          <TouchableOpacity style={styles.searchButton} onPress={() => void searchAroundMe()} disabled={searchBusy} accessibilityLabel="Rechercher des profils autour de moi">{searchBusy ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.searchButtonText}>2 · ⌖ RECHERCHER</Text>}</TouchableOpacity>
+          <MotionActionButton
+          variant="primary"
+          size="medium"
+          onPress={() => void searchAroundMe()}
+          disabled={searchBusy}
+          accessibilityLabel="Rechercher des profils autour de moi"
+          accessibilityHint="Lance une recherche dans le rayon sélectionné"
+        >
+          {searchBusy ? '⏳ Recherche...' : '2 · ⌖ RECHERCHER'}
+        </MotionActionButton>
           <Text style={styles.searchHint}>{hasSearched && searchPosition ? `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} dans ce rayon` : `${filteredProfiles.length} profil${filteredProfiles.length > 1 ? 's' : ''} disponible${filteredProfiles.length > 1 ? 's' : ''} · le GPS affine ensuite la proximité`}</Text>
         </View>
         {loadingProfiles || (currentProfile && accessLoading) ? <ActivityIndicator color={colors.primaryLight} /> : !discoveryUnlocked && currentProfile ? (
@@ -496,7 +514,25 @@ export default function DiscoverScreen({ navigation }: any) {
               <View key={genre} style={styles.genreChip}><Text style={styles.genreChipText}>{genre}</Text></View>
             ))}</View>
             {currentProfileSnapshot ? <ProfileCounterRow kind="connections" compact items={[{ value: currentProfileSnapshot.followers, label: 'Abonnés' }, { value: currentProfileSnapshot.following, label: 'Abonnements' }]} /> : null}
-            {filteredProfiles.length > 1 ? <View style={styles.deckNav}><TouchableOpacity style={styles.deckArrow} onPress={previousProfile} accessibilityLabel="Profil précédent"><Text style={styles.deckArrowText}>‹</Text></TouchableOpacity><Text style={styles.deckCount}>{profileIndex % filteredProfiles.length + 1} / {filteredProfiles.length}</Text><TouchableOpacity style={styles.deckArrow} onPress={nextProfile} accessibilityLabel="Profil suivant"><Text style={styles.deckArrowText}>›</Text></TouchableOpacity></View> : null}
+            {filteredProfiles.length > 1 ? <View style={styles.deckNav}><MotionActionButton
+              variant="ghost"
+              size="small"
+              onPress={previousProfile}
+              accessibilityLabel="Profil précédent"
+              accessibilityHint="Affiche le profil précédent"
+            >
+              ‹
+            </MotionActionButton>
+            <Text style={styles.deckCount}>{profileIndex % filteredProfiles.length + 1} / {filteredProfiles.length}</Text>
+            <MotionActionButton
+              variant="ghost"
+              size="small"
+              onPress={nextProfile}
+              accessibilityLabel="Profil suivant"
+              accessibilityHint="Affiche le profil suivant"
+            >
+              ›
+            </MotionActionButton></View> : null}
             <View style={styles.cardActions}>
               <TouchableOpacity style={[styles.actionButton, styles.followDeckButton, isFollowing && styles.followDeckButtonOn]} disabled={followBusy} onPress={() => void toggleFollow()} accessibilityLabel={isFollowing ? `Se désabonner de ${currentProfile.username}` : `S'abonner à ${currentProfile.username}`}>
                 <Text style={[styles.followDeckText, isFollowing && styles.followDeckTextOn]}>{followBusy ? '…' : isFollowing ? '✓ ABONNÉ' : '+ S’ABONNER'}</Text>
