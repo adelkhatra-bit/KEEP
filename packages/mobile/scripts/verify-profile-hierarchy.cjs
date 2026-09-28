@@ -45,8 +45,8 @@ assertIncludes(owner, 'topMetricsBar:{marginHorizontal:18,', 'Owner compact coun
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
-  '<View style={styles.unifiedCounters}>',
   '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
+  '<View style={styles.unifiedCounters}>',
   '<Text style={styles.sectionTitle}>À écouter · à débloquer</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
