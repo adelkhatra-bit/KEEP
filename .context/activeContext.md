@@ -6,16 +6,15 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 ## Tâche en cours
 
-- **Refonte layout 3 écrans (spec textuelle validée d'Adel, 22/09/2026) — CODÉE, TESTÉE, POUSSÉE** :
-  - `HomeScreenCompact.tsx` : commit `8cd3a09` — ordre vertical strict (titre 28px, waveform menthe animée 120px via prop `size` de SessionPulse, accroche 24px, sous-titre 14px gris, bouton ÉCOUTER 52px/80%, lien ghost 13px), espacements 24px, nouveau token `colors.textMutedGrey` (#A0A0B0, dérogation Adel).
-  - `DiscoverScreen.tsx` : commit `d85c8d9` — pochette 220×220, badge affinité sur pochette, titre 22px, bio 16px gris, chips genres, 3 boutons PASSER/SUPER/GARDER (GARDER = follow via RPC sécurisées `keep_follow_profile`/`keep_unfollow_profile`).
-  - `PartiesScreen.tsx` : commit `2767c3a` — hero gradient violet 180px, badge EN COURS pulsant, titre 24px + lieu/horaire 14px gris, RSVP "J'y vais"/"Je passe" 48px, grille participants 48×48, sous-onglets Lobby/Classement/Playlist (Classement = leaderboard partagé `renderLeaderboard` + ligne utilisateur surlignée violet ; Playlist = état vide, pas de données playlist événement dans le code).
-  - Tests verts avant push : tsc 0 erreur, jest 255/255, verify-source-of-truth OK.
-- **Builds iOS TestFlight** :
-  - Build 1 (couleurs `d7df56a`) : run GitHub Actions `35744403068`, déclenché 15:01 UTC.
-  - Build 2 (refontes, HEAD `2767c3a`) : run `35748916845`, déclenché 15:39 UTC.
-  - Numéros de build TestFlight à confirmer quand les builds seront soumis (30-60 min).
-- Les maquettes HTML des 3 écrans sont perdues (session précédente) — remplacées par la spec textuelle validée d'Adel.
+- **AUDIT BUTTONS COMPLET ET ANIMATIONS MICRO (Demande Adel 28/09/2026) — EN COURS** :
+  - **Phase 1 COMPLÉTÉE (28/09)** : MotionActionButton.tsx créé `f9ea94c` + 3 écrans intégrés
+    - MotionActionButton.tsx : Composant réutilisable avec animations (press scale 0.96, release bounce 1.02→1.0, glow pulse opacity 0→0.3), variants (primary/success/danger/secondary/ghost), sizes (small/medium/large), accessibilité complète, native driver 60fps
+    - HomeScreenCompact (commit `9f7e61e`) : ÉCOUTER MAINTENANT (primary/large), ARRÊTER L'ÉCOUTE (danger/large), Tester audio d'onglet (ghost/small), Plus récent/Plus ancien (ghost/small), Tu connais le titre (ghost/medium)
+    - DiscoverScreen (commit `ba9aebd`) : RECHERCHER (primary), × Clear search (ghost), SUIVRE/ABONNÉ (primary/success), VOIR PROFIL (secondary), Previous/Next navigation (ghost)
+    - PartiesScreen Phase 1 (commit `83158e8`) : ACCEPTER/REFUSER Battle et Rematch (success/danger)
+    - tsc 0 erreur sur 3 écrans (ProfilePublicScreen a 2 erreurs pré-existantes non liées)
+  - **Phase 2 TODO** : PartiesScreen reste (leaderboard, création événement), ProfilePublicScreen hero buttons, boutons complexes (PASSER/GARDER)
+  - **Demandes connexes à traiter** : QR code login (10h), 2FA/MFA (6-8h), social login Apple/Google/Facebook (8-10h), affiliate links fix (2-3h)
 
 ## État du projet
 
