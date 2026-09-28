@@ -1,6 +1,6 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 22 septembre 2026 (session Abacus/Codex).
+Dernière mise à jour : 28 septembre 2026 (session Collections Audit Phase 2 - TESTS).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
@@ -68,6 +68,18 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - `expo-av` est déprécié : prévoir une migration séparée vers `expo-audio`.
 - Le token GitHub de l'app n'a pas la permission `workflows` (push de fichiers `.github/workflows/*` rejeté) — les builds sont déclenchés via `workflow_dispatch` (API REST, token du credential manager Windows).
 
+
+## Collections System — Phase 1→2 (28/09/2026)
+
+**Phase 1 - IDENTIFY (complétée 27/09)** : 7 bugs Collections documentés dans ERROR_LEDGER.md (ERR-COLLECTIONS-VISIBILITY-018 → ERR-COLLECTIONS-DESIGN-3D-024).
+
+**Phase 2 - TESTS (complétée 28/09)** : Audit statique du code + calcul empirique.
+- **REPRODUCIBLE CONFIRMED** : bugs 018, 020, 022, 023, 024 (audit code BD/RPC/UI + mesure pixels layout + vérif animations)
+- **À TESTER SUR DEVICE RÉEL** : bugs 019 (bouton × Retirer), 021 (ordre incohérent)
+- Document reproduction : `docs/COLLECTIONS_TEST_REPRODUCTION.md`
+- ERROR_LEDGER.md mis à jour avec statuts et preuves audit
+
+**Phase 3 - REPAIR (en attente)** : Commencer par les bugs auditables (pas de colonne BD = impact haut priorité).
 
 ## Loki — contrat produit profil musical / Web-first (23/09/2026)
 - Source de travail unique : branche `reconcile/claude-main-20260825`.
