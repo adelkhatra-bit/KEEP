@@ -37,7 +37,7 @@ returns table(track_id uuid,profile_id uuid,username text,discovered_at timestam
 language sql stable security definer set search_path=public as $$
  select d.track_id,d.profile_id,p.username,d.discovered_at
  from public.keep_track_first_discoveries d join public.profiles p on p.id=d.profile_id
- where d.track_id=any(p_track_ids) and p.is_public=true
+ where d.track_id=any(p_track_ids)
 $$;
 revoke all on function public.keep_track_first_discoveries(uuid[]) from public;
 grant execute on function public.keep_track_first_discoveries(uuid[]) to authenticated,anon;

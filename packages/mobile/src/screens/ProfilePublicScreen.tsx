@@ -1270,7 +1270,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
       {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>{communityMode === 'followers' ? 'Tes abonnés' : 'Tes abonnements'}</Text><TouchableOpacity hitSlop={12} onPress={() => setCommunityMode(null)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
 
-        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
+        {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle} numberOfLines={1}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText} numberOfLines={2}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
         {/* DESIGN_SYSTEM v3 (21/09/2026) : SWIPE devient l'action plein-largeur
             (violet, principale) juste sous l'identité ; PARTAGER redescend en
