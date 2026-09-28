@@ -1,20 +1,29 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 28 septembre 2026 — 22:05 UTC (session UX Refactor Phase 3 : Suppression FOLLOW buttons + menu simplifiée).
+Dernière mise à jour : 28 septembre 2026 — 22:40 UTC (session AUDIT COMPLET + UX FIXES).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
 ## Tâche en cours
 
-- **UX REFACTOR PHASE 3 (Demande Adel 28/09/2026) — DÉBUT** :
-  - **Phase 1 COMPLÉTÉE (commit 277301d)** : Suppression FOLLOW buttons + menu simplifiée
-    - DiscoverScreen : Supprime le bouton SUIVRE/ABONNÉ du profil card (cause désabonnements accidentels)
-    - DiscoverScreen : Élargit le bouton 'VOIR LE PROFIL' pour prendre toute la largeur
-    - ProfilePublicScreen : Menu simplifié 12 → 6 items (Identité QR, Notifications, Partager, Collections, Aide, Déconnexion)
-    - tsc 0 erreur nouvelle (2 pré-existantes non liées)
-  - **Phase 2 TODO** : Bannière 3D scrollante avec suggestions musicales par style (Instagram-style)
-  - **Phase 3 TODO** : Bannière chat musical modérée (scroll permanent en haut du profil)
-  - **Collections Bugs Phase 4 — AFTER BANNERS** : Commencer repairs (bugs 020, 024, 018, 022)
+- **AUDIT COMPLET + PLAN D'ACTION (Demande Adel 28/09/2026 — "ne reviens pas tant que c'est pas fait")** :
+  - **UX FIX PHASE 1 (EN COURS)** :
+    - ✅ OnboardingScreen "Créer mon compte" button : Redesigned avec bordure visible (commit 3423caf)
+    - ✅ ProfilePublicScreen MotionActionButton : Fixed prop validation errors (2 occurrences) (commit b336535)
+    - ✅ TypeScript compile : 0 errors
+    - ⏳ GitHub Pages deployment : En cours (devrait terminer dans ~5 min)
+  - **SOLO SYSTEM PHASE 1 (PARTIAL)** :
+    - ✅ Backend RPC `keep_battle_solo_daily_status` : Migration créée
+    - ✅ Service `loadKeepBattleSoloDailyStatus()` : Implémentée
+    - ✅ UI badge "SOLOS: X/Y" : Codée
+    - ✅ Remove Free cost check for SOLO : Logique corrigée
+    - ⏳ Production deployment : En attente du workflow web
+    - 🔴 RPC application status : À vérifier si migration Supabase production appliquée
+  - **TODO PHASES 2-5** :
+    - [ ] Phase 2 : Super Admin SOLO config (12h)
+    - [ ] Phase 3 : Collections bugs (36h)
+    - [ ] Phase 4 : UI/UX notifications (24h)
+    - [ ] Phase 5 : Audit + QA (12h)
 
 ## État du projet
 
