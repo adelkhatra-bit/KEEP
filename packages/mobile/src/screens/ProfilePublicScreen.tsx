@@ -1120,7 +1120,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
         <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule — prochain versement dans {daysUntilNextFreeCredit} jour{daysUntilNextFreeCredit > 1 ? 's' : ''} (le 1er du mois)</Text>
       </View>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Offers')}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('Offers')} accessibilityLabel="Voir les offres"><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></MotionActionButton>
     </>;
 
     if (key === 'profile') return <>
@@ -1132,7 +1132,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'identityCard') return <>
       <Text style={s.shareTitle}>Ma carte d’identité musicale</Text>
       <Text style={s.shareSubtitle}>Ton QR personnel ouvre directement ton profil Loki Music. Ta carte affiche ton identité, tes styles et tes statistiques et peut être partagée ou enregistrée par capture.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }}><Text style={s.shareActionPrimaryText}>AFFICHER MA CARTE & MON QR</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }} accessibilityLabel="Afficher ma carte"><Text style={s.shareActionPrimaryText}>AFFICHER MA CARTE & MON QR</Text></MotionActionButton>
       <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  COPIER MON LIEN DE PROFIL</Text><Text style={s.shareActionHint}>À coller dans une bio, un message ou un réseau social</Text></TouchableOpacity>
     </>;
 
@@ -1157,7 +1157,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'offers') return <>
       <Text style={s.shareTitle}>Offres &amp; crédits</Text>
       <Text style={s.shareSubtitle}>Formule actuelle : {planCode}. {creditUnlimited ? 'Téléchargements illimités.' : creditRemaining != null ? `${creditRemaining} téléchargement${creditRemaining > 1 ? 's' : ''} restant${creditRemaining > 1 ? 's' : ''}.` : ''} Compare Premium, Creator Pro et Venue Pro, et vois tous les avantages en détail.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Offers')}><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('Offers')} accessibilityLabel="Voir les offres"><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></MotionActionButton>
     </>;
 
     if (key === 'sellPlaylists') return <>
@@ -1277,15 +1277,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
             action secondaire (grise), conformément à la hiérarchie des
             couleurs v3 (violet = actions principales uniquement). */}
         <View style={s.ownerQuickActions}>
-          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipPrimary]} onPress={openProfileSwipe} accessibilityLabel="Prévisualiser mon univers en Swipe">
-            <Text style={s.ownerActionChipIcon}>▶</Text><Text style={s.ownerActionChipText}>APERÇU</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.ownerActionChip, s.ownerActionChipSuccess]} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Créer ou gérer mes pépites">
-            <Text style={s.ownerActionChipIcon}>◆</Text><Text style={s.ownerActionChipText}>PÉPITES</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.ownerActionChip} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer un Battle">
-            <Text style={s.ownerActionChipIcon}>⚡</Text><Text style={s.ownerActionChipText}>BATTLE</Text>
-          </TouchableOpacity>
+          <MotionActionButton variant="primary" size="medium" onPress={openProfileSwipe} accessibilityLabel="Voir apercu">
+            ▶ APERÇU
+          </MotionActionButton>
+          <MotionActionButton variant="success" size="medium" onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gerer pepites">
+            ◆ PEPITES
+          </MotionActionButton>
+          <MotionActionButton variant="ghost" size="medium" onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer battle">
+            ⚡ BATTLE
+          </MotionActionButton>
         </View>
 
       </ProfileMotionReveal>

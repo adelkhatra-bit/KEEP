@@ -13,6 +13,8 @@ interface MotionActionButtonProps {
   accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
+  noDefaultStyling?: boolean;
+  containerStyle?: ViewStyle;
 }
 
 export default function MotionActionButton({
