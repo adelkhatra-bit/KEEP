@@ -441,6 +441,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return () => { cancelled = true; unsubscribe?.(); };
   }, [username, viewer?.id, isLocalGuest, isDemoMode, navigation]);
 
+  const swipeSourceByTrack = useMemo(() => Object.fromEntries(tracks.map((track) => [track.trackId, {
+    profileId: track.sourceProfileId || track.sourceUserId || profile?.id,
+    username: track.sourceUsername || profile?.username,
+    avatarUrl: track.sourceProfileId || track.sourceUserId ? null : profile?.avatar,
+  }])), [tracks, profile?.id, profile?.username, profile?.avatar]);
+
   const swipeTracks = useMemo<CanonicalTrack[]>(() => tracks.map((track) => ({
     id: track.trackId,
     isrc: track.isrc,
@@ -1027,7 +1033,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return false;
     }
     try {
-      await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile_swipe', sourceProfileId: profile?.id } });
+      const origin = tracks.find((item) => item.trackId === canonical.id);
+      await commitKeep(canonical, [], undefined, { visibility, context: {
+        source: 'public_profile_swipe',
+        sourceProfileId: origin?.sourceProfileId || origin?.sourceUserId || profile?.id,
+        sourceUsername: origin?.sourceUsername || profile?.username,
+      } });
       setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));
       maybeSuggestFollow();
       if (isDemoMode) {
@@ -1615,6 +1626,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         sourceUsername={profile.username}
         sourceAvatarUrl={profile.avatar}
         sourceProfileId={profile.id}
+        sourceByTrack={swipeSourceByTrack}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
         requiresAccount={!viewer || isLocalGuest}
