@@ -1,232 +1,157 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useRef } from 'react';
+import { Animated, Easing, TouchableOpacity, ViewStyle, TextStyle, AccessibilityRole } from 'react-native';
 import { colors } from '../theme/colors';
 
-type Tone = 'primary' | 'battle' | 'success' | 'secondary';
-
-type Props = {
-  icon?: string;
-  title: string;
-  subtitle?: string;
+interface MotionActionButtonProps {
   onPress: () => void;
-  accessibilityLabel: string;
-  tone?: Tone;
   disabled?: boolean;
-  compact?: boolean;
-  trailingText?: string;
-  style?: StyleProp<ViewStyle>;
-};
+  children: React.ReactNode;
+  style?: ViewStyle;
+  textStyle?: TextStyle;
+  variant?: 'primary' | 'success' | 'danger' | 'secondary' | 'ghost';
+  size?: 'small' | 'medium' | 'large';
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  testID?: string;
+}
 
-/**
- * CTA premium partagé par les profils Loki Music.
- *
- * - halo respirant discret au repos ;
- * - compression + rebond au toucher ;
- * - dégradé de marque ;
- * - respecte "Réduire les animations".
- *
- * Aucun état métier ici : le composant ne fait que moderniser l'interaction
- * visuelle et délègue toujours l'action réelle au parent.
- */
 export default function MotionActionButton({
-  icon,
-  title,
-  subtitle,
   onPress,
-  accessibilityLabel,
-  tone = 'primary',
   disabled = false,
-  compact = false,
-  trailingText,
+  children,
   style,
-}: Props) {
-  const press = useRef(new Animated.Value(1)).current;
-  const glow = useRef(new Animated.Value(0)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
+  textStyle,
+  variant = 'primary',
+  size = 'medium',
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
+}: MotionActionButtonProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isReduceMotionEnabled?.()
-      .then((enabled) => { if (live) setReduceMotion(Boolean(enabled)); })
-      .catch(() => {});
-    return () => { live = false; };
-  }, []);
+  const variantColors: Record<string, { bg: string; border: string; text: string }> = {
+    primary: { bg: colors.primary, border: colors.primary, text: colors.white },
+    success: { bg: colors.success, border: colors.success, text: colors.white },
+    danger: { bg: colors.danger || '#FF5C72', border: colors.danger || '#FF5C72', text: colors.white },
+    secondary: { bg: colors.backgroundElevated, border: colors.border, text: colors.textPrimary },
+    ghost: { bg: 'transparent', border: colors.border, text: colors.textPrimary },
+  };
 
-  useEffect(() => {
-    glow.stopAnimation();
-    if (reduceMotion || disabled || tone === 'secondary') {
-      glow.setValue(0);
-      return undefined;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, { toValue: 1, duration: 1350, useNativeDriver: true }),
-        Animated.timing(glow, { toValue: 0, duration: 1350, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [disabled, glow, reduceMotion, tone]);
+  const sizeConfig: Record<string, { height: number; paddingHorizontal: number; fontSize: number }> = {
+    small: { height: 36, paddingHorizontal: 12, fontSize: 11 },
+    medium: { height: 48, paddingHorizontal: 16, fontSize: 12 },
+    large: { height: 56, paddingHorizontal: 20, fontSize: 14 },
+  };
 
-  const gradient = useMemo<[string, string]>(() => {
-    if (tone === 'success') return [colors.keep, colors.primary];
-    if (tone === 'battle') return [colors.primaryLight, colors.primaryDark];
-    if (tone === 'secondary') return [colors.backgroundCard, colors.backgroundElevated];
-    return [colors.primaryLight, colors.primary];
-  }, [tone]);
+  const config = variantColors[variant];
+  const dims = sizeConfig[size];
 
-  const pressTo = (toValue: number) => {
-    if (reduceMotion) {
-      press.setValue(toValue);
-      return;
-    }
-    Animated.spring(press, {
-      toValue,
-      damping: 16,
-      stiffness: 260,
-      mass: 0.45,
+  const handlePressIn = () => {
+    if (disabled) return;
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
+        toValue: 0.96,
+        duration: 80,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(glowAnim, {
+        toValue: 1,
+        duration: 150,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handlePressOut = () => {
+    if (disabled) return;
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.02,
+        duration: 60,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.timing(glowAnim, {
+      toValue: 0,
+      duration: 200,
+      easing: Easing.in(Easing.ease),
       useNativeDriver: true,
     }).start();
   };
 
+  const glowOpacity = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.3],
+  });
+
+  const glowScale = glowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.15],
+  });
+
   return (
-    <Animated.View
-      style={[
-        styles.wrap,
-        compact && styles.wrapCompact,
-        disabled && styles.disabled,
-        style,
-        { transform: [{ scale: press }] },
-      ]}
+    <TouchableOpacity
+      onPress={() => !disabled && onPress()}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      style={style}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      testID={testID}
     >
-      {tone !== 'secondary' ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.glow,
-            {
-              borderColor: tone === 'success' ? colors.keep : colors.primaryLight,
-              opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.16, 0.52] }),
-              transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1.035] }) }],
-            },
-          ]}
-        />
-      ) : null}
-      <Pressable
-        disabled={disabled}
-        onPress={onPress}
-        onPressIn={() => pressTo(0.965)}
-        onPressOut={() => pressTo(1)}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        style={styles.pressable}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          inset: -4,
+          borderRadius: 12,
+          backgroundColor: config.bg,
+          opacity: glowOpacity,
+          transform: [{ scale: glowScale }],
+        }}
+      />
+
+      <Animated.View
+        style={{
+          height: dims.height,
+          paddingHorizontal: dims.paddingHorizontal,
+          borderRadius: 12,
+          backgroundColor: config.bg,
+          borderWidth: variant === 'ghost' ? 1.5 : 0,
+          borderColor: config.border,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
+          transform: [{ scale: scaleAnim }],
+        }}
       >
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <Animated.Text
           style={[
-            styles.gradient,
-            compact && styles.gradientCompact,
-            tone === 'secondary' && styles.secondary,
+            {
+              color: config.text,
+              fontSize: dims.fontSize,
+              fontWeight: '900',
+              letterSpacing: 0.5,
+            },
+            textStyle,
           ]}
         >
-          {icon ? <View style={styles.iconOrb}><Text style={styles.icon}>{icon}</Text></View> : null}
-          <View style={styles.copy}>
-            <Text style={styles.title} numberOfLines={1}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-          </View>
-          {trailingText ? <Text style={styles.trailing}>{trailingText}</Text> : <Text style={styles.arrow}>›</Text>}
-        </LinearGradient>
-      </Pressable>
-    </Animated.View>
+          {children}
+        </Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    minHeight: 56,
-    borderRadius: 18,
-    position: 'relative',
-  },
-  wrapCompact: {
-    minHeight: 48,
-    borderRadius: 16,
-  },
-  disabled: {
-    opacity: 0.55,
-  },
-  glow: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 20,
-    borderWidth: 2,
-  },
-  pressable: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  gradient: {
-    minHeight: 56,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-  },
-  gradientCompact: {
-    minHeight: 48,
-    borderRadius: 16,
-    paddingVertical: 8,
-  },
-  secondary: {
-    borderColor: colors.border,
-  },
-  iconOrb: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.backgroundCard,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-  },
-  icon: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  copy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.25,
-  },
-  subtitle: {
-    color: colors.textPrimary,
-    fontSize: 10,
-    lineHeight: 14,
-    marginTop: 2,
-    opacity: 0.9,
-  },
-  trailing: {
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  arrow: {
-    color: colors.textPrimary,
-    fontSize: 25,
-    lineHeight: 26,
-    fontWeight: '700',
-  },
-});
