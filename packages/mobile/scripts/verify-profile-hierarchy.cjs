@@ -60,7 +60,7 @@ assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:4,margin
 assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
 assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profile.username}`}', 'Visited current Swipe action');
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
-assertIncludes(owner, "Soirées → Loki Music BATTLE", 'Owner Battle entry guidance');
+assertIncludes(owner, 'accessibilityLabel={battleAvailable ? \'Ne plus recevoir de défis Battle\' : \'Recevoir des défis Battle\'}', 'Owner Battle availability control');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
