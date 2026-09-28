@@ -960,13 +960,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.ownerEmptyTitle}>Garde ta première découverte.</Text>
           <Text style={s.ownerEmptyText}>Chaque Garder construit automatiquement tes styles. Tu choisiras Public ou Privé avant chaque ajout.</Text>
           <MotionActionButton
-            icon="◉"
-            title="ÉCOUTER MAINTENANT"
-            subtitle="Lance le micro et découvre un morceau."
             onPress={() => navigation.navigate('Main', { screen: 'Listen' })}
             accessibilityLabel="Aller à Écouter pour découvrir une musique"
-            tone="primary"
-          />
+            variant="primary"
+            size="large"
+          >
+            <Text style={{ color: colors.white, fontWeight: '900', fontSize: 14 }}>ÉCOUTER MAINTENANT</Text>
+          </MotionActionButton>
         </View>
       );
       return <View style={s.keepList}>
@@ -1423,15 +1423,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired ? (
         <MotionActionButton
-          icon="♫"
-          title="GÉRER MES MUSIQUES"
-          subtitle="Public/Privé, supprimer, classer et préparer tes collections."
           onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { openManageMusic: true } })}
           accessibilityLabel="Gérer mes musiques"
-          tone="secondary"
-          compact
-          style={s.manageMusicButton}
-        />
+          variant="secondary"
+          size="medium"
+          containerStyle={s.manageMusicButton}
+        >
+          <Text style={{ fontWeight: '800', fontSize: 12 }}>GÉRER MES MUSIQUES</Text>
+        </MotionActionButton>
       ) : null}
 
       {!accountRequired ? (
