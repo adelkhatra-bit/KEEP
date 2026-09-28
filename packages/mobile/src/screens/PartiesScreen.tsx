@@ -189,6 +189,22 @@ export default function PartiesScreen({ navigation, route }: any) {
       useGameSessionStore.getState().clearGameSession();
     }
   }, [battleOpen]);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('beforeRemove', (e: any) => {
+      const gameState = useGameSessionStore.getState();
+      if (!gameState.isGameInProgress) return;
+      e.preventDefault();
+      Alert.alert(
+        'Quitter le Solo ?',
+        'Êtes-vous sûre de vouloir quitter le Battle ou le solo ?',
+        [
+          { text: 'Annuler', onPress: () => {}, style: 'cancel' },
+          { text: 'Quitter', onPress: () => navigation?.dispatch(e.data.action), style: 'destructive' },
+        ],
+      );
+    });
+    return () => unsubscribe?.();
+  }, [navigation]);
   // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
   // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
   // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque
