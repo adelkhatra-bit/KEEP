@@ -74,7 +74,16 @@ export default function App() {
         if (live) setOnboardingLoaded(true);
       }
     };
-    checkOnboardingStatus().catch(() => {});
+    // Si user est absent ou demo, complèter synchronement sans attendre AsyncStorage
+    if (!user || isDemoMode) {
+      setShowOnboarding(false);
+      setOnboardingLoaded(true);
+    } else {
+      // Sinon, charger depuis AsyncStorage
+      checkOnboardingStatus().catch(() => {
+        if (live) setOnboardingLoaded(true);
+      });
+    }
     return () => { live = false; };
   }, [user, isDemoMode]);
 
