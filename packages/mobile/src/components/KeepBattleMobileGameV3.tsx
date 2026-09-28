@@ -912,7 +912,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => {
     const round = solo?.rounds[soloIndex];
-    if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined;
+    if (!round || pausedSoloRemaining !== null) return undefined;
     let alive = true;
     answeredRoundRef.current = -1;
     soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
@@ -964,7 +964,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]);
+  }, [solo?.themeCode, soloIndex, playVerified, pausedSoloRemaining]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
   const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
@@ -2054,7 +2054,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             ) : soloCreditPending ? (
               <Text style={s.finishReward}>Score parfait ! Ton crédit Free est en cours de confirmation -- vérifie ton solde dans un instant.</Text>
             ) : (
-              <Text style={s.finishReward}>Rejoue pour gagner jusqu'à {maxRewardForRounds(solo.rounds.length)} Free</Text>
+              <Text style={s.finishReward}>Oups. Malheureusement tu n’as pas gagné cette fois. Refais une partie pour gagner jusqu’à {maxRewardForRounds(solo.rounds.length)} Free</Text>
             )}
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
@@ -2094,12 +2094,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <ScrollView scrollEnabled bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
       <Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}>
         <View style={s.visual}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
-        <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{incoming[0] ? 'PAUSE' : audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{incoming[0] ? 'INVITATION BATTLE' : audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
+        <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
         <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
         {!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. On repart ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · {Math.max(0, Math.ceil((new Date(pendingRematch[0].rematchDeadline).getTime() - now) / 1000))}s pour répondre</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         {incoming[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><Avatar name={incoming[0].username} url={incoming[0].avatarUrl} size={48} /><View style={{ flex: 1 }}><Text style={s.inviteQuestion}><Text style={s.inviteName}>{incoming[0].username}</Text> te défie sur un Battle. Tu acceptes ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(incoming[0].themeCode)} · {incoming[0].roundCount} morceaux · {challengeRemaining}s</Text></View></View>{respondingChallengeId === incoming[0].id ? <Text style={s.inviteConnecting}>CONNEXION AU BATTLE…</Text> : null}<View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.no, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" hitSlop={10} disabled={Boolean(respondingChallengeId)} style={[s.yes, respondingChallengeId && s.actionDisabled]} onPress={() => { void respond(incoming[0], true); }}><Text style={s.yesText}>{respondingChallengeId === incoming[0].id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
         <Text style={s.question}>QUI CHANTE ?</Text>
-        <View style={s.answers}>{(() => { const dedupMap = new Map<string, string>(); (round.choices || []).forEach((choice) => { const label = primaryArtistLabel(choice); if (!dedupMap.has(label)) dedupMap.set(label, choice); }); const answers = Array.from(dedupMap.values()).slice(0, 4); if (answers.length < 4) console.warn(`[Battle SOLO] ${answers.length} < 4 réponses à la manche ${soloIndex + 1}/${solo.rounds.length}`); return answers; })().map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || Boolean(incoming[0]) || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text></TouchableOpacity>)}</View>
+        <View style={s.answers}>{(() => { const dedupMap = new Map<string, string>(); (round.choices || []).forEach((choice) => { const label = primaryArtistLabel(choice); if (!dedupMap.has(label)) dedupMap.set(label, choice); }); const answers = Array.from(dedupMap.values()).slice(0, 4); if (answers.length < 4) console.warn(`[Battle SOLO] ${answers.length} < 4 réponses à la manche ${soloIndex + 1}/${solo.rounds.length}`); return answers; })().map((choice, i) => <TouchableOpacity key={choice} disabled={!audioReady || answered || pausedSoloRemaining !== null} onPress={() => answerSolo(choice)} style={[s.answer, answered && choice === round.correctAnswer && s.answerCorrect, answered && choice === soloAnswer && choice !== round.correctAnswer && s.answerWrong]}><Text style={s.answerNo}>{i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={s.answerText}>{primaryArtistLabel(choice)}</Text></TouchableOpacity>)}</View>
       </Animated.View>
       <View style={s.scoreLine}><Text style={s.score}>✓ {soloScore} · ✕ {errors}</Text><Text style={s.score}>{remaining} à jouer</Text></View>
       {/* Adel (02/09/2026) : "trouve une solution où il y a l'abonné
