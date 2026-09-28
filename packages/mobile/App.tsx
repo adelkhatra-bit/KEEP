@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
+import OnboardingGuideScreen from './src/screens/OnboardingGuideScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
@@ -28,6 +30,8 @@ import {
   mergeStagedGuestProfile,
 } from './src/services/guestUpgradeService';
 
+const ONBOARDING_SEEN_KEY = '@keep/onboarding-guide-seen-v1';
+
 // __DEV__ uniquement, jamais en build production/TestFlight -- pratique pour
 // débugger (console/web) sans dépendre de flux UI natifs.
 if (__DEV__) {
@@ -46,6 +50,33 @@ export default function App() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
+
+  // Vérifier le flag onboarding au montage et à chaque changement d'utilisateur
+  useEffect(() => {
+    let live = true;
+    const checkOnboardingStatus = async () => {
+      try {
+        if (!user || isDemoMode) {
+          if (live) {
+            setShowOnboarding(false);
+            setOnboardingLoaded(true);
+          }
+          return;
+        }
+        const seenFlag = await AsyncStorage.getItem(ONBOARDING_SEEN_KEY);
+        if (live) {
+          setShowOnboarding(!seenFlag);
+          setOnboardingLoaded(true);
+        }
+      } catch (err) {
+        if (live) setOnboardingLoaded(true);
+      }
+    };
+    checkOnboardingStatus().catch(() => {});
+    return () => { live = false; };
+  }, [user, isDemoMode]);
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
@@ -233,9 +264,29 @@ export default function App() {
     };
   }, []);
 
+  if (!onboardingLoaded) {
+    return null;
+  }
+
+  // Gérer la finalization de l'onboarding
+  const markOnboardingSeen = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_SEEN_KEY, '1');
+      setShowOnboarding(false);
+    } catch (err) {
+      // Pas grave si on ne peut pas sauvegarder
+    }
+  };
+
   return (
     <>
-      {user ? <Navigation /> : <OnboardingScreen />}
+      {showOnboarding && user ? (
+        <OnboardingGuideScreen onComplete={markOnboardingSeen} />
+      ) : user ? (
+        <Navigation />
+      ) : (
+        <OnboardingScreen />
+      )}
       {user ? <GlobalNotificationBanner /> : null}
       <AppUpdateBanner />
       <AlertHost />
