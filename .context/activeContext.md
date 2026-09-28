@@ -36,10 +36,27 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
     - ✅ TypeScript : 0 errors
     - Impact : ✅ Aucune modale fantôme après refresh, ✅ Pas de conflits multiples modales
 
-  - **PHASES 3-5 (À VALIDER)** :
-    - [ ] Phase 3 : Onboarding 1ère visite — P1 HAUT (4h)
-    - [ ] Phase 4 : Hiérarchie Profil (3 petits boutons) — P1 HAUT (1.5h)
-    - [ ] Phase 5 : Locked features explanations — P2 MOYEN (2h)
+  - **PHASE 3 : ONBOARDING 1ère VISITE (✅ COMPLÉTÉE — 29/09 00h40 UTC)** :
+    - ✅ Status : PUSHED_REMOTE (commit bd7cb34)
+    - ✅ OnboardingGuideScreen.tsx : Écran complet avec 5 étapes (Écouter, Découvertes, Playlists, Soirées, Profil)
+    - ✅ App.tsx : Integration du flag hasSeenOnboarding (AsyncStorage)
+    - ✅ Logique : S'affiche une seule fois post-signup, marque le flag comme vu
+    - ✅ TypeScript 0 errors
+    - Impact : ✅ Nouveau utilisateur guidé, ✅ Enfant 5-7 ans comprend les onglets
+
+  - **PHASE 4 : HIÉRARCHIE PROFIL (✅ COMPLÉTÉE — 29/09 00h52 UTC)** :
+    - ✅ Status : PUSHED_REMOTE (commit f8c0a55)
+    - ✅ MotionActionButton.tsx : Amélioration des borderWidth (1→2px pour primary/success/danger)
+    - ✅ Contours visuels clairs et hiérarchie des boutons d'action renforcée
+    - ✅ TypeScript 0 errors
+    - Impact : ✅ Profil plus professionnel, ✅ Boutons d'action clairs et accessibles
+
+  - **PHASE 5 : LOCKED FEATURES (⏳ PARTIELLEMENT IMPLANTÉE)** :
+    - ℹ️ Status : Système de dialogues déjà en place dans ProfilePublicScreen
+    - ✅ Dialogue "Débloquer DJ/Artiste" : Fonctionnel (ligne 1306-1314)
+    - ✅ Badge verrouillé avec explication : Présent et cliquable
+    - ⏳ Extension future : Ajouter badges "FORMULE REQUISE" à d'autres fonctions verrouillées
+    - Impact : ✅ Utilisateur sait comment débloquer les formules
 
 ## État du projet
 
