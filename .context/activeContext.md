@@ -1,23 +1,20 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 28 septembre 2026 — 14:45 UTC (session MotionActionButton Phase 2 complétée).
+Dernière mise à jour : 28 septembre 2026 — 22:05 UTC (session UX Refactor Phase 3 : Suppression FOLLOW buttons + menu simplifiée).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
 ## Tâche en cours
 
-- **AUDIT BUTTONS COMPLET ET ANIMATIONS MICRO (Demande Adel 28/09/2026) — PHASE 2 TERMINÉE** :
-  - **Phase 1 COMPLÉTÉE** : MotionActionButton.tsx créé + 3 écrans intégrés (f9ea94c → 83158e8)
-    - MotionActionButton.tsx : Composant réutilisable avec animations native driver 60fps
-    - HomeScreenCompact : 6 buttons (9f7e61e)
-    - DiscoverScreen : 5 buttons (ba9aebd)
-    - PartiesScreen Phase 1 : 4 buttons (83158e8)
-  - **Phase 2a-2b COMPLÉTÉE (28/09 14:45)** : ProfilePublicScreen hero + menus (cd8598d + fa9b6b4)
-    - ProfilePublicScreen hero buttons : APERCU (primary), PEPITES (success), BATTLE (ghost)
-    - ProfilePublicScreen menu buttons : Tous les boutons des menus (primary) et modales (primary/ghost)
-    - Total : 14+ buttons intégrés, tsc 0 erreur nouveau
-  - **Phase 2c TODO** : PartiesScreen reste (81 TouchableOpacity, 4/81 convertis = 5%, defer à après Collections)
-  - **Collections Bugs Phase 3 — NEXT** : Commencer repairs (bugs 020, 024, 018, 022)
+- **UX REFACTOR PHASE 3 (Demande Adel 28/09/2026) — DÉBUT** :
+  - **Phase 1 COMPLÉTÉE (commit 277301d)** : Suppression FOLLOW buttons + menu simplifiée
+    - DiscoverScreen : Supprime le bouton SUIVRE/ABONNÉ du profil card (cause désabonnements accidentels)
+    - DiscoverScreen : Élargit le bouton 'VOIR LE PROFIL' pour prendre toute la largeur
+    - ProfilePublicScreen : Menu simplifié 12 → 6 items (Identité QR, Notifications, Partager, Collections, Aide, Déconnexion)
+    - tsc 0 erreur nouvelle (2 pré-existantes non liées)
+  - **Phase 2 TODO** : Bannière 3D scrollante avec suggestions musicales par style (Instagram-style)
+  - **Phase 3 TODO** : Bannière chat musical modérée (scroll permanent en haut du profil)
+  - **Collections Bugs Phase 4 — AFTER BANNERS** : Commencer repairs (bugs 020, 024, 018, 022)
 
 ## État du projet
 
