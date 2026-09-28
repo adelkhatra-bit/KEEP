@@ -396,12 +396,12 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>COMMENT LOKI GRANDIT AVEC TOI</Text>
             <Text style={s.discoveryTitle}>Écoute → Garde → Partage → Joue → Recommence.</Text>
-            <Text style={s.discoveryBody}>Commence par remplir ton univers musical : écoute autour de toi, découvre des titres et garde ceux que tu aimes. Plus ta collection est riche, plus ton profil peut devenir intéressant à explorer et à partager.</Text>
+            <Text style={s.discoveryBody}>Ta première mission est simple : remplis ton profil de musiques. Écoute autour de toi, découvre des titres et garde tes pépites. Tu peux aussi récupérer gratuitement les découvertes partagées par la communauté. Plus ta collection grandit, plus ton profil donne envie d’être exploré, suivi et partagé.</Text>
             <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>ÉCOUTE · Découvre des musiques avec Loki Music et garde tes pépites.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>PROFIL · Tes musiques construisent ton univers et tes playlists. Les autres peuvent écouter et découvrir tes sélections.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Fais circuler ton profil et développe ta communauté. Les récompenses en Fruits suivent uniquement les actions éligibles affichées dans Loki Music.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Lance un Solo ou défie tes amis en Battle par style musical pour tenter de gagner des Free selon les règles affichées.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>REMPLIS TON PROFIL · Écoute avec Loki Music, garde tes pépites ou récupère les découvertes gratuites partagées par la communauté.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>CRÉE TON UNIVERS · Tes musiques alimentent ton profil et tes playlists. Swipe pour écouter, garder et organiser ce que tu aimes.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Fais circuler ton profil, attire des passionnés et gagne des Fruits quand une action affichée comme éligible est validée.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE ENTRE AMIS · Solo ou Battle : choisis un style musical, défie tes amis et gagne jusqu’au nombre de Free indiqué par les règles de la partie.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECOMMENCE · Utilise tes Free pour continuer à découvrir, enrichir ton profil et faire circuler de nouvelles pépites.</Text></View>
             </View>
           </View>
