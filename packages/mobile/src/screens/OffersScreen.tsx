@@ -394,6 +394,19 @@ export default function OffersScreen({ navigation, route }: any) {
           </View>
 
           <View style={s.discoveryCard}>
+            <Text style={s.discoveryEyebrow}>COMMENT LOKI GRANDIT AVEC TOI</Text>
+            <Text style={s.discoveryTitle}>Écoute → Garde → Partage → Joue → Recommence.</Text>
+            <Text style={s.discoveryBody}>Commence par remplir ton univers musical : écoute autour de toi, découvre des titres et garde ceux que tu aimes. Plus ta collection est riche, plus ton profil peut devenir intéressant à explorer et à partager.</Text>
+            <View style={s.discoveryDetails}>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>ÉCOUTE · Découvre des musiques avec Loki Music et garde tes pépites.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>PROFIL · Tes musiques construisent ton univers et tes playlists. Les autres peuvent écouter et découvrir tes sélections.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Fais circuler ton profil et développe ta communauté. Les récompenses en Fruits suivent uniquement les actions éligibles affichées dans Loki Music.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Lance un Solo ou défie tes amis en Battle par style musical pour tenter de gagner des Free selon les règles affichées.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECOMMENCE · Utilise tes Free pour continuer à découvrir, enrichir ton profil et faire circuler de nouvelles pépites.</Text></View>
+            </View>
+          </View>
+
+          <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
             <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
