@@ -205,6 +205,26 @@ export default function PartiesScreen({ navigation, route }: any) {
     });
     return () => unsubscribe?.();
   }, [navigation]);
+  // PHASE 2 FIX (28/09/2026) : Reset tous les modales au montage du composant.
+  // Élimine les modales "fantômes" après un refresh ou une navigation.
+  useEffect(() => {
+    const resetAllModals = () => {
+      setStatsEntry(null);
+      setMyRankingOpen(false);
+      setCreateOpen(false);
+      setParticipantsOpen(false);
+      setEventDetailOpen(false);
+      setTicketModalOpen(false);
+      setReviewTarget(null);
+    };
+
+    // Reset au montage
+    resetAllModals();
+
+    // Reset aussi quand on navigue vers cet écran (focus)
+    const unsubscribe = navigation?.addListener?.('focus', resetAllModals);
+    return () => unsubscribe?.();
+  }, [navigation]);
   // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
   // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
   // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque

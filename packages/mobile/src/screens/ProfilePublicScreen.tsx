@@ -559,6 +559,33 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return () => unsubscribe?.();
   }, [navigation]);
 
+  // PHASE 2 FIX (28/09/2026) : Reset tous les modales au montage du composant.
+  // Élimine les modales "fantômes" après un refresh ou une navigation.
+  // Chaque useEffect run sur 'focus' du screen, garantissant que les modales
+  // sont toujours fermeés en arrivant sur ce screen.
+  useEffect(() => {
+    const resetAllModals = () => {
+      setMenuOpen(false);
+      setStyleModalOpen(false);
+      setAccountOpen(false);
+      setKindPickerOpen(false);
+      setRepriseListOpen(false);
+      setShareOpen(false);
+      setQrOpen(false);
+      setProfileSwipeOpen(false);
+      setSelectionSwipe(null);
+      setSourceQuickUsername('');
+      setExpandedMenuItem(null);
+    };
+
+    // Reset au montage
+    resetAllModals();
+
+    // Reset aussi quand on navigue vers cet écran (focus)
+    const unsubscribe = navigation?.addListener?.('focus', resetAllModals);
+    return () => unsubscribe?.();
+  }, [navigation]);
+
   const keptTracks = useMemo(() => {
     const unique = new Map<string, (typeof sessions)[number]['tracks'][number]>();
     const all = sessions.flatMap((session) => session.tracks.filter((entry) => entry.status === 'kept'));
