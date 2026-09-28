@@ -59,7 +59,7 @@ assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
 assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:4,marginBottom:8,gap:2}', 'Visited compact top counter frame');
 assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
 assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profile.username}`}', 'Visited current Swipe action');
-assertIncludes(visitor, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Visited Battle presence state');
+assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "title=\"JOUER EN SOLO\"", 'Owner animated solo Battle action');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
 
