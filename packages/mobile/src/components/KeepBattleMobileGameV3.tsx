@@ -842,6 +842,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite, roundCount]);
 
   React.useEffect(() => {
+    if (!solo || arena) return;
+    // Server truth for opponent cards: keep the current SOLO round fresh.
+    void updateSoloPresenceTheme(solo.themeCode, Math.min(soloIndex + 1, solo.rounds.length), solo.rounds.length).catch(() => {});
+  }, [arena?.id, solo?.themeCode, soloIndex, solo?.rounds.length]);
+
+  React.useEffect(() => {
     if (!enabled || arena) return undefined;
     let alive = true;
     const tick = async () => {
@@ -1304,7 +1310,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // son style musical" -- met à jour presence_theme_code pour que les autres
       // joueurs voient quel style musical on joue, best-effort (ne bloque pas
       // le démarrage de la partie si ça échoue).
-      void updateSoloPresenceTheme(themeCode).catch(() => {});
+      void updateSoloPresenceTheme(themeCode, 0, pack.rounds.length).catch(() => {});
     } catch (e: any) {
       showSoloStartError(e);
     } finally { setBusy(false); }
