@@ -1289,7 +1289,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <View style={styles.collectionQuickActions}><TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic}><Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text></TouchableOpacity></View>
         <TouchableOpacity
           style={[styles.collectionPayoutStatus, payoutLink.trim() ? styles.collectionPayoutStatusReady : styles.collectionPayoutStatusMissing]}
-          onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { openCreatorTools: true } })}
+          onPress={() => navigation.navigate('ProfileCreatorTools')}
           accessibilityLabel={payoutLink.trim() ? 'Paiement connecté' : 'Paiement à connecter'}
         >
           <View style={[styles.collectionPayoutDot, payoutLink.trim() ? styles.collectionPayoutDotReady : styles.collectionPayoutDotMissing]} />
