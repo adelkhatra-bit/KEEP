@@ -1374,7 +1374,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         loadKeepBattleSoloDailyStatus(),
         loadBattleCreditStatusIfAuthenticated(),
       ]);
-      if (!status.unlimited && status.remaining != null && status.remaining <= 0) {
+      // DEFENSIVE: status peut être null si le RPC n'existe pas en base
+      // ou si le réseau a échoué. Dans ce cas, laisser passer (serveur fera le contrôle).
+      if (status && !status.unlimited && status.remaining != null && status.remaining <= 0) {
         dailyLimitReached = true;
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
         Alert.alert(
