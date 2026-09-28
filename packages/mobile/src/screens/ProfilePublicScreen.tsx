@@ -1706,8 +1706,8 @@ ownerBattleSummary:{minHeight:32,marginTop:6,borderRadius:10,alignItems:'center'
 ownerBattleSummaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',letterSpacing:.3},
 ownerBattleTopRow:{minHeight:30,paddingHorizontal:18,marginTop:-2,marginBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'flex-end'},
 ownerBattleMicroRow:{minHeight:28,marginTop:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
-ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:8,paddingVertical:4,borderRadius:999,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},
-ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:`${colors.success}18`},
+ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:999,borderWidth:2,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,shadowColor:colors.primaryLight,shadowOpacity:.65,shadowRadius:8,shadowOffset:{width:0,height:0},elevation:6},
+ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:`${colors.success}18`,shadowColor:colors.success,shadowOpacity:.85,shadowRadius:10,elevation:8},
 ownerBattleMicroText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.45},
 ownerBattleMicroTextOn:{color:colors.success},
 
