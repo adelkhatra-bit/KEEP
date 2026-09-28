@@ -6,6 +6,7 @@ import { canonicalArtistIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDeci
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { ProfileKind, SocialLink } from '../types';
@@ -536,6 +537,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
       unsubscribeFocus?.();
     };
   }, [accountRequired, navigation, user?.id]);
+
+  // Règle CRITIQUE (28/09/2026, Adel) : confirmation avant de quitter Battle/Solo.
+  // Quand l'utilisateur clique sur un tab de navigation ou un profil utilisateur
+  // pendant qu'un jeu est en cours, un dialogue demande la confirmation pour
+  // éviter la perte accidentelle de la session.
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('beforeRemove', (e: any) => {
+      const gameState = useGameSessionStore.getState();
+      if (!gameState.isGameInProgress) return;
+      e.preventDefault();
+      Alert.alert(
+        gameState.gameMode === 'SOLO' ? 'Quitter le Solo ?' : 'Quitter le Battle ?',
+        'Êtes-vous sûre de vouloir quitter le Battle ou le solo ?',
+        [
+          { text: 'Annuler', onPress: () => {}, style: 'cancel' },
+          { text: 'Quitter', onPress: () => navigation?.dispatch(e.data.action), style: 'destructive' },
+        ],
+      );
+    });
+    return () => unsubscribe?.();
+  }, [navigation]);
 
   const keptTracks = useMemo(() => {
     const unique = new Map<string, (typeof sessions)[number]['tracks'][number]>();

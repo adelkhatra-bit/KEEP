@@ -9,6 +9,7 @@ import { shareEvent } from '../services/sharingService';
 import { getCommercialRules, getEventCreationAccess, getGrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
@@ -178,6 +179,16 @@ export default function PartiesScreen({ navigation, route }: any) {
     const session = useSessionStore.getState();
     if (session.isActive && session.micPaused) session.resumeListening();
   }, []);
+  // Règle CRITIQUE (28/09/2026, Adel) : quand un jeu Battle/Solo est en cours,
+  // un dialogue de confirmation apparaît si l'utilisateur tente de naviguer vers
+  // un autre écran/tab pour éviter la perte accidentelle de la session.
+  useEffect(() => {
+    if (battleOpen) {
+      useGameSessionStore.getState().setGameInProgress(true, 'SOLO');
+    } else {
+      useGameSessionStore.getState().clearGameSession();
+    }
+  }, [battleOpen]);
   // Adel (02/09/2026) : "chaque fois que je reviens en arrière, ça revient
   // sur cette page" -- le bouton RETOUR du navigateur restaure une ENTRÉE
   // D'HISTORIQUE ancienne qui porte encore ?arenaId=... dans son URL (chaque
@@ -964,7 +975,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
             ],
           )}
-          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
+          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
