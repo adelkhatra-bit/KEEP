@@ -1345,7 +1345,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (!status.unlimited && status.remaining != null && status.remaining <= 0) {
         dailyLimitReached = true;
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
-        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd’hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`);
+        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`);
+      }
+      // Adel (28/09/2026) : Vérification proactive du Free avant de démarrer le Battle Solo.
+      if (!dailyLimitReached && freshCredit) {
+        const soloCost = stakeForRounds(roundCount);
+        if (freshCredit.remainingFree < soloCost) {
+          insufficientCredit = true;
+          notEnoughFreeAlert(`Il te faut ${soloCost} Free pour jouer une partie Solo de ${roundCount} morceaux. Solde actuel: ${freshCredit.remainingFree} Free`);
+        }
       }
     } catch {
       // Le serveur fera le contrôle atomique au démarrage : ne jamais bloquer
