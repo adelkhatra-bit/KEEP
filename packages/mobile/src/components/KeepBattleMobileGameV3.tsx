@@ -502,6 +502,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // match (pas seulement sur son profil), même source unifiée que partout
   // ailleurs (keep_battle_credit_status -> remainingFree).
   const [myCreditStatus, setMyCreditStatus] = React.useState<KeepBattleCreditStatus | null>(null);
+  // Adel (28/09/2026) : "je veux que on indique combien de solo par jour,
+  // chaque utilisateur a droit de faire et que ça dise dans combien de temps
+  // il faut que ce soit indiqué quelque part" -- statut quotidien chargé au
+  // démarrage et à chaque retour sur l'écran Battle, affiché sous le bouton
+  // SOLO avec le quota et le temps de renouvellement.
+  const [soloDailyStatus, setSoloDailyStatus] = React.useState<{ limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string } | null>(null);
   // Adel (19/09/2026) : "afficher les compteurs du joueur sur l'écran de
   // sélection BATTLE, entre le texte '10 secondes réelles...' et le bouton
   // 'JOUER SOLO'" -- ses stats (victoires, matchs, bonnes réponses, etc.)
@@ -641,6 +647,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => { void loadKeepBattleThemes().then((rows) => rows.length && setThemes(rows)).catch(() => {}); }, []);
   React.useEffect(() => { const id = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(id); }, []);
+  // Adel (28/09/2026) : charger le statut quotidien SOLO au démarrage et
+  // quand on revient sur l'écran (enabled change). Affichage en temps réel
+  // via le minuteur `now` existant (toutes les 100ms).
+  React.useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    void loadKeepBattleSoloDailyStatus().then((status) => {
+      if (active) setSoloDailyStatus(status);
+    }).catch(() => { if (active) setSoloDailyStatus(null); });
+    return () => { active = false; };
+  }, [enabled]);
   // Adel (02/09/2026) : "ici aussi tu peux mettre l'invite" -- signale à
   // GlobalNotificationBanner que l'écran Battle est réellement à l'écran
   // (pas juste "on est sur l'onglet Soirées"), pour qu'il ne masque son
@@ -672,6 +689,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const first = full.split(/\s*(?:,|&|\/|\+|\bfeat\.?\b|\bft\.?\b|\bx\b|\bet\b|\band\b|\bvs\.?\b)\s*/i)[0]?.trim() || full;
     return first.length > 28 ? `${first.slice(0, 26).trim()}…` : first;
   };
+  // Adel (28/09/2026) : afficher le statut quotidien SOLO avec quota et temps
+  // de renouvellement. Format: "SOLOS: 2/3 · Renouvelle à 00:00"
+  const formatSoloDailyStatus = React.useMemo(() => {
+    if (!soloDailyStatus) return null;
+    if (soloDailyStatus.unlimited) return 'SOLOS: ∞ · Illimité';
+    const limit = soloDailyStatus.limit ?? 0;
+    const remaining = soloDailyStatus.remaining ?? 0;
+    if (remaining <= 0) {
+      const resetTime = soloDailyStatus.resetsAt ? new Date(soloDailyStatus.resetsAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '00:00';
+      return `SOLOS: 0/${limit} · Renouvelle à ${resetTime}`;
+    }
+    const played = Math.max(0, limit - remaining);
+    const resetTime = soloDailyStatus.resetsAt ? new Date(soloDailyStatus.resetsAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '00:00';
+    return `SOLOS: ${remaining}/${limit} · Renouvelle à ${resetTime}`;
+  }, [soloDailyStatus]);
   // Adel (02/09/2026) : "avoir vraiment une catégorie de joueurs" -- petit
   // repère visuel du palier (voir keep_battle_skill_tier côté serveur),
   // affiché là où on choisit un adversaire.
@@ -1345,7 +1377,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (!status.unlimited && status.remaining != null && status.remaining <= 0) {
         dailyLimitReached = true;
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
-        Alert.alert('Tes parties Solo du jour sont terminées', `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`);
+        Alert.alert(
+          'Tes parties Solo du jour sont terminées',
+          `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`,
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'Jouer EN LIGNE', onPress: () => { void openOnline(); } },
+          ],
+        );
       }
       // Adel (28/09/2026) : Vérification proactive du Free avant de démarrer le Battle Solo.
       if (!dailyLimitReached && freshCredit) {
@@ -1408,9 +1447,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const notEnoughFreeAlert = (title: string) => {
     Alert.alert(
       title,
-      'Partage ton profil à tes amis : plus ta communauté musicale grandit, plus tu gagnes de Free pour jouer.',
+      'Partage ton profil à tes amis : plus ta communauté musicale grandit, plus tu gagnes de Free pour jouer. Tu peux aussi essayer un Battle EN LIGNE avec un ami.',
       [
         { text: 'Plus tard', style: 'cancel' },
+        { text: 'Battle EN LIGNE', onPress: () => { void openOnline(); } },
         { text: 'Partager', onPress: () => { const username = useUserStore.getState().user?.username; if (username) void shareProfile(username); } },
       ],
     );
@@ -2569,9 +2609,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         {renderMyPreferencesPicker()}
       </View>
       <View style={s.battleModes}>
-        <TouchableOpacity style={s.mainButton} disabled={busy} onPress={() => { void startSolo(); }} accessibilityLabel="Jouer en solo">
-          {busy ? <ActivityIndicator color="#FFFFFF" /> : <><View style={s.modeIcon}><Text style={s.modeIconText}>◎</Text></View><Text style={s.mainButtonText}>SOLO</Text></>}
-        </TouchableOpacity>
+        <View style={s.soloButtonContainer}>
+          <TouchableOpacity style={s.mainButton} disabled={busy} onPress={() => { void startSolo(); }} accessibilityLabel="Jouer en solo">
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <><View style={s.modeIcon}><Text style={s.modeIconText}>◎</Text></View><Text style={s.mainButtonText}>SOLO</Text></>}
+          </TouchableOpacity>
+          {formatSoloDailyStatus ? <Text style={s.soloDailyBadge}>{formatSoloDailyStatus}</Text> : null}
+        </View>
         <TouchableOpacity style={s.onlineButton} disabled={busy} onPress={() => { void openOnline(); }} accessibilityLabel="Jouer un Battle en ligne">
           <View style={[s.modeIcon,s.modeIconOnline]}><Text style={s.modeIconText}>⚡</Text></View><Text style={s.onlineTitle}>EN LIGNE</Text>
         </TouchableOpacity>
@@ -2660,4 +2703,5 @@ const s = StyleSheet.create({
   groupStandings: { marginTop: 8, marginBottom: 8, padding: 10, borderRadius: 16, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, gap: 6 }, groupStandingsTitle: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .6, textAlign: 'center' }, groupStandingsToggle: { minHeight: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }, groupStandingsChevron: { width: 24, color: colors.primaryLight, fontSize: 16, fontWeight: '900', textAlign: 'center' }, groupStandingRow: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.backgroundElevated }, groupStandingRowLead: { borderWidth: 1, borderColor: colors.primaryLight }, groupStandingRank: { width: 26, textAlign: 'center', fontSize: 13, fontWeight: '900', color: '#FFF' }, groupStandingName: { flex: 1, color: '#FFF', fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' }, groupStandingScore: { color: colors.success, fontSize: 12, fontWeight: '900' }, groupStandingsMore: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', textAlign: 'center', marginTop: 2 },
   buildingArenaBanner: { minHeight: 44, borderRadius: 16, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundCard, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10, alignItems: 'center', justifyContent: 'center' }, buildingArenaBannerText: { color: colors.primaryLight, fontSize: 11, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
   liveMatches: { marginBottom: 12, gap: 6 }, liveMatchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, paddingHorizontal: 12 }, liveMatchTheme: { color: '#FFF', fontSize: 12, fontWeight: '900' }, liveMatchHost: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 2 }, liveMatchWatch: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
+  soloButtonContainer: { flex: 1, alignItems: 'center', gap: 6 }, soloDailyBadge: { color: colors.success, fontSize: 10, fontWeight: '900', textAlign: 'center', lineHeight: 13, letterSpacing: 0.3 },
 });
