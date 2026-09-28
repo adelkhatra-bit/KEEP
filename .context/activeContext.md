@@ -6,33 +6,38 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 ## Tâche en cours
 
-- **AUDIT COMPLET + PLAN D'ACTION (Demande Adel 28/09/2026 — "ne reviens pas tant que c'est pas fait")** :
-  - **UX FIX PHASE 1 (✅ COMPLÉTÉE)** :
-    - ✅ OnboardingScreen "Créer mon compte" button : Redesigned avec bordure visible (commit 3423caf)
-    - ✅ ProfilePublicScreen MotionActionButton : Fixed prop validation errors (2 occurrences) (commit b336535)
-    - ✅ Mode Démo Free balance = 0 → 3 Free : CRITICAL FIX (commit 53c48bd) — PUSHED_REMOTE ✓
-    - ✅ TypeScript compile : 0 errors
-    - ✅ GitHub Pages deployment : Workflow lancé
-  - **BATTLE EXIT CONFIRMATION (🔴 CRITICAL — 28/09/2026)** :
-    - ✅ Créer useGameSessionStore pour tracker jeu en cours
-    - ✅ PartiesScreen : Set game state quand battleOpen=true / clear on exit
-    - ✅ ProfilePublicScreen : Add beforeRemove listener + confirmation dialog
-    - ✅ PartiesScreen : Add beforeRemove listener pour tab navigation
-    - ✅ TypeScript : 0 errors
-    - ✅ Commits PUSHED_REMOTE (a068db6, 54f1f75)
-    - ⏳ GitHub Pages deployment : En attente du workflow eas-update-production.yml
-  - **SOLO SYSTEM PHASE 1 (PARTIAL)** :
-    - ✅ Backend RPC `keep_battle_solo_daily_status` : Migration créée
-    - ✅ Service `loadKeepBattleSoloDailyStatus()` : Implémentée
-    - ✅ UI badge "SOLOS: X/Y" : Codée
-    - ✅ Remove Free cost check for SOLO : Logique corrigée
-    - ⏳ Production deployment : En attente du workflow web
-    - 🔴 RPC application status : À vérifier si migration Supabase production appliquée
-  - **TODO PHASES 2-5** :
-    - [ ] Phase 2 : Battle Screen UX reordering (Free top, stats below) — P2
-    - [ ] Phase 3 : Menu simplification (12→6 items) — P3
-    - [ ] Phase 4 : Hamburger menu disconnect bug — P4
-    - [ ] Phase 5 : Settings disconnect state fix — P5
+- **🧭 AUDIT UX COMPLET + IMPLEMENTATION (Demande Adel 28/09/2026)** :
+  - **AUDIT PHASE COMPLÉTÉE (✅ 28/09/2026 23:45 UTC)** :
+    - ✅ AUDIT_UX_COMPLETE_20260928.md : Analyse complète 9 sections
+      • Incohérences navigation (Bell vs Hamburger) — CRITIQUE
+      • Designs coincés après refresh — CRITIQUE
+      • Onboarding manquant — CRITIQUE
+      • Hiérarchie profil confuse — HAUT
+      • Phases 1-5 avec priorité/durée/checklist
+    - ✅ NAVIGATION_ARCHITECTURE_DIAGRAM.md : Schéma visuel + flux détaillé
+    - ✅ Commit 3f7064a PUSHED_REMOTE
+    - Prochaine étape : Phase 1 (Navigation Unifiée)
+  
+  - **PHASE 1 : NAVIGATION UNIFIÉE (P0 — CRITIQUE)** :
+    - Status : À démarrer
+    - Objectif : Bell + Hamburger → Menu Modal unique
+    - Travail : Unifier patterns de navigation (pas plus 2 paradigmes)
+    - Fichiers : ProfilePublicScreen.tsx, PublicUserProfileScreen.tsx
+    - Tests : Tester que Modal s'ouvre/ferme correctement, Notifications accédé via Modal
+    - Durée estimée : 2-3 heures
+    - Impact : ✅ Cohérence UX, ✅ Enfant 7 ans comprend
+  
+  - **PHASE 2 : FIX DESIGN RENDERING (P0 — CRITIQUE)** :
+    - Status : Prête après Phase 1
+    - Objectif : Éliminer designs coincés/overlappés après refresh
+    - Fichiers : ProfilePublicScreen.tsx, PlaylistSalePanel.tsx, PartiesScreen.tsx
+    - Technique : Auditer <Modal>, vérifier visible={}, z-index, pointerEvents
+    - Durée estimée : 2 heures
+
+  - **PHASES 3-5 (À VALIDER)** :
+    - [ ] Phase 3 : Onboarding 1ère visite — P1 HAUT (4h)
+    - [ ] Phase 4 : Hiérarchie Profil (3 petits boutons) — P1 HAUT (1.5h)
+    - [ ] Phase 5 : Locked features explanations — P2 MOYEN (2h)
 
 ## État du projet
 
