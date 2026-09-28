@@ -375,7 +375,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
     void clearSharedMusicSource();
-    const resumable = null;
+    // Une nouvelle écoute est toujours une nouvelle session; ne jamais réutiliser l'ancien état.
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
     nextRecognitionAllowedAt = 0;
@@ -383,18 +383,18 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     consecutiveWeakSamples = 0;
     set({
       isActive: true,
-      sessionId: resumable?.id ?? newId(),
-      startedAt: resumable?.startedAt ?? new Date().toISOString(),
-      tracks: resumable?.tracks ?? [],
+      sessionId: newId(),
+      startedAt: new Date().toISOString(),
+      tracks: [],
       showEndPrompt: false,
       recognizing: false,
       micLevel: 0,
       micPaused: false,
       error: null,
       signalHint: null,
-      locationLabel: resumable?.locationLabel,
-      lat: resumable?.lat,
-      lng: resumable?.lng,
+      locationLabel: undefined,
+      lat: undefined,
+      lng: undefined,
     });
 
     const tick = async () => {
