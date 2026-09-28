@@ -221,13 +221,18 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const offerId = String(route?.params?.manageSaleOfferId || '').trim();
     if (!offerId) return;
     const playlistName = String(route?.params?.manageSaleOfferName || 'Collection publiée').trim() || 'Collection publiée';
+    setWorkspaceTab('LIBRARY');
+    setMobileSection('TRACKS');
     setActiveTab('MUSIQUES');
     setOriginFilter('LISTEN');
-    setSelectedSaleTrackIds(new Set());
+    const includedIds = Object.entries(myOfferedTrackIds)
+      .filter(([, row]) => row.offerId === offerId)
+      .map(([trackId]) => trackId);
+    setSelectedSaleTrackIds(new Set(includedIds));
     setSaleEditOfferTarget({ offerId, playlistName });
     setSaleSelectionMode(true);
     navigation?.setParams?.({ manageSaleOfferId: undefined, manageSaleOfferName: undefined });
-  }, [navigation, route?.params?.manageSaleOfferId, route?.params?.manageSaleOfferName]);
+  }, [navigation, route?.params?.manageSaleOfferId, route?.params?.manageSaleOfferName, myOfferedTrackIds]);
 
   const localKeptEntries = useMemo(() => {
     // Source canonique = Supabase. L'historique de sessions reste utile pour
@@ -756,6 +761,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const openCollectionManager = (offer: { offerId: string; playlistName: string }) => {
     setWorkspaceTab('LIBRARY');
+    setMobileSection('TRACKS');
     setActiveTab('MUSIQUES');
     setOriginFilter('LISTEN');
     setManageMusicMode(true);
