@@ -7,11 +7,12 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 ## Tâche en cours
 
 - **AUDIT COMPLET + PLAN D'ACTION (Demande Adel 28/09/2026 — "ne reviens pas tant que c'est pas fait")** :
-  - **UX FIX PHASE 1 (EN COURS)** :
+  - **UX FIX PHASE 1 (✅ COMPLÉTÉE)** :
     - ✅ OnboardingScreen "Créer mon compte" button : Redesigned avec bordure visible (commit 3423caf)
     - ✅ ProfilePublicScreen MotionActionButton : Fixed prop validation errors (2 occurrences) (commit b336535)
+    - ✅ Mode Démo Free balance = 0 → 3 Free : CRITICAL FIX (commit 53c48bd) — PUSHED_REMOTE ✓
     - ✅ TypeScript compile : 0 errors
-    - ⏳ GitHub Pages deployment : En cours (devrait terminer dans ~5 min)
+    - ✅ GitHub Pages deployment : Workflow lancé
   - **SOLO SYSTEM PHASE 1 (PARTIAL)** :
     - ✅ Backend RPC `keep_battle_solo_daily_status` : Migration créée
     - ✅ Service `loadKeepBattleSoloDailyStatus()` : Implémentée
