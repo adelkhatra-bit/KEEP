@@ -28,6 +28,8 @@ type Props = {
   sourceUsername?: string;
   sourceAvatarUrl?: string | null;
   sourceProfileId?: string;
+  /** Attribution canonique par morceau : premier utilisateur qui l'a découvert via Écouter. */
+  sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }>;
   emptyTitle?: string;
   backLabel?: string;
   loop?: boolean;
@@ -51,6 +53,7 @@ export default function MusicSwipeDeckModal({
   sourceUsername,
   sourceAvatarUrl,
   sourceProfileId,
+  sourceByTrack,
   emptyTitle = 'Aucun morceau à découvrir.',
   backLabel,
   loop = true,
@@ -93,6 +96,9 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
+  const currentSource = current ? sourceByTrack?.[current.id] : undefined;
+  const currentSourceUsername = currentSource?.username || sourceUsername;
+  const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
   const fullTrackUrl = current?.externalUrls?.spotify
@@ -236,8 +242,8 @@ export default function MusicSwipeDeckModal({
             playbackKey,
             previewUrl,
             (playing) => {
-              if (playing && sourceProfileId) {
-                void recordProfileSwipeListen(sourceProfileId, current.id);
+              if (playing && currentSourceProfileId) {
+                void recordProfileSwipeListen(currentSourceProfileId, current.id);
               }
             },
             () => {
@@ -287,8 +293,8 @@ export default function MusicSwipeDeckModal({
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
-          if (playing && sourceProfileId) {
-            void recordProfileSwipeListen(sourceProfileId, current.id);
+          if (playing && currentSourceProfileId) {
+            void recordProfileSwipeListen(currentSourceProfileId, current.id);
           }
         },
         () => {
@@ -501,7 +507,7 @@ export default function MusicSwipeDeckModal({
             >
               <View style={s.card}>
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
-                {sourceUsername ? <View style={s.sourceOverlay}><Text style={s.sourceOverlayText}>Découvert par {sourceUsername.replace(/^@/, '')}</Text></View> : null}
+                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
@@ -518,7 +524,7 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {sourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(sourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil de ${sourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ VOIR LE PROFIL · @{sourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {fullTrackUrl ? <TouchableOpacity style={s.fullTrackButton} onPress={() => { void openFullTrack(); }} accessibilityLabel={`Écouter le morceau entier sur ${fullTrackPlatform || 'la plateforme'}`}><Text style={s.fullTrackButtonText}>↗ ÉCOUTER EN ENTIER · {fullTrackPlatform}</Text></TouchableOpacity> : null}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
