@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
+import MotionActionButton from '../components/MotionActionButton';
 import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
@@ -1120,8 +1121,24 @@ export default function PartiesScreen({ navigation, route }: any) {
         <View key={challenge.id} style={styles.incomingBanner}>
           <Text style={styles.incomingText}><Text style={styles.incomingName}>{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingNo, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter le Battle" disabled={incomingResponding === challenge.id} style={[styles.incomingYes, incomingResponding === challenge.id && styles.incomingBusy]} onPress={() => respondIncomingBattle(challenge, true)}><Text style={styles.incomingYesText}>{incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
+            <MotionActionButton
+            variant="danger"
+            size="small"
+            disabled={incomingResponding === challenge.id}
+            onPress={() => respondIncomingBattle(challenge, false)}
+            accessibilityLabel="Refuser le Battle"
+          >
+            REFUSER
+          </MotionActionButton>
+            <MotionActionButton
+            variant="success"
+            size="small"
+            disabled={incomingResponding === challenge.id}
+            onPress={() => respondIncomingBattle(challenge, true)}
+            accessibilityLabel="Accepter le Battle"
+          >
+            {incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}
+          </MotionActionButton>
           </View>
         </View>
       ))}
@@ -1129,8 +1146,24 @@ export default function PartiesScreen({ navigation, route }: any) {
         <View key={item.arenaId} style={styles.incomingBanner}>
           <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingNo, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, false)}><Text style={styles.incomingNoText}>REFUSER</Text></TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" disabled={rematchResponding === item.arenaId} style={[styles.incomingYes, rematchResponding === item.arenaId && styles.incomingBusy]} onPress={() => respondPendingRematchLB(item, true)}><Text style={styles.incomingYesText}>{rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
+            <MotionActionButton
+            variant="danger"
+            size="small"
+            disabled={rematchResponding === item.arenaId}
+            onPress={() => respondPendingRematchLB(item, false)}
+            accessibilityLabel="Refuser la revanche"
+          >
+            REFUSER
+          </MotionActionButton>
+            <MotionActionButton
+            variant="success"
+            size="small"
+            disabled={rematchResponding === item.arenaId}
+            onPress={() => respondPendingRematchLB(item, true)}
+            accessibilityLabel="Accepter la revanche"
+          >
+            {rematchResponding === item.arenaId ? 'CONNEXION…' : 'ACCEPTER'}
+          </MotionActionButton>
           </View>
         </View>
       )) : null}
