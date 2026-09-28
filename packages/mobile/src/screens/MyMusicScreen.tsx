@@ -128,6 +128,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
   const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY' | 'COLLECTIONS'>('LIBRARY');
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
+  const [homeHelpExpanded, setHomeHelpExpanded] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -1240,8 +1241,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
       </View>
 
       {mobileSection === 'HOME' ? <View style={styles.focusHome}>
-        <Text style={styles.focusHomeTitle}>Que veux-tu faire ?</Text>
-        <Text style={styles.focusHomeHint}>Choisis une action. Une seule fonction s’ouvre à la fois.</Text>
         <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>♫</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Mes morceaux · {localKeptEntries.length}</Text><Text style={styles.focusChoiceHint}>Écouter et retrouver mes musiques</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
@@ -1254,10 +1253,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>◆</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Albums en vente · {existingOffersForAdd.length}</Text><Text style={styles.focusChoiceHint}>Morceaux, prix, € / FREE et publication</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.focusChoice} onPress={() => navigation.navigate('MusicConnections')} accessibilityLabel="Gérer les services musicaux">
-          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>＋</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Services musicaux</Text><Text style={styles.focusChoiceHint}>Connecter Spotify et les services compatibles</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
+        <TouchableOpacity style={styles.focusChoice} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('SERVICES'); }} accessibilityLabel="Afficher les services musicaux ici">
+          <View style={styles.focusChoiceIcon}><Text style={styles.focusChoiceIconText}>＋</Text></View><View style={styles.focusChoiceCopy}><Text style={styles.focusChoiceTitle}>Services musicaux</Text><Text style={styles.focusChoiceHint}>Connexions et synchronisation, sans quitter Mes musiques</Text></View><Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
-        <Text style={styles.focusLearnMore}>En savoir plus · Chaque rubrique regroupe une seule action pour garder tes morceaux, les organiser, gérer leur visibilité, publier tes albums ou connecter tes services musicaux.</Text>
+        <TouchableOpacity style={styles.focusLearnMoreButton} onPress={() => setHomeHelpExpanded((value) => !value)} accessibilityLabel="En savoir plus sur Mes musiques"><Text style={styles.focusLearnMoreButtonText}>{homeHelpExpanded ? 'Réduire' : 'En savoir plus'}</Text></TouchableOpacity>
+        {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Mes morceaux : écouter ta bibliothèque. · Modifier : public, privé, retirer et classer. · Organisation : styles, artistes, filtres et tri. · Albums : composer et publier tes collections. · Services : gérer les connexions musicales.</Text> : null}
       </View> : <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
         <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{workspaceTab === 'COLLECTIONS' ? 'Albums en vente' : mobileSection === 'EDIT' ? 'Modifier ma bibliothèque' : mobileSection === 'ORGANIZE' ? 'Organisation' : 'Mes morceaux'}</Text><Text style={styles.focusBarHint}>Une fonction à la fois</Text></View>
@@ -1278,9 +1278,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </ScrollView>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}><View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
+      {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
         <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
-      ))}</View></View> : null}
+      ))}</View>}</View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
@@ -1654,6 +1654,8 @@ const styles = StyleSheet.create({
   focusHomeTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
   focusHomeHint:{color:colors.textMuted,fontSize:12,marginBottom:4},
   focusLearnMore:{marginTop:4,paddingHorizontal:4,color:colors.textSecondary,fontSize:12,lineHeight:18},
+  focusLearnMoreButton:{alignSelf:'center',minHeight:36,justifyContent:'center',paddingHorizontal:16,marginTop:2},focusLearnMoreButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},
+  inlineServicesCard:{margin:spacing.md,padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border},inlineServicesTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginBottom:6},inlineServicesText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginBottom:14},inlineServicesAction:{minHeight:48,borderRadius:radius.md,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},inlineServicesActionText:{color:'#FFF',fontWeight:'900',fontSize:12},
   focusChoice:{minHeight:66,paddingHorizontal:12,paddingVertical:9,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:11},
   focusChoiceIcon:{width:40,height:40,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
   focusChoiceIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
