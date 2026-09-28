@@ -51,39 +51,37 @@ export default function App() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
 
-  // Vérifier le flag onboarding au montage et à chaque changement d'utilisateur
+  // Vérifier le flag onboarding au montage et à chaque changement d'utilisateur.
+  // Cette logique vérifie si l'utilisateur a déjà vu le guide d'onboarding une première fois.
   useEffect(() => {
     let live = true;
-    const checkOnboardingStatus = async () => {
+
+    // Si pas de user ou demo mode, pas besoin de vérifier le flag onboarding.
+    // OnboardingScreen (écran de login) s'affichera à la place.
+    if (!user || isDemoMode) {
+      if (live) {
+        setShowOnboarding(false);
+      }
+      return;
+    }
+
+    // User existe. Vérifier si le guide d'onboarding a déjà été montré.
+    const checkOnboardingFlag = async () => {
       try {
-        if (!user || isDemoMode) {
-          if (live) {
-            setShowOnboarding(false);
-            setOnboardingLoaded(true);
-          }
-          return;
-        }
         const seenFlag = await AsyncStorage.getItem(ONBOARDING_SEEN_KEY);
         if (live) {
+          // Si pas de flag, c'est la première visite → montrer le guide
           setShowOnboarding(!seenFlag);
-          setOnboardingLoaded(true);
         }
       } catch (err) {
-        if (live) setOnboardingLoaded(true);
+        if (__DEV__) console.warn('[KEEP] onboarding flag check failed', err);
+        // En cas d'erreur, ne pas afficher le guide (safer)
+        if (live) setShowOnboarding(false);
       }
     };
-    // Si user est absent ou demo, complèter synchronement sans attendre AsyncStorage
-    if (!user || isDemoMode) {
-      setShowOnboarding(false);
-      setOnboardingLoaded(true);
-    } else {
-      // Sinon, charger depuis AsyncStorage
-      checkOnboardingStatus().catch(() => {
-        if (live) setOnboardingLoaded(true);
-      });
-    }
+
+    void checkOnboardingFlag();
     return () => { live = false; };
   }, [user, isDemoMode]);
 
@@ -272,10 +270,6 @@ export default function App() {
       unsubscribeAuth();
     };
   }, []);
-
-  if (!onboardingLoaded) {
-    return null;
-  }
 
   // Gérer la finalization de l'onboarding
   const markOnboardingSeen = async () => {
