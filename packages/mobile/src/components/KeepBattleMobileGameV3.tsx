@@ -1336,8 +1336,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!enabled) { onRequireAccount?.(); return; }
     setBusy(true);
     let dailyLimitReached = false;
+    let insufficientCredit = false;
     try {
-      const status = await loadKeepBattleSoloDailyStatus();
+      const [status, freshCredit] = await Promise.all([
+        loadKeepBattleSoloDailyStatus(),
+        loadBattleCreditStatusIfAuthenticated(),
+      ]);
       if (!status.unlimited && status.remaining != null && status.remaining <= 0) {
         dailyLimitReached = true;
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
@@ -1349,7 +1353,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } finally {
       setBusy(false);
     }
-    if (dailyLimitReached) return;
+    if (dailyLimitReached || insufficientCredit) return;
     Alert.alert(
       'Sauvegarder ce Battle ?',
       'Veux-tu retrouver les morceaux de cette partie dans Mes Sessions à la fin (les garder, les réécouter ou les effacer) ?',
@@ -2197,6 +2201,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // Oui/Non que le solo, déclenché ici par le bouton plutôt qu'avant le
       // match (une arène a trop de points d'entrée -- matchmaking, invitation,
       // revanche -- pour demander proprement en amont).
+      const rematchCost = stakeForRounds(arena.roundCount);
+      const insufficientFreeForRematch = !myCreditStatus || myCreditStatus.remainingFree < rematchCost;
       const offerArenaSession = () => {
         if (!arenaTrackCount) return;
         Alert.alert(
@@ -2296,7 +2302,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               plus le match instantanément pour tout le groupe : ça propose,
               chacun répond, et seuls ceux qui ont dit oui rejouent. */}
           {rematchDeadline && arenaMeRematchReady !== true ? null : (
-            <TouchableOpacity disabled={busy || Boolean(rematchDeadline)} style={s.finishPrimary} onPress={() => {
+            <TouchableOpacity disabled={busy || Boolean(rematchDeadline) || insufficientFreeForRematch} style={[s.finishPrimary, insufficientFreeForRematch && s.actionDisabled]} onPress={() => {
+              if (insufficientFreeForRematch) {
+                notEnoughFreeAlert(`Il te faut ${rematchCost} Free pour relancer ce Battle de ${arena.roundCount} morceaux. Solde actuel: ${myCreditStatus?.remainingFree ?? 0} Free`);
+                return;
+              }
               unlockWebAudioForGesture();
               setBusy(true);
               void proposeKeepBattleArenaRematch(arena.id).then(setArena).catch((e: any) => {
@@ -2308,7 +2318,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 else if (message.includes('MINIMUM_THREE_FREE_REQUIRED')) notEnoughFreeAlert(`Il te faut au moins ${parseRequiredFree(message, stakeForRounds(arena.roundCount))} Free pour relancer ce Battle de ${arena.roundCount} morceaux`);
                 else Alert.alert('Battle', 'Impossible de proposer une revanche pour le moment.');
               }).finally(() => setBusy(false));
-            }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : 'REVANCHE'}</Text></TouchableOpacity>
+            }}><Text style={s.finishPrimaryText}>{busy ? 'PRÉPARATION…' : rematchDeadline ? `EN ATTENTE DES AUTRES · ${rematchRemaining}s` : insufficientFreeForRematch ? 'INSUFFICIENT FREE' : 'REVANCHE'}</Text></TouchableOpacity>
           )}
           {/* Adel (13/09/2026, viralité) : même bouton que la fin de partie
               solo -- un résultat de Battle en groupe (score, classement) est
