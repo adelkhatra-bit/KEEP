@@ -5,6 +5,20 @@ Dernière mise à jour: 2026-09-28
 
 Ce fichier est le registre permanent des tâches. Une demande utilisateur n'est considérée terminée qu'après code poussé + preuve CI/test.
 
+## RÉFÉRENCE VISUELLE VALIDÉE — 2026-09-28
+- Maquette interactive/visuelle validée par l'utilisateur: 10 écrans LOKI violet/noir (Écouter, Découvertes, Playlists, Gérer un album, Prix et paiement, Profil, FREE/Offres, Hamburger, Réglages, Connexion paiement).
+- Reproduire cette hiérarchie à l'identique fonctionnellement sans supprimer les modules existants; réorganiser les fonctions existantes derrière cette surface simple.
+- Source conversation image générée: gen_id 97017001-f499-4c0d-ae32-eddc25616949.
+- Avant chaque remplacement d'écran: inventorier les fonctions existantes, conserver celles qui restent nécessaires, puis brancher et tester la chaîne complète.
+
+## ATTRIBUTION PREMIER DÉCOUVREUR — INVARIANT
+- Le premier KEEP issu d'une écoute directe est enregistré dans public.keep_track_first_discoveries.
+- track_id est la PRIMARY KEY: une seule attribution de premier découvreur par morceau.
+- L'écriture serveur utilise ON CONFLICT(track_id) DO NOTHING: les reprises ultérieures ne remplacent jamais le premier découvreur.
+- profile_id a une FK ON DELETE RESTRICT: l'attribution ne peut pas disparaître par suppression normale du profil référencé.
+- Objectif produit: afficher ce premier découvreur à vie sur toutes les reprises/redistributions du même track_id, même à très grande échelle.
+- À sécuriser avant production: RLS de la table + tests concurrence/1M reprises simulées + vérification que tous les parcours d'écoute appellent bien la capture.
+
 ## UX CIBLE — SIMPLE, UNE SEULE ROUTE
 - Écouter : écouter → PASSER / GARDER / ARRÊTER. Historique uniquement dans Mes Sessions.
 - Playlists : Mes morceaux + Mes albums. Une seule fiche album pour morceaux/prix/statut.
