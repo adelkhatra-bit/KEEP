@@ -114,6 +114,55 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Site public : `https://adelkhatra-bit.github.io/KEEP/`.
 - Le site utilisateur est l'export Expo Web de `packages/mobile`, pas une application web séparée.
 
+## 🔴 APP STORE DEPLOYMENT READINESS (28/09/2026 — 23h45 UTC)
+
+**STATUS** : Codebase 100% prêt. En attente d'actions humaines Adel.
+
+**Audit complet effectué** :
+- ✅ Code-controlled checks : 75/75 (100%)
+- ✅ TypeScript : 0 erreurs (packages/mobile)
+- ✅ App Store readiness script corrigé et validé
+- ✅ EAS build profile : production + auto-eas-build.yml opérationnel
+- ✅ StoreKit/IAP : intégration complète, prête à recevoir produits Apple
+- ✅ Marketplace : désactivée sur iOS (web-only conforme 3.1.1)
+- ✅ Permissions : documentées en français avec textes clairs
+- ✅ Legal : 6 pages publiques (privacy, terms, refund, etc.) accessibles in-app
+- ✅ Sécurité : zéro secrets en repo, vault.secrets pour clés sensibles
+
+**Documents générés** (28/09/2026) :
+1. `docs/APP_STORE_READINESS_AUDIT_20260928.md` — Audit complet 474 lignes
+2. `docs/ADEL_APP_STORE_ACTIONS.md` — Day-by-day actions checklist pour Adel
+
+**Actions humaines bloquantes avant soumission** (8 items, ~6h) :
+1. Adhésion Apple Developer + clé API App Store Connect
+2. 5 GitHub Secrets configurés (EXPO_TOKEN, Apple IDs, P-8 key en base64)
+3. 3 produits StoreKit/IAP créés dans App Store Connect
+4. 3 secrets Apple IAP configurés en Supabase vault.secrets
+5. Stripe keys corrigées (sk_... + pk_... inversées en audit)
+6. 6 screenshots + métadonnées (FR+EN) uploadées
+7. Compte test reviewer créé + confirmé
+8. Device test réel : 5 recognitions OK, 0 crash
+
+**Timeline** :
+- Jour 1 : ~2h30 (Adhésion + secrets + 3 IAP)
+- Jour 2 : ~3h (Secrets IAP + Stripe + screenshots + metadata)
+- Jour 3 : ~30min (Test account + device validation)
+- Jour 4–5 : Auto (GitHub Actions build ~60min)
+- Jour 5–7 : Auto (Apple review 24–48h)
+- Jour 7–8 : 1min (Release on App Store)
+**Total : ~2 semaines to live.**
+
+**Commits poussés** :
+- `08cc032` : Fix app store readiness checks (75/75 ✅)
+- `1adc20c` : App Store readiness audit complet
+- `361e5f8` : App Store deployment actions pour Adel
+
+**Prochaines étapes** :
+1. Adel exécute les 8 actions humaines (jour 1–3)
+2. Push `.eas-build-trigger` ou workflow_dispatch pour build iOS (jour 4)
+3. TestFlight + App Store review automatiques (jour 4–7)
+4. Release + live (jour 7–8)
+
 ## Derniers changements
 
 - `d7df56a` : migration couleurs HomeScreenCompact/Discover/Parties vers tokens colors.ts (Claude Code, 22/09 13:59 UTC).
