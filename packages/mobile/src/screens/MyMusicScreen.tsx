@@ -14,6 +14,7 @@ import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPla
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
+import { getPayoutLinkForProfile, payoutProviderLabel } from '../services/payoutLinkService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -163,6 +164,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
   // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  const [payoutLink, setPayoutLink] = useState('');
+  useEffect(() => {
+    let live = true;
+    if (!userId || isLocalGuest || isDemoMode) { setPayoutLink(''); return undefined; }
+    const loadPayout = () => getPayoutLinkForProfile(userId).then((value) => { if (live) setPayoutLink(value); }).catch(() => { if (live) setPayoutLink(''); });
+    void loadPayout();
+    const unsubscribe = navigation?.addListener?.('focus', loadPayout);
+    return () => { live = false; unsubscribe?.(); };
+  }, [userId, isLocalGuest, isDemoMode, navigation]);
   // (21/09/2026) BUG RÉEL corrigé (Adel : "1000 abonnés assignés via Super
   // Admin, la fonction reste verrouillée") : ce check ne tournait qu'une
   // fois au montage (deps vides) -- un changement fait dans Super Admin
@@ -1275,6 +1285,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.collectionMenuButton} onPress={openNewCollection} accessibilityLabel="Créer un nouvel album"><Text style={styles.collectionMenuButtonText}>＋</Text></TouchableOpacity>
         </View>
         <View style={styles.collectionQuickActions}><TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic}><Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text></TouchableOpacity></View>
+        <TouchableOpacity
+          style={[styles.collectionPayoutStatus, payoutLink.trim() ? styles.collectionPayoutStatusReady : styles.collectionPayoutStatusMissing]}
+          onPress={() => navigation.navigate('Main', { screen: 'Profile', params: { openCreatorTools: true } })}
+          accessibilityLabel={payoutLink.trim() ? 'Paiement connecté' : 'Paiement à connecter'}
+        >
+          <View style={[styles.collectionPayoutDot, payoutLink.trim() ? styles.collectionPayoutDotReady : styles.collectionPayoutDotMissing]} />
+          <View style={styles.collectionPayoutCopy}><Text style={styles.collectionPayoutTitle}>{payoutLink.trim() ? `PAIEMENT CONNECTÉ · ${payoutProviderLabel(payoutLink)}` : 'PAIEMENT À CONNECTER'}</Text><Text style={styles.collectionPayoutHint}>{payoutLink.trim() ? 'Prêt à recevoir tes paiements directs' : 'Ajoute PayPal.Me ou ton lien de paiement pour être payé'}</Text></View>
+          <Text style={styles.collectionDashboardChevron}>›</Text>
+        </TouchableOpacity>
         <Text style={styles.collectionDashboardSectionTitle}>ALBUMS PUBLIÉS · {existingOffersForAdd.length}</Text>
         <ScrollView style={styles.collectionDashboardList} contentContainerStyle={styles.collectionDashboardRail} showsVerticalScrollIndicator={false}>
           {existingOffersForAdd.length ? existingOffersForAdd.map((offer) => {
@@ -1678,6 +1697,15 @@ const styles = StyleSheet.create({
   mobileAccordionHint:{color:colors.textMuted,fontSize:9,marginTop:2},
   mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
+  collectionPayoutStatus:{marginTop:10,minHeight:62,borderRadius:16,borderWidth:1,paddingHorizontal:13,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:10},
+  collectionPayoutStatusReady:{borderColor:colors.success,backgroundColor:'rgba(36,211,167,0.08)'},
+  collectionPayoutStatusMissing:{borderColor:colors.danger,backgroundColor:'rgba(255,83,112,0.08)'},
+  collectionPayoutDot:{width:10,height:10,borderRadius:5},
+  collectionPayoutDotReady:{backgroundColor:colors.success},
+  collectionPayoutDotMissing:{backgroundColor:colors.danger},
+  collectionPayoutCopy:{flex:1},
+  collectionPayoutTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
+  collectionPayoutHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:15,marginTop:2},
     workspaceTabs:{marginHorizontal:12,marginTop:10,padding:3,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',gap:4},workspaceTab:{flex:1,minHeight:40,borderRadius:13,alignItems:'center',justifyContent:'center'},workspaceTabOn:{backgroundColor:colors.primary},workspaceTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},workspaceTabTextOn:{color:colors.white},collectionDashboard:{flex:1,marginHorizontal:12,marginTop:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,minHeight:0},collectionDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},collectionDashboardHeadCopy:{flex:1,minWidth:0},collectionDashboardTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},collectionDashboardHint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:3},collectionMenuButton:{width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionMenuButtonText:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},collectionQuickActions:{flexDirection:'row',gap:8,marginTop:12},collectionAllMusicButton:{flex:1,minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},collectionAllMusicButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},collectionCreateCompact:{minHeight:44,paddingHorizontal:11,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCreateCompactText:{color:colors.white,fontSize:9,fontWeight:'900'},collectionDashboardSectionTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:16,marginBottom:3},collectionDashboardList:{flex:1,minHeight:0},collectionDashboardRail:{gap:9,paddingTop:7,paddingBottom:120},collectionDashboardCard:{width:'100%',padding:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},collectionDashboardCardMain:{minHeight:82,flexDirection:'row',alignItems:'center',gap:11},collectionDashboardCover:{width:58,height:58,borderRadius:13,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionDashboardCoverText:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},collectionDashboardCardCopy:{flex:1,minWidth:0},collectionDashboardKicker:{color:colors.success,fontSize:8,fontWeight:'900',letterSpacing:.6},collectionDashboardName:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:5},collectionDashboardMeta:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:5},collectionDashboardChevron:{color:colors.primaryLight,fontSize:26,fontWeight:'700'},collectionDashboardActions:{flexDirection:'row',gap:7,marginTop:7},collectionManageButton:{flex:1,minHeight:38,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionManageButtonText:{color:'#FFF',fontSize:8,fontWeight:'900'},collectionSettingsButton:{flex:1,minHeight:38,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},collectionSettingsButtonText:{color:colors.textPrimary,fontSize:8,fontWeight:'900'},collectionDashboardEmptyCard:{padding:18,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center'},collectionDashboardEmptyTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},collectionDashboardEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:6,textAlign:'center'},collectionDashboardSpacer:{flex:1},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
   organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
