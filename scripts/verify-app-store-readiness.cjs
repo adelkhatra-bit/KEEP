@@ -112,13 +112,13 @@ check('Build production non simulateur', eas.build?.production?.ios?.simulator !
 check('Image EAS production compatible Xcode 26', eas.build?.production?.ios?.image === 'sdk-54', String(eas.build?.production?.ios?.image || 'absente'));
 check('Aucun faux identifiant Apple dans eas.json', !read('packages/mobile/eas.json').includes('REMPLACER_'));
 
-const iosWorkflow = '.github/workflows/eas-build-ios.yml';
+const iosWorkflow = '.github/workflows/auto-eas-build.yml';
 check('Workflow iOS/TestFlight présent', exists(iosWorkflow));
 check('Workflow iOS gère EXPO_TOKEN', contains(iosWorkflow, 'EXPO_TOKEN'));
-check('Workflow build EAS iOS', contains(iosWorkflow, 'build --platform ios') && contains(iosWorkflow, 'eas "${args[@]}"'));
-check('Workflow auto-submit TestFlight protégé', contains(iosWorkflow, '--auto-submit-with-profile production') && contains(iosWorkflow, 'submit_ready'));
-check('Team ID injecté hors repo', contains(iosWorkflow, 'APPLE_TEAM_ID') && contains(iosWorkflow, 'eas.submit.production.ios.appleTeamId = process.env.APPLE_TEAM_ID'));
-check('ASC App ID injecté hors repo', contains(iosWorkflow, 'ASC_APP_ID') && contains(iosWorkflow, 'eas.submit.production.ios.ascAppId = process.env.ASC_APP_ID'));
+check('Workflow build EAS iOS', contains(iosWorkflow, 'eas build --local --platform ios'));
+check('Workflow build non-interactif', contains(iosWorkflow, '--non-interactive'));
+check('Workflow gère les credentials Apple', contains(iosWorkflow, 'ASC_API_KEY_P8_BASE64') && contains(iosWorkflow, 'ASC_KEY_ID') && contains(iosWorkflow, 'ASC_ISSUER_ID'));
+check('Workflow gère les profils de build', contains(iosWorkflow, 'BUILD_PROFILE') && contains(iosWorkflow, '--profile'));
 
 const iapService = 'packages/mobile/src/services/iapService.ts';
 const offers = 'packages/mobile/src/screens/OffersScreen.tsx';
