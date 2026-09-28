@@ -52,6 +52,9 @@ function isCreditsExhausted(error: unknown): boolean {
 // etait. Fenetre de reprise volontairement courte (45 min) pour ne jamais
 // reprendre une session vieille de plusieurs jours par surprise.
 const RESUMABLE_SESSION_WINDOW_MS = 45 * 60 * 1000;
+// Une nouvelle pression explicite sur ÉCOUTER démarre toujours une session vide.
+// Les anciennes sessions restent dans Mes Sessions ; elles ne doivent jamais
+// réinjecter automatiquement leurs morceaux dans une nouvelle écoute.
 
 function findResumableSession(): KeepSession | null {
   const sessions = useSessionHistoryStore.getState().sessions;
@@ -372,8 +375,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // Une écoute lancée normalement ne doit jamais reprendre une ancienne URL
     // TikTok/Instagram. Le handoff social pose sa nouvelle source juste après.
     void clearSharedMusicSource();
-    const resumable = findResumableSession();
-    useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(resumable?.id ?? null);
+    const resumable = null;
+    useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
     nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
