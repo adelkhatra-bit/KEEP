@@ -4,23 +4,41 @@ Dernière mise à jour : 28 septembre 2026 — 22:50 UTC (session CRITICAL FIX +
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
-## 🔴 CRITICAL FIX — BLACK SCREEN AFTER UPDATE (28/09/2026 22:45 UTC)
+## 🔴 CRITICAL FIX — BLACK SCREEN AFTER UPDATE (28/09/2026 23:00 UTC)
 
-**ERR-APP-UPDATE-BLACK-SCREEN-037** — Fixed & Deployed
+**ERR-APP-UPDATE-BLACK-SCREEN-037** — ROOT CAUSE FOUND & FIXED
 
 - **Symptom** : Clicking "Mettre à jour" (update button in AppUpdateBanner) → page reload → completely black screen with only loading spinner, frozen indefinitely.
-- **Root cause** : Race condition in App.tsx (lines 56-79). The onboarding check useEffect was launching `checkOnboardingStatus()` asynchronously without awaiting it, leaving `onboardingLoaded = false`. After page reload via `window.location.replace()`, the first render hit the guard `if (!onboardingLoaded) return null;` and returned null before the async function completed. If AsyncStorage.getItem() took time or stalled, the state never updated and component stayed frozen.
-- **Fix** : Split onboarding check into sync and async paths. When `!user || isDemoMode` (very common on reload), immediately set `onboardingLoaded = true` synchronously. Only launch AsyncStorage check if user exists and isDemoMode is false.
-- **Status** : 
-  - ✅ COMMITTED_LOCAL : commit 74958ea (fix code)
-  - ✅ PUSHED_REMOTE : commit 74958ea on `reconcile/claude-main-20260825`
+
+- **First attempt (FAILED)** — Commit 74958ea :
+  - Theory: Race condition in useEffect onboarding check
+  - Fix: Split sync/async paths in useEffect
+  - Result: Still black screen. This was NOT the root cause.
+
+- **ROOT CAUSE (FOUND)** — Architecture anti-pattern :
+  - `if (!onboardingLoaded) return null;` guard at line 276 **fires on FIRST RENDER**
+  - React rendering order: (1) render → (2) effects execute → (3) state change → (4) re-render
+  - Problem: Guard executes on step 1, returns null (black screen) BEFORE effects run in step 2
+  - The useEffect that should set `onboardingLoaded = true` never gets a chance to fix it
+
+- **REAL FIX** — Commit 96ce31c :
+  1. ✅ Deleted `onboardingLoaded` state variable entirely
+  2. ✅ Deleted `if (!onboardingLoaded) return null;` render guard (lines 276-278)
+  3. ✅ Restructured useEffect onboarding logic to properly check AsyncStorage flag
+  4. ✅ App now ALWAYS renders something on first render (no null return)
+  5. ✅ Shows OnboardingScreen (no user), OnboardingGuideScreen (first visit), or Navigation (normal)
+
+- **Status** :
+  - ✅ COMMITTED_LOCAL : commit 96ce31c (TRUE fix)
+  - ✅ PUSHED_REMOTE : commit 96ce31c on `reconcile/claude-main-20260825`
   - ✅ VERIFIED : TypeScript compilation 0 errors
-  - ✅ VERIFIED : Code review confirms race condition eliminated
-  - ✅ DEPLOYMENT_SIGNAL : Created sentinel file `.ota-production-trigger` (commit e20cad4)
-  - ✅ PUSHED_REMOTE : e20cad4 triggers eas-update-production.yml workflow
-  - ⏳ DEPLOYED : Awaiting GitHub Actions workflow completion (OTA to production channel)
-- **Verification** : ERROR_LEDGER.md updated with full details, test reproduction steps, and commit SHA.
-- **Next** : Monitor OTA deployment completion, real device/browser testing to confirm black screen is resolved.
+  - ✅ VERIFIED : Render guard anti-pattern eliminated
+  - ✅ DEPLOYMENT_SIGNAL : Updated `.ota-production-trigger` (commit 6b69a50)
+  - ✅ PUSHED_REMOTE : 6b69a50 triggers eas-update-production.yml workflow
+  - ⏳ DEPLOYED : GitHub Actions workflow running (OTA to production channel)
+
+- **Verification** : No more render guards that can cause early null returns. First render always shows content.
+- **Next** : OTA deployment, real device/browser testing to confirm black screen is resolved.
 
 ## Tâche en cours
 
