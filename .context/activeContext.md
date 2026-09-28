@@ -1,20 +1,23 @@
 # KEEP — Contexte actif
 
-Dernière mise à jour : 28 septembre 2026 (session Collections Audit Phase 2 - TESTS).
+Dernière mise à jour : 28 septembre 2026 — 14:45 UTC (session MotionActionButton Phase 2 complétée).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
 
 ## Tâche en cours
 
-- **AUDIT BUTTONS COMPLET ET ANIMATIONS MICRO (Demande Adel 28/09/2026) — EN COURS** :
-  - **Phase 1 COMPLÉTÉE (28/09)** : MotionActionButton.tsx créé `f9ea94c` + 3 écrans intégrés
-    - MotionActionButton.tsx : Composant réutilisable avec animations (press scale 0.96, release bounce 1.02→1.0, glow pulse opacity 0→0.3), variants (primary/success/danger/secondary/ghost), sizes (small/medium/large), accessibilité complète, native driver 60fps
-    - HomeScreenCompact (commit `9f7e61e`) : ÉCOUTER MAINTENANT (primary/large), ARRÊTER L'ÉCOUTE (danger/large), Tester audio d'onglet (ghost/small), Plus récent/Plus ancien (ghost/small), Tu connais le titre (ghost/medium)
-    - DiscoverScreen (commit `ba9aebd`) : RECHERCHER (primary), × Clear search (ghost), SUIVRE/ABONNÉ (primary/success), VOIR PROFIL (secondary), Previous/Next navigation (ghost)
-    - PartiesScreen Phase 1 (commit `83158e8`) : ACCEPTER/REFUSER Battle et Rematch (success/danger)
-    - tsc 0 erreur sur 3 écrans (ProfilePublicScreen a 2 erreurs pré-existantes non liées)
-  - **Phase 2 TODO** : PartiesScreen reste (leaderboard, création événement), ProfilePublicScreen hero buttons, boutons complexes (PASSER/GARDER)
-  - **Demandes connexes à traiter** : QR code login (10h), 2FA/MFA (6-8h), social login Apple/Google/Facebook (8-10h), affiliate links fix (2-3h)
+- **AUDIT BUTTONS COMPLET ET ANIMATIONS MICRO (Demande Adel 28/09/2026) — PHASE 2 TERMINÉE** :
+  - **Phase 1 COMPLÉTÉE** : MotionActionButton.tsx créé + 3 écrans intégrés (f9ea94c → 83158e8)
+    - MotionActionButton.tsx : Composant réutilisable avec animations native driver 60fps
+    - HomeScreenCompact : 6 buttons (9f7e61e)
+    - DiscoverScreen : 5 buttons (ba9aebd)
+    - PartiesScreen Phase 1 : 4 buttons (83158e8)
+  - **Phase 2a-2b COMPLÉTÉE (28/09 14:45)** : ProfilePublicScreen hero + menus (cd8598d + fa9b6b4)
+    - ProfilePublicScreen hero buttons : APERCU (primary), PEPITES (success), BATTLE (ghost)
+    - ProfilePublicScreen menu buttons : Tous les boutons des menus (primary) et modales (primary/ghost)
+    - Total : 14+ buttons intégrés, tsc 0 erreur nouveau
+  - **Phase 2c TODO** : PartiesScreen reste (81 TouchableOpacity, 4/81 convertis = 5%, defer à après Collections)
+  - **Collections Bugs Phase 3 — NEXT** : Commencer repairs (bugs 020, 024, 018, 022)
 
 ## État du projet
 
