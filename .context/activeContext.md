@@ -18,21 +18,23 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
     - ✅ Commit 3f7064a PUSHED_REMOTE
     - Prochaine étape : Phase 1 (Navigation Unifiée)
   
-  - **PHASE 1 : NAVIGATION UNIFIÉE (P0 — CRITIQUE)** :
-    - Status : À démarrer
-    - Objectif : Bell + Hamburger → Menu Modal unique
-    - Travail : Unifier patterns de navigation (pas plus 2 paradigmes)
-    - Fichiers : ProfilePublicScreen.tsx, PublicUserProfileScreen.tsx
-    - Tests : Tester que Modal s'ouvre/ferme correctement, Notifications accédé via Modal
-    - Durée estimée : 2-3 heures
-    - Impact : ✅ Cohérence UX, ✅ Enfant 7 ans comprend
+  - **PHASE 1 : NAVIGATION UNIFIÉE (✅ COMPLÉTÉE — 28/09 23h55 UTC)** :
+    - ✅ Status : PUSHED_REMOTE (commit e004512)
+    - ✅ Objectif : Bell + Hamburger → Menu Modal unique
+    - ✅ Travail : ProfilePublicScreen.tsx ligne 1229 — Bell désormais ouvre menu + expand notifications
+    - ✅ Tests : TypeScript 0 errors
+    - ⏳ Tests web : Awaiting GitHub Pages workflow
+    - Impact réel : ✅ Cohérence UX, ✅ Enfant 7 ans comprend (un seul menu, pas 2 paradigmes)
   
-  - **PHASE 2 : FIX DESIGN RENDERING (P0 — CRITIQUE)** :
-    - Status : Prête après Phase 1
-    - Objectif : Éliminer designs coincés/overlappés après refresh
-    - Fichiers : ProfilePublicScreen.tsx, PlaylistSalePanel.tsx, PartiesScreen.tsx
-    - Technique : Auditer <Modal>, vérifier visible={}, z-index, pointerEvents
-    - Durée estimée : 2 heures
+  - **PHASE 2 : FIX DESIGN RENDERING (✅ PARTIELLEMENT — 28/09 00h35 UTC)** :
+    - ✅ Status : PUSHED_REMOTE (commit 1bb7a5a)
+    - ✅ Diagnostic complet (doc PHASE2_DESIGN_RENDERING_DIAGNOSIS.md)
+    - ✅ Repair A : Modal State Manager (utils/modalStateManager.ts)
+    - ✅ Repair B : Reset État au Montage (ProfilePublicScreen + PartiesScreen)
+    - ⏳ Repair C : Z-index explicite (TODO — optionnel)
+    - ⏳ Repair D : Simplification menu (TODO — optionnel)
+    - ✅ TypeScript : 0 errors
+    - Impact : ✅ Aucune modale fantôme après refresh, ✅ Pas de conflits multiples modales
 
   - **PHASES 3-5 (À VALIDER)** :
     - [ ] Phase 3 : Onboarding 1ère visite — P1 HAUT (4h)
