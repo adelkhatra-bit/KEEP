@@ -1088,6 +1088,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // les autres gardent un bouton "Ouvrir" vers leur écran dédié pour toute
   // action réellement complexe (achat, upload, connexion de service).
   const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
+  const directMenuAction = (key: string) => {
+    if (key === 'profile') return openFromMenu('ProfileSettings');
+    if (key === 'notifications') return openFromMenu('Notifications');
+    if (key === 'music') return openFromMenu('MusicConnections');
+    if (key === 'offers') return openFromMenu('Offers');
+    if (key === 'sellPlaylists') return openFromMenu('PlaylistSale');
+    if (key === 'identityCard') { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); return; }
+    if (key === 'share') { setMenuOpen(false); setExpandedMenuItem(null); openShare(); return; }
+    setExpandedMenuItem(key);
+  };
   const renderMenuDetail = (key: string) => {
     if (key === 'free') return <>
       <Text style={s.shareTitle}>Ton solde Free</Text>
@@ -1502,7 +1512,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.shareTitle}>Menu</Text>
             <ScrollView style={{ maxHeight: 440, marginTop: 4 }}>
               {MENU_ITEMS.filter((item) => item.key !== 'sellPlaylists' || marketplaceEnabled).map((item) => (
-                <TouchableOpacity key={item.key} style={s.listRow} onPress={() => setExpandedMenuItem(item.key)}>
+                <TouchableOpacity key={item.key} style={s.listRow} onPress={() => directMenuAction(item.key)}>
                   <Text style={[s.listText, { flex: 1 }]}>{item.icon} {item.label}</Text>
                   {item.key === 'free' ? <Text style={s.playlistCount}>{freeBalance ?? '…'}</Text> : null}
                   {item.key === 'notifications' && unreadCount > 0 ? <Text style={s.playlistCount}>{unreadCount > 99 ? '99+' : unreadCount}</Text> : null}
