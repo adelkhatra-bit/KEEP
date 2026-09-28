@@ -13,6 +13,14 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
     - ✅ Mode Démo Free balance = 0 → 3 Free : CRITICAL FIX (commit 53c48bd) — PUSHED_REMOTE ✓
     - ✅ TypeScript compile : 0 errors
     - ✅ GitHub Pages deployment : Workflow lancé
+  - **BATTLE EXIT CONFIRMATION (🔴 CRITICAL — 28/09/2026)** :
+    - ✅ Créer useGameSessionStore pour tracker jeu en cours
+    - ✅ PartiesScreen : Set game state quand battleOpen=true / clear on exit
+    - ✅ ProfilePublicScreen : Add beforeRemove listener + confirmation dialog
+    - ✅ PartiesScreen : Add beforeRemove listener pour tab navigation
+    - ✅ TypeScript : 0 errors
+    - ✅ Commits PUSHED_REMOTE (a068db6, 54f1f75)
+    - ⏳ GitHub Pages deployment : En attente du workflow eas-update-production.yml
   - **SOLO SYSTEM PHASE 1 (PARTIAL)** :
     - ✅ Backend RPC `keep_battle_solo_daily_status` : Migration créée
     - ✅ Service `loadKeepBattleSoloDailyStatus()` : Implémentée
@@ -21,10 +29,10 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
     - ⏳ Production deployment : En attente du workflow web
     - 🔴 RPC application status : À vérifier si migration Supabase production appliquée
   - **TODO PHASES 2-5** :
-    - [ ] Phase 2 : Super Admin SOLO config (12h)
-    - [ ] Phase 3 : Collections bugs (36h)
-    - [ ] Phase 4 : UI/UX notifications (24h)
-    - [ ] Phase 5 : Audit + QA (12h)
+    - [ ] Phase 2 : Battle Screen UX reordering (Free top, stats below) — P2
+    - [ ] Phase 3 : Menu simplification (12→6 items) — P3
+    - [ ] Phase 4 : Hamburger menu disconnect bug — P4
+    - [ ] Phase 5 : Settings disconnect state fix — P5
 
 ## État du projet
 
