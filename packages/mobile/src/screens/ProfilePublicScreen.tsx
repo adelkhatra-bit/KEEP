@@ -1108,7 +1108,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.freeEmptyCalloutText}>1. Partage ton profil : chaque nouvel abonné qu'il t'apporte te rapporte des Free.</Text>
           <Text style={s.freeEmptyCalloutText}>2. Joue à Loki Music Battle : gagne des Free en répondant juste.</Text>
           <Text style={s.freeEmptyCalloutText}>3. Passe à une formule payante : plus de Free offerts chaque mois, sans attendre.</Text>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); void shareProfile(user.username); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
+          <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); void shareProfile(user.username); }} accessibilityLabel="Partager"><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></MotionActionButton>
         </View>
       ) : null}
       <View style={s.linkPreview}>
@@ -1126,32 +1126,32 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'profile') return <>
       <Text style={s.shareTitle}>Réglages du profil</Text>
       <Text style={s.shareSubtitle}>@{user.username} · modifie ta photo, ta bio, ton pseudo et tes informations de profil.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('ProfileSettings')}><Text style={s.shareActionPrimaryText}>OUVRIR LES RÉGLAGES</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('ProfileSettings')} accessibilityLabel="Settings"><Text style={s.shareActionPrimaryText}>OUVRIR LES REGLAGES</Text></MotionActionButton>
     </>;
 
     if (key === 'identityCard') return <>
       <Text style={s.shareTitle}>Ma carte d’identité musicale</Text>
       <Text style={s.shareSubtitle}>Ton QR personnel ouvre directement ton profil Loki Music. Ta carte affiche ton identité, tes styles et tes statistiques et peut être partagée ou enregistrée par capture.</Text>
       <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }} accessibilityLabel="Afficher ma carte"><Text style={s.shareActionPrimaryText}>AFFICHER MA CARTE & MON QR</Text></MotionActionButton>
-      <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  COPIER MON LIEN DE PROFIL</Text><Text style={s.shareActionHint}>À coller dans une bio, un message ou un réseau social</Text></TouchableOpacity>
+      <MotionActionButton variant="ghost" size="small" onPress={() => void copyShare()} accessibilityLabel="Copier lien"><Text style={s.shareActionText}>Copier mon lien</Text></MotionActionButton>
     </>;
 
     if (key === 'share') return <>
       <Text style={s.shareTitle}>Inviter / partager</Text>
       <Text style={s.shareSubtitle}>Fais découvrir ton profil Loki Music sans encombrer ton écran principal.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); openShare(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); openShare(); }} accessibilityLabel="Partager"><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></MotionActionButton>
     </>;
 
     if (key === 'notifications') return <>
       <Text style={s.shareTitle}>Notifications</Text>
       <Text style={s.shareSubtitle}>{unreadCount > 0 ? `${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}.` : 'Tu es à jour, aucune notification en attente.'} Nouveaux abonnés, reprises de tes découvertes, réponses à tes soirées : tout arrive ici.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('Notifications')}><Text style={s.shareActionPrimaryText}>VOIR MES NOTIFICATIONS</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('Notifications')} accessibilityLabel="Notifications"><Text style={s.shareActionPrimaryText}>VOIR MES NOTIFICATIONS</Text></MotionActionButton>
     </>;
 
     if (key === 'music') return <>
       <Text style={s.shareTitle}>Services musicaux</Text>
       <Text style={s.shareSubtitle}>Connecte Spotify, Deezer, YouTube Music ou SoundCloud pour importer tes favoris et garder ta musique automatiquement. Le nombre de services actifs en même temps dépend de ta formule.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('MusicConnections')}><Text style={s.shareActionPrimaryText}>GÉRER MES SERVICES</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('MusicConnections')} accessibilityLabel="Services"><Text style={s.shareActionPrimaryText}>GERER MES SERVICES</Text></MotionActionButton>
     </>;
 
     if (key === 'offers') return <>
@@ -1163,7 +1163,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'sellPlaylists') return <>
       <Text style={s.shareTitle}>Mes collections exclusives</Text>
       <Text style={s.shareSubtitle}>Crée une collection exclusive avec plusieurs morceaux de ton univers, mélange les styles si tu veux, puis choisis un prix en € ou en FREE. Les visiteurs voient une collection verrouillée et peuvent la préécouter sans titre, artiste ni vraie pochette. Retrouve ici toutes tes collections publiées et leur statut.</Text>
-      <TouchableOpacity style={s.shareActionPrimary} onPress={() => openFromMenu('PlaylistSale')}><Text style={s.shareActionPrimaryText}>GÉRER MES COLLECTIONS</Text></TouchableOpacity>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('PlaylistSale')} accessibilityLabel="Collections"><Text style={s.shareActionPrimaryText}>GERER MES COLLECTIONS</Text></MotionActionButton>
     </>;
 
     if (key === 'publicProfile') return <>
@@ -1628,10 +1628,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
           <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Music DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={shareNative}><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={shareEmail}><Text style={s.shareActionText}>✉  Partager par e-mail</Text><Text style={s.shareActionHint}>Ton application Mail s’ouvre, tu choisis les destinataires</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={showQr}><Text style={s.shareActionText}>▦  Ma carte d’identité Loki Music</Text><Text style={s.shareActionHint}>QR + profil + styles + statistiques, pensée pour une story</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  Copier mon lien d’invitation</Text><Text style={s.shareActionHint}>Le lien d’affiliation est conservé automatiquement dans tous les partages</Text></TouchableOpacity>
+          <MotionActionButton variant="primary" size="medium" onPress={shareNative} accessibilityLabel="Decouvrir"><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></MotionActionButton>
+          <MotionActionButton variant="ghost" size="small" onPress={shareEmail} accessibilityLabel="Email"><Text style={s.shareActionText}>Partager email</Text></MotionActionButton>
+          <MotionActionButton variant="ghost" size="small" onPress={showQr} accessibilityLabel="QR"><Text style={s.shareActionText}>Ma carte Loki</Text></MotionActionButton>
+          <MotionActionButton variant="ghost" size="small" onPress={() => void copyShare()} accessibilityLabel="Copier"><Text style={s.shareActionText}>Copier lien</Text></MotionActionButton>
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
@@ -1677,8 +1677,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
           <Text style={s.screenshotHint}>Ta carte d’identité musicale : photo, bio, ville, styles et QR. Fais une capture ou partage-la pour donner envie de découvrir ton univers.</Text>
-          <TouchableOpacity style={s.shareActionPrimary} onPress={() => { setQrOpen(false); void shareNative(); }}><Text style={s.shareActionPrimaryText}>PARTAGER MA CARTE</Text></TouchableOpacity>
-          <TouchableOpacity style={s.shareAction} onPress={() => void copyShare()}><Text style={s.shareActionText}>⧉  COPIER MON LIEN & MON PROFIL</Text><Text style={s.shareActionHint}>À coller dans une bio, un message ou un réseau social</Text></TouchableOpacity>
+          <MotionActionButton variant="primary" size="medium" onPress={() => { setQrOpen(false); void shareNative(); }} accessibilityLabel="Partager"><Text style={s.shareActionPrimaryText}>PARTAGER MA CARTE</Text></MotionActionButton>
+          <MotionActionButton variant="ghost" size="small" onPress={() => void copyShare()} accessibilityLabel="Copier"><Text style={s.shareActionText}>Copier lien et profil</Text></MotionActionButton>
           <TouchableOpacity style={s.cancelShare} onPress={() => setQrOpen(false)}><Text style={s.cancelShareText}>FERMER</Text></TouchableOpacity>
           </ScrollView>
         </View>
