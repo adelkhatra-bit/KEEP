@@ -12,9 +12,9 @@ describe('PublicUserProfileScreen — défi Battle depuis un profil visité', ()
   });
 
   it('affiche un CTA direct uniquement pour un autre profil et conserve le parcours invité', () => {
-    expect(source).toContain('icon="⚡"');
-    expect(source).toContain("title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}");
-    expect(source).toContain("battleFeatureEnabled && viewer?.id !== profile.id");
+    expect(source).toContain('<Text style={styles.visitorActionIcon}>⚡</Text>');
+    expect(source).toContain("{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}");
+    expect(source).toContain('accessibilityLabel={`Défier ${profile.username} en Battle`}');
     expect(source).toContain("requestAccount('login')");
   });
 
