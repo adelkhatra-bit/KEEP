@@ -58,6 +58,19 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
     - ⏳ Extension future : Ajouter badges "FORMULE REQUISE" à d'autres fonctions verrouillées
     - Impact : ✅ Utilisateur sait comment débloquer les formules
 
+## 🐛 FIX CRITIQUE BATTLE SOLO (28/09/2026)
+
+- **ERR-BATTLE-SOLO-TIMEOUT-CREDIT-036 — Prévenir débit lors timeout** :
+  - **Status** : FIXED_LOCAL (commit bd6e3f8)
+  - **Bug** : En mode Solo, partie auto-annulée après 3 timeouts (sans interaction utilisateur) débite quand même les crédits
+  - **Cause** : Pas de tracking des réponses → impossible de détecter "all-timeout"
+  - **Fix** : 
+    - ✅ Ajouter `soloResponses[]` state pour tracker CORRECT/INCORRECT/__TIMEOUT__
+    - ✅ Helper `recordSoloAnswer()` centralise l'enregistrement
+    - ✅ Détection all-timeout : si toutes réponses = __TIMEOUT__, sauter RPC credit
+    - ✅ Mise à jour ERROR_LEDGER.md : ERR-BATTLE-SOLO-TIMEOUT-CREDIT-036 → FIXED_LOCAL
+  - **Impact** : Utilisateur ne perd plus de crédit si inactive en Solo mode
+
 ## État du projet
 
 - Dépôt : `adelkhatra-bit/KEEP`.
