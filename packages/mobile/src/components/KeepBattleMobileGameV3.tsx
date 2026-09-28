@@ -391,6 +391,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
   const [soloAfter, setSoloAfter] = React.useState<number | null>(null);
   const [soloFreeEarned, setSoloFreeEarned] = React.useState(0);
+  // Adel (28/09/2026) : FIXE ERR-BATTLE-SOLO-TIMEOUT-CREDIT-036
+  // Tracker toutes les réponses (correct/incorrect/timeout) pour détecter
+  // les parties "all-timeout" et éviter de débiter la mise quand l'utilisateur
+  // n'a jamais interagi.
+  const [soloResponses, setSoloResponses] = React.useState<string[]>([]);
   // Adel (20/09/2026) : BUG RÉEL rapporté ("41 → +3 → 41", le message
   // affichait un gain jamais réellement crédité). soloAfter est déjà
   // rechargé depuis le serveur (pas une estimation), mais rien ne
@@ -724,6 +729,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     ]).start();
   }, [versusOpacity, versusScale]);
 
+  // Adel (28/09/2026) : FIXE ERR-BATTLE-SOLO-TIMEOUT-CREDIT-036
+  // Centraliser l'enregistrement des réponses solo pour détecter les
+  // parties "all-timeout" et éviter le débit injustifié.
+  const recordSoloAnswer = React.useCallback((response: string) => {
+    setSoloAnswer(response);
+    setSoloResponses((prev) => [...prev, response]);
+  }, []);
+
   // Adel (04/09/2026) : "il faut que je revienne au moins quatre fois pour
   // qu'il arrête de me retourner dessus" -- BUG RÉEL confirmé en lisant le
   // code : `initialArenaId` vient du parent (PartiesScreen.pendingArenaId)
@@ -1037,8 +1050,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (remaining > 0) return;
     if (answeredRoundRef.current === soloIndex) return; // un appui a déjà tranché ce round
     answeredRoundRef.current = soloIndex;
-    setSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
-  }, [solo, activeIncomingId, audioReady, soloAnswer, soloIndex, animateResult, now, pausedSoloRemaining]);
+    recordSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
+  }, [solo, activeIncomingId, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now, pausedSoloRemaining]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     // Adel (22/09/2026, audit latence TestFlight) : dès qu'une réponse est
@@ -1054,12 +1067,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }
     }
     if (soloIndex >= solo.rounds.length - 1) {
+      // Adel (28/09/2026) : FIXE ERR-BATTLE-SOLO-TIMEOUT-CREDIT-036
+      // Détecter les parties où l'utilisateur n'a jamais interagi (tous les timeouts)
+      // et éviter d'enregistrer ou débiter dans ce cas.
+      const allTimeouts = soloResponses.length > 0 && soloResponses.every((r) => r === '__TIMEOUT__');
+
       const id = setTimeout(() => {
-        if (saveSessionEnabled) {
+        if (saveSessionEnabled && !allTimeouts) {
           const session = buildBattleSession(solo, solo.rounds);
           useSessionHistoryStore.getState().addSession(session);
           setBattleSessionId(session.id);
         }
+
+        // Si c'est un all-timeout, ne pas enregistrer/débiter -- la partie est annulée
+        // sans interaction réelle.
+        if (allTimeouts) {
+          console.log('[SOLO] Partie annulée: tous les timeouts, pas de débit');
+          setSoloFinished(true); celebrate();
+          return;
+        }
+
         // Adel (02/09/2026) : "un petit joueur devra monter sa note en solo"
         // -- seul moment où un score solo complet est connu ; alimente le
         // palier serveur utilisé pour bloquer un défi trop déséquilibré.
@@ -1132,7 +1159,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const naturalRemaining = soloStartedAt ? (soloStartedAt + ROUND_MS + 800) - Date.now() : 0;
     const id = setTimeout(() => { setSoloIndex((v) => v + 1); setSoloAnswer(null); }, Math.max(2800, naturalRemaining));
     return () => clearTimeout(id);
-  }, [solo, soloAnswer, soloIndex, celebrate, saveSessionEnabled, soloStartedAt]);
+  }, [solo, soloAnswer, soloIndex, soloResponses, celebrate, saveSessionEnabled, soloStartedAt]);
 
   const refreshArena = React.useCallback(async () => {
     const requestedId = arena?.id;
@@ -1341,7 +1368,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
-      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setSoloCreditPending(false); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
+      setArena(null); setBrowseOnline(false); setSolo(pack); setSoloIndex(0); setSoloAnswer(null); setSoloScore(0); setSoloFinished(false); setSoloStartedAt(0); setSoloFreeEarned(0); setSoloCreditPending(false); setSoloResponses([]); setAudioReady(false); handledOutgoingIds.clear(); setBattleSessionId(null);
       // Adel (02/09/2026) : "lorsque j'appuie sur Battle seul ou Battle à
       // plusieurs, automatiquement ça m'active mon profil" -- entrer en
       // Battle (solo ou en ligne) montre déjà l'intention de jouer.
@@ -1922,8 +1949,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // répondre ne doit pas couper l'extrait avant l'heure : le morceau
     // s'arrête déjà tout seul à la fin naturelle de la manche (timeout ou
     // reveal, voir plus bas).
-    setSoloAnswer(choice);
-    if (choice === round.correctAnswer) setSoloScore((v) => v + 1);
+    const isCorrect = choice === round.correctAnswer;
+    recordSoloAnswer(isCorrect ? 'CORRECT' : 'INCORRECT');
+    if (isCorrect) setSoloScore((v) => v + 1);
     animateResult();
   };
 
