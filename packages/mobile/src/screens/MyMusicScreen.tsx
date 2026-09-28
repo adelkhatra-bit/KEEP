@@ -28,7 +28,7 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import LockedFeatureCard from '../components/LockedFeatureCard';
 import TrackActionRow from '../components/TrackActionRow';
 import { colors } from '../theme/colors';
-import { radius, typography } from '../theme/spacing';
+import { radius, spacing, typography } from '../theme/spacing';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
@@ -42,7 +42,7 @@ type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[]
 // ProfilePublicScreen) -- vérifié sur les vraies données, 98,8% des albums
 // gardés n'ont qu'un seul morceau : la rubrique affichait quasi toujours la
 // même chose qu'Artistes, avec le même bloc d'affichage.
-type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES';
+type LibraryTab = 'MUSIQUES' | 'VIBES' | 'ARTISTES' | 'SERVICES';
 const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
   { key: 'VIBES', label: 'Styles' }, { key: 'MUSIQUES', label: 'Musiques' },
   { key: 'ARTISTES', label: 'Artistes' },
@@ -1655,7 +1655,7 @@ const styles = StyleSheet.create({
   focusHomeHint:{color:colors.textMuted,fontSize:12,marginBottom:4},
   focusLearnMore:{marginTop:4,paddingHorizontal:4,color:colors.textSecondary,fontSize:12,lineHeight:18},
   focusLearnMoreButton:{alignSelf:'center',minHeight:36,justifyContent:'center',paddingHorizontal:16,marginTop:2},focusLearnMoreButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},
-  inlineServicesCard:{margin:spacing.md,padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border},inlineServicesTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginBottom:6},inlineServicesText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginBottom:14},inlineServicesAction:{minHeight:48,borderRadius:radius.md,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},inlineServicesActionText:{color:'#FFF',fontWeight:'900',fontSize:12},
+  inlineServicesCard:{margin:spacing.md,padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},inlineServicesTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginBottom:6},inlineServicesText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginBottom:14},inlineServicesAction:{minHeight:48,borderRadius:radius.md,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},inlineServicesActionText:{color:'#FFF',fontWeight:'900',fontSize:12},
   focusChoice:{minHeight:66,paddingHorizontal:12,paddingVertical:9,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:11},
   focusChoiceIcon:{width:40,height:40,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
   focusChoiceIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
