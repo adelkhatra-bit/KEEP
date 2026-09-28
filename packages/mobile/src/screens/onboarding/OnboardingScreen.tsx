@@ -269,11 +269,11 @@ const styles = StyleSheet.create({
   // Maquette validée (22/09/2026, architecture B) : un seul CTA dominant sur
   // l'écran d'accueil -- Essayer gratuitement reste le bouton plein, celui-ci
   // devient un lien discret sans fond ni bordure.
-  accountChoiceRow:{alignItems:'center',justifyContent:'center',gap:2},
+  accountChoiceRow:{alignItems:'center',justifyContent:'center',gap:spacing.sm},
   accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
   accountGhostText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},
-  accountCreateLink:{minHeight:36,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
-  accountCreateText:{color:colors.textMuted,fontSize:12,fontWeight:'700',textDecorationLine:'underline'},
+  accountCreateLink:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12,borderWidth:1.5,borderColor:colors.primaryLight,borderRadius:radius.pill},
+  accountCreateText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},
   accountScroll:{flex:1},
   accountScrollContent:{flexGrow:1,justifyContent:'center',paddingHorizontal:spacing.xl,paddingVertical:spacing.xl},
   accountCard:{width:'100%',maxWidth:520,alignSelf:'center',gap:spacing.sm},
