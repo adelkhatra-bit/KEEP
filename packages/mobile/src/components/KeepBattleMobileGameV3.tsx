@@ -507,7 +507,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // il faut que ce soit indiqué quelque part" -- statut quotidien chargé au
   // démarrage et à chaque retour sur l'écran Battle, affiché sous le bouton
   // SOLO avec le quota et le temps de renouvellement.
-  const [soloDailyStatus, setSoloDailyStatus] = React.useState<{ limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string } | null>(null);
+  const [soloDailyStatus, setSoloDailyStatus] = React.useState<{ limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string | null } | null>(null);
   // Adel (19/09/2026) : "afficher les compteurs du joueur sur l'écran de
   // sélection BATTLE, entre le texte '10 secondes réelles...' et le bouton
   // 'JOUER SOLO'" -- ses stats (victoires, matchs, bonnes réponses, etc.)
@@ -1387,13 +1387,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         );
       }
       // Adel (28/09/2026) : Vérification proactive du Free avant de démarrer le Battle Solo.
-      if (!dailyLimitReached && freshCredit) {
-        const soloCost = stakeForRounds(roundCount);
-        if (freshCredit.remainingFree < soloCost) {
-          insufficientCredit = true;
-          notEnoughFreeAlert(`Il te faut ${soloCost} Free pour jouer une partie Solo de ${roundCount} morceaux. Solde actuel: ${freshCredit.remainingFree} Free`);
-        }
-      }
+      // CORRECTION (28/09/2026) : SOLO coûte 0 Free pour tous. Les utilisateurs sans Free
+      // peuvent jouer et récupérer du crédit. EN LIGNE (multiplayer) coûte des Free et
+      // nécessite une vérification. SOLO n'en a pas besoin puisque stakeFree=0 côté serveur.
+      // Le serveur fera le contrôle final atomique au démarrage du pack.
     } catch {
       // Le serveur fera le contrôle atomique au démarrage : ne jamais bloquer
       // une partie uniquement parce que le pré-contrôle réseau a échoué.
