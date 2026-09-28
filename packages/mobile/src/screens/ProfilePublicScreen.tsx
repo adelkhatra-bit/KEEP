@@ -438,8 +438,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           setFreeBalance(null);
         }
       } else if (live) {
-        // Le solde d'essai local reste affichable via getDownloadCreditStatus,
-        // mais aucun RPC Battle authentifié ne doit partir sans session réelle.
+        // Mode démo ou invité: afficher solde de test (3 Free pour essai gratuit)
+        // permettre au user de tester les interactions même sans session réelle.
+        setFreeBalance(3);
         setFreeWon(0);
         setFreeLost(0);
       }
