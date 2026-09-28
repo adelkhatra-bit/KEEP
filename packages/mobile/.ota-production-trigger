@@ -1,0 +1,5 @@
+# Sentinel file for OTA production deployment
+# Updated: 2026-09-28
+# Reason: CRITICAL FIX ERR-APP-UPDATE-BLACK-SCREEN-037
+# Commit: 74958ea - Écran noir bloqué après mise à jour — onboardingLoaded async race
+# Tests: TypeScript compilation passed, render guard race condition fixed
