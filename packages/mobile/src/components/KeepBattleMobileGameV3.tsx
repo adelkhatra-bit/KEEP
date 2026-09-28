@@ -1116,9 +1116,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   React.useEffect(() => {
     if (!arena?.id) return undefined;
     const off = subscribeKeepBattleArena(arena.id, () => { void refreshArena(); });
-    const id = setInterval(() => { void refreshArena(); }, 300);
+    // Adel (28/09/2026) : Force aggressive polling for match results. If arena status
+    // is WAITING but lastResult is missing, keep polling at high frequency (150ms) to catch
+    // results when they populate from the server.
+    const baseInterval = arena.status === 'WAITING' && !arena.lastResult ? 150 : 300;
+    const id = setInterval(() => { void refreshArena(); }, baseInterval);
+    // Adel (28/09/2026) : Debug logging to catch arena.lastResult population timing
+    if (arena.status === 'WAITING') {
+      console.log('[Battle] Arena WAITING state:', { arenaId: arena.id, matchNo: arena.matchNo, lastResult: arena.lastResult, interval: baseInterval, message: 'lastResult only populated on match > 1' });
+    }
     return () => { off(); clearInterval(id); };
-  }, [arena?.id, refreshArena]);
+  }, [arena?.id, arena?.status, arena?.lastResult, refreshArena]);
 
   // Adel (07/09/2026) : "si l'utilisateur a pas suffisamment de Free ... il
   // faut lui marquer crédit insuffisant" -- ce solde doit déjà être connu
