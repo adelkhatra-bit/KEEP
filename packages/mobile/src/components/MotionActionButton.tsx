@@ -132,7 +132,7 @@ export default function MotionActionButton({
           paddingHorizontal: dims.paddingHorizontal,
           borderRadius: 12,
           backgroundColor: config.bg,
-          borderWidth: variant === 'ghost' ? 1.5 : 0,
+          borderWidth: variant === 'ghost' ? 1.5 : variant === 'secondary' ? 1 : 2,
           borderColor: config.border,
           alignItems: 'center',
           justifyContent: 'center',
