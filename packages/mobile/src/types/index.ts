@@ -69,6 +69,7 @@ export interface SessionTrackEntry {
   /** Attribution sociale : présent lorsque ce morceau gardé provient du profil d'un autre membre. */
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceAvatarUrl?: string | null;
   creditSource?: 'FREE' | 'SOCIAL';
   /**
    * Le morceau reste intégralement dans Mes Sessions (métadonnées + extrait distant)

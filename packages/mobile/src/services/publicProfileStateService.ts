@@ -36,6 +36,7 @@ export type PublicProfileKeep = {
   sourceUserId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  sourceAvatarUrl?: string | null;
   sourceCertificationTier?: ProfileCertificationTier;
   // Adel (08/09/2026) : "si l'utilisateur est abonné à celui qui a
   // découvert la musique, on met vert, si il est pas abonné, tu le mets
@@ -151,16 +152,34 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
       for (const row of data ?? []) if (row?.followee_id) following.add(String(row.followee_id));
     }
   }
+  const avatarUrls = new Map<string, string | null>();
   for (let start = 0; start < needsUsername.length; start += chunkSize) {
     const chunk = needsUsername.slice(start, start + chunkSize);
     const { data, error } = await client
       .from('profiles')
-      .select('id,username')
+      .select('id,username,avatar_url')
       .in('id', chunk)
       .eq('is_public', true);
     if (error) continue;
     for (const profile of data ?? []) {
       if (profile?.id && profile?.username) usernames.set(String(profile.id), String(profile.username));
+      if (profile?.id) avatarUrls.set(String(profile.id), profile?.avatar_url || null);
+    }
+  }
+  // Fetch avatars for all source profiles
+  for (let start = 0; start < allSourceIds.length; start += chunkSize) {
+    const chunk = allSourceIds.slice(start, start + chunkSize);
+    if (chunk.every((id) => avatarUrls.has(id))) continue; // Already fetched
+    const { data, error } = await client
+      .from('profiles')
+      .select('id,avatar_url')
+      .in('id', chunk)
+      .eq('is_public', true);
+    if (error) continue;
+    for (const profile of data ?? []) {
+      if (profile?.id && !avatarUrls.has(String(profile.id))) {
+        avatarUrls.set(String(profile.id), profile?.avatar_url || null);
+      }
     }
   }
   for (let start = 0; start < allSourceIds.length; start += chunkSize) {
@@ -172,16 +191,18 @@ async function hydrateSourceUsernames(rows: PublicProfileKeep[]): Promise<Public
     }
   }
 
-  if (!usernames.size && !tiers.size && !viewerId) return rows;
+  if (!usernames.size && !tiers.size && !viewerId && !avatarUrls.size) return rows;
   return rows.map((row) => {
     const sourceId = row.sourceProfileId || row.sourceUserId;
     const sourceUsername = row.sourceUsername || (sourceId ? usernames.get(sourceId) : undefined);
+    const sourceAvatarUrl = sourceId ? avatarUrls.get(sourceId) : undefined;
     const sourceCertificationTier = sourceId ? tiers.get(sourceId) : undefined;
     const sourceIsFollowing = viewerId && sourceId ? following.has(sourceId) : undefined;
-    if (sourceUsername === row.sourceUsername && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
+    if (sourceUsername === row.sourceUsername && sourceAvatarUrl === row.sourceAvatarUrl && sourceCertificationTier === undefined && sourceIsFollowing === undefined) return row;
     return {
       ...row,
       ...(sourceUsername ? { sourceUsername } : {}),
+      ...(sourceAvatarUrl !== undefined ? { sourceAvatarUrl } : {}),
       ...(sourceCertificationTier ? { sourceCertificationTier } : {}),
       ...(sourceIsFollowing !== undefined ? { sourceIsFollowing } : {}),
     };

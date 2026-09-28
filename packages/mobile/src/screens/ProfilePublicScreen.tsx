@@ -281,7 +281,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [affiliatedProfileLink, setAffiliatedProfileLink] = useState('');
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
-  const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[] } | null>(null);
+  const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   // Adel (20/09/2026) : BUG RÉEL -- "la musique ne se lance pas
   // automatiquement, il faut appuyer sur ÉCOUTER L'EXTRAIT". Sur le web,
   // .play() n'est autorisé sans interaction que s'il est appelé de façon
@@ -293,7 +293,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // (unlockWebAudioForGesture, KeepBattleMobileGameV3.tsx) : débloquer
   // l'élément <audio> partagé PENDANT le tap qui ouvre le Swipe suffit à
   // ce que les lectures programmatiques suivantes soient acceptées.
-  const openSelectionSwipe = (selection: { title: string; subtitle: string; tracks: CanonicalTrack[] }) => {
+  const openSelectionSwipe = (selection: { title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> }) => {
     unlockWebAudioForGesture();
     setSelectionSwipe(selection);
   };
@@ -559,6 +559,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     sourceUsername: entry.sourceUsername,
     sourceCertificationTier: entry.sourceCertificationTier,
     sourceIsFollowing: entry.sourceIsFollowing,
+    sourceAvatarUrl: entry.sourceAvatarUrl,
   })), [serverOwnKeeps]);
   const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
   const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
@@ -575,6 +576,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
   }, [discoveryImpacts, user?.id]);
   const publicSwipeTracks = useMemo<CanonicalTrack[]>(() => publicKeptTracks.map((entry) => entry.track), [publicKeptTracks]);
   const publicTrackIds = useMemo(() => new Set(publicKeptTracks.map((entry) => entry.track.id)), [publicKeptTracks]);
+  const sourceByTrack = useMemo(() => {
+    const mapping: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> = {};
+    publicKeptTracks.forEach((entry) => {
+      if (entry.sourceProfileId || entry.sourceUsername) {
+        mapping[entry.track.id] = {
+          profileId: entry.sourceProfileId,
+          username: entry.sourceUsername,
+          avatarUrl: entry.sourceAvatarUrl,
+        };
+      }
+    });
+    return mapping;
+  }, [publicKeptTracks]);
   const dna = useMemo(() => {
     const decisions: DnaSourceDecision[] = publicKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
     return computeMusicDNA(decisions);
@@ -1488,6 +1502,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       title="Ma collection publique"
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
+      sourceByTrack={sourceByTrack}
       subtitle="Aperçu exact du Swipe proposé à tes abonnés."
       emptyTitle="Aucun morceau public à prévisualiser."
       backLabel="REVENIR AU PROFIL"
@@ -1528,7 +1543,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.shareTitle}>Parcourir par style</Text>
         <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
           {trackGenreOptions.map(({ genre, count }) => (
-            <TouchableOpacity key={genre} style={s.listRow} onPress={() => { setStyleModalOpen(false); openSelectionSwipe({ title: genre, subtitle: `Tes morceaux ${genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === genre)?.entries.map((entry) => entry.track) ?? [] }); }}>
+            <TouchableOpacity key={genre} style={s.listRow} onPress={() => {
+              const folder = genreFolders.find((folder) => folder.genre === genre);
+              const tracks = folder?.entries.map((entry) => entry.track) ?? [];
+              const sourceByTrackForGenre: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> = {};
+              folder?.entries.forEach((entry) => {
+                if (entry.sourceProfileId || entry.sourceUsername) {
+                  sourceByTrackForGenre[entry.track.id] = {
+                    profileId: entry.sourceProfileId,
+                    username: entry.sourceUsername,
+                    avatarUrl: entry.sourceAvatarUrl,
+                  };
+                }
+              });
+              setStyleModalOpen(false);
+              openSelectionSwipe({
+                title: genre,
+                subtitle: `Tes morceaux ${genre} dans ta collection.`,
+                tracks,
+                sourceByTrack: sourceByTrackForGenre,
+              });
+            }}>
               <Text style={[s.listText, { flex: 1 }]}>{genre}</Text>
               <Text style={s.playlistCount}>{count}</Text>
             </TouchableOpacity>
@@ -1544,6 +1579,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       title={selectionSwipe?.title ?? 'Vibe Loki Music'}
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
+      sourceByTrack={selectionSwipe?.sourceByTrack}
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"
