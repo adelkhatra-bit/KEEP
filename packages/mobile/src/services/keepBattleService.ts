@@ -393,8 +393,8 @@ export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditSt
 // style musical" -- met à jour presence_theme_code pour signaler aux autres
 // joueurs quel style musical l'utilisateur joue en solo. Envoie aussi une
 // notification aux joueurs disponibles qu'une partie solo vient de démarrer.
-export async function updateSoloPresenceTheme(themeCode = 'MIX'): Promise<void> {
-  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode });
+export async function updateSoloPresenceTheme(themeCode = 'MIX', roundIndex = 0, roundTotal = 1): Promise<void> {
+  const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode, p_round_index: roundIndex, p_round_total: roundTotal });
   if (error) throw new Error(String(error?.message || error?.code || 'KEEP_BATTLE_PRESENCE_FAILED'));
 }
 
