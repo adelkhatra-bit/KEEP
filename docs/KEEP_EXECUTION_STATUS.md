@@ -5,9 +5,20 @@ Dernière mise à jour: 2026-09-28
 
 Ce fichier est le registre permanent des tâches. Une demande utilisateur n'est considérée terminée qu'après code poussé + preuve CI/test.
 
+## UX CIBLE — SIMPLE, UNE SEULE ROUTE
+- Écouter : écouter → PASSER / GARDER / ARRÊTER. Historique uniquement dans Mes Sessions.
+- Playlists : Mes morceaux + Mes albums. Une seule fiche album pour morceaux/prix/statut.
+- Vente : créer/modifier un album depuis la même fiche; aucun écran intermédiaire.
+- Paiement : un seul bouton « Configurer mes paiements »; publication payante impossible tant que paiement non prêt.
+- Profil : identité + KEEP DNA + réseaux + bloc commercial compact. Pas de doublon de gestion.
+- Hamburger : Réglages, Compte, Aide. Les fonctions métier restent dans leurs onglets.
+- Règle anti-doublon : une donnée = une source serveur; une action = une route; un album actif = une carte; aucun objet inactif affiché comme actif.
+- Toute erreur serveur doit être traduite en français utilisateur; jamais de code brut comme OFFER_NOT_ACTIVE.
+
 ## EN COURS / BLOQUANT
 - [ ] CI latest SHA: corriger TypeScript mobile avant tout déploiement public.
 - [ ] Profil public: rendre visible la zone commerciale compacte, 3 aperçus max + VOIR LES COLLECTIONS, sans auto-navigation.
+- [ ] BUG constaté adel4A: une offre active « Ma sélection · 5 titres » (5 morceaux) + une ancienne offre inactive « Sélection du 15/09 · 1 morceau ». L'UI de modification mélange l'offre inactive et affiche OFFER_NOT_ACTIVE. Filtrer les offres inactives à toutes les entrées de gestion et supprimer les routes de gestion concurrentes.
 - [ ] Refresh/rechargement profil: auditer le comportement bizarre signalé; aucune déconnexion/session perdue.
 - [ ] Marketplace: calcul backend sécurisé X/Y morceaux déjà possédés; bloquer le rachat si 100% acquis.
 - [ ] Marketplace: simplifier popup/texte et ajouter contour/animation cohérente.
