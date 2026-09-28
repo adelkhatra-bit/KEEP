@@ -272,3 +272,64 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Triage automatique : `.github/workflows/agent-command-triage.yml`.
 - Premier run réel du triage : GitHub Actions run `36316053776` = **SUCCESS** sur `572a431a92b765c108ff0fa6e5c7b8e77d208d37`.
 - Toute IA doit conserver la branche unique `reconcile/claude-main-20260825`, utiliser le verrou/journal existants et respecter les états LOCAL_ONLY → COMMITTED_LOCAL → PUSHED_REMOTE → TESTED_REMOTE → DEPLOYED.
+
+## 🎬 PHASE 5 — KIDS-FRIENDLY COMPONENTS (28/09/2026 — 23:50 UTC)
+
+### ✅ COMPLETED
+- **5 Components created** (commit 62422a9) :
+  1. KidsFriendlyErrorBanner — replace harsh errors with friendly messages
+  2. KidsEmptyState — friendly empty list states  
+  3. KidsLoadingSpinner — cute animated loading
+  4. KidsButton — 56px minimum touch targets
+  5. KidsModal — kid-friendly dialog system
+  
+- **Wording Guide** (KIDS_WORDING_GUIDE.md) — complete dictionary of technical → kid-friendly replacements
+  
+- **Implementation Plan** (PHASE5_IMPLEMENTATION_PLAN.md) — step-by-step integration strategy
+  
+- **Executive Summary** (EXECUTIVE_SUMMARY_20260928.md) — complete audit + action items for Adel
+
+### 📋 Integration roadmap
+- **Phase 5a** : Massive integration of kids-friendly components throughout 5 priority screens
+- **Phase 5b** : Wording replacement (all messages must be kid-friendly)
+- **Phase 5c** : Touch target verification (all buttons >= 56px)
+- **Phase 5d** : Real device testing (child 5-8 years, iPhone + Android)
+
+### 🚀 Status
+- ✅ Components: CREATED + PUSHED_REMOTE (62422a9)
+- ✅ Wording guide: DOCUMENTED + PUSHED_REMOTE
+- ✅ Implementation plan: DOCUMENTED + PUSHED_REMOTE (1c30b60)
+- ✅ Executive summary: DOCUMENTED + PUSHED_REMOTE (70b13b7)
+- ⏳ Integration: AWAITING DEVELOPER (8-10 hours)
+- ⏳ Testing: AWAITING REAL DEVICE (1-2 hours)
+
+### 🎯 Blocking actions for Adel (App Store launch)
+1. Corriger Stripe keys (5 min) — PROJECT_STATE.md line 94
+2. Configurer Apple IAP (45 min) — APP_STORE_AUDIT line 267
+3. Adhésion Apple Developer + GitHub Secrets (90 min) — ADEL_APP_STORE_ACTIONS.md
+
+### ⏱️ Timeline to live
+- Jour 1 (now): Audit complete, Adel takes actions (5-30 min)
+- Jour 2: Apple IAP + GitHub Secrets config (90 min), Phase 5 integration (2h)
+- Jour 3: Phase 5 complete, device testing (1h)
+- Jour 4: Auto iOS build via GitHub Actions (~60 min)
+- Jour 5-7: Apple review (24-48h)
+- Jour 7-8: LIVE ON APP STORE
+
+**Total: 1 week to publication.**
+
+## 📁 Reference documents created today
+- `docs/APP_STORE_READINESS_AUDIT_20260928.md` — 75/75 checks passed
+- `docs/ADEL_APP_STORE_ACTIONS.md` — day-by-day actions + copy-paste
+- `docs/PHASE5_IMPLEMENTATION_PLAN.md` — integration strategy
+- `docs/KIDS_WORDING_GUIDE.md` — wording dictionary
+- `docs/EXECUTIVE_SUMMARY_20260928.md` — complete recap
+
+## Last commits
+- 96ce31c: 🔥 CRITICAL FIX — Black screen (OTA deployed)
+- 62422a9: 🧒 PHASE 5 — Kids-friendly components
+- 1c30b60: 📋 PHASE 5 — Implementation plan
+- 70b13b7: 📊 Executive summary
+
+**Branch**: reconcile/claude-main-20260825
+**Status**: READY FOR APP STORE PUBLICATION — Awaiting Adel manual actions + dev Phase 5 integration
