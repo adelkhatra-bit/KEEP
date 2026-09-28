@@ -14,6 +14,7 @@ import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
+import MotionActionButton from '../components/MotionActionButton';
 import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
@@ -443,9 +444,15 @@ export default function HomeScreenCompact({ navigation }: any) {
             {error ? <Text style={s.error}>{error}</Text> : null}
             {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
             {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
-            <TouchableOpacity style={s.start} onPress={startSession} accessibilityRole="button" accessibilityLabel="Démarrer une écoute">
-              <Text style={s.startIcon}>●</Text><Text style={s.startText}>ÉCOUTER MAINTENANT</Text>
-            </TouchableOpacity>
+            <MotionActionButton
+              variant="primary"
+              size="large"
+              onPress={startSession}
+              accessibilityLabel="Démarrer une écoute"
+              accessibilityHint="Lance une session d'écoute avec votre microphone"
+            >
+              ●  ÉCOUTER MAINTENANT
+            </MotionActionButton>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
             {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           </View>
@@ -536,13 +543,27 @@ export default function HomeScreenCompact({ navigation }: any) {
 
         {tracks.length > 1 ? (
           <View style={s.queueNav}>
-            <TouchableOpacity style={[s.queueNavBtn, !canGoNewer && s.disabled]} onPress={goNewer} disabled={!canGoNewer} accessibilityLabel="Morceau plus récent">
-              <Text style={s.queueNavBtnText}>‹ Plus récent</Text>
-            </TouchableOpacity>
+            <MotionActionButton
+              variant="ghost"
+              size="small"
+              onPress={goNewer}
+              disabled={!canGoNewer}
+              accessibilityLabel="Morceau plus récent"
+              accessibilityHint="Écouter le morceau précédent détecté"
+            >
+              ‹  Plus récent
+            </MotionActionButton>
             <Text style={s.queueNavCount}>{currentIndex + 1} / {tracks.length}</Text>
-            <TouchableOpacity style={[s.queueNavBtn, !canGoOlder && s.disabled]} onPress={goOlder} disabled={!canGoOlder} accessibilityLabel="Morceau plus ancien">
-              <Text style={s.queueNavBtnText}>Plus ancien ›</Text>
-            </TouchableOpacity>
+            <MotionActionButton
+              variant="ghost"
+              size="small"
+              onPress={goOlder}
+              disabled={!canGoOlder}
+              accessibilityLabel="Morceau plus ancien"
+              accessibilityHint="Écouter le morceau suivant détecté"
+            >
+              Plus ancien  ›
+            </MotionActionButton>
           </View>
         ) : null}
 
@@ -599,9 +620,15 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.waiting}><Text style={s.waitingText}>♫  {t('session.waitingForMusic')}</Text></View>
         )}
 
-        <TouchableOpacity style={s.manualSearchLink} onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }} accessibilityLabel="Chercher un morceau par son titre">
-          <Text style={s.manualSearchLinkText}>Tu connais le titre ? Cherche-le toi-même</Text>
-        </TouchableOpacity>
+        <MotionActionButton
+          variant="ghost"
+          size="medium"
+          onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
+          accessibilityLabel="Chercher un morceau par son titre"
+          accessibilityHint="Ouvre un formulaire de recherche par titre"
+        >
+          Tu connais le titre ? Cherche-le toi-même
+        </MotionActionButton>
       </ScrollView>
 
       {keepSnackbar ? (
