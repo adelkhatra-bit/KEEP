@@ -131,8 +131,6 @@ export default function SessionHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>HISTORIQUE</Text><Text style={styles.title}>{t('history.title')}</Text></View>
         <TouchableOpacity
           style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
           onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
@@ -140,6 +138,8 @@ export default function SessionHistoryScreen({ navigation }: any) {
         >
           <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
         </TouchableOpacity>
+        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>HISTORIQUE</Text><Text style={styles.title}>{t('history.title')}</Text></View>
+        <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
       </View>
       {visibleSessions.length === 0 ? (
         <View style={styles.centered}><Text style={styles.emptyEmoji}>🕐</Text><Text style={styles.emptyText}>{t('history.empty')}</Text></View>
