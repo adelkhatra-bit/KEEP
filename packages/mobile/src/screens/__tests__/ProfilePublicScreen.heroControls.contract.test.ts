@@ -41,12 +41,10 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).not.toContain('Gérer mes découvertes en vente');
   });
 
-  it('shows published collections as an unlocked horizontal rail on the owner profile', () => {
-    expect(source).toContain('style={s.ownerCollectionRail}');
-    expect(source).toContain('Mes sélections');
-    expect(source).toContain('horizontal');
-    expect(source).toContain('badgeLabel="✓ PUBLIÉE"');
-    expect(source).toContain('actionLabel="GÉRER"');
+  it('owner profile: no duplicate « Mes sélections » card, the PÉPITES button shows the published count (Adel 29/09/2026)', () => {
+    expect(source).not.toContain('style={s.ownerCollectionRail}');
+    expect(source).not.toContain('Mes sélections');
+    expect(source).toContain('<Text style={s.ownerQuickActionBadgeText}>{playlistSaleOffers.length}</Text>');
   });
 
   it('keeps style listening directly on the immersive style card', () => {

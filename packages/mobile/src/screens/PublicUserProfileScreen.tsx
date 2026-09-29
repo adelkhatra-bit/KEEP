@@ -21,6 +21,8 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import ProfileStyleCard from '../components/ProfileStyleCard';
+import SaleCollectionRow from '../components/SaleCollectionRow';
+import { nextSaleVisibleCount, SALE_ROWS_INITIAL } from '../services/saleListPaging';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -167,7 +169,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
-  const [showAllSaleOffers, setShowAllSaleOffers] = useState(false);
+  const [visibleSaleCount, setVisibleSaleCount] = useState(SALE_ROWS_INITIAL);
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
   const [marketBannerOffersLoaded, setMarketBannerOffersLoaded] = useState(false);
@@ -1280,57 +1282,41 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </TouchableOpacity>
             ) : (
               <>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.saleCarouselContent}
-                  snapToInterval={220}
-                  decelerationRate="fast"
-                  accessibilityLabel="Collections musicales à débloquer"
-                >
-                  {(showAllSaleOffers ? saleOffers : saleOffers.slice(0, 3)).map((offer, index) => {
+                {/* Adel (29/09/2026) : « trop gros… 5 millions d'utilisateurs ».
+                    Une ligne compacte par collection (SaleCollectionRow), 3
+                    visibles puis +10 à chaque « VOIR PLUS » : même rendu pour
+                    3 ou 300 collections. Toucher la ligne ouvre la collection,
+                    ▶ lance l'aperçu anonyme de 15 s (rien n'a disparu). */}
+                <View style={styles.saleList} accessibilityLabel="Collections musicales à débloquer">
+                  {saleOffers.slice(0, visibleSaleCount).map((offer, index) => {
                     const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
                     const priceLabel = offer.paymentMode === 'FREE'
                       ? `${offer.freePrice ?? 0} FREE`
                       : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                     const styleLabel = offer.genres?.length
-                      ? offer.genres.slice(0, 3).join(' · ')
+                      ? offer.genres.slice(0, 2).join(' · ')
                       : 'Mix musical secret';
                     return (
-                      <View key={`sale-carousel-wrap:${offer.offerId}`} style={styles.saleCarouselItem}>
-                      <ProfileStyleCard
-                        key={`sale-carousel:${offer.offerId}`}
+                      <SaleCollectionRow
+                        key={`sale-row:${offer.offerId}`}
+                        index={index}
                         title={offer.playlistName || `Collection #${index + 1}`}
-                        subtitle={unlocked
-                          ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
-                          : `${offer.trackCount} pépite${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`}
-                        mode={unlocked ? 'UNLOCKED' : 'LOCKED'}
-                        badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : `✦ ${offer.trackCount} À RÉVÉLER`}
-                        priceLabel={unlocked ? undefined : priceLabel}
+                        meta={unlocked ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}` : `✦ ${offer.trackCount} à révéler · ${styleLabel}`}
+                        tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}
+                        tagTone={unlocked ? 'unlocked' : 'price'}
                         onPress={() => openSaleFolder(offer)}
                         accessibilityLabel={unlocked
                           ? `Ouvrir la collection ${offer.playlistName}`
-                          : `Écouter les pépites ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
-                        onPlayPress={() => openSaleFolder(offer)}
-                        playAccessibilityLabel={unlocked
-                          ? `Écouter la collection ${offer.playlistName}`
-                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}`}
-                        style={styles.saleCarouselCard}
+                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
+                        onPlayPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
+                        playAccessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
                       />
-                      <TouchableOpacity
-                        style={styles.immersiveLaunchButton}
-                        onPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
-                        accessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
-                      >
-                        <Text style={styles.immersiveLaunchText}>▶ ÉCOUTER L’APERÇU</Text>
-                      </TouchableOpacity>
-                      </View>
                     );
                   })}
-                </ScrollView>
+                </View>
                 {saleOffers.length > 3 ? (
-                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setShowAllSaleOffers((v) => !v)} accessibilityRole="button" accessibilityLabel={`${showAllSaleOffers ? 'Réduire' : 'Voir'} les ${saleOffers.length} collections de ${profile.username}`}>
-                    <Text style={styles.marketplaceBrowseAllText}>{showAllSaleOffers ? 'RÉDUIRE' : `PARCOURIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>›</Text>
+                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setVisibleSaleCount((n) => nextSaleVisibleCount(n, saleOffers.length))} accessibilityRole="button" accessibilityLabel={visibleSaleCount >= saleOffers.length ? `Réduire les collections de ${profile.username}` : `Voir plus de collections de ${profile.username}`}>
+                    <Text style={styles.marketplaceBrowseAllText}>{visibleSaleCount >= saleOffers.length ? 'RÉDUIRE' : `VOIR PLUS · ${saleOffers.length - visibleSaleCount} AUTRE${saleOffers.length - visibleSaleCount > 1 ? 'S' : ''}`}</Text><Text style={styles.marketplaceReopenArrow}>{visibleSaleCount >= saleOffers.length ? '˄' : '˅'}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Vendu par @{profile.username}</Text></TouchableOpacity>
@@ -1785,7 +1771,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   sellerSignalTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
   sellerSignalMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
   sellerSignalArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
-  marketplaceSection:{marginHorizontal:18,marginTop:14,paddingVertical:14,paddingLeft:14,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},
+  marketplaceSection:{marginHorizontal:18,marginTop:14,paddingVertical:14,paddingHorizontal:14,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},
   marketplaceReopenButton:{marginHorizontal:18,marginTop:10,minHeight:48,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
   marketplaceReopenIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},
   marketplaceReopenCopy:{flex:1,minWidth:0},
@@ -1802,10 +1788,8 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceLiveDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.keep},
   marketplaceCountPill:{minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   marketplaceCountText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.5},
-  saleCarouselContent:{gap:10,paddingTop:12,paddingRight:14},
-  saleCarouselItem:{width:208},
-  saleCarouselCard:{width:208,marginBottom:0},
-  saleCarouselHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:10},
+  saleList:{gap:8,paddingTop:12},
+  saleCarouselHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:15,fontWeight:'700',textAlign:'center',marginTop:10},
     marketplaceFeaturedList:{gap:10,marginTop:12},
   marketplaceFeaturedCard:{padding:14,borderRadius:20,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},
   marketplaceFeaturedCardHero:{paddingVertical:16,borderWidth:2},
@@ -1829,7 +1813,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceTrustText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800'},
   marketplaceTrustDot:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
   marketplaceReassurance:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:7},
-  marketplaceMore:{color:colors.textMutedGrey,fontSize:10,fontWeight:'700',textAlign:'center',marginTop:2},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceBrowseAll:{minHeight:42,marginTop:9,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.10)',paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},marketplaceBrowseAllText:{color:'#FFFFFF',fontSize:12,fontWeight:'900',letterSpacing:.5},marketplaceSellerLink:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},marketplaceSellerLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:7,minHeight:36,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
+  marketplaceMore:{color:colors.textMutedGrey,fontSize:10,fontWeight:'700',textAlign:'center',marginTop:2},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceBrowseAll:{minHeight:42,marginTop:9,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.10)',paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},marketplaceBrowseAllText:{color:'#FFFFFF',fontSize:12,fontWeight:'900',letterSpacing:.5},marketplaceSellerLink:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},marketplaceSellerLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
   topCommunityPanel:{marginHorizontal:18,marginTop:6},topMetricsBar:{marginHorizontal:0,marginTop:16,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},topMetricSocialGroup:{flex:1,minWidth:0,minHeight:58,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:16,borderWidth:1,borderColor:colors.border,overflow:'hidden'},topMetricSocialItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:4,borderRightWidth:1,borderRightColor:colors.border},topMetricSocialLast:{borderRightWidth:0},topMetricSocialItemOn:{backgroundColor:'rgba(139,92,246,.18)'},topMetricMore:{width:48,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},topMetricMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},topMetricMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},topMetricMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},topMetricValue:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},topMetricLabel:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:2,textAlign:'center'},topMetricsSecondary:{marginHorizontal:0,marginTop:6,minHeight:48,flexDirection:'row',borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},topMetricSecondaryItem:{flex:1,alignItems:'center',justifyContent:'center',borderRightWidth:1,borderRightColor:colors.border},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},

@@ -7,11 +7,19 @@ import path from 'path';
 const read = (f: string) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
 
 describe('ventes : toutes les collections visibles, prix juste', () => {
-  it('le bouton PARCOURIR déplie réellement toutes les collections (et RÉDUIRE les replie)', () => {
+  it('VOIR PLUS déroule réellement les collections par paquets (et RÉDUIRE les replie)', () => {
     const v = read('PublicUserProfileScreen.tsx');
-    expect(v).toContain('{(showAllSaleOffers ? saleOffers : saleOffers.slice(0, 3)).map((offer, index) => {');
-    expect(v).toContain('onPress={() => setShowAllSaleOffers((v) => !v)}');
+    expect(v).toContain('{saleOffers.slice(0, visibleSaleCount).map((offer, index) => {');
+    expect(v).toContain('onPress={() => setVisibleSaleCount((n) => nextSaleVisibleCount(n, saleOffers.length))}');
     expect(v).not.toContain('{saleOffers.slice(0, 3).map(');
+  });
+
+  it('la gestion Pépites sépare publiées et retirées (plus de faux « PUBLIÉE »)', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
+    expect(panel).toContain('splitSaleOffersByStatus(offers, focusOfferId)');
+    expect(panel).toContain('data={published}');
+    expect(panel).toContain('RETIRÉES ({retired.length}) · NON VISIBLES SUR TON PROFIL');
+    expect(panel).toContain('route?.params?.manageSaleOfferId');
   });
 
   it('« Mes albums » affiche FREE pour une collection en FREE, € sinon', () => {

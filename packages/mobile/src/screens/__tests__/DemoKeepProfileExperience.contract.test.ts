@@ -53,7 +53,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain("onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}");
     expect(profile).toContain('artworkUrl={genreArtwork[genre]}');
     expect(profile).toContain('horizontal');
-    expect(profile).toContain('saleCarouselCard');
+    expect(profile).toContain('<SaleCollectionRow');
     expect(profile).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
@@ -118,7 +118,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('plays locked collection previews anonymously from the collection carousel', () => {
     expect(profile).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
-    expect(profile).toContain('onPlayPress={() => openSaleFolder(offer)}');
+    // 29/09/2026 : toucher la ligne = préécoute anonyme complète ; ▶ = aperçu immersif 15 s.
+    expect(profile).toContain('onPress={() => openSaleFolder(offer)}');
+    expect(profile).toContain('onPlayPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}');
     expect(profile).toContain('Lancer la préécoute anonyme de toute la collection');
   });
 

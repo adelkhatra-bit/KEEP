@@ -1399,9 +1399,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={openProfileSwipe} accessibilityLabel="Voir aperçu">
             ▶ APERÇU
           </MotionActionButton>
-          <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer pépites">
-            ◆ PÉPITES
-          </MotionActionButton>
+          <View style={s.ownerQuickActionBadgeWrap}>
+            <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer pépites">
+              ◆ PÉPITES
+            </MotionActionButton>
+            {playlistSaleOffers.length ? <View pointerEvents="none" style={s.ownerQuickActionBadge} accessibilityLabel={`${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} publiée${playlistSaleOffers.length > 1 ? 's' : ''}`}><Text style={s.ownerQuickActionBadgeText}>{playlistSaleOffers.length}</Text></View> : null}
+          </View>
           <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })} accessibilityLabel="Jouer Battle">
             ⚡ BATTLE
           </MotionActionButton>
@@ -1431,50 +1434,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
         />
       ) : null}
 
-      {marketplaceEnabled && playlistSaleOffers.length > 0 ? (
-        <ProfileMotionReveal motionKey={`owner-collections:${playlistSaleOffers.length}`} compact style={s.ownerCollectionRail}>
-          <View style={s.ownerCollectionRailHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.ownerCollectionRailKicker}>PÉPITES</Text>
-              <Text style={s.ownerCollectionRailTitle}>Mes sélections</Text>
-            </View>
-            <Text style={s.ownerCollectionRailCount}>{playlistSaleOffers.length}</Text>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.ownerCollectionRailContent}
-            snapToInterval={272}
-            decelerationRate="fast"
-            accessibilityLabel="Mes collections exclusives publiées"
-          >
-            {playlistSaleOffers.map((offer, index) => {
-              const priceLabel = offer.paymentMode === 'FREE'
-                ? `${offer.freePrice ?? 0} FREE`
-                : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-              const styleLabel = offer.genres?.length ? offer.genres.slice(0, 3).join(' · ') : 'Mix musical';
-              return (
-                <ProfileStyleCard
-                  key={offer.offerId || offer.playlistId || `owner-offer-${index}`}
-                  title={offer.playlistName || `Collection #${index + 1}`}
-                  subtitle={`${offer.trackCount ?? 0} morceau${(offer.trackCount ?? 0) > 1 ? 'x' : ''} · ${styleLabel}`}
-                  mode="UNLOCKED"
-                  badgeLabel="✓ PUBLIÉE"
-                  priceLabel={priceLabel}
-                  fullWidth={false}
-                  onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}
-                  accessibilityLabel={`Collection ${offer.playlistName}, ${offer.trackCount ?? 0} morceaux, ${priceLabel}`}
-                  actionLabel="GÉRER"
-                  onActionPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}
-                  actionAccessibilityLabel={`Gérer la collection ${offer.playlistName}`}
-                  style={s.ownerCollectionRailCard}
-                />
-              );
-            })}
-          </ScrollView>
-          <Text style={s.ownerCollectionRailHint}>← Glisse pour gérer →</Text>
-        </ProfileMotionReveal>
-      ) : null}
+      {/* Adel (29/09/2026) : « quand je clique sur PÉPITES ou sur la carte
+          en bas, ça me ramène au même endroit… elle sert à rien vu qu'on a le
+          bouton au-dessus ». La grande carte des sélections publiées est retirée ;
+          le bouton ◆ PÉPITES affiche le nombre de collections publiées et
+          ouvre la gestion (liste complète, publiées et retirées). */}
 
       <View style={s.collectionHeader}>
         <Text style={s.collectionTitle}>Ma musique</Text>
@@ -1837,6 +1801,7 @@ const s=StyleSheet.create({
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
+  ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
 ownerActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
@@ -1878,14 +1843,6 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   topMetricsCommunity:{marginHorizontal:18,marginTop:6},
   metricInlinePanel:{marginHorizontal:18,marginTop:6,padding:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},freeInlineStats:{flexDirection:'row',gap:8},freeInlineStat:{flex:1,alignItems:'center',paddingVertical:8,borderRadius:12,backgroundColor:colors.backgroundCard},freeInlineValue:{color:colors.keep,fontSize:16,fontWeight:'900'},freeInlineLabel:{color:colors.textMutedGrey,fontSize:8,fontWeight:'800',marginTop:2},freeInlineHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:9},freeInlineCta:{minHeight:38,marginTop:10,borderRadius:12,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},freeInlineCtaText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.45},repriseInlineRail:{gap:9,paddingVertical:4,paddingRight:8},repriseInlineCard:{width:88,padding:8,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},repriseInlineAvatar:{width:38,height:38,borderRadius:19},repriseInlineName:{color:colors.textPrimary,fontSize:9,fontWeight:'900',marginTop:5,maxWidth:72},repriseInlineMeta:{color:colors.textMutedGrey,fontSize:8,fontWeight:'700',marginTop:2},repriseInlineMore:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:8},
   communitySection:{marginHorizontal:18,gap:2},
-  ownerCollectionRail:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
-  ownerCollectionRailHeader:{flexDirection:'row',alignItems:'center',gap:10},
-  ownerCollectionRailKicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.9},
-  ownerCollectionRailTitle:{color:colors.textPrimary,fontSize:17,fontWeight:'900',marginTop:2},
-  ownerCollectionRailCount:{minWidth:30,height:30,borderRadius:15,backgroundColor:colors.primary,overflow:'hidden',color:colors.textPrimary,textAlign:'center',textAlignVertical:'center',fontSize:11,fontWeight:'900',paddingTop:7},
-  ownerCollectionRailContent:{gap:12,paddingTop:12,paddingRight:14},
-  ownerCollectionRailCard:{width:260,marginBottom:0},
-  ownerCollectionRailHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',textAlign:'center',marginTop:10},
   ownerCommerceStrip:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
   ownerCommercePulse:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   ownerCommercePulseText:{color:colors.keep,fontSize:17,fontWeight:'900'},

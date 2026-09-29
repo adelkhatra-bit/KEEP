@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -7,10 +7,12 @@ import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlay
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
+import { splitSaleOffersByStatus } from '../services/saleListPaging';
 
 type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
-export default function PlaylistSalePanel({ navigation }: any) {
+export default function PlaylistSalePanel({ navigation, route }: any) {
+  const focusOfferId: string | undefined = route?.params?.manageSaleOfferId;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -22,6 +24,8 @@ export default function PlaylistSalePanel({ navigation }: any) {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
+  const [retiredOpen, setRetiredOpen] = useState(false);
+  const { published, retired } = useMemo(() => splitSaleOffersByStatus(offers, focusOfferId), [offers, focusOfferId]);
   // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
   // par lien externe, non conforme Apple IAP pour du contenu numérique
   // déverrouillé dans l'app. Garde-fou d'accès direct (deep-link/route),
@@ -275,16 +279,16 @@ export default function PlaylistSalePanel({ navigation }: any) {
             )}
 
             {/* Offres Actives */}
-            {offers.length > 0 && (
+            {published.length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>MES COLLECTIONS PUBLIÉES ({offers.length})</Text>
+                <Text style={s.sectionTitle}>MES COLLECTIONS PUBLIÉES ({published.length})</Text>
                 <Text style={s.sectionHint}>Chaque carte est un lot complet. Modifie les morceaux, puis choisis € ou FREE sans recréer la collection ni perdre son historique.</Text>
                 <FlatList
                   scrollEnabled={false}
-                  data={offers}
-                  keyExtractor={(item) => item.playlistId}
+                  data={published}
+                  keyExtractor={(item) => item.offerId || item.playlistId}
                   renderItem={({ item }) => (
-                    <View style={s.offerCard}>
+                    <View style={[s.offerCard, focusOfferId && (item.offerId === focusOfferId || item.playlistId === focusOfferId) && s.offerCardFocus]}>
                       <View style={s.offerTop}>
                         <View style={s.offerInfo}>
                           <Text style={s.offerName}>{item.playlistName}</Text>
@@ -346,6 +350,30 @@ export default function PlaylistSalePanel({ navigation }: any) {
               </View>
             )}
 
+            {/* Collections retirées : visibles ICI seulement (jamais sur le
+                profil ni pour les visiteurs), repliées par défaut. */}
+            {retired.length > 0 && (
+              <View style={s.offersSection}>
+                <TouchableOpacity style={s.retiredToggle} onPress={() => setRetiredOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: retiredOpen }} accessibilityLabel={`${retiredOpen ? 'Masquer' : 'Afficher'} les ${retired.length} collections retirées`}>
+                  <Text style={s.sectionTitle}>RETIRÉES ({retired.length}) · NON VISIBLES SUR TON PROFIL</Text>
+                  <Text style={s.retiredToggleIcon}>{retiredOpen ? '˄' : '˅'}</Text>
+                </TouchableOpacity>
+                {retiredOpen ? retired.map((item) => (
+                  <View key={item.offerId || item.playlistId} style={[s.offerCard, s.offerCardRetired]}>
+                    <View style={s.offerTop}>
+                      <View style={s.offerInfo}>
+                        <Text style={s.offerName}>{item.playlistName}</Text>
+                        <Text style={s.offerDate}>{item.trackCount ?? 0} morceau{(item.trackCount ?? 0) > 1 ? 'x' : ''} · retirée le {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
+                      </View>
+                      <View style={[s.offerBadge, s.offerBadgeRetired]}>
+                        <Text style={[s.offerBadgeText, s.offerBadgeTextRetired]}>RETIRÉE</Text>
+                      </View>
+                    </View>
+                  </View>
+                )) : null}
+              </View>
+            )}
+
             {/* Ventes en attente de confirmation -- l'acheteur a déjà cliqué
                 Acheter (payé ou en train de payer sur le lien du vendeur) */}
             {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
@@ -379,7 +407,7 @@ export default function PlaylistSalePanel({ navigation }: any) {
             )}
 
             {/* Message si accès mais pas d'offres */}
-            {access.unlocked && offers.length === 0 && (
+            {access.unlocked && published.length === 0 && (
               <View style={s.emptyBox}>
                 <Text style={s.emptyBoxTitle}>Aucune collection exclusive publiée</Text>
                 <Text style={s.emptyBoxText}>Commence par sélectionner plusieurs morceaux et crée ta première collection exclusive.</Text>
@@ -524,7 +552,13 @@ const s = StyleSheet.create({
   offerName: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   offerPrice: { color: colors.success, fontSize: 16, fontWeight: '900', marginTop: 2 },
   offerBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, backgroundColor: colors.success },
-  offerBadgeText: { color: colors.background, fontSize: 9, fontWeight: '900' },
+  offerBadgeText: { color: colors.background, fontSize: 11, fontWeight: '900' },
+  offerBadgeRetired: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
+  offerBadgeTextRetired: { color: colors.textMutedGrey },
+  offerCardRetired: { opacity: .75 },
+  offerCardFocus: { borderColor: colors.primary, borderWidth: 2 },
+  retiredToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+  retiredToggleIcon: { color: colors.primaryLight, fontSize: 18, fontWeight: '900', marginBottom: spacing.md },
   offerDate: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginBottom: spacing.md },
   offerActions: { flexDirection: 'row', gap: spacing.sm },
   manageTracksBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' },

@@ -33,9 +33,9 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   });
 
   it('represents paid music only as one locked collection card in a separate horizontal rail', () => {
-    expect(publicProfile).toContain('saleCarouselContent');
-    expect(publicProfile).toContain('horizontal');
-    expect(publicProfile).toContain('key={`sale-carousel:${offer.offerId}`}');
+    // 29/09/2026 : une ligne compacte par collection (SaleCollectionRow), liste séparée des Styles.
+    expect(publicProfile).toContain('<View style={styles.saleList}');
+    expect(publicProfile).toContain('key={`sale-row:${offer.offerId}`}');
     expect(publicProfile).toContain("badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '🔒 COLLECTION SECRÈTE'}");
     expect(publicProfile).not.toContain('sale-style:');
   });

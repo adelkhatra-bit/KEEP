@@ -31,8 +31,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain('LE CLUB DE @{profile.username}');
     expect(source).toContain('Ses sélections exclusives');
     expect(source).toContain('pépite');
-    expect(source).toContain('`✦ ${offer.trackCount} À RÉVÉLER`');
-    expect(source).toContain('saleCarouselCard');
+    expect(source).toContain('`✦ ${offer.trackCount} à révéler · ${styleLabel}`');
+    expect(source).toContain('<SaleCollectionRow');
     expect(source).not.toContain('sale-style:');
   });
 
@@ -42,7 +42,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
     expect(source).toContain('↗ PARTAGER');
     expect(source).not.toContain('<BattleGlowButton');
-    expect(source).toContain('saleCarouselCard');
+    expect(source).toContain('<SaleCollectionRow');
     expect(source).toContain('ProfileStyleCard');
   });
 
