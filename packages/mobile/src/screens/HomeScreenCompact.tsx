@@ -472,10 +472,10 @@ export default function HomeScreenCompact({ navigation }: any) {
                 variant="primary"
                 size="large"
                 onPress={startSession}
-                accessibilityLabel="Démarrer une écoute"
-                accessibilityHint="Lance une session d'écoute avec votre microphone"
+                accessibilityLabel="Activer le micro"
+                accessibilityHint="Loki capte avec le micro du téléphone la musique jouée autour de toi"
               >
-                ●  ÉCOUTER MAINTENANT
+                ●  ACTIVER LE MICRO
               </MotionActionButton>
             </View>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
@@ -674,7 +674,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       ) : null}
 
       <View style={s.footerActions}>
-        <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Arrêter l'écoute"><Text style={s.secondaryText}>■  ARRÊTER L’ÉCOUTE</Text></TouchableOpacity>
+        <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Couper le micro"><Text style={s.secondaryText}>■  COUPER LE MICRO</Text></TouchableOpacity>
       </View>
 
       <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => { setKeepChoiceOpen(false); setKeepEditId(null); }}>
@@ -794,7 +794,7 @@ function AuroraBackground({ active }: { active: boolean }) {
 // Décoratif uniquement (pointerEvents désactivé), 100 % JS/Animated (OTA).
 function LokiIdleOrb() {
   // Petits écrans (iPhone SE, 568 px) : cercle réduit pour que le bouton
-  // ÉCOUTER MAINTENANT reste visible sans défiler au-dessus de la barre d'onglets.
+  // ACTIVER LE MICRO reste visible sans défiler au-dessus de la barre d'onglets.
   const { height } = useWindowDimensions();
   const size = height < 720 ? 132 : 196;
   const ring = (d: number) => ({ width: d, height: d, borderRadius: d / 2 });

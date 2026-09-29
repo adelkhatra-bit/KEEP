@@ -464,7 +464,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           const message = e.message;
           get().requestEndSession();
           set({ recognizing: false, micLevel: 0, error: message });
-          Alert.alert('Microphone bloqué', 'Autorise le microphone dans les réglages de ton appareil ou du site, puis appuie à nouveau sur ÉCOUTER MAINTENANT.');
+          Alert.alert('Microphone bloqué', 'Autorise le microphone dans les réglages de ton appareil ou du site, puis appuie à nouveau sur ACTIVER LE MICRO.');
           return;
         }
         set({ recognizing: false, micLevel: 0, error: e?.message ?? 'Erreur de reconnaissance' });

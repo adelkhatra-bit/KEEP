@@ -1012,11 +1012,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <Text style={s.ownerEmptyText}>Chaque Garder construit automatiquement tes styles. Tu choisiras Public ou Privé avant chaque ajout.</Text>
           <MotionActionButton
             onPress={() => navigation.navigate('Main', { screen: 'Listen' })}
-            accessibilityLabel="Aller à Écouter pour découvrir une musique"
+            accessibilityLabel="Activer le micro pour découvrir une musique"
             variant="primary"
             size="large"
           >
-            <Text style={{ color: colors.white, fontWeight: '900', fontSize: 14 }}>ÉCOUTER MAINTENANT</Text>
+            <Text style={{ color: colors.white, fontWeight: '900', fontSize: 14 }}>ACTIVER LE MICRO</Text>
           </MotionActionButton>
         </View>
       );

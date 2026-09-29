@@ -96,7 +96,7 @@ jobs:
             // 1. Créer une vraie entrée dans la bibliothèque locale via le même
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
             await exact('Écouter').click({ force: true });
-            const start = page.getByLabel('Démarrer une écoute').last();
+            const start = page.getByLabel(/Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({ state: 'visible', timeout: 15000 });
             await start.click({ timeout: 3000 }).catch(async () => {
               // Ce workflow teste la suppression, pas le z-index de l'écran
