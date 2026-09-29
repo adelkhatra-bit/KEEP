@@ -1909,3 +1909,8 @@ Adel reproduit encore : Profil visible lorsque DevTools est docké, écran noir 
 ## [2026-09-29T14:55:00+02:00] chatgpt — correctif mise à jour web forcée
 
 Bug confirmé dans le flux « Nouvelle version » : reloadToLatest() utilisait window.location.reload() à la racine. Chrome pouvait donc détecter le nouveau version.json tout en rechargeant encore l'ancien index/bundle depuis son cache. Correctif ciblé dans appUpdateService.ts : toute mise à jour passe désormais par /KEEP/?__keep_update=<nonce> et restaure la route via __keep_route. Aucun App.tsx/Navigation.tsx/5 onglets modifié. Ce correctif doit aussi faire disparaître sur les postes restés sur un vieux bundle l'ancien appel Vercel /pending-session-imports déjà retiré du code courant au profit de Supabase direct.
+
+
+## [2026-09-29T15:00:00+02:00] chatgpt — profil entouré aéré
+
+Zone identité entourée par Adel reprise sans supprimer de fonction : avatar 80px, respiration accrue entre pseudo/certification/type/ville, Battle sorti complètement de la colonne identité et placé sur sa propre ligne avant les compteurs, compteurs davantage décollés. Même respiration appliquée au profil visité pour éviter deux designs différents. Aucun App.tsx/Navigation.tsx/5 onglets touché.

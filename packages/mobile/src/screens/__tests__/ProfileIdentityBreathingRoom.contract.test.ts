@@ -7,17 +7,19 @@ describe('Owner profile identity breathing room', () => {
   it('moves Battle out of the username/certification line', () => {
     const username = source.indexOf('<View style={s.usernameLine}>');
     const meta = source.indexOf('<View style={s.profileMetaLeft}>', username);
-    const battle = source.indexOf('<View style={s.profileBattleRow}>', meta);
+    const identityEnd = source.indexOf('</View>\n        {battleFeatureEnabled', meta);
+    const battle = source.indexOf('<View style={s.profileBattleRow}>', identityEnd);
     expect(username).toBeGreaterThan(-1);
     expect(meta).toBeGreaterThan(username);
-    expect(battle).toBeGreaterThan(meta);
-    expect(source.slice(username, meta)).not.toContain('<BattleGlowButton');
+    expect(identityEnd).toBeGreaterThan(meta);
+    expect(battle).toBeGreaterThan(identityEnd);
+    expect(source.slice(username, identityEnd)).not.toContain('<BattleGlowButton');
   });
 
   it('gives type, location and Battle their own breathing room', () => {
-    expect(source).toContain("avatar:{width:72,height:72,borderRadius:36");
-    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:7,marginTop:8}");
-    expect(source).toContain("profileBattleRow:{alignSelf:'flex-start',marginTop:10");
+    expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
+    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10}");
+    expect(source).toContain("profileBattleRow:{alignSelf:'flex-start',marginTop:14");
   });
 });
 
@@ -26,9 +28,9 @@ describe('Visited profile identity breathing room', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'PublicUserProfileScreen.tsx'), 'utf8');
 
   it('uses the same airy identity structure as the owner profile', () => {
-    expect(source).toContain("avatar:{width:72,height:72,borderRadius:36");
-    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:2}");
-    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:7}");
-    expect(source).toContain("location:{color:colors.textSecondary,fontSize:13,lineHeight:18");
+    expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
+    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:4}");
+    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9}");
+    expect(source).toContain("location:{color:colors.textSecondary,fontSize:13,lineHeight:19");
   });
 });
