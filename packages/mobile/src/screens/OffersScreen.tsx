@@ -386,6 +386,11 @@ export default function OffersScreen({ navigation, route }: any) {
           <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
+          <View style={s.quickStartBox}>
+            <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI</Text>
+            <Text style={s.quickStartTitle}>Remplis d’abord ton profil de musique.</Text>
+            <Text style={s.quickStartText}>Écoute → Garde → crée tes playlists → partage ton profil → joue en Solo/Battle pour gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits.</Text>
+          </View>
         </View> : <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>Loki Music</Text>
@@ -700,6 +705,7 @@ const s = StyleSheet.create({
   eventChoiceHintText: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 8 },
   choiceHintText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
+  quickStartBox:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#101D17',borderWidth:1,borderColor:'#2C8A60'},quickStartEyebrow:{color:'#7CF2B9',fontSize:9,fontWeight:'900',letterSpacing:.8},quickStartTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:4},quickStartText:{color:colors.textPrimary,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:5},
   promiseCard: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
