@@ -103,9 +103,14 @@ export async function claimPendingReferral(): Promise<boolean> {
   const code = await AsyncStorage.getItem(PENDING_REFERRAL_KEY);
   if (!code) return false;
 
-  const { data: authData } = await supabase.auth.getUser();
-  const authUser = authData.user;
-  if (!authUser) return false;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const session = sessionData.session;
+  // Sur le web, un client peut momentanément avoir la clé publishable chargée
+  // sans bearer utilisateur (restauration de session en cours). Dans ce cas,
+  // appeler keep_claim_referral produit un 400 AUTH_REQUIRED dans la console.
+  // On attend une vraie session avant tout RPC de parrainage.
+  if (!session?.access_token || !session.user) return false;
+  const authUser = session.user;
   const createdAt = new Date(authUser.created_at || 0).getTime();
   const tooOld = Number.isFinite(createdAt) && createdAt > 0 && Date.now() - createdAt > 7 * 24 * 60 * 60 * 1000;
   if ((authUser as any).is_anonymous || tooOld) {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Modal, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -133,9 +133,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
     const teaserTimer = setInterval(() => {
       if (reduceMotionRef.current) { setTeaserIndex((i) => (i + 1) % TEASER_LINES.length); return; }
-      Animated.timing(teaserOpacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => {
+      Animated.timing(teaserOpacity, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start(() => {
         setTeaserIndex((i) => (i + 1) % TEASER_LINES.length);
-        Animated.timing(teaserOpacity, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+        Animated.timing(teaserOpacity, { toValue: 1, duration: 320, useNativeDriver: Platform.OS !== 'web' }).start();
       });
     }, ROTATE_MS);
     return () => {
@@ -160,13 +160,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     ));
     loops.forEach((l) => l.start());
     const pulse = Animated.loop(Animated.sequence([
-      Animated.timing(secretPulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(secretPulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(secretPulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(secretPulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
     ]));
     pulse.start();
     const glow = Animated.loop(Animated.sequence([
-      Animated.timing(revealGlow, { toValue: 1, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(revealGlow, { toValue: 0, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(revealGlow, { toValue: 1, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(revealGlow, { toValue: 0, duration: 1450, easing: Easing.inOut(Easing.sin), useNativeDriver: Platform.OS !== 'web' }),
     ]));
     glow.start();
     const cta = Animated.loop(Animated.sequence([

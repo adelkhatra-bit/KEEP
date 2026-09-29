@@ -66,13 +66,13 @@ jobs:
           const { chromium } = require('playwright');
           const fs = require('fs');
           (async()=>{
-            const browser = await chromium.launch({ headless:true });
+            const browser = await chromium.launch({ headless:true, args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream'] });
             const context = await browser.newContext({
               viewport:{width:390,height:844},
               deviceScaleFactor:1,
               geolocation:{latitude:45.764,longitude:4.8357},
             });
-            await context.grantPermissions(['geolocation'], { origin:'http://127.0.0.1:8081' });
+            await context.grantPermissions(['geolocation','microphone'], { origin:'http://127.0.0.1:8081' });
             const page = await context.newPage();
             const errors=[];
             page.on('pageerror',e=>errors.push(`PAGE: ${String(e)}`));
