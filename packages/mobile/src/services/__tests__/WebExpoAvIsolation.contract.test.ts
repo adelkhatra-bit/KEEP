@@ -26,4 +26,10 @@ describe('Web expo-av isolation', () => {
     expect(preview).toContain('function canUseWebAudio()');
     expect(preview).toContain('await playWebSegment');
   });
+
+  it('keeps the native Sound type valid without importing a phantom expo-av export', () => {
+    expect(preview).not.toContain("import('expo-av').NativeSound");
+    expect(preview).not.toContain('NativeSound.createAsync(');
+    expect(preview).toContain('Audio.Sound.createAsync(');
+  });
 });

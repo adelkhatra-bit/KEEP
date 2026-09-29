@@ -3,7 +3,7 @@ import { isNativeRecordingModeActive } from './micCapture';
 
 type ExpoAVModule = typeof import('expo-av');
 type AVPlaybackStatus = import('expo-av').AVPlaybackStatus;
-type NativeSound = import('expo-av').NativeSound;
+type NativeSound = Awaited<ReturnType<ExpoAVModule['Audio']['Sound']['createAsync']>>['sound'];
 let nativeExpoAVModule: ExpoAVModule | null = null;
 function getNativeExpoAV(): ExpoAVModule {
   if (!nativeExpoAVModule) nativeExpoAVModule = require('expo-av') as ExpoAVModule;
@@ -164,7 +164,7 @@ async function createSoundWithRetry(
     let createdSound: NativeSound | null = null;
     try {
       await configurePreviewAudio();
-      const created = await NativeSound.createAsync(
+      const created = await Audio.Sound.createAsync(
         { uri: previewUrl },
         {
           shouldPlay: false,
@@ -357,7 +357,7 @@ export async function toggleTrackPreview(
       profilePreloadedUrl = null;
       await unloadActive();
       await configurePreviewAudio();
-      ready.setOnPlaybackStatusUpdate((status) => onStatus(status, ready));
+      ready.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, ready));
       try { await ready.setPositionAsync(0); } catch {}
       await ensurePlaying(ready);
       createdSound = ready;
@@ -461,7 +461,7 @@ export async function playTrackPreviewSegment(
       await unloadActive();
       await configurePreviewAudio();
       try {
-        preloaded.setOnPlaybackStatusUpdate((status) => onStatus(status, preloaded));
+        preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));
         await ensurePlaying(preloaded);
         createdSound = preloaded;
       } catch {
@@ -669,7 +669,7 @@ export async function playAntiShazamPreviewSegment(
     await unloadActive();
     await configurePreviewAudio();
     const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
-    createdSound.setOnPlaybackStatusUpdate((status) => {
+    createdSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
       if (!status.isLoaded) return;
       if (activeSound === createdSound) activeStateListener?.(status.isPlaying);
     });
