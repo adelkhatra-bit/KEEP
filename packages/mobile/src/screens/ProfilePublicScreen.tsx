@@ -1310,31 +1310,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-        {battleFeatureEnabled && !accountRequired ? (
-          <View style={s.profileBattleRow}>
-            <BattleGlowButton
-              compact
-              active={battleAvailable}
-              disabled={battleAvailabilityBusy}
-              label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
-              onPress={() => { void setBattleAvailable(!battleAvailable); }}
-              accessibilityRole="switch"
-              accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
-              accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-            />
-          </View>
-        ) : null}
-      <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
-        <TouchableOpacity
-          style={[s.topMetricFreeHero, freeDetailsOpen && s.topMetricFreeHeroOn]}
-          onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: freeDetailsOpen }}
-          accessibilityLabel="Voir le détail de mes Free"
-        >
-          <Text style={s.topMetricFreeValue}>{freeBalance ?? '…'}</Text>
-          <Text style={s.topMetricFreeLabel}>FREE</Text>
-          <Text style={s.topMetricFreeHint}>jouer · garder</Text>
+        <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
+        <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
+          <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
+          <Text style={s.topMetricMoreText}>PLUS</Text>
         </TouchableOpacity>
         <View style={s.topMetricSocialGroup}>
           <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
@@ -1344,10 +1323,34 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
-          <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
-          <Text style={s.topMetricMoreText}>PLUS</Text>
-        </TouchableOpacity>
+        <View style={s.topMetricRightStack}>
+          {battleFeatureEnabled && !accountRequired ? (
+            <View style={s.profileBattleRow}>
+              <BattleGlowButton
+                compact
+                style={s.profileBattleOverFree}
+                active={battleAvailable}
+                disabled={battleAvailabilityBusy}
+                label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
+                onPress={() => { void setBattleAvailable(!battleAvailable); }}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
+                accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+              />
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={[s.topMetricFreeHero, freeDetailsOpen && s.topMetricFreeHeroOn]}
+            onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: freeDetailsOpen }}
+            accessibilityLabel="Voir le détail de mes Free"
+          >
+            <Text style={s.topMetricFreeValue}>{freeBalance ?? '…'}</Text>
+            <Text style={s.topMetricFreeLabel}>FREE</Text>
+            <Text style={s.topMetricFreeHint}>jouer · garder</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {freeDetailsOpen ? (
         <View style={s.metricInlinePanel}>
@@ -1831,7 +1834,7 @@ const s=StyleSheet.create({
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:4},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},profileBattleRow:{alignSelf:'flex-start',marginTop:14,marginBottom:4},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
+  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:4},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
 ownerActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
 ownerActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
@@ -1857,11 +1860,14 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
-  topMetricsBar:{marginHorizontal:18,marginTop:10,minHeight:58,flexDirection:'row',alignItems:'stretch',gap:8},
+  topMetricsBar:{marginHorizontal:18,marginTop:10,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},
+  topMetricRightStack:{width:82,alignItems:'stretch',justifyContent:'flex-end',gap:7},
+  profileBattleRow:{width:'100%',alignSelf:'stretch',marginTop:0,marginBottom:0},
+  profileBattleOverFree:{width:'100%'},
   topMetricFreeHero:{width:82,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.12)',borderWidth:1.5,borderColor:colors.keep,shadowColor:colors.keep,shadowOpacity:.28,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   topMetricFreeHeroOn:{backgroundColor:'rgba(45,225,194,.20)',shadowOpacity:.55},
   topMetricFreeValue:{color:colors.keep,fontSize:18,fontWeight:'900'},topMetricFreeLabel:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:1},topMetricFreeHint:{color:colors.textMutedGrey,fontSize:7,fontWeight:'700',marginTop:1},
-  topMetricSocialGroup:{flex:1,minWidth:0,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:16,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  topMetricSocialGroup:{flex:1,minWidth:0,minHeight:58,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:16,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
   topMetricSocialItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:4,borderRightWidth:1,borderRightColor:colors.border},topMetricSocialLast:{borderRightWidth:0},topMetricSocialItemOn:{backgroundColor:'rgba(139,92,246,.18)'},
   topMetricMore:{width:48,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},topMetricMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},topMetricMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},topMetricMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},
   topMetricValue:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},topMetricLabel:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:2,textAlign:'center'},
