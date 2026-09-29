@@ -18,9 +18,8 @@ import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
-import ProfileCounterRow from '../components/ProfileCounterRow';
+import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
-import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
@@ -1185,30 +1184,35 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </View>
             </View>
           </View>
-          <View style={styles.unifiedCounters}>
-            <View style={styles.countersMainRow}>
-              <TouchableOpacity
-                style={[styles.countersMore, countersExpanded && styles.countersMoreOn]}
-                onPress={() => setCountersExpanded((v) => !v)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: countersExpanded }}
-                accessibilityLabel={countersExpanded ? 'Masquer Reprises et Abonnements' : 'Afficher Reprises et Abonnements'}
-              >
-                <Text style={styles.countersMoreIcon}>{countersExpanded ? '⌃' : '•••'}</Text>
-                <Text style={styles.countersMoreText}>PLUS</Text>
+          {/* Adel (29/09/2026) : « même design et même configuration » que son
+              propre profil -- mêmes composants et mêmes styles que
+              ProfilePublicScreen (topMetricsBar / topMetricsSecondary). Contenu
+              demandé pour un visiteur : Abonnés + Morceaux, le reste sous PLUS.
+              Un contrat de test vérifie que les styles restent identiques. */}
+          <View style={styles.topMetricsBar} accessibilityLabel="Compteurs du profil">
+            <TouchableOpacity style={[styles.topMetricMore, countersExpanded && styles.topMetricMoreOn]} onPress={() => setCountersExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: countersExpanded }} accessibilityLabel={countersExpanded ? 'Masquer Reprises et Abonnements' : 'Afficher Reprises et Abonnements'}>
+              <Text style={styles.topMetricMoreIcon}>{countersExpanded ? '⌃' : '•••'}</Text>
+              <Text style={styles.topMetricMoreText}>PLUS</Text>
+            </TouchableOpacity>
+            <View style={styles.topMetricSocialGroup}>
+              <TouchableOpacity style={[styles.topMetricSocialItem, communityMode === 'followers' && styles.topMetricSocialItemOn]} onPress={() => { setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }} accessibilityLabel={`${followerCount} Abonnés`}>
+                <Text style={styles.topMetricValue}>{followerCount}</Text><Text style={styles.topMetricLabel}>Abonnés</Text>
               </TouchableOpacity>
-              <ProfileCounterRow kind="connections" style={styles.countersMainGroup} items={[
-                { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-                { value: tracks.length, label: 'Morceaux' },
-              ]} />
+              <View style={[styles.topMetricSocialItem, styles.topMetricSocialLast]} accessibilityLabel={`${tracks.length} Morceaux`}>
+                <Text style={styles.topMetricValue}>{tracks.length}</Text><Text style={styles.topMetricLabel}>Morceaux</Text>
+              </View>
             </View>
-            {countersExpanded ? (
-              <ProfileCounterRow kind="keeps" items={[
-                { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
-                { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-              ]} />
-            ) : null}
           </View>
+          {countersExpanded ? (
+            <View style={styles.topMetricsSecondary}>
+              <TouchableOpacity style={[styles.topMetricSecondaryItem, repriseListOpen && styles.topMetricSocialItemOn]} onPress={() => { setCommunityMode(null); setRepriseListOpen((v) => !v); }} accessibilityLabel={`${socialKeepCount} Reprises`}>
+                <Text style={styles.topMetricValue}>{socialKeepCount}</Text><Text style={styles.topMetricLabel}>Reprises</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.topMetricSecondaryItem, styles.topMetricSocialLast, communityMode === 'following' && styles.topMetricSocialItemOn]} onPress={() => { setRepriseListOpen(false); setCommunityMode((v) => v === 'following' ? null : 'following'); }} accessibilityLabel={`${followingCount} Abonnements`}>
+                <Text style={styles.topMetricValue}>{followingCount}</Text><Text style={styles.topMetricLabel}>Abonnements</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           {viewer?.id !== profile.id ? (
             <>
@@ -1223,25 +1227,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 {followBusy ? '…' : isFollowing ? '✓ ABONNÉ' : '+ S’ABONNER'}
               </Text>
             </TouchableOpacity>
-            <View style={styles.visitorActionRow}>
-              {tracks.length > 0 ? (
-                <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Swiper les découvertes de ${profile.username}`}>
-                  <Text style={styles.visitorActionIcon}>▶</Text><Text style={styles.visitorActionLabel}>SWIPE</Text>
-                </TouchableOpacity>
-              ) : <View style={styles.visitorActionChipPlaceholder} />}
+            {/* Même rangée d'actions que le profil propriétaire (ownerQuickActions :
+                3 boutons MotionActionButton « outline », même largeur). */}
+            <View style={styles.ownerQuickActions}>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={tracks.length === 0} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Aperçu des découvertes de ${profile.username}`}>
+                ▶ APERÇU
+              </MotionActionButton>
               {battleFeatureEnabled ? (
-                <BattleGlowButton
-                  label={battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}
-                  style={styles.visitorActionMotion}
-                  onPress={() => void challengeProfileToBattle()}
-                  disabled={battleInviteBusy}
-                  active={profilePresence.online}
-                  accessibilityLabel={`Défier ${profile.username} en Battle`}
-                />
-              ) : <View style={styles.visitorActionChipPlaceholder} />}
-              <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>
-                <Text style={styles.visitorActionIcon}>↗</Text><Text style={styles.visitorActionLabel}>PARTAGER</Text>
-              </TouchableOpacity>
+                <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={battleInviteBusy} onPress={() => void challengeProfileToBattle()} accessibilityLabel={`Défier ${profile.username} en Battle`}>
+                  {battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}
+                </MotionActionButton>
+              ) : null}
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>
+                ↗ PARTAGER
+              </MotionActionButton>
             </View>
             </>
           ) : null}
@@ -1767,8 +1766,8 @@ const styles = StyleSheet.create({
   followNudgeClose:{width:28,height:36,alignItems:'center',justifyContent:'center'},followNudgeCloseText:{color:colors.textMuted,fontSize:22,lineHeight:24},
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},
   inlineListenNotice:{position:'absolute',top:54,left:18,right:18,zIndex:30,minHeight:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',paddingHorizontal:14},
-  inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},kindBadgeText:{color:'#7CF2B9',fontSize:13,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:4},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaRow:{marginTop:10},profileMetaLeft:{alignItems:'flex-start',gap:9},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},presencePill:{flexDirection:'row',alignItems:'center',gap:5,minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},presenceDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.textMuted},presenceDotOnline:{backgroundColor:colors.success},presenceText:{color:colors.textMuted,fontSize:10,fontWeight:'800'},presenceTextOnline:{color:colors.success},bio:{color:'#FFFFFF',fontSize:15,lineHeight:21,marginTop:14},
+  inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaRow:{marginTop:10},profileMetaLeft:{alignItems:'flex-start',gap:9},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},presencePill:{flexDirection:'row',alignItems:'center',gap:5,minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},presenceDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.textMuted},presenceDotOnline:{backgroundColor:colors.success},presenceText:{color:colors.textMuted,fontSize:10,fontWeight:'800'},presenceTextOnline:{color:colors.success},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},
 visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},visitorBattleButton:{minHeight:46,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,width:'100%'},visitorBattleButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
 
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
@@ -1777,17 +1776,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
     followPrimaryButton:{marginTop:14,minHeight:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,paddingHorizontal:18},followPrimaryButtonOn:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},followPrimaryButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:0.7},followPrimaryButtonTextOn:{color:colors.primaryLight},
-    visitorActionRow:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:12},
-  visitorActionMotion:{flex:1,minWidth:0,height:54,alignSelf:'stretch'},
-  visitorActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
-  visitorActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
-  visitorActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
-  visitorActionChipNeutral:{backgroundColor:colors.backgroundElevated,borderColor:colors.border},
-  visitorActionChipBattle:{backgroundColor:'rgba(255,184,77,.08)',borderColor:'rgba(255,184,77,.45)'},
-  visitorActionChipFollowing:{backgroundColor:`${colors.success}22`,borderColor:colors.success},
-  visitorActionChipPlaceholder:{flex:1,minWidth:0},
-  visitorActionIcon:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  visitorActionLabel:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.55,textAlign:'center'},
+
   sellerSignal:{minHeight:74,marginTop:12,padding:12,borderRadius:20,backgroundColor:colors.successFaint,borderWidth:1,borderColor:colors.keep,flexDirection:'row',alignItems:'center',gap:10},
   sellerSignalIcon:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   sellerSignalIconText:{color:colors.keep,fontSize:18,fontWeight:'900'},
@@ -1843,7 +1832,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceMore:{color:colors.textMutedGrey,fontSize:10,fontWeight:'700',textAlign:'center',marginTop:2},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceBrowseAll:{minHeight:42,marginTop:9,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.10)',paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},marketplaceBrowseAllText:{color:'#FFFFFF',fontSize:12,fontWeight:'900',letterSpacing:.5},marketplaceSellerLink:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},marketplaceSellerLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:7,minHeight:36,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
-  topCommunityPanel:{marginHorizontal:18,marginTop:6},unifiedCounters:{marginHorizontal:0,marginTop:16,marginBottom:8,gap:2},countersMainRow:{flexDirection:'row',alignItems:'stretch',gap:8},countersMainGroup:{flex:1,marginTop:0},countersMore:{width:48,minHeight:62,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},countersMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},countersMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},countersMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},
+  topCommunityPanel:{marginHorizontal:18,marginTop:6},topMetricsBar:{marginHorizontal:0,marginTop:16,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},topMetricSocialGroup:{flex:1,minWidth:0,minHeight:58,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:16,borderWidth:1,borderColor:colors.border,overflow:'hidden'},topMetricSocialItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:4,borderRightWidth:1,borderRightColor:colors.border},topMetricSocialLast:{borderRightWidth:0},topMetricSocialItemOn:{backgroundColor:'rgba(139,92,246,.18)'},topMetricMore:{width:48,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},topMetricMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},topMetricMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},topMetricMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},topMetricValue:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},topMetricLabel:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:2,textAlign:'center'},topMetricsSecondary:{marginHorizontal:0,marginTop:6,minHeight:48,flexDirection:'row',borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},topMetricSecondaryItem:{flex:1,alignItems:'center',justifyContent:'center',borderRightWidth:1,borderRightColor:colors.border},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},

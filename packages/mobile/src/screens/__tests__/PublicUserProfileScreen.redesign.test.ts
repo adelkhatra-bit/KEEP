@@ -13,7 +13,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
 
   it('orders the top-level sections: identity < unified counters < exclusive collection rail < collection header < tabs < socials', () => {
     const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
-    const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
+    const unifiedCounters = source.indexOf('<View style={styles.topMetricsBar}');
     const boutique = source.indexOf('style={styles.marketplaceSection}');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
@@ -36,11 +36,12 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).not.toContain('sale-style:');
   });
 
-  it('uses one aligned visitor action row with a glowing Battle control while sale collections stay separate', () => {
-    expect(source).toContain('<View style={styles.visitorActionRow}>');
-    expect(source).toContain('<Text style={styles.visitorActionIcon}>▶</Text><Text style={styles.visitorActionLabel}>SWIPE</Text>');
-    expect(source).toContain('<BattleGlowButton');
-    expect(source).toContain("label={battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+  it('uses the same action row as the owner profile (3 outline MotionActionButton) while sale collections stay separate', () => {
+    expect(source).toContain('<View style={styles.ownerQuickActions}>');
+    expect(source).toContain('▶ APERÇU');
+    expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+    expect(source).toContain('↗ PARTAGER');
+    expect(source).not.toContain('<BattleGlowButton');
     expect(source).toContain('saleCarouselCard');
     expect(source).toContain('ProfileStyleCard');
   });
@@ -77,15 +78,13 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source.match(/setTracks\(/g)?.length).toBe(1);
   });
 
-  it('groups the four counters (Abonnés/Reprises/Morceaux/Abonnements) into one contiguous block', () => {
-    const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
+  it('keeps the four counters (Abonnés/Morceaux, then Reprises/Abonnements) in one block before the collection', () => {
+    const bar = source.indexOf('<View style={styles.topMetricsBar}');
+    const secondary = source.indexOf('<View style={styles.topMetricsSecondary}>', bar);
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
-    const connectionsRow = source.indexOf("<ProfileCounterRow kind=\"connections\"", unifiedCounters);
-    const keepsRow = source.indexOf("<ProfileCounterRow kind=\"keeps\"", unifiedCounters);
-    expect(connectionsRow).toBeGreaterThan(unifiedCounters);
-    expect(keepsRow).toBeGreaterThan(connectionsRow);
-    expect(keepsRow).toBeLessThan(collectionHeader);
-    // Un seul bloc "unifiedCounters" au total (pas de second visitorKeepCounters séparé).
+    expect(bar).toBeGreaterThan(-1);
+    expect(secondary).toBeGreaterThan(bar);
+    expect(secondary).toBeLessThan(collectionHeader);
     expect(source).not.toContain('visitorKeepCounters');
   });
 
@@ -115,32 +114,31 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain("shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary");
     expect(source).toContain("socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22");
   });
-  it('shows only Abonnés + Morceaux, with Reprises + Abonnements behind a « ••• PLUS » toggle (Adel 29/09)', () => {
-    const counters = source.indexOf('<View style={styles.unifiedCounters}>');
-    const more = source.indexOf('style={[styles.countersMore', counters);
-    const main = source.indexOf('<ProfileCounterRow kind="connections"', counters);
-    const expandedGate = source.indexOf('{countersExpanded ? (', main);
-    const extra = source.indexOf('<ProfileCounterRow kind="keeps"', expandedGate);
-    expect(more).toBeGreaterThan(counters);
-    expect(main).toBeGreaterThan(more);
-    const mainRow = source.slice(main, expandedGate);
-    expect(mainRow).toContain("label: 'Abonnés'");
-    expect(mainRow).toContain("label: 'Morceaux'");
-    expect(mainRow).not.toContain("label: 'Reprises'");
-    expect(mainRow).not.toContain("label: 'Abonnements'");
-    const extraRow = source.slice(extra, source.indexOf(']} />', extra));
-    expect(extraRow).toContain("label: 'Reprises'");
-    expect(extraRow).toContain("label: 'Abonnements'");
-    expect(source).toContain('<Text style={styles.countersMoreText}>PLUS</Text>');
-    expect(source).toContain('unifiedCounters:{marginHorizontal:0,');
+  it('shows only Abonnés + Morceaux, with Reprises + Abonnements behind « ••• PLUS » (Adel 29/09)', () => {
+    const bar = source.indexOf('<View style={styles.topMetricsBar}');
+    const more = source.indexOf('style={[styles.topMetricMore', bar);
+    const group = source.indexOf('<View style={styles.topMetricSocialGroup}>', more);
+    const gate = source.indexOf('{countersExpanded ? (', group);
+    const secondaryEnd = source.indexOf(') : null}', gate);
+    expect(more).toBeGreaterThan(bar);
+    expect(group).toBeGreaterThan(more);
+    const main = source.slice(group, gate);
+    expect(main).toContain('>Abonnés</Text>');
+    expect(main).toContain('>Morceaux</Text>');
+    expect(main).not.toContain('>Reprises</Text>');
+    expect(main).not.toContain('>Abonnements</Text>');
+    const extra = source.slice(gate, secondaryEnd);
+    expect(extra).toContain('>Reprises</Text>');
+    expect(extra).toContain('>Abonnements</Text>');
+    expect(source).toContain('<Text style={styles.topMetricMoreText}>PLUS</Text>');
   });
 
   it('keeps visitor follow as a single compact action and counters on one row', () => {
-    expect(source).toContain('styles.visitorActionRow');
-    expect(source).toContain("label: 'Abonnés'");
-    expect(source).toContain("label: 'Reprises'");
-    expect(source).toContain("label: 'Morceaux'");
-    expect(source).toContain("label: 'Abonnements'");
+    expect(source).toContain('styles.ownerQuickActions');
+    expect(source).toContain('>Abonnés</Text>');
+    expect(source).toContain('>Reprises</Text>');
+    expect(source).toContain('>Morceaux</Text>');
+    expect(source).toContain('>Abonnements</Text>');
     expect(source).not.toContain('styles.followButton');
   });
 

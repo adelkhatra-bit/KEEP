@@ -32,7 +32,7 @@ describe('Visited profile identity breathing room', () => {
 
   it('uses the same airy identity structure as the owner profile', () => {
     expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
-    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:4}");
+    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16}");
     expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9}");
     expect(source).toContain("location:{color:colors.textSecondary,fontSize:13,lineHeight:19");
   });
