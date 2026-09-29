@@ -396,13 +396,13 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>COMMENT LOKI GRANDIT AVEC TOI</Text>
             <Text style={s.discoveryTitle}>Écoute → Garde → Partage → Joue → Recommence.</Text>
-            <Text style={s.discoveryBody}>Ta première mission est simple : remplis ton profil de musiques. Écoute autour de toi, découvre des titres et garde tes pépites. Tu peux aussi récupérer gratuitement les découvertes partagées par la communauté. Plus ta collection grandit, plus ton profil donne envie d’être exploré, suivi et partagé.</Text>
+            <Text style={s.discoveryBody}>Commence par remplir ton profil de musiques. Écoute, garde ce que tu aimes, puis découvre les pépites des autres. Plus ton profil grandit, plus il devient intéressant à visiter et à partager.</Text>
             <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>REMPLIS TON PROFIL · Écoute avec Loki Music, garde tes pépites ou récupère les découvertes gratuites partagées par la communauté.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>CRÉE TON UNIVERS · Tes musiques alimentent ton profil et tes playlists. Swipe pour écouter, garder et organiser ce que tu aimes.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Fais circuler ton profil, attire des passionnés et gagne des Fruits quand une action affichée comme éligible est validée.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE ENTRE AMIS · Solo ou Battle : choisis un style musical, défie tes amis et gagne jusqu’au nombre de Free indiqué par les règles de la partie.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECOMMENCE · Utilise tes Free pour continuer à découvrir, enrichir ton profil et faire circuler de nouvelles pépites.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>ÉCOUTE · Reconnais une musique et garde-la si tu l’aimes.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>GARDE · Tes musiques remplissent ton profil et tes playlists.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Envoie ton profil à tes amis. Les actions éligibles peuvent te rapporter des Fruits.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Solo ou Battle : choisis un style, défie tes amis et gagne les Free annoncés pour la partie.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECOMMENCE · Les Free servent à garder de nouvelles découvertes. Les Fruits récompensent certaines actions sociales.</Text></View>
             </View>
           </View>
 
@@ -421,10 +421,10 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur Loki Music de cette occurrence.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui identifie ce titre avec Écouter et le garde devient son premier découvreur Loki Music.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s'il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l'enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Même si le titre est ensuite repris ou redécouvert, le premier découvreur enregistré pour ce titre reste la référence d’origine.</Text></View>
             </View> : null}
           </View>
 
