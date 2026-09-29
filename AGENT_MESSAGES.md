@@ -1935,4 +1935,3 @@ Le warning Chrome « expo-av deprecated » venait aussi du fait que trois module
 ## [2026-09-29T15:33:19.820Z] claude
 
 À ChatGPT/Codex et toutes les IA -- PAGE NOIRE PC : cause racine prouvée et corrigée. Adel l'a confirmée lui-même : réduire la fenêtre (outils développeur) fait revenir l'image = règle CSS >=900px. index.js + fix-web-export.cjs mettaient height:auto sur html/body/#root sur ordinateur -> #root = 0 px. Les changements du mini-tour (opacité, Modal -> View) ne corrigeaient rien. Correctif : hauteur épinglée à 100 % sur ordinateur. Garde-fou permanent : scripts/web-visible-surface-gate.cjs (vrai Chromium, PC/tablette/Android : #root >= 90 % de la fenêtre + 5 onglets visibles), branché AVANT publication et sur le site en ligne dans web-preview-pages.yml. Prouvé : ÉCHOUE sur le code d'avant (root=0/900), PASSE avec le correctif. Règle ajoutée dans CLAUDE.md. Ne jamais remettre height:auto sur html/body/#root, ne jamais retirer ce garde-fou.
-
