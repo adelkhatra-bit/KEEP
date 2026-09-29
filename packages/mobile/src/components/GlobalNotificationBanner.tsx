@@ -75,12 +75,12 @@ export default function GlobalNotificationBanner() {
     onPanResponderRelease: (_evt, gesture) => {
       if (gesture.dy < -70) {
         Animated.parallel([
-          Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 200, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 200, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: Platform.OS !== 'web' }),
         ]).start(() => setCurrent(null));
         if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
       } else {
-        Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }).start();
+        Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: Platform.OS !== 'web' }).start();
       }
     },
   }), [opacity, translateY]);
@@ -91,8 +91,8 @@ export default function GlobalNotificationBanner() {
       hideTimer.current = null;
     }
     Animated.parallel([
-      Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 260, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: OFFSCREEN_TOP, duration: 260, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
     ]).start(() => {
       setCurrent(null);
       after?.();
@@ -156,8 +156,8 @@ export default function GlobalNotificationBanner() {
 
       requestAnimationFrame(() => {
         Animated.parallel([
-          Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 1, duration: 170, useNativeDriver: true }),
+          Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(opacity, { toValue: 1, duration: 170, useNativeDriver: Platform.OS !== 'web' }),
         ]).start();
       });
 
