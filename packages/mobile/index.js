@@ -39,32 +39,50 @@ if (typeof document !== 'undefined') {
     `;
     document.head.appendChild(style);
   }
+  const readViewport = () => ({
+    h: Math.max(1, Math.round(
+      window.visualViewport?.height ||
+      window.innerHeight ||
+      document.documentElement.clientHeight ||
+      1
+    )),
+    w: Math.max(1, Math.round(
+      window.visualViewport?.width ||
+      window.innerWidth ||
+      document.documentElement.clientWidth ||
+      1
+    )),
+  });
+  const applyViewport = () => {
+    // Chrome desktop can fire resize before the final viewport is settled
+    // (notably when DevTools is docked/undocked or the window is maximised).
+    // Re-read dimensions on every pass: never reuse the first transient size.
+    const { h, w } = readViewport();
+    document.documentElement.style.setProperty('--keep-visible-height', `${h}px`);
+    document.documentElement.style.setProperty('--keep-visible-width', `${w}px`);
+    const root = document.getElementById('root');
+    if (!root) return;
+    root.style.width = '100%';
+    root.style.height = `${h}px`;
+    root.style.minHeight = `${h}px`;
+    root.style.maxHeight = `${h}px`;
+  };
+  let viewportSettleTimers = [];
   const syncViewport = () => {
-    const h = Math.max(1, Math.round(window.visualViewport?.height || window.innerHeight || 0));
-    const w = Math.max(1, Math.round(window.visualViewport?.width || window.innerWidth || 0));
-    const apply = () => {
-      document.documentElement.style.setProperty('--keep-visible-height', `${h}px`);
-      document.documentElement.style.setProperty('--keep-visible-width', `${w}px`);
-      const root = document.getElementById('root');
-      if (!root) return;
-      // DevTools dock/undock + maximise/minimise can cross the 900px media
-      // breakpoint without reloading the app. Force the mounted RN root to
-      // follow the current viewport so it cannot retain stale/zero height.
-      root.style.width = '100%';
-      root.style.height = `${h}px`;
-      root.style.minHeight = `${h}px`;
-      root.style.maxHeight = `${h}px`;
-    };
-    apply();
+    applyViewport();
     window.requestAnimationFrame(() => {
-      apply();
-      window.requestAnimationFrame(apply);
+      applyViewport();
+      window.requestAnimationFrame(applyViewport);
     });
+    viewportSettleTimers.forEach((timer) => window.clearTimeout(timer));
+    viewportSettleTimers = [80, 220, 500].map((delay) => window.setTimeout(applyViewport, delay));
   };
   syncViewport();
   window.visualViewport?.addEventListener('resize', syncViewport, { passive: true });
   window.addEventListener('resize', syncViewport, { passive: true });
   window.addEventListener('orientationchange', syncViewport, { passive: true });
+  window.addEventListener('pageshow', syncViewport, { passive: true });
+  window.addEventListener('focus', syncViewport, { passive: true });
   document.addEventListener('fullscreenchange', syncViewport, { passive: true });
 
   // Adel (02/09/2026) : "il y a un problème de zoom ... il faudrait bloquer

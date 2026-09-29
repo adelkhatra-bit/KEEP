@@ -86,6 +86,39 @@ async function measure(page) {
     }
     await context.close();
   }
+
+  // Reproduit le bug observé sur l'ordinateur réel :
+  // la page est visible avec DevTools docké (viewport étroit), puis devient
+  // vide/noire quand DevTools est fermé et que Chrome reprend toute la largeur.
+  // Aucun reload entre les tailles : on teste le même arbre React monté.
+  {
+    const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'fr-FR' });
+    const page = await context.newPage();
+    await page.goto(BASE + '/Main/Profile/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2500);
+
+    const transitions = [
+      { name: 'devtools-docked', width: 820, height: 768 },
+      { name: 'devtools-closed', width: 1366, height: 768 },
+      { name: 'maximised-wide', width: 1920, height: 1080 },
+      { name: 'back-to-laptop', width: 1366, height: 768 },
+    ];
+    for (const step of transitions) {
+      await page.setViewportSize({ width: step.width, height: step.height });
+      await page.waitForTimeout(900);
+      const m = await measure(page);
+      const label = `resize-roundtrip ${step.name} /Main/Profile/`;
+      const problems = [];
+      if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
+      if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
+      if (m.booting) problems.push('écran de démarrage jamais levé');
+      if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
+      console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
+    }
+    await context.close();
+  }
+
   await browser.close();
   if (failures.length) {
     console.error('\nPAGE NOIRE / SURFACE INVISIBLE DÉTECTÉE :\n- ' + failures.join('\n- '));
