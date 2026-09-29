@@ -12,8 +12,9 @@ describe('PublicUserProfileScreen — défi Battle depuis un profil visité', ()
   });
 
   it('affiche un CTA direct uniquement pour un autre profil et conserve le parcours invité', () => {
-    expect(source).toContain('<Text style={styles.visitorActionIcon}>⚡</Text>');
-    expect(source).toContain("{battleInviteBusy ? 'ENVOI…' : 'BATTLE'}");
+    expect(source).toContain('<BattleGlowButton');
+    expect(source).toContain("label={battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+    expect(source).toContain('active={profilePresence.online}');
     expect(source).toContain('accessibilityLabel={`Défier ${profile.username} en Battle`}');
     expect(source).toContain("requestAccount('login')");
   });
