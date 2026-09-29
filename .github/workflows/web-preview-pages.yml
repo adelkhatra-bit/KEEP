@@ -438,8 +438,7 @@ jobs:
           node keep-public-browser-matrix.cjs
 
       - name: Upload browser audit
-        if: steps.publish_fresh.outputs.publish == 'yes'
-        if: always()
+        if: ${{ always() && steps.publish_fresh.outputs.publish == 'yes' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: keep-public-browser-matrix
