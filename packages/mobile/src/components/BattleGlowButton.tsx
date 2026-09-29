@@ -75,6 +75,19 @@ export default function BattleGlowButton({
           transform: [{ scale: haloScale }],
         }}
       />
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: 2,
+          right: 2,
+          bottom: compact ? -4 : -5,
+          height: compact ? 20 : 30,
+          borderRadius: compact ? 16 : 18,
+          backgroundColor: active ? '#4D2FA8' : '#30254A',
+          opacity: disabled ? 0.2 : 0.9,
+        }}
+      />
       <Animated.View
         style={{
           minHeight: compact ? 32 : 52,
@@ -82,7 +95,7 @@ export default function BattleGlowButton({
           borderRadius: compact ? 16 : 17,
           borderWidth: 2,
           borderColor: accent,
-          backgroundColor: pressedState ? 'rgba(139,92,255,0.16)' : 'transparent',
+          backgroundColor: pressedState ? 'rgba(139,92,255,0.28)' : active ? 'rgba(75,46,168,0.26)' : 'rgba(48,37,74,0.18)',
           shadowColor: glow,
           shadowOpacity: active ? 0.85 : 0.45,
           shadowRadius: compact ? 8 : 12,
@@ -91,7 +104,7 @@ export default function BattleGlowButton({
           alignItems: 'center',
           justifyContent: 'center',
           opacity: disabled ? 0.5 : 1,
-          transform: [{ scale: innerScale }, { translateY: press.interpolate({ inputRange: [0, 1], outputRange: [0, 2] }) }],
+          transform: [{ perspective: 500 }, { scale: innerScale }, { translateY: press.interpolate({ inputRange: [0, 1], outputRange: [0, 3] }) }],
           overflow: 'hidden',
         }}
       >
@@ -102,7 +115,7 @@ export default function BattleGlowButton({
             top: 1,
             left: compact ? 10 : 14,
             right: compact ? 10 : 14,
-            height: 1,
+            height: 2,
             backgroundColor: '#FFFFFF',
             opacity: active ? 0.45 : 0.18,
           }}
