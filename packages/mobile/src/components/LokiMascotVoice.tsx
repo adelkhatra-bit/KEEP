@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import * as Speech from 'expo-speech';
 import { colors } from '../theme/colors';
 import { mascotLine } from '../services/battleHomeInfo';
 
@@ -17,12 +16,21 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
   const line = mascotLine(correct, total, allTimeouts);
   const [speaking, setSpeaking] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const speechModuleRef = useRef<typeof import('expo-speech') | null>(null);
   const bounce = useRef(new Animated.Value(0)).current;
   const blink = useRef(new Animated.Value(1)).current;
   const mouth = useRef(new Animated.Value(0)).current;
 
-  const speak = useCallback(() => {
+  const speak = useCallback(async () => {
     try {
+      // IMPORTANT OTA : le binaire TestFlight installé peut être plus ancien
+      // que l'ajout d'expo-speech. Un import statique ferait alors planter
+      // l'application dès le démarrage. Charger le module uniquement ici
+      // garde l'app utilisable ; sans module natif, la mascotte reste animée
+      // mais silencieuse jusqu'au prochain vrai build iOS.
+      const Speech = speechModuleRef.current ?? await import('expo-speech').catch(() => null);
+      if (!Speech) { setSpeaking(false); return; }
+      speechModuleRef.current = Speech;
       Speech.stop();
       setSpeaking(true);
       Speech.speak(line.text, {
@@ -41,8 +49,12 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
   useEffect(() => {
     let live = true;
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { if (live) setReduceMotion(Boolean(v)); }).catch(() => {});
-    const t = setTimeout(speak, 700);
-    return () => { live = false; clearTimeout(t); try { Speech.stop(); } catch {} };
+    const t = setTimeout(() => { void speak(); }, 700);
+    return () => {
+      live = false;
+      clearTimeout(t);
+      try { speechModuleRef.current?.stop(); } catch {}
+    };
   }, [speak]);
 
   useEffect(() => {

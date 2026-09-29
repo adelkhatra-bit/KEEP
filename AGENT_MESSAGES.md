@@ -1983,3 +1983,8 @@ Le partage n'est plus un bouton permanent dans l'en-tête : il vit dans ☰ sous
 
 b73d698 pousse sur reconcile -- Battle: KeepBattleMobileGameV3.tsx (accueil SOLO/BATTLE, compteurs Free + PLUS, couleurs reponses vert/rouge via services/battleHomeInfo.ts). Prevenir avant de retoucher ces zones. TestFlight #128: soumission programmee chez EAS, attente CI coupee (DNS).
 
+
+
+## [2026-09-30] chatgpt — HOTFIX page blanche TestFlight
+
+Cause probable démontrée par l'historique : expo-speech n'était pas dans packages/mobile/package.json au 14/09, donc le binaire TestFlight antérieur aux builds iOS #71-75 peut ne pas contenir ce module natif. Le commit ed1933e a ajouté LokiMascotVoice avec un import statique expo-speech ; l'OTA fc129099 charge alors ce module au démarrage, ce qu'une OTA ne peut pas ajouter au binaire natif. Correction : import dynamique seulement lors de la voix, repli silencieux si module absent. Nouvelle OTA production déclenchée immédiatement. Ne pas réintroduire d'import statique expo-speech avant un nouveau build TestFlight natif.

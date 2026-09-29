@@ -20,3 +20,7 @@ target-commit: f3e3472
 # onglet « Loki Music ». Commits b73d698 → d7325e9.
 ota-request: 2026-09-29-soir-complet
 target-commit: d7325e9
+
+# 30/09/2026 — hotfix écran blanc TestFlight : expo-speech est chargé à la demande seulement.
+ota-request: 2026-09-30-white-screen-native-module-compat
+target-commit: __COMMIT__
