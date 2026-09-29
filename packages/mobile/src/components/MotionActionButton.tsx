@@ -160,7 +160,9 @@ export default function MotionActionButton({
             bottom: -3,
             left: -3,
             borderRadius: 16,
-            backgroundColor: config.glow,
+            borderWidth: 2,
+            borderColor: config.glow,
+            backgroundColor: 'transparent',
             opacity: idleOutlineOpacity,
             transform: [{ scale: idleOutlineScale }],
           }}
@@ -175,7 +177,9 @@ export default function MotionActionButton({
           bottom: -4,
           left: -4,
           borderRadius: 16,
-          backgroundColor: config.glow,
+          borderWidth: variant === 'outline' ? 2 : 0,
+          borderColor: config.glow,
+          backgroundColor: variant === 'outline' ? 'transparent' : config.glow,
           opacity: pressGlowOpacity,
           transform: [{ scale: pressGlowScale }],
         }}
