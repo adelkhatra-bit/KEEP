@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleProp, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleProp, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
 interface MotionActionButtonProps {
@@ -63,13 +63,13 @@ export default function MotionActionButton({
         toValue: 1,
         duration: 1250,
         easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(idleOutlineAnim, {
         toValue: 0,
         duration: 1250,
         easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]));
     loop.start();
@@ -84,13 +84,13 @@ export default function MotionActionButton({
         toValue: 0.96,
         duration: 80,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(pressGlowAnim, {
         toValue: 1,
         duration: 140,
         easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   };
@@ -103,20 +103,20 @@ export default function MotionActionButton({
         toValue: 1.02,
         duration: 60,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(scaleAnim, {
         toValue: 1,
         duration: 100,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
     Animated.timing(pressGlowAnim, {
       toValue: 0,
       duration: 190,
       easing: Easing.in(Easing.ease),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   };
 
