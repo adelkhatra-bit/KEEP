@@ -1288,7 +1288,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   decelerationRate="fast"
                   accessibilityLabel="Collections musicales à débloquer"
                 >
-                  {saleOffers.slice(0, 3).map((offer, index) => {
+                  {(showAllSaleOffers ? saleOffers : saleOffers.slice(0, 3)).map((offer, index) => {
                     const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
                     const priceLabel = offer.paymentMode === 'FREE'
                       ? `${offer.freePrice ?? 0} FREE`
@@ -1329,8 +1329,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   })}
                 </ScrollView>
                 {saleOffers.length > 3 ? (
-                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setShowAllSaleOffers(true)} accessibilityRole="button" accessibilityLabel={`${showAllSaleOffers ? 'Réduire' : 'Voir'} les ${saleOffers.length} collections de ${profile.username}`}>
-                    <Text style={styles.marketplaceBrowseAllText}>{`PARCOURIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>›</Text>
+                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setShowAllSaleOffers((v) => !v)} accessibilityRole="button" accessibilityLabel={`${showAllSaleOffers ? 'Réduire' : 'Voir'} les ${saleOffers.length} collections de ${profile.username}`}>
+                    <Text style={styles.marketplaceBrowseAllText}>{showAllSaleOffers ? 'RÉDUIRE' : `PARCOURIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>›</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Vendu par @{profile.username}</Text></TouchableOpacity>

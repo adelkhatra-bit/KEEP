@@ -750,6 +750,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
     return Array.from(byOfferId.values());
   }, [myOfferedTrackIds]);
 
+  // 29/09/2026 (audit ventes) : « Mes albums » affichait toujours un prix en
+  // €, même pour une collection débloquable en FREE -- existingOffersForAdd ne
+  // porte pas le mode de paiement. On lit l'offre complète déjà chargée.
+  const saleOfferPriceLabel = (offerId: string, fallbackCents: number) => {
+    const full = Object.values(myOffers).find((o) => o.offerId === offerId);
+    if (full?.paymentMode === 'FREE') return `${full.freePrice ?? 0} FREE`;
+    return `${((full?.priceCents ?? fallbackCents) / 100).toFixed(2).replace('.', ',')}€`;
+  };
+
   const openAllAvailableMusic = () => {
     setWorkspaceTab('LIBRARY');
     setActiveTab('MUSIQUES');
@@ -1329,7 +1338,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <ScrollView style={styles.collectionDashboardList} contentContainerStyle={styles.collectionDashboardRail} showsVerticalScrollIndicator={false}>
           {existingOffersForAdd.length ? existingOffersForAdd.map((offer) => {
             const trackCount = Object.values(myOfferedTrackIds).filter((row) => row.offerId === offer.offerId).length;
-            return <View key={offer.offerId} style={styles.collectionDashboardCard}><TouchableOpacity style={styles.collectionDashboardCardMain} onPress={() => openCollectionManager(offer)}><View style={styles.collectionDashboardCover}><Text style={styles.collectionDashboardCoverText}>♫</Text></View><View style={styles.collectionDashboardCardCopy}><Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text><Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text><Text style={styles.collectionDashboardMeta}>{trackCount} morceau{trackCount > 1 ? 'x' : ''} · {(offer.priceCents / 100).toFixed(2).replace('.', ',')}€</Text></View><Text style={styles.collectionDashboardChevron}>›</Text></TouchableOpacity><View style={styles.collectionDashboardActions}><TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity><TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity></View></View>;
+            return <View key={offer.offerId} style={styles.collectionDashboardCard}><TouchableOpacity style={styles.collectionDashboardCardMain} onPress={() => openCollectionManager(offer)}><View style={styles.collectionDashboardCover}><Text style={styles.collectionDashboardCoverText}>♫</Text></View><View style={styles.collectionDashboardCardCopy}><Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text><Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text><Text style={styles.collectionDashboardMeta}>{trackCount} morceau{trackCount > 1 ? 'x' : ''} · {saleOfferPriceLabel(offer.offerId, offer.priceCents)}</Text></View><Text style={styles.collectionDashboardChevron}>›</Text></TouchableOpacity><View style={styles.collectionDashboardActions}><TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity><TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity></View></View>;
           }) : <View style={styles.collectionDashboardEmptyCard}><Text style={styles.collectionDashboardEmptyTitle}>Aucun album publié</Text><Text style={styles.collectionDashboardEmpty}>Compose ton premier album avec tes musiques disponibles.</Text></View>}
         </ScrollView>
       </View> : null}
