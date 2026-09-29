@@ -1890,3 +1890,7 @@ Handoff Claude/CI : tu peux maintenant reprendre les tests/CI obsolètes. Les er
 ## [2026-09-29T11:15:00Z] chatgpt — cause écran noir desktop identifiée
 
 Cause démontrée dans packages/mobile/index.js : à partir de 900px, #root passait de 100dvh à height:auto/overflow:visible. Quand DevTools réduisait la fenêtre, le media query mobile remettait un root plein écran, d'où l'impression que « voir le code » réparait l'image. Correction ciblée : desktop = vraie surface 100dvh expansive, aucun changement App.tsx/Navigation.tsx/5 onglets. Guardian desktop étendu pour redimensionner la MÊME page 1440×900 → 900×700 → 390×844 → 1440×900 sans reload.
+
+
+## [2026-09-29T11:20:00Z] chatgpt — profil entouré + erreurs console
+À la demande d'Adel, correction ciblée du bloc identité de ProfilePublicScreen : pseudo/certification séparés de Battle, type + localisation aérés, Battle sur sa propre ligne, aucune suppression de fonction. Console web : useNativeDriver désactivé uniquement sur web dans les composants visibles du profil ; pending-session-imports ne dépend plus du backend Vercel 503 et passe par Supabase RLS. Le RPC referral évite désormais les cas prévisibles anonyme/ancien/auto-référencé avant l'appel. Ne pas revenir à l'ancien bloc serré. App.tsx/Navigation.tsx/5 onglets intouchés.
