@@ -78,9 +78,9 @@ export default function BattleGlowButton({
       />
       <Animated.View
         style={{
-          minHeight: compact ? 32 : 52,
+          minHeight: compact ? 32 : 54,
           paddingHorizontal: compact ? 10 : 16,
-          borderRadius: compact ? 16 : 17,
+          borderRadius: compact ? 16 : 16,
           borderWidth: 2,
           borderColor: accent,
           backgroundColor: pressedState ? 'rgba(124,92,252,0.28)' : active ? 'rgba(45,225,194,0.10)' : 'rgba(124,92,252,0.16)',
