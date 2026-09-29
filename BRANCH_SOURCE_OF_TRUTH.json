@@ -6,20 +6,23 @@
   "githubPagesWorkflow": ".github/workflows/web-preview-pages.yml",
   "frozenDefaultBranch": "main",
   "frozenDefaultBranchPurpose": "GitHub metadata only; never a product source",
-  "legacyNamedBranches": [
+  "productSourceCount": 1,
+  "allowedRemoteBranches": [
+    "reconcile/claude-main-20260825",
+    "main",
+    "dependabot/*"
+  ],
+  "archivedLegacyRefs": "refs/tags/archive/legacy-*",
+  "forbiddenRemoteBranches": [
+    "web-preview",
+    "admin-preview",
     "chatgpt/*",
     "claude*",
     "copilot/*",
     "fix/*",
-    "backup/*"
+    "backup/*",
+    "security/*",
+    "vercel/*"
   ],
-  "allowedAutomationBranchPrefixes": [
-    "dependabot/"
-  ],
-  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly.",
-  "productSourceCount": 1,
-  "forbiddenRemoteBranches": [
-    "web-preview",
-    "admin-preview"
-  ]
+  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. All legacy human branches are preserved as archive tags, not active branches."
 }
