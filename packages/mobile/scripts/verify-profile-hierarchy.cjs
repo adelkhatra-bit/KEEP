@@ -44,7 +44,7 @@ assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQui
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
-assertIncludes(owner, 'topMetricLeftStack:{width:82', 'Owner FREE left stack');
+assertIncludes(owner, 'topMetricFreeStack:{width:82', 'Owner FREE right stack');
 assertIncludes(owner, 'style={s.profileBattleAboveFree}', 'Owner Battle above FREE');
 
 const ownerMetrics = owner.slice(
@@ -52,12 +52,12 @@ const ownerMetrics = owner.slice(
   owner.indexOf('{freeDetailsOpen ? ('),
 );
 assertOrdered(ownerMetrics, [
-  'style={s.profileBattleAboveFree}',
-  'accessibilityLabel="Voir le détail de mes Free"',
+  '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-  '>PLUS</Text>',
-], 'Owner metrics order Battle -> FREE -> social -> PLUS');
+  'style={s.profileBattleAboveFree}',
+  'accessibilityLabel="Voir le détail de mes Free"',
+], 'Owner metrics order PLUS -> social -> Battle -> FREE');
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
@@ -113,6 +113,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: Battle above FREE on left, followers/reprises center, PLUS right');
+console.log('owner: PLUS left, followers/reprises center, Battle above FREE right');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');

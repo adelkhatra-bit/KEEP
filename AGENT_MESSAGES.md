@@ -2009,3 +2009,8 @@ Correction de la consigne précédente mal interprétée : Adel demande l'invers
 ## [2026-09-30T01:06:00+02:00] chatgpt — rollback strict du changement design profil c880ae4
 
 Audit arrière demandé par Adel : le correctif robustesse acf2c160 n'avait pas touché ProfilePublicScreen. Le commit suivant c880ae4 a en revanche inversé visuellement PLUS/FREE et déplacé le bloc FREE+BATTLE. Ce changement design est annulé intégralement. ProfilePublicScreen.tsx et son garde verify-profile-hierarchy.cjs sont restaurés byte-for-byte depuis acf2c160. Aucun App.tsx, Navigation.tsx, barre 5 onglets, profil visité, ni logique métier modifiés. À partir d'ici : aucun changement de layout profil pendant les réparations robustesse sans demande explicite.
+
+
+## [2026-09-30T01:05:00+02:00] chatgpt — consigne capture profil réappliquée explicitement
+
+Demande utilisateur confirmée à nouveau : sur le profil propriétaire, PLUS doit être à gauche à la place de FREE ; FREE doit être à droite à la place de PLUS ; le switch BATTLE ON/OFF reste immédiatement AU-DESSUS de FREE. Abonnés/Reprises restent au centre. Même design, mêmes dimensions. Ce changement est volontaire et ne doit plus être revert comme « accidentel ». Aucun App.tsx, Navigation.tsx ni barre 5 onglets modifié.
