@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -27,6 +27,7 @@ export default function BattleGlowButton({
 }: Props) {
   const pulse = useRef(new Animated.Value(0)).current;
   const press = useRef(new Animated.Value(0)).current;
+  const [pressedState, setPressedState] = useState(false);
 
   useEffect(() => {
     if (disabled) {
@@ -52,8 +53,8 @@ export default function BattleGlowButton({
       activeOpacity={1}
       disabled={disabled}
       onPress={onPress}
-      onPressIn={() => Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: true }).start()}
+      onPressIn={() => { setPressedState(true); Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start(); }}
+      onPressOut={() => { setPressedState(false); Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: true }).start(); }}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel || label}
@@ -81,7 +82,7 @@ export default function BattleGlowButton({
           borderRadius: compact ? 16 : 17,
           borderWidth: 2,
           borderColor: accent,
-          backgroundColor: active ? '#1B1230' : colors.backgroundElevated,
+          backgroundColor: pressedState ? 'rgba(139,92,255,0.16)' : 'transparent',
           shadowColor: glow,
           shadowOpacity: active ? 0.85 : 0.45,
           shadowRadius: compact ? 8 : 12,
