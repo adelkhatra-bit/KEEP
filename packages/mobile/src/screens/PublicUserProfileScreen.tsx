@@ -1238,13 +1238,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>COLLECTIONS DE @{profile.username}</Text>
-                <Text style={styles.sectionTitle}>À écouter · à débloquer</Text>
+                <Text style={styles.marketplaceKicker}>LE CLUB DE @{profile.username}</Text>
+                <Text style={styles.sectionTitle}>Ses sélections exclusives</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
                 {saleOffers.length > 0 ? (
                   <View style={styles.marketplaceCountPill}>
-                    <Text style={styles.marketplaceCountText}>{saleOffers.length} COLLECTION{saleOffers.length > 1 ? 'S' : ''}</Text>
+                    <Text style={styles.marketplaceCountText}>{saleOffers.length} COLL. · {marketBannerEventIds.length} SOIRÉE{marketBannerEventIds.length > 1 ? 'S' : ''}</Text>
                   </View>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
@@ -1252,7 +1252,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} pépites · écoute protégée 15 s` : 'Les nouvelles collections apparaîtront ici'}</Text></View>
+            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} pépites à découvrir · ${visiblePublicVibes.length} vibes · ${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''}` : 'Ses prochaines sélections et soirées apparaîtront ici'}</Text></View>
             {saleOffers.length === 0 ? (
               <TouchableOpacity
                 style={styles.marketplaceEmpty}
@@ -1271,7 +1271,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   decelerationRate="fast"
                   accessibilityLabel="Collections musicales à débloquer"
                 >
-                  {(showAllSaleOffers ? saleOffers : saleOffers.slice(0, 3)).map((offer, index) => {
+                  {saleOffers.slice(0, 3).map((offer, index) => {
                     const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
                     const priceLabel = offer.paymentMode === 'FREE'
                       ? `${offer.freePrice ?? 0} FREE`
@@ -1305,15 +1305,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                         onPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
                         accessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
                       >
-                        <Text style={styles.immersiveLaunchText}>▶ ÉCOUTER 15 S</Text>
+                        <Text style={styles.immersiveLaunchText}>▶ ÉCOUTER L’APERÇU</Text>
                       </TouchableOpacity>
                       </View>
                     );
                   })}
                 </ScrollView>
                 {saleOffers.length > 3 ? (
-                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setShowAllSaleOffers((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showAllSaleOffers }} accessibilityLabel={`${showAllSaleOffers ? 'Réduire' : 'Voir'} les ${saleOffers.length} collections de ${profile.username}`}>
-                    <Text style={styles.marketplaceBrowseAllText}>{showAllSaleOffers ? 'RÉDUIRE' : `VOIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>{showAllSaleOffers ? '⌃' : '⌄'}</Text>
+                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setShowAllSaleOffers(true)} accessibilityRole="button" accessibilityLabel={`${showAllSaleOffers ? 'Réduire' : 'Voir'} les ${saleOffers.length} collections de ${profile.username}`}>
+                    <Text style={styles.marketplaceBrowseAllText}>{`PARCOURIR LES ${saleOffers.length} COLLECTIONS`}</Text><Text style={styles.marketplaceReopenArrow}>›</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Vendu par @{profile.username}</Text></TouchableOpacity>
@@ -1324,7 +1324,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         ) : (
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>VOIR SES PÉPITES</Text><Text style={styles.marketplaceReopenMeta}>Collections · nouveautés · soirées</Text></View>
+            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVEAU CHEZ LUI' : 'SON CLUB MUSICAL'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collections · {visiblePublicVibes.length} vibes · {marketBannerEventIds.length} soirées</Text></View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
         )}
