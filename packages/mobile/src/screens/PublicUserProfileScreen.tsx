@@ -21,6 +21,7 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
+import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
@@ -1195,16 +1196,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               ) : <View style={styles.visitorActionChipPlaceholder} />}
               {battleFeatureEnabled ? (
-                <MotionActionButton
-                  variant="outline"
-                  size="medium"
-                  containerStyle={styles.visitorActionMotion}
+                <BattleGlowButton
+                  label={battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}
+                  style={styles.visitorActionMotion}
                   onPress={() => void challengeProfileToBattle()}
                   disabled={battleInviteBusy}
+                  active={profilePresence.online}
                   accessibilityLabel={`Défier ${profile.username} en Battle`}
-                >
-                  {battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}
-                </MotionActionButton>
+                />
               ) : <View style={styles.visitorActionChipPlaceholder} />}
               <TouchableOpacity style={[styles.visitorActionChip, styles.visitorActionChipPrimary]} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>
                 <Text style={styles.visitorActionIcon}>↗</Text><Text style={styles.visitorActionLabel}>PARTAGER</Text>
@@ -1755,7 +1754,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
     followPrimaryButton:{marginTop:14,minHeight:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,paddingHorizontal:18},followPrimaryButtonOn:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},followPrimaryButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:0.7},followPrimaryButtonTextOn:{color:colors.primaryLight},
     visitorActionRow:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:12},
-  visitorActionMotion:{flex:1,minWidth:0},
+  visitorActionMotion:{flex:1,minWidth:0,alignSelf:'stretch'},
   visitorActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
   visitorActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
   visitorActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
