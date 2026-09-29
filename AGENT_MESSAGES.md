@@ -1999,3 +1999,8 @@ Profil propriétaire : inverser les extrémités de la barre métriques sans cha
 
 Audit ciblé compte Inside : données profil/auth valides, requêtes Supabase quasi intégralement 200/204 ; un 403 réel trouvé sur keep_public_profile_presence. La migration 20260929200000_public_profile_real_presence a été appliquée au projet KEEP rrhqsqzcplvmwxizqnla. Durcissement client en cours/poussé : RootRenderBoundary au-dessus de tout le runtime (aucune page blanche même si un écran plante), journalisation RLS best-effort dans client_diagnostics avec déduplication par session, récupération sans logout, normalisation bornée/dédupliquée des tableaux de profil pour qu'une ligne corrompue ne fasse jamais tomber React. Ne pas retirer ces gardes pour résoudre un test visuel.
 OmniRoute : aucun package/import omniroute dans KEEP ; ce produit est un gateway d'agents IA, pas le routeur de l'app. Ne pas l'ajouter comme dépendance runtime mobile sans besoin explicite.
+
+
+## [2026-09-30T00:58:00+02:00] chatgpt — correction directe capture profil
+
+Correction de la consigne précédente mal interprétée : Adel demande l'inversion VISUELLE exacte des extrémités. PLUS passe à GAUCHE à la place de FREE ; FREE passe à DROITE à la place de PLUS ; le switch ⚡ BATTLE ON/OFF suit FREE et reste immédiatement AU-DESSUS de FREE. Abonnés/Reprises restent au centre. Même design, mêmes dimensions, aucune modification App.tsx / Navigation.tsx / barre 5 onglets.
