@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -195,8 +195,8 @@ function ResultIcon({ icon, big }: { icon: string; big?: boolean }) {
   const pulse = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 480, useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 0, duration: 480, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 480, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulse, { toValue: 0, duration: 480, useNativeDriver: Platform.OS !== 'web' }),
     ]));
     loop.start();
     return () => loop.stop();
@@ -215,7 +215,7 @@ function RevealArtwork({ uri }: { uri: string }) {
   const punch = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     punch.setValue(0);
-    Animated.spring(punch, { toValue: 1, friction: 4, tension: 130, useNativeDriver: true }).start();
+    Animated.spring(punch, { toValue: 1, friction: 4, tension: 130, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [uri]);
   const scale = punch.interpolate({ inputRange: [0, 1], outputRange: [1.45, 1] });
   return <Animated.Image source={{ uri }} style={[s.cover, { transform: [{ scale }] }]} />;
@@ -626,10 +626,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     celebrationScale.setValue(.72);
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(celebrationOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(celebrationScale, { toValue: 1.08, friction: 4, tension: 90, useNativeDriver: true }),
+        Animated.timing(celebrationOpacity, { toValue: 1, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.spring(celebrationScale, { toValue: 1.08, friction: 4, tension: 90, useNativeDriver: Platform.OS !== 'web' }),
       ]),
-      Animated.spring(celebrationScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
+      Animated.spring(celebrationScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, [celebrationOpacity, celebrationScale]);
 
@@ -716,17 +716,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const tierLabel = (tier?: string) => tier === 'EXPERT' ? '👑 Expert' : tier === 'CONFIRME' ? '⭐ Confirmé' : '🌱 Débutant';
   const animateResult = React.useCallback(() => {
     pulse.setValue(.96);
-    Animated.spring(pulse, { toValue: 1, friction: 5, tension: 110, useNativeDriver: true }).start();
+    Animated.spring(pulse, { toValue: 1, friction: 5, tension: 110, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [pulse]);
   const animateVersus = React.useCallback(() => {
     versusOpacity.setValue(0); versusScale.setValue(.72);
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(versusOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
-        Animated.spring(versusScale, { toValue: 1, friction: 4, tension: 95, useNativeDriver: true }),
+        Animated.timing(versusOpacity, { toValue: 1, duration: 160, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.spring(versusScale, { toValue: 1, friction: 4, tension: 95, useNativeDriver: Platform.OS !== 'web' }),
       ]),
       Animated.delay(1100),
-      Animated.timing(versusOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(versusOpacity, { toValue: 0, duration: 180, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, [versusOpacity, versusScale]);
 
