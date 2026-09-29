@@ -389,7 +389,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.quickStartBox}>
             <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI</Text>
             <Text style={s.quickStartTitle}>Remplis d’abord ton profil de musique.</Text>
-            <Text style={s.quickStartText}>Écoute → Garde → crée tes playlists → partage ton profil → joue en Solo/Battle pour gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits.</Text>
+            <Text style={s.quickStartText}>Écoute → garde un maximum de pépites → construis tes playlists → partage ton profil → joue en Solo/Battle pour tenter de gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits.</Text>
           </View>
         </View> : <>
           <View style={s.promiseCard}>
@@ -400,14 +400,14 @@ export default function OffersScreen({ navigation, route }: any) {
 
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>COMMENT LOKI GRANDIT AVEC TOI</Text>
-            <Text style={s.discoveryTitle}>Écoute → Garde → Partage → Joue → Recommence.</Text>
-            <Text style={s.discoveryBody}>Commence par remplir ton profil de musiques. Écoute, garde ce que tu aimes, puis découvre les pépites des autres. Plus ton profil grandit, plus il devient intéressant à visiter et à partager.</Text>
+            <Text style={s.discoveryTitle}>Écoute → Garde → Construis → Partage → Joue.</Text>
+            <Text style={s.discoveryBody}>Ta première mission : remplis ton profil de musique. Chaque morceau gardé enrichit ton univers musical. Plus ta collection grandit, plus les autres ont de pépites à découvrir chez toi.</Text>
             <View style={s.discoveryDetails}>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>ÉCOUTE · Reconnais une musique et garde-la si tu l’aimes.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>GARDE · Tes musiques remplissent ton profil et tes playlists.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Envoie ton profil à tes amis. Les actions éligibles peuvent te rapporter des Fruits.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Solo ou Battle : choisis un style, défie tes amis et gagne les Free annoncés pour la partie.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECOMMENCE · Les Free servent à garder de nouvelles découvertes. Les Fruits récompensent certaines actions sociales.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>CONSTRUIS · Chaque morceau gardé enrichit ton profil. Organise ensuite tes pépites dans tes playlists.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Envoie ton profil à tes amis. Plus ta collection est riche, plus ton univers musical a de choses à faire découvrir. Les actions éligibles peuvent rapporter des Fruits.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Solo ou Battle : choisis ton style, défie tes amis et tente de gagner les Free annoncés pour la partie.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECHARGE · Utilise tes Free pour garder de nouvelles découvertes, puis fais encore grandir ton profil.</Text></View>
             </View>
           </View>
 
