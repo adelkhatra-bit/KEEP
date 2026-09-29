@@ -159,22 +159,22 @@ export default function ProfileStyleCard({
           </Text>
         </Pressable>
         <View style={s.topRight}>
-          {actionLabel && onActionPress ? (
-            <Pressable
-              onPress={onActionPress}
-              accessibilityRole="button"
-              accessibilityLabel={actionAccessibilityLabel ?? actionLabel}
-              style={[s.badge, s.sourceBadge]}
-            >
-              <Text style={[s.badgeText, s.sourceBadgeText]} numberOfLines={1}>{actionLabel}</Text>
-            </Pressable>
-          ) : null}
           {priceLabel ? <Text style={s.price}>{priceLabel}</Text> : null}
         </View>
       </View>
       <View style={s.bottom}>
         <Text style={s.title} numberOfLines={1}>{title}</Text>
         <Text style={s.subtitle} numberOfLines={2}>{subtitle}</Text>
+        {actionLabel && onActionPress ? (
+          <Pressable
+            onPress={onActionPress}
+            accessibilityRole="button"
+            accessibilityLabel={actionAccessibilityLabel ?? actionLabel}
+            style={s.sourceBadgeBottom}
+          >
+            <Text style={s.sourceBadgeBottomText} numberOfLines={1}>{actionLabel}</Text>
+          </Pressable>
+        ) : null}
         <View style={s.playSpacer} />
       </View>
     </>
@@ -297,8 +297,8 @@ const s = StyleSheet.create({
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
   topRight: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  sourceBadge: { flex: 1, minWidth: 0, maxWidth: 104, borderColor: colors.keep, paddingHorizontal: 6 },
-  sourceBadgeText: { color: colors.keep, maxWidth: '100%', textAlign: 'center' },
+  sourceBadgeBottom: { alignSelf:'flex-start', maxWidth:'82%', minHeight:24, marginTop:7, paddingHorizontal:9, borderRadius:12, backgroundColor:'rgba(4,3,10,.58)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
+  sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:9, fontWeight:'900', letterSpacing:.35 },
   cardAction: {
     position: 'absolute',
     right: 10,
