@@ -47,7 +47,7 @@ const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
   '<View style={styles.unifiedCounters}>',
-  '<Text style={styles.sectionTitle}>À écouter · à débloquer</Text>',
+  '<Text style={styles.sectionTitle}>Ses sélections exclusives</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
@@ -65,10 +65,10 @@ assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile moti
 assertIncludes(owner, '<BattleGlowButton', 'Owner animated Battle contour');
 assertIncludes(visitor, '<BattleGlowButton', 'Visited animated Battle contour');
 if ((owner.match(/variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionFull\}/g) || []).length !== 3) {
-  throw new Error('Owner APERÇU / PEPITES / BATTLE must share the same full-width outline-only geometry');
+  throw new Error('Owner APERÇU / PEPITES / BATTLE must share the same equal-width outline geometry');
 }
-assertIncludes(owner, "ownerQuickActions:{gap:8,marginTop:8,width:'100%'}", 'Owner quick actions full-width group');
-assertIncludes(owner, "ownerQuickActionFull:{width:'100%'}", 'Owner quick actions full-width buttons');
+assertIncludes(owner, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Owner quick actions equal-width row');
+assertIncludes(owner, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Owner quick actions flexible equal-width buttons');
 assertIncludes(owner, "setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications');", 'Notification bell opens notifications directly');
 assertIncludes(visitor, '<BattleGlowButton', 'Visited profile Battle outline');
 assertIncludes(visitor, 'style={styles.visitorActionMotion}', 'Visited profile Battle equal-width action');
@@ -80,7 +80,8 @@ assertIncludes(motionButton, "backgroundColor: variant === 'outline' && pressed 
 
 const battleGlow = read('src/components/BattleGlowButton.tsx');
 assertIncludes(battleGlow, 'Animated.loop(Animated.sequence([', 'Battle animated contour');
-assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(139,92,255,0.16)' : 'transparent'", 'Battle is outline-only until pressed');
+assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.28)' : active ? 'rgba(45,225,194,0.10)' : 'rgba(124,92,252,0.16)'", 'Battle keeps visible depth and press feedback');
+assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
 assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
