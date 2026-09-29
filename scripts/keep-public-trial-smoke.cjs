@@ -21,7 +21,7 @@ function assertVisibleBody(text, html, label) {
 }
 
 async function waitForFiveTabs(page) {
-  for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
+  for (const label of ['Loki', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
     await page.getByText(label, { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
   }
 }

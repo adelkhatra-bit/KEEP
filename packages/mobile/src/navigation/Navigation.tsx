@@ -128,7 +128,7 @@ function MainTabs() {
         name="Listen"
         component={HomeScreenCompact}
         options={{
-          tabBarLabel: 'Écouter',
+          tabBarLabel: 'Loki',
           tabBarIcon: ({ color }) => <TabIcon icon="◉" color={color} />,
         }}
       />

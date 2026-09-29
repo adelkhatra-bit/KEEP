@@ -110,7 +110,7 @@ for (const expected of [expectedRepository, expectedBranch, expectedPublicRoot, 
 }
 
 const nav = fs.readFileSync(path.join(root, 'packages/mobile/src/navigation/Navigation.tsx'), 'utf8');
-for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
+for (const label of ['Loki', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
   if (!nav.includes(`tabBarLabel: '${label}'`)) failures.push(`KEEP TAB MISSING: ${label}`);
 }
 if (!nav.includes('component={ProfilePublicScreen}')) failures.push('PROFILE TAB IS NOT ProfilePublicScreen');

@@ -11,7 +11,7 @@
  * sur PC, tablette et mobile :
  *   1. #root occupe au moins 90 % de la hauteur de la fenêtre ;
  *   2. la barre des 5 onglets est visible dans la fenêtre ;
- *   3. l'écran Écouter affiche son titre à l'écran (hauteur > 0, dans la fenêtre).
+ *   3. l'écran Loki (ex-Écouter) affiche son titre à l'écran (hauteur > 0, dans la fenêtre).
  *
  * Usage : node scripts/web-visible-surface-gate.cjs <BASE_URL>
  *   ex. BASE_URL = http://127.0.0.1:8765/KEEP  (avant publication)
@@ -35,7 +35,7 @@ const scenarios = [
   { name: 'android-pixel7', context: { ...devices['Pixel 7'] } },
 ];
 const routes = ['/', '/Main/Listen/', '/Main/Profile/'];
-const TAB_LABELS = ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
+const TAB_LABELS = ['Loki', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
 
 async function measure(page) {
   return page.evaluate((tabLabels) => {

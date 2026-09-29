@@ -108,3 +108,23 @@ export function soloEncouragement(roundIndex: number, totalRounds: number): stri
   if (totalRounds > 1 && roundIndex === totalRounds - 1) return 'Dernier morceau, tout se joue maintenant !';
   return SOLO_ENCOURAGEMENTS[(roundIndex - 1) % SOLO_ENCOURAGEMENTS.length];
 }
+
+// Adel (29/09/2026) : « s'il sort au bout de la 3e musique, est-ce que ça
+// lui débite bien sa partie Solo, et est-ce qu'un popup le prévient ? ».
+// Le serveur compte la partie au DÉMARRAGE (keep_battle_solo_consume_daily_start) :
+// quitter en route ne la rend pas. `status` = statut lu avant le départ.
+export function soloCostNotice(status: SoloDailyStatusLike | null): string | null {
+  if (!status || status.unlimited) return null;
+  const limit = Math.max(0, status.limit ?? 0);
+  const after = Math.max(0, (status.remaining ?? 0) - 1);
+  return `Cette partie utilise 1 Solo du jour : il t'en restera ${after} sur ${limit}. Même si tu quittes avant la fin, elle reste comptée.`;
+}
+
+// `status` = statut lu AVANT le départ (le compteur de l'accueil) : la partie
+// en cours est déjà décomptée côté serveur.
+export function soloQuitNotice(status: SoloDailyStatusLike | null): string {
+  if (!status || status.unlimited) return 'Ta partie en cours sera perdue (aucun Free gagné).';
+  const limit = Math.max(0, status.limit ?? 0);
+  const left = Math.max(0, (status.remaining ?? 0) - 1);
+  return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie.`;
+}

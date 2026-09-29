@@ -90,7 +90,7 @@ jobs:
           const BIO = 'Profil test mobile 390x844';
           const WEBSITE = 'https://keep.test/guardian390';
           const INSTAGRAM = 'https://instagram.com/guardian390';
-          const tabs = ['Écouter','Découvertes','Playlists','Soirées','Profil'];
+          const tabs = ['Loki','Découvertes','Playlists','Soirées','Profil'];
 
           async function clickRobust(page, locator, label) {
             let lastError;

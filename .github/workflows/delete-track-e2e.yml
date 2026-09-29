@@ -89,13 +89,13 @@ jobs:
               await page.waitForTimeout(300);
             }
 
-            for (const label of ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
+            for (const label of ['Loki', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) {
               await exact(label).waitFor({ state: 'visible', timeout: 15000 });
             }
 
             // 1. Créer une vraie entrée dans la bibliothèque locale via le même
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
-            await exact('Écouter').click({ force: true });
+            await exact('Loki').click({ force: true });
             const start = page.getByLabel(/Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({ state: 'visible', timeout: 15000 });
             await start.click({ timeout: 3000 }).catch(async () => {
