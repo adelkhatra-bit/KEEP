@@ -270,16 +270,16 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     nestedScrollEnabled
     showsVerticalScrollIndicator={false}
   >
-    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki Music' : 'Se connecter à Loki Music'}</Text>
+    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte' : 'Se connecter'}</Text>
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Ton pseudo, ton mot de passe et une adresse e-mail vérifiée sont nécessaires pour créer ton compte.'
-        : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
+        ? 'Pseudo, mot de passe et adresse e-mail vérifiée sont nécessaires. C’est tout.'
+        : 'Écris ton pseudo (ou ton e-mail), puis ton mot de passe.'}
     </Text>
 
     <View style={s.labelRow}>
-      <Text style={s.label}>{mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}</Text>
+      <Text style={s.label}>{mode === 'create' ? 'Ton pseudo' : 'Ton pseudo ou ton e-mail'}</Text>
       {mode === 'create' ? <TouchableOpacity
         style={s.info}
         onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
@@ -291,7 +291,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       style={[s.input, focusedField === 'username' && s.inputFocus]}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
+      placeholder={mode === 'create' ? 'ex. lucie_music' : 'Pseudo ou e-mail'}
       placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
       onFocus={() => setFocusedField('username')}
       onBlur={() => setFocusedField((current) => current === 'username' ? null : current)}
@@ -336,7 +336,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     </> : null}
 
     <View style={s.labelRow}>
-      <Text style={s.label}>Mot de passe</Text>
+      <Text style={s.label}>Ton mot de passe</Text>
     </View>
     <View style={[s.passwordRow, focusedField === 'password' && s.inputFocus]}>
       <TextInput
@@ -398,18 +398,21 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <Text style={s.forgotText}>Mot de passe oublié ?</Text>
     </TouchableOpacity> : null}
 
-    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
-      <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
+    {/* 29/09/2026 : « un enfant de 10 ans doit comprendre tout de suite ».
+        Pas de petit lien : une vraie question + un vrai bouton. */}
+    <View style={s.orRow}><View style={s.orLine} /><Text style={s.orText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Pas encore de compte ?'}</Text><View style={s.orLine} /></View>
+    <TouchableOpacity style={s.switchButton} accessibilityRole="button" onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
+      <Text style={s.switchButtonText}>{mode === 'create' ? 'SE CONNECTER' : 'CRÉER MON COMPTE'}</Text>
     </TouchableOpacity>
     <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki Music charge uniquement la musique de cette identité.</Text>
   </ScrollView>;
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:640},
+  scroll:{maxHeight:640,flexShrink:1},
   container:{gap:8,paddingHorizontal:2,paddingTop:4,paddingBottom:12},
-  title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:2},
-  subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:12,paddingHorizontal:8},
+  title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:0},
+  subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:4,paddingHorizontal:8},
   followHint:{color:colors.primaryLight,fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginBottom:2},
   input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
   inputFocus:{borderColor:colors.primaryLight,backgroundColor:AUTH_INPUT_BACKGROUND_FOCUSED},
@@ -433,11 +436,13 @@ const s = StyleSheet.create({
   strengthTextWeak:{color:colors.warning},
   strengthTextGood:{color:colors.success},
   error:{color:colors.danger,fontSize:12,lineHeight:17,textAlign:'center',paddingHorizontal:8,marginTop:2},
-  primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14,paddingHorizontal:16},
+  primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10,paddingHorizontal:16},
   primaryText:{color:'#FFF',fontSize:16,fontWeight:'900',letterSpacing:.3,textAlign:'center'},
   forgot:{minHeight:44,alignItems:'center',justifyContent:'center'},
   forgotText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
   switchMode:{minHeight:44,alignItems:'center',justifyContent:'center'},
+  orRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:2},orLine:{flex:1,height:1,backgroundColor:colors.border},orText:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:13,fontWeight:'800'},
+  switchButton:{minHeight:50,borderRadius:25,borderWidth:1.5,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:6,paddingHorizontal:16},switchButtonText:{color:colors.textPrimary,fontSize:15,fontWeight:'900',letterSpacing:.3},
   switchText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
   recovery:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginTop:2,paddingHorizontal:10},
 });
