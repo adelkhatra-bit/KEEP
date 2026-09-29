@@ -45,8 +45,9 @@ export default function BattleGlowButton({
   const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.62] });
   const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.055] });
   const innerScale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] });
-  const accent = active ? '#8B5CFF' : '#5D4B86';
-  const glow = active ? '#A97BFF' : '#78669E';
+  const accent = active ? colors.keep : '#7C5CFC';
+  const glow = active ? '#72F5DE' : '#A97BFF';
+  const sweepX = pulse.interpolate({ inputRange: [0, 1], outputRange: [-36, compact ? 92 : 150] });
 
   return (
     <TouchableOpacity
@@ -82,7 +83,7 @@ export default function BattleGlowButton({
           borderRadius: compact ? 16 : 17,
           borderWidth: 2,
           borderColor: accent,
-          backgroundColor: pressedState ? 'rgba(139,92,255,0.16)' : 'transparent',
+          backgroundColor: pressedState ? 'rgba(124,92,252,0.28)' : active ? 'rgba(45,225,194,0.10)' : 'rgba(124,92,252,0.16)',
           shadowColor: glow,
           shadowOpacity: active ? 0.85 : 0.45,
           shadowRadius: compact ? 8 : 12,
@@ -104,7 +105,31 @@ export default function BattleGlowButton({
             right: compact ? 10 : 14,
             height: 1,
             backgroundColor: '#FFFFFF',
-            opacity: active ? 0.45 : 0.18,
+            opacity: active ? 0.55 : 0.30,
+          }}
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: 8,
+            right: 8,
+            bottom: 2,
+            height: compact ? 3 : 5,
+            borderRadius: 999,
+            backgroundColor: active ? 'rgba(45,225,194,0.22)' : 'rgba(124,92,252,0.28)',
+          }}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -12,
+            bottom: -12,
+            width: compact ? 18 : 24,
+            backgroundColor: '#FFFFFF',
+            opacity: active ? 0.16 : 0.10,
+            transform: [{ translateX: sweepX }, { rotate: '16deg' }],
           }}
         />
         <Text
