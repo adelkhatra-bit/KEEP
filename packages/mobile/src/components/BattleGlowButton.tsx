@@ -1,0 +1,119 @@
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { colors } from '../theme/colors';
+
+type Props = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  compact?: boolean;
+  style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
+};
+
+export default function BattleGlowButton({
+  label,
+  onPress,
+  disabled = false,
+  active = true,
+  compact = false,
+  style,
+  accessibilityLabel,
+}: Props) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  const press = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (disabled) {
+      pulse.setValue(0);
+      return undefined;
+    }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [disabled, pulse]);
+
+  const haloOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.62] });
+  const haloScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.055] });
+  const innerScale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.96] });
+  const accent = active ? '#8B5CFF' : '#5D4B86';
+  const glow = active ? '#A97BFF' : '#78669E';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={1}
+      disabled={disabled}
+      onPress={onPress}
+      onPressIn={() => Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: true }).start()}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || label}
+      style={[{ position: 'relative' }, style]}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: compact ? -3 : -5,
+          right: compact ? -3 : -5,
+          bottom: compact ? -3 : -5,
+          left: compact ? -3 : -5,
+          borderRadius: compact ? 18 : 20,
+          borderWidth: compact ? 2 : 3,
+          borderColor: glow,
+          opacity: haloOpacity,
+          transform: [{ scale: haloScale }],
+        }}
+      />
+      <Animated.View
+        style={{
+          minHeight: compact ? 32 : 52,
+          paddingHorizontal: compact ? 10 : 16,
+          borderRadius: compact ? 16 : 17,
+          borderWidth: 2,
+          borderColor: accent,
+          backgroundColor: active ? '#1B1230' : colors.backgroundElevated,
+          shadowColor: glow,
+          shadowOpacity: active ? 0.85 : 0.45,
+          shadowRadius: compact ? 8 : 12,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: active ? 10 : 5,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: disabled ? 0.5 : 1,
+          transform: [{ scale: innerScale }, { translateY: press.interpolate({ inputRange: [0, 1], outputRange: [0, 2] }) }],
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: 1,
+            left: compact ? 10 : 14,
+            right: compact ? 10 : 14,
+            height: 1,
+            backgroundColor: '#FFFFFF',
+            opacity: active ? 0.45 : 0.18,
+          }}
+        />
+        <Text
+          numberOfLines={1}
+          style={{
+            color: active ? '#FFFFFF' : '#D6C9F2',
+            fontSize: compact ? 9 : 12,
+            fontWeight: '900',
+            letterSpacing: compact ? 0.35 : 0.7,
+            textAlign: 'center',
+          }}
+        >
+          {label}
+        </Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
