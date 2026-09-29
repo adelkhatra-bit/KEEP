@@ -27,13 +27,12 @@ permissions:
   pages: write
   id-token: write
 
-# Runtime publication is intentionally serialized, never cancelled.
-# Several KEEP agents can push within seconds. Cancelling an in-flight Pages
-# deployment allowed a later docs/workflow commit to leave users on an older
-# runtime SHA even though the runtime fix existed on the working branch.
+# Toujours publier le dernier état de la branche canonique. Plusieurs agents peuvent
+# pousser à quelques secondes d'intervalle : annuler le build web devenu obsolète évite
+# une file d'attente qui laisse l'utilisateur plusieurs dizaines de minutes sur une ancienne interface.
 concurrency:
   group: keep-pages-reconcile-claude-main-20260825
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
