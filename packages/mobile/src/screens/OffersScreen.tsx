@@ -397,6 +397,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.promiseEyebrow}>Loki Music</Text>
             <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
             <Text style={s.promiseCommunity}>Fais grandir ta communauté musicale.</Text>
+            <View style={s.startMission}><Text style={s.startMissionTitle}>TA MISSION POUR DÉMARRER</Text><Text style={s.startMissionText}>1. Trouve et garde un maximum de musiques.  2. Construis tes playlists automatiquement sur ton profil.  3. Partage ton profil pour faire circuler tes découvertes et profiter des récompenses éligibles.  4. Défie tes amis en Solo/Battle pour tenter de gagner des Free.  5. Utilise tes Free pour découvrir et garder encore plus de musique.</Text></View>
           </View>
 
           <View style={s.discoveryCard}>
@@ -710,7 +711,7 @@ const s = StyleSheet.create({
   promiseCard: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
-  promiseCommunity: { color: colors.keep, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 7 },
+  startMission:{marginTop:12,padding:12,borderRadius:16,backgroundColor:'rgba(55,104,255,0.16)',borderWidth:1.5,borderColor:colors.primaryLight},startMissionTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.6},startMissionText:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:6},promiseCommunity: { color: colors.keep, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 7 },
   discoveryCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60' },
   discoveryEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   discoveryTitle: { color: colors.textPrimary, fontSize: 17, lineHeight: 22, fontWeight: '900', marginTop: 5 },
