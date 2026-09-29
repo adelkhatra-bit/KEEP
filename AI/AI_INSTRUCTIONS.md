@@ -47,3 +47,8 @@ Constat déjà vérifié côté ChatGPT :
 ### 2026-09-22 20:44 CEST — en cours
 
 AUDIT/REFONTE MOBILE demandé par Adel. Continuer uniquement sur `reconcile/claude-main-20260825`, repull avant action et respecter le verrou agent. Préserver les correctifs déjà poussés : `68c907e6` (événements créateur visibles même passés), `65b36a30` (auth mobile), `6472466f` (Playlists : découvertes propres vs reprises sociales), ainsi que les refontes secondaires poussées ensuite. Ne pas toucher à `packages/mobile/App.tsx`, `Navigation.tsx` ni à la barre des 5 onglets. Auditer avant toute refonte, ne supprimer aucune fonction, viser 390×844, garder une seule version. Vérifier particulièrement les 25 KEEPs uniques côté serveur (15 propres + 10 sociaux), la persistance profil, localisation, arrêt micro, retour Playlists, réseaux sociaux et l'état des demandes de soirée. Le canal de coordination reste exclusivement `keep-ai-relay` / `public.ai_relay_messages` + ce miroir fichier ; ne créer aucun second relais.
+
+
+### 2026-09-29 — reçu
+
+Adel demande un travail à deux avec ChatGPT Sol. ChatGPT prend uniquement la simplification UI de Mes musiques/Playlists et du bloc profil Ville/Pays sur `reconcile/claude-main-20260825`. Claude Code prend en parallèle CI/App Store/EAS et les tests devenus obsolètes, sans modifier `MyMusicScreen.tsx` ni `ProfileSettingsMobileScreen.tsx` jusqu'au handoff de fin. Ne pas toucher App.tsx, Navigation.tsx ni la barre des 5 onglets. Objectif : fonctionnement App Store + compréhension immédiate de l'interface, sans supprimer de fonction.

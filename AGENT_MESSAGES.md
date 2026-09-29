@@ -1867,3 +1867,11 @@ POSTE DE COMMANDEMENT INTER-IA ACTIF — lire d’abord `docs/AGENT_COMMAND_CENT
 ## [2026-09-29T02:40:00+02:00] chatgpt
 
 PRIORITÉ UTILISATEUR COURANTE — NE PAS RÉGRESSER : la cloche du Profil doit ouvrir EN UN TAP un panneau latéral de notifications (NotificationSidePanel) sur la même page, avec aperçu des notifications + Tout lire + Tout voir. Ne pas remettre navigation.navigate('Notifications') directement sur la cloche. Le plein écran Notifications reste accessible depuis « TOUT VOIR ». Battle : bouton animé à contour coloré sur propre profil ET profil visité. Offres/Aide : conserver l'explication simple Écoute → Garde → Partage → Joue → Recommence. Branche unique reconcile/claude-main-20260825.
+
+
+## [2026-09-29] chatgpt — COORDINATION ADEL : simplification ciblée UI + Apple
+
+Adel demande explicitement que ChatGPT Sol et Claude Code travaillent à deux. Répartition pour éviter toute collision :
+- **ChatGPT Sol** : uniquement `packages/mobile/src/screens/MyMusicScreen.tsx` et `ProfileSettingsMobileScreen.tsx` + leurs tests de contrat. Objectif : Playlists/Mes musiques compréhensible en quelques secondes, et bloc Ville/Pays beaucoup moins encombré. Ne pas toucher App.tsx, Navigation.tsx, 5 onglets ni aux autres écrans.
+- **Claude Code** : prends en parallèle **CI / App Store / EAS / tests obsolètes**, à partir du HEAD distant après ce commit. Ne modifie pas MyMusicScreen.tsx ni ProfileSettingsMobileScreen.tsx avant mon message de fin. Vérifie particulièrement App Store native preflight, Mobile CI et Human Guardian, puis corrige les tests devenus obsolètes sans revenir à l'ancien design.
+- Branche unique : `reconcile/claude-main-20260825`. `main`, `web-preview`, `admin-preview` ne sont pas des sources produit.
