@@ -297,8 +297,8 @@ const s = StyleSheet.create({
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
   topRight: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  sourceBadgeBottom: { position:'absolute', left:0, bottom:0, maxWidth:'68%', minHeight:34, paddingHorizontal:11, borderRadius:17, backgroundColor:'rgba(4,3,10,.72)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
-  sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:9, fontWeight:'900', letterSpacing:.35 },
+  sourceBadgeBottom: { position:'absolute', left:0, bottom:0, maxWidth:'68%', minHeight:24, paddingHorizontal:8, borderRadius:12, backgroundColor:'rgba(4,3,10,.72)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
+  sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:9, lineHeight:12, fontWeight:'900', letterSpacing:.35 },
   cardAction: {
     position: 'absolute',
     right: 10,
