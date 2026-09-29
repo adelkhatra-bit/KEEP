@@ -32,6 +32,20 @@ if (!html.includes('keep-cache-hygiene') && html.includes('</head>')) {
   html = html.replace('</head>', `${cacheHygiene}${liveVersionGuard}</head>`);
 }
 
+// Anti-flash refresh : Safari/Chrome peuvent conserver la dernière frame peinte
+// pendant que le nouveau bundle se charge. Sur Loki cela donnait l'impression
+// qu'un ancien design/modal restait "derrière" l'écran courant. On masque donc
+// le DOM applicatif derrière un fond opaque jusqu'au premier rendu React réel.
+// Aucun état métier/localStorage n'est touché et le garde-fou s'enlève aussi
+// automatiquement après 8 s si le bundle plante, afin de ne jamais bloquer l'UI.
+const bootShield = [
+  '<style id="keep-boot-shield">html.keep-booting,html.keep-booting body{background:#0B0A12!important}html.keep-booting body>*{visibility:hidden!important}html.keep-booting #root{visibility:hidden!important}</style>',
+  '<script id="keep-boot-shield-script">(function(){try{var d=document.documentElement;d.classList.add("keep-booting");var done=false;var release=function(){if(done)return;done=true;requestAnimationFrame(function(){requestAnimationFrame(function(){d.classList.remove("keep-booting")})})};var watch=function(){var r=document.getElementById("root");if(r&&r.childNodes&&r.childNodes.length){release();return true}return false};if(!watch()){var o=new MutationObserver(function(){if(watch())o.disconnect()});o.observe(document,{childList:true,subtree:true});setTimeout(function(){try{o.disconnect()}catch(e){}release()},8000)}}catch(e){try{document.documentElement.classList.remove("keep-booting")}catch(_){}}})();</script>',
+].join('');
+if (!html.includes('keep-boot-shield') && html.includes('</head>')) {
+  html = html.replace('</head>', `${bootShield}</head>`);
+}
+
 // iOS Safari zoome automatiquement lorsqu'un input a une taille de police
 // inférieure à 16px. On corrige uniquement les champs sur petit écran web,
 // sans désactiver le pinch-to-zoom ni modifier le design natif Android/iOS.
