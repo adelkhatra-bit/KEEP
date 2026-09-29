@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, Platform, StyleSheet } from 'react-native';
 
 // Adel (03/09/2026) : "un voyant ou quelque chose qui clignote pour dire
 // qu'il est connecté, et quand il est déconnecté un truc rouge" -- vert
@@ -14,8 +14,8 @@ export default function PresenceDot({ online }: { online: boolean }) {
     if (!online) { opacity.setValue(1); return undefined; }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
       ]),
     );
     loop.start();
