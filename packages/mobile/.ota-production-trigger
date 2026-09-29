@@ -9,3 +9,7 @@
 #   - App now ALWAYS renders something on first render (no black screen)
 #   - Shows OnboardingScreen (no user), OnboardingGuideScreen (first visit), or Navigation (normal)
 # Tests: TypeScript compilation 0 errors, render guard anti-pattern eliminated
+
+# 29/09/2026 — remplace l’OTA du 28/09 qui plantait au lancement (OnboardingGuideScreen sans SafeAreaProvider) + adresse Supabase.
+ota-request: 2026-09-29-fix-launch-crash
+target-commit: f3e3472
