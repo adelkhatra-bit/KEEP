@@ -132,3 +132,20 @@ export function soloQuitNotice(status: SoloDailyStatusLike | null): string {
   const left = Math.max(0, (status.remaining ?? 0) - 1);
   return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie.`;
 }
+
+// Adel (29/09/2026) : « qu'on sache pourquoi on a gagné… même résultat
+// musical mais plus rapide ? ». Une seule phrase courte, calculée à partir
+// du classement du match (placement 1 contre placement 2).
+export type MatchResultLike = { username: string; placement: number; correct: number; responseMs: number };
+export function battleWinReason(results: MatchResultLike[] | null | undefined): string | null {
+  if (!results || results.length < 2) return null;
+  const sorted = [...results].sort((a, b) => a.placement - b.placement);
+  const [w, r] = sorted;
+  if (w.correct > r.correct) return `🎯 Gagné aux bonnes réponses · ${w.correct} contre ${r.correct}`;
+  if (w.correct === r.correct) {
+    const ws = (w.responseMs / 1000).toFixed(1);
+    const rs = (r.responseMs / 1000).toFixed(1);
+    return `⚡ Égalité à ${w.correct} bonne${w.correct > 1 ? 's' : ''} réponse${w.correct > 1 ? 's' : ''} · ${w.username} plus rapide (${ws} s contre ${rs} s)`;
+  }
+  return '⚡ Gagné aux points : les réponses les plus rapides rapportent plus';
+}

@@ -1,4 +1,4 @@
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, soloPlanRuleCopy, soloQuotaCopy } from '../battleHomeInfo';
+import { battleWinReason, answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, soloPlanRuleCopy, soloQuotaCopy } from '../battleHomeInfo';
 
 describe('battleHomeInfo — réponses Battle', () => {
   it('bonne réponse toujours verte, mauvaise choisie toujours rouge (bug Adel 29/09/2026)', () => {
@@ -54,5 +54,13 @@ describe('battleHomeInfo — quota Solo et recharge Free', () => {
     expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'PREMIUM' })!.short).toBe('10 Solos par jour · Premium');
     expect(soloPlanRuleCopy({ limit: null, remaining: null, unlimited: true })!.short).toBe('Solos illimités avec ta formule');
     expect(soloPlanRuleCopy(null)).toBeNull();
+  });
+});
+
+describe('battleWinReason', () => {
+  it('explique en une phrase pourquoi on a gagné', () => {
+    expect(battleWinReason([{ username: 'adel4A', placement: 1, correct: 7, responseMs: 29800 }, { username: 'samedi', placement: 2, correct: 4, responseMs: 9800 }])).toBe('🎯 Gagné aux bonnes réponses · 7 contre 4');
+    expect(battleWinReason([{ username: 'samedi', placement: 2, correct: 7, responseMs: 31200 }, { username: 'adel4A', placement: 1, correct: 7, responseMs: 29800 }])).toBe('⚡ Égalité à 7 bonnes réponses · adel4A plus rapide (29.8 s contre 31.2 s)');
+    expect(battleWinReason([{ username: 'solo', placement: 1, correct: 3, responseMs: 1000 }])).toBeNull();
   });
 });
