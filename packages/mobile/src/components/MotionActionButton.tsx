@@ -40,7 +40,7 @@ export default function MotionActionButton({
     danger: { bg: colors.danger || '#FF5C72', border: colors.danger || '#FF5C72', text: colors.white },
     secondary: { bg: colors.backgroundElevated, border: colors.border, text: colors.textPrimary },
     ghost: { bg: 'transparent', border: colors.border, text: colors.textPrimary },
-    outline: { bg: 'transparent', border: colors.primaryLight, text: colors.primaryLight },
+    outline: { bg: 'transparent', border: colors.primaryLight, text: colors.textPrimary },
   };
 
   const sizeConfig: Record<string, { height: number; paddingHorizontal: number; fontSize: number }> = {
@@ -124,7 +124,7 @@ export default function MotionActionButton({
         style={{
           position: 'absolute',
           inset: -4,
-          borderRadius: 12,
+          borderRadius: variant === 'outline' ? 18 : 12,
           backgroundColor: config.bg,
           opacity: glowOpacity,
           transform: [{ scale: glowScale }],
@@ -133,9 +133,9 @@ export default function MotionActionButton({
 
       <Animated.View
         style={{
-          height: dims.height,
+          height: variant === 'outline' ? 52 : dims.height,
           paddingHorizontal: dims.paddingHorizontal,
-          borderRadius: 12,
+          borderRadius: variant === 'outline' ? 18 : 12,
           backgroundColor: variant === 'outline' && pressed ? colors.primaryFaint : config.bg,
           borderWidth: variant === 'ghost' ? 1.5 : variant === 'secondary' ? 1 : 2,
           borderColor: config.border,
