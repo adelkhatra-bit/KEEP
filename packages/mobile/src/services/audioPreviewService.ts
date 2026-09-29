@@ -495,6 +495,18 @@ export async function preloadTrackPreviewSegment(
   if (!previewUrl || canUseWebAudio()) return;
   return serialize(async () => {
     if (preloadedKey === key && preloadedSound) return;
+    // iOS/Expo AV partage une seule session audio globale. Précharger un
+    // deuxième Audio.Sound pendant qu'une manche joue peut reconfigurer cette
+    // session et couper brièvement le morceau actif. Priorité absolue au son
+    // entendu par le joueur : si une preview est encore en lecture, on saute
+    // simplement ce préchargement et la manche suivante utilisera le chemin
+    // normal + retry.
+    if (activeSound) {
+      try {
+        const status = await activeSound.getStatusAsync();
+        if (status.isLoaded && status.isPlaying) return;
+      } catch {}
+    }
     await discardPreloaded();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
     try {
