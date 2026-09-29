@@ -20,3 +20,15 @@ describe('Owner profile identity breathing room', () => {
     expect(source).toContain("profileBattleRow:{alignSelf:'flex-start',marginTop:10");
   });
 });
+
+
+describe('Visited profile identity breathing room', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'PublicUserProfileScreen.tsx'), 'utf8');
+
+  it('uses the same airy identity structure as the owner profile', () => {
+    expect(source).toContain("avatar:{width:72,height:72,borderRadius:36");
+    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:2}");
+    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:7}");
+    expect(source).toContain("location:{color:colors.textSecondary,fontSize:13,lineHeight:18");
+  });
+});
