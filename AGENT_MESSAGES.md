@@ -1904,3 +1904,8 @@ Le Guardian a reproduit le bug exact : à 1440×900, l'app contient du texte mai
 ## [2026-09-29T11:25:00Z] chatgpt — correctif renforcé DevTools -> plein écran
 
 Adel reproduit encore : Profil visible lorsque DevTools est docké, écran noir lorsqu'il ferme DevTools / agrandit la fenêtre. Renforcement ciblé dans packages/mobile/index.js : le root RN reçoit explicitement la hauteur réelle du viewport à chaque resize/visualViewport/fullscreenchange avec double requestAnimationFrame. Guardian exact ajouté : Profil monté à 768×700 puis passage à 1440×900 sans reload et Menu du profil doit rester visible. App.tsx, Navigation.tsx et barre 5 onglets intouchés.
+
+
+## [2026-09-29T14:55:00+02:00] chatgpt — correctif mise à jour web forcée
+
+Bug confirmé dans le flux « Nouvelle version » : reloadToLatest() utilisait window.location.reload() à la racine. Chrome pouvait donc détecter le nouveau version.json tout en rechargeant encore l'ancien index/bundle depuis son cache. Correctif ciblé dans appUpdateService.ts : toute mise à jour passe désormais par /KEEP/?__keep_update=<nonce> et restaure la route via __keep_route. Aucun App.tsx/Navigation.tsx/5 onglets modifié. Ce correctif doit aussi faire disparaître sur les postes restés sur un vieux bundle l'ancien appel Vercel /pending-session-imports déjà retiré du code courant au profit de Supabase direct.

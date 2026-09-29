@@ -31,20 +31,19 @@ export async function fetchLatestBuildSha(): Promise<string | null> {
 
 export function reloadToLatest(): void {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-  // Adel (09/09/2026) : "je suis oblige de revenir sur mon profil pour
-  // pouvoir faire la mise a jour" -- un reload() brut sur une route
-  // dynamique (profil visite, etc.) depend du saut 404.html -> redirect ->
-  // restore de GitHub Pages (aucune reecriture serveur pour ces routes),
-  // plus fragile en conditions reelles qu'un GET direct sur un fichier qui
-  // existe vraiment. On route nous-memes vers la racine (toujours un vrai
-  // fichier) avec __keep_route, exactement le mecanisme que 404.html
-  // utilise, sans jamais dependre d'une reponse 404 du serveur.
+  // Ne jamais utiliser reload() ici : Chrome peut revalider version.json puis
+  // conserver l'ancien index/bundle en cache. C'est exactement le cas où
+  // l'utilisateur voit "Nouvelle version" mais retrouve visuellement l'ancien
+  // écran après avoir cliqué sur Mettre à jour.
+  //
+  // On recharge TOUJOURS le vrai fichier racine GitHub Pages avec un nonce
+  // unique, puis on restaure la route courante via __keep_route. Le HTML et le
+  // bundle hashé sont alors relus depuis la version qui vient d'être déployée.
   const basePath = '/KEEP';
   const { pathname, search, hash } = window.location;
-  if (pathname === basePath || pathname === `${basePath}/`) {
-    window.location.reload();
-    return;
-  }
   const route = pathname.replace(new RegExp(`^${basePath}`), '') + search + hash;
-  window.location.replace(`${basePath}/?__keep_route=${encodeURIComponent(route)}`);
+  const params = new URLSearchParams();
+  params.set('__keep_update', String(Date.now()));
+  if (route && route !== '/') params.set('__keep_route', route);
+  window.location.replace(`${basePath}/?${params.toString()}`);
 }
