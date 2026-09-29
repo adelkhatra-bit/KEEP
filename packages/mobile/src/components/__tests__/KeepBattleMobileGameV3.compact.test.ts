@@ -49,14 +49,11 @@ describe('Loki Music Battle mobile style selector', () => {
     expect(source).toContain('setAudioReady(false);\n      void stopTrackPreview();');
   });
 
-  it('pauses the solo round while the player decides on an invite, including audio loading', () => {
-    expect(source).toContain('pausedSoloRemaining');
-    expect(source).toContain("incoming[0] ? 'PAUSE'");
-    expect(source).toContain("incoming[0] ? 'INVITATION BATTLE'");
-    expect(source).toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
-    expect(source).toContain("[solo?.themeCode, soloIndex, playVerified, incoming[0]?.id, pausedSoloRemaining]");
-    expect(source).toContain('setPausedSoloRemaining(soloStartedAt ? Math.max(0, ROUND_MS - (Date.now() - soloStartedAt)) : ROUND_MS)');
-    expect(source).toContain('soloStartedAtRef.current = Date.now() - (ROUND_MS - savedRemaining); setSoloStartedAt(soloStartedAtRef.current)');
+  it('never interrupts an active solo round for an incoming Battle invite', () => {
+    expect(source).toContain('Les invitations restent en file d’attente pendant le Solo');
+    expect(source).toContain('disabled={!audioReady || answered || pausedSoloRemaining !== null}');
+    expect(source).not.toContain('disabled={!audioReady || answered || Boolean(incoming[0])');
+    expect(source).not.toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
   });
 
   it('never lets the round-2+ timeout-detection effect fire on the previous round\'s stale audioReady/soloStartedAt (Adel, 02/09/2026: "la première musique ça fonctionne, la deuxième ça bloque, pas de son, et ça répond automatiquement tout seul")', () => {
@@ -72,7 +69,7 @@ describe('Loki Music Battle mobile style selector', () => {
     // jour (soloStartedAtRef) doit être utilisé à la place de la fermeture
     // d'état dans ce calcul précis.
     expect(source).toContain('const soloStartedAtRef = React.useRef(0);');
-    const timeoutEffect = source.indexOf("if (!solo || activeIncomingId || !audioReady || soloAnswer) return;");
+    const timeoutEffect = source.indexOf("if (!solo || !audioReady || soloAnswer) return;");
     expect(timeoutEffect).toBeGreaterThan(-1);
     const nextLines = source.slice(timeoutEffect, timeoutEffect + 1200);
     expect(nextLines).toContain('const startedAt = soloStartedAtRef.current;');
@@ -126,6 +123,11 @@ describe('Loki Music Battle mobile style selector', () => {
     expect(source).toContain('previewUrl, 0, duration, startsAt');
     expect(audioSource).toContain('export async function scheduleTrackPreviewSegment');
     expect(audioSource).toContain('startAtEpochMs - Date.now()');
+  });
+
+  it('does not preload a native next round while the current solo track is still playing', () => {
+    expect(audioSource).toContain('if (activeSound) {');
+    expect(audioSource).toContain('if (status.isLoaded && status.isPlaying) return;');
   });
 
   it('keeps one Safari web audio element alive across rounds so the next track starts without another tap', () => {
@@ -267,6 +269,10 @@ describe('Loki Music Battle mobile style selector', () => {
   // lieu de dépendre d'un signalement en prod.
   it('keeps the red wrong-answer highlight, the animated result icon (no static lightning), and the session-save buttons', () => {
     expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: colors.danger");
+    expect(source).toContain("const [soloSelectedAnswer, setSoloSelectedAnswer] = React.useState<string | null>(null);");
+    expect(source).toContain("setSoloSelectedAnswer(choice);");
+    expect(source).toContain("choice === soloSelectedAnswer && choice !== round.correctAnswer && s.answerWrong");
+    expect(source).toContain("const correct = soloAnswer === 'CORRECT';");
     expect(source).toContain("s.answerWrong]}");
     expect(source).toContain('function ResultIcon(');
     expect(source).toContain('<ResultIcon icon={perfect ?');
