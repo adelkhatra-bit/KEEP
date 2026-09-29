@@ -122,7 +122,7 @@ jobs:
             await inViewport(start,'Listen start');
             await clickRobust(start,'Listen start');
             await t(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
-            const end=t(/Terminer la session|Arrêter|End session/i);
+            const end=page.getByLabel('Couper le micro').last();
             await inViewport(end,'Listen stop');
             await shot('02-listen-active');
             await clickRobust(end,'Listen stop');

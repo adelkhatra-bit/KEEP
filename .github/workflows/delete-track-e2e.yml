@@ -120,7 +120,7 @@ jobs:
             await page.getByText('✓ Gardé', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
             await shot('02-kept-public');
 
-            const stop = page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            const stop = page.getByLabel('Couper le micro').last();
             if (await stop.isVisible().catch(() => false)) await stop.click();
             await page.waitForTimeout(300);
 

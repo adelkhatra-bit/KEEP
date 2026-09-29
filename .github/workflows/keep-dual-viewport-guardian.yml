@@ -265,7 +265,7 @@ jobs:
             await start.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,start,'Listen start');
             await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});
-            const stop=page.getByText(/Terminer la session|Arrêter|End session/i).last();
+            const stop=page.getByLabel('Couper le micro').last();
             await stop.waitFor({state:'visible',timeout:15000});
             await page.screenshot({path:'artifacts/dual-viewport/02-listen-active.png',fullPage:true});
             await clickRobust(page,stop,'Listen stop');
