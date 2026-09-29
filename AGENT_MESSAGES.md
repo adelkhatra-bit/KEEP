@@ -1919,3 +1919,8 @@ Zone identité entourée par Adel reprise sans supprimer de fonction : avatar 80
 ## [2026-09-29T15:05:00+02:00] chatgpt — warning expo-notifications web retiré à la source
 
 Les deux services qui importaient statiquement expo-notifications sur le Web passent maintenant par un chargement natif paresseux après garde Platform.OS. Sur Chrome, le module natif n'est plus évalué : le warning « Listening to push token changes is not yet fully supported on web » ne doit plus être généré par Loki. Le pont Web reste Supabase Realtime. iOS/Android gardent exactement expo-notifications et les actions push existantes.
+
+
+## [2026-09-29T15:10:00+02:00] chatgpt — expo-av retiré du chargement navigateur
+
+Le warning Chrome « expo-av deprecated » venait aussi du fait que trois modules natifs étaient évalués dès le chargement Web, alors que Loki dispose déjà de vrais chemins Web Audio / HTMLAudioElement. micCapture, audioPreviewService et BackgroundListeningLifecycle chargent désormais expo-av uniquement à la demande sur natif. Le Web conserve getUserMedia/Web Audio/HTMLAudioElement. Aucun changement de crédits, navigation ou design.

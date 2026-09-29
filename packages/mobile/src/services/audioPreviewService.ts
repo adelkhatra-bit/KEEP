@@ -1,8 +1,16 @@
-import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { isNativeRecordingModeActive } from './micCapture';
 
-let activeSound: Audio.Sound | null = null;
+type ExpoAVModule = typeof import('expo-av');
+type AVPlaybackStatus = import('expo-av').AVPlaybackStatus;
+type NativeSound = import('expo-av').NativeSound;
+let nativeExpoAVModule: ExpoAVModule | null = null;
+function getNativeExpoAV(): ExpoAVModule {
+  if (!nativeExpoAVModule) nativeExpoAVModule = require('expo-av') as ExpoAVModule;
+  return nativeExpoAVModule;
+}
+
+let activeSound: NativeSound | null = null;
 let activeKey: string | null = null;
 let activeStateListener: ((playing: boolean) => void) | null = null;
 let activeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -15,13 +23,13 @@ let operation = Promise.resolve();
 // une réponse. Natif uniquement -- voir canUseWebAudio() plus bas, le web
 // réutilise un unique <audio> partagé pour contourner le blocage autoplay
 // Safari iOS, donc un deuxième flux en parallèle n'a pas sa place ici.
-let preloadedSound: Audio.Sound | null = null;
+let preloadedSound: NativeSound | null = null;
 let preloadedKey: string | null = null;
 
 // Préchargement séparé pour l'écoute profil/Swipe. Ne réutilise jamais le
 // slot Battle ci-dessus : une prélecture sociale ne doit pas pouvoir évincer
 // la manche Battle N+1 et inversement.
-let profilePreloadedSound: Audio.Sound | null = null;
+let profilePreloadedSound: NativeSound | null = null;
 let profilePreloadedUrl: string | null = null;
 let webProfilePreload: any = null;
 let webProfilePreloadUrl: string | null = null;
@@ -121,6 +129,7 @@ async function discardProfilePreloaded() {
 // réellement en cours -- l'extrait joue par-dessus (MixWithOthers, comme
 // micCapture.ts), sans jamais couper le micro.
 async function configurePreviewAudio() {
+  const { Audio, InterruptionModeIOS } = getNativeExpoAV();
   const recordingActive = isNativeRecordingModeActive();
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: recordingActive,
@@ -132,7 +141,7 @@ async function configurePreviewAudio() {
   });
 }
 
-async function ensurePlaying(sound: Audio.Sound): Promise<void> {
+async function ensurePlaying(sound: NativeSound): Promise<void> {
   let status = await sound.getStatusAsync();
   if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
   if (!status.isPlaying) {
@@ -146,15 +155,16 @@ async function ensurePlaying(sound: Audio.Sound): Promise<void> {
 async function createSoundWithRetry(
   previewUrl: string,
   positionMillis: number,
-  onStatus: (status: AVPlaybackStatus, sound: Audio.Sound) => void,
+  onStatus: (status: AVPlaybackStatus, sound: NativeSound) => void,
   autoPlay = true,
-): Promise<Audio.Sound> {
+): Promise<NativeSound> {
+  const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    let createdSound: Audio.Sound | null = null;
+    let createdSound: NativeSound | null = null;
     try {
       await configurePreviewAudio();
-      const created = await Audio.Sound.createAsync(
+      const created = await NativeSound.createAsync(
         { uri: previewUrl },
         {
           shouldPlay: false,
@@ -327,7 +337,7 @@ export async function toggleTrackPreview(
       return;
     }
 
-    const onStatus = (status: AVPlaybackStatus, sound: Audio.Sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: NativeSound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -340,7 +350,7 @@ export async function toggleTrackPreview(
       }
     };
 
-    let createdSound: Audio.Sound;
+    let createdSound: NativeSound;
     if (profilePreloadedSound && profilePreloadedUrl === previewUrl) {
       const ready = profilePreloadedSound;
       profilePreloadedSound = null;
@@ -369,7 +379,7 @@ export async function toggleTrackPreview(
  *
  * Web : un second HTMLAudioElement ne joue jamais ; il remplit uniquement le
  * cache média du navigateur pendant que l'élément partagé continue le titre N.
- * Natif : un Audio.Sound distinct est chargé avec shouldPlay:false puis
+ * Natif : un NativeSound distinct est chargé avec shouldPlay:false puis
  * consommé par toggleTrackPreview lorsque N+1 démarre.
  */
 export async function preloadTrackPreview(previewUrl: string): Promise<void> {
@@ -424,7 +434,7 @@ export async function playTrackPreviewSegment(
     }
 
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
-    const onStatus = (status: AVPlaybackStatus, sound: Audio.Sound) => {
+    const onStatus = (status: AVPlaybackStatus, sound: NativeSound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
       if (!status.didJustFinish) return;
@@ -443,7 +453,7 @@ export async function playTrackPreviewSegment(
     // la pause de 2,8s après une réponse, voir KeepBattleMobileGameV3), on
     // consomme ce son directement -- latence quasi nulle. Sinon, repli
     // inchangé sur le chargement normal.
-    let createdSound: Audio.Sound | null = null;
+    let createdSound: NativeSound | null = null;
     if (preloadedKey === key && preloadedSound) {
       const preloaded = preloadedSound;
       preloadedSound = null;
@@ -496,7 +506,7 @@ export async function preloadTrackPreviewSegment(
   return serialize(async () => {
     if (preloadedKey === key && preloadedSound) return;
     // iOS/Expo AV partage une seule session audio globale. Précharger un
-    // deuxième Audio.Sound pendant qu'une manche joue peut reconfigurer cette
+    // deuxième NativeSound pendant qu'une manche joue peut reconfigurer cette
     // session et couper brièvement le morceau actif. Priorité absolue au son
     // entendu par le joueur : si une preview est encore en lecture, on saute
     // simplement ce préchargement et la manche suivante utilisera le chemin

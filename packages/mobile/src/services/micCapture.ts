@@ -5,9 +5,16 @@
  * `onLevel` (optionnel, 0-1) pilote l'animation avec le niveau micro réel.
  */
 import { Platform } from 'react-native';
-import { Audio, InterruptionModeIOS } from 'expo-av';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
 import { APP_NAME } from '../config/brand';
+
+type ExpoAVModule = typeof import('expo-av');
+type NativeRecording = import('expo-av').Audio.Recording;
+let nativeExpoAVModule: ExpoAVModule | null = null;
+function getNativeExpoAV(): ExpoAVModule {
+  if (!nativeExpoAVModule) nativeExpoAVModule = require('expo-av') as ExpoAVModule;
+  return nativeExpoAVModule;
+}
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
@@ -44,7 +51,7 @@ export class MicCaptureCancelledError extends Error {
 }
 
 let permissionGranted = false;
-let activeRecording: Audio.Recording | null = null;
+let activeRecording: NativeRecording | null = null;
 let cancellationVersion = 0;
 let activeDelayCancel: (() => void) | null = null;
 let nativeRecordingModeDesired = false;
@@ -76,6 +83,7 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
   nativeAudioModeQueue = nativeAudioModeQueue
     .catch(() => {})
     .then(async () => {
+      const { Audio, InterruptionModeIOS } = getNativeExpoAV();
       const target = nativeRecordingModeDesired;
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: target,
@@ -95,6 +103,7 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
 // déjà sa propre invite au geste utilisateur.
 export async function getMicPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
   if (Platform.OS === 'web') return 'granted';
+  const { Audio } = getNativeExpoAV();
   const { status } = await Audio.getPermissionsAsync();
   if (status === 'granted') permissionGranted = true;
   return status as 'granted' | 'denied' | 'undetermined';
@@ -102,12 +111,14 @@ export async function getMicPermissionStatus(): Promise<'granted' | 'denied' | '
 
 export async function requestMicPermission(): Promise<boolean> {
   if (Platform.OS === 'web') return true;
+  const { Audio } = getNativeExpoAV();
   const { status } = await Audio.requestPermissionsAsync();
   permissionGranted = status === 'granted';
   return permissionGranted;
 }
 
 async function ensurePermission(): Promise<void> {
+  const { Audio } = getNativeExpoAV();
   if (!permissionGranted) {
     const { status } = await Audio.requestPermissionsAsync();
     if (status !== 'granted') throw new MicPermissionDeniedError();
@@ -145,7 +156,7 @@ function waitForSampleOrCancel(durationMs: number, versionAtStart: number): Prom
   });
 }
 
-async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
+async function stopRecordingQuietly(recording: NativeRecording): Promise<void> {
   try {
     await recording.stopAndUnloadAsync();
   } catch {
@@ -156,6 +167,7 @@ async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
 // ---- Natif (iOS/Android) ----
 
 async function captureAudioSampleNative(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+  const { Audio } = getNativeExpoAV();
   // Le numéro doit être capturé AVANT la permission/mise en mode audio. Si
   // ARRÊTER arrive pendant cette phase asynchrone, la capture ne doit surtout
   // pas créer un nouvel Audio.Recording après l'arrêt demandé.
