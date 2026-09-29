@@ -163,6 +163,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
+  const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
   const [showAllSaleOffers, setShowAllSaleOffers] = useState(false);
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
@@ -241,14 +242,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let live = true;
     AsyncStorage.getItem(key).then((raw) => {
       if (!live) return;
-      if (!raw) { setMarketBannerVisible(true); return; }
+      if (!raw) { setMarketBannerVisible(true); setMarketBannerHasNew(false); return; }
       try {
         const saved = JSON.parse(raw);
         const hasNew = saved.playlists !== playlistSignature || saved.events !== eventSignature;
-        setMarketBannerVisible(!saved.manuallyClosed || hasNew);
-        if (hasNew) void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists: playlistSignature, events: eventSignature }));
-      } catch { setMarketBannerVisible(true); }
-    }).catch(() => setMarketBannerVisible(true));
+        const manuallyClosed = Boolean(saved.manuallyClosed);
+        setMarketBannerVisible(!manuallyClosed);
+        setMarketBannerHasNew(manuallyClosed && hasNew);
+        if (!manuallyClosed && hasNew) {
+          void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists: playlistSignature, events: eventSignature }));
+        }
+      } catch { setMarketBannerVisible(true); setMarketBannerHasNew(false); }
+    }).catch(() => { setMarketBannerVisible(true); setMarketBannerHasNew(false); });
     return () => { live = false; };
   }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, saleOffers, marketBannerEventIds]);
 
@@ -258,6 +263,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
     const events = marketBannerEventIds.join(',');
     setMarketBannerVisible(false);
+    setMarketBannerHasNew(false);
     void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: true, playlists, events }));
   };
 
@@ -267,6 +273,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
     const events = marketBannerEventIds.join(',');
     setMarketBannerVisible(true);
+    setMarketBannerHasNew(false);
     void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists, events }));
   };
 
