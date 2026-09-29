@@ -330,8 +330,8 @@ const s = StyleSheet.create({
   subtitle: { color: colors.textPrimary, opacity: 0.88, fontSize: 10, lineHeight: 14, marginTop: 3 },
   play: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
+    right: 12,
+    bottom: 12,
     zIndex: 10,
     elevation: 10,
     width: 34,
