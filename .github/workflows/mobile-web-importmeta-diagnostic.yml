@@ -189,10 +189,11 @@ jobs:
             if (await playlistsBottomTab.count() === 0) throw new Error('Playlists bottom tab not found');
             await clickRobust(playlistsBottomTab, 'Playlists bottom tab');
             await page.waitForTimeout(500);
-            const musicLibraryTab = page.getByRole('tab', { name: 'Musiques' }).last();
-            if (await musicLibraryTab.count() === 0) throw new Error('Musiques library tab not found');
-            await clickRobust(musicLibraryTab, 'Musiques library tab');
+            const myTracksEntry = page.getByText(/^Mes morceaux · \d+$/).last();
+            if (await myTracksEntry.count() === 0) throw new Error('Mes morceaux entry not found');
+            await clickRobust(myTracksEntry, 'Mes morceaux entry');
             await page.waitForTimeout(300);
+            await page.getByText('Mes morceaux', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
             await page.screenshot({ path: 'artifacts/real-browser/keep-playlists-390x844.png', fullPage: true });
 
             const report = [
