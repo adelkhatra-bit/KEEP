@@ -10,6 +10,8 @@ type Props = {
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  accessibilityRole?: 'button' | 'switch';
+  accessibilityState?: { checked?: boolean; disabled?: boolean };
 };
 
 export default function BattleGlowButton({
@@ -20,6 +22,8 @@ export default function BattleGlowButton({
   compact = false,
   style,
   accessibilityLabel,
+  accessibilityRole = 'button',
+  accessibilityState,
 }: Props) {
   const pulse = useRef(new Animated.Value(0)).current;
   const press = useRef(new Animated.Value(0)).current;
@@ -50,7 +54,8 @@ export default function BattleGlowButton({
       onPress={onPress}
       onPressIn={() => Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: true }).start()}
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
+      accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel || label}
       style={[{ position: 'relative' }, style]}
     >
