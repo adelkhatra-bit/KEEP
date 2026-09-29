@@ -24,11 +24,17 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
-      html, body, #root { margin:0; width:100%; height:100%; min-height:100%; }
-      html, body { overflow:hidden; overscroll-behavior:none; background:#0B0A12; }
-      #root { background:#0B0A12; }
-      #root { position:fixed; inset:0; height:100dvh; min-height:100dvh; max-height:100dvh; overflow:hidden; }
-      @supports not (height: 100dvh) { #root { height:100vh; min-height:100vh; max-height:100vh; } }
+      html, body, #root { margin:0; width:100%; min-height:100%; background:#0B0A12; }
+      html, body { overscroll-behavior:none; }
+      @media (max-width: 899px) {
+        html, body { height:100%; overflow:hidden; }
+        #root { position:fixed; inset:0; height:100dvh; min-height:100dvh; max-height:100dvh; overflow:hidden; }
+        @supports not (height: 100dvh) { #root { height:100vh; min-height:100vh; max-height:100vh; } }
+      }
+      @media (min-width: 900px) {
+        html, body { height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto; }
+        #root { position:relative; inset:auto; height:auto; min-height:100vh; max-height:none; overflow:visible; }
+      }
     `;
     document.head.appendChild(style);
   }
