@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 
 const TOP_FLAMES = 20;
 const SIDE_SPARKS = 7;
@@ -128,8 +128,8 @@ export default function ListenEnergyAura({
       burst.stopAnimation();
       burst.setValue(0);
       Animated.sequence([
-        Animated.timing(burst, { toValue: 1, duration: 72, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(burst, { toValue: 0, duration: 720, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(burst, { toValue: 1, duration: 72, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(burst, { toValue: 0, duration: 720, easing: Easing.out(Easing.quad), useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     }
     lastDetected.current = detectedCount;
