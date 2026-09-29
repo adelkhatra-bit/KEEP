@@ -31,6 +31,7 @@ import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer,
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 import { buildPublicProfileLink, shareBattleInvite, shareBattleResult, shareProfile } from '../services/sharingService';
 import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
@@ -679,6 +680,23 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }).catch(() => { if (active) setSoloDailyStatus(null); });
     return () => { active = false; };
   }, [enabled, solo]);
+  // Adel (29/09/2026) : déclare un Solo EN COURS (pas l'accueil, pas l'écran
+  // de fin) à la garde centrale de sortie, avec le message exact de débit ;
+  // et arrête proprement le Solo si la sortie est confirmée depuis ailleurs
+  // (barre d'onglets). Le Battle en ligne n'est pas concerné.
+  const soloInProgress = Boolean(solo && !soloFinished);
+  React.useEffect(() => {
+    if (soloInProgress) useGameSessionStore.getState().setGameInProgress(true, 'SOLO', soloQuitNotice(soloDailyStatus));
+    else useGameSessionStore.getState().clearGameSession();
+  }, [soloInProgress, soloDailyStatus]);
+  React.useEffect(() => () => useGameSessionStore.getState().clearGameSession(), []);
+  const quitRequest = useGameSessionStore((st) => st.quitRequest);
+  const handledQuitRequest = React.useRef(quitRequest);
+  React.useEffect(() => {
+    if (quitRequest === handledQuitRequest.current) return;
+    handledQuitRequest.current = quitRequest;
+    setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {});
+  }, [quitRequest]);
   // Adel (02/09/2026) : "ici aussi tu peux mettre l'invite" -- signale à
   // GlobalNotificationBanner que l'écran Battle est réellement à l'écran
   // (pas juste "on est sur l'onglet Soirées"), pour qu'il ne masque son

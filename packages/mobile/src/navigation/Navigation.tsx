@@ -21,6 +21,8 @@ import MusicConnectionsScreen from '../screens/MusicConnectionsScreen';
 import OffersScreen from '../screens/OffersScreen';
 import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
+import { useGameSessionStore } from '../store/useGameSessionStore';
+import { confirmLeaveGame } from '../services/gameExitGuard';
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -108,6 +110,15 @@ function MainTabs() {
   return (
     <Tab.Navigator
       initialRouteName="Listen"
+      // Adel (29/09/2026) : toucher un autre onglet pendant un Solo en cours
+      // -> popup « Quitter la partie ? » (la partie est déjà décomptée).
+      screenListeners={({ navigation, route }) => ({
+        tabPress: (e) => {
+          if (!useGameSessionStore.getState().isGameInProgress || route.name === 'Parties') return;
+          e.preventDefault();
+          confirmLeaveGame(() => navigation.navigate(route.name));
+        },
+      })}
       screenOptions={{
         tabBarActiveTintColor: TAB.active,
         tabBarInactiveTintColor: TAB.inactive,

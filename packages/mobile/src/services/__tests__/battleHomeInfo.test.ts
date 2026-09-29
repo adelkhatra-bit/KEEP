@@ -50,7 +50,8 @@ describe('battleHomeInfo — quota Solo et recharge Free', () => {
   });
 
   it('règle par profil : 10 Solos par jour en gratuit, illimité avec une formule', () => {
-    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false })!.short).toBe('10 Solos par jour (gratuit)');
+    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'FREE' })!.short).toBe('10 Solos par jour · formule gratuite');
+    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'PREMIUM' })!.short).toBe('10 Solos par jour · Premium');
     expect(soloPlanRuleCopy({ limit: null, remaining: null, unlimited: true })!.short).toBe('Solos illimités avec ta formule');
     expect(soloPlanRuleCopy(null)).toBeNull();
   });

@@ -38,3 +38,25 @@ describe('fin de partie Loki et onglet Loki', () => {
     expect(src('navigation', 'Navigation.tsx')).toContain("tabBarLabel: 'Loki',");
   });
 });
+
+describe('Solo : limite pour toutes les formules, débit au départ, sortie par la barre d’onglets', () => {
+  const root = path.resolve(__dirname, '..', '..', '..', '..', '..');
+  const sql = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260929233000_battle_solo_limit_all_plans_count_starts.sql'), 'utf8');
+  const nav = src('navigation', 'Navigation.tsx');
+  const guard = src('services', 'gameExitGuard.ts');
+  const battle = src('components', 'KeepBattleMobileGameV3.tsx');
+  it('chaque départ est compté (même abandonné) et plus aucune formule illimitée en Solo', () => {
+    expect(sql).toContain('insert into public.keep_battle_solo_daily_usage');
+    expect(sql).toContain('where keep_battle_solo_daily_usage.starts < v_limit');
+    expect(sql).not.toContain('keep_battle_solo_history');
+    expect(sql).not.toMatch(/'unlimited',\s*true/);
+    expect(sql).toContain("'battle_solo_daily_limit_' || p");
+  });
+  it('toucher un autre onglet pendant un Solo ouvre le même popup de débit', () => {
+    expect(nav).toContain('tabPress: (e) => {');
+    expect(nav).toContain('confirmLeaveGame(() => navigation.navigate(route.name));');
+    expect(guard).toContain("Alert.alert('Quitter la partie ?', state.quitNotice");
+    expect(guard).toContain("addEventListener('beforeunload'");
+    expect(battle).toContain("setGameInProgress(true, 'SOLO', soloQuitNotice(soloDailyStatus))");
+  });
+});

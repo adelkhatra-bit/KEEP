@@ -62,11 +62,15 @@ export function soloQuotaCopy(status: SoloDailyStatusLike | null): { headline: s
 }
 
 // Règle par profil, affichée sous la recharge : combien de Solos par jour.
+// Adel (29/09/2026) : plus d'illimité en Solo, chaque formule a sa limite
+// (réglable dans Super Admin) ; chaque départ compte, même abandonné.
+const PLAN_LABELS: Record<string, string> = { FREE: 'formule gratuite', PREMIUM: 'Premium', CREATOR_PRO: 'Créateur Pro', VENUE_PRO: 'Lieu Pro' };
 export function soloPlanRuleCopy(status: SoloDailyStatusLike | null): { short: string; full: string } | null {
   if (!status) return null;
-  if (status.unlimited) return { short: 'Solos illimités avec ta formule', full: 'Ta formule payante te donne des parties Solo illimitées. La formule gratuite est limitée chaque jour pour éviter les abus.' };
+  const plan = PLAN_LABELS[String(status.plan || 'FREE').toUpperCase()] ?? 'ta formule';
+  if (status.unlimited) return { short: 'Solos illimités avec ta formule', full: 'Ta formule te donne des parties Solo illimitées.' };
   const limit = Math.max(0, status.limit ?? 0);
-  return { short: `${limit} Solos par jour (gratuit)`, full: `Formule gratuite : ${limit} parties Solo par jour, remises à zéro chaque nuit. Formules payantes : Solos illimités. Le Battle en ligne n'est pas concerné (il se joue avec tes Free).` };
+  return { short: `${limit} Solos par jour · ${plan}`, full: `Formule ${plan} : ${limit} parties Solo par jour, remises à zéro chaque nuit. Chaque partie lancée compte, même si tu la quittes avant la fin. Le Battle en ligne n'est pas concerné : il se joue avec tes Free.` };
 }
 
 // Miroir exact de public.keep_monthly_free_bonus_for_profile : le bonus

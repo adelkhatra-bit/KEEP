@@ -179,32 +179,13 @@ export default function PartiesScreen({ navigation, route }: any) {
     const session = useSessionStore.getState();
     if (session.isActive && session.micPaused) session.resumeListening();
   }, []);
-  // Règle CRITIQUE (28/09/2026, Adel) : quand un jeu Battle/Solo est en cours,
-  // un dialogue de confirmation apparaît si l'utilisateur tente de naviguer vers
-  // un autre écran/tab pour éviter la perte accidentelle de la session.
+  // 29/09/2026 : la confirmation de sortie d'un Solo en cours est centralisée
+  // (gameExitGuard + barre d'onglets) ; l'ancienne garde « beforeRemove » ne
+  // se déclenchait jamais sur un changement d'onglet et marquait « partie en
+  // cours » dès l'ouverture de Battle. On nettoie seulement à la fermeture.
   useEffect(() => {
-    if (battleOpen) {
-      useGameSessionStore.getState().setGameInProgress(true, 'SOLO');
-    } else {
-      useGameSessionStore.getState().clearGameSession();
-    }
+    if (!battleOpen) useGameSessionStore.getState().clearGameSession();
   }, [battleOpen]);
-  useEffect(() => {
-    const unsubscribe = navigation?.addListener?.('beforeRemove', (e: any) => {
-      const gameState = useGameSessionStore.getState();
-      if (!gameState.isGameInProgress) return;
-      e.preventDefault();
-      Alert.alert(
-        'Quitter le Solo ?',
-        'Êtes-vous sûre de vouloir quitter le Battle ou le solo ?',
-        [
-          { text: 'Annuler', onPress: () => {}, style: 'cancel' },
-          { text: 'Quitter', onPress: () => navigation?.dispatch(e.data.action), style: 'destructive' },
-        ],
-      );
-    });
-    return () => unsubscribe?.();
-  }, [navigation]);
   // PHASE 2 FIX (28/09/2026) : Reset tous les modales au montage du composant.
   // Élimine les modales "fantômes" après un refresh ou une navigation.
   useEffect(() => {
