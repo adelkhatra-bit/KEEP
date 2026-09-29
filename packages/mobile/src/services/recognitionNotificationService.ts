@@ -1,6 +1,14 @@
 import { AppState, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import type { RecognitionResult } from '@keep/music';
+
+type NotificationsModule = typeof import('expo-notifications');
+let nativeNotificationsModule: NotificationsModule | null = null;
+function getNativeNotifications(): NotificationsModule {
+  if (!nativeNotificationsModule) {
+    nativeNotificationsModule = require('expo-notifications') as NotificationsModule;
+  }
+  return nativeNotificationsModule;
+}
 
 let permissionPrepared = false;
 let notificationsAllowed = false;
@@ -13,6 +21,7 @@ export async function prepareRecognitionNotifications(): Promise<boolean> {
   permissionPrepared = true;
 
   try {
+    const Notifications = getNativeNotifications();
     const current = await Notifications.getPermissionsAsync();
     let granted = current.granted;
     if (!granted && current.canAskAgain) {
@@ -49,6 +58,7 @@ export async function notifyRecognitionOutsideKeep(result: RecognitionResult): P
   lastNotificationKey = key;
   lastNotificationAt = now;
 
+  const Notifications = getNativeNotifications();
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Loki Music a trouvé la musique ✓',

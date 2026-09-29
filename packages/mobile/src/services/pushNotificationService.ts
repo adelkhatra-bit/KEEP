@@ -1,10 +1,24 @@
 import { Linking, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import { navigateFromNotificationData } from '../navigation/navigationRef';
+
+type NotificationsModule = typeof import('expo-notifications');
+type NotificationEventSubscription = import('expo-notifications').EventSubscription;
+type NotificationResponse = import('expo-notifications').NotificationResponse;
+
+let nativeNotificationsModule: NotificationsModule | null = null;
+function getNativeNotifications(): NotificationsModule {
+  if (!nativeNotificationsModule) {
+    // Important web: ne pas évaluer expo-notifications dans le bundle navigateur.
+    // Son module web enregistre un listener de token non supporté et pollue la
+    // console même si aucune notification push native n'est demandée.
+    nativeNotificationsModule = require('expo-notifications') as NotificationsModule;
+  }
+  return nativeNotificationsModule;
+}
 
 /**
  * Enregistrement du token push réel + pont temps réel web.
@@ -24,8 +38,8 @@ export const TRACK_KEEP_ACTION = 'KEEP_TRACK_KEEP';
 export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
 let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
 let webToastTimer: ReturnType<typeof setTimeout> | null = null;
-let trackActionSubscription: Notifications.EventSubscription | null = null;
-let notificationTapSubscription: Notifications.EventSubscription | null = null;
+let trackActionSubscription: NotificationEventSubscription | null = null;
+let notificationTapSubscription: NotificationEventSubscription | null = null;
 let lastTapKey = '';
 let lastTapAt = 0;
 
@@ -38,6 +52,7 @@ function battleLike(type: unknown, title: unknown, data?: Record<string, unknown
 
 
 if (Platform.OS !== 'web') {
+  const Notifications = getNativeNotifications();
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
       const content = notification.request.content;
@@ -54,7 +69,7 @@ if (Platform.OS !== 'web') {
   });
 }
 
-function routeNotificationTap(response: Notifications.NotificationResponse | null | undefined) {
+function routeNotificationTap(response: NotificationResponse | null | undefined) {
   if (!response) return;
   if (response.actionIdentifier === TRACK_KEEP_ACTION || response.actionIdentifier === TRACK_PASS_ACTION) return;
   const request = response.notification.request;
@@ -69,6 +84,7 @@ function routeNotificationTap(response: Notifications.NotificationResponse | nul
 
 function installNotificationTapRouter() {
   if (Platform.OS === 'web' || notificationTapSubscription) return;
+  const Notifications = getNativeNotifications();
   notificationTapSubscription = Notifications.addNotificationResponseReceivedListener(routeNotificationTap);
   void Notifications.getLastNotificationResponseAsync().then(routeNotificationTap).catch(() => {});
 }
@@ -203,6 +219,7 @@ async function startWebRealtimeNotificationBridge(): Promise<boolean> {
 
 async function ensureDetectedTrackCategory(): Promise<void> {
   if (Platform.OS === 'web') return;
+  const Notifications = getNativeNotifications();
   await Notifications.setNotificationCategoryAsync(TRACK_CATEGORY, [
     {
       identifier: TRACK_KEEP_ACTION,
@@ -221,6 +238,7 @@ export function listenForDetectedTrackActions(
   handler: (action: 'KEEP' | 'PASS', entryId: string) => void | Promise<void>,
 ): () => void {
   if (Platform.OS === 'web') return () => {};
+  const Notifications = getNativeNotifications();
   trackActionSubscription?.remove();
   trackActionSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const action = response.actionIdentifier;
@@ -242,6 +260,7 @@ export function listenForDetectedTrackActions(
  */
 export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack): Promise<void> {
   if (Platform.OS === 'web') return;
+  const Notifications = getNativeNotifications();
   const permission = await Notifications.getPermissionsAsync();
   if (permission.status !== 'granted') return;
   await ensureDetectedTrackCategory();
@@ -263,6 +282,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     const realtime = await startWebRealtimeNotificationBridge().catch(() => false);
     return { ok: realtime, reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable' };
   }
+  const Notifications = getNativeNotifications();
   installNotificationTapRouter();
   if (!Device.isDevice) {
     return { ok: false, reason: 'simulator_no_push' };
@@ -319,6 +339,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 
 export async function unregisterCurrentPushToken(): Promise<void> {
   if (Platform.OS === 'web' || !Device.isDevice || !supabase) return;
+  const Notifications = getNativeNotifications();
   try {
     const token = (await Notifications.getExpoPushTokenAsync()).data;
     if (!token) return;

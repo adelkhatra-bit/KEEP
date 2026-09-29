@@ -1914,3 +1914,8 @@ Bug confirmé dans le flux « Nouvelle version » : reloadToLatest() utilisait w
 ## [2026-09-29T15:00:00+02:00] chatgpt — profil entouré aéré
 
 Zone identité entourée par Adel reprise sans supprimer de fonction : avatar 80px, respiration accrue entre pseudo/certification/type/ville, Battle sorti complètement de la colonne identité et placé sur sa propre ligne avant les compteurs, compteurs davantage décollés. Même respiration appliquée au profil visité pour éviter deux designs différents. Aucun App.tsx/Navigation.tsx/5 onglets touché.
+
+
+## [2026-09-29T15:05:00+02:00] chatgpt — warning expo-notifications web retiré à la source
+
+Les deux services qui importaient statiquement expo-notifications sur le Web passent maintenant par un chargement natif paresseux après garde Platform.OS. Sur Chrome, le module natif n'est plus évalué : le warning « Listening to push token changes is not yet fully supported on web » ne doit plus être généré par Loki. Le pont Web reste Supabase Realtime. iOS/Android gardent exactement expo-notifications et les actions push existantes.
