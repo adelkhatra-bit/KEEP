@@ -37,20 +37,22 @@ function battleLike(type: unknown, title: unknown, data?: Record<string, unknown
 }
 
 
-Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    const content = notification.request.content;
-    const data = (content.data || {}) as Record<string, unknown>;
-    const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
-    return {
-      shouldShowAlert: !inlineBattle,
-      shouldPlaySound: !inlineBattle,
-      shouldSetBadge: !inlineBattle,
-      shouldShowBanner: !inlineBattle,
-      shouldShowList: !inlineBattle,
-    };
-  },
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async (notification) => {
+      const content = notification.request.content;
+      const data = (content.data || {}) as Record<string, unknown>;
+      const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
+      return {
+        shouldShowAlert: !inlineBattle,
+        shouldPlaySound: !inlineBattle,
+        shouldSetBadge: !inlineBattle,
+        shouldShowBanner: !inlineBattle,
+        shouldShowList: !inlineBattle,
+      };
+    },
+  });
+}
 
 function routeNotificationTap(response: Notifications.NotificationResponse | null | undefined) {
   if (!response) return;
