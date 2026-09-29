@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Animated, Easing, StyleProp, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
@@ -8,7 +8,7 @@ interface MotionActionButtonProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
-  variant?: 'primary' | 'success' | 'danger' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'success' | 'danger' | 'secondary' | 'ghost' | 'outline';
   size?: 'small' | 'medium' | 'large';
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -32,6 +32,7 @@ export default function MotionActionButton({
 }: MotionActionButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const [pressed, setPressed] = useState(false);
 
   const variantColors: Record<string, { bg: string; border: string; text: string }> = {
     primary: { bg: colors.primary, border: colors.primary, text: colors.white },
@@ -39,6 +40,7 @@ export default function MotionActionButton({
     danger: { bg: colors.danger || '#FF5C72', border: colors.danger || '#FF5C72', text: colors.white },
     secondary: { bg: colors.backgroundElevated, border: colors.border, text: colors.textPrimary },
     ghost: { bg: 'transparent', border: colors.border, text: colors.textPrimary },
+    outline: { bg: 'transparent', border: colors.primaryLight, text: colors.primaryLight },
   };
 
   const sizeConfig: Record<string, { height: number; paddingHorizontal: number; fontSize: number }> = {
@@ -52,6 +54,7 @@ export default function MotionActionButton({
 
   const handlePressIn = () => {
     if (disabled) return;
+    setPressed(true);
     Animated.parallel([
       Animated.timing(scaleAnim, {
         toValue: 0.96,
@@ -70,6 +73,7 @@ export default function MotionActionButton({
 
   const handlePressOut = () => {
     if (disabled) return;
+    setPressed(false);
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 1.02,
@@ -132,7 +136,7 @@ export default function MotionActionButton({
           height: dims.height,
           paddingHorizontal: dims.paddingHorizontal,
           borderRadius: 12,
-          backgroundColor: config.bg,
+          backgroundColor: variant === 'outline' && pressed ? colors.primaryFaint : config.bg,
           borderWidth: variant === 'ghost' ? 1.5 : variant === 'secondary' ? 1 : 2,
           borderColor: config.border,
           alignItems: 'center',
@@ -144,7 +148,7 @@ export default function MotionActionButton({
         <Animated.Text
           style={[
             {
-              color: config.text,
+              color: variant === 'outline' && pressed ? colors.textPrimary : config.text,
               fontSize: dims.fontSize,
               fontWeight: '900',
               letterSpacing: 0.5,
