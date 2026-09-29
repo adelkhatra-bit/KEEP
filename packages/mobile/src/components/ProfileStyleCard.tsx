@@ -297,7 +297,7 @@ const s = StyleSheet.create({
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
   topRight: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  sourceBadgeBottom: { alignSelf:'flex-start', maxWidth:'82%', minHeight:24, marginTop:7, paddingHorizontal:9, borderRadius:12, backgroundColor:'rgba(4,3,10,.58)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
+  sourceBadgeBottom: { position:'absolute', left:0, bottom:0, maxWidth:'68%', minHeight:34, paddingHorizontal:11, borderRadius:17, backgroundColor:'rgba(4,3,10,.72)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
   sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:9, fontWeight:'900', letterSpacing:.35 },
   cardAction: {
     position: 'absolute',
@@ -324,7 +324,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(4,3,10,.72)',
   },
-  bottom: { minHeight: 64, justifyContent: 'flex-end', paddingRight: 38 },
+  bottom: { minHeight: 72, justifyContent: 'flex-end', paddingRight: 38, paddingBottom: 38, position:'relative' },
   playSpacer: { width: 34, height: 34 },
   title: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
   subtitle: { color: colors.textPrimary, opacity: 0.88, fontSize: 10, lineHeight: 14, marginTop: 3 },
