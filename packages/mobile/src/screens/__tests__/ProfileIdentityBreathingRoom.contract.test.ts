@@ -4,28 +4,26 @@ import path from 'path';
 describe('Owner profile identity breathing room', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('keeps Battle out of the username/certification line', () => {
-    const username = source.indexOf('<View style={s.usernameLine}>');
+  it('puts Battle at the pseudo level on the right, in its own column, never in the username/certification line', () => {
+    const identity = source.indexOf('<View style={s.identity}>');
+    const username = source.indexOf('<View style={s.usernameLine}>', identity);
     const meta = source.indexOf('<View style={s.profileMetaLeft}>', username);
-    const metrics = source.indexOf('<View style={s.topMetricsBar}', meta);
-    const battle = source.indexOf('<BattleGlowButton', metrics);
-    expect(username).toBeGreaterThan(-1);
+    const battleColumn = source.indexOf('<View style={s.identityBattle}>', meta);
+    const battle = source.indexOf('<BattleGlowButton', battleColumn);
+    const metrics = source.indexOf('<View style={s.topMetricsBar}', battle);
+    expect(identity).toBeGreaterThan(-1);
     expect(meta).toBeGreaterThan(username);
-    expect(metrics).toBeGreaterThan(meta);
-    expect(battle).toBeGreaterThan(metrics);
-    expect(source.slice(username, metrics)).not.toContain('<BattleGlowButton');
+    expect(battleColumn).toBeGreaterThan(meta);
+    expect(battle).toBeGreaterThan(battleColumn);
+    expect(metrics).toBeGreaterThan(battle);
+    expect(source.slice(username, meta)).not.toContain('<BattleGlowButton');
   });
 
-  it('keeps the requested airy hierarchy and stacks Battle over FREE', () => {
+  it('keeps the requested airy hierarchy with the identity lowered from the top bar', () => {
     expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
+    expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16}");
     expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10}");
-    expect(source).toContain("topMetricRightStack:{width:82");
-    const stack = source.indexOf('<View style={s.topMetricRightStack}>');
-    const battle = source.indexOf('<BattleGlowButton', stack);
-    const free = source.indexOf('style={[s.topMetricFreeHero', stack);
-    expect(stack).toBeGreaterThan(-1);
-    expect(battle).toBeGreaterThan(stack);
-    expect(free).toBeGreaterThan(battle);
+    expect(source).toContain("identityBattle:{marginLeft:10,paddingTop:2,flexShrink:0,alignItems:'flex-end'}");
   });
 });
 

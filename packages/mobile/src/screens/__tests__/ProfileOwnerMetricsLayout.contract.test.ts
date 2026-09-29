@@ -17,13 +17,12 @@ describe('Owner profile metrics layout', () => {
     expect(source).toContain("<Text style={s.topMetricFreeLabel}>FREE</Text>");
   });
 
-  it('stacks the animated Battle availability button directly above FREE', () => {
+  it('keeps FREE alone on the right: Battle moved up beside the identity (Adel 29/09)', () => {
     const stack = source.indexOf('<View style={s.topMetricRightStack}>');
-    const battle = source.indexOf('<BattleGlowButton', stack);
     const free = source.indexOf('style={[s.topMetricFreeHero', stack);
+    const metricsEnd = source.indexOf('{freeDetailsOpen ? (', stack);
     expect(stack).toBeGreaterThanOrEqual(0);
-    expect(battle).toBeGreaterThan(stack);
-    expect(free).toBeGreaterThan(battle);
-    expect(source).toContain('style={s.profileBattleOverFree}');
+    expect(free).toBeGreaterThan(stack);
+    expect(source.slice(stack, metricsEnd)).not.toContain('<BattleGlowButton');
   });
 });
