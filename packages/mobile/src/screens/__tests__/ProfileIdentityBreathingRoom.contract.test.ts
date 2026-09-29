@@ -4,25 +4,30 @@ import path from 'path';
 describe('Owner profile identity breathing room', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('moves Battle out of the username/certification line', () => {
+  it('keeps Battle out of the username/certification line', () => {
     const username = source.indexOf('<View style={s.usernameLine}>');
     const meta = source.indexOf('<View style={s.profileMetaLeft}>', username);
-    const identityEnd = source.indexOf('</View>\n        {battleFeatureEnabled', meta);
-    const battle = source.indexOf('<View style={s.profileBattleRow}>', identityEnd);
+    const metrics = source.indexOf('<View style={s.topMetricsBar}', meta);
+    const battle = source.indexOf('<BattleGlowButton', metrics);
     expect(username).toBeGreaterThan(-1);
     expect(meta).toBeGreaterThan(username);
-    expect(identityEnd).toBeGreaterThan(meta);
-    expect(battle).toBeGreaterThan(identityEnd);
-    expect(source.slice(username, identityEnd)).not.toContain('<BattleGlowButton');
+    expect(metrics).toBeGreaterThan(meta);
+    expect(battle).toBeGreaterThan(metrics);
+    expect(source.slice(username, metrics)).not.toContain('<BattleGlowButton');
   });
 
-  it('gives type, location and Battle their own breathing room', () => {
+  it('keeps the requested airy hierarchy and stacks Battle over FREE', () => {
     expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
     expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10}");
-    expect(source).toContain("profileBattleRow:{alignSelf:'flex-start',marginTop:14");
+    expect(source).toContain("topMetricRightStack:{width:82");
+    const stack = source.indexOf('<View style={s.topMetricRightStack}>');
+    const battle = source.indexOf('<BattleGlowButton', stack);
+    const free = source.indexOf('style={[s.topMetricFreeHero', stack);
+    expect(stack).toBeGreaterThan(-1);
+    expect(battle).toBeGreaterThan(stack);
+    expect(free).toBeGreaterThan(battle);
   });
 });
-
 
 describe('Visited profile identity breathing room', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'PublicUserProfileScreen.tsx'), 'utf8');

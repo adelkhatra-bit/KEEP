@@ -1940,3 +1940,8 @@ Le warning Chrome « expo-av deprecated » venait aussi du fait que trois module
 ## [2026-09-29T15:45:00Z] chatgpt — profil owner : PLUS/FREE inversés + Battle au-dessus de FREE
 
 Demande Adel appliquée sur ProfilePublicScreen uniquement : PLUS passe à gauche à la place de FREE, FREE passe à droite à la place de PLUS, sans changer leurs designs ni fonctions. Le switch animé BATTLE ON/OFF est déplacé directement au-dessus du bloc FREE dans la colonne de droite, ce qui redonne de la hauteur au header comme demandé. Aucun App.tsx, Navigation.tsx ni barre 5 onglets touché.
+
+
+## [2026-09-29T15:50:00Z] chatgpt — contrat profil aligné sur la dernière demande Adel
+
+Le test historique ProfileIdentityBreathingRoom attendait encore l'ancien emplacement Battle séparé sous l'identité. Il est mis à jour pour la demande actuelle validée : Battle hors pseudo, mais empilé au-dessus de FREE dans la colonne droite ; PLUS reste à gauche. Aucun code produit supplémentaire modifié.
