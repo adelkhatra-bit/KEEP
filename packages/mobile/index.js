@@ -32,8 +32,9 @@ if (typeof document !== 'undefined') {
         @supports not (height: 100dvh) { #root { height:100vh; min-height:100vh; max-height:100vh; } }
       }
       @media (min-width: 900px) {
-        html, body { height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto; }
-        #root { position:relative; inset:auto; height:auto; min-height:100vh; max-height:none; overflow:visible; }
+        html, body { height:100%; min-height:100%; overflow:hidden; }
+        #root { position:relative; inset:auto; width:100%; height:100dvh; min-height:100vh; max-height:100dvh; overflow:hidden; }
+        @supports not (height: 100dvh) { #root { height:100vh; max-height:100vh; } }
       }
     `;
     document.head.appendChild(style);
@@ -44,6 +45,7 @@ if (typeof document !== 'undefined') {
   };
   syncViewport();
   window.visualViewport?.addEventListener('resize', syncViewport, { passive: true });
+  window.addEventListener('resize', syncViewport, { passive: true });
   window.addEventListener('orientationchange', syncViewport, { passive: true });
 
   // Adel (02/09/2026) : "il y a un problème de zoom ... il faudrait bloquer

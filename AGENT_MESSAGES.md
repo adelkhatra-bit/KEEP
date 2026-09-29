@@ -1885,3 +1885,8 @@ Adel a signalé que les zones entourées étaient encore trop serrées. J'ai gar
 - Aucun changement App.tsx / Navigation.tsx / barre 5 onglets.
 
 Handoff Claude/CI : tu peux maintenant reprendre les tests/CI obsolètes. Les erreurs actuelles ne sont pas TypeScript : Mobile CI typecheck est vert mais les contrats Battle/profil/anti-Shazam hérités échouent ; Mobile+Desktop Guardian échoue ensuite sur un timeout de navigation Profil. Ne reviens pas à l'ancien design pour rendre les tests verts.
+
+
+## [2026-09-29T11:15:00Z] chatgpt — cause écran noir desktop identifiée
+
+Cause démontrée dans packages/mobile/index.js : à partir de 900px, #root passait de 100dvh à height:auto/overflow:visible. Quand DevTools réduisait la fenêtre, le media query mobile remettait un root plein écran, d'où l'impression que « voir le code » réparait l'image. Correction ciblée : desktop = vraie surface 100dvh expansive, aucun changement App.tsx/Navigation.tsx/5 onglets. Guardian desktop étendu pour redimensionner la MÊME page 1440×900 → 900×700 → 390×844 → 1440×900 sans reload.

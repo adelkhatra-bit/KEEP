@@ -171,11 +171,39 @@ jobs:
               const context=await browser.newContext({viewport:{width:1440,height:900},deviceScaleFactor:1});
               const page=await context.newPage();
               await openKeep(page);
+
+              const assertResponsiveSurface = async (label, width, height) => {
+                await page.setViewportSize({ width, height });
+                await page.waitForTimeout(350);
+                const surface = await page.evaluate(() => {
+                  const root = document.getElementById('root');
+                  const box = root?.getBoundingClientRect();
+                  return {
+                    bodyText: (document.body?.innerText || '').trim().length,
+                    rootChildren: root?.children.length || 0,
+                    rootWidth: Math.round(box?.width || 0),
+                    rootHeight: Math.round(box?.height || 0),
+                    innerWidth,
+                    innerHeight,
+                  };
+                });
+                if (surface.bodyText < 10 || surface.rootChildren < 1) throw new Error(`${label}: blank application surface ${JSON.stringify(surface)}`);
+                if (surface.rootWidth < width - 2 || surface.rootHeight < height - 2) throw new Error(`${label}: root does not expand with viewport ${JSON.stringify(surface)}`);
+                for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:10000});
+                await assertNoOverflow(page,label);
+              };
+
+              // Reproduit exactement le cas signalé : plein écran -> fenêtre réduite
+              // par DevTools/Inspecter -> téléphone -> retour plein écran, sans reload.
+              await assertResponsiveSurface('desktop-full-1440x900',1440,900);
+              await assertResponsiveSurface('desktop-inspector-900x700',900,700);
+              await assertResponsiveSurface('mobile-resize-390x844',390,844);
+              await assertResponsiveSurface('desktop-return-1440x900',1440,900);
+
               await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Desktop Profil tab');
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-              await assertNoOverflow(page,'desktop-1440x900');
               await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
-              report.push('desktop-1440x900: PASS');
+              report.push('desktop resize 1440x900 -> 900x700 -> 390x844 -> 1440x900: PASS');
               await context.close();
             }
 
