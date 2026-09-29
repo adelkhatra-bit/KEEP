@@ -73,6 +73,14 @@ function micPermissionFixHint(): string | null {
   return 'Autorise le microphone pour ce site dans les réglages de ton navigateur, puis recharge la page.';
 }
 
+// Chrono « Pas de musique » (Adel 29/09/2026) : visible dès qu'aucune musique
+// n'est captée depuis 20 s ; l'écran se re-rend chaque seconde via elapsed.
+function formatNoMusicCountdown(noMusicSince: number, timeoutMin: number): string {
+  const remaining = Math.max(0, timeoutMin * 60 * 1000 - (Date.now() - noMusicSince));
+  const totalSec = Math.ceil(remaining / 1000);
+  return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
+}
+
 function formatElapsed(startedAt: string | null) {
   if (!startedAt) return '00:00';
   const total = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
@@ -84,7 +92,7 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, micPaused, silenceTimeoutMin,
+    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, micPaused, silenceTimeoutMin, noMusicSince,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -449,7 +457,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <Text style={[s.liveText, s.liveTextReady, micPreflightDenied && s.liveTextError]}>{micPreflightDenied ? 'MICRO · BLOQUÉ' : 'MICRO · PRÊT'}</Text>
               </View>
               <View style={s.autoStopChip}>
-                <Text style={s.autoStopText}>⏱ Veille auto · {silenceTimeoutMin} min</Text>
+                <Text style={s.autoStopText}>⏱ Arrêt si {silenceTimeoutMin} min sans musique</Text>
               </View>
             </View>
             <LokiIdleOrb />
@@ -531,9 +539,15 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={[s.liveDot, micIdle && s.liveDotError]} />
               <Text style={[s.liveText, micIdle && s.liveTextError]}>{liveStatusLabel}</Text>
             </View>
-            <View style={s.autoStopChip}>
-              <Text style={s.autoStopText}>⏱ Veille auto · {silenceTimeoutMin} min</Text>
-            </View>
+            {noMusicSince ? (
+              <View style={[s.autoStopChip, s.autoStopChipCounting]} accessibilityLiveRegion="polite">
+                <Text style={[s.autoStopText, s.autoStopTextCounting]}>Pas de musique · arrêt {formatNoMusicCountdown(noMusicSince, silenceTimeoutMin)}</Text>
+              </View>
+            ) : (
+              <View style={s.autoStopChip}>
+                <Text style={s.autoStopText}>⏱ Arrêt si {silenceTimeoutMin} min sans musique</Text>
+              </View>
+            )}
           </View>
 
           <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
@@ -893,8 +907,10 @@ const s = StyleSheet.create({
   liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, marginBottom: 8 },
   micPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
   micPillIdle: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.4)' },
-  autoStopChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
+  autoStopChip: { flexShrink: 1, marginLeft: 8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
   autoStopText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
+  autoStopChipCounting: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.45)' },
+  autoStopTextCounting: { color: C.pink },
   waveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 42, gap: 3, marginBottom: 8 },
   waveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight },
   waveBarIdle: { backgroundColor: C.muted },

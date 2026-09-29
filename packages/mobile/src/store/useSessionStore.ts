@@ -11,6 +11,7 @@ import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
+import { classifyMusicPresence, keepsListeningAlive } from '../services/musicPresence';
 
 const RECOGNITION_TICK_MS = 700;
 // Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
@@ -20,7 +21,18 @@ const MIN_RECOGNITION_ATTEMPT_GAP_MS = 5000;
 const NEW_MATCH_COOLDOWN_MS = 6000;
 const SAME_TRACK_COOLDOWN_MS = 7000;
 const SILENCE_CHECK_INTERVAL_MS = 1000;
-export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 15;
+// Adel (29/09/2026) : l'écoute doit s'arrêter seule quand il n'y a PLUS DE
+// MUSIQUE (silence ou conversations), pas après 15 min de simple bruit. Le
+// chrono ne repart que sur un morceau reconnu ou un son jugé musical par
+// services/musicPresence.ts (même logique web et app native).
+export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 3;
+// Filet de sécurité : un brouhaha continu (bar bondé) peut ressembler à de la
+// musique. Sans aucun morceau reconnu pendant ce délai, on pose quand même la
+// question « Tu écoutes toujours ? » (l'utilisateur peut continuer).
+export const NO_MATCH_BACKSTOP_MIN = 20;
+// Le chrono visible « Pas de musique » n'apparaît qu'après ce délai, pour ne
+// pas clignoter entre deux morceaux.
+export const NO_MUSIC_VISIBLE_AFTER_MS = 20 * 1000;
 export const SILENCE_PROMPT_GRACE_MS = 30 * 1000;
 
 function newId(): string {
@@ -150,6 +162,8 @@ interface SessionStore {
   startedAt: string | null;
   tracks: SessionTrackEntry[];
   silenceTimeoutMin: number;
+  /** Début de la période sans musique (ms epoch) quand le chrono est visible, sinon null. */
+  noMusicSince: number | null;
   showEndPrompt: boolean;
   recognizing: boolean;
   micLevel: number;
@@ -237,6 +251,7 @@ async function applyDetectedTrack(
   const last = get().tracks[0];
   if (last && sameTrack(last.track, track)) {
     lastDetectionAt = Date.now();
+    lastMatchAt = lastDetectionAt;
     nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
     set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null });
     return 'duplicate';
@@ -256,6 +271,7 @@ async function applyDetectedTrack(
     detectedAt: new Date().toISOString(),
   };
   lastDetectionAt = Date.now();
+  lastMatchAt = lastDetectionAt;
   nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
   set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
   persistLiveSession(get());
@@ -306,6 +322,7 @@ let tickHandle: ReturnType<typeof setInterval> | null = null;
 let silenceCheckHandle: ReturnType<typeof setInterval> | null = null;
 let silencePromptGraceHandle: ReturnType<typeof setTimeout> | null = null;
 let lastDetectionAt = 0;
+let lastMatchAt = 0;
 let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
 let consecutiveWeakSamples = 0;
@@ -336,6 +353,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   startedAt: null,
   tracks: [],
   silenceTimeoutMin: DEFAULT_SESSION_SILENCE_TIMEOUT_MIN,
+  noMusicSince: null,
   showEndPrompt: false,
   recognizing: false,
   micLevel: 0,
@@ -357,7 +375,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // Le temps passé en pause ne doit jamais compter comme du silence côté
     // détection ("session terminée faute de morceau").
     lastDetectionAt = Date.now();
-    set({ micPaused: false });
+    lastMatchAt = lastDetectionAt;
+    set({ micPaused: false, noMusicSince: null });
   },
 
   startSession: () => {
@@ -378,6 +397,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // Une nouvelle écoute est toujours une nouvelle session; ne jamais réutiliser l'ancien état.
     useSessionHistoryStore.getState().reconcileOrphanedLiveSessions(null);
     lastDetectionAt = Date.now();
+    lastMatchAt = lastDetectionAt;
     nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
     consecutiveWeakSamples = 0;
@@ -386,6 +406,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       sessionId: newId(),
       startedAt: new Date().toISOString(),
       tracks: [],
+      noMusicSince: null,
       showEndPrompt: false,
       recognizing: false,
       micLevel: 0,
@@ -404,20 +425,21 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
       set({ recognizing: true });
       let samplePeak: number | null = null;
+      const sampleLevels: number[] = [];
       try {
         const sampleDuration = recognitionSampleDurationMs();
         const audioSample = musicEngine.isDemoMode
           ? new ArrayBuffer(0)
           : await captureAudioSample(
-              (level) => { if (get().isActive) set({ micLevel: level }); },
+              (level) => { sampleLevels.push(level); if (get().isActive) set({ micLevel: level }); },
               sampleDuration,
               (peak) => { samplePeak = peak; },
             );
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
-        // Le minuteur de veille mesure le silence musical réel, pas l'absence de
-        // correspondance catalogue : une musique inconnue mais audible maintient
-        // donc l'écoute active. Un signal suffisamment fort remet le chrono à zéro.
-        if (samplePeak !== null && samplePeak >= WEAK_SIGNAL_PEAK) lastDetectionAt = Date.now();
+        // Le minuteur de veille mesure l'absence de MUSIQUE, pas l'absence de
+        // correspondance catalogue : une musique inconnue mais musicale maintient
+        // l'écoute. Silence et conversations (signal haché) ne la maintiennent pas.
+        if (keepsListeningAlive(classifyMusicPresence(sampleLevels).verdict)) lastDetectionAt = Date.now();
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         if (!recognition) {
@@ -452,9 +474,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     void tick();
     tickHandle = setInterval(() => { void tick(); }, RECOGNITION_TICK_MS);
     silenceCheckHandle = setInterval(() => {
-      const { isActive, silenceTimeoutMin, showEndPrompt, micPaused } = get();
+      const { isActive, silenceTimeoutMin, showEndPrompt, micPaused, noMusicSince } = get();
       if (!isActive || showEndPrompt || micPaused) return;
-      if (Date.now() - lastDetectionAt >= silenceTimeoutMin * 60 * 1000) {
+      const now = Date.now();
+      const visibleSince = now - lastDetectionAt >= NO_MUSIC_VISIBLE_AFTER_MS ? lastDetectionAt : null;
+      if (visibleSince !== noMusicSince) set({ noMusicSince: visibleSince });
+      const noMusicTooLong = now - lastDetectionAt >= silenceTimeoutMin * 60 * 1000;
+      const noMatchTooLong = now - lastMatchAt >= NO_MATCH_BACKSTOP_MIN * 60 * 1000;
+      if (noMusicTooLong || noMatchTooLong) {
         set({ showEndPrompt: true });
         if (silencePromptGraceHandle) clearTimeout(silencePromptGraceHandle);
         silencePromptGraceHandle = setTimeout(() => {
@@ -469,7 +496,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   dismissEndPrompt: () => {
     if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
     lastDetectionAt = Date.now();
-    set({ showEndPrompt: false });
+    lastMatchAt = lastDetectionAt;
+    set({ showEndPrompt: false, noMusicSince: null });
   },
 
   requestEndSession: (title) => {
@@ -480,7 +508,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], showEndPrompt: false, recognizing: false, micLevel: 0, micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 
