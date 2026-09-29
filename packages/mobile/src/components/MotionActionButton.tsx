@@ -1,12 +1,12 @@
 import React, { useRef } from 'react';
-import { Animated, Easing, TouchableOpacity, ViewStyle, TextStyle, AccessibilityRole } from 'react-native';
+import { Animated, Easing, StyleProp, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
 interface MotionActionButtonProps {
   onPress: () => void;
   disabled?: boolean;
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   textStyle?: TextStyle;
   variant?: 'primary' | 'success' | 'danger' | 'secondary' | 'ghost';
   size?: 'small' | 'medium' | 'large';
@@ -14,7 +14,7 @@ interface MotionActionButtonProps {
   accessibilityHint?: string;
   testID?: string;
   noDefaultStyling?: boolean;
-  containerStyle?: ViewStyle;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export default function MotionActionButton({
@@ -28,6 +28,7 @@ export default function MotionActionButton({
   accessibilityLabel,
   accessibilityHint,
   testID,
+  containerStyle,
 }: MotionActionButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
@@ -41,7 +42,7 @@ export default function MotionActionButton({
   };
 
   const sizeConfig: Record<string, { height: number; paddingHorizontal: number; fontSize: number }> = {
-    small: { height: 36, paddingHorizontal: 12, fontSize: 11 },
+    small: { height: 44, paddingHorizontal: 12, fontSize: 11 },
     medium: { height: 48, paddingHorizontal: 16, fontSize: 12 },
     large: { height: 56, paddingHorizontal: 20, fontSize: 14 },
   };
@@ -108,7 +109,7 @@ export default function MotionActionButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
-      style={style}
+      style={[containerStyle, style]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
