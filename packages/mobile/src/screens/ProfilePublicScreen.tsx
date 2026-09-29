@@ -64,7 +64,6 @@ type AccountMode = 'create' | 'login';
 const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
   { key: 'free', icon: '💛', label: 'Mon solde Free' },
   { key: 'profile', icon: '👤', label: 'Réglages du profil' },
-  { key: 'notifications', icon: '🔔', label: 'Notifications' },
   { key: 'identityCard', icon: '▦', label: 'Ma carte d’identité musicale & QR' },
   { key: 'share', icon: '↗', label: 'Inviter / partager mon profil' },
   { key: 'music', icon: '🎧', label: 'Services musicaux' },
