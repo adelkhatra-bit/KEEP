@@ -36,8 +36,8 @@ assertOrdered(owner, [
 if ((owner.match(/accessibilityLabel="Partager mon profil Loki Music"/g) || []).length !== 1) {
   throw new Error('Owner profile must expose exactly one PARTAGER action');
 }
-if ((owner.match(/accessibilityLabel="Prévisualiser mon univers en Swipe"/g) || []).length !== 1) {
-  throw new Error('Owner profile must expose exactly one SWIPE action');
+if ((owner.match(/accessibilityLabel="Voir aperçu"/g) || []).length !== 1) {
+  throw new Error('Owner profile must expose exactly one APERÇU action');
 }
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
