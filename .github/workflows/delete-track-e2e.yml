@@ -96,6 +96,16 @@ jobs:
             // 1. Créer une vraie entrée dans la bibliothèque locale via le même
             // chemin UI qu'un utilisateur : écoute -> reconnaissance démo -> garder.
             await exact('Loki Music').click({ force: true });
+
+            // Première installation : fermer le mini-tour avant d'interagir avec
+            // Écouter. Cliquer "à travers" la surcouche pouvait démarrer la session
+            // sans rendre la carte détectée testable comme un vrai utilisateur.
+            const skipCoach = page.getByLabel('Passer le mini-tour').last();
+            if (await skipCoach.isVisible().catch(() => false)) {
+              await skipCoach.click({ force: true });
+              await page.waitForTimeout(180);
+            }
+
             const start = page.getByLabel(/Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({ state: 'visible', timeout: 15000 });
             await start.click({ timeout: 3000 }).catch(async () => {
@@ -104,6 +114,7 @@ jobs:
               // alors que le vrai bouton est visible/actif : repli ciblé.
               await start.click({ force: true, timeout: 3000 });
             });
+            await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({ state: 'visible', timeout: 15000 });
 
             // La reconnaissance démo passe par le même resolver/enrichissement
             // que l'app réelle. Sur un runner froid, la première résolution catalogue
