@@ -62,11 +62,27 @@ jobs:
       - name: Human-style mobile loop 390x844
         run: |
           mkdir -p artifacts/human-guardian
+          # Chromium's built-in fake microphone is silent. Loki correctly rejects
+          # a silent capture, so feed a deterministic 440 Hz WAV instead.
+          python3 - <<'PY'
+          import math, struct, wave
+          rate = 44100
+          seconds = 30
+          with wave.open('/tmp/keep-tone.wav', 'wb') as out:
+              out.setnchannels(1)
+              out.setsampwidth(2)
+              out.setframerate(rate)
+              frames = bytearray()
+              for i in range(rate * seconds):
+                  sample = int(0.35 * 32767 * math.sin(2 * math.pi * 440 * i / rate))
+                  frames.extend(struct.pack('<h', sample))
+              out.writeframes(frames)
+          PY
           cat > keep-human-guardian.cjs <<'JS'
           const { chromium } = require('playwright');
           const fs = require('fs');
           (async()=>{
-            const browser = await chromium.launch({ headless:true, args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream'] });
+            const browser = await chromium.launch({ headless:true, args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--use-file-for-fake-audio-capture=/tmp/keep-tone.wav'] });
             const context = await browser.newContext({
               viewport:{width:390,height:844},
               deviceScaleFactor:1,
