@@ -36,19 +36,12 @@
 -- (solo_correct/solo_total) reste possible, au même titre que ce qui a
 -- déjà été fait pour Flo/Teyou.
 
--- 1) Aligner keep_battle_solo_history sur le schéma prévu (safe, table vide).
-do $
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='keep_battle_solo_history' and column_name='correct_count'
-  ) and not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='keep_battle_solo_history' and column_name='correct_answers'
-  ) then
-    alter table public.keep_battle_solo_history rename column correct_count to correct_answers;
-  end if;
-end $;
+-- 1) Aligner keep_battle_solo_history sur le schéma prévu.
+-- Le replay Git possède déjà correct_answers depuis 20260919001000 ; ce
+-- ADD idempotent couvre également une production plus ancienne sans bloc DO,
+-- car le vérificateur CI découpe volontairement les instructions SQL.
+alter table public.keep_battle_solo_history add column if not exists correct_answers integer not null default 0;
+alter table public.keep_battle_solo_history alter column correct_answers drop default;
 alter table public.keep_battle_solo_history add column if not exists free_before bigint not null default 0;
 alter table public.keep_battle_solo_history add column if not exists free_earned integer not null default 0;
 alter table public.keep_battle_solo_history add column if not exists free_after bigint not null default 0;
