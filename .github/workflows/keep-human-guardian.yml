@@ -40,8 +40,14 @@ jobs:
         run: node scripts/verify-source-of-truth.cjs
       - name: Typecheck all workspaces
         run: npm run type-check
-      - name: Unit tests
-        run: npm test -- --runInBand
+      # Le Guardian humain valide le parcours navigateur réel. Les tests
+      # Jest mobile exhaustifs restent la responsabilité de Mobile CI, afin
+      # qu'un contrat textuel obsolète n'empêche jamais ce smoke visuel de
+      # s'exécuter. On garde ici les tests des couches serveur/moteur.
+      - name: Supporting backend + music tests
+        run: |
+          npm --workspace packages/backend test -- --runInBand
+          npm --workspace packages/music test -- --runInBand
       - name: Build Super Admin
         run: npm --workspace packages/admin run build
       - name: Install Chromium
