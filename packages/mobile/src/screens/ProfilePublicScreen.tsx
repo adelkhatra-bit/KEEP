@@ -37,6 +37,7 @@ import CommunityConnectionsPanel, { CommunityMode } from '../components/Communit
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import PresenceDot from '../components/PresenceDot';
+import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
@@ -1267,17 +1268,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <Text style={s.username}>{user.username}</Text>
               <ProfileCertificationBadge tier={certificationTier} compact />
               {battleFeatureEnabled && !accountRequired ? (
-                <TouchableOpacity
-                  style={[s.ownerBattleMicroSwitch, battleAvailable && s.ownerBattleMicroSwitchOn]}
+                <BattleGlowButton
+                  compact
+                  active={battleAvailable}
                   disabled={battleAvailabilityBusy}
+                  label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
                   onPress={() => { void setBattleAvailable(!battleAvailable); }}
                   accessibilityRole="switch"
-                  accessibilityState={{ checked: battleAvailable }}
+                  accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
                   accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-                >
-                  <PresenceDot online={battleAvailable} />
-                  <Text style={[s.ownerBattleMicroText, battleAvailable && s.ownerBattleMicroTextOn]}>{battleAvailable ? 'DÉFIS ON' : 'DÉFIS OFF'}</Text>
-                </TouchableOpacity>
+                />
               ) : null}
             </View>
             <View style={s.profileMetaLeft}>
