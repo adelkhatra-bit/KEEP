@@ -62,6 +62,8 @@ assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profi
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, 'accessibilityLabel={battleAvailable ? \'Ne plus recevoir de défis Battle\' : \'Recevoir des défis Battle\'}', 'Owner Battle availability control');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
+assertIncludes(owner, '<BattleGlowButton', 'Owner animated Battle contour');
+assertIncludes(visitor, '<BattleGlowButton', 'Visited animated Battle contour');
 if ((owner.match(/variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionMotion\}/g) || []).length !== 3) {
   throw new Error('Owner APERÇU / PEPITES / BATTLE must share the same outline-only geometry');
 }
