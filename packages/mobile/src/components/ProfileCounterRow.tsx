@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Animated, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
@@ -34,7 +34,6 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
     loop.start();
     return () => loop.stop();
   }, [glow]);
-  const explain = (item: ProfileCounterItem) => Alert.alert(item.label, item.hint || `${formatCompactNumber(item.value)} ${item.label.toLowerCase()} sur ce profil.`);
   return (
     <View style={[styles.row, kind === 'connections' ? styles.connections : styles.keeps, items.length >= 4 && styles.fourItems, style]}>
       {items.map((item) => {
@@ -44,18 +43,19 @@ export default function ProfileCounterRow({ items, kind = 'keeps', style }: Prop
             <Text style={styles.label}>{item.label}</Text>
           </>
         );
-        const handlePress = () => { if (item.disabled) return; explain(item); item.onPress?.(); };
+        const interactive = Boolean(item.onPress) && !item.disabled;
+        const handlePress = () => { if (!interactive) return; item.onPress?.(); };
         return (
           <TouchableOpacity
             key={item.label}
-            style={[styles.item, items.length >= 4 && styles.itemFour, !item.disabled && styles.itemClickable, item.disabled && styles.itemPrivate, item.active && styles.itemActive]}
+            style={[styles.item, items.length >= 4 && styles.itemFour, interactive && styles.itemClickable, !interactive && styles.itemPrivate, item.active && styles.itemActive]}
             onPress={handlePress}
-            disabled={item.disabled}
+            disabled={!interactive}
             accessibilityRole="button"
             accessibilityLabel={`${item.value} ${item.label}`}
           >
             {content}
-            {!item.disabled ? <Animated.View pointerEvents="none" style={[styles.clickCue,{opacity:glow}]} /> : null}
+            {interactive ? <Animated.View pointerEvents="none" style={[styles.clickCue,{opacity:glow}]} /> : null}
           </TouchableOpacity>
         );
       })}
