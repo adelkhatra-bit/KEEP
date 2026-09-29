@@ -102,6 +102,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
+  const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
   const setBattleAvailable = useBattleAvailabilityStore((s) => s.setAvailable);
@@ -1321,13 +1323,64 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </View>
         </View>
       <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
-        <TouchableOpacity style={[s.topMetricItem, s.topMetricFree]} onPress={() => { setCommunityMode(null); setMenuOpen(true); setExpandedMenuItem('free'); }}><Text style={s.topMetricValue}>{freeBalance ?? '…'}</Text><Text style={s.topMetricLabel}>FREE</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => setCommunityMode((v) => v === 'followers' ? null : 'followers')}><Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); setRepriseListOpen(true); }}><Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text></TouchableOpacity>
-        <TouchableOpacity style={s.topMetricItem} onPress={() => { setCommunityMode(null); switchProfileTab('TRACKS'); }}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
-        <TouchableOpacity style={[s.topMetricItem, s.topMetricLast]} onPress={() => setCommunityMode((v) => v === 'following' ? null : 'following')}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
+        <TouchableOpacity
+          style={[s.topMetricFreeHero, freeDetailsOpen && s.topMetricFreeHeroOn]}
+          onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: freeDetailsOpen }}
+          accessibilityLabel="Voir le détail de mes Free"
+        >
+          <Text style={s.topMetricFreeValue}>{freeBalance ?? '…'}</Text>
+          <Text style={s.topMetricFreeLabel}>FREE</Text>
+          <Text style={s.topMetricFreeHint}>jouer · garder</Text>
+        </TouchableOpacity>
+        <View style={s.topMetricSocialGroup}>
+          <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
+            <Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.topMetricSocialItem, s.topMetricSocialLast, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
+            <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
+          <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
+          <Text style={s.topMetricMoreText}>PLUS</Text>
+        </TouchableOpacity>
       </View>
+      {freeDetailsOpen ? (
+        <View style={s.metricInlinePanel}>
+          <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Tes Free</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
+          <View style={s.freeInlineStats}>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeBalance ?? '…'}</Text><Text style={s.freeInlineLabel}>disponibles</Text></View>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés</Text></View>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeLost}</Text><Text style={s.freeInlineLabel}>utilisés</Text></View>
+          </View>
+          <Text style={s.freeInlineHint}>Battle et Solo peuvent te faire gagner des Free · Garder un morceau coûte actuellement {freeCostPerKeep} Free.</Text>
+          <TouchableOpacity style={s.freeInlineCta} onPress={() => navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' })}><Text style={s.freeInlineCtaText}>COMMENT GAGNER PLUS DE FREE ›</Text></TouchableOpacity>
+        </View>
+      ) : null}
+      {metricsExpanded ? (
+        <View style={s.topMetricsSecondary}>
+          <TouchableOpacity style={s.topMetricSecondaryItem} onPress={() => { setCommunityMode(null); switchProfileTab('TRACKS'); }}><Text style={s.topMetricValue}>{profileTotalKeepCount}</Text><Text style={s.topMetricLabel}>Morceaux</Text></TouchableOpacity>
+          <TouchableOpacity style={[s.topMetricSecondaryItem, communityMode === 'following' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'following' ? null : 'following'); }}><Text style={s.topMetricValue}>{profileFollowingCount}</Text><Text style={s.topMetricLabel}>Abonnements</Text></TouchableOpacity>
+        </View>
+      ) : null}
       {!accountRequired && communityMode ? <View style={s.topMetricsCommunity}><View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>{communityMode === 'followers' ? 'Tes abonnés' : 'Tes abonnements'}</Text><TouchableOpacity hitSlop={12} onPress={() => setCommunityMode(null)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View><CommunityConnectionsPanel userId={user.id} navigation={navigation} mode={communityMode} /></View> : null}
+      {repriseListOpen ? (
+        <View style={s.metricInlinePanel}>
+          <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Qui reprend tes morceaux</Text><TouchableOpacity hitSlop={12} onPress={() => setRepriseListOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.repriseInlineRail}>
+            {repriseLoading ? <Text style={s.muted}>Chargement…</Text> : reprisers.length ? reprisers.slice(0, 8).map((r) => (
+              <TouchableOpacity key={r.profileId} style={s.repriseInlineCard} onPress={() => navigation.navigate('PublicProfile', { username: r.username })}>
+                {r.avatarUrl ? <Image source={{ uri: r.avatarUrl }} style={s.repriseInlineAvatar} /> : <View style={[s.repriseInlineAvatar, s.avatarFallback]}><Text style={s.avatarText}>{r.username.slice(0,1).toUpperCase()}</Text></View>}
+                <Text style={s.repriseInlineName} numberOfLines={1}>@{r.username}</Text>
+                <Text style={s.repriseInlineMeta}>{r.favoriteGenres[0] || 'Musique'}</Text>
+              </TouchableOpacity>
+            )) : <Text style={s.muted}>Aucune reprise pour le moment.</Text>}
+          </ScrollView>
+          {reprisers.length > 8 ? <Text style={s.repriseInlineMore}>+ {reprisers.length - 8} autres · utilise la recherche communauté pour les retrouver</Text> : null}
+        </View>
+      ) : null}
 
         {accountRequired ? <TouchableOpacity style={s.accountBanner} onPress={() => openAccount('create')}><Text style={s.accountBannerTitle} numberOfLines={1}>Créer mon compte Loki Music</Text><Text style={s.accountBannerText} numberOfLines={2}>Conserve ton profil avec ton identifiant Loki Music, ton mot de passe et une adresse e-mail vérifiée.</Text></TouchableOpacity> : null}
         {user.bio ? <Text style={s.bio}>{user.bio}</Text> : null}
@@ -1672,7 +1725,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
     </Modal>
 
-    <Modal visible={repriseListOpen} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
+    <Modal visible={false} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={[s.shareSheet, s.repriseSheet]}>
           <View style={s.sheetHandle} />
@@ -1802,11 +1855,17 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
-  topMetricsBar:{marginHorizontal:18,marginTop:6,minHeight:54,flexDirection:'row',alignItems:'stretch',backgroundColor:colors.backgroundCard,borderRadius:14,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
-  topMetricItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:2,borderRightWidth:1,borderRightColor:colors.border},
-  topMetricFree:{backgroundColor:'rgba(34,197,94,.12)'},topMetricLast:{borderRightWidth:0},
+  topMetricsBar:{marginHorizontal:18,marginTop:6,minHeight:58,flexDirection:'row',alignItems:'stretch',gap:8},
+  topMetricFreeHero:{width:82,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.12)',borderWidth:1.5,borderColor:colors.keep,shadowColor:colors.keep,shadowOpacity:.28,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
+  topMetricFreeHeroOn:{backgroundColor:'rgba(45,225,194,.20)',shadowOpacity:.55},
+  topMetricFreeValue:{color:colors.keep,fontSize:18,fontWeight:'900'},topMetricFreeLabel:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:1},topMetricFreeHint:{color:colors.textMutedGrey,fontSize:7,fontWeight:'700',marginTop:1},
+  topMetricSocialGroup:{flex:1,minWidth:0,flexDirection:'row',backgroundColor:colors.backgroundCard,borderRadius:16,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  topMetricSocialItem:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',paddingHorizontal:4,borderRightWidth:1,borderRightColor:colors.border},topMetricSocialLast:{borderRightWidth:0},topMetricSocialItemOn:{backgroundColor:'rgba(139,92,246,.18)'},
+  topMetricMore:{width:48,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},topMetricMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},topMetricMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},topMetricMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},
   topMetricValue:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},topMetricLabel:{color:colors.textMuted,fontSize:8,fontWeight:'800',marginTop:2,textAlign:'center'},
-  topMetricsCommunity:{marginHorizontal:18},
+  topMetricsSecondary:{marginHorizontal:18,marginTop:6,minHeight:48,flexDirection:'row',borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,overflow:'hidden'},topMetricSecondaryItem:{flex:1,alignItems:'center',justifyContent:'center',borderRightWidth:1,borderRightColor:colors.border},
+  topMetricsCommunity:{marginHorizontal:18,marginTop:6},
+  metricInlinePanel:{marginHorizontal:18,marginTop:6,padding:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},freeInlineStats:{flexDirection:'row',gap:8},freeInlineStat:{flex:1,alignItems:'center',paddingVertical:8,borderRadius:12,backgroundColor:colors.backgroundCard},freeInlineValue:{color:colors.keep,fontSize:16,fontWeight:'900'},freeInlineLabel:{color:colors.textMutedGrey,fontSize:8,fontWeight:'800',marginTop:2},freeInlineHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:9},freeInlineCta:{minHeight:38,marginTop:10,borderRadius:12,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},freeInlineCtaText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.45},repriseInlineRail:{gap:9,paddingVertical:4,paddingRight:8},repriseInlineCard:{width:88,padding:8,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},repriseInlineAvatar:{width:38,height:38,borderRadius:19},repriseInlineName:{color:colors.textPrimary,fontSize:9,fontWeight:'900',marginTop:5,maxWidth:72},repriseInlineMeta:{color:colors.textMutedGrey,fontSize:8,fontWeight:'700',marginTop:2},repriseInlineMore:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:8},
   communitySection:{marginHorizontal:18,gap:2},
   ownerCollectionRail:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:22,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   ownerCollectionRailHeader:{flexDirection:'row',alignItems:'center',gap:10},
