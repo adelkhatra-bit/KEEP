@@ -268,6 +268,24 @@ jobs:
           grep -q 'Remboursement et droit de rétractation' _site/refund/index.html
           grep -q 'NEXT_PUBLIC' .github/workflows/web-preview-pages.yml
 
+      - name: Block black page before publish (real Chromium, PC + tablet + mobile)
+        if: steps.fresh.outputs.build == 'yes'
+        # 29/09/2026 : le site est parti en ligne avec une page noire sur
+        # ordinateur alors que la CI était verte (le test ne regardait que le
+        # texte du DOM, pas ce qui est visible). Ce contrôle sert le site
+        # assemblé EN LOCAL et refuse la publication si l'application ne
+        # remplit pas l'écran ou si la barre des 5 onglets n'est pas visible.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install chromium --with-deps
+          rm -rf /tmp/keep-gate && mkdir -p /tmp/keep-gate
+          ln -s "$PWD/_site" /tmp/keep-gate/KEEP
+          (cd /tmp/keep-gate && python3 -m http.server 8765 >/tmp/keep-gate.log 2>&1 &)
+          sleep 2
+          node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
+
       - name: Recheck branch head before publish
         id: publish_fresh
         if: steps.fresh.outputs.build == 'yes'

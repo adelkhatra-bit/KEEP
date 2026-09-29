@@ -69,6 +69,19 @@ GitHub Pages n'effectue pas de rewrite SPA côté serveur. La solution officiell
 
 Ne jamais créer un deuxième site mobile, un deuxième bundle ou une seconde page d'application pour « corriger » un 404. Corriger la route dans cette chaîne unique.
 
+## Page noire sur ordinateur — incident du 29/09/2026 (règle permanente)
+
+Symptôme : page noire sur PC en plein écran, alors que tout marche sur téléphone avec le même lien. Réduire la fenêtre (ex. ouvrir les outils développeur) faisait revenir l'image.
+
+Cause racine : au-delà de 900 px de large, `packages/mobile/index.js` (`keep-mobile-viewport-lock`) et `packages/mobile/scripts/fix-web-export.cjs` (`keep-desktop-shell`) mettaient `height:auto` sur `html/body/#root`. React Native Web dimensionne tous les écrans en `flex:1` depuis `#root` → `#root` = 0 px → application invisible. Baisser l'opacité du mini-tour (CoachMarks) ne corrigeait rien.
+
+Règles :
+
+- Sur ordinateur, la **hauteur** de `html`, `body` et `#root` reste épinglée à la fenêtre (`height:100%` / `100dvh`). Seule la largeur peut être libérée. Jamais `height:auto` sur ces trois éléments.
+- Le défilement se fait dans les `ScrollView` des écrans, pas sur `body`.
+- `scripts/web-visible-surface-gate.cjs` vérifie dans un vrai Chromium (PC 1440/1366, tablette 1024, Android) que `#root` remplit la fenêtre et que les 5 onglets sont visibles. Il tourne sur le site assemblé, avant publication, dans `web-preview-pages.yml` : si la page est noire, rien n'est mis en ligne. Ne jamais le retirer, l'affaiblir ou le contourner.
+- Un test qui ne vérifie que la présence de texte dans le DOM ne prouve pas que la page est visible.
+
 ## Moteurs de navigateur et moteurs de recherche
 
 - Toute correction web critique doit être testée au minimum sur Chromium desktop, Firefox desktop, Chromium mobile Android et WebKit iPhone.

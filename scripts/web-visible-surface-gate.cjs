@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+/**
+ * Garde-fou "page noire" (Adel, 29/09/2026 : "je ne veux plus jamais qu'il revienne").
+ *
+ * Le 29/09 le site public affichait une page noire sur ordinateur alors que la
+ * CI était verte : le test navigateur vérifiait seulement qu'il y avait du TEXTE
+ * dans la page. Or #root était tombé à 0 px de haut (height:auto sur desktop) :
+ * le texte existait dans le DOM mais rien n'était visible.
+ *
+ * Ce script vérifie ce que voit réellement l'utilisateur, dans un vrai Chromium,
+ * sur PC, tablette et mobile :
+ *   1. #root occupe au moins 90 % de la hauteur de la fenêtre ;
+ *   2. la barre des 5 onglets est visible dans la fenêtre ;
+ *   3. l'écran Écouter affiche son titre à l'écran (hauteur > 0, dans la fenêtre).
+ *
+ * Usage : node scripts/web-visible-surface-gate.cjs <BASE_URL>
+ *   ex. BASE_URL = http://127.0.0.1:8765/KEEP  (avant publication)
+ *       BASE_URL = https://adelkhatra-bit.github.io/KEEP  (après publication)
+ * Nécessite @playwright/test (ou playwright) et un Chromium installé.
+ */
+let pw;
+try { pw = require('@playwright/test'); } catch { pw = require('playwright'); }
+const { chromium, devices } = pw;
+
+const BASE = (process.argv[2] || '').replace(/\/+$/, '');
+if (!BASE) {
+  console.error('Usage: node scripts/web-visible-surface-gate.cjs <BASE_URL>');
+  process.exit(2);
+}
+
+const scenarios = [
+  { name: 'desktop-1440', context: { viewport: { width: 1440, height: 900 } } },
+  { name: 'desktop-1366', context: { viewport: { width: 1366, height: 768 } } },
+  { name: 'tablet-1024', context: { viewport: { width: 1024, height: 768 } } },
+  { name: 'android-pixel7', context: { ...devices['Pixel 7'] } },
+];
+const routes = ['/', '/Main/Listen/', '/Main/Profile/'];
+const TAB_LABELS = ['Écouter', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
+
+async function measure(page) {
+  return page.evaluate((tabLabels) => {
+    const root = document.getElementById('root');
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const rootRect = root ? root.getBoundingClientRect() : null;
+    const visible = (el) => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw
+        && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
+    };
+    const leafWithText = (label) => [...document.querySelectorAll('div, span, a, button')]
+      .filter((el) => (el.innerText || '').trim() === label)
+      .filter((el) => ![...el.children].some((c) => (c.innerText || '').trim() === label));
+    const visibleTabs = tabLabels.filter((label) => leafWithText(label).some(visible));
+    return {
+      vh,
+      rootHeight: rootRect ? Math.round(rootRect.height) : -1,
+      visibleTabs,
+      booting: document.documentElement.classList.contains('keep-booting'),
+    };
+  }, TAB_LABELS);
+}
+
+(async () => {
+  const failures = [];
+  const browser = await chromium.launch({ headless: true });
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ ...scenario.context, locale: 'fr-FR' });
+    const page = await context.newPage();
+    for (const route of routes) {
+      const url = BASE + route;
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      // Le boot-shield se lève au plus tard après 8 s ; on laisse l'app monter.
+      await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(2500);
+      const m = await measure(page);
+      const label = `${scenario.name} ${route}`;
+      const problems = [];
+      if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
+      if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
+      if (m.booting) problems.push('écran de démarrage jamais levé');
+      if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
+      console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
+    }
+    await context.close();
+  }
+  await browser.close();
+  if (failures.length) {
+    console.error('\nPAGE NOIRE / SURFACE INVISIBLE DÉTECTÉE :\n- ' + failures.join('\n- '));
+    process.exit(1);
+  }
+  console.log('\nSurface visible OK sur PC, tablette et mobile.');
+})().catch((err) => { console.error(err); process.exit(1); });
