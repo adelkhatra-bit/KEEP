@@ -153,6 +153,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // style musical, liste "qui a repris"), comme sur son propre profil.
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [repriseListOpen, setRepriseListOpen] = useState(false);
+  // Adel (29/09/2026) : sur le profil visité, seuls Abonnés + Morceaux
+  // restent visibles ; Reprises + Abonnements se déplient via « ••• PLUS »,
+  // comme sur son propre profil.
+  const [countersExpanded, setCountersExpanded] = useState(false);
   const [repriseLoading, setRepriseLoading] = useState(false);
   const [reprisers, setReprisers] = useState<ProfileRepriser[]>([]);
   const [repriseFollowBusyId, setRepriseFollowBusyId] = useState<string | null>(null);
@@ -1182,14 +1186,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           </View>
           <View style={styles.unifiedCounters}>
-            <ProfileCounterRow kind="connections" items={[
-              { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-              { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
-            ]} />
-            <ProfileCounterRow kind="keeps" items={[
-              { value: tracks.length, label: 'Morceaux' },
-              { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-            ]} />
+            <View style={styles.countersMainRow}>
+              <TouchableOpacity
+                style={[styles.countersMore, countersExpanded && styles.countersMoreOn]}
+                onPress={() => setCountersExpanded((v) => !v)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: countersExpanded }}
+                accessibilityLabel={countersExpanded ? 'Masquer Reprises et Abonnements' : 'Afficher Reprises et Abonnements'}
+              >
+                <Text style={styles.countersMoreIcon}>{countersExpanded ? '⌃' : '•••'}</Text>
+                <Text style={styles.countersMoreText}>PLUS</Text>
+              </TouchableOpacity>
+              <ProfileCounterRow kind="connections" style={styles.countersMainGroup} items={[
+                { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+                { value: tracks.length, label: 'Morceaux' },
+              ]} />
+            </View>
+            {countersExpanded ? (
+              <ProfileCounterRow kind="keeps" items={[
+                { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
+                { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+              ]} />
+            ) : null}
           </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           {viewer?.id !== profile.id ? (
@@ -1825,7 +1843,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   marketplaceMore:{color:colors.textMutedGrey,fontSize:10,fontWeight:'700',textAlign:'center',marginTop:2},saleShowcase:{marginHorizontal:18,marginTop:16,marginBottom:4,padding:14,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1.5,borderColor:colors.primary},saleShowcaseHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6},saleShowcaseEyebrow:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:1.2},saleShowcaseCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},marketplaceHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},marketplaceList:{gap:8,marginTop:10},marketplaceEmpty:{marginTop:10,minHeight:44,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F',alignItems:'center',justifyContent:'center'},marketplaceEmptyText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},marketplaceBrowseAll:{minHeight:42,marginTop:9,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.10)',paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},marketplaceBrowseAllText:{color:'#FFFFFF',fontSize:12,fontWeight:'900',letterSpacing:.5},marketplaceSellerLink:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},marketplaceSellerLinkText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},marketplaceCard:{padding:8,borderRadius:14,backgroundColor:'#0F1B16',borderWidth:1,borderColor:'#2D5C4F'},marketplaceCardTop:{minHeight:66,flexDirection:'row',alignItems:'center',gap:10},marketplaceCover:{width:50,height:50,borderRadius:10,backgroundColor:'#21182F'},marketplaceCoverFallback:{alignItems:'center',justifyContent:'center'},marketplaceCoverIcon:{color:'#38D990',fontSize:20,fontWeight:'900'},marketplaceCopy:{flex:1,minWidth:0},marketplaceTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},marketplaceMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},marketplacePriceButton:{minWidth:56,minHeight:34,paddingHorizontal:9,borderRadius:17,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},marketplacePriceText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},immersiveLaunchButton:{marginTop:7,minHeight:36,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},immersiveLaunchButtonHot:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},immersiveLaunchText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},immersiveLaunchTextHot:{color:colors.keep,fontSize:13,fontWeight:'900'},
   browseHint:{color:colors.textMuted,fontSize:12,marginTop:6},artistTrackRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:12},artistTrackCover:{width:48,height:48,borderRadius:10,backgroundColor:'#21182F'},artistTrackCoverPlaceholder:{alignItems:'center',justifyContent:'center'},artistTrackCoverPlaceholderText:{fontSize:20},artistTrackTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},artistTrackAlbum:{color:colors.textMuted,fontSize:11,marginTop:1},artistTrackPrice:{color:'#E5F266',fontSize:12,fontWeight:'900',marginTop:3},artistTrackBuyButton:{minHeight:32,paddingHorizontal:14,borderRadius:16,backgroundColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},artistTrackBuyButtonText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},
   sectionTitle:{...typography.h3,color:colors.textPrimary},
-  topCommunityPanel:{marginHorizontal:18,marginTop:6},unifiedCounters:{marginHorizontal:18,marginTop:4,marginBottom:8,gap:2},
+  topCommunityPanel:{marginHorizontal:18,marginTop:6},unifiedCounters:{marginHorizontal:0,marginTop:16,marginBottom:8,gap:2},countersMainRow:{flexDirection:'row',alignItems:'stretch',gap:8},countersMainGroup:{flex:1,marginTop:0},countersMore:{width:48,minHeight:62,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},countersMoreOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},countersMoreIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},countersMoreText:{color:colors.textMutedGrey,fontSize:7,fontWeight:'900',marginTop:2},
   collectionHeader:{marginHorizontal:18,marginTop:18,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,marginHorizontal:8,paddingHorizontal:2,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   firstKeepBlock:{marginTop:4,gap:2},firstKeepRow:{flexDirection:'row',alignItems:'center',gap:8},firstKeepBadge:{paddingHorizontal:8,paddingVertical:3,borderRadius:10,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success},firstKeepBadgeText:{color:colors.success,fontSize:11,fontWeight:'900'},firstKeepCount:{color:colors.textMuted,fontSize:11,fontWeight:'800'},firstKeepLine:{color:colors.textMuted,fontSize:11,lineHeight:15},

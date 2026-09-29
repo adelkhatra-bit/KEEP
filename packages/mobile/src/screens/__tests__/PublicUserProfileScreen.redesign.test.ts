@@ -115,6 +115,26 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain("shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary");
     expect(source).toContain("socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22");
   });
+  it('shows only Abonnés + Morceaux, with Reprises + Abonnements behind a « ••• PLUS » toggle (Adel 29/09)', () => {
+    const counters = source.indexOf('<View style={styles.unifiedCounters}>');
+    const more = source.indexOf('style={[styles.countersMore', counters);
+    const main = source.indexOf('<ProfileCounterRow kind="connections"', counters);
+    const expandedGate = source.indexOf('{countersExpanded ? (', main);
+    const extra = source.indexOf('<ProfileCounterRow kind="keeps"', expandedGate);
+    expect(more).toBeGreaterThan(counters);
+    expect(main).toBeGreaterThan(more);
+    const mainRow = source.slice(main, expandedGate);
+    expect(mainRow).toContain("label: 'Abonnés'");
+    expect(mainRow).toContain("label: 'Morceaux'");
+    expect(mainRow).not.toContain("label: 'Reprises'");
+    expect(mainRow).not.toContain("label: 'Abonnements'");
+    const extraRow = source.slice(extra, source.indexOf(']} />', extra));
+    expect(extraRow).toContain("label: 'Reprises'");
+    expect(extraRow).toContain("label: 'Abonnements'");
+    expect(source).toContain('<Text style={styles.countersMoreText}>PLUS</Text>');
+    expect(source).toContain('unifiedCounters:{marginHorizontal:0,');
+  });
+
   it('keeps visitor follow as a single compact action and counters on one row', () => {
     expect(source).toContain('styles.visitorActionRow');
     expect(source).toContain("label: 'Abonnés'");
