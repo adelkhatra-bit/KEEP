@@ -20,10 +20,12 @@ describe('web refresh surface contract', () => {
     expect(entry).toContain('React.createElement(WebRefreshSurfaceGuard)');
   });
 
-  it('locks the viewport only on mobile and releases desktop width/height', () => {
+  it('keeps both mobile and desktop rooted to the visible viewport', () => {
     expect(entry).toContain('@media (max-width: 899px)');
     expect(entry).toContain('@media (min-width: 900px)');
-    expect(entry).toContain('position:relative; inset:auto; height:auto; min-height:100vh; max-height:none; overflow:visible;');
+    expect(entry).toContain('height:100dvh; min-height:100vh; max-height:100dvh; overflow:hidden;');
     expect(exportFix).toContain('keep-desktop-shell');
+    expect(exportFix).toContain('height:100dvh!important');
+    expect(exportFix).not.toContain('height:auto!important');
   });
 });

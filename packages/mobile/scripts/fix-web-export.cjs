@@ -65,7 +65,7 @@ if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
 // Desktop web must use the whole browser surface instead of behaving like a
 // frozen phone viewport. Keep mobile untouched; on wide screens, allow natural
 // page height/scroll and remove any accidental root width cap left by the web shell.
-const desktopShellCss = '<style id="keep-desktop-shell">@media (min-width: 900px){html,body,#root{width:100%!important;max-width:none!important;min-height:100%!important;height:auto!important}html,body{overflow-x:hidden!important;overflow-y:auto!important}#root>div{width:100%!important;max-width:none!important}}</style>';
+const desktopShellCss = '<style id="keep-desktop-shell">@media (min-width: 900px){html,body{width:100%!important;height:100%!important;min-height:100%!important;overflow:hidden!important}#root{width:100%!important;max-width:none!important;height:100dvh!important;min-height:100vh!important;max-height:100dvh!important;overflow:hidden!important}#root>div{width:100%!important;max-width:none!important;height:100%!important;min-height:100%!important}}</style>';
 if (!html.includes('keep-desktop-shell') && html.includes('</head>')) {
   html = html.replace('</head>', `${desktopShellCss}</head>`);
 }

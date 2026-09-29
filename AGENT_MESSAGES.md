@@ -1894,3 +1894,8 @@ Cause démontrée dans packages/mobile/index.js : à partir de 900px, #root pass
 
 ## [2026-09-29T11:20:00Z] chatgpt — profil entouré + erreurs console
 À la demande d'Adel, correction ciblée du bloc identité de ProfilePublicScreen : pseudo/certification séparés de Battle, type + localisation aérés, Battle sur sa propre ligne, aucune suppression de fonction. Console web : useNativeDriver désactivé uniquement sur web dans les composants visibles du profil ; pending-session-imports ne dépend plus du backend Vercel 503 et passe par Supabase RLS. Le RPC referral évite désormais les cas prévisibles anonyme/ancien/auto-référencé avant l'appel. Ne pas revenir à l'ancien bloc serré. App.tsx/Navigation.tsx/5 onglets intouchés.
+
+
+## [2026-09-29T11:24:00Z] chatgpt — cause finale écran noir desktop reproduite en CI
+
+Le Guardian a reproduit le bug exact : à 1440×900, l'app contient du texte mais #root mesure 1440×0. Le build web injectait encore `height:auto!important` via `packages/mobile/scripts/fix-web-export.cjs`, ce qui annulait le 100dvh de `index.js`. Correction : export desktop = root 100dvh + enfant RN 100% + overflow interne ; test WebRefreshSurface mis à jour. Ne pas réintroduire height:auto sur #root desktop.
