@@ -210,8 +210,8 @@ describe('Loki Music Battle mobile style selector', () => {
   });
 
   it('renders four equal answer choices in solo and online Battle', () => {
-    expect(source).toContain('Array.from(dedupMap.values()).slice(0, 4)');
-    expect(source).toContain('(round.choices || []).forEach((choice)');
+    expect(source).toContain('dedupeAnswerChoices(round.choices || [], round.correctAnswer, primaryArtistLabel)');
+    expect(source).toContain("dedupeAnswerChoices(round.choices || [], round.artist || '', primaryArtistLabel)");
     expect(source).toContain('Écoute · réponds · affronte');
     expect(source).not.toContain('i === 2 && s.answerFull');
     expect(source).toContain('borderColor: colors.primary');
@@ -271,9 +271,10 @@ describe('Loki Music Battle mobile style selector', () => {
     expect(source).toContain("answerWrong: { borderWidth: 2, borderColor: colors.danger");
     expect(source).toContain("const [soloSelectedAnswer, setSoloSelectedAnswer] = React.useState<string | null>(null);");
     expect(source).toContain("setSoloSelectedAnswer(choice);");
-    expect(source).toContain("choice === soloSelectedAnswer && choice !== round.correctAnswer && s.answerWrong");
+    // 29/09/2026 : couleur décidée par answerVisualState (bonne = vert, mauvaise choisie = rouge).
+    expect(source).toContain("answerVisualState(choice, round.correctAnswer, soloSelectedAnswer, answered)");
+    expect(source).toContain("state === 'wrong' && s.answerWrong]}");
     expect(source).toContain("const correct = soloAnswer === 'CORRECT';");
-    expect(source).toContain("s.answerWrong]}");
     expect(source).toContain('function ResultIcon(');
     expect(source).toContain('<ResultIcon icon={perfect ?');
     // Le rond de fin de partie ne doit plus utiliser l'éclair fixe -- seul un

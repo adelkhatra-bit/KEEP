@@ -122,6 +122,20 @@ export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDai
   };
 }
 
+// Adel (29/09/2026) : « pourquoi y'a pas la date de rechargement des Free ».
+// Données brutes seulement (création du profil + bonus mensuel de la formule,
+// même source plan_prices que planService) ; le calcul de date est fait par
+// nextMonthlyFreeRecharge (battleHomeInfo), miroir du calcul serveur.
+export async function loadMyFreeRechargeInfo(profileId: string, planCode: string): Promise<{ profileCreatedAt: string | null; monthlyBonus: number }> {
+  const [{ data: profile }, { data: prices }] = await Promise.all([
+    client().from('profiles').select('created_at').eq('id', profileId).maybeSingle(),
+    client().from('plans').select('code,plan_prices!inner(period,is_active,effective_from,free_bonus_per_month)').eq('code', planCode.toUpperCase()).eq('plan_prices.is_active', true).eq('plan_prices.period', 'MONTHLY').maybeSingle(),
+  ]);
+  const rows = Array.isArray((prices as any)?.plan_prices) ? (prices as any).plan_prices : [];
+  const latest = rows.slice().sort((a: any, b: any) => String(b.effective_from).localeCompare(String(a.effective_from)))[0];
+  return { profileCreatedAt: (profile as any)?.created_at ? String((profile as any).created_at) : null, monthlyBonus: Math.max(0, Number(latest?.free_bonus_per_month || 0)) };
+}
+
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
   // Build and validate the playable pack BEFORE consuming a daily start.
   // A catalogue/network failure must never burn one of the user's Solo slots.
