@@ -37,14 +37,14 @@ export default function SwipeDeck({
   }, [resetKey, x]);
 
   const settle = () => {
-    Animated.spring(x, { toValue: 0, friction: 7, tension: 80, useNativeDriver: true }).start();
+    Animated.spring(x, { toValue: 0, friction: 7, tension: 80, useNativeDriver: Platform.OS !== 'web' }).start();
   };
 
   const commitSwipe = (direction: SwipeDirection) => {
     if (animating.current) return;
     animating.current = true;
     const target = direction === 'RIGHT' ? EXIT_DISTANCE : -EXIT_DISTANCE;
-    Animated.timing(x, { toValue: target, duration: 190, useNativeDriver: true }).start(() => {
+    Animated.timing(x, { toValue: target, duration: 190, useNativeDriver: Platform.OS !== 'web' }).start(() => {
       const callback = direction === 'RIGHT' ? onSwipeRight : onSwipeLeft;
       Promise.resolve(callback?.())
         .catch(() => {})
