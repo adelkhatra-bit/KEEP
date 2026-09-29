@@ -7,6 +7,7 @@
 import { Platform } from 'react-native';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
 import { APP_NAME } from '../config/brand';
+import { noSoundMessage } from './micNoSoundMessage';
 
 type ExpoAVModule = typeof import('expo-av');
 type NativeRecording = import('expo-av').Audio.Recording;
@@ -414,7 +415,7 @@ async function captureStreamToWav(
     if (v > peak) peak = v;
   }
   if (totalLength === 0 || peak < 0.004) {
-    throw new Error('Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).');
+    throw new Error(noSoundMessage());
   }
   onPeak?.(peak);
 
