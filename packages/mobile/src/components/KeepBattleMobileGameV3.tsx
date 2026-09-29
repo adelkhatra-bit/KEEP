@@ -2644,8 +2644,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               info ». Toutes les infos de quota vivent ici, au-dessus des
               boutons : recharge Free, Solos restants, règle par profil. */}
           <View style={s.quotaInfo}>
-            {freeRecharge ? <Text style={s.freeRechargeText}>🔄 Prochaine recharge : {freeRecharge}</Text> : null}
-            {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]}>🎯 {q.headline} · {q.detail}</Text> : null; })()}
+            {/* 29/09/2026 : une seule ligne sous les compteurs, Solos à gauche,
+                recharge des Free à droite (« en face de prochaine recharge »). */}
+            <View style={s.quotaRow}>
+              {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.quotaCell}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>🎯 {q.headline}</Text><Text style={s.quotaSub} numberOfLines={1}>{q.detail}</Text></View> : null; })()}
+              {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochaine recharge</Text></View> : null}
+            </View>
             {(() => { const rule = soloPlanRuleCopy(soloDailyStatus); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
           </View>
           {statsExpanded && myPlayerStats ? (
@@ -2715,6 +2719,9 @@ const s = StyleSheet.create({
   battleModes: { gap: 10, marginTop: 12, flexDirection: 'row', alignItems: 'stretch' },
   modeCard: { flex: 1, minWidth: 0, minHeight: 64, borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1.5, borderColor: colors.primary, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   quotaInfo: { marginTop: 2, gap: 2, alignItems: 'center' },
+  quotaRow: { flexDirection: 'row', gap: 8, alignSelf: 'stretch' },
+  quotaCell: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 6, borderRadius: 12, backgroundColor: '#1B1422' },
+  quotaSub: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 1 },
   soloQuotaText: { color: colors.success, fontSize: 12, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   modeCardExhausted: { borderColor: colors.border, opacity: .85 },
   modeTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: .6 },
@@ -2726,7 +2733,7 @@ const s = StyleSheet.create({
   freeStatValueMain: { color: colors.success, fontSize: 22 },
   freeStatWon: { color: colors.success },
   freeStatLost: { color: colors.danger },
-  freeRechargeText: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 15, fontWeight: '800', textAlign: 'center', marginBottom: 6 },
+  freeRechargeText: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   modeTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   modeIconText: { color: colors.primaryLight, fontSize: 20, fontWeight: '900' },
   headerCreditPill: { minWidth: 48, minHeight: 30, borderRadius: 15, paddingHorizontal: 8, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.38)', alignItems: 'center', justifyContent: 'center' },
