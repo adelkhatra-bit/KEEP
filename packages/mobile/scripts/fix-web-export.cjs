@@ -35,6 +35,14 @@ if (!html.includes('keep-cache-hygiene') && html.includes('</head>')) {
 // iOS Safari zoome automatiquement lorsqu'un input a une taille de police
 // inférieure à 16px. On corrige uniquement les champs sur petit écran web,
 // sans désactiver le pinch-to-zoom ni modifier le design natif Android/iOS.
+// Le navigateur peint parfois le canvas AVANT que le bundle Expo ne démarre.
+// Utiliser exactement le même fond que le thème Loki évite tout flash/halo
+// d'un ancien fond lors d'un refresh ou d'un changement de route.
+const shellBackgroundCss = '<style id="keep-shell-background">html,body,#root{margin:0;background:#0B0A12!important}html,body{min-height:100%}</style>';
+if (!html.includes('keep-shell-background') && html.includes('</head>')) {
+  html = html.replace('</head>', `${shellBackgroundCss}</head>`);
+}
+
 const mobileFormCss = '<style id="keep-mobile-form-nozoom">@media (max-width: 767px){input,textarea,select{font-size:16px!important}}</style>';
 if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
   html = html.replace('</head>', `${mobileFormCss}</head>`);
