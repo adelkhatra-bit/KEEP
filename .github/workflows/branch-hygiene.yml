@@ -1,0 +1,53 @@
+name: KEEP — Branch hygiene
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'BRANCH_SOURCE_OF_TRUTH.json'
+      - '.github/workflows/branch-hygiene.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  remove-misleading-legacy-branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Lock canonical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
+
+      - name: Delete misleading legacy branch names
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for branch in web-preview admin-preview; do
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" >/dev/null 2>&1; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+              echo "Deleted legacy branch: $branch"
+            else
+              echo "Legacy branch already absent: $branch"
+            fi
+          done
+
+      - name: Verify legacy branch names are gone
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for branch in web-preview admin-preview; do
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" >/dev/null 2>&1; then
+              echo "ERROR: legacy branch still exists: $branch"
+              exit 1
+            fi
+          done
+          echo "Branch hygiene verified: one product source remains canonical."

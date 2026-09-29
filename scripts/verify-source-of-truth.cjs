@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const failures = [];
@@ -14,10 +15,21 @@ if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranc
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
 
+// Local agents do not always expose GITHUB_REF_NAME. When a real git checkout is
+// available, refuse to validate a product task from any non-canonical branch.
+try {
+  const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
+  if (localBranch && localBranch !== expectedBranch) failures.push(`WRONG LOCAL BRANCH: ${localBranch}`);
+} catch {
+  // Source archives / CI environments without git metadata still use the explicit
+  // repository + branch guards above.
+}
+
 const mustExist = [
   'CLAUDE.md',
   'AGENTS.md',
   '.github/copilot-instructions.md',
+  '.github/workflows/branch-hygiene.yml',
   'BRANCH_SOURCE_OF_TRUTH.json',
   'packages/mobile',
   'packages/admin',
@@ -74,8 +86,14 @@ for (const [key, expected] of Object.entries({
   publicWebSourceBranch: expectedBranch,
   githubPagesWorkflow: '.github/workflows/web-preview-pages.yml',
   frozenDefaultBranch: 'main',
+  productSourceCount: 1,
 })) {
   if (branchContract[key] !== expected) failures.push(`BRANCH CONTRACT MISMATCH: ${key}=${branchContract[key]}`);
+}
+for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
+  if (!branchContract.forbiddenRemoteBranches?.includes(forbiddenBranch)) {
+    failures.push(`BRANCH CONTRACT MUST FORBID REMOTE BRANCH: ${forbiddenBranch}`);
+  }
 }
 
 const claudeInstructions = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
@@ -266,7 +284,8 @@ if (failures.length) {
 console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
-console.log('branch contract: mobile + public web use the same canonical branch; main is frozen metadata only');
+console.log('branch contract: ONE product source; mobile + public web use the same canonical branch; main is frozen metadata only');
+console.log('branch hygiene: web-preview + admin-preview are forbidden remote branches');
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
 console.log('auth user: pseudo + mot de passe + e-mail vérifié obligatoires à la création (depuis le 01/09/2026)');

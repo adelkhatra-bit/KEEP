@@ -110,7 +110,7 @@ export default function CoachMarks({ visible, steps = DEFAULT_COACH_STEPS, onFin
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(5,4,10,0.56)', justifyContent: 'flex-end', padding: spacing.lg },
+  overlay: { flex: 1, backgroundColor: 'rgba(5,4,10,0.18)', justifyContent: 'flex-end', padding: spacing.lg },
   bubble: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg },
   badge: { alignSelf: 'flex-start', backgroundColor: 'rgba(124,92,252,0.18)', color: colors.primary, fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden', marginBottom: spacing.md },
   emoji: { fontSize: 34, marginBottom: spacing.sm },

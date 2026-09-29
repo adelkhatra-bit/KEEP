@@ -7,8 +7,6 @@
   "frozenDefaultBranch": "main",
   "frozenDefaultBranchPurpose": "GitHub metadata only; never a product source",
   "legacyNamedBranches": [
-    "web-preview",
-    "admin-preview",
     "chatgpt/*",
     "claude*",
     "copilot/*",
@@ -18,5 +16,10 @@
   "allowedAutomationBranchPrefixes": [
     "dependabot/"
   ],
-  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly."
+  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly.",
+  "productSourceCount": 1,
+  "forbiddenRemoteBranches": [
+    "web-preview",
+    "admin-preview"
+  ]
 }
