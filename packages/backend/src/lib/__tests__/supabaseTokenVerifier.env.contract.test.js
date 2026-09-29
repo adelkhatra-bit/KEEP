@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 describe('Supabase token verifier production env contract', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'supabaseTokenVerifier.ts'), 'utf8');

@@ -252,6 +252,15 @@ jobs:
             await openKeep(page);
             await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
 
+            // Le mini-tour de première installation est une vraie surcouche.
+            // Un utilisateur appuie d'abord sur Passer/Suivant ; le Guardian
+            // doit reproduire ce geste et ne jamais cliquer à travers l'aide.
+            const skipCoach=page.getByLabel('Passer le mini-tour').last();
+            if(await skipCoach.isVisible().catch(()=>false)) {
+              await skipCoach.click({force:true});
+              await page.waitForTimeout(180);
+            }
+
             const start=page.getByLabel('Démarrer une écoute').last();
             await start.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,start,'Listen start');

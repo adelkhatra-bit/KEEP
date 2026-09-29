@@ -104,6 +104,14 @@ jobs:
             for(const x of ['Écouter','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
             await shot('01-listen-idle');
 
+            // Première installation : fermer le mini-tour comme le ferait un humain
+            // avant d'exercer le bouton ÉCOUTER.
+            const skipCoach=page.getByLabel('Passer le mini-tour').last();
+            if(await skipCoach.isVisible().catch(()=>false)) {
+              await skipCoach.click({force:true});
+              await page.waitForTimeout(180);
+            }
+
             const start=page.getByLabel('Démarrer une écoute').last();
             await inViewport(start,'Listen start');
             await clickRobust(start,'Listen start');
