@@ -93,7 +93,10 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     try {
       await setManualBattleAvailability(value);
       set({ available: value, activatedManually: value });
-      if (value) startPing(); else stopPing();
+      // 29/09/2026 : le ping sert aussi la présence « En ligne » du profil
+      // public ; il continue même Battle OFF (le serveur ne touche alors que
+      // app_last_seen_at, jamais la disponibilité Battle).
+      startPing();
     } finally {
       set({ busy: false });
     }
@@ -115,7 +118,6 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     try {
       await setManualBattleAvailability(false);
       set({ available: false, activatedManually: false });
-      stopPing();
     } finally {
       set({ busy: false });
     }
@@ -132,8 +134,11 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     try {
       const value = await getManualBattleAvailability();
       set({ available: value, activatedManually: value });
-      if (value) startPing(); else stopPing();
+      startPing();
     } catch {
+      // Même si la lecture échoue, la présence de l'utilisateur connecté doit
+      // continuer d'être signalée.
+      startPing();
       // Silencieux : reste sur l'état local par défaut si la lecture échoue.
     }
   },
@@ -156,8 +161,10 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
 // fois -- mais rien ne le refaisait automatiquement au retour au premier
 // plan. Un ping immédiat dès que l'onglet/l'appli redevient visible
 // rattrape ça pour TOUS les utilisateurs disponibles, pas seulement Flo.
+// 29/09/2026 : au retour au premier plan, on pingue pour TOUT utilisateur
+// connecté (pingTimer actif), Battle ON ou OFF -- présence « En ligne ».
 function pingIfAvailable() {
-  if (useBattleAvailabilityStore.getState().available) {
+  if (pingTimer) {
     void pingManualBattleAvailability().catch(() => {});
   }
 }
