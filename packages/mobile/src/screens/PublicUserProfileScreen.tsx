@@ -1181,6 +1181,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               </View>
             </View>
           </View>
+          <View style={styles.unifiedCounters}>
+            <ProfileCounterRow kind="connections" items={[
+              { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
+              { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
+            ]} />
+            <ProfileCounterRow kind="keeps" items={[
+              { value: tracks.length, label: 'Morceaux' },
+              { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
+            ]} />
+          </View>
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           {viewer?.id !== profile.id ? (
             <>
@@ -1219,17 +1229,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </ProfileMotionReveal>
 
-        {/* Compteurs du profil visite : bloc compact unique, toujours avant les collections. */}
-        <View style={styles.unifiedCounters}>
-          <ProfileCounterRow kind="connections" items={[
-            { value: followerCount, label: 'Abonnés', active: communityMode === 'followers', onPress: () => setCommunityMode((v) => v === 'followers' ? null : 'followers') },
-            { value: socialKeepCount, label: 'Reprises', active: repriseListOpen, onPress: () => setRepriseListOpen((v) => !v) },
-          ]} />
-          <ProfileCounterRow kind="keeps" items={[
-            { value: tracks.length, label: 'Morceaux' },
-            { value: followingCount, label: 'Abonnements', active: communityMode === 'following', onPress: () => setCommunityMode((v) => v === 'following' ? null : 'following') },
-          ]} />
-        </View>
+
 
 
 
