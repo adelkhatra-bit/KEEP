@@ -62,6 +62,16 @@ assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profi
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, 'accessibilityLabel={battleAvailable ? \'Ne plus recevoir de défis Battle\' : \'Recevoir des défis Battle\'}', 'Owner Battle availability control');
 assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
+if ((owner.match(/variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionMotion\}/g) || []).length !== 3) {
+  throw new Error('Owner APERÇU / PEPITES / BATTLE must share the same outline-only geometry');
+}
+assertIncludes(owner, "setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications');", 'Notification bell opens notifications directly');
+assertIncludes(visitor, 'variant="outline"', 'Visited profile Battle outline');
+assertIncludes(visitor, 'containerStyle={styles.visitorActionMotion}', 'Visited profile Battle equal-width action');
+
+const motionButton = read('src/components/MotionActionButton.tsx');
+assertIncludes(motionButton, "variant !== 'outline'", 'Outline idle motion loop');
+assertIncludes(motionButton, "backgroundColor: variant === 'outline' && pressed ? colors.primaryFaint : config.bg", 'Outline press feedback without permanent fill');
 
 const sharedCounters = read('src/components/ProfileCounterRow.tsx');
 assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
