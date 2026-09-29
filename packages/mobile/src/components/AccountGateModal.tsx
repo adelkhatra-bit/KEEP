@@ -23,7 +23,7 @@ export default function AccountGateModal() {
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!celebrate) { pop.setValue(0); return; }
-    Animated.spring(pop, { toValue: 1, useNativeDriver: true, friction: 5, tension: 90 }).start();
+    Animated.spring(pop, { toValue: 1, useNativeDriver: Platform.OS !== 'web', friction: 5, tension: 90 }).start();
     const timer = setTimeout(close, 1800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
