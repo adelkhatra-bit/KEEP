@@ -7,36 +7,33 @@ const source = fs
   .replace(/\r\n/g, '\n');
 
 describe('ProfilePublicScreen — owner actions stay together in the hero', () => {
-  it('keeps preview, invite/share, sales and Battle controls before the collection', () => {
-    const preview = source.indexOf('title="PRÉVISUALISER MON UNIVERS"');
-    const invite = source.indexOf('title="INVITER / PARTAGER"');
-    const sales = source.indexOf("title={playlistSaleOffers.length > 0 ? 'GÉRER MES COLLECTIONS' : 'CRÉER UNE COLLECTION'}");
-    const battle = source.indexOf('⚡ BATTLE · {battleAvailable');
-    const solo = source.indexOf('title="JOUER EN SOLO"');
+  it('keeps preview, collections and Battle aligned before the collection content', () => {
+    const actions = source.indexOf('<View style={s.ownerQuickActions}>');
+    const preview = source.indexOf('▶ APERÇU', actions);
+    const sales = source.indexOf('◆ PÉPITES', actions);
+    const battle = source.indexOf('⚡ BATTLE', actions);
     const collection = source.indexOf('<View style={s.collectionHeader}>');
 
-    expect(preview).toBeGreaterThanOrEqual(0);
-    expect(invite).toBeGreaterThan(preview);
-    expect(sales).toBeGreaterThan(invite);
+    expect(actions).toBeGreaterThanOrEqual(0);
+    expect(preview).toBeGreaterThan(actions);
+    expect(sales).toBeGreaterThan(preview);
     expect(battle).toBeGreaterThan(sales);
-    expect(solo).toBeGreaterThan(battle);
-    expect(collection).toBeGreaterThan(solo);
+    expect(collection).toBeGreaterThan(battle);
   });
 
-  it('keeps offer status and Battle help local to their controls', () => {
-    expect(source).toContain("`${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} active${playlistSaleOffers.length > 1 ? 's' : ''}`");
-    expect(source).toContain("Les autres peuvent t’inviter maintenant.");
-    expect(source).toContain("Active pour recevoir des défis.");
-    expect(source).toContain("utilise JOUER EN SOLO ici ou visite le profil d’un joueur disponible");
-    expect(source).toContain("navigation.navigate('Parties', { openBattle: true, source: 'profile-solo' })");
-    expect(source).toContain('accessibilityLabel="Jouer un Battle solo"');
+  it('keeps the Battle availability control visible beside the owner identity', () => {
+    expect(source).toContain('<BattleGlowButton');
+    expect(source).toContain("label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}");
+    expect(source).toContain("accessibilityRole="switch"");
+    expect(source).toContain("accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}");
   });
 
-  it('uses animated premium actions for preview, sharing, sales and solo Battle', () => {
+  it('uses the shared animated action component for the owner quick actions', () => {
     expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
-    expect(source.match(/<MotionActionButton/g)?.length).toBeGreaterThanOrEqual(4);
-    expect(source).toContain('tone="battle"');
-    expect(source).toContain('tone="success"');
+    expect(source).toContain('containerStyle={s.ownerQuickActionFull}');
+    expect(source).toContain('accessibilityLabel="Voir aperçu"');
+    expect(source).toContain('accessibilityLabel="Gérer pépites"');
+    expect(source).toContain('accessibilityLabel="Jouer Battle"');
   });
 
   it('does not reintroduce the old duplicate sales status block below the hero', () => {
@@ -46,17 +43,15 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
 
   it('shows published collections as an unlocked horizontal rail on the owner profile', () => {
     expect(source).toContain('style={s.ownerCollectionRail}');
-    expect(source).toContain('Mes collections exclusives');
+    expect(source).toContain('Mes sélections');
     expect(source).toContain('horizontal');
     expect(source).toContain('badgeLabel="✓ PUBLIÉE"');
-    expect(source).toContain('€ / FREE');
-  });
-  it('keeps style listening and collection creation directly on the immersive card', () => {
-    expect(source).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
-    expect(source).toContain("onPress={() => openSelectionSwipe({ title: folder.genre");
-    expect(source).toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
-    expect(source).toContain("preselectSaleGenre: folder.genre");
-    expect(source).toContain("fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}");
+    expect(source).toContain('actionLabel="GÉRER"');
   });
 
+  it('keeps style listening directly on the immersive style card', () => {
+    expect(source).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
+    expect(source).toContain("onPress={() => openSelectionSwipe({ title: folder.genre");
+    expect(source).toContain("fullWidth={genreFolders.length % 2 === 1 && index === genreFolders.length - 1}");
+  });
 });
