@@ -1252,7 +1252,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar} accessibilityLabel="Actions du profil">
-        <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+        <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
           <Text style={s.bell}>🔔</Text>
           {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
         </TouchableOpacity>
@@ -1786,8 +1786,8 @@ ownerBattleSummary:{minHeight:32,marginTop:6,borderRadius:10,alignItems:'center'
 ownerBattleSummaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',letterSpacing:.3},
 ownerBattleTopRow:{minHeight:30,paddingHorizontal:18,marginTop:-2,marginBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'flex-end'},
 ownerBattleMicroRow:{minHeight:28,marginTop:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
-ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:999,borderWidth:2,borderColor:colors.border,backgroundColor:colors.backgroundElevated,shadowColor:colors.primaryLight,shadowOpacity:.65,shadowRadius:8,shadowOffset:{width:0,height:0},elevation:6},
-ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:`${colors.success}18`,shadowColor:colors.success,shadowOpacity:.85,shadowRadius:10,elevation:8},
+ownerBattleMicroSwitch:{flexDirection:'row',alignItems:'center',gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:999,borderWidth:2,borderColor:colors.primaryLight,backgroundColor:'transparent',shadowColor:colors.primaryLight,shadowOpacity:.72,shadowRadius:9,shadowOffset:{width:0,height:0},elevation:7},
+ownerBattleMicroSwitchOn:{borderColor:colors.success,backgroundColor:'transparent',shadowColor:colors.success,shadowOpacity:.9,shadowRadius:11,elevation:9},
 ownerBattleMicroText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.45},
 ownerBattleMicroTextOn:{color:colors.success},
 
