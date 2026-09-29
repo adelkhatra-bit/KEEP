@@ -20,7 +20,6 @@ import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
-import MotionActionButton from '../components/MotionActionButton';
 import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import { commitKeep } from '../services/keepTrackAction';
