@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppState, Platform } from 'react-native';
 import { setManualBattleAvailability, pingManualBattleAvailability, getManualBattleAvailability } from '../services/keepBattleLiveService';
+import { supabase } from '../services/supabaseClient';
 
 // Adel (02/09/2026) : "un utilisateur qui se connecte à la plateforme peut se
 // rendre disponible même s'il est pas en train de faire des Battle ...
@@ -167,5 +168,26 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 } else {
   AppState.addEventListener('change', (state) => {
     if (state === 'active') pingIfAvailable();
+  });
+}
+
+
+// La disponibilité Battle suit désormais la session Loki elle-même : dès qu'une
+// session Supabase authentifiée est restaurée (persistSession=true), on recharge
+// l'état serveur et on relance le heartbeat. L'utilisateur n'a plus besoin de
+// se déconnecter/reconnecter pour réapparaître en ligne. Seul son bouton Battle
+// ON/OFF peut ensuite modifier ce choix.
+if (supabase) {
+  void supabase.auth.getSession().then(({ data }) => {
+    if (data.session?.user?.id) void useBattleAvailabilityStore.getState().syncFromServer();
+  }).catch(() => {});
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session?.user?.id) {
+      useBattleAvailabilityStore.getState().reset();
+      return;
+    }
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      void useBattleAvailabilityStore.getState().syncFromServer();
+    }
   });
 }
