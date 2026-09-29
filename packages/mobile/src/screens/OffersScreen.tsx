@@ -390,6 +390,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI</Text>
             <Text style={s.quickStartTitle}>Remplis d’abord ton profil de musique.</Text>
             <Text style={s.quickStartText}>Écoute → garde un maximum de pépites → construis tes playlists → partage ton profil → joue en Solo/Battle pour tenter de gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits.</Text>
+            <Text style={s.quickStartText}>1 · ÉCOUTE : reconnais des morceaux ou découvre les sélections disponibles.  2 · GARDE : chaque pépite enrichit ton univers musical.  3 · PARTAGE : ton profil devient une porte d’entrée vers tes découvertes et les actions éligibles peuvent rapporter des Fruits.  4 · JOUE : Solo et Battle permettent de tenter de gagner des Free.  5 · RECOMMENCE : plus ton univers musical grandit, plus ton profil donne de choses à découvrir à ta communauté.</Text>
           </View>
         </View> : <>
           <View style={s.promiseCard}>
