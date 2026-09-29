@@ -1258,7 +1258,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {mobileSection === 'HOME' ? <View style={styles.focusHome}>
         <Text style={styles.focusHomeTitle}>Ma musique</Text>
-        <Text style={styles.focusHomeHint}>Choisis simplement ce que tu veux faire.</Text>
+        <Text style={styles.focusHomeHint}>Tout est ici, avec une action claire par ligne.</Text>
 
         <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
@@ -1269,16 +1269,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
 
-        <View style={styles.focusQuickRow}>
-          <TouchableOpacity style={styles.focusQuick} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
-            <Text style={styles.focusQuickIcon}>✎</Text>
-            <Text style={styles.focusQuickTitle}>Gérer</Text>
-            <Text style={styles.focusQuickHint}>Public · privé · retirer</Text>
+        <View style={styles.focusActionStack}>
+          <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Gérer mes morceaux</Text><Text style={styles.focusActionHint}>Public, privé ou retirer</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.focusQuick} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
-            <Text style={styles.focusQuickIcon}>☷</Text>
-            <Text style={styles.focusQuickTitle}>Ranger</Text>
-            <Text style={styles.focusQuickHint}>Styles · artistes</Text>
+          <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
+            <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Ranger ma musique</Text><Text style={styles.focusActionHint}>Styles, artistes et tri</Text></View>
+            <Text style={styles.focusChoiceArrow}>›</Text>
           </TouchableOpacity>
         </View>
 
@@ -1706,17 +1706,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
   header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  focusHome:{marginHorizontal:12,marginTop:10,gap:8},
-  focusHomeTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
-  focusHomeHint:{color:colors.textMuted,fontSize:12,marginBottom:4},
-  focusPrimary:{minHeight:74,paddingHorizontal:13,paddingVertical:10,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:12},
-  focusPrimaryIcon:{width:44,height:44,borderRadius:14,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
-  focusPrimaryIconText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
-  focusPrimaryCopy:{flex:1,minWidth:0},focusPrimaryTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},focusPrimaryHint:{color:colors.textMuted,fontSize:11,marginTop:3},
-  focusQuickRow:{flexDirection:'row',gap:8},
-  focusQuick:{flex:1,minHeight:86,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:12,paddingVertical:10,justifyContent:'center'},
-  focusQuickIcon:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginBottom:4},focusQuickTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusQuickHint:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:3},
-  focusServiceLink:{minHeight:58,paddingHorizontal:12,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:10},
+  focusHome:{marginHorizontal:14,marginTop:12,gap:12},
+  focusHomeTitle:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},
+  focusHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:19,marginBottom:2},
+  focusPrimary:{minHeight:80,paddingHorizontal:15,paddingVertical:13,borderRadius:20,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',gap:13},
+  focusPrimaryIcon:{width:46,height:46,borderRadius:15,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  focusPrimaryIconText:{color:colors.primaryLight,fontSize:21,fontWeight:'900'},
+  focusPrimaryCopy:{flex:1,minWidth:0},focusPrimaryTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},focusPrimaryHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:4},
+  focusActionStack:{gap:10},
+  focusActionRow:{minHeight:70,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},
+  focusActionIcon:{width:40,height:40,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  focusActionIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  focusActionCopy:{flex:1,minWidth:0},focusActionTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusActionHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:3},
+  focusServiceLink:{minHeight:62,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:11},
   focusServiceIcon:{width:30,textAlign:'center',color:colors.primaryLight,fontSize:20,fontWeight:'900'},focusServiceCopy:{flex:1,minWidth:0},focusServiceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},focusServiceHint:{color:colors.textMuted,fontSize:10,marginTop:2},
   focusLearnMore:{marginTop:4,paddingHorizontal:4,color:colors.textSecondary,fontSize:12,lineHeight:18},
   focusLearnMoreButton:{alignSelf:'center',minHeight:36,justifyContent:'center',paddingHorizontal:16,marginTop:2},focusLearnMoreButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},

@@ -8,21 +8,26 @@ describe('Simple mobile journeys', () => {
   const profile = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
 
   it('keeps Mes musiques understandable with three primary ideas and a compact services link', () => {
-    expect(music).toContain('Choisis simplement ce que tu veux faire.');
+    expect(music).toContain('Tout est ici, avec une action claire par ligne.');
     expect(music).toContain('Mes morceaux · {localKeptEntries.length}');
-    expect(music).toContain('Gérer');
-    expect(music).toContain('Ranger');
+    expect(music).toContain('Gérer mes morceaux');
+    expect(music).toContain('Ranger ma musique');
+    expect(music).toContain('focusActionStack');
+    expect(music).not.toContain('focusQuickRow:{');
     expect(music).toContain('Mes albums · {existingOffersForAdd.length}');
     expect(music).toContain('Spotify, Apple Music et autres connexions');
   });
 
   it('keeps profile location compact without removing manual city/country or GPS', () => {
-    expect(profile).toContain('Ville & pays');
-    expect(profile).toContain('⌖ Utiliser ma position');
+    expect(profile).toContain('Localisation');
+    expect(profile).toContain('Utiliser ma position');
     expect(profile).toContain('placeholder="Commence à saisir une ville"');
-    expect(profile).toContain('✓ Vérifier la ville');
+    expect(profile).toContain('✓ Vérifier cette ville');
     expect(profile).toContain('accessibilityLabel={`Pays : ${COUNTRIES.find');
     expect(profile).toContain('ⓘ Confidentialité');
+    expect(profile).toContain('OU SAISIS MANUELLEMENT');
+    expect(profile).toContain('countryButtonWide');
+    expect(profile).not.toContain('locationActionRow:{');
   });
 
   it('keeps persisted profile fields visible in the same screen', () => {

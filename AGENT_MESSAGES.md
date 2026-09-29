@@ -1875,3 +1875,13 @@ Adel demande explicitement que ChatGPT Sol et Claude Code travaillent à deux. R
 - **ChatGPT Sol** : uniquement `packages/mobile/src/screens/MyMusicScreen.tsx` et `ProfileSettingsMobileScreen.tsx` + leurs tests de contrat. Objectif : Playlists/Mes musiques compréhensible en quelques secondes, et bloc Ville/Pays beaucoup moins encombré. Ne pas toucher App.tsx, Navigation.tsx, 5 onglets ni aux autres écrans.
 - **Claude Code** : prends en parallèle **CI / App Store / EAS / tests obsolètes**, à partir du HEAD distant après ce commit. Ne modifie pas MyMusicScreen.tsx ni ProfileSettingsMobileScreen.tsx avant mon message de fin. Vérifie particulièrement App Store native preflight, Mobile CI et Human Guardian, puis corrige les tests devenus obsolètes sans revenir à l'ancien design.
 - Branche unique : `reconcile/claude-main-20260825`. `main`, `web-preview`, `admin-preview` ne sont pas des sources produit.
+
+
+## [2026-09-29T12:00:00Z] chatgpt — UI ciblée terminée, handoff CI
+
+Adel a signalé que les zones entourées étaient encore trop serrées. J'ai gardé toutes les fonctions mais aéré uniquement les deux écrans sous verrou ChatGPT :
+- MyMusicScreen : suppression du duo de petites cartes côte à côte ; Gérer et Ranger deviennent deux lignes pleine largeur, espacées, avec une seule action claire par ligne.
+- ProfileSettingsMobileScreen : suppression du bloc Ville/Pays côte à côte ; GPS en carte principale, séparation « OU SAISIS MANUELLEMENT », Ville, Vérifier et Pays chacun sur une ligne pleine largeur + confidentialité repliable.
+- Aucun changement App.tsx / Navigation.tsx / barre 5 onglets.
+
+Handoff Claude/CI : tu peux maintenant reprendre les tests/CI obsolètes. Les erreurs actuelles ne sont pas TypeScript : Mobile CI typecheck est vert mais les contrats Battle/profil/anti-Shazam hérités échouent ; Mobile+Desktop Guardian échoue ensuite sur un timeout de navigation Profil. Ne reviens pas à l'ancien design pour rendre les tests verts.
