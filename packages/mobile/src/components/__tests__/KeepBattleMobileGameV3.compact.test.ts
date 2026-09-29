@@ -200,13 +200,14 @@ describe('Loki Music Battle mobile style selector', () => {
   });
 
   it('keeps the horizontal music-style selector compact on 390x844', () => {
-    expect(source).toContain('style={s.themeScroll}');
+    // 29/09/2026 : 4 choix égaux sur toute la largeur (plus de défilement horizontal).
+    expect(source).toContain('<View style={s.roundChipRow}>');
     // Adel (07/09/2026) : la pastille affiche désormais aussi la mise Free du
     // nombre de manches ("🎁N") sur une seconde ligne -- légèrement plus
     // haute qu'avant, mais toujours une simple rangée horizontale compacte.
-    expect(source).toContain("themeScroll: { flexGrow: 0, flexShrink: 0, height: 52, maxHeight: 52 }");
+    expect(source).toContain("roundChipRow: { flexDirection: 'row', gap: 8, width: '100%' }");
     expect(source).toContain("theme: { height: 48, minHeight: 48");
-    expect(source).toContain("themeRow: { gap: 6, paddingRight: 12, alignItems: 'center' }");
+    expect(source).toContain("roundChip: { flex: 1, minWidth: 0");
   });
 
   it('renders four equal answer choices in solo and online Battle', () => {

@@ -1417,9 +1417,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           viewerKey={user.id}
           suggestions={profileSaleSuggestions}
           onSuggestionPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
-          onListenPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
-          onParticipatePress={() => navigation.navigate('PlaylistSale')}
-          onOffersPress={() => navigation.navigate('Offers')}
         />
       ) : null}
 
