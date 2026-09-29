@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { BackHandler, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useGameSessionStore } from '../store/useGameSessionStore';
 
@@ -22,5 +22,45 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
     event.preventDefault();
     // Requis par certains navigateurs pour afficher l'alerte.
     (event as any).returnValue = '';
+  });
+}
+
+// Adel (29/09/2026) : « un utilisateur est sorti en plein Solo, pas de popup ».
+// Sorties qui ne passent ni par ‹ ni par la barre d'onglets :
+// - web : bouton / glissement « retour » du navigateur (Safari iPhone
+//   compris). Au lancement d'un Solo on ajoute une entrée d'historique à la
+//   MÊME adresse ; un « retour » la consomme sans changer d'écran, on la
+//   remet et on affiche le popup. « Quitter » arrête le Solo (débit déjà fait).
+// - Android : bouton retour physique.
+function askFromSystemBack() {
+  const state = useGameSessionStore.getState();
+  Alert.alert('Quitter la partie ?', state.quitNotice || 'Ta partie en cours sera perdue.', [
+    { text: 'Continuer à jouer', style: 'cancel' },
+    { text: 'Quitter', style: 'destructive', onPress: () => useGameSessionStore.getState().requestQuit() },
+  ]);
+}
+
+if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.pushState) {
+  let guarded = false;
+  useGameSessionStore.subscribe((state) => {
+    if (state.isGameInProgress && !guarded) {
+      guarded = true;
+      try { window.history.pushState({ ...(window.history.state || {}), keepSoloGuard: true }, '', window.location.href); } catch {}
+    } else if (!state.isGameInProgress) {
+      guarded = false;
+    }
+  });
+  window.addEventListener('popstate', () => {
+    if (!useGameSessionStore.getState().isGameInProgress) return;
+    try { window.history.pushState({ ...(window.history.state || {}), keepSoloGuard: true }, '', window.location.href); } catch {}
+    askFromSystemBack();
+  });
+}
+
+if (Platform.OS === 'android') {
+  BackHandler.addEventListener('hardwareBackPress', () => {
+    if (!useGameSessionStore.getState().isGameInProgress) return false;
+    askFromSystemBack();
+    return true;
   });
 }

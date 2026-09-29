@@ -28,6 +28,7 @@ import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthly
 import MoreInfoLine from './MoreInfoLine';
 import LokiFinishBurst from './LokiFinishBurst';
 import WinnerTrophy3D from './WinnerTrophy3D';
+import FreeEarnHelp from './FreeEarnHelp';
 import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadMyMatchPreferences, loadOutgoingBattleChallenges, reportSoloBattleResult, respondBattleChallenge, saveMyMatchPreferences, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
@@ -246,6 +247,8 @@ type Props = {
   // une écoute classique). Optionnel : sans navigation fournie, le bouton
   // reste caché plutôt que de planter.
   onOpenSession?: (sessionId: string) => void;
+  // 29/09/2026 : ouvre l'écran des formules depuis « Regagner des Free ».
+  onOpenOffers?: () => void;
 };
 
 function buildBattleSession(pack: KeepBattleSoloPack, rounds: KeepBattleSoloRound[]): KeepSession {
@@ -326,7 +329,7 @@ const handledOutgoingIds = new Set<string>();
 // relance "Jouer solo" ou "Battle en ligne" après avoir fermé une arène).
 const autoJoinedChallengeIds = new Set<string>();
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession }: Props) {
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenOffers }: Props) {
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   // Adel (03/09/2026) : "pouvoir choisir 8, 15, 20 ou 30 morceaux avant de
@@ -2681,6 +2684,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochaine recharge</Text></View> : null}
             </View>
             {(() => { const rule = soloPlanRuleCopy(soloDailyStatus); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
+            <FreeEarnHelp highlight={insufficientForRoundCount(roundCount)} onShare={() => { void shareInvite(); }} onSolo={() => { void startSolo(); }} onOffers={onOpenOffers} />
           </View>
           {statsExpanded && myPlayerStats ? (
             <View style={s.playerStatsSmallRow}>

@@ -993,6 +993,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             ],
           )}
           onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
+          onOpenOffers={() => navigation.navigate('Offers', { sourceFeature: 'BATTLE_FREE' })}
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>

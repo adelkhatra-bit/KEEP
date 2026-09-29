@@ -60,3 +60,17 @@ describe('Solo : limite pour toutes les formules, débit au départ, sortie par 
     expect(battle).toContain("setGameInProgress(true, 'SOLO', soloQuitNotice(soloDailyStatus))");
   });
 });
+
+describe('Solo : toutes les sorties système sont gardées + regagner des Free', () => {
+  const guard = src('services', 'gameExitGuard.ts');
+  const battle = src('components', 'KeepBattleMobileGameV3.tsx');
+  it('retour du navigateur / glissement Safari et retour Android ouvrent le popup', () => {
+    expect(guard).toContain("window.addEventListener('popstate'");
+    expect(guard).toContain("keepSoloGuard: true");
+    expect(guard).toContain("BackHandler.addEventListener('hardwareBackPress'");
+  });
+  it('« Regagner des Free » propose partager / Solo / formules', () => {
+    expect(battle).toContain('<FreeEarnHelp highlight={insufficientForRoundCount(roundCount)}');
+    expect(src('components', 'FreeEarnHelp.tsx')).toContain('★ Formules');
+  });
+});
