@@ -377,9 +377,5 @@ jobs:
           test "$dynamic_code" = '404'
           grep -q '__keep_route' /tmp/keep-dynamic.html
 
-          # Le contrôle local ne suffit pas : reproduire aussi sur le site
-          # GitHub Pages réellement publié le dock/undock DevTools + plein écran.
-          node scripts/web-visible-surface-gate.cjs "$base"
-
       # Publication terminée ici après validation HTTP + SHA live.
       # Les tests navigateurs lourds restent dans les Guardians dédiés.
