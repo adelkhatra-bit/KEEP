@@ -48,8 +48,17 @@ jobs:
         working-directory: packages/mobile
         env:
           CI: '1'
+          # 29/09/2026 : sans ces valeurs, la mise à jour OTA publiait un JS
+          # sans adresse Supabase -> connexion impossible dans l'app. Valeurs
+          # publiques identiques au site (web-preview-pages.yml).
+          EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+          EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+          EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+          EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
         run: |
           set -euo pipefail
+          test -n "$EXPO_PUBLIC_SUPABASE_URL" && test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY"
           eas update --channel production --non-interactive --message "GitHub ${GITHUB_SHA}"
 
       - name: Summary

@@ -26,6 +26,17 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
+  # 29/09/2026 : connexion impossible dans l'app TestFlight. Le bloc env du
+  # profil production (eas.json) a été retiré le 22/09 ("fourni par EAS
+  # secrets") mais rien ne le fournit à `eas build --local` : l'app était
+  # compilée SANS adresse Supabase (même panne que le build #53 du 16/09).
+  # Valeurs publiques, identiques au site (web-preview-pages.yml) : URL +
+  # clé publishable Supabase (protégée par RLS, pas un secret) + backend.
+  EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+  EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+  EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+  EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
 
 jobs:
   build-ios:
