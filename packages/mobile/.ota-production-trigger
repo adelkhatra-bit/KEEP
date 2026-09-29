@@ -13,3 +13,10 @@
 # 29/09/2026 — remplace l’OTA du 28/09 qui plantait au lancement (OnboardingGuideScreen sans SafeAreaProvider) + adresse Supabase.
 ota-request: 2026-09-29-fix-launch-crash
 target-commit: f3e3472
+
+# 29/09/2026 soir — OTA complète : bouton « Se connecter », Pépites (publiées/retirées, liste compacte), « Choisi pour ton oreille »,
+# Battle (réponses vert/rouge, cartes Solo/Battle, quota 10/jour, Regagner des Free, trophée 3D, pourquoi on a gagné),
+# Solo (popups de sortie sur toutes les sorties, « Tu es toujours là ? », Loki Music qui parle), notifications sans doublons,
+# onglet « Loki Music ». Commits b73d698 → d7325e9.
+ota-request: 2026-09-29-soir-complet
+target-commit: d7325e9
