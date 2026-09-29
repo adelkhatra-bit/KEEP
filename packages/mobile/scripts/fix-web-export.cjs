@@ -5,7 +5,8 @@ const outDir = process.argv[2] || 'dist';
 const outputRoot = path.resolve(process.cwd(), outDir);
 const indexPath = path.join(outputRoot, 'index.html');
 const canonicalRoot = 'https://adelkhatra-bit.github.io/KEEP/';
-const buildId = (process.env.GITHUB_SHA || `local-${Date.now()}`).slice(0, 16);
+const buildSha = process.env.GITHUB_SHA || `local-${Date.now()}`;
+const buildId = buildSha.slice(0, 16);
 
 if (!fs.existsSync(indexPath)) {
   throw new Error(`KEEP web export introuvable: ${indexPath}`);
@@ -26,8 +27,9 @@ const cacheHygiene = [
   `<meta name="keep-build" content="${buildId}" />`,
   `<script id="keep-cache-hygiene">(function(){try{var k='__keep_web_build';var n='${buildId}';var p=localStorage.getItem(k);if(p!==n){if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister().catch(function(){})})}).catch(function(){})}if('caches' in window){caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key)}))}).catch(function(){})}localStorage.setItem(k,n)}}catch(e){}})();</script>`,
 ].join('');
+const liveVersionGuard = `<script id="keep-live-version-guard">(function(){try{var current='${buildSha}';if(!/^([0-9a-f]{40})$/i.test(current))return;fetch('/KEEP/version.json?ts='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(v){var latest=v&&String(v.sha||'');if(!latest||latest===current)return;var key='__keep_forced_build';if(sessionStorage.getItem(key)===latest)return;sessionStorage.setItem(key,latest);var u=new URL(location.href);u.searchParams.set('__keep_build',latest.slice(0,16));location.replace(u.toString())}).catch(function(){})}catch(e){}})();</script>`;
 if (!html.includes('keep-cache-hygiene') && html.includes('</head>')) {
-  html = html.replace('</head>', `${cacheHygiene}</head>`);
+  html = html.replace('</head>', `${cacheHygiene}${liveVersionGuard}</head>`);
 }
 
 // iOS Safari zoome automatiquement lorsqu'un input a une taille de police
