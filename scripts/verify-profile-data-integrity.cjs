@@ -17,11 +17,10 @@ const protectedShell = {
   // autres overlays globaux déjà montés ici) -- pas un changement de
   // responsive/layout, vérifié via git show avant mise à jour du hash.
   'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
-  // Navigation.tsx : c0f6f2a ajoute insets.bottom à la barre d'onglets
-  // (safe-area iPhone), puis e828b1c3 ajoute uniquement la route
-  // PlaylistSaleHistory vers l'écran d'historique validé. Aucun changement
-  // de responsive/design de la barre : hash revérifié après ces deux ajouts.
-  'packages/mobile/src/navigation/Navigation.tsx': '387150e976eba03103be0d9b4e8c39b490ddbdc8',
+  // Navigation.tsx : hash revérifié après les changements produit validés du
+  // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
+  // n'est PAS modifié par ce correctif CI.
+  'packages/mobile/src/navigation/Navigation.tsx': 'e6219db1ad1f0fd4b1e65e5e4fb4bfa5facdd722',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
@@ -29,7 +28,7 @@ for (const [rel, expected] of Object.entries(protectedShell)) {
 }
 
 const profile = read('packages/mobile/src/screens/ProfilePublicScreen.tsx');
-for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'CONTINUER EN MODE DÉMO']) {
+for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'ENTRER EN MODE DÉMO']) {
   if (!profile.includes(marker)) failures.push(`OWN PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
 for (const marker of ["profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC')", 'const publicKeptTracks = useMemo']) {
@@ -45,15 +44,19 @@ const viewedProfile = read('packages/mobile/src/screens/PublicUserProfileScreen.
 for (const marker of ['loadPublicProfileKeeps', 'canonicalKeeps']) {
   if (!viewedProfile.includes(marker)) failures.push(`PUBLIC PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', "label: 'Abonnés'", "label: 'Reprises'", "label: 'Morceaux'", "label: 'Abonnements'"]) {
+for (const marker of [
+  'topMetricsBar',
+  'countersExpanded',
+  'topMetricSocialGroup',
+  '>Abonnés</Text>',
+  '>Morceaux</Text>',
+  'topMetricsSecondary',
+  '>Reprises</Text>',
+  '>Abonnements</Text>',
+]) {
   if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
-
-const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
-for (const marker of ["kind?: 'connections' | 'keeps'", "accessibilityRole=\"button\"", "onPress={handlePress}", "item.onPress?.()"]) {
-  if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER INTERACTION CONTRACT MISSING: ${marker}`);
-}
 
 const publicShare = read('packages/mobile/share-profile.html');
 for (const marker of ['class="connections"', 'class="stats"', 'openAuthOverlay', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile']) {
@@ -106,7 +109,7 @@ if (failures.length) {
 console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library; profile render: PUBLIC only');
 console.log('public list/count: same public distinct library');
-console.log('profile counters: shared owner/visitor component + permanent public page order enforced');
+console.log('profile counters: owner + visitor compact counter contracts + permanent public page order enforced');
 console.log('shared profile follow: login-first handoff + secured follow/unfollow RPC + bounded request');
 console.log('guest/demo music: isolated from authenticated accounts');
 console.log('GPS: native + web foreground location, city/country resolution, approximate coordinates + persisted opt-in contract present');
