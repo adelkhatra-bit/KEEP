@@ -11,38 +11,36 @@ const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(.
 describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections exclusives séparées > compteurs > Styles publics > réseaux)', () => {
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('orders the top-level sections: identity < exclusive collection rail < unified counters < collection header < tabs < socials', () => {
+  it('orders the top-level sections: identity < unified counters < exclusive collection rail < collection header < tabs < socials', () => {
     const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
     const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
+    const boutique = source.indexOf('style={styles.marketplaceSection}');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
-    // (24/09/2026, Adel) : la vitrine "Découvertes à débloquer" doit être
-    // visible immédiatement après l'identité, avant même les compteurs.
-    const boutique = source.indexOf("<Text style={styles.sectionTitle}>À débloquer</Text>");
     const socialHub = source.indexOf('<View style={styles.socialHub}>');
     expect(hero).toBeGreaterThanOrEqual(0);
-    expect(boutique).toBeGreaterThan(hero);
-    expect(unifiedCounters).toBeGreaterThan(boutique);
-    expect(collectionHeader).toBeGreaterThan(unifiedCounters);
+    expect(unifiedCounters).toBeGreaterThan(hero);
+    expect(boutique).toBeGreaterThan(unifiedCounters);
+    expect(collectionHeader).toBeGreaterThan(boutique);
     expect(tabsRow).toBeGreaterThan(collectionHeader);
     expect(socialHub).toBeGreaterThan(tabsRow);
   });
 
 
-  it('separates exclusive collections from public Styles and keeps metadata secret', () => {
-    expect(source).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
-    expect(source).toContain('À débloquer');
-    expect(source).toContain('chaque carte est un lot séparé');
-    expect(source).toContain('vrais titres, artistes et pochettes restent secrets');
-    expect(source).toContain('🔒 COLLECTION SECRÈTE');
+  it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
+    expect(source).toContain('LE CLUB DE @{profile.username}');
+    expect(source).toContain('Ses sélections exclusives');
+    expect(source).toContain('pépite');
+    expect(source).toContain('`✦ ${offer.trackCount} À RÉVÉLER`');
     expect(source).toContain('saleCarouselCard');
     expect(source).not.toContain('sale-style:');
   });
 
-  it('uses animated premium CTAs for visitor Swipe and Battle while sale collections stay in their own rail', () => {
-    expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
-    expect(source).toContain('title="SWIPE"');
-    expect(source).toContain("title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}");
+  it('uses one aligned visitor action row with a glowing Battle control while sale collections stay separate', () => {
+    expect(source).toContain('<View style={styles.visitorActionRow}>');
+    expect(source).toContain('<Text style={styles.visitorActionIcon}>▶</Text><Text style={styles.visitorActionLabel}>SWIPE</Text>');
+    expect(source).toContain('<BattleGlowButton');
+    expect(source).toContain("label={battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
     expect(source).toContain('saleCarouselCard');
     expect(source).toContain('ProfileStyleCard');
   });
