@@ -37,7 +37,6 @@ import CommunityConnectionsPanel, { CommunityMode } from '../components/Communit
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import BattleGlowButton from '../components/BattleGlowButton';
-import NotificationSidePanel from '../components/NotificationSidePanel';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
@@ -138,7 +137,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // musicaux/Offres/Réglages avancés qu'après un ou deux taps de plus. Un
   // seul menu plat désormais, toutes les destinations visibles d'un coup.
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   // Adel (16-17/09/2026) : "fais en sorte qu'on ne sorte pas de la page ...
   // je veux que toutes les fonctionnalités soient sur le pop-up ... il y a
   // une explication, et il y a ce qu'on doit faire" -- un simple lien vers
@@ -1254,7 +1252,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar} accessibilityLabel="Actions du profil">
-        <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setNotificationPanelOpen(true); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+        <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
           <Text style={s.bell}>🔔</Text>
           {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
         </TouchableOpacity>
@@ -1644,13 +1642,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
       onClose={() => setSourceQuickUsername('')}
       onOpenFull={(username) => navigation.navigate('PublicProfile', { username })}
       onRequireAccount={(username) => openAccount('create', username)}
-    />
-
-    <NotificationSidePanel
-      visible={notificationPanelOpen}
-      profileId={user.id}
-      onClose={() => setNotificationPanelOpen(false)}
-      onOpenAll={() => navigation.navigate('Notifications')}
     />
 
     <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={() => { setAccountOpen(false); setPendingFollowUsername(''); }}>
