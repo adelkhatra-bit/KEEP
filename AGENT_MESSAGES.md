@@ -1959,3 +1959,8 @@ Deux faux négatifs CI corrigés sans toucher au produit : (1) le panneau Régla
 ## [2026-09-29T16:05:00Z] chatgpt — derniers faux négatifs Guardian corrigés
 
 Aucun changement produit. Human Guardian attend désormais le sous-titre réellement visible de Soirées au lieu d'un ancien texte d'offre. Dual-viewport cible désormais le libellé actuel « Utiliser ma position » (l'icône ⌖ est rendue séparément depuis la refonte localisation). Ces deux échecs étaient des sélecteurs CI obsolètes, pas des bugs utilisateur.
+
+
+## [2026-09-29T16:12:00Z] chatgpt — Human Guardian profil aligné sur le menu actuel
+
+Le partage n'est plus un bouton permanent dans l'en-tête : il vit dans ☰ sous « ↗ Inviter / partager mon profil ». Le test humain ouvre maintenant réellement le menu, vérifie cette entrée, puis le referme. Aucun code produit modifié.

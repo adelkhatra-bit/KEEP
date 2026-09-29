@@ -167,11 +167,14 @@ jobs:
             await shot('06-parties');
 
             await clickRobust(t('Profil',{exact:true}),'Profil tab');
-            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Inviter ou partager mon profil').last().waitFor({state:'visible',timeout:15000});
+            const profileMenu=page.getByLabel('Menu du profil').last();
+            await profileMenu.waitFor({state:'visible',timeout:15000});
             if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
-            await page.getByLabel('Notifications').last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel(/Notifications/).last().waitFor({state:'visible',timeout:15000});
             await shot('07-profile');
+            await clickRobust(profileMenu,'Profile menu');
+            await t('↗ Inviter / partager mon profil',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await clickRobust(t('Fermer',{exact:true}),'Close profile menu');
 
             const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
             if(dims.scrollWidth>dims.width+1) throw new Error(`Horizontal overflow ${JSON.stringify(dims)}`);
