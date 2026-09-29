@@ -276,8 +276,8 @@ describe('Loki Music Battle mobile style selector', () => {
     expect(source).toContain("answerVisualState(choice, round.correctAnswer, soloSelectedAnswer, answered)");
     expect(source).toContain("state === 'wrong' && s.answerWrong]}");
     expect(source).toContain("const correct = soloAnswer === 'CORRECT';");
-    expect(source).toContain('function ResultIcon(');
-    expect(source).toContain('<ResultIcon icon={perfect ?');
+    // 29/09/2026 : l'icône de fin est remplacée par Loki, dessin animé avec voix off.
+    expect(source).toContain('<LokiMascotVoice correct={soloScore} total={solo.rounds.length}');
     // Le rond de fin de partie ne doit plus utiliser l'éclair fixe -- seul un
     // usage legitime et distinct (bannière "gagne la manche" en arène) garde
     // le symbole ⚡ ailleurs dans ce fichier.

@@ -149,3 +149,25 @@ export function battleWinReason(results: MatchResultLike[] | null | undefined): 
   }
   return '⚡ Gagné aux points : les réponses les plus rapides rapportent plus';
 }
+
+// Solo laissé tout seul : 2 morceaux d'affilée sans réponse (depuis la
+// dernière reprise) -> « Tu es toujours là ? », fermeture après 20 s.
+export const SOLO_IDLE_AUTO_CLOSE_MS = 20_000;
+export function soloIdleDetected(responses: string[], resumeIndex: number): boolean {
+  const recent = responses.slice(Math.max(0, resumeIndex));
+  if (recent.length < 2) return false;
+  return recent.slice(-2).every((r) => r === '__TIMEOUT__');
+}
+
+// Phrase de Loki (mascotte) en fin de Solo : très courte, drôle, pour
+// tous les âges. Adel (29/09/2026) : « Ah zut, c'est dommage… manque de
+// concentration ».
+export type MascotMood = 'party' | 'happy' | 'cheer' | 'oops' | 'sleepy';
+export function mascotLine(correct: number, total: number, allTimeouts = false): { mood: MascotMood; text: string } {
+  if (allTimeouts || total <= 0) return { mood: 'sleepy', text: 'Hé ho ! Tu es parti ? Je t’attendais, moi !' };
+  const ratio = correct / total;
+  if (ratio >= 1) return { mood: 'party', text: 'Waouh ! Tout juste ! Tu es un champion de la musique !' };
+  if (ratio >= 0.6) return { mood: 'happy', text: 'Bravo ! Super oreille ! Encore un petit effort et c’est parfait !' };
+  if (ratio >= 0.3) return { mood: 'cheer', text: 'Pas mal ! Écoute bien le début des chansons, tu vas y arriver !' };
+  return { mood: 'oops', text: 'Ah zut, c’est dommage ! Un petit manque de concentration ? On réessaie ?' };
+}

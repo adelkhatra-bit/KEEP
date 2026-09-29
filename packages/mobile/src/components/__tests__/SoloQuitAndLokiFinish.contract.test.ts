@@ -74,3 +74,30 @@ describe('Solo : toutes les sorties système sont gardées + regagner des Free',
     expect(src('components', 'FreeEarnHelp.tsx')).toContain('★ Formules');
   });
 });
+
+describe('Solo : absence détectée + Loki qui parle', () => {
+  const battle = src('components', 'KeepBattleMobileGameV3.tsx');
+  const mascot = src('components', 'LokiMascotVoice.tsx');
+  it('2 morceaux sans réponse -> « Tu es toujours là ? », fermeture auto (partie comptée)', () => {
+    const { soloIdleDetected } = require('../../services/battleHomeInfo');
+    expect(soloIdleDetected(['CORRECT', '__TIMEOUT__', '__TIMEOUT__'], 0)).toBe(true);
+    expect(soloIdleDetected(['__TIMEOUT__', '__TIMEOUT__'], 2)).toBe(false);
+    expect(soloIdleDetected(['__TIMEOUT__', 'CORRECT'], 0)).toBe(false);
+    expect(battle).toContain('Tu es toujours là ?');
+    expect(battle).toContain('SOLO_IDLE_AUTO_CLOSE_MS');
+  });
+  it('Loki parle selon le score (voix expo-speech, pilote natif coupé sur le web)', () => {
+    const { mascotLine } = require('../../services/battleHomeInfo');
+    expect(mascotLine(1, 8).text).toContain('Ah zut');
+    expect(mascotLine(8, 8).mood).toBe('party');
+    expect(mascotLine(0, 8, true).mood).toBe('sleepy');
+    expect(mascot).toContain("Speech.speak(line.text, {");
+    expect(mascot).toContain("language: 'fr-FR'");
+    expect(mascot).not.toContain('useNativeDriver: true');
+  });
+  it('les navigations hors écran (notifications, liens) passent par la garde', () => {
+    const nav = src('navigation', 'navigationRef.ts');
+    expect(nav).toContain('confirmLeaveGame(() => (navigationRef.navigate as any)(...args));');
+    expect(nav).not.toContain('(navigationRef.navigate as any)(\'');
+  });
+});

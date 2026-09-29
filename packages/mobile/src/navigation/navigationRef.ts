@@ -1,3 +1,4 @@
+import { confirmLeaveGame } from '../services/gameExitGuard';
 import { createNavigationContainerRef } from '@react-navigation/native';
 
 // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
@@ -7,9 +8,16 @@ import { createNavigationContainerRef } from '@react-navigation/native';
 // à cet endroit).
 export const navigationRef = createNavigationContainerRef();
 
+// Adel (29/09/2026) : toute navigation déclenchée hors des écrans
+// (notification, push, lien partagé) pendant un Solo en cours passe par la
+// garde unique : popup « Quitter la partie ? » (partie déjà comptée).
+function guardedNavigate(...args: any[]) {
+  confirmLeaveGame(() => (navigationRef.navigate as any)(...args));
+}
+
 export function navigateToBattleArena(arenaId: string) {
   if (!navigationRef.isReady()) return;
-  (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
+  guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
 }
 
 // Adel (08/09/2026) : "quand [quelqu'un] partage un lien il peut Swiper les
@@ -30,7 +38,7 @@ export function navigateToSharedProfile(username: string, attempt = 0) {
     setTimeout(() => navigateToSharedProfile(clean, attempt + 1), 150);
     return;
   }
-  (navigationRef.navigate as any)('PublicProfile', { username: clean });
+  guardedNavigate('PublicProfile', { username: clean });
 }
 
 
@@ -43,28 +51,28 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
   }
   const arenaId = String(payload.arenaId ?? payload.arena_id ?? '').trim();
   if (arenaId) {
-    (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
+    guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
     return;
   }
   const eventId = String(payload.eventId ?? payload.event_id ?? '').trim();
   if (eventId) {
-    (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { eventId, openEvent: true } });
+    guardedNavigate('Main', { screen: 'Parties', params: { eventId, openEvent: true } });
     return;
   }
   const username = String(payload.username ?? payload.profileUsername ?? payload.creator_username ?? '').trim().replace(/^@+/, '');
   if (username) {
-    (navigationRef.navigate as any)('PublicProfile', { username });
+    guardedNavigate('PublicProfile', { username });
     return;
   }
   const offerId = String(payload.offerId ?? payload.offer_id ?? '').trim();
   if (offerId) {
-    (navigationRef.navigate as any)('Main', { screen: 'MyMusic', params: { manageSaleOfferId: offerId } });
+    guardedNavigate('Main', { screen: 'MyMusic', params: { manageSaleOfferId: offerId } });
     return;
   }
   const entryId = String(payload.entryId ?? payload.entry_id ?? '').trim();
   if (entryId) {
-    (navigationRef.navigate as any)('Main', { screen: 'Listen', params: { entryId } });
+    guardedNavigate('Main', { screen: 'Listen', params: { entryId } });
     return;
   }
-  (navigationRef.navigate as any)('Notifications');
+  guardedNavigate('Notifications');
 }
