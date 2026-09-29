@@ -70,7 +70,7 @@ export default function HelpLegalPanel({ profileId, username, enabled }: { profi
         <View style={s.howStep}><Text style={s.howStepNo}>3</Text><Text style={s.howStepText}><Text style={s.howStepStrong}>PARTAGE.</Text> Fais circuler ton profil et tes découvertes. Les actions éligibles peuvent rapporter des Fruits et attirer de nouveaux abonnés.</Text></View>
         <View style={s.howStep}><Text style={s.howStepNo}>4</Text><Text style={s.howStepText}><Text style={s.howStepStrong}>JOUE.</Text> Lance un Solo ou défie tes amis en Battle sur un style musical pour gagner les Free annoncés pour la partie.</Text></View>
         <View style={s.howStep}><Text style={s.howStepNo}>5</Text><Text style={s.howStepText}><Text style={s.howStepStrong}>RECOMMENCE.</Text> Utilise tes Free pour garder de nouvelles découvertes. Plus ta collection est riche, plus ton profil a de choses à faire découvrir.</Text></View>
-        <Text style={s.howItWorksNote}>Les morceaux repris depuis la communauté conservent leur provenance Loki afin que le découvreur reste identifiable dans la circulation prévue par la plateforme.</Text>
+        <Text style={s.howItWorksNote}>Les morceaux repris depuis la communauté conservent leur provenance Loki Music afin que le découvreur reste identifiable dans la circulation prévue par la plateforme.</Text>
       </View> : null}
     </View>
 

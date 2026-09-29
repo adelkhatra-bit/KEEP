@@ -12,7 +12,7 @@ const { width, height } = Dimensions.get('window');
 const GUIDE_STEPS = [
   {
     emoji: '🎵',
-    tab: 'Loki',
+    tab: 'Loki Music',
     title: 'Reconnaître des chansons',
     description: 'Appuie sur le micro pour reconnaître un titre qui joue autour de toi. Puis GARDER (menthe) pour le sauvegarder ou PASSER (corail) pour continuer.',
     icon: 'microphone',
@@ -42,7 +42,7 @@ const GUIDE_STEPS = [
     emoji: '◯',
     tab: 'Profil',
     title: 'Montrer qui tu es',
-    description: 'C\'est ton identité Loki. Ajoute ta photo, organise ta musique par style, met en avant tes collections en vente.',
+    description: 'C\'est ton identité Loki Music. Ajoute ta photo, organise ta musique par style, met en avant tes collections en vente.',
     icon: 'profile',
   },
 ];
@@ -113,7 +113,7 @@ export default function OnboardingGuideScreen({ onComplete }: OnboardingGuideScr
             <View style={styles.highlightBox}>
               <Text style={styles.highlightText}>💡 Conseil</Text>
               <Text style={styles.highlightContent}>
-                {step.tab === 'Loki' && 'Tu commences ici. Chaque titre reconnu te coûte 0 Free.'}
+                {step.tab === 'Loki Music' && 'Tu commences ici. Chaque titre reconnu te coûte 0 Free.'}
                 {step.tab === 'Découvertes' && 'Explore d\'autres profils et découvre leurs collections.'}
                 {step.tab === 'Playlists' && 'Tes meilleures trouvailles en un seul endroit.'}
                 {step.tab === 'Soirées' && 'Invite tes amis et créez des Battle de musique ensemble.'}

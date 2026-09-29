@@ -50,7 +50,7 @@ export default function LokiFinishBurst({ tone = 'win' }: { tone?: 'win' | 'try'
   const accent = tone === 'win' ? colors.success : colors.primaryLight;
 
   return (
-    <View style={s.stage} accessibilityRole="image" accessibilityLabel="Animation Loki de fin de partie">
+    <View style={s.stage} accessibilityRole="image" accessibilityLabel="Animation Loki Music de fin de partie">
       {!reduceMotion ? rings.map((r, i) => (
         <Animated.View key={`ring-${i}`} pointerEvents="none" style={[s.ring, { borderColor: RING_COLORS[i], opacity: r.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.8, 0] }), transform: [{ scale: r.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.1] }) }] }]} />
       )) : null}
@@ -71,17 +71,19 @@ export default function LokiFinishBurst({ tone = 'win' }: { tone?: 'win' | 'try'
           <Text style={[s.word, s.depthMid, { color: accent }]}>LOKI</Text>
           <Text style={[s.word, s.face]}>LOKI</Text>
         </View>
+        <Text style={[s.music, { color: accent }]}>MUSIC</Text>
       </Animated.View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  stage: { height: 150, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  stage: { height: 164, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   ring: { position: 'absolute', width: 96, height: 96, borderRadius: 48, borderWidth: 3 },
   shard: { position: 'absolute', fontSize: 18, fontWeight: '900' },
   word: { fontSize: 52, lineHeight: 60, fontWeight: '900', letterSpacing: 6, textAlign: 'center' },
   depthFar: { position: 'absolute', left: 6, top: 6, color: colors.primary, opacity: 0.55 },
   depthMid: { position: 'absolute', left: 3, top: 3 },
   face: { color: '#FFFFFF' },
+  music: { fontSize: 16, fontWeight: '900', letterSpacing: 10, textAlign: 'center', marginTop: -2, marginLeft: 10 },
 });

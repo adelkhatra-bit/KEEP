@@ -15,6 +15,6 @@ export function isIosWebBrowser(nav: { userAgent?: string; maxTouchPoints?: numb
 
 export function noSoundMessage(nav?: { userAgent?: string; maxTouchPoints?: number }): string {
   return isIosWebBrowser(nav ?? (typeof navigator === 'undefined' ? undefined : navigator))
-    ? 'Aucun son capté. Sur iPhone, le site ne peut pas entendre la musique jouée par ce même iPhone : iOS la filtre du micro. Joue-la sur une enceinte ou un autre appareil, ou utilise l’app Loki.'
+    ? 'Aucun son capté. Sur iPhone, le site ne peut pas entendre la musique jouée par ce même iPhone : iOS la filtre du micro. Joue-la sur une enceinte ou un autre appareil, ou utilise l’app Loki Music.'
     : 'Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).';
 }

@@ -473,7 +473,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 size="large"
                 onPress={startSession}
                 accessibilityLabel="Activer le micro"
-                accessibilityHint="Loki capte avec le micro du téléphone la musique jouée autour de toi"
+                accessibilityHint="Loki Music capte avec le micro du téléphone la musique jouée autour de toi"
               >
                 ●  ACTIVER LE MICRO
               </MotionActionButton>
@@ -732,7 +732,7 @@ export default function HomeScreenCompact({ navigation }: any) {
       <Modal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>{t('session.endPromptTitle')}</Text>
-          <Text style={s.modalBody}>Je n’entends plus de musique. Tu écoutes toujours ? Sans réponse, l’écoute s’arrête automatiquement et Loki revient à l’accueil dans {silencePromptSeconds} s.</Text>
+          <Text style={s.modalBody}>Je n’entends plus de musique. Tu écoutes toujours ? Sans réponse, l’écoute s’arrête automatiquement et Loki Music revient à l’accueil dans {silencePromptSeconds} s.</Text>
           <View style={s.modalActions}>
             <TouchableOpacity style={s.modalBtn} onPress={dismissEndPrompt}><Text style={s.modalBtnText}>{t('session.continueListening')}</Text></TouchableOpacity>
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={finishSession}><Text style={s.modalEndText}>{t('session.endNow')}</Text></TouchableOpacity>

@@ -34,8 +34,8 @@ describe('fin de partie Loki et onglet Loki', () => {
     expect(burst).not.toContain('useNativeDriver: true');
     expect(burst).toContain('isReduceMotionEnabled');
   });
-  it('le premier onglet s’appelle Loki', () => {
-    expect(src('navigation', 'Navigation.tsx')).toContain("tabBarLabel: 'Loki',");
+  it('le premier onglet s’appelle Loki Music', () => {
+    expect(src('navigation', 'Navigation.tsx')).toContain("tabBarLabel: 'Loki Music',");
   });
 });
 

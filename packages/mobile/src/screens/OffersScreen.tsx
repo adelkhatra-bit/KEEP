@@ -387,7 +387,7 @@ export default function OffersScreen({ navigation, route }: any) {
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
           <View style={s.quickStartBox}>
-            <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI</Text>
+            <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI MUSIC</Text>
             <Text style={s.quickStartTitle}>Remplis d’abord ton profil de musique.</Text>
             <Text style={s.quickStartText}>Écoute → garde un maximum de pépites → construis tes playlists → partage ton profil → joue en Solo/Battle pour tenter de gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits.</Text>
             <Text style={s.quickStartText}>1 · ÉCOUTE : reconnais des morceaux ou découvre les sélections disponibles.  2 · GARDE : chaque pépite enrichit ton univers musical.  3 · PARTAGE : ton profil devient une porte d’entrée vers tes découvertes et les actions éligibles peuvent rapporter des Fruits.  4 · JOUE : Solo et Battle permettent de tenter de gagner des Free.  5 · RECOMMENCE : plus ton univers musical grandit, plus ton profil donne de choses à découvrir à ta communauté.</Text>
@@ -401,7 +401,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </View>
 
           <View style={s.discoveryCard}>
-            <Text style={s.discoveryEyebrow}>COMMENT LOKI GRANDIT AVEC TOI</Text>
+            <Text style={s.discoveryEyebrow}>COMMENT LOKI MUSIC GRANDIT AVEC TOI</Text>
             <Text style={s.discoveryTitle}>Écoute → Garde → Construis → Partage → Joue.</Text>
             <Text style={s.discoveryBody}>Ta première mission : remplis ton profil de musique. Chaque morceau gardé enrichit ton univers musical. Plus ta collection grandit, plus les autres ont de pépites à découvrir chez toi.</Text>
             <View style={s.discoveryDetails}>
@@ -416,7 +416,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Loki puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
+            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Loki Music puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -669,10 +669,10 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
-            <Text style={s.subscriptionText}>• Écouter avec Loki, reconnaître et PASSER ne consomment aucun Free.</Text>
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• Écouter avec Loki Music, reconnaître et PASSER ne consomment aucun Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
             <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule.</Text>
-            <Text style={s.subscriptionText}>• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki.</Text>
+            <Text style={s.subscriptionText}>• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki Music.</Text>
           </View> : null}
         </View>
 

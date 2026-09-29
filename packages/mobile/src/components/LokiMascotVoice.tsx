@@ -77,7 +77,7 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
   const sad = line.mood === 'oops' || line.mood === 'sleepy';
   return (
     <View style={s.wrap}>
-      <Animated.View style={[s.body, { transform: [{ translateY: lift }] }]} accessibilityRole="image" accessibilityLabel={`Loki dit : ${line.text}`}>
+      <Animated.View style={[s.body, { transform: [{ translateY: lift }] }]} accessibilityRole="image" accessibilityLabel={`Loki Music dit : ${line.text}`}>
         <View style={[s.ear, s.earLeft]} />
         <View style={[s.ear, s.earRight]} />
         <View style={s.band} />
@@ -97,7 +97,7 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
       </Animated.View>
       <View style={s.bubble}>
         <Text style={s.bubbleText}>{line.text}</Text>
-        <TouchableOpacity onPress={speak} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réécouter Loki" style={s.replay}>
+        <TouchableOpacity onPress={speak} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réécouter Loki Music" style={s.replay}>
           <Text style={s.replayText}>{speaking ? '🔊' : '🔈'}</Text>
         </TouchableOpacity>
       </View>

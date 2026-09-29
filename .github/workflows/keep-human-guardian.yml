@@ -107,7 +107,7 @@ jobs:
             await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
             const tryFree=t('ESSAYER GRATUITEMENT',{exact:true});
             if(await tryFree.isVisible().catch(()=>false)) await clickRobust(tryFree,'Guest trial');
-            for(const x of ['Loki','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
+            for(const x of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
             await shot('01-listen-idle');
 
             // Première installation : fermer le mini-tour comme le ferait un humain

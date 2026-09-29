@@ -35,7 +35,7 @@ const scenarios = [
   { name: 'android-pixel7', context: { ...devices['Pixel 7'] } },
 ];
 const routes = ['/', '/Main/Listen/', '/Main/Profile/'];
-const TAB_LABELS = ['Loki', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
+const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
 
 async function measure(page) {
   return page.evaluate((tabLabels) => {
