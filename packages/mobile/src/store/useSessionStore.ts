@@ -23,16 +23,17 @@ const SAME_TRACK_COOLDOWN_MS = 7000;
 const SILENCE_CHECK_INTERVAL_MS = 1000;
 // Adel (29/09/2026) : l'écoute doit s'arrêter seule quand il n'y a PLUS DE
 // MUSIQUE (silence ou conversations), pas après 15 min de simple bruit. Le
+// Adel (29/09, 2e retour) : 1 minute, pas 3. Le
 // chrono ne repart que sur un morceau reconnu ou un son jugé musical par
 // services/musicPresence.ts (même logique web et app native).
-export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 3;
+export const DEFAULT_SESSION_SILENCE_TIMEOUT_MIN = 1;
 // Filet de sécurité : un brouhaha continu (bar bondé) peut ressembler à de la
 // musique. Sans aucun morceau reconnu pendant ce délai, on pose quand même la
 // question « Tu écoutes toujours ? » (l'utilisateur peut continuer).
 export const NO_MATCH_BACKSTOP_MIN = 20;
 // Le chrono visible « Pas de musique » n'apparaît qu'après ce délai, pour ne
 // pas clignoter entre deux morceaux.
-export const NO_MUSIC_VISIBLE_AFTER_MS = 20 * 1000;
+export const NO_MUSIC_VISIBLE_AFTER_MS = 10 * 1000;
 export const SILENCE_PROMPT_GRACE_MS = 30 * 1000;
 
 function newId(): string {
