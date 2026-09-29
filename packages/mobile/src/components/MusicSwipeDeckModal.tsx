@@ -260,10 +260,38 @@ export default function MusicSwipeDeckModal({
             },
           );
         } catch {
-          // .play() rejeté par le navigateur (pas de geste utilisateur direct
-          // dans cette chaîne async) : l'extrait EXISTE, seule la lecture
-          // automatique a échoué -- ne pas le confondre avec "indisponible".
-          if (alive) setAutoplayBlocked(true);
+          // Une URL de preview persistée peut expirer côté catalogue. Avant de
+          // conclure à un blocage autoplay, on force UNE résolution fraîche et
+          // on rejoue la même carte. Cela évite le Swipe silencieux après
+          // plusieurs jours sans avoir à recharger toute l'application.
+          try {
+            const refreshedUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
+            if (!alive || playbackGeneration.current !== generation || !refreshedUrl || !playbackKey) {
+              if (alive) setAutoplayBlocked(true);
+              return;
+            }
+            setResolvedPreviewUrl(refreshedUrl);
+            await stopTrackPreview();
+            await toggleTrackPreview(
+              playbackKey,
+              refreshedUrl,
+              (playing) => {
+                if (playing && currentSourceProfileId) {
+                  void recordProfileSwipeListen(currentSourceProfileId, current.id);
+                }
+              },
+              () => {
+                if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
+                setPreviewEnded(true);
+                if (!socialDiscoveryMode && loop) advanceIndex();
+              },
+            );
+            if (alive) setAutoplayBlocked(false);
+          } catch {
+            // .play() réellement refusé par le navigateur : on conserve le
+            // bouton manuel visible, mais on ne déclare pas le morceau absent.
+            if (alive) setAutoplayBlocked(true);
+          }
         }
       })
       .catch(() => {
@@ -313,8 +341,29 @@ export default function MusicSwipeDeckModal({
       setAutoplayBlocked(false);
       setPreviewEnded(false);
     } catch {
-      // Un vrai tap qui échoue encore indique un souci réseau/format, pas une
-      // histoire de geste utilisateur -- on laisse le bandeau "bloqué" affiché.
+      // Le tap manuel est notre dernier filet de sécurité : si l'URL mémorisée
+      // a expiré, on la remplace immédiatement par une URL catalogue fraîche
+      // et on rejoue sans demander un deuxième tap.
+      try {
+        const refreshedUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
+        if (!refreshedUrl) throw new Error('NO_REFRESHED_PREVIEW');
+        setResolvedPreviewUrl(refreshedUrl);
+        await stopTrackPreview();
+        await toggleTrackPreview(
+          `swipe-${current.id}-${index}`,
+          refreshedUrl,
+          (playing) => {
+            if (playing && currentSourceProfileId) {
+              void recordProfileSwipeListen(currentSourceProfileId, current.id);
+            }
+          },
+          () => setPreviewEnded(true),
+        );
+        setAutoplayBlocked(false);
+        setPreviewEnded(false);
+      } catch {
+        setAutoplayBlocked(true);
+      }
     }
   };
 
