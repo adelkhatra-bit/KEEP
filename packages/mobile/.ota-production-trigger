@@ -23,4 +23,8 @@ target-commit: d7325e9
 
 # 30/09/2026 — hotfix écran blanc TestFlight : expo-speech est chargé à la demande seulement.
 ota-request: 2026-09-30-white-screen-native-module-compat
-target-commit: __COMMIT__
+target-commit: 4af45ba
+
+# 30/09/2026 — republie le hotfix écran blanc avec le dernier design Profil 1ebc46e.
+ota-request: 2026-09-30-white-screen-hotfix-latest
+target-commit: 1ebc46e
