@@ -41,6 +41,8 @@ export default function GlobalNotificationBanner() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const syncBattleAvailability = useBattleAvailabilityStore((s) => s.syncFromServer);
+  const resetBattleAvailability = useBattleAvailabilityStore((s) => s.reset);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
   const OFFSCREEN_TOP = -260;
@@ -55,6 +57,14 @@ export default function GlobalNotificationBanner() {
   // par une entrée/sortie verticale depuis le haut de l'écran, et le swipe de
   // fermeture latéral par un swipe vers le HAUT uniquement (le doigt ne peut
   // pas tirer le bandeau vers le bas au-delà de sa position posée).
+  useEffect(() => {
+    if (!user || isDemoMode || isLocalGuest) {
+      resetBattleAvailability();
+      return;
+    }
+    void syncBattleAvailability().catch(() => {});
+  }, [isDemoMode, isLocalGuest, resetBattleAvailability, syncBattleAvailability, user?.id]);
+
   const dragY = useRef(0);
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_evt, gesture) => Math.abs(gesture.dy) > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
