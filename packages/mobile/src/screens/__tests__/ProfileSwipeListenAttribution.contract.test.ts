@@ -18,8 +18,9 @@ describe('Visited profile Swipe listen attribution', () => {
 
   it('records only after preview playback really starts', () => {
     expect(swipe).toContain('sourceProfileId?: string;');
-    expect(swipe).toContain('if (playing && sourceProfileId)');
-    expect(swipe).toContain('recordProfileSwipeListen(sourceProfileId, current.id)');
+    expect(swipe).toContain('const currentSourceProfileId = currentSource?.profileId || sourceProfileId;');
+    expect(swipe).toContain('if (playing && currentSourceProfileId)');
+    expect(swipe).toContain('recordProfileSwipeListen(currentSourceProfileId, current.id)');
   });
 
   it('never sends authenticated attribution from guest or demo mode', () => {
