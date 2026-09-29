@@ -36,7 +36,6 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
-import PresenceDot from '../components/PresenceDot';
 import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
