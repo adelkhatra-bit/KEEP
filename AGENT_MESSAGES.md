@@ -1862,3 +1862,8 @@ Utilise uniquement LOCAL_ONLY / COMMITTED_LOCAL / PUSHED_REMOTE / TESTED_REMOTE 
 ## [2026-09-27T11:35:00.000Z] chatgpt
 
 POSTE DE COMMANDEMENT INTER-IA ACTIF — lire d’abord `docs/AGENT_COMMAND_CENTER.md`, puis `.github/agent-command-center.json`. Le workflow `KEEP — Agent command triage` est actif et son premier run réel 36316053776 est PASS sur 572a431. Branche unique : reconcile/claude-main-20260825. Ne pas créer de second relais ni de seconde version ; conserver agent-lock + AGENT_MESSAGES et les statuts de preuve définis dans le command center.
+
+
+## [2026-09-29T02:40:00+02:00] chatgpt
+
+PRIORITÉ UTILISATEUR COURANTE — NE PAS RÉGRESSER : la cloche du Profil doit ouvrir EN UN TAP un panneau latéral de notifications (NotificationSidePanel) sur la même page, avec aperçu des notifications + Tout lire + Tout voir. Ne pas remettre navigation.navigate('Notifications') directement sur la cloche. Le plein écran Notifications reste accessible depuis « TOUT VOIR ». Battle : bouton animé à contour coloré sur propre profil ET profil visité. Offres/Aide : conserver l'explication simple Écoute → Garde → Partage → Joue → Recommence. Branche unique reconcile/claude-main-20260825.
