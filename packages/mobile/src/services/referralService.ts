@@ -102,13 +102,35 @@ export async function claimPendingReferral(): Promise<boolean> {
   if (!supabase) return false;
   const code = await AsyncStorage.getItem(PENDING_REFERRAL_KEY);
   if (!code) return false;
+
+  const { data: authData } = await supabase.auth.getUser();
+  const authUser = authData.user;
+  if (!authUser) return false;
+  const createdAt = new Date(authUser.created_at || 0).getTime();
+  const tooOld = Number.isFinite(createdAt) && createdAt > 0 && Date.now() - createdAt > 7 * 24 * 60 * 60 * 1000;
+  if ((authUser as any).is_anonymous || tooOld) {
+    await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
+    return false;
+  }
+
+  const metadataUsername = String((authUser.user_metadata as any)?.username || (authUser.user_metadata as any)?.user_name || '').trim().replace(/^@+/, '').toUpperCase();
+  let ownUsername = metadataUsername;
+  if (!ownUsername) {
+    const { data: ownProfile } = await supabase.from('profiles').select('username').eq('id', authUser.id).maybeSingle();
+    ownUsername = String((ownProfile as any)?.username || '').trim().replace(/^@+/, '').toUpperCase();
+  }
+  if (ownUsername && ownUsername === code.trim().replace(/^@+/, '').toUpperCase()) {
+    await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
+    return false;
+  }
+
   const { error } = await supabase.rpc('keep_claim_referral', { p_code: code });
   if (!error) {
     await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
     return true;
   }
   const message = String(error.message || error.code || '');
-  if (/SELF_FORBIDDEN|WINDOW_EXPIRED|CODE_INVALID|REAL_ACCOUNT_REQUIRED/i.test(message)) {
+  if (/SELF_FORBIDDEN|WINDOW_EXPIRED|CODE_INVALID|REAL_ACCOUNT_REQUIRED|PGRST|P0001|22P02/i.test(message)) {
     await AsyncStorage.removeItem(PENDING_REFERRAL_KEY);
   }
   return false;
