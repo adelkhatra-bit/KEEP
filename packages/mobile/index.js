@@ -1,12 +1,16 @@
 import React from 'react';
 import { registerRootComponent } from 'expo';
 import { ShareIntentProvider } from 'expo-share-intent';
+import { View } from 'react-native';
 import App from './App';
 import MandatoryProfileRequirementsGate from './src/components/MandatoryProfileRequirementsGate';
 import SharedMusicHandoff from './src/components/SharedMusicHandoff';
 import BackgroundListeningLifecycle from './src/components/BackgroundListeningLifecycle';
 import AuthEmailLinkLifecycle from './src/components/AuthEmailLinkLifecycle';
 import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
+import { useUserStore } from './src/store/useUserStore';
+import { isSupabaseConfigured, supabase } from './src/services/supabaseClient';
+import { colors } from './src/theme/colors';
 
 
 // Samsung Internet / Chrome Android changent la hauteur du viewport lorsque
@@ -21,7 +25,8 @@ if (typeof document !== 'undefined') {
     style.id = styleId;
     style.textContent = `
       html, body, #root { margin:0; width:100%; height:100%; min-height:100%; }
-      html, body { overflow:hidden; overscroll-behavior:none; background:#090610; }
+      html, body { overflow:hidden; overscroll-behavior:none; background:#0B0A12; }
+      #root { background:#0B0A12; }
       #root { position:fixed; inset:0; height:100dvh; min-height:100dvh; max-height:100dvh; overflow:hidden; }
       @supports not (height: 100dvh) { #root { height:100vh; min-height:100vh; max-height:100vh; } }
     `;
@@ -53,6 +58,92 @@ if (typeof document !== 'undefined') {
   viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover');
 }
 
+
+// Un refresh web ne doit jamais révéler un second écran sous la page courante.
+// Avant ce garde, App démarrait avec user=null pendant la lecture de la session
+// Supabase : l'Onboarding pouvait donc être monté quelques millisecondes derrière
+// Écouter/Profil/Playlists. Sur une transition ou un viewport desktop plus large,
+// on percevait ce "deuxième design". Le garde ne change aucun écran : il conserve
+// simplement le fond Loki unique jusqu'à ce que l'identité web soit résolue.
+function WebRefreshSurfaceGuard() {
+  const user = useUserStore((state) => state.user);
+  const [waitingForSessionUser, setWaitingForSessionUser] = React.useState(false);
+  const [ready, setReady] = React.useState(typeof document === 'undefined');
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') {
+      setReady(true);
+      return undefined;
+    }
+    if (process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1') {
+      setReady(true);
+      return undefined;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('__keep_auth') || params.has('__keep_follow')) {
+      setReady(true);
+      return undefined;
+    }
+
+    let live = true;
+    let settleTimer;
+    const hardStop = window.setTimeout(() => {
+      if (live) setReady(true);
+    }, 2500);
+
+    if (!isSupabaseConfigured || !supabase) {
+      settleTimer = window.setTimeout(() => { if (live) setReady(true); }, 250);
+      return () => {
+        live = false;
+        window.clearTimeout(hardStop);
+        if (settleTimer) window.clearTimeout(settleTimer);
+      };
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!live) return;
+      if (data.session) {
+        setWaitingForSessionUser(true);
+        if (useUserStore.getState().user) setReady(true);
+        return;
+      }
+      // Sans session Supabase, Onboarding restaure/crée automatiquement l'essai
+      // local. Laisser un très court battement évite son flash sans ralentir
+      // réellement un premier lancement.
+      settleTimer = window.setTimeout(() => { if (live) setReady(true); }, 250);
+    }).catch(() => {
+      if (live) setReady(true);
+    });
+
+    return () => {
+      live = false;
+      window.clearTimeout(hardStop);
+      if (settleTimer) window.clearTimeout(settleTimer);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (waitingForSessionUser && user) setReady(true);
+  }, [waitingForSessionUser, user]);
+
+  if (typeof document === 'undefined' || ready) return null;
+  return React.createElement(View, {
+    pointerEvents: 'auto',
+    accessibilityElementsHidden: true,
+    importantForAccessibility: 'no-hide-descendants',
+    style: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+      zIndex: 999999,
+      backgroundColor: colors.background,
+    },
+  });
+}
+
 function KeepRoot() {
   return React.createElement(
     ShareIntentProvider,
@@ -66,6 +157,7 @@ function KeepRoot() {
         React.createElement(AuthEmailLinkLifecycle),
         React.createElement(PushRegistrationLifecycle),
         React.createElement(App),
+        React.createElement(WebRefreshSurfaceGuard),
       ),
     ),
   );
