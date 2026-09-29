@@ -65,6 +65,62 @@ const DEMO_USER: User = {
   privateInfo: {},
 };
 
+const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';
+
+function cachedWebRealUser(): User | null {
+  try {
+    const storage = (globalThis as any)?.localStorage;
+    if (!storage) return null;
+    const raw = storage.getItem(WEB_LAST_REAL_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const id = String(parsed?.id || '').trim();
+    const username = String(parsed?.username || '').trim().replace(/^@+/, '');
+    if (!id || !username) return null;
+    // Snapshot volontairement minimal et non sensible : il sert uniquement à
+    // éviter le flash Onboarding/"Loki Music" pendant que Supabase restaure
+    // sa session persistée après F5. Le vrai profil remplace ce placeholder
+    // dès que handleSession charge Supabase.
+    return {
+      id,
+      username,
+      email: '',
+      avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
+      bio: '',
+      playlistCount: 0,
+      followerCount: 0,
+      followingCount: 0,
+      kind: 'USER',
+      favoriteGenres: [],
+      favoriteArtists: [],
+      socialLinks: [],
+      isPublic: true,
+      locationOptIn: false,
+      privateInfo: {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function cacheWebRealUser(user: User | null) {
+  try {
+    const storage = (globalThis as any)?.localStorage;
+    if (!storage) return;
+    if (!user) {
+      storage.removeItem(WEB_LAST_REAL_USER_KEY);
+      return;
+    }
+    storage.setItem(WEB_LAST_REAL_USER_KEY, JSON.stringify({
+      id: user.id,
+      username: user.username,
+      avatar: user.avatar || '',
+    }));
+  } catch {
+    // Navigation/auth remain functional if browser storage is unavailable.
+  }
+}
+
 function clearLocalMusicIdentity() {
   // Un changement EXPLICITE d'identité (déconnexion, autre vrai compte, démo)
   // repart sans la musique du compte précédent. En revanche, le bootstrap
@@ -110,11 +166,12 @@ interface UserStore {
 }
 
 export const useUserStore = create<UserStore>((set, get) => ({
-  user: null,
+  user: cachedWebRealUser(),
   isDemoMode: false,
   isAnonymous: false,
   isLocalGuest: false,
   setUser: (user) => set((s) => {
+    cacheWebRealUser(user);
     if (s.user?.id && s.user.id !== user.id) {
       clearAppleMusicIdentity(s.user.id);
       clearLocalMusicIdentity();
@@ -122,11 +179,13 @@ export const useUserStore = create<UserStore>((set, get) => ({
     return { user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest };
   }),
   enterDemoMode: () => {
+    cacheWebRealUser(null);
     clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
     set({ user: DEMO_USER, isDemoMode: true, isAnonymous: false, isLocalGuest: false });
   },
   enterGuestMode: (guestId) => {
+    cacheWebRealUser(null);
     const state = get();
     if (!state.isLocalGuest || state.user?.id !== guestId) {
       clearAppleMusicIdentity(state.user?.id);
@@ -135,6 +194,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
     set({ user: localGuestUser(guestId), isDemoMode: false, isAnonymous: true, isLocalGuest: true });
   },
   logout: () => {
+    cacheWebRealUser(null);
     clearAppleMusicIdentity(get().user?.id);
     clearLocalMusicIdentity();
     set({ user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false });
@@ -161,24 +221,31 @@ export const useUserStore = create<UserStore>((set, get) => ({
     set((s) => {
       if (s.isDemoMode && !session) return s;
       if (s.isLocalGuest && !session) return s;
-      if (!session) return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
+      if (!session) {
+        cacheWebRealUser(null);
+        return { user: null, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
+      }
 
       if (s.user && s.user.id === session.userId) {
         const sessionUsername = session.username?.trim().replace(/^@+/, '');
+        const nextUser = {
+          ...s.user,
+          username: s.user.username || sessionUsername || s.user.username,
+          email: session.email ?? s.user.email,
+        };
+        cacheWebRealUser(nextUser);
         return {
-          user: {
-            ...s.user,
-            username: s.user.username || sessionUsername || s.user.username,
-            email: session.email ?? s.user.email,
-          },
+          user: nextUser,
           isDemoMode: false,
           isAnonymous: session.isAnonymous,
           isLocalGuest: false,
         };
       }
 
+      const nextUser = userFromAuthSession(session);
+      cacheWebRealUser(nextUser);
       return {
-        user: userFromAuthSession(session),
+        user: nextUser,
         isDemoMode: false,
         isAnonymous: session.isAnonymous,
         isLocalGuest: false,
