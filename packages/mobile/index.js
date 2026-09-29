@@ -65,6 +65,26 @@ if (typeof document !== 'undefined') {
 }
 
 
+// Bouclier DOM immédiat : il est créé avant le premier rendu React pour que
+// le navigateur ne puisse jamais montrer l'ancien Onboarding ("Loki Music")
+// sous l'écran courant pendant la restauration de session après un refresh.
+if (typeof document !== 'undefined' && process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') {
+  const mountShield = () => {
+    if (document.getElementById('keep-web-refresh-shield')) return;
+    const shield = document.createElement('div');
+    shield.id = 'keep-web-refresh-shield';
+    shield.setAttribute('aria-hidden', 'true');
+    shield.style.position = 'fixed';
+    shield.style.inset = '0';
+    shield.style.zIndex = '2147483647';
+    shield.style.background = '#0B0A12';
+    shield.style.pointerEvents = 'auto';
+    (document.body || document.documentElement).appendChild(shield);
+  };
+  if (document.body) mountShield();
+  else document.addEventListener('DOMContentLoaded', mountShield, { once: true });
+}
+
 // Un refresh web ne doit jamais révéler un second écran sous la page courante.
 // Avant ce garde, App démarrait avec user=null pendant la lecture de la session
 // Supabase : l'Onboarding pouvait donc être monté quelques millisecondes derrière
@@ -132,6 +152,11 @@ function WebRefreshSurfaceGuard() {
   React.useEffect(() => {
     if (waitingForSessionUser && user) setReady(true);
   }, [waitingForSessionUser, user]);
+
+  React.useEffect(() => {
+    if (!ready || typeof document === 'undefined') return;
+    document.getElementById('keep-web-refresh-shield')?.remove();
+  }, [ready]);
 
   if (typeof document === 'undefined' || ready) return null;
   return React.createElement(View, {
