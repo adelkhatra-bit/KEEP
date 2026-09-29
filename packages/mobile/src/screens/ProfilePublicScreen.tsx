@@ -1253,7 +1253,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   return <SafeAreaView style={s.container}>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar} accessibilityLabel="Actions du profil">
-        <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(true); setExpandedMenuItem('notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+        <TouchableOpacity style={s.iconButton} onPress={() => navigation.navigate('Notifications')} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
           <Text style={s.bell}>🔔</Text>
           {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
         </TouchableOpacity>
