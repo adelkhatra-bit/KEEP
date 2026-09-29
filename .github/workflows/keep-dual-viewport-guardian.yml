@@ -133,7 +133,7 @@ jobs:
             await clickRobust(page,edit,'Edit profile menu item');
             const usernameField=page.getByPlaceholder('tonpseudo').last();
             if (!await usernameField.isVisible().catch(()=>false)) {
-              const openSettings=page.getByText('OUVRIR LES RÉGLAGES',{exact:true}).last();
+              const openSettings=page.getByText('OUVRIR LES REGLAGES',{exact:true}).last();
               await openSettings.waitFor({state:'visible',timeout:15000});
               await clickRobust(page,openSettings,'Open profile settings');
             }

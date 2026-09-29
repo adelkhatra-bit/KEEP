@@ -1945,3 +1945,8 @@ Demande Adel appliquée sur ProfilePublicScreen uniquement : PLUS passe à gauch
 ## [2026-09-29T15:50:00Z] chatgpt — contrat profil aligné sur la dernière demande Adel
 
 Le test historique ProfileIdentityBreathingRoom attendait encore l'ancien emplacement Battle séparé sous l'identité. Il est mis à jour pour la demande actuelle validée : Battle hors pseudo, mais empilé au-dessus de FREE dans la colonne droite ; PLUS reste à gauche. Aucun code produit supplémentaire modifié.
+
+
+## [2026-09-29T15:58:00Z] chatgpt — Guardians alignés sur l'UI réellement livrée
+
+Deux faux négatifs CI corrigés sans toucher au produit : (1) le panneau Réglages affiche maintenant « OUVRIR LES REGLAGES » sans accent, le dual-viewport testait encore l'ancien libellé ; (2) Découvertes a été simplifié à une action « VOIR LE PROFIL », le Human Guardian attendait encore les anciens boutons Passer/Suivre/Ouvrir le profil complet. Les tests vérifient désormais le parcours visible réel au lieu d'exiger des contrôles supprimés du design.
