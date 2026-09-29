@@ -18,6 +18,7 @@ const mustExist = [
   'CLAUDE.md',
   'AGENTS.md',
   '.github/copilot-instructions.md',
+  'BRANCH_SOURCE_OF_TRUTH.json',
   'packages/mobile',
   'packages/admin',
   'packages/backend',
@@ -63,6 +64,18 @@ for (const forbidden of [
   '.github/workflows/web-public-from-reconcile.yml',
 ]) {
   if (fs.existsSync(path.join(root, forbidden))) failures.push(`LEGACY PATH PRESENT: ${forbidden}`);
+}
+
+const branchContract = JSON.parse(fs.readFileSync(path.join(root, 'BRANCH_SOURCE_OF_TRUTH.json'), 'utf8'));
+for (const [key, expected] of Object.entries({
+  repository: expectedRepository,
+  canonicalBranch: expectedBranch,
+  applicationSourceBranch: expectedBranch,
+  publicWebSourceBranch: expectedBranch,
+  githubPagesWorkflow: '.github/workflows/web-preview-pages.yml',
+  frozenDefaultBranch: 'main',
+})) {
+  if (branchContract[key] !== expected) failures.push(`BRANCH CONTRACT MISMATCH: ${key}=${branchContract[key]}`);
 }
 
 const claudeInstructions = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
@@ -253,6 +266,7 @@ if (failures.length) {
 console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
+console.log('branch contract: mobile + public web use the same canonical branch; main is frozen metadata only');
 console.log(`public root: ${expectedPublicRoot}/`);
 console.log('public profile links: permanent aliases reserved per profile');
 console.log('auth user: pseudo + mot de passe + e-mail vérifié obligatoires à la création (depuis le 01/09/2026)');

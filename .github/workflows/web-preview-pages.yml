@@ -221,7 +221,7 @@ jobs:
           HTML
 
           touch _site/.nojekyll
-          printf '{"sha":"%s","builtAt":"%s"}' "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
+          printf '{"repository":"%s","branch":"%s","sha":"%s","builtAt":"%s"}' "$KEEP_PROJECT_REPOSITORY" "$KEEP_PROJECT_BRANCH" "$GITHUB_SHA" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > _site/version.json
 
       - name: Verify generated route shells
         if: steps.fresh.outputs.build == 'yes'
@@ -249,6 +249,7 @@ jobs:
           test -f _site/keep-share.png
           test -f _site/version.json
           grep -q "$GITHUB_SHA" _site/version.json
+          grep -q "$KEEP_PROJECT_BRANCH" _site/version.json
           grep -q '/KEEP/_expo/' _site/index.html
           grep -q '__keep_route' _site/404.html
           grep -q 'history.pushState=function' _site/index.html
@@ -344,6 +345,7 @@ jobs:
           # THIS exact runtime commit, not merely that the URL returns HTTP 200.
           curl --retry 10 --retry-delay 3 -fsSL -H 'Cache-Control: no-cache' "$base/version.json?sha=$GITHUB_SHA" -o /tmp/keep-version.json
           grep -q "$GITHUB_SHA" /tmp/keep-version.json
+          grep -q "$KEEP_PROJECT_BRANCH" /tmp/keep-version.json
           echo "LIVE SHA VERIFIED: $GITHUB_SHA"
           curl --retry 5 --retry-delay 2 -fsSL "$base/admin-preview/" -o /tmp/keep-admin.html
           grep -q 'Loki' /tmp/keep-admin.html

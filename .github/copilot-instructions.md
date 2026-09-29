@@ -1,6 +1,8 @@
 # KEEP — GitHub Copilot instructions
 
-Before changing anything, read `/CLAUDE.md` and `/AGENTS.md`. They are the source-of-truth rules for every AI working on KEEP.
+Before changing anything, read `/BRANCH_SOURCE_OF_TRUTH.json`, `/CLAUDE.md` and `/AGENTS.md`. They are the source-of-truth rules for every AI working on KEEP.
+
+**Branch safety:** GitHub's repository default is still `main`, so generic code-search tools can silently return stale `main` results. If a result URL/ref is `main` (or has no explicit ref), discard it and refetch the same path from `reconcile/claude-main-20260825` before reasoning or editing. The mobile application and the public website are both built from that same canonical branch.
 
 ## One project only
 
