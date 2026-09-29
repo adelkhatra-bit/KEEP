@@ -18,6 +18,7 @@ import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planServ
 import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
+import { typography } from '../theme/spacing';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -730,11 +731,11 @@ export default function HomeScreenCompact({ navigation }: any) {
 }
 
 function TopBar({ navigation }: any) {
+  // Adel (29/09/2026) : plus de nom d'application au-dessus du titre. Même
+  // en-tête que les autres onglets (titre de page seul, typography.h1),
+  // centré dans une largeur maximale sur tablette/PC.
   return <View style={s.topBar}>
-    <View style={s.topTitleWrap}>
-      <Text style={s.topEyebrow}>LOKI MUSIC</Text>
-      <Text style={s.brand}>Écouter</Text>
-    </View>
+    <Text style={s.brand} numberOfLines={1}>Écouter</Text>
     <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel="Ouvrir mes sessions">
       <Text style={s.roundText}>☰</Text>
     </TouchableOpacity>
@@ -864,7 +865,7 @@ function ListenWaveform({ active, recognizing, micLevel, idle }: { active: boole
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  idleHero: { width: '100%', maxWidth: 440, alignItems: 'center' },
+  idleHero: { width: '100%', maxWidth: 692, alignItems: 'center' },
   idlePills: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
   micPillReady: { backgroundColor: 'rgba(124,92,252,0.14)', borderColor: 'rgba(124,92,252,0.45)' },
   liveDotReady: { backgroundColor: C.purpleLight },
@@ -900,13 +901,11 @@ const s = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, marginBottom: 6 },
   sectionCount: { minWidth: 22, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   sectionCountText: { color: C.purpleLight, fontSize: 11, fontWeight: '900' },
-  topTitleWrap: { flexDirection: 'column' },
-  topEyebrow: { color: C.purpleLight, fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: 1 },
-  topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
+  topBar: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4 },
   topBarSpacer: { width: 44 },
   round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
-  brand: { color: C.text, fontSize: 26, fontWeight: '900', letterSpacing: 0.3 },
+  brand: { ...typography.h1, color: C.text, flexShrink: 1 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   planFree: { borderColor: colors.keepPressed, backgroundColor: 'rgba(45,225,194,0.12)' },
   planFreeText: { color: C.green },
@@ -914,7 +913,7 @@ const s = StyleSheet.create({
   planExhaustedText: { color: C.pink },
   planPaid: { borderColor: colors.border, backgroundColor: colors.backgroundCard },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24 },
+  idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
   idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10 },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
@@ -925,7 +924,7 @@ const s = StyleSheet.create({
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
   main: { flex: 1 },
-  mainContent: { paddingHorizontal: 14, paddingBottom: 8 },
+  mainContent: { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 14, paddingBottom: 8 },
   liveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, marginRight: 6 },
   liveDotError: { backgroundColor: C.pink },
@@ -993,7 +992,7 @@ const s = StyleSheet.create({
   manualSearchLinkText: { color: C.yellow, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
   manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: colors.background, color: C.text, fontSize: 14, paddingHorizontal: 12 },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
-  footerActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
+  footerActions: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
   secondary: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
