@@ -101,15 +101,17 @@ export default function CoachMarks({ visible, steps = DEFAULT_COACH_STEPS, onFin
             <Text style={[s.nextText, isLast && s.nextFinalText]}>{isLast ? "C'est parti ✓" : 'Suivant →'}</Text>
           </TouchableOpacity>
         </View>
+        {/* Dans la bulle (29/09/2026) : posé sous la bulle, ce texte passait
+            par-dessus les libellés de la barre des 5 onglets. */}
+        <Text style={s.footHint}>Ne s'affiche qu'une fois. Ré-affichable depuis Réglages → Aide.</Text>
       </Animated.View>
-      <Text style={s.footHint}>Ne s'affiche qu'une fois. Ré-affichable depuis Réglages → Aide.</Text>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: 'rgba(5,4,10,0.08)', justifyContent: 'flex-end', padding: spacing.lg },
-  bubble: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg },
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: 'rgba(5,4,10,0.08)', justifyContent: 'flex-end', alignItems: 'center', padding: spacing.lg },
+  bubble: { width: '100%', maxWidth: 520, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg },
   badge: { alignSelf: 'flex-start', backgroundColor: 'rgba(124,92,252,0.18)', color: colors.primary, fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden', marginBottom: spacing.md },
   emoji: { fontSize: 34, marginBottom: spacing.sm },
   title: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', marginBottom: spacing.sm },

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,6 @@ import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionSto
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { musicEngine } from '../services/musicEngine';
-import SessionPulse from '../components/SessionPulse';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
@@ -435,24 +434,41 @@ export default function HomeScreenCompact({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}>
         <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
-        <View style={s.idle}>
+        {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
+            aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
+            fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
+            l'onde. Restyling seul : bouton, erreurs/astuce micro, mention micro,
+            MODE DÉMO, test d'onglet et mini-tour sont tous conservés. */}
+        <AuroraBackground active />
+        <ScrollView style={s.main} contentContainerStyle={s.idle} showsVerticalScrollIndicator={false} bounces={false}>
           <View style={s.idleHero}>
+            <View style={s.idlePills}>
+              <View style={[s.micPill, s.micPillReady, micPreflightDenied && s.micPillIdle]}>
+                <View style={[s.liveDot, s.liveDotReady, micPreflightDenied && s.liveDotError]} />
+                <Text style={[s.liveText, s.liveTextReady, micPreflightDenied && s.liveTextError]}>{micPreflightDenied ? 'MICRO · BLOQUÉ' : 'MICRO · PRÊT'}</Text>
+              </View>
+              <View style={s.autoStopChip}>
+                <Text style={s.autoStopText}>⏱ Veille auto · {silenceTimeoutMin} min</Text>
+              </View>
+            </View>
+            <LokiIdleOrb />
             <Text style={s.idleKicker}>RECONNAISSANCE MUSICALE</Text>
-            <View style={s.pulseStage}><SessionPulse active size={132} /></View>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
             {error ? <Text style={s.error}>{error}</Text> : null}
             {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
             {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
-            <MotionActionButton
-              variant="primary"
-              size="large"
-              onPress={startSession}
-              accessibilityLabel="Démarrer une écoute"
-              accessibilityHint="Lance une session d'écoute avec votre microphone"
-            >
-              ●  ÉCOUTER MAINTENANT
-            </MotionActionButton>
+            <View style={s.idleCta}>
+              <MotionActionButton
+                variant="primary"
+                size="large"
+                onPress={startSession}
+                accessibilityLabel="Démarrer une écoute"
+                accessibilityHint="Lance une session d'écoute avec votre microphone"
+              >
+                ●  ÉCOUTER MAINTENANT
+              </MotionActionButton>
+            </View>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
             {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
           </View>
@@ -461,7 +477,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
             </TouchableOpacity>
           ) : null}
-        </View>
+        </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
       </SafeAreaView>
     );
@@ -758,6 +774,48 @@ function AuroraBackground({ active }: { active: boolean }) {
   );
 }
 
+// Cercle Loki "L" de l'accueil Écouter (maquette validée 23/09/2026) : anneaux
+// concentriques qui respirent doucement + onde au repos de part et d'autre.
+// Décoratif uniquement (pointerEvents désactivé), 100 % JS/Animated (OTA).
+function LokiIdleOrb() {
+  // Petits écrans (iPhone SE, 568 px) : cercle réduit pour que le bouton
+  // ÉCOUTER MAINTENANT reste visible sans défiler au-dessus de la barre d'onglets.
+  const { height } = useWindowDimensions();
+  const size = height < 720 ? 132 : 196;
+  const ring = (d: number) => ({ width: d, height: d, borderRadius: d / 2 });
+  const breath = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(breath, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(breath, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [breath]);
+  const halo = { opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.8] }), transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.03] }) }] };
+  return (
+    <View pointerEvents="none" style={s.orbStage}>
+      <IdleWaveSide />
+      <View style={[s.orbWrap, ring(size)]}>
+        <Animated.View style={[s.orbRingOuter, ring(size), halo]} />
+        <View style={[s.orbRingInner, ring(Math.round(size * 0.85))]} />
+        <View style={[s.orbCore, ring(Math.round(size * 0.69))]}><Text style={[s.orbLetter, size < 196 && s.orbLetterCompact]}>L</Text></View>
+      </View>
+      <IdleWaveSide mirrored />
+    </View>
+  );
+}
+
+const IDLE_WAVE = [14, 26, 18, 38, 22, 44];
+function IdleWaveSide({ mirrored }: { mirrored?: boolean }) {
+  const heights = mirrored ? [...IDLE_WAVE].reverse() : IDLE_WAVE;
+  return (
+    <View style={s.idleWave}>
+      {heights.map((h, i) => <View key={i} style={[s.idleWaveBar, { height: h }]} />)}
+    </View>
+  );
+}
+
 // Onde sonore animée (maquette validée 23/09/2026). Barres pilotées par le
 // niveau micro réel (micLevel) déjà exposé par le store -- pas de nouvel état,
 // pas de nouvelle logique de session. Décoratif, pointerEvents désactivé.
@@ -806,11 +864,25 @@ function ListenWaveform({ active, recognizing, micLevel, idle }: { active: boole
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  idleHero: { width: '100%', alignItems: 'center' },
-  idleKicker: { color: C.purpleLight, fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 6, textAlign: 'center' },
+  idleHero: { width: '100%', maxWidth: 440, alignItems: 'center' },
+  idlePills: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
+  micPillReady: { backgroundColor: 'rgba(124,92,252,0.14)', borderColor: 'rgba(124,92,252,0.45)' },
+  liveDotReady: { backgroundColor: C.purpleLight },
+  liveTextReady: { color: C.purpleLight },
+  orbStage: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
+  orbWrap: { width: 196, height: 196, alignItems: 'center', justifyContent: 'center' },
+  orbRingOuter: { position: 'absolute', width: 196, height: 196, borderRadius: 98, borderWidth: 1, borderColor: 'rgba(124,92,252,0.45)', backgroundColor: 'rgba(124,92,252,0.06)' },
+  orbRingInner: { position: 'absolute', width: 166, height: 166, borderRadius: 83, borderWidth: 1, borderColor: 'rgba(45,225,194,0.28)' },
+  orbCore: { width: 136, height: 136, borderRadius: 68, backgroundColor: C.card, borderWidth: 2, borderColor: C.purple, alignItems: 'center', justifyContent: 'center' },
+  orbLetter: { color: C.purpleLight, fontSize: 52, fontWeight: '900' },
+  orbLetterCompact: { fontSize: 38 },
+  idleWave: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  idleWaveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight, opacity: 0.55 },
+  idleCta: { marginTop: 22, alignItems: 'center' },
+  idleKicker: { color: C.purpleLight, fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 2, textAlign: 'center' },
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
-  idlePrivacy: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 12, maxWidth: 300 },
+  idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
   livePanel: { marginBottom: 8 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
@@ -834,7 +906,7 @@ const s = StyleSheet.create({
   topBarSpacer: { width: 44 },
   round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
-  brand: { color: C.text, fontSize: 28, fontWeight: '900', letterSpacing: 5 },
+  brand: { color: C.text, fontSize: 26, fontWeight: '900', letterSpacing: 0.3 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   planFree: { borderColor: colors.keepPressed, backgroundColor: 'rgba(45,225,194,0.12)' },
   planFreeText: { color: C.green },
@@ -842,13 +914,13 @@ const s = StyleSheet.create({
   planExhaustedText: { color: C.pink },
   planPaid: { borderColor: colors.border, backgroundColor: colors.backgroundCard },
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  idle: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 24, paddingTop: 24, paddingBottom: 12 },
-  idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 24 },
-  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 24 },
+  idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24 },
+  idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
+  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10 },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
-  demo: { marginTop: 24, color: C.purpleLight, fontSize: 10, fontWeight: '800' },
-  tabTest: { marginTop: 24, paddingVertical: 6, paddingHorizontal: 12 },
+  demo: { marginTop: 14, color: C.purpleLight, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center' },
   tabTestText: { color: C.mutedGrey, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   signalHint: { color: C.muted, fontSize: 11, textAlign: 'center', marginTop: 7, marginBottom: 3 },
