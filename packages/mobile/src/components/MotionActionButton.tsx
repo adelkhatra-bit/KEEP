@@ -32,14 +32,17 @@ export default function MotionActionButton({
 }: MotionActionButtonProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const idleOutlineAnim = useRef(new Animated.Value(0)).current;
+  const [pressed, setPressed] = useState(false);
   const [pressed, setPressed] = useState(false);
 
-  const variantColors: Record<string, { bg: string; border: string; text: string }> = {
+  const variantColors: Record<string, { bg: string; border: string; text: string; glow?: string }> = {
     primary: { bg: colors.primary, border: colors.primary, text: colors.white },
     success: { bg: colors.success, border: colors.success, text: colors.white },
     danger: { bg: colors.danger || '#FF5C72', border: colors.danger || '#FF5C72', text: colors.white },
     secondary: { bg: colors.backgroundElevated, border: colors.border, text: colors.textPrimary },
     ghost: { bg: 'transparent', border: colors.border, text: colors.textPrimary },
+    outline: { bg: 'transparent', border: colors.primaryLight, text: colors.white, glow: colors.primaryLight },
     outline: { bg: 'transparent', border: colors.primaryLight, text: colors.textPrimary },
   };
 
@@ -52,8 +55,19 @@ export default function MotionActionButton({
   const config = variantColors[variant];
   const dims = sizeConfig[size];
 
+  useEffect(() => {
+    if (variant !== 'outline' || disabled) { idleOutlineAnim.setValue(0); return undefined; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(idleOutlineAnim, { toValue: 1, duration: 1250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(idleOutlineAnim, { toValue: 0, duration: 1250, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [disabled, idleOutlineAnim, variant]);
+
   const handlePressIn = () => {
     if (disabled) return;
+    setPressed(true);
     setPressed(true);
     Animated.parallel([
       Animated.timing(scaleAnim, {
@@ -73,6 +87,7 @@ export default function MotionActionButton({
 
   const handlePressOut = () => {
     if (disabled) return;
+    setPressed(false);
     setPressed(false);
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -106,6 +121,9 @@ export default function MotionActionButton({
     inputRange: [0, 1],
     outputRange: [1, 1.15],
   });
+
+  const idleOutlineOpacity = idleOutlineAnim.interpolate({ inputRange: [0, 1], outputRange: [0.04, 0.16] });
+  const idleOutlineScale = idleOutlineAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] });
 
   return (
     <TouchableOpacity
