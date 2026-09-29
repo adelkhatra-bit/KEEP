@@ -2004,3 +2004,8 @@ OmniRoute : aucun package/import omniroute dans KEEP ; ce produit est un gateway
 ## [2026-09-30T00:58:00+02:00] chatgpt — correction directe capture profil
 
 Correction de la consigne précédente mal interprétée : Adel demande l'inversion VISUELLE exacte des extrémités. PLUS passe à GAUCHE à la place de FREE ; FREE passe à DROITE à la place de PLUS ; le switch ⚡ BATTLE ON/OFF suit FREE et reste immédiatement AU-DESSUS de FREE. Abonnés/Reprises restent au centre. Même design, mêmes dimensions, aucune modification App.tsx / Navigation.tsx / barre 5 onglets.
+
+
+## [2026-09-30T01:06:00+02:00] chatgpt — rollback strict du changement design profil c880ae4
+
+Audit arrière demandé par Adel : le correctif robustesse acf2c160 n'avait pas touché ProfilePublicScreen. Le commit suivant c880ae4 a en revanche inversé visuellement PLUS/FREE et déplacé le bloc FREE+BATTLE. Ce changement design est annulé intégralement. ProfilePublicScreen.tsx et son garde verify-profile-hierarchy.cjs sont restaurés byte-for-byte depuis acf2c160. Aucun App.tsx, Navigation.tsx, barre 5 onglets, profil visité, ni logique métier modifiés. À partir d'ici : aucun changement de layout profil pendant les réparations robustesse sans demande explicite.

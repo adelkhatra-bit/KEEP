@@ -1289,19 +1289,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </View>
         </View>
         <View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">
-        <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
-          <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
-          <Text style={s.topMetricMoreText}>PLUS</Text>
-        </TouchableOpacity>
-        <View style={s.topMetricSocialGroup}>
-          <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
-            <Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.topMetricSocialItem, s.topMetricSocialLast, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
-            <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={s.topMetricFreeStack}>
+        <View style={s.topMetricLeftStack}>
           {battleFeatureEnabled && !accountRequired ? (
             <BattleGlowButton
               compact
@@ -1327,6 +1315,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.topMetricFreeHint}>jouer · garder</Text>
           </TouchableOpacity>
         </View>
+        <View style={s.topMetricSocialGroup}>
+          <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
+            <Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.topMetricSocialItem, s.topMetricSocialLast, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
+            <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={[s.topMetricMore, metricsExpanded && s.topMetricMoreOn]} onPress={() => setMetricsExpanded((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: metricsExpanded }} accessibilityLabel="Afficher les autres compteurs">
+          <Text style={s.topMetricMoreIcon}>{metricsExpanded ? '⌃' : '•••'}</Text>
+          <Text style={s.topMetricMoreText}>PLUS</Text>
+        </TouchableOpacity>
       </View>
       {freeDetailsOpen ? (
         <View style={s.metricInlinePanel}>
@@ -1795,7 +1795,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   topMetricsBar:{marginHorizontal:0,marginTop:12,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},
-  topMetricFreeStack:{width:82,alignItems:'stretch',justifyContent:'flex-end',gap:7},
+  topMetricLeftStack:{width:82,alignItems:'stretch',justifyContent:'flex-end',gap:7},
   profileBattleAboveFree:{alignSelf:'stretch'},
   topMetricFreeHero:{width:82,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.12)',borderWidth:1.5,borderColor:colors.keep,shadowColor:colors.keep,shadowOpacity:.28,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   topMetricFreeHeroOn:{backgroundColor:'rgba(45,225,194,.20)',shadowOpacity:.55},
