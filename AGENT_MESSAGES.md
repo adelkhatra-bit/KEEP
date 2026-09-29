@@ -1899,3 +1899,8 @@ Cause démontrée dans packages/mobile/index.js : à partir de 900px, #root pass
 ## [2026-09-29T11:24:00Z] chatgpt — cause finale écran noir desktop reproduite en CI
 
 Le Guardian a reproduit le bug exact : à 1440×900, l'app contient du texte mais #root mesure 1440×0. Le build web injectait encore `height:auto!important` via `packages/mobile/scripts/fix-web-export.cjs`, ce qui annulait le 100dvh de `index.js`. Correction : export desktop = root 100dvh + enfant RN 100% + overflow interne ; test WebRefreshSurface mis à jour. Ne pas réintroduire height:auto sur #root desktop.
+
+
+## [2026-09-29T11:25:00Z] chatgpt — correctif renforcé DevTools -> plein écran
+
+Adel reproduit encore : Profil visible lorsque DevTools est docké, écran noir lorsqu'il ferme DevTools / agrandit la fenêtre. Renforcement ciblé dans packages/mobile/index.js : le root RN reçoit explicitement la hauteur réelle du viewport à chaque resize/visualViewport/fullscreenchange avec double requestAnimationFrame. Guardian exact ajouté : Profil monté à 768×700 puis passage à 1440×900 sans reload et Menu du profil doit rester visible. App.tsx, Navigation.tsx et barre 5 onglets intouchés.

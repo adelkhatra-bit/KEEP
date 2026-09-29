@@ -200,10 +200,16 @@ jobs:
               await assertResponsiveSurface('mobile-resize-390x844',390,844);
               await assertResponsiveSurface('desktop-return-1440x900',1440,900);
 
+              // Cas exact utilisateur : Profil visible avec DevTools docké,
+              // puis fermeture / retour plein écran SANS reload.
+              await assertResponsiveSurface('profile-before-open-768x700',768,700);
               await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Desktop Profil tab');
               await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+              await assertResponsiveSurface('profile-devtools-open-768x700',768,700);
+              await assertResponsiveSurface('profile-devtools-closed-1440x900',1440,900);
+              await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
               await page.screenshot({path:'artifacts/dual-viewport/desktop-1440x900-profile.png',fullPage:true});
-              report.push('desktop resize 1440x900 -> 900x700 -> 390x844 -> 1440x900: PASS');
+              report.push('desktop + profile resize 1440x900 -> 900x700 -> 390x844 -> 1440x900 + profile 768x700 -> 1440x900: PASS');
               await context.close();
             }
 

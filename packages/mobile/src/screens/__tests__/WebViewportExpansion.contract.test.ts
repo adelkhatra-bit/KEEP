@@ -17,5 +17,8 @@ describe('Web viewport expansion contract', () => {
   it('reacts immediately when DevTools or a desktop resize changes the viewport', () => {
     expect(source).toContain("window.addEventListener('resize', syncViewport");
     expect(source).toContain("window.visualViewport?.addEventListener('resize', syncViewport");
+    expect(source).toContain("document.addEventListener('fullscreenchange', syncViewport");
+    expect(source).toContain("root.style.height = \`\${h}px\`");
+    expect(source).toContain("window.requestAnimationFrame(() =>");
   });
 });
