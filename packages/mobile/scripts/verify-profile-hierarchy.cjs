@@ -27,7 +27,7 @@ assertOrdered(owner, [
   '<View style={s.topMetricsBar}',
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
-  'title="GÉRER MES MUSIQUES"',
+  'accessibilityLabel="Gérer mes musiques"',
   'accessibilityLabel="Partager mon profil Loki Music"',
   '<Text style={s.dnaTitle}>Tes styles dominants</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
