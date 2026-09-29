@@ -1993,3 +1993,9 @@ Cause probable démontrée par l'historique : expo-speech n'était pas dans pack
 ## [2026-09-30] chatgpt — position profil validée par Adel
 
 Profil propriétaire : inverser les extrémités de la barre métriques sans changer le design des cartes : FREE à gauche, PLUS à droite. Déplacer le switch ⚡ BATTLE ON/OFF juste au-dessus de FREE dans la même colonne. Abonnés/Reprises restent au centre. Ne pas toucher App.tsx, Navigation.tsx ni la barre des 5 onglets.
+
+
+## [2026-09-30T00:55:00+02:00] chatgpt — Inside + robustesse production
+
+Audit ciblé compte Inside : données profil/auth valides, requêtes Supabase quasi intégralement 200/204 ; un 403 réel trouvé sur keep_public_profile_presence. La migration 20260929200000_public_profile_real_presence a été appliquée au projet KEEP rrhqsqzcplvmwxizqnla. Durcissement client en cours/poussé : RootRenderBoundary au-dessus de tout le runtime (aucune page blanche même si un écran plante), journalisation RLS best-effort dans client_diagnostics avec déduplication par session, récupération sans logout, normalisation bornée/dédupliquée des tableaux de profil pour qu'une ligne corrompue ne fasse jamais tomber React. Ne pas retirer ces gardes pour résoudre un test visuel.
+OmniRoute : aucun package/import omniroute dans KEEP ; ce produit est un gateway d'agents IA, pas le routeur de l'app. Ne pas l'ajouter comme dépendance runtime mobile sans besoin explicite.

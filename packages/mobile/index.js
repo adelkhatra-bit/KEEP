@@ -1,7 +1,7 @@
 import React from 'react';
 import { registerRootComponent } from 'expo';
 import { ShareIntentProvider } from 'expo-share-intent';
-import { View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import App from './App';
 import MandatoryProfileRequirementsGate from './src/components/MandatoryProfileRequirementsGate';
 import SharedMusicHandoff from './src/components/SharedMusicHandoff';
@@ -196,20 +196,156 @@ function WebRefreshSurfaceGuard() {
   });
 }
 
+const ROOT_DIAGNOSTIC_SESSION_PREFIX = 'keep-root-diagnostic:';
+
+function shortDiagnosticText(value, max = 1200) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function reportRootDiagnostic(code, error, context = {}) {
+  try {
+    const profileId = useUserStore.getState().user?.id;
+    if (!profileId || !supabase) return;
+
+    // A production client can have millions of sessions. Never flood telemetry:
+    // one identical crash signature per browser session is enough to diagnose it.
+    const message = shortDiagnosticText(error?.message || error || code, 500);
+    const signature = `${code}:${message.slice(0, 120)}`;
+    if (typeof sessionStorage !== 'undefined') {
+      const storageKey = ROOT_DIAGNOSTIC_SESSION_PREFIX + signature;
+      if (sessionStorage.getItem(storageKey)) return;
+      sessionStorage.setItem(storageKey, '1');
+    }
+
+    void supabase.from('client_diagnostics').insert({
+      profile_id: profileId,
+      area: 'root_runtime',
+      code,
+      message,
+      platform: typeof document === 'undefined' ? 'native' : 'web',
+      context: {
+        ...context,
+        path: typeof location !== 'undefined' ? location.pathname : undefined,
+        viewport: typeof window !== 'undefined' ? {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        } : undefined,
+      },
+    }).then(() => undefined).catch(() => undefined);
+  } catch {
+    // Diagnostics must never become a second application failure.
+  }
+}
+
+class RootRenderBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null, retryKey: 0 };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    reportRootDiagnostic('ROOT_RENDER_CRASH', error, {
+      componentStack: shortDiagnosticText(info?.componentStack, 1800),
+    });
+    if (typeof document !== 'undefined') {
+      document.getElementById('keep-web-refresh-shield')?.remove();
+    }
+  }
+
+  retry = () => {
+    this.setState((state) => ({ error: null, retryKey: state.retryKey + 1 }));
+  };
+
+  reloadLatest = () => {
+    if (typeof window === 'undefined') {
+      this.retry();
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('__keep_recovery', String(Date.now()));
+    window.location.replace(url.toString());
+  };
+
+  render() {
+    if (!this.state.error) {
+      return React.createElement(React.Fragment, { key: this.state.retryKey }, this.props.children);
+    }
+
+    return React.createElement(
+      View,
+      {
+        accessibilityRole: 'alert',
+        style: {
+          flex: 1,
+          minHeight: '100%',
+          backgroundColor: colors.background,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        },
+      },
+      React.createElement(Text, {
+        style: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
+      }, 'Loki Music reste disponible'),
+      React.createElement(Text, {
+        style: { color: '#B8B3C7', fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 10, maxWidth: 420 },
+      }, 'Une erreur d’affichage a été isolée. Tes données restent dans ton compte. Réessaie sans te déconnecter.'),
+      React.createElement(
+        TouchableOpacity,
+        {
+          accessibilityRole: 'button',
+          accessibilityLabel: 'Réessayer sans se déconnecter',
+          onPress: this.retry,
+          style: {
+            minHeight: 48,
+            minWidth: 210,
+            marginTop: 20,
+            paddingHorizontal: 20,
+            borderRadius: 24,
+            backgroundColor: '#7C5CFC',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        },
+        React.createElement(Text, { style: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 } }, 'RÉESSAYER'),
+      ),
+      React.createElement(
+        TouchableOpacity,
+        {
+          accessibilityRole: 'button',
+          accessibilityLabel: 'Recharger la dernière version',
+          onPress: this.reloadLatest,
+          style: { minHeight: 44, marginTop: 8, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+        },
+        React.createElement(Text, { style: { color: '#B9A8FF', fontWeight: '800', fontSize: 13 } }, 'RECHARGER LA DERNIÈRE VERSION'),
+      ),
+    );
+  }
+}
+
 function KeepRoot() {
   return React.createElement(
-    ShareIntentProvider,
+    RootRenderBoundary,
     null,
     React.createElement(
-      MandatoryProfileRequirementsGate,
+      ShareIntentProvider,
       null,
-      React.createElement(React.Fragment, null,
-        React.createElement(SharedMusicHandoff),
-        React.createElement(BackgroundListeningLifecycle),
-        React.createElement(AuthEmailLinkLifecycle),
-        React.createElement(PushRegistrationLifecycle),
-        React.createElement(App),
-        React.createElement(WebRefreshSurfaceGuard),
+      React.createElement(
+        MandatoryProfileRequirementsGate,
+        null,
+        React.createElement(React.Fragment, null,
+          React.createElement(SharedMusicHandoff),
+          React.createElement(BackgroundListeningLifecycle),
+          React.createElement(AuthEmailLinkLifecycle),
+          React.createElement(PushRegistrationLifecycle),
+          React.createElement(App),
+          React.createElement(WebRefreshSurfaceGuard),
+        ),
       ),
     ),
   );

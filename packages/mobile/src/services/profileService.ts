@@ -35,24 +35,51 @@ function fallbackUser(session: KeepAuthSession): User {
   };
 }
 
+export function normalizeProfileTextList(value: unknown, maxItems = 250): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'string') continue;
+    const clean = raw.normalize('NFKC').replace(/\s+/g, ' ').trim();
+    if (!clean) continue;
+    const key = clean.toLocaleLowerCase('fr-FR');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(clean);
+    if (result.length >= Math.max(1, maxItems)) break;
+  }
+  return result;
+}
+
+function safeProfileKind(value: unknown): User['kind'] {
+  return value === 'USER' || value === 'CREATOR' || value === 'DJ' || value === 'ARTIST' || value === 'PRODUCER' || value === 'VENUE'
+    ? value
+    : 'USER';
+}
+
+function safeOptionalText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
 function publicUserFromProfile(profile: any, socialLinks: SocialLink[], followerCount: number, followingCount: number): User {
   return {
-    id: profile.id,
-    username: profile.username,
+    id: String(profile?.id || ''),
+    username: typeof profile?.username === 'string' ? profile.username.trim().replace(/^@+/, '') : '',
     email: '',
-    avatar: profile.avatar_url ?? '',
-    bio: profile.bio ?? '',
+    avatar: typeof profile?.avatar_url === 'string' ? profile.avatar_url : '',
+    bio: typeof profile?.bio === 'string' ? profile.bio : '',
     playlistCount: 0,
-    followerCount,
-    followingCount,
-    kind: profile.kind,
-    city: profile.city ?? undefined,
-    countryCode: profile.country_code ?? undefined,
-    website: profile.website ?? undefined,
-    favoriteGenres: profile.favorite_genres ?? [],
-    favoriteArtists: profile.favorite_artists ?? [],
-    socialLinks,
-    isPublic: profile.is_public,
+    followerCount: Number.isFinite(Number(followerCount)) ? Math.max(0, Number(followerCount)) : 0,
+    followingCount: Number.isFinite(Number(followingCount)) ? Math.max(0, Number(followingCount)) : 0,
+    kind: safeProfileKind(profile?.kind),
+    city: safeOptionalText(profile?.city),
+    countryCode: safeOptionalText(profile?.country_code),
+    website: safeOptionalText(profile?.website),
+    favoriteGenres: normalizeProfileTextList(profile?.favorite_genres),
+    favoriteArtists: normalizeProfileTextList(profile?.favorite_artists),
+    socialLinks: Array.isArray(socialLinks) ? socialLinks.filter((link) => Boolean(link && typeof link.url === 'string' && typeof link.platform === 'string')) : [],
+    isPublic: profile?.is_public !== false,
     locationOptIn: false,
     privateInfo: {},
   };
@@ -297,12 +324,14 @@ export function createProfileService(client: SupabaseClient) {
       const uploadedAvatar = localAvatar ? await persistLocalAvatar(client, user.id, localAvatar) : '';
       const persistedAvatar = allowClearing ? uploadedAvatar : (uploadedAvatar || existingProfile?.avatar_url || '');
 
-      const favoriteGenres = allowClearing || user.favoriteGenres.length > 0
-        ? user.favoriteGenres
-        : (existingProfile?.favorite_genres ?? []);
-      const favoriteArtists = allowClearing || user.favoriteArtists.length > 0
-        ? user.favoriteArtists
-        : (existingProfile?.favorite_artists ?? []);
+      const localFavoriteGenres = normalizeProfileTextList(user.favoriteGenres);
+      const localFavoriteArtists = normalizeProfileTextList(user.favoriteArtists);
+      const favoriteGenres = allowClearing || localFavoriteGenres.length > 0
+        ? localFavoriteGenres
+        : normalizeProfileTextList(existingProfile?.favorite_genres);
+      const favoriteArtists = allowClearing || localFavoriteArtists.length > 0
+        ? localFavoriteArtists
+        : normalizeProfileTextList(existingProfile?.favorite_artists);
 
       const safeUsername = user.username.trim() || existingProfile?.username;
       if (!safeUsername) throw new Error('missing_keep_username');
