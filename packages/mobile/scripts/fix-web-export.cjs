@@ -40,6 +40,14 @@ if (!html.includes('keep-mobile-form-nozoom') && html.includes('</head>')) {
   html = html.replace('</head>', `${mobileFormCss}</head>`);
 }
 
+// Desktop web must use the whole browser surface instead of behaving like a
+// frozen phone viewport. Keep mobile untouched; on wide screens, allow natural
+// page height/scroll and remove any accidental root width cap left by the web shell.
+const desktopShellCss = '<style id="keep-desktop-shell">@media (min-width: 900px){html,body,#root{width:100%!important;max-width:none!important;min-height:100%!important;height:auto!important}html,body{overflow-x:hidden!important;overflow-y:auto!important}#root>div{width:100%!important;max-width:none!important}}</style>';
+if (!html.includes('keep-desktop-shell') && html.includes('</head>')) {
+  html = html.replace('</head>', `${desktopShellCss}</head>`);
+}
+
 // SEO sans toucher au rendu React Native : toutes les routes de l'application
 // web sont des variantes du même shell, donc elles déclarent la racine Loki
 // comme URL canonique. Les profils publics ont leur propre canonical dynamique
