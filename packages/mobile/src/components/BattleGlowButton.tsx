@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleProp, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
 type Props = {
@@ -35,8 +35,8 @@ export default function BattleGlowButton({
       return undefined;
     }
     const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulse, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
     ]));
     loop.start();
     return () => loop.stop();
@@ -54,8 +54,8 @@ export default function BattleGlowButton({
       activeOpacity={1}
       disabled={disabled}
       onPress={onPress}
-      onPressIn={() => { setPressedState(true); Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start(); }}
-      onPressOut={() => { setPressedState(false); Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: true }).start(); }}
+      onPressIn={() => { setPressedState(true); Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: Platform.OS !== 'web' }).start(); }}
+      onPressOut={() => { setPressedState(false); Animated.spring(press, { toValue: 0, speed: 28, bounciness: 7, useNativeDriver: Platform.OS !== 'web' }).start(); }}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
       accessibilityLabel={accessibilityLabel || label}
