@@ -68,14 +68,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=1
-          latest="$(git rev-parse "origin/$KEEP_PROJECT_BRANCH")"
+          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
+          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" --             packages/mobile packages/music packages/admin             scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs             package.json package-lock.json .github/workflows/web-preview-pages.yml)"
+          test -n "$latest"
           if [ "$GITHUB_SHA" = "$latest" ]; then
             echo "build=yes" >> "$GITHUB_OUTPUT"
-            echo "Fresh deploy candidate: $GITHUB_SHA"
+            echo "Fresh web-impact deploy candidate: $GITHUB_SHA"
           else
             echo "build=no" >> "$GITHUB_OUTPUT"
-            echo "Stale queued deploy skipped: $GITHUB_SHA (latest: $latest)"
+            echo "Stale web-impact deploy skipped: $GITHUB_SHA (latest web-impact SHA: $latest)"
           fi
 
       - name: Configure GitHub Pages
@@ -267,14 +268,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=1
-          latest="$(git rev-parse "origin/$KEEP_PROJECT_BRANCH")"
+          git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
+          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" --             packages/mobile packages/music packages/admin             scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs             package.json package-lock.json .github/workflows/web-preview-pages.yml)"
+          test -n "$latest"
           if [ "$GITHUB_SHA" = "$latest" ]; then
             echo "publish=yes" >> "$GITHUB_OUTPUT"
             echo "Publish gate OK: $GITHUB_SHA"
           else
             echo "publish=no" >> "$GITHUB_OUTPUT"
-            echo "Newer commit arrived during build; skip stale publish $GITHUB_SHA (latest: $latest)"
+            echo "Newer web-impact commit arrived during build; skip stale publish $GITHUB_SHA (latest web-impact SHA: $latest)"
           fi
 
       - name: Upload Pages artifact
