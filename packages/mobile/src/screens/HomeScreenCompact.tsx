@@ -273,7 +273,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     const raw = Math.max(0, Math.min(1, micLevel));
     const SILENCE_FLOOR = 0.008;
     const target = raw < SILENCE_FLOOR ? 0.08 + 0.06 * (0.5 + 0.5 * Math.sin(Date.now() / 900)) : Math.pow(raw, 0.32);
-    Animated.timing(micPulse, { toValue: target, duration: 70, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
+    Animated.timing(micPulse, { toValue: target, duration: 70, easing: Easing.out(Easing.ease), useNativeDriver: Platform.OS !== 'web' }).start();
   }, [micPulse, isLiveMic, micLevel]);
 
   useEffect(() => {
@@ -285,8 +285,8 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(micPulse, { toValue: 1, duration: 620, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-        Animated.timing(micPulse, { toValue: 0, duration: 620, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+        Animated.timing(micPulse, { toValue: 1, duration: 620, easing: Easing.out(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(micPulse, { toValue: 0, duration: 620, easing: Easing.in(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
       ])
     );
     loop.start();
@@ -304,7 +304,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         toValue: 1,
         duration: recognizing ? 760 : 1250,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       })
     );
     loop.start();
@@ -739,8 +739,8 @@ function AuroraBackground({ active }: { active: boolean }) {
     if (!active) { drift.stopAnimation(); drift.setValue(0); return undefined; }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(drift, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(drift, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(drift, { toValue: 1, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(drift, { toValue: 0, duration: 7000, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
       ])
     );
     loop.start();
