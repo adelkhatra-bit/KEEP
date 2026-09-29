@@ -58,11 +58,16 @@ if (Platform.OS !== 'web') {
       const content = notification.request.content;
       const data = (content.data || {}) as Record<string, unknown>;
       const inlineBattle = battleLike(data.type, content.title, data) && String(data.presentation || '') === 'battle_inline';
+      // Adel (29/09/2026) : doublons. Ce gestionnaire ne s'exécute que quand
+      // l'appli est AU PREMIER PLAN ; la bannière interne
+      // (GlobalNotificationBanner) affiche déjà la même notification. Au
+      // premier plan : pas de bannière ni de son système en plus (le badge
+      // reste à jour). Appli en arrière-plan : le système affiche la push.
       return {
-        shouldShowAlert: !inlineBattle,
-        shouldPlaySound: !inlineBattle,
+        shouldShowAlert: false,
+        shouldPlaySound: false,
         shouldSetBadge: !inlineBattle,
-        shouldShowBanner: !inlineBattle,
+        shouldShowBanner: false,
         shouldShowList: !inlineBattle,
       };
     },

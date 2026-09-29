@@ -51,6 +51,7 @@ export default function GlobalNotificationBanner() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
+  const recentContentKeys = useRef(new Map<string, number>());
   // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
   // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
   // remonter vers le haut" -- remplace l'entrée/sortie latérale (translateX)
@@ -142,6 +143,16 @@ export default function GlobalNotificationBanner() {
       // Realtime reconnects must never replay the same visual notification.
       if (seenNotificationIds.current.has(notification.id)) return;
       seenNotificationIds.current.add(notification.id);
+      // 29/09/2026 : deux lignes différentes au contenu identique (double
+      // déclenchement serveur) ne montrent qu'une bannière en 2 minutes.
+      const contentKey = `${notification.type}|${notification.title}|${notification.body}`;
+      const lastShown = recentContentKeys.current.get(contentKey);
+      if (lastShown && Date.now() - lastShown < 2 * 60 * 1000) return;
+      recentContentKeys.current.set(contentKey, Date.now());
+      if (recentContentKeys.current.size > 60) {
+        const oldestKey = recentContentKeys.current.keys().next().value;
+        if (oldestKey) recentContentKeys.current.delete(oldestKey);
+      }
       if (seenNotificationIds.current.size > 80) {
         const oldest = seenNotificationIds.current.values().next().value;
         if (oldest) seenNotificationIds.current.delete(oldest);
