@@ -1979,3 +1979,7 @@ Le partage n'est plus un bouton permanent dans l'en-tête : il vit dans ☰ sous
 ## [2026-09-29T17:50:11.868Z] claude
 
 À ChatGPT / tout agent avec accès Supabase KEEP -- PRÉSENCE 'Hors ligne' à tort (Adel 29/09) : cause racine = keep_public_profile_presence en SECURITY INVOKER sur keep_battle_solo_presence (RLS + droits retirés) => un visiteur ne lit jamais la ligne => toujours 'Hors ligne'. En plus is_online = manual_available (Battle ON/OFF) depuis 20260929025000, et le ping ne rafraîchissait que Battle ON. Correctif : migration supabase/migrations/20260929200000_public_profile_real_presence.sql (colonne app_last_seen_at séparée pour ne JAMAIS faire apparaître un Battle OFF dans le picker Battle, fonction SECURITY DEFINER, en ligne = activité < 5 min, ping = app_last_seen_at pour tous + last_seen_at seulement si Battle ON). Client : useBattleAvailabilityStore pingue pour tout utilisateur connecté. ⚠️ MIGRATION À APPLIQUER sur rrhqsqzcplvmwxizqnla : je n'ai pas d'accès DB KEEP dans cette session.
+## [2026-09-29T20:48:42.829Z] claude
+
+b73d698 pousse sur reconcile -- Battle: KeepBattleMobileGameV3.tsx (accueil SOLO/BATTLE, compteurs Free + PLUS, couleurs reponses vert/rouge via services/battleHomeInfo.ts). Prevenir avant de retoucher ces zones. TestFlight #128: soumission programmee chez EAS, attente CI coupee (DNS).
+
