@@ -21,6 +21,11 @@ function assertIncludes(source, marker, label) {
   if (!source.includes(marker)) throw new Error(`${label}: missing ${marker}`);
 }
 
+function assertCount(source, regex, expected, label) {
+  const count = (source.match(regex) || []).length;
+  if (count !== expected) throw new Error(`${label}: expected ${expected}, got ${count}`);
+}
+
 const owner = read('src/screens/ProfilePublicScreen.tsx');
 assertOrdered(owner, [
   '<ProfileMotionReveal motionKey={`owner-hero:${user.id}`}',
@@ -33,20 +38,38 @@ assertOrdered(owner, [
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
 ], 'Owner profile collective hierarchy');
 
-if ((owner.match(/accessibilityLabel="Partager mon profil Loki Music"/g) || []).length !== 1) {
-  throw new Error('Owner profile must expose exactly one PARTAGER action');
-}
-if ((owner.match(/accessibilityLabel="Voir aperçu"/g) || []).length !== 1) {
-  throw new Error('Owner profile must expose exactly one APERÇU action');
-}
+assertCount(owner, /accessibilityLabel="Partager mon profil Loki Music"/g, 1, 'Owner PARTAGER action');
+assertCount(owner, /accessibilityLabel="Voir aperçu"/g, 1, 'Owner APERÇU action');
+assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
-assertIncludes(owner, 'topMetricsBar:{marginHorizontal:18,', 'Owner compact counter frame');
+assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
+assertIncludes(owner, 'topMetricLeftStack:{width:82', 'Owner FREE left stack');
+assertIncludes(owner, 'style={s.profileBattleAboveFree}', 'Owner Battle above FREE');
+
+const ownerMetrics = owner.slice(
+  owner.indexOf('<View style={s.topMetricsBar}'),
+  owner.indexOf('{freeDetailsOpen ? ('),
+);
+assertOrdered(ownerMetrics, [
+  'style={s.profileBattleAboveFree}',
+  'accessibilityLabel="Voir le détail de mes Free"',
+  '>Abonnés</Text>',
+  '>Reprises</Text>',
+  '>PLUS</Text>',
+], 'Owner metrics order Battle -> FREE -> social -> PLUS');
+
+assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
+assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
+assertIncludes(owner, '<BattleGlowButton', 'Owner animated Battle contour');
+assertIncludes(owner, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Owner quick actions equal-width row');
+assertIncludes(owner, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Owner quick actions flexible equal-width buttons');
+assertIncludes(owner, "setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications');", 'Notification bell direct action');
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
   '<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`}',
-  '<View style={styles.unifiedCounters}>',
+  '<View style={styles.topMetricsBar}',
   '<Text style={styles.sectionTitle}>Ses sélections exclusives</Text>',
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
@@ -56,23 +79,29 @@ assertOrdered(visitor, [
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
-assertIncludes(visitor, 'unifiedCounters:{marginHorizontal:18,marginTop:4,marginBottom:8,gap:2}', 'Visited compact top counter frame');
-assertIncludes(visitor, 'motionKey={`visitor-hero:${profile.id}`}', 'Visited profile motion');
-assertIncludes(visitor, 'accessibilityLabel={`Swiper les découvertes de ${profile.username}`}', 'Visited current Swipe action');
-assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
-assertIncludes(owner, 'accessibilityLabel={battleAvailable ? \'Ne plus recevoir de défis Battle\' : \'Recevoir des défis Battle\'}', 'Owner Battle availability control');
-assertIncludes(owner, 'motionKey={`owner-hero:${user.id}`}', 'Owner profile motion');
-assertIncludes(owner, '<BattleGlowButton', 'Owner animated Battle contour');
-assertIncludes(visitor, '<BattleGlowButton', 'Visited animated Battle contour');
-if ((owner.match(/variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionFull\}/g) || []).length !== 3) {
-  throw new Error('Owner APERÇU / PEPITES / BATTLE must share the same equal-width outline geometry');
-}
-assertIncludes(owner, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Owner quick actions equal-width row');
-assertIncludes(owner, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Owner quick actions flexible equal-width buttons');
-assertIncludes(owner, "setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications');", 'Notification bell opens notifications directly');
-assertIncludes(visitor, '<BattleGlowButton', 'Visited profile Battle outline');
-assertIncludes(visitor, 'style={styles.visitorActionMotion}', 'Visited profile Battle equal-width action');
-assertIncludes(visitor, 'active={profilePresence.online}', 'Visited profile Battle follows live presence');
+assertIncludes(visitor, "topMetricsBar:{marginHorizontal:0,", 'Visited compact top counter frame');
+assertIncludes(visitor, "topMetricsSecondary:{marginHorizontal:0,", 'Visited expanded counter frame');
+assertIncludes(visitor, 'const [countersExpanded, setCountersExpanded] = useState(false);', 'Visited PLUS counter expansion state');
+
+const visitorMetrics = visitor.slice(
+  visitor.indexOf('<View style={styles.topMetricsBar}'),
+  visitor.indexOf('{!!profile.bio'),
+);
+assertOrdered(visitorMetrics, [
+  '>PLUS</Text>',
+  '>Abonnés</Text>',
+  '>Morceaux</Text>',
+  '>Reprises</Text>',
+  '>Abonnements</Text>',
+], 'Visited compact + expanded counter order');
+
+assertIncludes(visitor, 'accessibilityLabel={`Aperçu des découvertes de ${profile.username}`}', 'Visited APERÇU action');
+assertIncludes(visitor, 'accessibilityLabel={`Défier ${profile.username} en Battle`}', 'Visited Battle action');
+assertIncludes(visitor, 'accessibilityLabel={`Partager le profil de ${profile.username}`}', 'Visited PARTAGER action');
+assertCount(visitor, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 3, 'Visited APERÇU / BATTLE / PARTAGER equal-width row');
+assertIncludes(visitor, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Visited quick actions equal-width row');
+assertIncludes(visitor, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Visited quick actions flexible equal-width buttons');
+assertIncludes(visitor, 'const online = self || profilePresence.online;', 'Visited live-presence indicator');
 
 const motionButton = read('src/components/MotionActionButton.tsx');
 assertIncludes(motionButton, "variant !== 'outline'", 'Outline idle motion loop');
@@ -83,10 +112,7 @@ assertIncludes(battleGlow, 'Animated.loop(Animated.sequence([', 'Battle animated
 assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.28)' : active ? 'rgba(45,225,194,0.10)' : 'rgba(124,92,252,0.16)'", 'Battle keeps visible depth and press feedback');
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
-const sharedCounters = read('src/components/ProfileCounterRow.tsx');
-assertIncludes(sharedCounters, "alignSelf: 'stretch'", 'Shared counter stretch alignment');
-if (sharedCounters.includes("width: '100%',\n    maxWidth: '100%'")) {
-  throw new Error('Shared counter must not force 100% width plus border; it can overflow its profile frame');
-}
-
 console.log('Loki profile hierarchy + alignment contract: PASS');
+console.log('owner: Battle above FREE on left, followers/reprises center, PLUS right');
+console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
+console.log('actions: equal-width outline rows preserved on owner and visited profile');
