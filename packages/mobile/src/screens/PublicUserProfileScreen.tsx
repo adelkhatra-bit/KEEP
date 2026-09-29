@@ -187,7 +187,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [marketplacePurchaseEnabled, setMarketplacePurchaseEnabled] = useState(false);
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleInviteBusy, setBattleInviteBusy] = useState(false);
-  const [profilePresence, setProfilePresence] = useState<{ lastSeenAt: string | null; online: boolean }>({ lastSeenAt: null, online: false });
+  const [profilePresence, setProfilePresence] = useState<{ lastSeenAt: string | null; online: boolean; known: boolean }>({ lastSeenAt: null, online: false, known: false });
   useEffect(() => {
     if (!profile?.id) return undefined;
     let live = true;
@@ -1180,10 +1180,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <View style={styles.profileMetaLeft}>
                   <View style={[styles.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}><Text style={[styles.kindBadgeText, { color: certificationColors.ring }]}>{kindLabel}</Text></View>
                   {(profile.city || profile.countryCode) && <Text style={styles.location}>{[profile.city, profile.countryCode].filter(Boolean).join(' · ')}</Text>}
-                  <View style={styles.presencePill} accessibilityLabel={formatProfilePresence(profilePresence.lastSeenAt, profilePresence.online)}>
-                    <View style={[styles.presenceDot, profilePresence.online && styles.presenceDotOnline]} />
-                    <Text style={[styles.presenceText, profilePresence.online && styles.presenceTextOnline]}>{formatProfilePresence(profilePresence.lastSeenAt, profilePresence.online)}</Text>
-                  </View>
+                  {(() => {
+                    // On se voit toujours « En ligne » sur son propre profil ;
+                    // présence inconnue = pas de pastille (jamais un faux « Hors ligne »).
+                    const self = Boolean(viewer?.id && viewer.id === profile.id);
+                    const online = self || profilePresence.online;
+                    if (!self && !profilePresence.known) return null;
+                    const label = formatProfilePresence(profilePresence.lastSeenAt, online);
+                    return <View style={styles.presencePill} accessibilityLabel={label}>
+                      <View style={[styles.presenceDot, online && styles.presenceDotOnline]} />
+                      <Text style={[styles.presenceText, online && styles.presenceTextOnline]}>{label}</Text>
+                    </View>;
+                  })()}
                 </View>
 
               </View>
@@ -1296,9 +1304,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     const priceLabel = offer.paymentMode === 'FREE'
                       ? `${offer.freePrice ?? 0} FREE`
                       : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                    const styleLabel = offer.genres?.length
-                      ? offer.genres.slice(0, 2).join(' · ')
-                      : 'Mix musical secret';
+                    // Une ligne courte, jamais coupée : 1 style suffit ici.
+                    const styleLabel = offer.genres?.[0] || 'Mix secret';
                     return (
                       <SaleCollectionRow
                         key={`sale-row:${offer.offerId}`}

@@ -78,7 +78,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
             key={`suggestion:${suggestion.offerId}`}
             index={index}
             title={suggestion.playlistName}
-            meta={`@${suggestion.sellerUsername} · ${suggestion.trackCount} pépite${suggestion.trackCount > 1 ? 's' : ''}${suggestion.genres.length ? ` · ${suggestion.genres.slice(0, 2).join(' · ')}` : ''}`}
+            meta={`@${suggestion.sellerUsername} · ${suggestion.trackCount} pépite${suggestion.trackCount > 1 ? 's' : ''}`}
             tag={priceLabel(suggestion)}
             onPress={() => onSuggestionPress(suggestion)}
             accessibilityLabel={`Écouter la sélection ${suggestion.playlistName} de ${suggestion.sellerUsername}, ${priceLabel(suggestion)}`}

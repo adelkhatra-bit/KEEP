@@ -3,16 +3,21 @@ import { supabase } from './supabaseClient';
 export type ProfilePresence = {
   lastSeenAt: string | null;
   online: boolean;
+  // Adel (29/09/2026) : « on le voit déconnecté alors qu'il est connecté ».
+  // false = présence illisible (RPC en erreur, ex. migration de présence
+  // pas encore appliquée) : on n'affiche RIEN plutôt qu'un faux « Hors ligne ».
+  known: boolean;
 };
 
 export async function loadProfilePresence(profileId: string): Promise<ProfilePresence> {
-  if (!supabase || !profileId) return { lastSeenAt: null, online: false };
+  if (!supabase || !profileId) return { lastSeenAt: null, online: false, known: false };
   const { data, error } = await supabase.rpc('keep_public_profile_presence', { p_profile_id: profileId });
-  if (error) return { lastSeenAt: null, online: false };
+  if (error) return { lastSeenAt: null, online: false, known: false };
   const row = Array.isArray(data) ? data[0] : data;
   return {
     lastSeenAt: row?.last_seen_at ?? row?.lastSeenAt ?? null,
     online: Boolean(row?.is_online ?? row?.online),
+    known: Boolean(row),
   };
 }
 

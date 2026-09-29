@@ -1,4 +1,4 @@
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, soloQuotaCopy } from '../battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, soloPlanRuleCopy, soloQuotaCopy } from '../battleHomeInfo';
 
 describe('battleHomeInfo — réponses Battle', () => {
   it('bonne réponse toujours verte, mauvaise choisie toujours rouge (bug Adel 29/09/2026)', () => {
@@ -25,13 +25,13 @@ describe('battleHomeInfo — réponses Battle', () => {
 describe('battleHomeInfo — quota Solo et recharge Free', () => {
   it('dit combien de solos restent, sur combien, et quand ça se recharge', () => {
     const q = soloQuotaCopy({ limit: 3, remaining: 2, unlimited: false, resetsAt: '2026-09-30T00:00:00' })!;
-    expect(q.headline).toBe("2 solos restants sur 3 aujourd'hui");
-    expect(q.detail).toBe('Formule gratuite · Recharge à 00:00');
+    expect(q.headline).toBe('Solos : 2 / 3 restants');
+    expect(q.detail).toBe('recharge à 00:00');
     expect(q.exhausted).toBe(false);
     const done = soloQuotaCopy({ limit: 3, remaining: 0, unlimited: false, resetsAt: null })!;
     expect(done.exhausted).toBe(true);
-    expect(done.detail).toContain('plus avec une formule');
-    expect(soloQuotaCopy({ limit: null, remaining: null, unlimited: true })!.headline).toBe('Solos illimités');
+    expect(done.headline).toBe('Solos : 0 / 3 restant');
+    expect(soloQuotaCopy({ limit: null, remaining: null, unlimited: true })!.headline).toBe('Solos : illimités');
     expect(soloQuotaCopy(null)).toBeNull();
   });
   it('recharge mensuelle = création du profil + tranches de 30 jours (miroir serveur)', () => {
@@ -47,5 +47,11 @@ describe('battleHomeInfo — quota Solo et recharge Free', () => {
     expect(soloEncouragement(0, 8)).toContain('bonne chance');
     expect(soloEncouragement(7, 8)).toContain('Dernier morceau');
     expect(soloEncouragement(1, 8)).not.toBe(soloEncouragement(2, 8));
+  });
+
+  it('règle par profil : 10 Solos par jour en gratuit, illimité avec une formule', () => {
+    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false })!.short).toBe('10 Solos par jour (gratuit)');
+    expect(soloPlanRuleCopy({ limit: null, remaining: null, unlimited: true })!.short).toBe('Solos illimités avec ta formule');
+    expect(soloPlanRuleCopy(null)).toBeNull();
   });
 });

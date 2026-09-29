@@ -355,9 +355,10 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
             {retired.length > 0 && (
               <View style={s.offersSection}>
                 <TouchableOpacity style={s.retiredToggle} onPress={() => setRetiredOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: retiredOpen }} accessibilityLabel={`${retiredOpen ? 'Masquer' : 'Afficher'} les ${retired.length} collections retirées`}>
-                  <Text style={s.sectionTitle}>RETIRÉES ({retired.length}) · NON VISIBLES SUR TON PROFIL</Text>
+                  <Text style={s.sectionTitle}>RETIRÉES ({retired.length})</Text>
                   <Text style={s.retiredToggleIcon}>{retiredOpen ? '˄' : '˅'}</Text>
                 </TouchableOpacity>
+                {retiredOpen ? <Text style={s.sectionHint}>Non visibles sur ton profil ni par les visiteurs.</Text> : null}
                 {retiredOpen ? retired.map((item) => (
                   <View key={item.offerId || item.playlistId} style={[s.offerCard, s.offerCardRetired]}>
                     <View style={s.offerTop}>

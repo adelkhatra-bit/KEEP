@@ -16,7 +16,9 @@ describe('PublicUserProfileScreen — défi Battle depuis un profil visité', ()
     // outline) ; la présence reste affichée par la pastille En ligne/Hors ligne.
     expect(source).toContain('onPress={() => void challengeProfileToBattle()}');
     expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
-    expect(source).toContain('formatProfilePresence(profilePresence.lastSeenAt, profilePresence.online)');
+    // 29/09/2026 : on se voit « En ligne » sur son profil, présence inconnue = pas de pastille.
+    expect(source).toContain('formatProfilePresence(profilePresence.lastSeenAt, online)');
+    expect(source).toContain('if (!self && !profilePresence.known) return null;');
     expect(source).toContain('accessibilityLabel={`Défier ${profile.username} en Battle`}');
     expect(source).toContain("requestAccount('login')");
   });

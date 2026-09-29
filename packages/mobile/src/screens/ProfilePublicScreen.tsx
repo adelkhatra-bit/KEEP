@@ -1501,10 +1501,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
       {!accountRequired ? (
-        <TouchableOpacity style={s.profileShareBottom} onPress={() => void shareNative()} accessibilityRole="button" accessibilityLabel="Partager mon profil Loki Music">
-          <Text style={s.profileShareBottomIcon}>↗</Text>
-          <View style={{ flex: 1 }}><Text style={s.profileShareBottomTitle}>PARTAGER MON PROFIL</Text><Text style={s.profileShareBottomMeta}>Lien d’invitation inclus · parrainage comptabilisé automatiquement</Text></View>
-        </TouchableOpacity>
+        <View>
+          {/* 29/09/2026 : l'info au-dessus, le bouton ne dit que son action. */}
+          <Text style={s.profileShareInfo}>Ton lien contient ton parrainage : chaque inscription est comptée.</Text>
+          <TouchableOpacity style={s.profileShareBottom} onPress={() => void shareNative()} accessibilityRole="button" accessibilityLabel="Partager mon profil Loki Music">
+            <Text style={s.profileShareBottomIcon}>↗</Text>
+            <Text style={s.profileShareBottomTitle}>PARTAGER MON PROFIL</Text>
+          </TouchableOpacity>
+        </View>
       ) : null}
 
       {/* Adel (02/09/2026) : "le bouton est parfait, par contre je le ferai
@@ -1783,7 +1787,7 @@ function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s
 
 const s=StyleSheet.create({
   metricPanelHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4,paddingBottom:4},metricPanelTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},metricPanelClose:{color:colors.textMuted,fontSize:24,fontWeight:'700'},
-  profileShareBottom:{marginHorizontal:18,marginTop:10,minHeight:52,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:14},profileShareBottomIcon:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},profileShareBottomTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},profileShareBottomMeta:{color:colors.textMuted,fontSize:9,lineHeight:13,marginTop:2},
+  profileShareBottom:{marginHorizontal:18,marginTop:10,minHeight:52,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,paddingHorizontal:14},profileShareBottomIcon:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},profileShareBottomTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},profileShareInfo:{color:colors.textMutedGrey,fontSize:12,lineHeight:16,fontWeight:'700',textAlign:'center',marginHorizontal:18,marginTop:10,marginBottom:-4},
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},

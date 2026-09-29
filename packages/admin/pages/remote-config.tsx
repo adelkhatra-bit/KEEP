@@ -14,6 +14,7 @@ type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' |
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
   signup_bonus_successes: 'Morceaux offerts après inscription',
+  battle_solo_daily_limit_free: 'Battle SOLO · parties par jour (formule gratuite)',
   growth_share_daily_cap: 'Partages comptés maximum / jour',
   growth_share_tier1_threshold: 'Partages · palier 1',
   growth_share_tier2_threshold: 'Partages · palier 2',

@@ -48,16 +48,25 @@ function hhmm(iso: string | null | undefined): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// Texte du quota Solo, compréhensible sans connaître le jeu :
-// « 2 solos sur 3 aujourd'hui · formule gratuite » + quand ça se recharge.
+// Texte du quota Solo (hors des boutons, au-dessus, à côté de la recharge
+// des Free). Adel (29/09/2026) : « il en fait un, il sait qu'il lui en reste
+// neuf… illimité s'il a une formule ».
 export function soloQuotaCopy(status: SoloDailyStatusLike | null): { headline: string; detail: string; exhausted: boolean } | null {
   if (!status) return null;
-  if (status.unlimited) return { headline: 'Solos illimités', detail: 'Inclus dans ta formule', exhausted: false };
+  if (status.unlimited) return { headline: 'Solos : illimités', detail: 'inclus dans ta formule', exhausted: false };
   const limit = Math.max(0, status.limit ?? 0);
   const remaining = Math.max(0, status.remaining ?? 0);
-  const reset = `Recharge à ${hhmm(status.resetsAt)}`;
-  if (remaining <= 0) return { headline: `0 solo restant sur ${limit} aujourd'hui`, detail: `${reset} · plus avec une formule`, exhausted: true };
-  return { headline: `${remaining} solo${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''} sur ${limit} aujourd'hui`, detail: `Formule gratuite · ${reset}`, exhausted: false };
+  const reset = `recharge à ${hhmm(status.resetsAt)}`;
+  if (remaining <= 0) return { headline: `Solos : 0 / ${limit} restant`, detail: reset, exhausted: true };
+  return { headline: `Solos : ${remaining} / ${limit} restant${remaining > 1 ? 's' : ''}`, detail: reset, exhausted: false };
+}
+
+// Règle par profil, affichée sous la recharge : combien de Solos par jour.
+export function soloPlanRuleCopy(status: SoloDailyStatusLike | null): { short: string; full: string } | null {
+  if (!status) return null;
+  if (status.unlimited) return { short: 'Solos illimités avec ta formule', full: 'Ta formule payante te donne des parties Solo illimitées. La formule gratuite est limitée chaque jour pour éviter les abus.' };
+  const limit = Math.max(0, status.limit ?? 0);
+  return { short: `${limit} Solos par jour (gratuit)`, full: `Formule gratuite : ${limit} parties Solo par jour, remises à zéro chaque nuit. Formules payantes : Solos illimités. Le Battle en ligne n'est pas concerné (il se joue avec tes Free).` };
 }
 
 // Miroir exact de public.keep_monthly_free_bonus_for_profile : le bonus
