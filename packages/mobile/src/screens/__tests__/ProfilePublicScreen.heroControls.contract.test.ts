@@ -24,7 +24,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   it('keeps the Battle availability control visible beside the owner identity', () => {
     expect(source).toContain('<BattleGlowButton');
     expect(source).toContain("label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}");
-    expect(source).toContain("accessibilityRole="switch"");
+    expect(source).toContain('accessibilityRole="switch"');
     expect(source).toContain("accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}");
   });
 
