@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
 // Maquette validee (docs/mockups/CoachMarks.html, 24/09/2026) : mini-tour
 // d'aide au premier lancement. Devise Adel : "compris en 2 clics". Cinq
 // bulles maximum, l'utilisateur peut passer a tout moment. Composant 100 %
-// autonome (aucun toucher a Navigation.tsx / App.tsx) : il s'affiche par
-// dessus l'ecran d'accueil via un Modal transparent. 100 % JS/Animated donc
-// livrable en OTA (eas update). Ne supprime rien : c'est un ajout par dessus.
+// autonome (aucun toucher a Navigation.tsx / App.tsx) : il s'affiche DANS
+// le vrai ecran Ecouter, jamais dans une page/modale noire separee. La barre
+// des 5 onglets reste donc visible. 100 % JS/Animated, livrable en OTA.
 
 export type CoachStep = {
   emoji: string;
@@ -84,33 +84,31 @@ export default function CoachMarks({ visible, steps = DEFAULT_COACH_STEPS, onFin
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onFinish}>
-      <View style={s.overlay}>
-        <Animated.View style={[s.bubble, { opacity: fade, transform: [{ translateY: slide }] }]}>
-          <Text style={s.badge}>{`Étape ${index + 1} / ${total}`}</Text>
-          <Text style={s.emoji}>{step.emoji}</Text>
-          <Text style={s.title}>{step.title}</Text>
-          <Text style={s.body}>{step.body}</Text>
-          <View style={s.dots}>
-            {steps.map((_, k) => <View key={k} style={[s.dot, k === index && s.dotOn]} />)}
-          </View>
-          <View style={s.actions}>
-            <TouchableOpacity onPress={onFinish} accessibilityRole="button" accessibilityLabel="Passer le mini-tour">
-              <Text style={s.skip}>Passer</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.next, isLast && s.nextFinal]} onPress={goNext} accessibilityRole="button" accessibilityLabel={isLast ? 'Terminer le mini-tour' : 'Étape suivante'}>
-              <Text style={[s.nextText, isLast && s.nextFinalText]}>{isLast ? "C'est parti ✓" : 'Suivant →'}</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-        <Text style={s.footHint}>Ne s'affiche qu'une fois. Ré-affichable depuis Réglages → Aide.</Text>
-      </View>
-    </Modal>
+    <View style={s.overlay}>
+      <Animated.View style={[s.bubble, { opacity: fade, transform: [{ translateY: slide }] }]}>
+        <Text style={s.badge}>{`Étape ${index + 1} / ${total}`}</Text>
+        <Text style={s.emoji}>{step.emoji}</Text>
+        <Text style={s.title}>{step.title}</Text>
+        <Text style={s.body}>{step.body}</Text>
+        <View style={s.dots}>
+          {steps.map((_, k) => <View key={k} style={[s.dot, k === index && s.dotOn]} />)}
+        </View>
+        <View style={s.actions}>
+          <TouchableOpacity onPress={onFinish} accessibilityRole="button" accessibilityLabel="Passer le mini-tour">
+            <Text style={s.skip}>Passer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.next, isLast && s.nextFinal]} onPress={goNext} accessibilityRole="button" accessibilityLabel={isLast ? 'Terminer le mini-tour' : 'Étape suivante'}>
+            <Text style={[s.nextText, isLast && s.nextFinalText]}>{isLast ? "C'est parti ✓" : 'Suivant →'}</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+      <Text style={s.footHint}>Ne s'affiche qu'une fois. Ré-affichable depuis Réglages → Aide.</Text>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(5,4,10,0.18)', justifyContent: 'flex-end', padding: spacing.lg },
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: 'rgba(5,4,10,0.08)', justifyContent: 'flex-end', padding: spacing.lg },
   bubble: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.xl, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.lg },
   badge: { alignSelf: 'flex-start', backgroundColor: 'rgba(124,92,252,0.18)', color: colors.primary, fontSize: 12, fontWeight: '800', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden', marginBottom: spacing.md },
   emoji: { fontSize: 34, marginBottom: spacing.sm },

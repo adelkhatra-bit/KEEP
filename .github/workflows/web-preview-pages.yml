@@ -110,6 +110,11 @@ jobs:
         if: steps.fresh.outputs.build == 'yes'
         run: npm --workspace packages/mobile run type-check
 
+      - name: Guard first-run coach stays attached to real Listen screen
+        if: steps.fresh.outputs.build == 'yes'
+        working-directory: packages/mobile
+        run: npx jest src/components/__tests__/CoachMarks.background.contract.test.ts --runInBand
+
       - name: Typecheck admin
         if: steps.fresh.outputs.build == 'yes'
         run: npm --workspace packages/admin run type-check
