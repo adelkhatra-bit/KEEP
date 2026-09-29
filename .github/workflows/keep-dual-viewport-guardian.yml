@@ -296,7 +296,7 @@ jobs:
             await page.getByPlaceholder('https://...').last().fill(WEBSITE);
 
             const cityInput=page.getByPlaceholder('Commence à saisir une ville').last();
-            const locate=page.getByText('⌖ Utiliser ma position',{exact:true}).last();
+            const locate=page.getByText('Utiliser ma position',{exact:true}).last();
             await locate.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,locate,'Use my location');
             await page.waitForFunction((expected) => {

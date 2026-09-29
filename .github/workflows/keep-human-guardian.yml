@@ -163,7 +163,7 @@ jobs:
 
             await clickRobust(t('Soirées',{exact:true}),'Soirées tab');
             await page.waitForTimeout(300);
-            await t(/Creator Pro|Venue Pro|CRÉER|ILLIMITÉ|abonnés/i).waitFor({state:'visible',timeout:15000});
+            await t('Soirées, concerts, portes ouvertes… découvre les évènements et réponds en un geste.',{exact:true}).waitFor({state:'visible',timeout:15000});
             await shot('06-parties');
 
             await clickRobust(t('Profil',{exact:true}),'Profil tab');
