@@ -777,6 +777,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
   // notée pour que le créateur sache qui débloquer une fois vraiment payé.
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
+  const [missingRequestBusyId, setMissingRequestBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freePurchaseMessage, setFreePurchaseMessage] = useState<string | null>(null);
@@ -793,6 +794,34 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       .catch(() => { if (live) setFreeBalance(null); });
     return () => { live = false; };
   }, [immersivePreviewOffer?.offerId, immersivePreviewOffer?.paymentMode, viewer?.id, isLocalGuest, isDemoMode]);
+
+  const requestOnlyMissingTracks = async (offer: PublicPlaylistSaleOffer) => {
+    if (missingRequestBusyId) return;
+    if (!viewer || isLocalGuest || isDemoMode) {
+      goToOwnProfile();
+      return;
+    }
+    setMissingRequestBusyId(offer.offerId);
+    try {
+      const result = await requestMissingPlaylistSaleTracks(offer.offerId);
+      Alert.alert(
+        'Demande envoyée',
+        `@${profile?.username || 'le créateur'} a reçu ta demande pour ${result.missingCount} morceau${result.missingCount > 1 ? 'x' : ''} manquant${result.missingCount > 1 ? 's' : ''}. Il pourra te proposer un prix en FREE.`,
+      );
+      setImmersivePreviewOffer(null);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('ALL_TRACKS_ALREADY_OWNED')) {
+        Alert.alert('Tu as déjà tout', 'Tous les morceaux de cette collection sont déjà dans ton Loki Music.');
+      } else if (message.includes('authentication_required')) {
+        goToOwnProfile();
+      } else {
+        Alert.alert('Demande', 'Impossible d’envoyer la demande pour le moment.');
+      }
+    } finally {
+      setMissingRequestBusyId(null);
+    }
+  };
 
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
@@ -1708,6 +1737,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             setImmersivePreviewOffer(null);
             navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' });
           }}
+          onRequestMissingTracks={(offer) => { void requestOnlyMissingTracks(offer); }}
+          requestMissingBusy={missingRequestBusyId === immersivePreviewOffer.offerId}
         />
       ) : null}
 
