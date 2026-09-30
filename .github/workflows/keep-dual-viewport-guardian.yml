@@ -261,7 +261,7 @@ jobs:
               await page.waitForTimeout(180);
             }
 
-            const start=page.getByLabel(/Activer le micro|Démarrer une écoute/).last();
+            const start=page.getByLabel(/Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,start,'Listen start');
             await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});
