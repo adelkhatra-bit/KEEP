@@ -1291,8 +1291,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>Écouter · Trier · Créer</Text>
+          <Text style={styles.title} numberOfLines={1}>Playlists</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>Écouter · Trier · Organiser</Text>
         </View>
 
       </View>
