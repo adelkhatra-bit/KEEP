@@ -1,3 +1,6 @@
+## Mandatory product specification
+Read `/docs/KEEP_MASTER_SPEC.md` — mandatory master product specification — and `/docs/KEEP_CAHIER_DES_CHARGES_UI.md` before editing. Do not move or duplicate validated modules unless the user's current request explicitly changes the specification.
+
 # KEEP — GitHub Copilot instructions
 
 Before changing anything, read `/BRANCH_SOURCE_OF_TRUTH.json`, `/CLAUDE.md` and `/AGENTS.md`. They are the source-of-truth rules for every AI working on KEEP.
