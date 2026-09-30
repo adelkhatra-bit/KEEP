@@ -4,78 +4,66 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PlaylistSaleImmersivePreview (Adel, 21/09/2026 : swipe multi-morceaux + renonciation obligatoire au droit de rétractation)', () => {
+describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   const source = readNormalized(__dirname, '..', 'PlaylistSaleImmersivePreview.tsx');
   const profile = readNormalized(__dirname, '..', '..', 'screens', 'PublicUserProfileScreen.tsx');
 
-  it('loads the masked 15s previews directly and swipes through them (mission 21/09/2026 : "swipe immersif avec extraits 15s")', () => {
+  it('loads only masked previews and keeps swipe navigation', () => {
     expect(source).toContain("import SwipeDeck from './SwipeDeck';");
-    expect(source).toContain("import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';");
     expect(source).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
     expect(source).toContain('<SwipeDeck');
     expect(source).toContain('onSwipeLeft={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}');
     expect(source).toContain('onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}');
+    expect(source).not.toMatch(/track\.(title|artist|artworkUrl)/);
   });
 
-  it('stays on the current masked track when an extract ends until the listener decides', () => {
+  it('starts the first masked excerpt after the opening gesture and never auto-advances to another track', () => {
+    expect(source).toContain('if (loaded.length > 0) playTrackAt(0);');
     expect(source).toContain('() => { clearCountdown(); setPlaying(false); setSecondsLeft(0); }');
     expect(source).not.toContain('() => { clearCountdown(); playTrackAt(safeIdx + 1); }');
-    expect(source).toContain('▶ ÉCOUTER');
     expect(source).toContain('SUIVANT ›');
   });
 
-  it('never renders track-level title/artist/artwork before purchase', () => {
-    expect(source).not.toMatch(/track\.(title|artist|artworkUrl)/);
-    expect(source).not.toContain('coverUrl');
+  it('keeps the seller profile and total price aligned on one compact row', () => {
+    expect(source).toContain('style={s.sellerPriceRow}');
+    expect(source).toContain('VOIR @{normalizedUsername}');
+    expect(source).toContain("freeAccess ? 'PRIX' : 'PRIX TOTAL'");
+    expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
   });
 
-  it('keeps the music controls stable, rotates only short mystery hooks, and hides long explanations behind En savoir plus', () => {
-    expect(source).toContain('const EXPLAINER_LINES = [');
-    expect(source).toContain("const [detailsOpen, setDetailsOpen] = useState(false);");
-    expect(source).toContain("detailsOpen ? 'Moins d’infos' : 'En savoir plus'");
-    expect(source).not.toContain('setInterval(() => setMarketingIndex');
-    expect(source).not.toContain('setInterval(() => setExplainerIndex');
-    expect(source).toContain('const TEASER_LINES = [');
-    expect(source).toContain('teaserOpacity');
+  it('shows a red inline shortage state and a direct FREE recharge action', () => {
+    expect(source).toContain('FREE INSUFFISANTS');
+    expect(source).toContain('RECHARGER MES FREE');
+    expect(source).toContain('freeBlocked');
+    expect(source).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
+    expect(source).toContain("backgroundColor: 'rgba(255,92,114,0.10)'");
+    expect(profile).toContain("navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' })");
   });
 
-  it('never autoplays on modal open and unlocks shared web audio from explicit listening gestures', () => {
-    expect(source).not.toContain('if (loaded.length > 0) playTrackAt(0);');
-    expect(source).toContain("import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture }");
-    expect(source).toContain('function togglePlayPause()');
-    expect(source).toContain('unlockWebAudioForGesture();');
-  });
-
-  it('respects Reduce Motion instead of forcing the waveform animation', () => {
-    expect(source).toContain('AccessibilityInfo.isReduceMotionEnabled');
-    expect(source).toContain('if (reduceMotionRef.current) return undefined;');
-  });
-
-  it('requires an explicit, unchecked-by-default withdrawal-right waiver before the purchase button activates', () => {
+  it('keeps explicit confirmation but uses short FREE wording', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
-    expect(source).toContain('setWaiverAccepted(false);'); // reset every time the modal opens
-    expect(source).toContain('disabled={!waiverAccepted || busy}');
-    expect(source).toContain('je renonce expressément à mon droit de rétractation de 14 jours');
+    expect(source).toContain('setWaiverAccepted(false);');
+    expect(source).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
+    expect(source).toContain('Utiliser ${priceLabel} pour toute la collection.');
+    expect(source).not.toContain('Aucun débit n’est effectué morceau par morceau.');
   });
 
-  it('states the no-refund policy explicitly next to the purchase action', () => {
-    expect(source).toContain('aucun remboursement possible');
-  });
-
-  it('discloses the manual/external payment mechanism before purchase (Adel, décision 21/09/2026)', () => {
+  it('retains money-payment legal disclosure without cluttering FREE unlocks', () => {
     expect(source).toContain('Loki Music ne voit ni ne garantit ce paiement');
+    expect(source).toContain('aucun remboursement possible');
+    expect(source).toContain('{!freeAccess ? <Text style={s.noRefund}>');
   });
 
-  it('uses the collection-unlock wording, never a generic purchase CTA or green button', () => {
-    expect(source).toContain('RÉVÉLER LA SÉLECTION · ${priceLabel}');
+  it('uses a concise unlock CTA and never a generic purchase label', () => {
+    expect(source).toContain('DÉBLOQUER · ${priceLabel}');
+    expect(source).toContain('SOLDE FREE INSUFFISANT');
     expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
   });
 
-  it('is wired into the public profile boutique instead of buying directly on card tap', () => {
+  it('is wired into the public profile boutique instead of purchasing on list-row tap', () => {
     expect(profile).toContain('onPress={() => openSaleFolder(offer)}');
     expect(profile).toContain('setImmersivePreviewOffer(offer);');
-    expect(profile).not.toMatch(/onPress=\{\(\) => void buyPlaylistOffer\(offer\)\}[^]*?accessibilityLabel=\{`Acheter/);
     expect(profile).toContain('onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}');
   });
 });

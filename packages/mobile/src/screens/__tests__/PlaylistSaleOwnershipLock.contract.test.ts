@@ -37,7 +37,8 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     // 29/09/2026 : une ligne compacte par collection (SaleCollectionRow), liste séparée des Styles.
     expect(publicProfile).toContain('<View style={styles.saleList}');
     expect(publicProfile).toContain('key={`sale-row:${offer.offerId}`}');
-    expect(publicProfile).toContain("badgeLabel={unlocked ? '✓ DÉBLOQUÉE' : '🔒 COLLECTION SECRÈTE'}");
+    expect(publicProfile).toContain("tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}");
+    expect(publicProfile).toContain("tagTone={unlocked ? 'unlocked' : 'price'}");
     expect(publicProfile).not.toContain('sale-style:');
   });
 
@@ -95,8 +96,10 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   it('requires an explicit confirmation before debiting FREE for a collection', () => {
     expect(immersivePreview).toContain("const freeAccess = offer.paymentMode === 'FREE';");
     expect(immersivePreview).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
-    expect(immersivePreview).toContain("Je confirme utiliser ${priceLabel} pour débloquer les ${trackCountLabel} morceau");
-    expect(immersivePreview).toContain('Aucun débit n’est effectué morceau par morceau.');
+    expect(immersivePreview).toContain("Utiliser ${priceLabel} pour toute la collection.");
+    expect(immersivePreview).toContain('FREE INSUFFISANTS');
+    expect(immersivePreview).toContain('RECHARGER MES FREE');
+    expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
   });
 
   it('lets the owner switch an existing collection between euro and FREE without rebuilding it', () => {
@@ -111,9 +114,10 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(salePanel).toContain('isPlaylistMarketplaceVisible()');
     expect(salePanel).toContain('setMarketplaceTransactionEnabled(transactionEnabled)');
     expect(salePanel).toContain('GESTION DES COLLECTIONS ACTIVE');
-    expect(salePanel).toContain('♫ Morceaux');
-    expect(salePanel).toContain('€ / FREE');
-    expect(immersivePreview).toContain('APERÇU MOBILE ACTIF');
+    expect(salePanel).toContain('modifier les morceaux');
+    expect(salePanel).toContain('choisir € / FREE');
+    expect(immersivePreview).toContain('PÉPITES À DÉCOUVRIR');
+    expect(immersivePreview).toContain('DÉBLOQUER · ${priceLabel}');
   });
 
   it('keeps sale access refresh reactive when marketplace visibility changes', () => {
