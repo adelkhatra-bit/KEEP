@@ -44,8 +44,7 @@ assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQui
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
-assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type + FREE inline group');
-assertIncludes(owner, 'style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}', 'Owner FREE inline with profile type');
+assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
 assertIncludes(owner, 'style={s.profileBattleInline}', 'Owner Battle inline with profile identity');
 
 const ownerMeta = owner.slice(
@@ -54,9 +53,11 @@ const ownerMeta = owner.slice(
 );
 assertOrdered(ownerMeta, [
   'style={[s.kindBadge',
-  'accessibilityLabel="Voir le détail de mes Free"',
   '<BattleGlowButton',
-], 'Owner identity order profile type -> FREE -> Battle');
+], 'Owner identity order profile type -> Battle');
+if (ownerMeta.includes('profileFreeInline') || ownerMeta.includes('Voir le détail de mes Free')) {
+  throw new Error('Owner FREE must not sit beside Utilisateur/Créateur');
+}
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
@@ -66,10 +67,9 @@ assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-], 'Owner metrics order PLUS -> social');
-if (ownerMetrics.includes('accessibilityLabel="Voir le détail de mes Free"')) {
-  throw new Error('Owner FREE must not be duplicated in the metrics row');
-}
+  'accessibilityLabel="Voir le détail de mes Free"',
+  '>FREE</Text>',
+], 'Owner metrics order PLUS -> Abonnés -> Reprises -> FREE');
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
@@ -124,6 +124,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + FREE aligned in identity row; Battle inline; PLUS/followers/reprises below');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE aligned below');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');
