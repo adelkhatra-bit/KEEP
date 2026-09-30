@@ -1,3 +1,6 @@
+## BIBLIOTHÈQUE PRODUIT CANONIQUE — À LIRE EN PREMIER
+Avant toute action, lire `config/keep-product-contract.json`. C'est la bibliothèque machine anti-régression de KEEP. Si un ancien commentaire, test, message agent ou document contredit la décision explicite la plus récente d'Adel et ce contrat, il est obsolète et doit être corrigé dans le même commit. Une correction UI ne doit jamais modifier des données utilisateur réelles (certification, FREE, profil) pour « faire correspondre » l'écran.
+
 ## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
 Lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md` avant toute modification. Une modification qui contredit ces fichiers sans nouvelle demande explicite est une régression.
 
