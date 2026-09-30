@@ -16,6 +16,7 @@ import { isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, loadUpcomingEvents } from '../services/creatorEventService';
+import StandardBackButton from '../components/StandardBackButton';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -81,6 +82,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [upcomingEvents, setUpcomingEvents] = useState<CreatorEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(true);
+  const [returnToParties, setReturnToParties] = useState(false);
   // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
   // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
   // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
@@ -98,21 +100,23 @@ export default function DiscoverScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const focus = String(route?.params?.focus ?? '').toUpperCase();
+    const source = String(route?.params?.source ?? '').toUpperCase();
+    if (source.startsWith('PARTIES_')) setReturnToParties(true);
     if (focus === 'EVENTS') setDiscoverMode('EVENTS');
     if (focus === 'PEOPLE') setDiscoverMode('PEOPLE');
-    if (focus) navigation.setParams?.({ focus: undefined, source: undefined });
-  }, [navigation, route?.params?.focus]);
+    if (focus || source) navigation.setParams?.({ focus: undefined, source: undefined });
+  }, [navigation, route?.params?.focus, route?.params?.source]);
 
   useEffect(() => {
     if (!eventsFeatureEnabled) { setUpcomingEvents([]); return undefined; }
     let live = true;
     setEventsLoading(true);
-    loadUpcomingEvents()
+    loadUpcomingEvents(user?.id)
       .then((rows) => { if (live) setUpcomingEvents(rows); })
       .catch(() => { if (live) setUpcomingEvents([]); })
       .finally(() => { if (live) setEventsLoading(false); });
     return () => { live = false; };
-  }, [eventsFeatureEnabled]);
+  }, [eventsFeatureEnabled, user?.id]);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -486,6 +490,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {returnToParties ? <StandardBackButton label="Soirées" onPress={() => { setReturnToParties(false); navigation.navigate('Parties'); }} accessibilityLabel="Retour aux rubriques Soirées" /> : null}
         <Text style={styles.title}>{t('nav.discover')}</Text>
         <View style={styles.discoveryModes} accessibilityLabel="Choisir le type de découverte">
           <TouchableOpacity style={[styles.discoveryModeButton, discoverMode === 'PEOPLE' && styles.discoveryModeButtonOn]} onPress={() => setDiscoverMode('PEOPLE')} accessibilityRole="tab" accessibilityState={{ selected: discoverMode === 'PEOPLE' }}>
