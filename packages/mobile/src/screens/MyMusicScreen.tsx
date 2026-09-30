@@ -82,6 +82,8 @@ const SALE_SAVE_ERROR_MESSAGES: Record<string, string> = {
   OFFER_NOT_FOUND_OR_NOT_YOURS: "Cette offre est introuvable ou ne t'appartient pas.",
   OFFER_NOT_ACTIVE: "Cette offre n'est plus active.",
   TRACK_NOT_IN_OFFER: "Ce morceau ne fait pas partie de l'offre.",
+  SELLER_PAYOUT_NOT_CONFIGURED: "Ajoute ton lien de paiement avant de publier une collection en euros.",
+  SELLER_PAYOUT_LINK_INSECURE: "Ton lien de paiement doit commencer par https:// avant de publier en euros.",
 };
 
 const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?: number | null): string => {
