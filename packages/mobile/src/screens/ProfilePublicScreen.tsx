@@ -62,18 +62,37 @@ type AccountMode = 'create' | 'login';
 // aide, compte). Éclaté en 4 entrées directes, chacune n'ouvrant plus
 // qu'UNE seule fonction (l'écran cible n'a plus de sélecteur pour dériver
 // vers les 3 autres).
-const MENU_ITEMS: { key: string; icon: string; label: string }[] = [
-  { key: 'free', icon: '💛', label: 'Mon solde Free' },
-  { key: 'profile', icon: '👤', label: 'Réglages du profil' },
-  { key: 'identityCard', icon: '▦', label: 'Ma carte d’identité musicale & QR' },
-  { key: 'share', icon: '↗', label: 'Inviter / partager mon profil' },
-  { key: 'music', icon: '🎧', label: 'Services musicaux' },
-  { key: 'offers', icon: '💳', label: 'Offres & crédits' },
-  { key: 'sellPlaylists', icon: '◆', label: 'Mes collections exclusives' },
-  { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web' },
-  { key: 'creator', icon: '🪪', label: 'Type de profil & outils créateur' },
-  { key: 'help', icon: '🆘', label: 'Aide, légal & comptes bloqués' },
-  { key: 'account', icon: '🚪', label: 'Compte & déconnexion' },
+type ProfileMenuItem = { key: string; icon: string; label: string; hint: string };
+type ProfileMenuGroup = { title: string; items: ProfileMenuItem[] };
+
+// Menu volontairement regroupé : moins de lignes, aucun doublon avec la cloche
+// Notifications ni avec le compteur Free du profil. Un appui ouvre directement
+// la fonction ou son panneau, puis « ‹ Menu » ramène immédiatement en arrière.
+const MENU_GROUPS: ProfileMenuGroup[] = [
+  {
+    title: 'PROFIL',
+    items: [
+      { key: 'profile', icon: '👤', label: 'Modifier mon profil', hint: 'Photo, pseudo, bio, ville et pays' },
+      { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram, TikTok, Snapchat, YouTube, X, Facebook' },
+      { key: 'identityShare', icon: '▦', label: 'Carte & partage', hint: 'QR, lien public et invitation' },
+    ],
+  },
+  {
+    title: 'MUSIQUE & ACTIVITÉ',
+    items: [
+      { key: 'music', icon: '🎧', label: 'Services musicaux', hint: 'Connecter et gérer tes plateformes' },
+      { key: 'offers', icon: '💳', label: 'Free & abonnement', hint: 'Solde, formule et avantages' },
+      { key: 'sellPlaylists', icon: '◆', label: 'Collections exclusives', hint: 'Créer et gérer tes collections' },
+      { key: 'creator', icon: '🪪', label: 'Profil créateur', hint: 'Type de profil et outils créateur' },
+    ],
+  },
+  {
+    title: 'AIDE & COMPTE',
+    items: [
+      { key: 'help', icon: '🆘', label: 'Aide & confidentialité', hint: 'Support, légal et comptes bloqués' },
+      { key: 'account', icon: '⚙', label: 'Sécurité du compte', hint: 'Déconnexion ou suppression définitive' },
+    ],
+  },
 ];
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
@@ -1133,10 +1152,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // action réellement complexe (achat, upload, connexion de service).
   const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
   const directMenuAction = (key: string) => {
-    if (key === 'notifications') return openFromMenu('Notifications');
+    // Un seul appui depuis le hamburger : les écrans complets s'ouvrent
+    // directement ; les réglages légers restent dans le drawer avec ‹ Menu.
+    if (key === 'profile') return openFromMenu('ProfileSettings');
+    if (key === 'music') return openFromMenu('MusicConnections');
+    if (key === 'offers') return openFromMenu('Offers');
     if (key === 'sellPlaylists') return openFromMenu('PlaylistSale');
-    if (key === 'identityCard') { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); return; }
-    if (key === 'share') { setMenuOpen(false); setExpandedMenuItem(null); openShare(); return; }
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
@@ -1170,17 +1191,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('ProfileSettings')} accessibilityLabel="Settings"><Text style={s.shareActionPrimaryText}>OUVRIR LES REGLAGES</Text></MotionActionButton>
     </>;
 
-    if (key === 'identityCard') return <>
-      <Text style={s.shareTitle}>Ma carte d’identité musicale</Text>
-      <Text style={s.shareSubtitle}>Ton QR personnel ouvre directement ton profil Loki Music. Ta carte affiche ton identité, tes styles et tes statistiques et peut être partagée ou enregistrée par capture.</Text>
-      <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }} accessibilityLabel="Afficher ma carte"><Text style={s.shareActionPrimaryText}>AFFICHER MA CARTE & MON QR</Text></MotionActionButton>
-      <MotionActionButton variant="ghost" size="small" onPress={() => void copyShare()} accessibilityLabel="Copier lien"><Text style={s.shareActionText}>Copier mon lien</Text></MotionActionButton>
-    </>;
-
-    if (key === 'share') return <>
-      <Text style={s.shareTitle}>Inviter / partager</Text>
-      <Text style={s.shareSubtitle}>Fais découvrir ton profil Loki Music sans encombrer ton écran principal.</Text>
-      <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); openShare(); }} accessibilityLabel="Partager"><Text style={s.shareActionPrimaryText}>PARTAGER MON PROFIL</Text></MotionActionButton>
+    if (key === 'identityShare') return <>
+      <Text style={s.shareTitle}>Carte & partage</Text>
+      <Text style={s.shareSubtitle}>Retrouve au même endroit ton QR, ton lien public et le partage de ton profil.</Text>
+      <MotionActionButton variant="primary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); setQrOpen(true); }} accessibilityLabel="Afficher ma carte et mon QR"><Text style={s.shareActionPrimaryText}>MA CARTE & MON QR</Text></MotionActionButton>
+      <MotionActionButton variant="secondary" size="medium" onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); openShare(); }} accessibilityLabel="Partager mon profil"><Text style={s.shareActionText}>PARTAGER MON PROFIL</Text></MotionActionButton>
+      <MotionActionButton variant="ghost" size="small" onPress={() => void copyShare()} accessibilityLabel="Copier mon lien"><Text style={s.shareActionText}>Copier mon lien</Text></MotionActionButton>
     </>;
 
     if (key === 'notifications') return <>
@@ -1223,7 +1239,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     </>;
 
     if (key === 'account') return <>
-      <Text style={s.shareTitle}>Compte &amp; déconnexion</Text>
+      <Text style={s.shareTitle}>Sécurité du compte</Text>
+      <Text style={s.shareSubtitle}>La déconnexion ferme seulement cette session. La suppression du compte est une action différente et définitive.</Text>
       <AccountActionsPanel />
     </>;
 
@@ -1562,16 +1579,28 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </>
         ) : (
           <>
-            <Text style={s.shareTitle}>Menu</Text>
-            <ScrollView style={{ maxHeight: 440, marginTop: 4 }}>
-              {MENU_ITEMS.filter((item) => item.key !== 'sellPlaylists' || marketplaceEnabled).map((item) => (
-                <TouchableOpacity key={item.key} style={s.listRow} onPress={() => directMenuAction(item.key)}>
-                  <Text style={[s.listText, { flex: 1 }]}>{item.icon} {item.label}</Text>
-
-                  {item.key === 'notifications' && unreadCount > 0 ? <Text style={s.playlistCount}>{unreadCount > 99 ? '99+' : unreadCount}</Text> : null}
-                  <Text style={s.menuChevron}>›</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={s.shareTitle}>Réglages</Text>
+            <Text style={s.menuIntro}>Choisis une rubrique. Un appui ouvre directement la fonction.</Text>
+            <ScrollView style={{ maxHeight: 500, marginTop: 8 }} contentContainerStyle={s.menuScrollContent}>
+              {MENU_GROUPS.map((group) => {
+                const visibleItems = group.items.filter((item) => item.key !== 'sellPlaylists' || marketplaceEnabled);
+                if (!visibleItems.length) return null;
+                return <View key={group.title} style={s.menuGroup}>
+                  <Text style={s.menuGroupTitle}>{group.title}</Text>
+                  <View style={s.menuGroupCard}>
+                    {visibleItems.map((item, index) => (
+                      <TouchableOpacity key={item.key} style={[s.menuItemRow, index < visibleItems.length - 1 && s.menuItemDivider]} onPress={() => directMenuAction(item.key)} accessibilityRole="button" accessibilityLabel={item.label}>
+                        <View style={s.menuItemIcon}><Text style={s.menuItemIconText}>{item.icon}</Text></View>
+                        <View style={s.menuItemCopy}>
+                          <Text style={s.menuItemLabel}>{item.label}</Text>
+                          <Text style={s.menuItemHint}>{item.hint}</Text>
+                        </View>
+                        <Text style={s.menuChevron}>›</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>;
+              })}
             </ScrollView>
           </>
         )}
@@ -1762,7 +1791,7 @@ const s=StyleSheet.create({
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},
-  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
+  topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'stretch',gap:9,marginTop:10},profileMetaTopRow:{width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},profileBattleInline:{flexShrink:0},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
