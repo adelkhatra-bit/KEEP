@@ -1308,6 +1308,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
                 </TouchableOpacity>
               )}
+                  <TouchableOpacity
+                    style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}
+                    onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: freeDetailsOpen }}
+                    accessibilityLabel="Voir le détail de mes Free"
+                  >
+                    <Text style={s.profileFreeInlineValue}>{freeBalance ?? '…'}</Text>
+                    <Text style={s.profileFreeInlineLabel}>FREE</Text>
+                  </TouchableOpacity>
                 </View>
                 {battleFeatureEnabled && !accountRequired ? (
                   <BattleGlowButton
@@ -1340,17 +1350,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[s.topMetricFreeHero, freeDetailsOpen && s.topMetricFreeHeroOn]}
-          onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: freeDetailsOpen }}
-          accessibilityLabel="Voir le détail de mes Free"
-        >
-          <Text style={s.topMetricFreeValue}>{freeBalance ?? '…'}</Text>
-          <Text style={s.topMetricFreeLabel}>FREE</Text>
-          <Text style={s.topMetricFreeHint}>jouer · garder</Text>
-        </TouchableOpacity>
       </View>
       {freeDetailsOpen ? (
         <View style={s.metricInlinePanel}>
