@@ -83,10 +83,16 @@ const SALE_SAVE_ERROR_MESSAGES: Record<string, string> = {
   TRACK_NOT_IN_OFFER: "Ce morceau ne fait pas partie de l'offre.",
   SELLER_PAYOUT_NOT_CONFIGURED: "Ajoute ton lien de paiement avant de publier une collection en euros.",
   SELLER_PAYOUT_LINK_INSECURE: "Ton lien de paiement doit commencer par https:// avant de publier en euros.",
+  PLAYLIST_SALE_ACTIVE_LIMIT: "Tu as atteint le nombre maximum de collections actives. Retire une ancienne collection avant d'en publier une nouvelle.",
 };
 
 const resolveSaleSaveError = (raw: string, followers?: number | null, threshold?: number | null): string => {
   const msg = String(raw || '');
+  const limitMatch = msg.match(/PLAYLIST_SALE_ACTIVE_LIMIT(?::\s*(\d+))?/);
+  if (limitMatch) {
+    const limit = Number(limitMatch[1] ?? 50);
+    return `Tu as atteint la limite de ${limit} collections actives. Retire une ancienne collection avant d'en publier une nouvelle.`;
+  }
   const lockedMatch = msg.match(/PLAYLIST_SALE_LOCKED(?::\s*(\d+))?/);
   if (lockedMatch) {
     const required = Number(lockedMatch[1] ?? threshold ?? 100);

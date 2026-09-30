@@ -2176,3 +2176,8 @@ RÈGLE LA PLUS RÉCENTE, ELLE ANNULE LES ANCIENNES ENTRÉES CONTRADICTOIRES DU 3
 ## [2026-10-01] chatgpt — Abonnés compact comme Reprises
 
 Demande Adel : le déroulé Reprises est validé, Abonnés était trop technique/volumineux. CommunityConnectionsPanel devient un aperçu horizontal de 8 profils (avatar, pseudo, style, suivre/voir), avec « VOIR TOUT » qui seul révèle recherche + pagination 24/page. Même composant pour profil propriétaire et profil visité, donc une seule logique et aucune liste infinie dans le profil. Aucun App.tsx / Navigation.tsx / barre 5 onglets modifié.
+
+
+## [2026-10-01] chatgpt — plafond collections + garde serveur
+
+Audit live : 200 titres max existait uniquement à la création, mais aucune limite explicite de collections actives et l'ajout ultérieur pouvait dépasser 200. Correction additive : remote_config playlist_sale_max_active_offers=50 (configurable 1..500), trigger serveur couvrant toute création/réactivation, trigger 200 titres couvrant aussi les modifications, UI affiche actif/max et bloque proprement la création au plafond. Deux index manquants signalés par Supabase Advisor ajoutés. Aucun changement App.tsx/Navigation.tsx/5 onglets.

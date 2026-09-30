@@ -45,6 +45,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [error, setError] = useState('');
   const [retiredOpen, setRetiredOpen] = useState(false);
   const { published, retired } = useMemo(() => splitSaleOffersByStatus(offers, focusOfferId), [offers, focusOfferId]);
+  const activeLimitReached = Boolean(access && access.activeOffers >= access.maxActiveOffers);
   // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
   // par lien externe, non conforme Apple IAP pour du contenu numérique
   // déverrouillé dans l'app. Garde-fou d'accès direct (deep-link/route),
@@ -356,12 +357,15 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               ) : (
                 <>
                   <Text style={s.accessBenefit}>Crée une playlist/collection avec plusieurs morceaux. Son titre devient le seul produit visible : jamais de vente morceau par morceau. Choisis ensuite obligatoirement € ou FREE.</Text>
+                  <Text style={s.collectionLimitText}>Collections actives : {access.activeOffers} / {access.maxActiveOffers} · 200 morceaux maximum par collection</Text>
                   <TouchableOpacity
-                    style={s.createCollectionBtn}
-                    onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true } })}
-                    accessibilityLabel="Créer une nouvelle collection exclusive"
+                    style={[s.createCollectionBtn, activeLimitReached && s.createCollectionBtnLocked]}
+                    onPress={() => activeLimitReached
+                      ? Alert.alert('Limite atteinte', `Tu as déjà ${access.maxActiveOffers} collections actives. Retire une ancienne collection avant d'en publier une nouvelle.`)
+                      : navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true } })}
+                    accessibilityLabel={activeLimitReached ? "Limite de collections actives atteinte" : "Créer une nouvelle collection exclusive"}
                   >
-                    <Text style={s.createCollectionBtnText}>＋ CRÉER UNE COLLECTION</Text>
+                    <Text style={s.createCollectionBtnText}>{activeLimitReached ? 'LIMITE DE COLLECTIONS ATTEINTE' : '＋ CRÉER UNE COLLECTION'}</Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -676,6 +680,7 @@ const s = StyleSheet.create({
   historyLink: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   historyLinkText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
+  collectionLimitText: { color: colors.textMuted, fontSize: 10, lineHeight: 15, fontWeight: '800', textAlign: 'center', marginTop: 8 },
   centerView: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 200 },
   errorBox: { borderRadius: radius.lg, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.pass, padding: spacing.lg, alignItems: 'center' },
   errorText: { color: colors.textPrimary, fontSize: 13, fontWeight: '700', textAlign: 'center' },

@@ -13,6 +13,8 @@ export type PlaylistSaleAccess = {
   followers: number;
   threshold: number;
   unlocked: boolean;
+  activeOffers: number;
+  maxActiveOffers: number;
 };
 
 // Adel (16-17/09/2026) : "assure-toi que les montants sont pré-écrits pour
@@ -59,7 +61,7 @@ function client() {
 }
 
 export async function getPlaylistSaleAccess(): Promise<PlaylistSaleAccess> {
-  if (!supabase) return { followers: 0, threshold: 100, unlocked: false };
+  if (!supabase) return { followers: 0, threshold: 100, unlocked: false, activeOffers: 0, maxActiveOffers: 50 };
   const { data, error } = await supabase.rpc('keep_playlist_sale_access');
   if (error) throw error;
   const row = data as any;
@@ -67,6 +69,8 @@ export async function getPlaylistSaleAccess(): Promise<PlaylistSaleAccess> {
     followers: Number(row?.followers ?? 0),
     threshold: Number(row?.threshold ?? 100),
     unlocked: Boolean(row?.unlocked),
+    activeOffers: Math.max(0, Number(row?.activeOffers ?? 0)),
+    maxActiveOffers: Math.max(1, Number(row?.maxActiveOffers ?? 50)),
   };
 }
 
