@@ -10,6 +10,8 @@ on:
       - 'packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts'
       - 'packages/mobile/src/screens/__tests__/ProfileIdentityBreathingRoom.contract.test.ts'
       - 'config/keep-ui-baseline.json'
+      - 'config/keep-product-contract.json'
+      - 'scripts/verify-product-contract.cjs'
       - 'docs/KEEP_MASTER_SPEC.md'
       - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
       - 'scripts/verify-ui-layout-baseline.cjs'
@@ -23,6 +25,8 @@ on:
       - 'packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts'
       - 'packages/mobile/src/screens/__tests__/ProfileIdentityBreathingRoom.contract.test.ts'
       - 'config/keep-ui-baseline.json'
+      - 'config/keep-product-contract.json'
+      - 'scripts/verify-product-contract.cjs'
       - 'docs/KEEP_MASTER_SPEC.md'
       - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
       - 'scripts/verify-ui-layout-baseline.cjs'
@@ -54,6 +58,9 @@ jobs:
       - name: Verify UI master baseline
         run: node scripts/verify-ui-layout-baseline.cjs
 
+      - name: Verify canonical product contract
+        run: node scripts/verify-product-contract.cjs
+
       - name: Verify source-of-truth contract
         run: node scripts/verify-source-of-truth.cjs
 
@@ -62,6 +69,6 @@ jobs:
 
       - name: Report locked profile contract
         run: |
-          echo "PASS: type Utilisateur/Créateur -> FREE -> Battle"
-          echo "PASS: metrics = PLUS -> Abonnés -> Reprises"
+          echo "PASS: type Utilisateur/Créateur -> Battle"
+          echo "PASS: metrics = PLUS -> Abonnés -> Reprises -> FREE"
           echo "PASS: hamburger has no duplicate Compte/connexion/déconnexion"
