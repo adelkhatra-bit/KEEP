@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, markPlaylistSalePaid, PlaylistSalePaymentMode, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, updateOfferPaymentMode } from '../services/playlistSaleService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, markPlaylistSalePaid, offerPlaylistSaleTrackRequestWithFree, PlaylistSalePaymentMode, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, updateOfferPaymentMode } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -34,6 +34,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [offers, setOffers] = useState<PlaylistSaleOffer[]>([]);
   const [sales, setSales] = useState<PlaylistSaleTransaction[]>([]);
   const [purchases, setPurchases] = useState<PlaylistSaleTransaction[]>([]);
+  const [trackRequests, setTrackRequests] = useState<PlaylistSaleSellerTrackRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
@@ -73,22 +74,25 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       setOffers([]);
       setSales([]);
       setPurchases([]);
+      setTrackRequests([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const [liveAccess, liveOffers, liveSales, livePurchases] = await Promise.all([
+      const [liveAccess, liveOffers, liveSales, livePurchases, liveTrackRequests] = await Promise.all([
         getPlaylistSaleAccess(),
         loadMyPlaylistSaleOffers(),
         loadMyPlaylistSales(),
         loadMyPlaylistPurchases(),
+        loadMyPlaylistSaleTrackRequests(),
       ]);
       setAccess(liveAccess);
       setOffers(liveOffers);
       setSales(liveSales);
       setPurchases(livePurchases);
+      setTrackRequests(liveTrackRequests);
     } catch (e: any) {
       setError(e?.message || 'Erreur lors du chargement');
     } finally {
@@ -140,6 +144,33 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     });
     return () => unsubscribe?.();
   }, [navigation]);
+
+  const answerTrackRequest = async (request: PlaylistSaleSellerTrackRequest, freePrice: number) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await offerPlaylistSaleTrackRequestWithFree(request.requestId, freePrice);
+      await loadData();
+      Alert.alert('Offre envoyée', `@${request.buyerUsername} peut maintenant débloquer ${result.trackCount} morceau${result.trackCount > 1 ? 'x' : ''} pour ${result.freePrice} FREE.`);
+    } catch (e: any) {
+      Alert.alert('Demande', e?.message || 'Impossible d’envoyer cette offre.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const declineTrackRequest = async (request: PlaylistSaleSellerTrackRequest) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await declinePlaylistSaleTrackRequest(request.requestId);
+      await loadData();
+    } catch (e: any) {
+      Alert.alert('Demande', e?.message || 'Impossible de fermer cette demande.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleUpdateAccess = async () => {
     if (!editing) return;
@@ -410,6 +441,31 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
+            {trackRequests.length > 0 && (
+              <View style={s.offersSection}>
+                <Text style={s.sectionTitle}>DEMANDES PERSONNALISÉES ({trackRequests.length})</Text>
+                <Text style={s.sectionHint}>Ils ont déjà une partie de ta collection. Choisis le prix des titres manquants.</Text>
+                {trackRequests.map((request) => (
+                  <View key={request.requestId} style={[s.offerCard, s.requestCard]}>
+                    <View style={s.requestTop}>
+                      <View style={s.offerInfo}>
+                        <Text style={s.offerName}>@{request.buyerUsername}</Text>
+                        <Text style={s.requestMeta}>{request.missingCount} manquant{request.missingCount > 1 ? 's' : ''} · {request.playlistName}</Text>
+                      </View>
+                      <TouchableOpacity style={s.requestDecline} disabled={busy} onPress={() => { void declineTrackRequest(request); }} accessibilityLabel="Refuser cette demande"><Text style={s.requestDeclineText}>×</Text></TouchableOpacity>
+                    </View>
+                    <View style={s.requestPriceRow}>
+                      {SALE_PRESET_FREE.slice(0, 4).map((amount) => (
+                        <TouchableOpacity key={amount} style={s.requestPrice} disabled={busy} onPress={() => { void answerTrackRequest(request, amount); }}>
+                          <Text style={s.requestPriceText}>{amount} FREE</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Ventes en attente de confirmation -- l'acheteur a déjà cliqué
                 Acheter (payé ou en train de payer sur le lien du vendeur) */}
             {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
@@ -586,6 +642,14 @@ const s = StyleSheet.create({
   manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
   offersSection: { marginTop: spacing.lg },
+  requestCard:{borderColor:'rgba(167,139,250,.45)',padding:12},
+  requestTop:{flexDirection:'row',alignItems:'flex-start',gap:8},
+  requestMeta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:3},
+  requestDecline:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  requestDeclineText:{color:colors.textMuted,fontSize:20,lineHeight:22,fontWeight:'700'},
+  requestPriceRow:{flexDirection:'row',gap:6,marginTop:10},
+  requestPrice:{flex:1,minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  requestPriceText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
   sectionHint: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: spacing.md },
   offerCard: { borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md },
