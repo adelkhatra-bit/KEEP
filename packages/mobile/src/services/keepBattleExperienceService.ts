@@ -136,6 +136,28 @@ export async function loadMyFreeRechargeInfo(profileId: string, planCode: string
   return { profileCreatedAt: (profile as any)?.created_at ? String((profile as any).created_at) : null, monthlyBonus: Math.max(0, Number(latest?.free_bonus_per_month || 0)) };
 }
 
+export async function consumeKeepBattleSoloDailyStart(): Promise<KeepBattleSoloDailyStatus> {
+  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start');
+  if (error) {
+    const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' ');
+    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {
+      throw new Error('BATTLE_SOLO_DAILY_LIMIT_REACHED');
+    }
+    throw new Error('BATTLE_SOLO_UNAVAILABLE');
+  }
+  const raw = (data && typeof data === 'object' ? data : {}) as any;
+  return {
+    plan: String(raw.plan || 'FREE').toUpperCase(),
+    used: Math.max(0, Number(raw.used || 0)),
+    limit: raw.limit == null ? null : Math.max(0, Number(raw.limit)),
+    remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
+    unlimited: raw.unlimited === true,
+    resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+  };
+}
+
+// Préparer un pack ne consomme plus un Solo. Le débit est déclenché par
+// l'écran uniquement quand le premier extrait a réellement démarré.
 export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleSoloPack> {
   // Build and validate the playable pack BEFORE consuming a daily start.
   // A catalogue/network failure must never burn one of the user's Solo slots.
@@ -176,18 +198,6 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     };
   }).filter((round: KeepBattleSoloRound) => round.trackId && round.previewUrl && round.correctAnswer) : [];
   if (rounds.length < 5) throw new Error('BATTLE_CATALOG_TOO_SMALL');
-  // Consume atomically only once a valid Solo session is ready to start.
-  const { error: dailyLimitError } = await client().rpc('keep_battle_solo_consume_daily_start');
-  if (dailyLimitError) {
-    const raw = [dailyLimitError.message, dailyLimitError.details, dailyLimitError.hint, dailyLimitError.code].filter(Boolean).join(' ');
-    // Preserve the semantic error token for the UI. PostgREST can append the
-    // configured limit (e.g. ":40"); exposing that raw database exception in
-    // an Alert produced BATTLE_SOLO_DAILY_LIMIT_REACHED:40 on mobile.
-    if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {
-      throw new Error('BATTLE_SOLO_DAILY_LIMIT_REACHED');
-    }
-    throw new Error('BATTLE_SOLO_UNAVAILABLE');
-  }
   // Adel (18/09/2026) : "il faut au moins quatre réponses ... aucun doublon ...
   // une seule bonne réponse" -- le serveur historique renvoie 3 choix. Pour
   // conserver la même source musicale et garantir EXACTEMENT 4 réponses sans
