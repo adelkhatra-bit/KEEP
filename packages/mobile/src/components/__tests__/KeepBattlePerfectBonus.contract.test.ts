@@ -40,7 +40,7 @@ describe('Battle multiplayer fastest perfect bonus', () => {
     expect(migration).toContain('insert into public.keep_battle_perfect_bonus_events');
     expect(migration).toContain('on conflict(arena_id, match_no) do nothing');
     expect(migration).toContain('sum(b.amount)');
-    expect(migration).not.toContain('update public.keep_battle_arena_credit_events');
+    expect(migration).not.toContain('keep_battle_arena_credit_events');
     expect(migration).not.toContain('do update set result');
     expect(migration).not.toContain('keep_battle_solo_credit_events');
   });
