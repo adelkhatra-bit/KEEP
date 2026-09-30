@@ -7,6 +7,12 @@ Branche produit unique : `reconcile/claude-main-20260825`
 
 Ce document est la référence fonctionnelle et visuelle à lire avant toute modification. Une nouvelle demande validée par Adel peut modifier ce cahier des charges ; dans ce cas, le code, ce fichier et les guards automatiques doivent rester cohérents.
 
+## 0. Bibliothèque anti-régression
+
+Ce cahier est la bibliothèque produit durable de KEEP/Loki. Une ancienne conversation, une capture, un commentaire historique ou la mémoire d'une IA ne peut jamais remplacer la règle active écrite ici.
+
+Chaque décision UI verrouillée doit rester cohérente dans quatre couches dans le même commit : code actif, ce cahier, `config/keep-ui-baseline.json`, et guard/test CI. Une nouvelle demande explicite d'Adel peut changer la règle ; dans ce cas les quatre couches changent ensemble. Il est interdit de restaurer un ancien design uniquement pour faire passer un test obsolète.
+
 ## 1. Dépôt et environnement
 
 - Ne jamais travailler sur `main`.

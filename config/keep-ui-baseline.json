@@ -5,7 +5,7 @@
   "profileOwner": {
     "freePlacement": "metrics-after-reprises",
     "freeMustNotAppearBesideProfileKind": true,
-    "freeMustAppearExactlyOnce": true,
+    "certificationMustAppearBesideUsername": true,
     "profileKindLabels": [
       "Utilisateur",
       "Créateur",

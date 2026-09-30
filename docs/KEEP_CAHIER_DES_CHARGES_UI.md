@@ -2,7 +2,7 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
-Version : **2026-09-30.1**  
+Version : **2026-10-01.1**  
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
 
@@ -19,11 +19,12 @@ Dans l'en-tête du profil propriétaire :
 - Avatar à gauche.
 - Pseudo + certification au-dessus.
 - Le badge de type **Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement** reste dans la zone identité.
-- Le compteur **FREE doit être immédiatement à droite du badge de type, sur la même ligne**.
-- FREE ne doit jamais être remis dans la barre de compteurs du dessous.
+- La certification reste toujours visible à côté du pseudo.
+- FREE ne doit pas être à côté du badge de type.
 - Battle reste dans la même zone d'identité, à droite.
 - Ville / pays restent sous cette ligne.
-- La barre suivante reste : **PLUS | Abonnés | Reprises**.
+- La barre suivante reste : **PLUS | Abonnés | Reprises | FREE**.
+- FREE est immédiatement après Reprises, une seule fois.
 - Aucun autre correctif ne doit déplacer ces éléments sans une nouvelle demande explicite de l'utilisateur.
 
 ## 3. Hamburger profil — pas de doublon de session
@@ -73,5 +74,5 @@ Avant chaque push qui modifie l'UI :
 
 - `config/keep-ui-baseline.json` : version machine-readable de ce cahier des charges.
 - `scripts/verify-ui-layout-baseline.cjs` : garde CI.
-- `packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts` : garde FREE/type de profil.
-- `packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts` : ordre de la zone identité.
+- `packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts` : garde FREE après Reprises + absence de doublon.
+- `packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts` : certification/type/Battle + ordre FREE dans les métriques.

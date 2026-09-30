@@ -102,6 +102,10 @@ for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
   }
 }
 
+const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
+if (productContract.profileOwner?.freePlacement !== 'metrics-after-reprises') failures.push('PRODUCT CONTRACT FREE PLACEMENT MISMATCH');
+if (JSON.stringify(productContract.profileOwner?.metricsBarOrder) !== JSON.stringify(['PLUS','Abonnés','Reprises','FREE'])) failures.push('PRODUCT CONTRACT METRICS ORDER MISMATCH');
+
 const masterSpec = fs.readFileSync(path.join(root, 'docs/KEEP_MASTER_SPEC.md'), 'utf8');
 for (const expected of [
   expectedRepository,

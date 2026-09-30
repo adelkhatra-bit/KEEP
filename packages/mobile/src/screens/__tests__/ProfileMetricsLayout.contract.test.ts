@@ -1,24 +1,25 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Profile metrics layout — explicit 30/09/2026 alignment', () => {
+describe('Profile metrics layout — product lock 01/10/2026', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('keeps one FREE control, directly beside Utilisateur/Créateur profile type', () => {
-    expect(source).toContain('profileMetaBadgeGroup:{flexDirection:\'row\'');
-    expect(source).toContain('style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}');
-    expect(source).toContain('<Text style={s.profileFreeInlineLabel}>FREE</Text>');
-    const controls = source.match(/accessibilityLabel="Voir le détail de mes Free"/g) ?? [];
-    expect(controls).toHaveLength(1);
-  });
+  it('keeps exactly one FREE control immediately after Reprises in the metrics bar', () => {
+    const metaStart = source.indexOf('<View style={s.profileMetaTopRow}>');
+    const metricsStart = source.indexOf('<View style={s.topMetricsBar}', metaStart);
+    expect(source.slice(metaStart, metricsStart)).not.toContain('profileFreeInline');
 
-  it('preserves PLUS, Abonnés and Reprises in the metrics bar', () => {
-    const start = source.indexOf('<View style={s.topMetricsBar}');
-    const end = source.indexOf('{freeDetailsOpen ? (', start);
-    const bar = source.slice(start, end);
-    expect(bar).toContain('>PLUS</Text>');
-    expect(bar).toContain('>Abonnés</Text>');
-    expect(bar).toContain('>Reprises</Text>');
-    expect(bar).not.toContain('topMetricFreeHero');
+    const end = source.indexOf('{freeDetailsOpen ? (', metricsStart);
+    const bar = source.slice(metricsStart, end);
+    const plus = bar.indexOf('>PLUS</Text>');
+    const followers = bar.indexOf('>Abonnés</Text>');
+    const reprises = bar.indexOf('>Reprises</Text>');
+    const free = bar.indexOf('topMetricFreeHero');
+    expect(plus).toBeGreaterThanOrEqual(0);
+    expect(followers).toBeGreaterThan(plus);
+    expect(reprises).toBeGreaterThan(followers);
+    expect(free).toBeGreaterThan(reprises);
+    expect(bar).toContain('<Text style={s.topMetricFreeLabel}>FREE</Text>');
+    expect(source.match(/accessibilityLabel="Voir le détail de mes Free"/g) ?? []).toHaveLength(1);
   });
 });

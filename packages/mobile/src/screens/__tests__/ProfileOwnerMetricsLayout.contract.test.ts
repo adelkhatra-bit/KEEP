@@ -1,31 +1,33 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Owner profile metrics layout', () => {
+describe('Owner profile identity + metrics product lock', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('aligns FREE with the profile type badge and keeps Battle on the same identity row', () => {
-    const meta = source.indexOf('<View style={s.profileMetaTopRow}>');
+  it('keeps certification beside username, then profile type and Battle', () => {
+    const identity = source.indexOf('<View style={s.identity}>');
+    const username = source.indexOf('<View style={s.usernameLine}>', identity);
+    const meta = source.indexOf('<View style={s.profileMetaTopRow}>', username);
     const group = source.indexOf('<View style={s.profileMetaBadgeGroup}>', meta);
     const kind = source.indexOf('style={[s.kindBadge', group);
-    const free = source.indexOf('style={[s.profileFreeInline', kind);
-    const battle = source.indexOf('<BattleGlowButton', free);
-    expect(meta).toBeGreaterThanOrEqual(0);
+    const battle = source.indexOf('<BattleGlowButton', kind);
+    expect(source.slice(username, meta)).toContain('<ProfileCertificationBadge tier={certificationTier} compact />');
+    expect(source).toContain('const certificationTier = publicSnapshot?.certificationTier ?? fallbackCertification;');
     expect(group).toBeGreaterThan(meta);
     expect(kind).toBeGreaterThan(group);
-    expect(free).toBeGreaterThan(kind);
-    expect(battle).toBeGreaterThan(free);
-    expect(source).toContain("<Text style={s.profileFreeInlineLabel}>FREE</Text>");
+    expect(battle).toBeGreaterThan(kind);
   });
 
-  it('does not duplicate FREE in the counters row', () => {
-    const metricsStart = source.indexOf('<View style={s.topMetricsBar}');
-    const metricsEnd = source.indexOf('{freeDetailsOpen ? (', metricsStart);
-    const metrics = source.slice(metricsStart, metricsEnd);
-    expect(metrics).toContain('<Text style={s.topMetricMoreText}>PLUS</Text>');
-    expect(metrics).toContain('>Abonnés</Text>');
-    expect(metrics).toContain('>Reprises</Text>');
-    expect(metrics).not.toContain('topMetricFreeHero');
-    expect(metrics).not.toContain('>FREE</Text>');
+  it('keeps PLUS, Abonnés, Reprises, FREE in that exact order', () => {
+    const start = source.indexOf('<View style={s.topMetricsBar}');
+    const end = source.indexOf('{freeDetailsOpen ? (', start);
+    const metrics = source.slice(start, end);
+    const plus = metrics.indexOf('>PLUS</Text>');
+    const followers = metrics.indexOf('>Abonnés</Text>');
+    const reprises = metrics.indexOf('>Reprises</Text>');
+    const free = metrics.indexOf('topMetricFreeHero');
+    expect(followers).toBeGreaterThan(plus);
+    expect(reprises).toBeGreaterThan(followers);
+    expect(free).toBeGreaterThan(reprises);
   });
 });
