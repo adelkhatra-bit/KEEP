@@ -8,6 +8,7 @@ describe('Marketplace purchase UX contract', () => {
   const panel = read(__dirname, '..', 'PlaylistSalePanel.tsx');
   const myMusic = read(__dirname, '..', '..', 'screens', 'MyMusicScreen.tsx');
   const service = read(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
+  const notifications = read(__dirname, '..', '..', 'screens', 'NotificationsScreen.tsx');
 
   it('keeps preview metadata protected while showing owned versus missing counts', () => {
     expect(preview).toContain('loadPlaylistSaleOfferOverlap');
@@ -43,5 +44,7 @@ describe('Marketplace purchase UX contract', () => {
     expect(service).toContain('loadMyPlaylistPurchaseLibrary');
     expect(service).toContain('deliveredPlaylistId');
     expect(service).toContain('requestMissingPlaylistSaleTracks');
+    expect(notifications).toContain("type === 'PLAYLIST_SALE_PARTIAL_OFFER'");
+    expect(notifications).toContain('openSaleOfferId: offerId');
   });
 });
