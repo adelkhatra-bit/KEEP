@@ -341,3 +341,12 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Workflow `KEEP — Data preservation contract` run `36781517649` = SUCCESS sur `8432ede5`.
 - Audit live Supabase : projet KEEP actif, RLS présente sur les tables critiques contrôlées ; organisation actuellement plan Free. Avant montée à très grande échelle : offre adaptée + sauvegardes automatiques/PITR selon RPO.
 - Security Advisor : backlog SECURITY DEFINER/permissions à auditer séparément, sans révocation massive aveugle.
+
+
+## 2026-10-01 — Bibliothèque produit canonique / anti-régression
+- Nouvelle source machine obligatoire : `config/keep-product-contract.json`.
+- Hiérarchie de vérité : dernière décision explicite d'Adel → product contract → master spec → code/schéma live → anciens commentaires/tests.
+- Profil propriétaire verrouillé : barre `PLUS | Abonnés | Reprises | FREE`; FREE juste après Reprises, jamais à côté du type Utilisateur/Créateur.
+- Certification et solde FREE sont des données réelles Supabase : aucun correctif UI n'a le droit de les écrire/réinitialiser pour faire correspondre l'écran.
+- Nouveau guard : `scripts/verify-product-contract.cjs` + workflow `KEEP — Product Contract Guard`.
+- Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
