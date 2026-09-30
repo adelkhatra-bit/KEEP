@@ -2088,3 +2088,12 @@ Mobile TypeScript et moteur musique passent. Le seul blocage Mobile CI avant Jes
 ## [2026-09-30T23:24:00+02:00] chatgpt — contrats vente alignés sur le flux unique
 
 Les anciens tests qui réclamaient encore un bouton de vente par morceau/playlist ont été alignés sur le nouveau contrat : une collection déjà publiée apparaît uniquement via le badge compact « ◆ Collection · nom », la création passe uniquement par Collections/Pépites, et l’édition des morceaux cible l’offre existante sans recréer un produit.
+
+
+## [2026-09-30T23:25:00+02:00] chatgpt — P0 reconnaissance, verrou temporaire
+
+PRIORITÉ UTILISATEUR : IDENTIFIER UN MORCEAU doit réellement reconnaître la musique. Audit production Supabase confirmé sur iPhone Safari : audio réel envoyé (430–672 Ko), AudD = 409 NOT_CONFIGURED, ACRCloud = actif ; un échantillon a donné score 40 avec titre/artiste mais était rejeté sous le seuil immédiat 55.
+
+Je prends uniquement la cascade reconnaissance. Autres agents : ne modifiez pas supabase/functions/keep-music-fallback/index.ts, packages/mobile/src/services/recognitionConsensus.ts, packages/mobile/src/store/useSessionStore.ts ni nativeShazamRecognition.ts jusqu’au handoff.
+
+Correctif ciblé : seuil fiable 55 conservé ; score ACR >=40 accepté immédiatement seulement si Apple/iTunes ou Deezer confirme EXACTEMENT le même titre+artiste ; sinon consensus répété >=20 conservé. Les matchs sub-55 corroborés ne seedent pas la mémoire collective. Aucun App.tsx / Navigation.tsx / barre 5 onglets modifié.

@@ -21,3 +21,21 @@ describe('recognitionConsensus', () => {
     expect(two.state?.hits).toBe(1);
   });
 });
+
+describe("ACRCloud server fallback contract", () => {
+  const fs = require('fs');
+  const path = require('path');
+  const server = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-fallback', 'index.ts'), 'utf8');
+
+  it('promotes a noisy 40+ match only with exact public-catalog corroboration', () => {
+    expect(server).toContain('const MIN_CATALOG_CORROBORATED_SCORE = 40');
+    expect(server).toContain('exactCatalogMatch: Boolean(exactItunes || exactDeezer)');
+    expect(server).toContain('recognitionEvidence: "catalog_exact"');
+  });
+
+  it('keeps the 55 immediate threshold and repeated consensus fallback', () => {
+    expect(server).toContain('const MIN_ACR_SCORE = 55');
+    expect(server).toContain('candidateRecognition');
+    expect(server).toContain('recognitionEvidence: "repeat_required"');
+  });
+});

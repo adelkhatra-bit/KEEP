@@ -88,7 +88,15 @@ async function fetchJsonSafe(url: string, init?: RequestInit) {
   } catch { return null; }
 }
 
-type CatalogEnrichment = { artworkUrl?: string; previewUrl?: string; appleTrackId?: string; appleTrackViewUrl?: string };
+type CatalogEnrichment = {
+  artworkUrl?: string;
+  previewUrl?: string;
+  appleTrackId?: string;
+  appleTrackViewUrl?: string;
+  // Confirmation indépendante par un catalogue public. Un match ACRCloud
+  // moyen n’est promu que si le même titre + artiste existe exactement.
+  exactCatalogMatch: boolean;
+};
 
 // ACRCloud identifie l'empreinte audio mais ne renvoie ni jaquette, ni extrait
 // écoutable, ni lien Apple Music (juste des identifiants Spotify/Deezer/
@@ -110,9 +118,17 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
   const rows = Array.isArray(itunesPayload?.results) ? itunesPayload.results : [];
   const wantedTitle = normalizeText(title);
   const wantedArtist = normalizeText(artist);
-  const best = rows.find((row: any) => normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist)
+  const exactItunes = rows.find((row: any) =>
+    normalizeText(row?.trackName) === wantedTitle && normalizeText(row?.artistName) === wantedArtist
+  );
+  const best = exactItunes
     ?? rows.find((row: any) => normalizeText(row?.trackName).includes(wantedTitle) && normalizeText(row?.artistName).includes(wantedArtist))
     ?? rows[0];
+  const exactDeezer = Boolean(
+    deezerTrack
+    && normalizeText(deezerTrack?.title) === wantedTitle
+    && normalizeText(deezerTrack?.artist?.name) === wantedArtist
+  );
 
   const deezerCover = deezerTrack?.album?.cover_xl || deezerTrack?.album?.cover_big || deezerTrack?.album?.cover_medium;
   return {
@@ -120,6 +136,7 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
     previewUrl: deezerTrack?.preview ? String(deezerTrack.preview) : best?.previewUrl ? String(best.previewUrl) : undefined,
     appleTrackId: best?.trackId ? String(best.trackId) : undefined,
     appleTrackViewUrl: best?.trackViewUrl ? String(best.trackViewUrl) : undefined,
+    exactCatalogMatch: Boolean(exactItunes || exactDeezer),
   };
 }
 
@@ -133,6 +150,11 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
 // while accepting repeatable matches that were previously discarded at 61/100.
 const MIN_ACR_SCORE = 55;
 const MIN_REPEAT_CANDIDATE_SCORE = 20;
+// Retour réel iPhone/Safari du 30/09/2026 : un candidat à 40/100 était
+// cohérent mais rejeté. On ne baisse pas le seuil global : 40+ passe en
+// immédiat uniquement si Apple/iTunes ou Deezer confirme exactement titre
+// + artiste. Sinon le consensus multi-fenêtres reste obligatoire.
+const MIN_CATALOG_CORROBORATED_SCORE = 40;
 
 async function hmacSha1Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -154,7 +176,7 @@ function normalizeHost(value: string): string {
   return value.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
 }
 
-async function normalizeAcrMusic(music: any) {
+async function normalizeAcrMusicWithEvidence(music: any) {
   if (!music?.title) return null;
   const artist = first(music.artists)?.name ?? music.artist ?? "";
   if (!String(artist).trim()) return null;
@@ -199,18 +221,26 @@ async function normalizeAcrMusic(music: any) {
   externalUrls.youtubeSearch = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${music.title}`)}`;
 
   return {
-    confidence: Number.isFinite(score) ? Math.max(0, Math.min(1, score / 100)) : 1,
-    title,
-    artist: String(artist),
-    album: music.album?.name ? String(music.album.name) : undefined,
-    isrc: firstString(music.external_ids?.isrc),
-    artworkUrl: enrichment.artworkUrl,
-    previewUrl: enrichment.previewUrl,
-    availableOn,
-    externalUrls,
-    providerIds,
-    recognitionProviderTrackId: music.acrid ? String(music.acrid) : undefined,
+    recognition: {
+      confidence: Number.isFinite(score) ? Math.max(0, Math.min(1, score / 100)) : 1,
+      title,
+      artist: String(artist),
+      album: music.album?.name ? String(music.album.name) : undefined,
+      isrc: firstString(music.external_ids?.isrc),
+      artworkUrl: enrichment.artworkUrl,
+      previewUrl: enrichment.previewUrl,
+      availableOn,
+      externalUrls,
+      providerIds,
+      recognitionProviderTrackId: music.acrid ? String(music.acrid) : undefined,
+    },
+    exactCatalogMatch: enrichment.exactCatalogMatch,
   };
+}
+
+async function normalizeAcrMusic(music: any) {
+  const normalized = await normalizeAcrMusicWithEvidence(music);
+  return normalized?.recognition ?? null;
 }
 
 async function identify(req: Request) {
@@ -273,8 +303,27 @@ async function identify(req: Request) {
   const rawScore = Number(music?.score ?? 100);
   console.log("keep-music-fallback diag", JSON.stringify({ statusCode, hasMusic: Boolean(music), rawScore, title: music?.title ?? null, artist: first(music?.artists)?.name ?? music?.artist ?? null, minAcrScore: MIN_ACR_SCORE }));
   if (music && Number.isFinite(rawScore) && rawScore < MIN_ACR_SCORE) {
-    const candidateRecognition = rawScore >= MIN_REPEAT_CANDIDATE_SCORE ? await normalizeAcrMusic(music) : null;
-    return json(200, { ok: true, provider: "ACRCloud", recognition: null, candidateRecognition, providerStatus: statusCode, lowConfidenceScore: rawScore });
+    const normalized = rawScore >= MIN_REPEAT_CANDIDATE_SCORE ? await normalizeAcrMusicWithEvidence(music) : null;
+    const candidateRecognition = normalized?.recognition ?? null;
+    const catalogCorroborated = Boolean(
+      candidateRecognition
+      && normalized?.exactCatalogMatch
+      && rawScore >= MIN_CATALOG_CORROBORATED_SCORE
+    );
+    if (catalogCorroborated) {
+      console.log("keep-music-fallback corroborated", JSON.stringify({ rawScore, title: candidateRecognition.title, artist: candidateRecognition.artist }));
+      // Score acoustique <55 : on l’affiche grâce à la double preuve, mais on
+      // ne seed pas la mémoire collective pour éviter tout empoisonnement.
+      return json(200, {
+        ok: true, provider: "ACRCloud", recognition: candidateRecognition, providerStatus: statusCode,
+        lowConfidenceScore: rawScore, recognitionEvidence: "catalog_exact",
+      });
+    }
+    return json(200, {
+      ok: true, provider: "ACRCloud", recognition: null, candidateRecognition, providerStatus: statusCode,
+      lowConfidenceScore: rawScore,
+      recognitionEvidence: normalized?.exactCatalogMatch ? "catalog_exact_below_threshold" : "repeat_required",
+    });
   }
   const acrRecognition = await normalizeAcrMusic(music);
   if (acrRecognition) seedInBackground(admin, acrRecognition as any);
