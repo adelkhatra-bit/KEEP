@@ -1,29 +1,27 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('Owner profile identity breathing room', () => {
+describe('Owner profile identity alignment — locked 30/09/2026', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('puts Battle at the pseudo level on the right, in its own column, never in the username/certification line', () => {
+  it('aligns BATTLE on the same row as the profile role badge, under the right-side menu area', () => {
     const identity = source.indexOf('<View style={s.identity}>');
-    const username = source.indexOf('<View style={s.usernameLine}>', identity);
-    const meta = source.indexOf('<View style={s.profileMetaLeft}>', username);
-    const battleColumn = source.indexOf('<View style={s.identityBattle}>', meta);
-    const battle = source.indexOf('<BattleGlowButton', battleColumn);
-    const metrics = source.indexOf('<View style={s.topMetricsBar}', battle);
+    const roleRow = source.indexOf('<View style={s.profileRoleBattleRow}>', identity);
+    const role = source.indexOf('PROFILE_KIND_LABELS[user.kind]', roleRow);
+    const battle = source.indexOf('<BattleGlowButton', role);
+    const location = source.indexOf('style={s.location}', battle);
     expect(identity).toBeGreaterThan(-1);
-    expect(meta).toBeGreaterThan(username);
-    expect(battleColumn).toBeGreaterThan(meta);
-    expect(battle).toBeGreaterThan(battleColumn);
-    expect(metrics).toBeGreaterThan(battle);
-    expect(source.slice(username, meta)).not.toContain('<BattleGlowButton');
+    expect(roleRow).toBeGreaterThan(identity);
+    expect(role).toBeGreaterThan(roleRow);
+    expect(battle).toBeGreaterThan(role);
+    expect(location).toBeGreaterThan(battle);
   });
 
-  it('keeps the requested airy hierarchy with the identity lowered from the top bar', () => {
+  it('keeps the airy identity geometry and an explicit alignment rule', () => {
     expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
     expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16}");
-    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10}");
-    expect(source).toContain("identityBattle:{marginLeft:10,paddingTop:2,flexShrink:0,alignItems:'flex-end'}");
+    expect(source).toContain("profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10,width:'100%'}");
+    expect(source).toContain("profileBattleAligned:{width:112,flexShrink:0,alignSelf:'center'}");
   });
 });
 
