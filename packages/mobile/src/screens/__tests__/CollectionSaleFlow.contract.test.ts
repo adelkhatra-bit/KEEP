@@ -10,6 +10,9 @@ describe('Collection sale flow — no duplicates, mandatory payment mode', () =>
     expect(panel).toContain('＋ CRÉER UNE COLLECTION');
     expect(panel).toContain("navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true } })");
     expect(music).not.toContain('Sélectionner ${track.title} pour une collection exclusive');
+    expect(music).not.toContain("workspaceTab === 'COLLECTIONS'");
+    expect(music).not.toContain("setWorkspaceTab('COLLECTIONS')");
+    expect(music).not.toContain('◆ CRÉER AVEC CET ALBUM');
   });
 
   it('publishes only a named multi-track collection', () => {

@@ -1226,8 +1226,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
     if (key === 'sellPlaylists') return <>
       <Text style={s.shareTitle}>Mes collections exclusives</Text>
-      <Text style={s.shareSubtitle}>Crée une collection exclusive avec plusieurs morceaux de ton univers, mélange les styles si tu veux, puis choisis un prix en € ou en FREE. Les visiteurs voient une collection verrouillée et peuvent la préécouter sans titre, artiste ni vraie pochette. Retrouve ici toutes tes collections publiées et leur statut.</Text>
-      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('PlaylistSale')} accessibilityLabel="Collections"><Text style={s.shareActionPrimaryText}>GERER MES COLLECTIONS</Text></MotionActionButton>
+      <Text style={s.shareSubtitle}>Un seul parcours : crée une collection de plusieurs morceaux, donne-lui un titre, puis choisis obligatoirement € ou FREE. En euros, ton mode de paiement personnel doit être configuré. En FREE, aucun lien bancaire n’est nécessaire et tu facilites les déblocages, les écoutes et la croissance de ta communauté.</Text>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('PlaylistSale')} accessibilityLabel="Collections"><Text style={s.shareActionPrimaryText}>GÉRER MES COLLECTIONS</Text></MotionActionButton>
     </>;
 
     if (key === 'publicProfile') return <>

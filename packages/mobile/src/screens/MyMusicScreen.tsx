@@ -27,7 +27,6 @@ import {
   SmartAlbumRecord,
 } from '../services/smartAlbumService';
 import TrackPreviewButton from '../components/TrackPreviewButton';
-import LockedFeatureCard from '../components/LockedFeatureCard';
 import TrackActionRow from '../components/TrackActionRow';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
@@ -130,7 +129,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [trackVisibilityBusy, setTrackVisibilityBusy] = useState<string | null>(null);
   const [trackDeleteBusy, setTrackDeleteBusy] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
-  const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY' | 'COLLECTIONS'>('LIBRARY');
+  const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY'>('LIBRARY');
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
   const [homeHelpExpanded, setHomeHelpExpanded] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
@@ -791,51 +790,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
     return Array.from(byOfferId.values());
   }, [myOfferedTrackIds]);
 
-  // 29/09/2026 (audit ventes) : « Mes albums » affichait toujours un prix en
-  // €, même pour une collection débloquable en FREE -- existingOffersForAdd ne
-  // porte pas le mode de paiement. On lit l'offre complète déjà chargée.
-  const saleOfferPriceLabel = (offerId: string, fallbackCents: number) => {
-    const full = Object.values(myOffers).find((o) => o.offerId === offerId);
-    if (full?.paymentMode === 'FREE') return `${full.freePrice ?? 0} FREE`;
-    return `${((full?.priceCents ?? fallbackCents) / 100).toFixed(2).replace('.', ',')}€`;
-  };
-
-  const openAllAvailableMusic = () => {
-    setWorkspaceTab('LIBRARY');
-    setActiveTab('MUSIQUES');
-    setOriginFilter('LISTEN');
-    setManageMusicMode(true);
-    setSaleSelectionMode(false);
-    setSaleEditOfferTarget(null);
-  };
-
-  const openNewCollection = () => {
-    setWorkspaceTab('LIBRARY');
-    setActiveTab('MUSIQUES');
-    setOriginFilter('LISTEN');
-    setManageMusicMode(true);
-    setSelectedSaleTrackIds(new Set());
-    setSaleEditOfferTarget(null);
-    setSaleSelectionMode(true);
-  };
-
-  const openCollectionManager = (offer: { offerId: string; playlistName: string }) => {
-    setWorkspaceTab('LIBRARY');
-    setMobileSection('TRACKS');
-    setActiveTab('MUSIQUES');
-    setOriginFilter('LISTEN');
-    setManageMusicMode(true);
-    // IMPORTANT mobile UX: les morceaux déjà inclus doivent être cochés
-    // immédiatement. L'utilisateur voit donc l'état réel de l'album dès
-    // l'ouverture, au lieu d'une sélection vide trompeuse.
-    const includedIds = Object.entries(myOfferedTrackIds)
-      .filter(([, row]) => row.offerId === offer.offerId)
-      .map(([trackId]) => trackId);
-    setSelectedSaleTrackIds(new Set(includedIds));
-    setSaleEditOfferTarget({ offerId: offer.offerId, playlistName: offer.playlistName });
-    setSaleSelectionMode(true);
-  };
-
   const addSelectedTracksToOffer = async (offerId: string) => {
     const trackIds = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
     if (!trackIds.length) {
@@ -1242,32 +1196,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
             }
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
-          {marketplaceEnabled && workspaceTab === 'COLLECTIONS' && !isAllKeepView ? (
-            myOffers[item.id] ? (
-              <TouchableOpacity style={styles.sellMini} onPress={() => (isGroupView ? openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null }) : openSellModal({ kind: 'playlist', playlist: item }))}>
-                <Text style={styles.sellMiniText}>{`💶 ${(myOffers[item.id].priceCents / 100).toFixed(2)}€`}</Text>
-              </TouchableOpacity>
-            ) : (
-              <LockedFeatureCard
-                unlocked={Boolean(saleAccess?.unlocked)}
-                title={isGroupView ? 'Créer une collection avec cet album' : 'Créer une collection avec cette playlist'}
-                requirementLabel="abonnés"
-                current={saleAccess?.followers ?? 0}
-                required={saleAccess?.threshold ?? 100}
-                benefit="Compose une collection avec tes découvertes, fixe € / FREE, publie-la et suis chaque déblocage dans ton historique."
-                actionLabel="Voir mon profil"
-                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.sellMini}><Text style={styles.sellMiniText}>🔒 COLLECTION</Text></View>}
-              >
-                <TouchableOpacity style={styles.sellMini} onPress={() => {
-                  if (isGroupView) openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null });
-                  else openSellModal({ kind: 'playlist', playlist: item });
-                }}>
-                  <Text style={styles.sellMiniText}>{isGroupView ? '◆ CRÉER AVEC CET ALBUM' : '◆ CRÉER UNE COLLECTION'}</Text>
-                </TouchableOpacity>
-              </LockedFeatureCard>
-            )
-          ) : null}
         </View> : null}
       </View> : null}
     </View>;
@@ -1309,15 +1237,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.focusPrimary, { display: 'none' }]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
-          <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>◆</Text></View>
-          <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Mes albums / collections · {existingOffersForAdd.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Créer, modifier, ajouter des morceaux et gérer le prix</Text>
-          </View>
-          <Text style={styles.focusChoiceArrow}>›</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.focusServiceLink} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('SERVICES'); }} accessibilityLabel="Afficher les services musicaux ici">
           <Text style={styles.focusServiceIcon}>＋</Text>
           <View style={styles.focusServiceCopy}>
@@ -1331,36 +1250,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.focusLearnMoreButtonText}>{homeHelpExpanded ? 'Masquer l’aide' : 'Besoin d’aide ?'}</Text>
         </TouchableOpacity>
         {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Écouter = retrouver tes morceaux. · Visible = choisir public ou privé. · Trier = ranger par style ou artiste. · Collection = regrouper plusieurs morceaux.</Text> : null}
-      </View> : workspaceTab === 'COLLECTIONS' ? (
-        <TouchableOpacity style={styles.collectionCompactBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); }} accessibilityLabel="Revenir à Mes musiques"><Text style={styles.collectionCompactBackText}>‹ Ma musique</Text></TouchableOpacity>
-      ) : <View style={styles.focusBar}>
+      </View> : <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
         <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
       </View>}
-      {workspaceTab === 'COLLECTIONS' && mobileSection !== 'HOME' ? <View style={styles.collectionDashboard}>
-        <View style={styles.collectionDashboardHead}>
-          <View style={styles.collectionDashboardHeadCopy}><Text style={styles.collectionDashboardTitle}>MES ALBUMS / COLLECTIONS</Text><Text style={styles.collectionDashboardHint}>Tout est ici : morceaux, prix, € / FREE, paiement et statut.</Text></View>
-          <TouchableOpacity style={styles.collectionMenuButton} onPress={openNewCollection} accessibilityLabel="Créer un nouvel album"><Text style={styles.collectionMenuButtonText}>＋</Text></TouchableOpacity>
-        </View>
-        <View style={styles.collectionQuickActions}><TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic}><Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text></TouchableOpacity></View>
-        <TouchableOpacity
-          style={[styles.collectionPayoutStatus, payoutLink.trim() ? styles.collectionPayoutStatusReady : styles.collectionPayoutStatusMissing]}
-          onPress={() => navigation.navigate('ProfileCreatorTools')}
-          accessibilityLabel={payoutLink.trim() ? 'Paiement connecté' : 'Paiement à connecter'}
-        >
-          <View style={[styles.collectionPayoutDot, payoutLink.trim() ? styles.collectionPayoutDotReady : styles.collectionPayoutDotMissing]} />
-          <View style={styles.collectionPayoutCopy}><Text style={styles.collectionPayoutTitle}>{payoutLink.trim() ? `PAIEMENT CONNECTÉ · ${payoutProviderLabel(payoutLink)}` : 'PAIEMENT À CONNECTER'}</Text><Text style={styles.collectionPayoutHint}>{payoutLink.trim() ? 'Prêt à recevoir tes paiements directs' : 'Ajoute PayPal.Me ou ton lien de paiement pour être payé'}</Text></View>
-          <Text style={styles.collectionDashboardChevron}>›</Text>
-        </TouchableOpacity>
-        <Text style={styles.collectionDashboardSectionTitle}>ALBUMS PUBLIÉS · {existingOffersForAdd.length}</Text>
-        <ScrollView style={styles.collectionDashboardList} contentContainerStyle={styles.collectionDashboardRail} showsVerticalScrollIndicator={false}>
-          {existingOffersForAdd.length ? existingOffersForAdd.map((offer) => {
-            const trackCount = Object.values(myOfferedTrackIds).filter((row) => row.offerId === offer.offerId).length;
-            return <View key={offer.offerId} style={styles.collectionDashboardCard}><TouchableOpacity style={styles.collectionDashboardCardMain} onPress={() => openCollectionManager(offer)}><View style={styles.collectionDashboardCover}><Text style={styles.collectionDashboardCoverText}>♫</Text></View><View style={styles.collectionDashboardCardCopy}><Text style={styles.collectionDashboardKicker}>◆ PUBLIÉE</Text><Text style={styles.collectionDashboardName} numberOfLines={2}>{offer.playlistName}</Text><Text style={styles.collectionDashboardMeta}>{trackCount} morceau{trackCount > 1 ? 'x' : ''} · {saleOfferPriceLabel(offer.offerId, offer.priceCents)}</Text></View><Text style={styles.collectionDashboardChevron}>›</Text></TouchableOpacity><View style={styles.collectionDashboardActions}><TouchableOpacity style={styles.collectionManageButton} onPress={() => openCollectionManager(offer)}><Text style={styles.collectionManageButtonText}>＋ / − MUSIQUES</Text></TouchableOpacity><TouchableOpacity style={styles.collectionSettingsButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: offer.offerId, manageSaleOfferName: offer.playlistName })}><Text style={styles.collectionSettingsButtonText}>PRIX · € / FREE · STATUT</Text></TouchableOpacity></View></View>;
-          }) : <View style={styles.collectionDashboardEmptyCard}><Text style={styles.collectionDashboardEmptyTitle}>Aucun album publié</Text><Text style={styles.collectionDashboardEmpty}>Compose ton premier album avec tes musiques disponibles.</Text></View>}
-        </ScrollView>
-      </View> : null}
-
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
         <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
       ))}</View>}</View> : null}
@@ -1467,7 +1360,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <Text style={styles.analysisHelp}>Loki Music crée les Styles automatiquement sans supprimer tes morceaux. Tu peux les renommer et les rendre publiques ou privées.</Text>
       </View> : null}
 
-      {mobileSection === 'HOME' || workspaceTab === 'COLLECTIONS' ? null : activeTab === 'MUSIQUES' ? (
+      {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks : saleEditOfferTarget
             ? ownDiscoveryTracks

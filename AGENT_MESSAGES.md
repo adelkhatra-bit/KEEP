@@ -2073,3 +2073,8 @@ Demande Adel appliquée sans toucher App.tsx / Navigation.tsx / barre 5 onglets 
 ## [2026-09-30T23:05:00+02:00] chatgpt — vente collections centralisée, sans doublon
 
 Une seule entrée de création de vente : Collections/Pépites. Playlists ne montre plus un bouton de création sur chaque morceau ni un deuxième bandeau. Le cadenas explique le seuil d'abonnés et le bénéfice. Une fois débloqué, « Créer une collection » ouvre Playlists uniquement comme sélecteur de plusieurs morceaux (minimum 2), puis le titre de collection est saisi. Le mode de déblocage n'est plus pré-coché : choix obligatoire € EUROS ou FREE. En euros, le lien de paiement reste obligatoire ; en FREE, aucun lien externe et l'UI explique l'objectif écoutes/communauté. Aucune vente morceau par morceau. Aucun App.tsx/Navigation.tsx/5 onglets modifié.
+
+
+## [2026-09-30T23:12:00+02:00] chatgpt — suppression du dernier doublon caché ventes
+
+Le vieux workspace interne COLLECTIONS de MyMusic a été supprimé, ainsi que son bouton masqué et ses boutons de vente par playlist/album. Il ne peut plus être réactivé par erreur par une autre IA. Source unique : Profil > Collections > PlaylistSalePanel > Créer une collection > MyMusic utilisé uniquement comme sélecteur de plusieurs morceaux. Le texte du menu Profil rappelle maintenant le flux unique, le choix obligatoire € / FREE et l'obligation du mode de paiement en euros.
