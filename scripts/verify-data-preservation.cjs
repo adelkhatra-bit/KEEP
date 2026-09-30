@@ -166,6 +166,11 @@ if (!entries.length) {
 
 const failures = [];
 for (const entry of entries) {
+  // The guard contains its own destructive strings as self-test fixtures.
+  // Its behavior is validated separately by --self-test, so scanning this
+  // file's fixture literals would create a guaranteed false positive.
+  if (entry.file === 'scripts/verify-data-preservation.cjs') continue;
+
   if (/^supabase\/migrations\/.+\.sql$/i.test(entry.file) && !/^A/.test(entry.status)) {
     failures.push(entry.file + ': existing migration history is immutable; create a new additive migration');
     continue;
