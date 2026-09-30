@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.1",
+  "version": "2026-10-01.2",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -27,7 +27,12 @@
   },
   "profileOwner": {
     "freePlacement": "metrics-after-reprises",
-    "metricsBarOrder": ["PLUS", "Abonnés", "Reprises", "FREE"],
+    "metricsBarOrder": [
+      "PLUS",
+      "Abonnés",
+      "Reprises",
+      "FREE"
+    ],
     "freeBesideProfileKind": false,
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
@@ -35,7 +40,13 @@
     "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true
   },
   "responsive": {
-    "requiredViewports": ["390x844", "430x932", "768x700", "900x700", "1440x900"],
+    "requiredViewports": [
+      "390x844",
+      "430x932",
+      "768x700",
+      "900x700",
+      "1440x900"
+    ],
     "desktopRootMustFillViewport": true,
     "resizeMustNotBlankApplication": true,
     "fiveTabsMustRemainVisible": true
@@ -45,6 +56,24 @@
     "checkRemoteHeadBeforeEdit": true,
     "checkLiveSupabaseBeforeChangingDataRelatedUI": true,
     "updateContractAndGuardsInSameCommitWhenAProductRuleChanges": true,
-    "neverFixUiByMutatingProductionUserData": true
+    "neverFixUiByMutatingProductionUserData": true,
+    "cleanGeneratedCachesBeforeIntegration": true,
+    "validatedProductRulesImmutableUntilExplicitUserChange": true,
+    "integrationPreflightCommand": "npm run integration:preflight",
+    "integrationPostflightCommand": "npm run integration:postflight"
+  },
+  "marketplacePurchases": {
+    "completedPurchaseMustPersistInBuyerPlaylist": true,
+    "completedPurchaseMustPersistKeepDecision": true,
+    "recentPurchasesLocation": "Playlists home / Derniers achats",
+    "recentPurchasesMustRemainAccessibleWhenMarketplaceVisibilityIsOff": true,
+    "previewMustKeepTrackMetadataHiddenUntilUnlock": true,
+    "previewMustShowOwnedVsMissingCounts": true,
+    "previewMustExposeSellerProfile": true,
+    "previewMustUse3DProtectedMysteryVisual": true,
+    "duplicateDeliveryMustBeIdempotent": true,
+    "partialMissingTrackRequest": true,
+    "partialRequestSellerMayOfferFreePrice": true,
+    "partialOfferMustBePrivateToRequester": true
   }
 }
