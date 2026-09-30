@@ -11,7 +11,7 @@ import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
-import { classifyMusicPresence, keepsListeningAlive } from '../services/musicPresence';
+import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
 
 const RECOGNITION_TICK_MS = 700;
 // Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
@@ -168,6 +168,7 @@ interface SessionStore {
   showEndPrompt: boolean;
   recognizing: boolean;
   micLevel: number;
+  musicPresence: MusicPresenceVerdict;
   error: string | null;
   signalHint: string | null;
   locationLabel?: string;
@@ -254,7 +255,8 @@ async function applyDetectedTrack(
     lastDetectionAt = Date.now();
     lastMatchAt = lastDetectionAt;
     nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
-    set({ recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null });
+    presenceGate = createMusicPresenceGateState();
+    set({ recognizing: false, micLevel: 0, musicPresence: 'music', noMusicSince: null, showEndPrompt: false, error: null, signalHint: null });
     return 'duplicate';
   }
 
@@ -274,7 +276,8 @@ async function applyDetectedTrack(
   lastDetectionAt = Date.now();
   lastMatchAt = lastDetectionAt;
   nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
-  set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, showEndPrompt: false, error: null, signalHint: null }));
+  presenceGate = createMusicPresenceGateState();
+  set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, musicPresence: 'music', noMusicSince: null, showEndPrompt: false, error: null, signalHint: null }));
   persistLiveSession(get());
 
   // Audit Adel (11/09/2026) : "il faut que le bouton Garder soit bloque,
@@ -327,6 +330,7 @@ let lastMatchAt = 0;
 let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
 let consecutiveWeakSamples = 0;
+let presenceGate = createMusicPresenceGateState();
 // Seuil sur le pic linéaire pré-gain (même échelle que le garde-fou silence
 // à 0.004 dans micCapture.ts) : sous cette valeur, même après amplification
 // x10, le signal est trop faible pour qu'une empreinte fiable en sorte --
@@ -358,7 +362,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   showEndPrompt: false,
   recognizing: false,
   micLevel: 0,
-  error: null,
+  musicPresence: 'unknown',
+  error: null;
   signalHint: null,
   locationLabel: undefined,
   lat: undefined,
@@ -368,7 +373,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   pauseListening: () => {
     if (!get().isActive || get().micPaused) return;
     void cancelAudioCapture();
-    set({ micPaused: true, recognizing: false, micLevel: 0 });
+    set({ micPaused: true, recognizing: false, micLevel: 0, musicPresence: 'unknown', noMusicSince: null });
   },
 
   resumeListening: () => {
@@ -377,7 +382,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     // détection ("session terminée faute de morceau").
     lastDetectionAt = Date.now();
     lastMatchAt = lastDetectionAt;
-    set({ micPaused: false, noMusicSince: null });
+    presenceGate = createMusicPresenceGateState();
+    set({ micPaused: false, noMusicSince: null, musicPresence: 'unknown' });
   },
 
   startSession: () => {
@@ -402,6 +408,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     nextRecognitionAllowedAt = 0;
     consecutiveNoMatches = 0;
     consecutiveWeakSamples = 0;
+    presenceGate = createMusicPresenceGateState();
     set({
       isActive: true,
       sessionId: newId(),
@@ -411,7 +418,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       showEndPrompt: false,
       recognizing: false,
       micLevel: 0,
-      micPaused: false,
+      musicPresence: 'unknown',
+      micPaused: false;
       error: null,
       signalHint: null,
       locationLabel: undefined,
@@ -437,10 +445,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
               (peak) => { samplePeak = peak; },
             );
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
-        // Le minuteur de veille mesure l'absence de MUSIQUE, pas l'absence de
-        // correspondance catalogue : une musique inconnue mais musicale maintient
-        // l'écoute. Silence et conversations (signal haché) ne la maintiennent pas.
-        if (keepsListeningAlive(classifyMusicPresence(sampleLevels).verdict)) lastDetectionAt = Date.now();
+        const presence = classifyMusicPresence(sampleLevels);
+        presenceGate = advanceMusicPresenceGate(presenceGate, presence.verdict, Date.now());
+        set({ musicPresence: presence.verdict });
+        if (presence.verdict === 'music') {
+          lastDetectionAt = Date.now();
+          if (get().noMusicSince || get().showEndPrompt) {
+            set({ noMusicSince: null, showEndPrompt: false });
+            if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
+          }
+        }
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         if (!recognition) {
@@ -478,9 +492,10 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const { isActive, silenceTimeoutMin, showEndPrompt, micPaused, noMusicSince } = get();
       if (!isActive || showEndPrompt || micPaused) return;
       const now = Date.now();
-      const visibleSince = now - lastDetectionAt >= NO_MUSIC_VISIBLE_AFTER_MS ? lastDetectionAt : null;
+      const confirmedNoMusicSince = presenceGate.confirmedNoMusicSince;
+      const visibleSince = confirmedNoMusicSince && now - confirmedNoMusicSince >= NO_MUSIC_VISIBLE_AFTER_MS ? confirmedNoMusicSince : null;
       if (visibleSince !== noMusicSince) set({ noMusicSince: visibleSince });
-      const noMusicTooLong = now - lastDetectionAt >= silenceTimeoutMin * 60 * 1000;
+      const noMusicTooLong = Boolean(confirmedNoMusicSince && now - confirmedNoMusicSince >= silenceTimeoutMin * 60 * 1000);
       const noMatchTooLong = now - lastMatchAt >= NO_MATCH_BACKSTOP_MIN * 60 * 1000;
       if (noMusicTooLong || noMatchTooLong) {
         set({ showEndPrompt: true });
@@ -498,7 +513,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
     lastDetectionAt = Date.now();
     lastMatchAt = lastDetectionAt;
-    set({ showEndPrompt: false, noMusicSince: null });
+    presenceGate = createMusicPresenceGateState();
+    set({ showEndPrompt: false, noMusicSince: null, musicPresence: 'unknown' });
   },
 
   requestEndSession: (title) => {
@@ -509,7 +525,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!s.sessionId || !s.startedAt) return null;
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    presenceGate = createMusicPresenceGateState();
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, musicPresence: 'unknown', micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 

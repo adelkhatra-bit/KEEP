@@ -2019,3 +2019,10 @@ Demande utilisateur confirmée à nouveau : sur le profil propriétaire, PLUS do
 ## [2026-09-30T18:30:00Z] chatgpt — échelle millions + La Place + séparation musique/soirées
 
 Demande Adel traitée sans fusionner les deux profils : le profil propriétaire et le profil visité restent deux écrans distincts. Abonnés/Abonnements passent à une pagination 24 profils + recherche pseudo (plus de chargement de 200 profils des deux sens au même clic) ; Reprises est borné côté serveur. Nouveau module « La Place » dans le hamburger : salons musicaux courts (souvenirs, découvertes, débats), 280 caractères, pas de DM, filtre serveur anti-insultes, rate-limit, signalement, blocage, retrait automatique à 3 signalements, file Super Admin. Sur profil visité, drops musicaux et soirées ne sont plus mélangés. Accueil : CTA explicite « IDENTIFIER UN MORCEAU ». ProfileOpportunityRail devient un drop animé plutôt qu'une liste « Choisi pour ton oreille ». Aucun App.tsx / Navigation.tsx / barre 5 onglets touché.
+
+
+## [2026-09-30T18:35:00Z] chatgpt — écoute intelligente / voiture / arrêt auto
+
+Test réel retrouvé dans Supabase KEEP : le micro envoie bien les extraits. AudD répond 409 car AUDD_API_KEY n'est plus configurée. ACRCloud est configuré et a renvoyé plusieurs fois le même candidat « I still see your smile — RKO prods » avec scores 37, 25 puis 46, tous rejetés par l'ancien seuil unique 55. Correctif : seuil 55 conservé pour un match immédiat, mais candidat >=20 renvoyé au client et accepté seulement si même titre+artiste répété sur plusieurs fenêtres avec consensus. AudD 409 mis en cache 5 min pour passer directement à ACRCloud.
+
+Arrêt auto : le chrono 1 min s'arme seulement après deux fenêtres consécutives classées voix/silence. Une fenêtre musique annule immédiatement le chrono. Les statuts passent sous le détecteur. Hamburger Écouter = violet comme Profil. Badge clignotant « N prêts à trier » quand la session contient des morceaux. Aucun changement App.tsx / Navigation.tsx / barre 5 onglets.

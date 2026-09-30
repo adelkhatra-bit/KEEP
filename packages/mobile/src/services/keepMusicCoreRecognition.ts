@@ -5,15 +5,19 @@ import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
 import { APP_NAME } from '../config/brand';
+import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 30 * 1000;
+const PRIMARY_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
+let primaryUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
+let fallbackConsensus: RecognitionConsensusState | null = null;
 
 // AJOUT (02/09/2026, demande Adel : "je suis dans la voiture, la musique est
 // longue -- si l'écoute a déjà identifié le morceau, il ne faut pas qu'elle
@@ -434,11 +438,18 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       stickyMemoryMissStreak = 0;
     }
 
-    const primary = await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
+    const primary = Date.now() < primaryUnavailableUntil
+      ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
+      : await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
     const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
     if (primary.ok && primary.payload?.recognition) {
+      primaryUnavailableUntil = 0;
+      fallbackConsensus = null;
       recognitionBackoffUntil = 0;
       return primary.payload.recognition as RecognitionResult;
+    }
+    if (primary.status === 409 || primary.payload?.error === 'recognition_not_configured') {
+      primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
     }
 
     // Si ACRCloud a déjà répondu « non configuré », ne pas répéter à chaque
@@ -462,8 +473,23 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
     if (fallback.ok && fallback.payload?.recognition) {
       fallbackUnavailableUntil = 0;
+      fallbackConsensus = null;
       recognitionBackoffUntil = 0;
       return fallback.payload.recognition as RecognitionResult;
+    }
+
+    if (fallback.ok && fallback.payload?.candidateRecognition) {
+      const decision = updateRecognitionConsensus(
+        fallbackConsensus,
+        fallback.payload.candidateRecognition as RecognitionResult,
+        Number(fallback.payload.lowConfidenceScore ?? 0),
+      );
+      fallbackConsensus = decision.state;
+      if (decision.accepted) {
+        fallbackUnavailableUntil = 0;
+        recognitionBackoffUntil = 0;
+        return decision.accepted;
+      }
     }
 
     const keyless = await keylessSourceRecognition(accessToken);

@@ -93,7 +93,7 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
-    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, micPaused, silenceTimeoutMin, noMusicSince,
+    isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -443,7 +443,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   if (!isActive) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
-        <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
+        <TopBar navigation={navigation} readyCount={detected} />
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -515,7 +515,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
+      <TopBar navigation={navigation} readyCount={detected} />
 
       <ScrollView
         style={s.main}
@@ -535,22 +535,6 @@ export default function HomeScreenCompact({ navigation }: any) {
               23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore
               animée et compteurs unifiés. Restyling seul -- aucune fonctionnalité, aucun
               état ni animation existante (micPulse/signalScan/aura) n'est retiré. */}
-          <View style={s.liveTopbar}>
-            <View style={[s.micPill, micIdle && s.micPillIdle]}>
-              <View style={[s.liveDot, micIdle && s.liveDotError]} />
-              <Text style={[s.liveText, micIdle && s.liveTextError]}>{liveStatusLabel}</Text>
-            </View>
-            {noMusicSince ? (
-              <View style={[s.autoStopChip, s.autoStopChipCounting]} accessibilityLiveRegion="polite">
-                <Text style={[s.autoStopText, s.autoStopTextCounting]}>Pas de musique · arrêt {formatNoMusicCountdown(noMusicSince, silenceTimeoutMin)}</Text>
-              </View>
-            ) : (
-              <View style={s.autoStopChip}>
-                <Text style={s.autoStopText}>⏱ Arrêt si {silenceTimeoutMin} min sans musique</Text>
-              </View>
-            )}
-          </View>
-
           <ListenEnergyAura active={isActive} recognizing={recognizing} micLevel={micLevel} detectedCount={detected}>
             <Animated.View style={[s.signalFrame, { transform: [{ scale: liveGlowScale }] }]}>
               <Animated.View pointerEvents="none" style={[s.signalGlow, { opacity: liveGlowOpacity }]} />
@@ -566,6 +550,27 @@ export default function HomeScreenCompact({ navigation }: any) {
               </View>
             </Animated.View>
           </ListenEnergyAura>
+          <View style={s.liveTopbar}>
+            <View style={[s.micPill, micIdle && s.micPillIdle]}>
+              <View style={[s.liveDot, micIdle && s.liveDotError]} />
+              <Text style={[s.liveText, micIdle && s.liveTextError]}>{liveStatusLabel}</Text>
+            </View>
+            {noMusicSince ? (
+              <View style={[s.autoStopChip, s.autoStopChipCounting]} accessibilityLiveRegion="polite">
+                <Text style={[s.autoStopText, s.autoStopTextCounting]}>Pas de musique · arrêt {formatNoMusicCountdown(noMusicSince, silenceTimeoutMin)}</Text>
+              </View>
+            ) : musicPresence === 'music' ? (
+              <View style={[s.autoStopChip, s.musicPresentChip]} accessibilityLiveRegion="polite">
+                <Text style={[s.autoStopText, s.musicPresentText]}>♫ MUSIQUE PRÉSENTE</Text>
+              </View>
+            ) : musicPresence === 'speech' ? (
+              <View style={s.autoStopChip}><Text style={s.autoStopText}>Voix / ambiance · vérification</Text></View>
+            ) : musicPresence === 'silence' ? (
+              <View style={s.autoStopChip}><Text style={s.autoStopText}>Silence · confirmation</Text></View>
+            ) : (
+              <View style={s.autoStopChip}><Text style={s.autoStopText}>⏱ Arrêt après {silenceTimeoutMin} min sans musique</Text></View>
+            )}
+          </View>
         </View>
 
         {error ? <View style={s.errorBanner}><Text style={s.errorBannerText}>{error}</Text>{micBlocked && micPermissionFixHint() ? <Text style={s.micFixHintInBanner}>{micPermissionFixHint()}</Text> : null}</View> : null}
@@ -745,15 +750,33 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation }: any) {
-  // Adel (29/09/2026) : plus de nom d'application au-dessus du titre. Même
-  // en-tête que les autres onglets (titre de page seul, typography.h1),
-  // centré dans une largeur maximale sur tablette/PC.
+function TopBar({ navigation, readyCount = 0 }: any) {
+  const readyPulse = useRef(new Animated.Value(0.45)).current;
+  useEffect(() => {
+    if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(readyPulse, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(readyPulse, { toValue: 0.45, duration: 620, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [readyCount, readyPulse]);
+
   return <View style={s.topBar}>
     <Text style={s.brand} numberOfLines={1}>Écouter</Text>
-    <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel="Ouvrir mes sessions">
-      <Text style={s.roundText}>☰</Text>
-    </TouchableOpacity>
+    <View style={s.topBarActions}>
+      {readyCount > 0 ? (
+        <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
+          <Animated.View style={[s.readyPill, { opacity: readyPulse }]}>
+            <View style={s.readyDot} />
+            <Text style={s.readyText} numberOfLines={1}>{readyCount} {readyCount === 1 ? 'prêt à trier' : 'prêts à trier'}</Text>
+          </Animated.View>
+        </TouchableOpacity>
+      ) : null}
+      <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel="Ouvrir mes sessions">
+        <Text style={s.roundText}>☰</Text>
+      </TouchableOpacity>
+    </View>
   </View>;
 }
 
@@ -905,13 +928,15 @@ const s = StyleSheet.create({
   blob1: { width: 320, height: 320, backgroundColor: C.purple, top: -60, left: -80, opacity: 0.20 },
   blob2: { width: 280, height: 280, backgroundColor: C.green, top: 170, right: -90, opacity: 0.12 },
   blob3: { width: 260, height: 260, backgroundColor: colors.primaryDark, bottom: 120, left: -50, opacity: 0.16 },
-  liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, marginBottom: 8 },
+  liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6, marginBottom: 4 },
   micPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
   micPillIdle: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.4)' },
   autoStopChip: { flexShrink: 1, marginLeft: 8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
   autoStopText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
   autoStopChipCounting: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.45)' },
   autoStopTextCounting: { color: C.pink },
+  musicPresentChip: { backgroundColor: 'rgba(45,225,194,0.12)', borderColor: 'rgba(45,225,194,0.45)' },
+  musicPresentText: { color: C.green },
   waveRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 42, gap: 3, marginBottom: 8 },
   waveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight },
   waveBarIdle: { backgroundColor: C.muted },
@@ -920,8 +945,12 @@ const s = StyleSheet.create({
   sectionCountText: { color: C.purpleLight, fontSize: 11, fontWeight: '900' },
   topBar: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4 },
   topBarSpacer: { width: 44 },
-  round: { width: 44, height: 44, borderRadius: 16, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  roundText: { color: C.text, fontSize: 28, lineHeight: 30, fontWeight: '700' },
+  topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  readyPill: { minHeight: 36, maxWidth: 132, paddingHorizontal: 10, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: C.green },
+  readyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
+  readyText: { color: C.green, fontSize: 10, fontWeight: '900', flexShrink: 1 },
+  round: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  roundText: { color: colors.white, fontSize: 28, lineHeight: 30, fontWeight: '900' },
   brand: { ...typography.h1, color: C.text, flexShrink: 1 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
   planFree: { borderColor: colors.keepPressed, backgroundColor: 'rgba(45,225,194,0.12)' },

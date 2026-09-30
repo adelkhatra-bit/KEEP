@@ -132,6 +132,7 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
 // Ambient phone capture is noisier than direct audio. 55 keeps weak guesses out
 // while accepting repeatable matches that were previously discarded at 61/100.
 const MIN_ACR_SCORE = 55;
+const MIN_REPEAT_CANDIDATE_SCORE = 20;
 
 async function hmacSha1Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -272,7 +273,8 @@ async function identify(req: Request) {
   const rawScore = Number(music?.score ?? 100);
   console.log("keep-music-fallback diag", JSON.stringify({ statusCode, hasMusic: Boolean(music), rawScore, title: music?.title ?? null, artist: first(music?.artists)?.name ?? music?.artist ?? null, minAcrScore: MIN_ACR_SCORE }));
   if (music && Number.isFinite(rawScore) && rawScore < MIN_ACR_SCORE) {
-    return json(200, { ok: true, provider: "ACRCloud", recognition: null, providerStatus: statusCode, lowConfidenceScore: rawScore });
+    const candidateRecognition = rawScore >= MIN_REPEAT_CANDIDATE_SCORE ? await normalizeAcrMusic(music) : null;
+    return json(200, { ok: true, provider: "ACRCloud", recognition: null, candidateRecognition, providerStatus: statusCode, lowConfidenceScore: rawScore });
   }
   const acrRecognition = await normalizeAcrMusic(music);
   if (acrRecognition) seedInBackground(admin, acrRecognition as any);
