@@ -6,7 +6,7 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(...parts), 'ut
 describe('KEEP Battle rematch lifecycle', () => {
   const game = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const service = read(__dirname, '..', '..', 'services', 'keepBattleService.ts');
-  const migration = read(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20260930212000_keep_battle_rematch_cancel_status_timeout.sql');
+  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260930212000_keep_battle_rematch_cancel_status_timeout.sql');
 
   it('does nothing after match end until the player explicitly requests REVANCHE', () => {
     expect(game).toContain("!rematchDeadline ? (");
