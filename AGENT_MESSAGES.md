@@ -2122,3 +2122,14 @@ Demande Adel traitée sur la branche unique. FREE est verrouillé à droite du t
 ## [2026-09-30T23:46:00+02:00] chatgpt — Public API toolbox + verrou données production
 
 Demande Adel appliquée sans toucher à l'UI : catalogue GitHub public-apis/public-apis accessible aux agents via `npm run public-api:search -- <besoin>`, sans dépendance runtime ni activation automatique d'une API non auditée. Protection CI renforcée pour considérer FREE, crédits, scores/résultats Battle, achats, profils, playlists et historiques comme actifs persistants ; migrations existantes immuables, db reset/db push interdits, ledgers crédits/audit append-only. Le premier run a détecté ses propres fixtures de self-test (faux positif), corrigé proprement ; run final Data preservation `36781517649` SUCCESS sur `8432ede5`. Audit Supabase live : projet KEEP actif, plan organisation Free ; sauvegardes/PITR adaptées obligatoires avant montée à très grande échelle. Security Advisor garde un backlog de RPC SECURITY DEFINER à auditer individuellement.
+
+
+## [2026-10-01T00:20:00+02:00] chatgpt — bonus SANS-FAUTE multijoueur
+
+Nouvelle règle demandée par Adel, scope Battle uniquement. Je modifie seulement KeepBattleMobileGameV3 + une migration additive Supabase :
+- Battle multijoueur uniquement (Arena, jamais le Solo) ;
+- score parfait sur tout le pack (8/8, 15/15, 20/20, 30/30) ;
+- un seul bonus système même si plusieurs joueurs sont parfaits : le plus rapide au temps cumulé ;
+- bonus = mise réelle du pack (8=>3, 15=>6, 20=>8, 30=>12 Free) ;
+- animation spéciale de fin visible par tout le groupe avec pseudo du gagnant du bonus.
+Ne pas modifier ce flux en parallèle avant mon handoff.
