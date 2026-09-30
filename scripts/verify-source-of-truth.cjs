@@ -31,6 +31,10 @@ const mustExist = [
   '.github/copilot-instructions.md',
   '.github/workflows/branch-hygiene.yml',
   'BRANCH_SOURCE_OF_TRUTH.json',
+  'docs/KEEP_MASTER_SPEC.md',
+  'docs/KEEP_CAHIER_DES_CHARGES_UI.md',
+  'config/keep-ui-baseline.json',
+  'scripts/verify-ui-layout-baseline.cjs',
   'packages/mobile',
   'packages/admin',
   'packages/backend',
@@ -94,6 +98,20 @@ for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
   if (!branchContract.forbiddenRemoteBranches?.includes(forbiddenBranch)) {
     failures.push(`BRANCH CONTRACT MUST FORBID REMOTE BRANCH: ${forbiddenBranch}`);
   }
+}
+
+const masterSpec = fs.readFileSync(path.join(root, 'docs/KEEP_MASTER_SPEC.md'), 'utf8');
+for (const expected of [
+  expectedRepository,
+  expectedBranch,
+  'FREE immédiatement à droite du badge de type',
+  'listen = 0',
+  'recognize = 0',
+  'PASS = 0',
+  'KEEP = -1',
+  'rrhqsqzcplvmwxizqnla.supabase.co',
+]) {
+  if (!masterSpec.includes(expected)) failures.push(`MASTER SPEC MARKER MISSING: ${expected}`);
 }
 
 const claudeInstructions = fs.readFileSync(path.join(root, 'CLAUDE.md'), 'utf8');
