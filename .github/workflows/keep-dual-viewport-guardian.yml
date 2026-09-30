@@ -275,12 +275,12 @@ jobs:
             await page.getByText('1 · DISTANCE',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await clickRobust(page,page.getByText('Playlists',{exact:true}).last(),'Playlists tab');
             await clickRobust(page,page.getByText('Soirées',{exact:true}).last(),'Soirées tab');
-            await clickRobust(page,page.getByText('Battle',{exact:true}).last(),'Battle entry');
-            const openSalon=page.getByLabel('Ouvrir le Salon Loki Music Battle').last();
-            await openSalon.waitFor({state:'visible',timeout:15000});
-            await clickRobust(page,openSalon,'Open Battle salon');
-            // Le launcher disparaît dès que la modale Battle est montée. Le premier marqueur
-            // réellement rendu dans l'écran de configuration est FORMAT DU BATTLE.
+            // Le parcours validé ouvre désormais le vrai Battle directement :
+            // aucun onglet/lanceur "Salon musical" intermédiaire ne doit revenir.
+            const openBattle=page.getByLabel('Ouvrir directement Battle').last();
+            await openBattle.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,openBattle,'Open Battle directly');
+            // Le premier marqueur réellement rendu dans l'écran de configuration est FORMAT DU BATTLE.
             await page.getByText('FORMAT DU BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:20000});
             await page.getByText('10 s / titre',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Jouer en solo').last().waitFor({state:'visible',timeout:15000});
