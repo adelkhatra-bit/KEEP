@@ -2459,7 +2459,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               <Text style={s.rematchStatusHint}>Le Battle repart uniquement avec ceux qui acceptent avant la fin du compteur.</Text>
               <View style={s.rematchStatusList}>
                 {rematchParticipants.length ? rematchParticipants.map((participant) => {
-                  const label = participant.isProposer ? 'DEMANDE ENVOYÉE' : participant.rematchReady === true ? '✓ ACCEPTÉ' : participant.rematchReady === false ? '× REFUSÉ' : '… EN ATTENTE';
+                  const label = participant.isProposer && participant.rematchReady === true ? 'DEMANDE ENVOYÉE' : participant.rematchReady === true ? '✓ ACCEPTÉ' : participant.rematchReady === false ? '× REFUSÉ / PARTI' : '… EN ATTENTE';
                   return <View key={participant.profileId} style={s.rematchStatusRow}><Text numberOfLines={1} style={s.rematchStatusName}>{participant.isMe ? 'Toi' : participant.username}</Text><Text style={[s.rematchStatusState, participant.rematchReady === true && s.rematchStatusAccepted, participant.rematchReady === false && s.rematchStatusDeclined]}>{label}</Text></View>;
                 }) : <Text style={s.rematchStatusLoading}>Mise à jour des réponses…</Text>}
               </View>

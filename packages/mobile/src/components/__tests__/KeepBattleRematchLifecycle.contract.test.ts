@@ -7,6 +7,7 @@ describe('KEEP Battle rematch lifecycle', () => {
   const game = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const service = read(__dirname, '..', '..', 'services', 'keepBattleService.ts');
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260930212000_keep_battle_rematch_cancel_status_timeout.sql');
+  const leaveSafetyMigration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260930214500_keep_battle_rematch_leave_safety.sql');
 
   it('does nothing after match end until the player explicitly requests REVANCHE', () => {
     expect(game).toContain("!rematchDeadline ? (");
@@ -42,5 +43,12 @@ describe('KEEP Battle rematch lifecycle', () => {
     expect(game).toContain("if (!arena || arena.status !== 'ACTIVE')");
     expect(game).toContain('closeBattleArenaNow();');
     expect(game).toContain('La partie est en cours. Si tu quittes maintenant');
+  });
+
+  it('never reactivates somebody who explicitly left while a rematch was pending', () => {
+    expect(leaveSafetyMigration).toContain("m.seat_status <> 'LEFT'");
+    expect(leaveSafetyMigration).toContain('set rematch_ready=false, seat_status=\'LEFT\'');
+    expect(leaveSafetyMigration).toContain('perform public.keep_battle_arena_cancel_rematch(a.id)');
+    expect(game).toContain('× REFUSÉ / PARTI');
   });
 });
