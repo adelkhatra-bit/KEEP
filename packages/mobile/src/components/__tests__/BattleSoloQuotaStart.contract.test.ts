@@ -6,6 +6,7 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(...parts), 'ut
 describe('Battle Solo quota start contract', () => {
   const game = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const service = read(__dirname, '..', '..', 'services', 'keepBattleExperienceService.ts');
+  const copy = read(__dirname, '..', '..', 'services', 'battleHomeInfo.ts');
 
   it('does not consume a daily Solo while only preparing the pack', () => {
     const packStart = service.indexOf('export async function loadKeepBattleSoloPack');
@@ -29,6 +30,11 @@ describe('Battle Solo quota start contract', () => {
     expect(lock).toBeGreaterThan(playable);
     expect(consume).toBeGreaterThan(lock);
     expect(ready).toBeGreaterThan(consume);
+  });
+
+  it('does not subtract the same Solo twice in the quit message', () => {
+    expect(copy).toContain('const left = Math.max(0, status.remaining ?? 0);');
+    expect(copy).not.toContain('const left = Math.max(0, (status.remaining ?? 0) - 1);');
   });
 
   it('labels the multiplayer choice EN LIGNE beside SOLO', () => {
