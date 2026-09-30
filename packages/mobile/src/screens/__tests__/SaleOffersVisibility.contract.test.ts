@@ -23,9 +23,10 @@ describe('ventes : toutes les collections visibles, prix juste', () => {
     expect(panel).toContain('route?.params?.manageSaleOfferId');
   });
 
-  it('« Mes albums » affiche FREE pour une collection en FREE, € sinon', () => {
-    const m = read('MyMusicScreen.tsx');
-    expect(m).toContain("if (full?.paymentMode === 'FREE') return `${full.freePrice ?? 0} FREE`;");
-    expect(m).toContain('{saleOfferPriceLabel(offer.offerId, offer.priceCents)}');
+  it('le gestionnaire unique affiche FREE pour une collection en FREE, € sinon', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
+    expect(panel).toContain("item.paymentMode === 'FREE'");
+    expect(panel).toContain("`${item.freePrice ?? 0} FREE`");
+    expect(panel).toContain("`${(item.priceCents / 100).toFixed(2).replace('.', ',')}€ ${item.currencyCode}`");
   });
 });

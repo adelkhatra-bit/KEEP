@@ -118,7 +118,7 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(checkboxBlock).toContain('selectionCheck');
     });
 
-    it('"Donné par", Public/Privé, Supprimer and Vendre are passed as TrackActionRow children (the panel), never rendered outside it', () => {
+    it('"Donné par", Public/Privé and Supprimer stay in the panel while sale is represented only by the collection badge', () => {
       const rowIdx = myMusic.indexOf('<TrackActionRow');
       const closeIdx = myMusic.indexOf('</TrackActionRow>');
       expect(rowIdx).toBeGreaterThan(-1);
@@ -127,7 +127,8 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(childrenBlock).toContain('trackSourceRow');
       expect(childrenBlock).toContain('visibilityTrackButton');
       expect(childrenBlock).toContain('deleteTrackButton');
-      expect(childrenBlock).toContain('sellTrackButton');
+      expect(childrenBlock).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`');
+      expect(childrenBlock).not.toContain('sellTrackButton');
     });
 
     it('keeps normal rows toggleable while management mode opens every real local row without removing the existing state', () => {

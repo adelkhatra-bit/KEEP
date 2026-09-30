@@ -2097,3 +2097,8 @@ PRIORITÉ UTILISATEUR : IDENTIFIER UN MORCEAU doit réellement reconnaître la m
 Je prends uniquement la cascade reconnaissance. Autres agents : ne modifiez pas supabase/functions/keep-music-fallback/index.ts, packages/mobile/src/services/recognitionConsensus.ts, packages/mobile/src/store/useSessionStore.ts ni nativeShazamRecognition.ts jusqu’au handoff.
 
 Correctif ciblé : seuil fiable 55 conservé ; score ACR >=40 accepté immédiatement seulement si Apple/iTunes ou Deezer confirme EXACTEMENT le même titre+artiste ; sinon consensus répété >=20 conservé. Les matchs sub-55 corroborés ne seedent pas la mémoire collective. Aucun App.tsx / Navigation.tsx / barre 5 onglets modifié.
+
+
+## [2026-09-30T23:36:00+02:00] chatgpt — gardes vente finalisés
+
+Les derniers contrats qui visaient encore « Mes albums » ou un bouton Vendre par morceau ont été basculés sur PlaylistSalePanel, source unique. Le mode obligatoire est désormais testé avec le nouveau libellé, le mode FREE avec son bénéfice communauté, et les lignes MyMusic ne doivent plus contenir de bouton de vente séparé.
