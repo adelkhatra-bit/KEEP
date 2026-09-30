@@ -1256,7 +1256,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             }
           }}><Text style={styles.serviceMiniText}>♫ SERVICES</Text></TouchableOpacity>
           <TouchableOpacity style={styles.shareMini} onPress={() => sharePlaylist(item.id, item.name).catch(() => Alert.alert('Partager', 'Partage indisponible pour le moment.'))}><Text style={styles.shareMiniText}>↗ PARTAGER</Text></TouchableOpacity>
-          {marketplaceEnabled && !isAllKeepView ? (
+          {marketplaceEnabled && workspaceTab === 'COLLECTIONS' && !isAllKeepView ? (
             myOffers[item.id] ? (
               <TouchableOpacity style={styles.sellMini} onPress={() => (isGroupView ? openSellModal({ kind: 'selection', key: item.id, name: item.name, trackIds: tracks.map((t) => t.id), coverUrl: tracks.find((t) => Boolean(t.artworkUrl))?.artworkUrl ?? null }) : openSellModal({ kind: 'playlist', playlist: item }))}>
                 <Text style={styles.sellMiniText}>{`💶 ${(myOffers[item.id].priceCents / 100).toFixed(2)}€`}</Text>
