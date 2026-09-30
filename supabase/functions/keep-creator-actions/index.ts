@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
       // ligne elle-meme (include_rsvp_buttons), car la diffusion ne part
       // plus a la creation mais a l'approbation admin (voir plus bas).
       const includeRsvpButtons = body?.includeRsvpButtons !== false;
+      const audienceMode = ["GENERAL","ADULTS_18_PLUS","FAMILY"].includes(String(body?.audienceMode)) ? String(body.audienceMode) : "GENERAL";
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -163,6 +164,7 @@ Deno.serve(async (req) => {
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
         include_rsvp_buttons: includeRsvpButtons,
+        audience_mode: audienceMode,
         moderation_status: "PENDING",
         moderation_flag: flag.flagged,
         moderation_flag_reason: flag.reason,
@@ -202,6 +204,7 @@ Deno.serve(async (req) => {
       const requireQrCode = body?.requireQrCode === true;
       const organizerPhone = cleanPhone(body?.organizerPhone);
       const showOrganizerPhone = body?.showOrganizerPhone === true && Boolean(organizerPhone);
+      const audienceMode = ["GENERAL","ADULTS_18_PLUS","FAMILY"].includes(String(body?.audienceMode)) ? String(body.audienceMode) : "GENERAL";
       const startsAt = new Date(String(body?.startsAt ?? ""));
       const endsAtRaw = body?.endsAt ? new Date(String(body.endsAt)) : null;
       if (name.length < 3) return json({ ok: false, error: "event_name_required" }, 400);
@@ -229,6 +232,7 @@ Deno.serve(async (req) => {
         require_qr_code: requireQrCode,
         organizer_phone: organizerPhone,
         show_organizer_phone: showOrganizerPhone,
+        audience_mode: audienceMode,
         moderation_status: "PENDING",
         moderation_note: null,
         moderated_by: null,
@@ -270,72 +274,23 @@ Deno.serve(async (req) => {
 
       const { data: event, error: eventError } = await admin
         .from("events")
-        .select("id,name,starts_at,venue_name,creator_id,image_url")
+        .select("id,name,creator_id")
         .eq("id", eventId)
         .eq("creator_id", user.id)
         .maybeSingle();
       if (eventError) throw eventError;
       if (!event) return json({ ok: false, error: "event_not_found" }, 404);
 
-      // Adel (01/09/2026) : audience élargie et obligatoire pour les
-      // événements. "on ne leur laisse pas le choix... vu que notre
-      // plateforme ne diffuse pas de pub" -- confirmé : le réglage
-      // "DJ & soirées" (dj_enabled) coupait bien ces notifications avant.
-      // Il ne s'applique plus ici. L'audience n'est plus seulement les
-      // abonnés directs : toute personne ayant déjà gardé un morceau
-      // provenant du profil du créateur (source_user_id) reçoit aussi
-      // l'invitation, même sans le suivre.
-      const { data: followers, error: followersError } = await admin
-        .from("follows")
-        .select("follower_id")
-        .eq("followee_id", user.id);
-      if (followersError) throw followersError;
-
-      const { data: takers, error: takersError } = await admin
-        .from("keep_decisions")
-        .select("profile_id")
-        .eq("source_user_id", user.id)
-        .eq("decision", "KEPT");
-      if (takersError) throw takersError;
-
-      const audienceIds = Array.from(new Set([
-        ...(followers ?? []).map((row: any) => String(row.follower_id)),
-        ...(takers ?? []).map((row: any) => String(row.profile_id)),
-      ])).filter((id) => id !== user.id);
-      if (!audienceIds.length) return json({ ok: true, sent: 0, event_id: eventId });
-
-      const { data: alreadySent, error: sentError } = await admin
-        .from("event_recommendation_sends")
-        .select("profile_id")
-        .eq("event_id", eventId)
-        .in("profile_id", audienceIds);
-      if (sentError) throw sentError;
-      const seen = new Set((alreadySent ?? []).map((row: any) => String(row.profile_id)));
-      const targets = audienceIds.filter((id) => !seen.has(id));
-      if (!targets.length) return json({ ok: true, sent: 0, already_sent: true, event_id: eventId });
-
-      const startsLabel = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(event.starts_at));
-      const bodyText = message || `${event.name} · ${startsLabel}${event.venue_name ? ` · ${event.venue_name}` : ""}`;
-      const notifications = targets.map((profileId) => ({
-        profile_id: profileId,
-        type: "EVENT_INVITE",
-        title: `Invitation · ${event.name}`,
-        body: bodyText,
-        // Adel (08/09/2026) : "comment ca se fait que tu n'as pas mis le
-        // logo de la photo" -- la vignette suit la notification pour un
-        // affichage immediat dans le centre (la carte "en savoir plus"
-        // recharge quand meme l'evenement a jour au moment du tap).
-        data: includeRsvpButtons
-          ? { event_id: eventId, creator_id: user.id, response_options: ["GOING", "MAYBE", "NOT_GOING"], image_url: event.image_url ?? null }
-          : { event_id: eventId, creator_id: user.id, image_url: event.image_url ?? null },
-      }));
-      const sends = targets.map((profileId) => ({ event_id: eventId, profile_id: profileId, sent_at: new Date().toISOString() }));
-
-      const { error: notificationError } = await admin.from("notifications").insert(notifications);
-      if (notificationError) throw notificationError;
-      const { error: trackError } = await admin.from("event_recommendation_sends").upsert(sends, { onConflict: "event_id,profile_id", ignoreDuplicates: true });
-      if (trackError) throw trackError;
-      return json({ ok: true, sent: targets.length, event_id: eventId });
+      const { error: queueError } = await admin.from("event_delivery_jobs").upsert({
+        event_id: eventId,
+        status: "PENDING",
+        message_override: message || null,
+        include_rsvp_buttons_override: includeRsvpButtons,
+        updated_at: new Date().toISOString(),
+        completed_at: null,
+      }, { onConflict: "event_id" });
+      if (queueError) throw queueError;
+      return json({ ok: true, queued: true, sent: 0, event_id: eventId });
     }
 
     return json({ ok: false, error: "invalid_action" }, 400);
