@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import ProfileCertificationBadge, { CERTIFICATION_META } from './ProfileCertificationBadge';
@@ -39,6 +39,11 @@ export default function CommunityConnectionsPanel({ userId, navigation, mode }: 
   const [moreBusy, setMoreBusy] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  // Profil : même logique visuelle que « Reprises ». On montre d'abord un
+  // aperçu horizontal léger ; recherche + pagination restent disponibles
+  // seulement si l'utilisateur demande « Voir tout ». Le nombre de comptes
+  // ne peut donc jamais agrandir le profil ou casser le design.
+  const [expanded, setExpanded] = useState(false);
 
   const loadPage = async (reset: boolean) => {
     if (!supabase || !userId || !mode) {
@@ -75,6 +80,7 @@ export default function CommunityConnectionsPanel({ userId, navigation, mode }: 
     setRows([]);
     setSearchDraft('');
     setSearch('');
+    setExpanded(false);
   }, [mode]);
 
   useEffect(() => {
@@ -99,64 +105,98 @@ export default function CommunityConnectionsPanel({ userId, navigation, mode }: 
 
   const title = mode === 'followers' ? 'Abonnés' : 'Abonnements';
   const subtitle = mode === 'followers'
-    ? 'Les premiers profils seulement. Cherche un pseudo au lieu de charger une foule entière.'
-    : 'Ta liste reste légère même avec des millions de comptes.';
+    ? 'Les profils de ta communauté, sans alourdir la page.'
+    : 'Les profils que tu suis, dans le même format compact.';
+  const previewRows = rows.slice(0, 8);
 
   if (!mode) return null;
 
   return <View style={s.shell}>
     <View style={s.head}>
       <View style={{ flex: 1, minWidth: 0 }}><Text style={s.title}>{title}</Text><Text style={s.subtitle}>{subtitle}</Text></View>
-      <View style={s.scalePill}><Text style={s.scalePillText}>24 / PAGE</Text></View>
-    </View>
-
-    <View style={s.searchRow}>
-      <TextInput
-        value={searchDraft}
-        onChangeText={setSearchDraft}
-        onSubmitEditing={() => setSearch(searchDraft.trim())}
-        placeholder="Pseudo…"
-        placeholderTextColor={colors.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={s.search}
-      />
-      <TouchableOpacity style={s.searchButton} onPress={() => setSearch(searchDraft.trim())}><Text style={s.searchButtonText}>CHERCHER</Text></TouchableOpacity>
-      {search ? <TouchableOpacity style={s.clear} onPress={() => { setSearchDraft(''); setSearch(''); }}><Text style={s.clearText}>×</Text></TouchableOpacity> : null}
+      <TouchableOpacity style={s.expandButton} onPress={() => setExpanded((value) => !value)} accessibilityRole="button" accessibilityLabel={expanded ? `Réduire ${title}` : `Voir tous les ${title.toLowerCase()}`}>
+        <Text style={s.expandButtonText}>{expanded ? 'MASQUER' : 'VOIR TOUT'}</Text>
+      </TouchableOpacity>
     </View>
 
     {loading ? <View style={s.loading}><ActivityIndicator color={colors.primaryLight}/></View> : null}
 
-    <View style={s.grid}>
-      {rows.map((profile) => {
-        const tierColors = CERTIFICATION_META[profile.certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
-        return <View key={profile.id} style={s.card}>
-          <TouchableOpacity style={s.identity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
-            {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
-            <View style={s.copy}>
-              <View style={s.nameRow}><Text style={s.username} numberOfLines={1}>@{profile.username}</Text><ProfileCertificationBadge tier={profile.certificationTier} compact /></View>
-              <Text style={s.kind}>{profile.favoriteGenres[0] || profile.kind}</Text>
-              {profile.favoriteGenres.length > 1 ? <View style={s.genreRow}>{profile.favoriteGenres.slice(0,2).map((genre) => <View key={genre} style={[s.genreChip,{borderColor:tierColors.ring}]}><Text style={[s.genreText,{color:tierColors.ring}]}>{genre}</Text></View>)}</View> : null}
-            </View>
+    {!loading && previewRows.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.previewRail}>
+      {previewRows.map((profile) => (
+        <View key={profile.id} style={s.previewCard}>
+          <TouchableOpacity style={s.previewIdentity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
+            {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.previewAvatar}/> : <View style={[s.previewAvatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
+            <View style={s.previewNameRow}><Text style={s.previewName} numberOfLines={1}>@{profile.username}</Text><ProfileCertificationBadge tier={profile.certificationTier} compact /></View>
+            <Text style={s.previewGenre} numberOfLines={1}>{profile.favoriteGenres[0] || profile.kind || 'Musique'}</Text>
           </TouchableOpacity>
-          {mode === 'followers' ? <TouchableOpacity style={[s.action, profile.isFollowing && s.actionOn]} onPress={() => void followBack(profile)} disabled={profile.isFollowing || busyId === profile.id}><Text style={[s.actionText,profile.isFollowing && s.actionTextOn]}>{busyId === profile.id ? '…' : profile.isFollowing ? 'ABONNÉ' : '+ SUIVRE'}</Text></TouchableOpacity> : <TouchableOpacity style={s.view} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.viewText}>VOIR</Text></TouchableOpacity>}
-        </View>;
-      })}
-      {!loading && !rows.length ? <Text style={s.empty}>{search ? 'Aucun pseudo trouvé.' : mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text> : null}
-    </View>
+          {mode === 'followers'
+            ? <TouchableOpacity style={[s.previewAction, profile.isFollowing && s.previewActionOn]} onPress={() => void followBack(profile)} disabled={profile.isFollowing || busyId === profile.id}><Text style={[s.previewActionText,profile.isFollowing && s.previewActionTextOn]}>{busyId === profile.id ? '…' : profile.isFollowing ? 'ABONNÉ' : '+ SUIVRE'}</Text></TouchableOpacity>
+            : <TouchableOpacity style={s.previewAction} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.previewActionText}>VOIR</Text></TouchableOpacity>}
+        </View>
+      ))}
+    </ScrollView> : null}
 
-    {hasMore ? <TouchableOpacity style={s.more} onPress={() => void loadPage(false)} disabled={moreBusy}><Text style={s.moreText}>{moreBusy ? 'CHARGEMENT…' : 'VOIR 24 DE PLUS'}</Text></TouchableOpacity> : null}
+    {!loading && !rows.length ? <Text style={s.empty}>{mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text> : null}
+
+    {expanded ? <View style={s.expandedArea}>
+      <View style={s.searchRow}>
+        <TextInput
+          value={searchDraft}
+          onChangeText={setSearchDraft}
+          onSubmitEditing={() => setSearch(searchDraft.trim())}
+          placeholder="Rechercher un pseudo…"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={s.search}
+        />
+        <TouchableOpacity style={s.searchButton} onPress={() => setSearch(searchDraft.trim())}><Text style={s.searchButtonText}>CHERCHER</Text></TouchableOpacity>
+        {search ? <TouchableOpacity style={s.clear} onPress={() => { setSearchDraft(''); setSearch(''); }}><Text style={s.clearText}>×</Text></TouchableOpacity> : null}
+      </View>
+
+      <View style={s.grid}>
+        {rows.map((profile) => {
+          const tierColors = CERTIFICATION_META[profile.certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
+          return <View key={profile.id} style={s.card}>
+            <TouchableOpacity style={s.identity} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}>
+              {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.copy}>
+                <View style={s.nameRow}><Text style={s.username} numberOfLines={1}>@{profile.username}</Text><ProfileCertificationBadge tier={profile.certificationTier} compact /></View>
+                <Text style={s.kind}>{profile.favoriteGenres[0] || profile.kind}</Text>
+                {profile.favoriteGenres.length > 1 ? <View style={s.genreRow}>{profile.favoriteGenres.slice(0,2).map((genre) => <View key={genre} style={[s.genreChip,{borderColor:tierColors.ring}]}><Text style={[s.genreText,{color:tierColors.ring}]}>{genre}</Text></View>)}</View> : null}
+              </View>
+            </TouchableOpacity>
+            {mode === 'followers' ? <TouchableOpacity style={[s.action, profile.isFollowing && s.actionOn]} onPress={() => void followBack(profile)} disabled={profile.isFollowing || busyId === profile.id}><Text style={[s.actionText,profile.isFollowing && s.actionTextOn]}>{busyId === profile.id ? '…' : profile.isFollowing ? 'ABONNÉ' : '+ SUIVRE'}</Text></TouchableOpacity> : <TouchableOpacity style={s.view} onPress={() => navigation.navigate('PublicProfile', { username: profile.username })}><Text style={s.viewText}>VOIR</Text></TouchableOpacity>}
+          </View>;
+        })}
+        {!loading && !rows.length ? <Text style={s.empty}>{search ? 'Aucun pseudo trouvé.' : mode === 'followers' ? 'Personne ne te suit encore.' : 'Tu ne suis encore aucun profil.'}</Text> : null}
+      </View>
+
+      {hasMore ? <TouchableOpacity style={s.more} onPress={() => void loadPage(false)} disabled={moreBusy}><Text style={s.moreText}>{moreBusy ? 'CHARGEMENT…' : 'VOIR 24 DE PLUS'}</Text></TouchableOpacity> : null}
+    </View> : null}
   </View>;
 }
 
 const s=StyleSheet.create({
   shell:{marginTop:4,padding:12,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:10},
-  head:{flexDirection:'row',alignItems:'flex-start',gap:8},
+  head:{flexDirection:'row',alignItems:'flex-start',gap:10},
   title:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
   subtitle:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:2},
-  scalePill:{minHeight:25,paddingHorizontal:8,borderRadius:13,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  scalePillText:{color:colors.textMuted,fontSize:8,fontWeight:'900',letterSpacing:.5},
-  searchRow:{flexDirection:'row',alignItems:'center',gap:6},
+  expandButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  expandButtonText:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.5},
+  previewRail:{gap:8,paddingRight:4},
+  previewCard:{width:116,minHeight:142,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'space-between'},
+  previewIdentity:{alignItems:'center',minWidth:0},
+  previewAvatar:{width:46,height:46,borderRadius:23,backgroundColor:colors.backgroundElevated},
+  previewNameRow:{maxWidth:'100%',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:3,marginTop:7},
+  previewName:{maxWidth:76,color:colors.textPrimary,fontSize:10,fontWeight:'900'},
+  previewGenre:{maxWidth:'100%',color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:3},
+  previewAction:{minHeight:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:6,marginTop:8},
+  previewActionOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.07)'},
+  previewActionText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  previewActionTextOn:{color:colors.keep},
+  expandedArea:{gap:9,paddingTop:2,borderTopWidth:1,borderTopColor:colors.border},
+  searchRow:{flexDirection:'row',alignItems:'center',gap:6,paddingTop:9},
   search:{flex:1,minWidth:0,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12},
   searchButton:{minHeight:42,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   searchButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},
