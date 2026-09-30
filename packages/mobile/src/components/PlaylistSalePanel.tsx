@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, markPlaylistSalePaid, offerPlaylistSaleTrackRequestWithFree, PlaylistSalePaymentMode, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, updateOfferPaymentMode } from '../services/playlistSaleService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, markPlaylistSalePaid, offerPlaylistSaleRequestSelectionWithFree, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, updateOfferPaymentMode } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -35,6 +35,10 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [sales, setSales] = useState<PlaylistSaleTransaction[]>([]);
   const [purchases, setPurchases] = useState<PlaylistSaleTransaction[]>([]);
   const [trackRequests, setTrackRequests] = useState<PlaylistSaleSellerTrackRequest[]>([]);
+  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+  const [requestTracks, setRequestTracks] = useState<Record<string, PlaylistSaleSellerRequestTrack[]>>({});
+  const [requestSelections, setRequestSelections] = useState<Record<string, Set<string>>>({});
+  const [requestTracksBusyId, setRequestTracksBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<PriceEditState>(null);
@@ -145,12 +149,48 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     return () => unsubscribe?.();
   }, [navigation]);
 
+  const toggleRequestDetails = async (request: PlaylistSaleSellerTrackRequest) => {
+    if (expandedRequestId === request.requestId) {
+      setExpandedRequestId(null);
+      return;
+    }
+    setExpandedRequestId(request.requestId);
+    if (requestTracks[request.requestId]) return;
+    setRequestTracksBusyId(request.requestId);
+    try {
+      const tracks = await loadPlaylistSaleTrackRequestTracks(request.requestId);
+      setRequestTracks((current) => ({ ...current, [request.requestId]: tracks }));
+      setRequestSelections((current) => ({ ...current, [request.requestId]: new Set(tracks.map((track) => track.trackId)) }));
+    } catch {
+      setRequestTracks((current) => ({ ...current, [request.requestId]: [] }));
+      Alert.alert('Demande', 'Impossible de charger les titres manquants.');
+    } finally {
+      setRequestTracksBusyId(null);
+    }
+  };
+
+  const toggleRequestedTrack = (requestId: string, trackId: string) => {
+    setRequestSelections((current) => {
+      const next = new Set(current[requestId] ?? []);
+      if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
+      return { ...current, [requestId]: next };
+    });
+  };
+
   const answerTrackRequest = async (request: PlaylistSaleSellerTrackRequest, freePrice: number) => {
     if (busy) return;
+    const selectedIds = Array.from(requestSelections[request.requestId] ?? []);
+    if (!selectedIds.length) {
+      Alert.alert('Choisis un titre', 'Sélectionne au moins un morceau à proposer.');
+      return;
+    }
     setBusy(true);
     try {
-      const result = await offerPlaylistSaleTrackRequestWithFree(request.requestId, freePrice);
+      const result = await offerPlaylistSaleRequestSelectionWithFree(request.requestId, selectedIds, freePrice);
       await loadData();
+      setExpandedRequestId(null);
+      setRequestTracks((current) => { const next = { ...current }; delete next[request.requestId]; return next; });
+      setRequestSelections((current) => { const next = { ...current }; delete next[request.requestId]; return next; });
       Alert.alert('Offre envoyée', `@${request.buyerUsername} peut maintenant débloquer ${result.trackCount} morceau${result.trackCount > 1 ? 'x' : ''} pour ${result.freePrice} FREE.`);
     } catch (e: any) {
       Alert.alert('Demande', e?.message || 'Impossible d’envoyer cette offre.');
@@ -454,13 +494,36 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       </View>
                       <TouchableOpacity style={s.requestDecline} disabled={busy} onPress={() => { void declineTrackRequest(request); }} accessibilityLabel="Refuser cette demande"><Text style={s.requestDeclineText}>×</Text></TouchableOpacity>
                     </View>
-                    <View style={s.requestPriceRow}>
-                      {SALE_PRESET_FREE.slice(0, 4).map((amount) => (
-                        <TouchableOpacity key={amount} style={s.requestPrice} disabled={busy} onPress={() => { void answerTrackRequest(request, amount); }}>
-                          <Text style={s.requestPriceText}>{amount} FREE</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                    <TouchableOpacity style={s.requestChoose} disabled={busy} onPress={() => { void toggleRequestDetails(request); }}>
+                      <Text style={s.requestChooseText}>{expandedRequestId === request.requestId ? 'MASQUER LES TITRES' : `CHOISIR LES ${request.missingCount} TITRE${request.missingCount > 1 ? 'S' : ''}`}</Text>
+                      <Text style={s.requestChooseArrow}>{expandedRequestId === request.requestId ? '⌃' : '⌄'}</Text>
+                    </TouchableOpacity>
+                    {expandedRequestId === request.requestId ? (
+                      <View style={s.requestDetails}>
+                        {requestTracksBusyId === request.requestId ? <ActivityIndicator color={colors.primaryLight} /> : (requestTracks[request.requestId] ?? []).map((track) => {
+                          const selected = requestSelections[request.requestId]?.has(track.trackId) ?? false;
+                          return (
+                            <TouchableOpacity key={track.trackId} style={[s.requestTrackRow, selected && s.requestTrackRowOn]} onPress={() => toggleRequestedTrack(request.requestId, track.trackId)}>
+                              {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.requestTrackCover} /> : <View style={[s.requestTrackCover,s.requestTrackCoverEmpty]}><Text style={s.requestTrackCoverText}>♪</Text></View>}
+                              <View style={s.requestTrackCopy}><Text style={s.requestTrackTitle} numberOfLines={1}>{track.title}</Text><Text style={s.requestTrackArtist} numberOfLines={1}>{track.artist}</Text></View>
+                              <View style={[s.requestCheck, selected && s.requestCheckOn]}><Text style={s.requestCheckText}>{selected ? '✓' : ''}</Text></View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        {(requestTracks[request.requestId] ?? []).length ? (
+                          <>
+                            <Text style={s.requestSelectionCount}>{requestSelections[request.requestId]?.size ?? 0} sélectionné{(requestSelections[request.requestId]?.size ?? 0) > 1 ? 's' : ''}</Text>
+                            <View style={s.requestPriceRow}>
+                              {SALE_PRESET_FREE.slice(0, 4).map((amount) => (
+                                <TouchableOpacity key={amount} style={s.requestPrice} disabled={busy || !(requestSelections[request.requestId]?.size)} onPress={() => { void answerTrackRequest(request, amount); }}>
+                                  <Text style={s.requestPriceText}>{amount} FREE</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </>
+                        ) : null}
+                      </View>
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -647,7 +710,14 @@ const s = StyleSheet.create({
   requestMeta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:3},
   requestDecline:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   requestDeclineText:{color:colors.textMuted,fontSize:20,lineHeight:22,fontWeight:'700'},
-  requestPriceRow:{flexDirection:'row',gap:6,marginTop:10},
+  requestChoose:{minHeight:42,marginTop:9,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:11,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  requestChooseText:{color:colors.textPrimary,fontSize:9,fontWeight:'900',letterSpacing:.4},requestChooseArrow:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
+  requestDetails:{marginTop:8,gap:6},requestTrackRow:{minHeight:54,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6,flexDirection:'row',alignItems:'center',gap:8},
+  requestTrackRowOn:{borderColor:colors.primary},requestTrackCover:{width:38,height:38,borderRadius:9,backgroundColor:colors.backgroundCard},requestTrackCoverEmpty:{alignItems:'center',justifyContent:'center'},requestTrackCoverText:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
+  requestTrackCopy:{flex:1,minWidth:0},requestTrackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},requestTrackArtist:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:2},
+  requestCheck:{width:24,height:24,borderRadius:7,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},requestCheckOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},requestCheckText:{color:colors.white,fontSize:12,fontWeight:'900'},
+  requestSelectionCount:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'right'},
+  requestPriceRow:{flexDirection:'row',gap:6,marginTop:5},
   requestPrice:{flex:1,minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
   requestPriceText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
