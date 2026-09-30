@@ -2398,16 +2398,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (arena.status === 'WAITING' && arena.lastResult) {
       const winner = arena.lastWinner;
       const myLastResult = arena.lastResult;
-      // 01/10/2026 — règle produit finale : CHAQUE joueur qui fait un
-      // sans-faute reçoit un bonus Loki égal à la mise du format. Le
-      // classement du Battle (bonnes réponses puis vitesse) reste séparé :
-      // être plus lent peut faire perdre la cagnotte, mais n'annule jamais
-      // le bonus parfait N/N.
-      const perfectBonusPlayers = (arena.lastMatchResults || [])
+      // 01/10/2026 — règle produit verrouillée par Adel :
+      // bonus uniquement en Battle multijoueur. Il faut un sans-faute N/N.
+      // S'il y a plusieurs parfaits, UN SEUL bonus système est attribué :
+      // celui dont le temps cumulé de réponse est le plus court.
+      // Montant = mise réelle du format (8=>3, 15=>6, 20=>8, 30=>12 Free).
+      const perfectBonusWinner = (arena.lastMatchResults || [])
         .filter((entry) => entry.correct === arena.roundCount)
-        .sort((a, b) => a.placement - b.placement || a.responseMs - b.responseMs);
-      const perfectBonusFree = perfectBonusPlayers.length ? stakeForRounds(arena.roundCount) : 0;
-      const perfectBonusIsMine = perfectBonusPlayers.some((entry) => entry.profileId === arena.me?.profileId);
+        .sort((a, b) => a.responseMs - b.responseMs || a.placement - b.placement || a.profileId.localeCompare(b.profileId))[0] || null;
+      const perfectBonusFree = perfectBonusWinner ? stakeForRounds(arena.roundCount) : 0;
+      const perfectBonusIsMine = Boolean(perfectBonusWinner && perfectBonusWinner.profileId === arena.me?.profileId);
       const perfectBonusGlowStyle = {
         borderColor: jackpotBlink.interpolate({ inputRange: [0, 1], outputRange: [colors.keep, '#FFF4A8'] }),
         transform: [{ scale: jackpotBlink.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }],
@@ -2449,14 +2449,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
-          {perfectBonusPlayers.length ? (
+          {perfectBonusWinner ? (
             <Animated.View style={[s.perfectBonusCard, perfectBonusGlowStyle]}>
-              <Text style={s.perfectBonusSpark}>✦ 👑 ✦</Text>
-              <Text style={s.perfectBonusKicker}>SANS-FAUTE · BONUS POUR CHAQUE PARFAIT</Text>
-              <Text style={s.perfectBonusName}>{perfectBonusPlayers.map((entry) => `@${entry.username}`).join(' · ')}</Text>
+              <LokiFinishBurst tone="win" />
+              <Animated.Text style={[s.perfectBonusSpark, jackpotScoreStyle]}>✦ 👑 PERFECT 👑 ✦</Animated.Text>
+              <Text style={s.perfectBonusKicker}>SANS-FAUTE · LE PLUS RAPIDE</Text>
+              <Text style={s.perfectBonusName}>@{perfectBonusWinner.username}</Text>
               <Text style={s.perfectBonusScore}>{arena.roundCount}/{arena.roundCount}</Text>
-              <Animated.Text style={[s.perfectBonusAmount, jackpotScoreStyle]}>+{perfectBonusFree} FREE PAR JOUEUR PARFAIT</Animated.Text>
-              <Text style={s.perfectBonusHint}>{perfectBonusIsMine ? 'TON BONUS LOKI EST AJOUTÉ À TON RÉSULTAT' : 'Chaque sans-faute reçoit le même bonus, quel que soit son classement final.'}</Text>
+              <Animated.Text style={[s.perfectBonusAmount, jackpotScoreStyle]}>+{perfectBonusFree} FREE BONUS</Animated.Text>
+              <Text style={s.perfectBonusHint}>{perfectBonusIsMine ? 'PERFECT + VITESSE : TU PRENDS LE BONUS LOKI' : 'Plusieurs sans-faute ? Seul le plus rapide prend le bonus.'}</Text>
             </Animated.View>
           ) : null}
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>

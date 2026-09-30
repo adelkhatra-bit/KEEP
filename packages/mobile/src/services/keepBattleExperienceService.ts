@@ -51,7 +51,7 @@ const FALLBACK_RULES: KeepBattleArenaRules = {
   fullArenaNetPrize: 27,
   perfectScoreBonusFree: 3,
   perfectDuelBonusFree: 3,
-  ruleText: 'Bonnes réponses puis vitesse. Chaque joueur qui fait un sans-faute reçoit un bonus Loki égal à la mise.',
+  ruleText: 'Bonnes réponses puis vitesse. Un seul bonus sans-faute : s’il y a plusieurs joueurs parfaits, le plus rapide reçoit un bonus Loki égal à la mise.',
 };
 
 function client() {

@@ -2146,3 +2146,8 @@ La première migration reste immuable dans l'historique ; une migration correcti
 ## [2026-10-01T00:45:00+02:00] chatgpt — comptabilité bonus Battle corrigée
 
 Le ledger parfait est maintenant classé dans battleAdjustment/battleWon/recentBattles (ARENA_BONUS). adminGrant revient strictement aux dons administrateur. Le solde Free réel inclut le bonus via keep_battle_credit_adjustment_for_profile. Aucun événement financier existant n'est modifié.
+
+
+## [2026-10-01T00:40:00+02:00] USER LOCK — Battle perfect bonus
+
+RÈGLE CONFIRMÉE PAR ADEL, NE PLUS INVERSER : bonus uniquement en Battle MULTIJOUEUR. Il faut N/N (ex. 8/8). S'il y a plusieurs sans-faute, UN SEUL reçoit le bonus : celui avec le temps cumulé de réponse le plus court. Bonus = mise Free réelle du format (8 morceaux / mise 3 => +3 Free). Jamais « bonus pour chaque parfait ». Animation PERFECT spécifique à la fin. Migration corrective : 20261001013000_battle_fastest_perfect_bonus_product_lock.sql. Ne pas rétablir ALL_PERFECT_PLAYERS.
