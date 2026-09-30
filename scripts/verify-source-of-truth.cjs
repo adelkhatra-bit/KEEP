@@ -33,7 +33,9 @@ const mustExist = [
   'BRANCH_SOURCE_OF_TRUTH.json',
   'docs/KEEP_MASTER_SPEC.md',
   'docs/KEEP_CAHIER_DES_CHARGES_UI.md',
+  'config/keep-product-contract.json',
   'config/keep-ui-baseline.json',
+  'scripts/verify-product-contract.cjs',
   'scripts/verify-ui-layout-baseline.cjs',
   'packages/mobile',
   'packages/admin',
@@ -104,7 +106,8 @@ const masterSpec = fs.readFileSync(path.join(root, 'docs/KEEP_MASTER_SPEC.md'), 
 for (const expected of [
   expectedRepository,
   expectedBranch,
-  'FREE immédiatement à droite du badge de type',
+  'Barre suivante : **PLUS | Abonnés | Reprises | FREE**.',
+  'FREE juste après Reprises',
   'listen = 0',
   'recognize = 0',
   'PASS = 0',
@@ -291,6 +294,12 @@ for (const [marker, capability] of [
 const launchers = fs.readdirSync(root).filter((name) => /^START_.*KEEP.*\.bat$/i.test(name) || /^FORCE_.*KEEP.*\.bat$/i.test(name));
 if (launchers.length !== 1 || launchers[0] !== 'START_KEEP_LIVE_CLEAN.bat') {
   failures.push(`EXPECTED ONE CANONICAL LAUNCHER, FOUND: ${launchers.join(', ') || 'none'}`);
+}
+
+try {
+  execFileSync(process.execPath, [path.join(root, 'scripts/verify-product-contract.cjs')], { stdio: 'inherit' });
+} catch {
+  failures.push('PRODUCT CONTRACT GUARD FAILED');
 }
 
 if (failures.length) {
