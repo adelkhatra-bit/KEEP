@@ -1318,7 +1318,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.collectionCompactBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); }} accessibilityLabel="Revenir à Mes musiques"><Text style={styles.collectionCompactBackText}>‹ Ma musique</Text></TouchableOpacity>
       ) : <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
-        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{mobileSection === 'EDIT' ? 'Gérer mes morceaux' : mobileSection === 'ORGANIZE' ? 'Ranger ma musique' : 'Mes morceaux'}</Text></View>
+        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
       </View>}
       {workspaceTab === 'COLLECTIONS' && mobileSection !== 'HOME' ? <View style={styles.collectionDashboard}>
         <View style={styles.collectionDashboardHead}>

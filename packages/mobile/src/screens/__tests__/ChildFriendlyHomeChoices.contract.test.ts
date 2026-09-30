@@ -21,6 +21,7 @@ describe('Child-friendly home choices', () => {
       expect(music).toContain(label);
     }
     expect(music).toContain('Écouter · Trier · Créer');
+    expect(music).toContain("mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique'");
   });
 
   it('keeps every choice as a large one-tap row', () => {

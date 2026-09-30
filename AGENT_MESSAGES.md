@@ -2035,3 +2035,8 @@ Demande Adel sur captures iPhone : rendre Soirées et Mes musiques compréhensib
 - Mes musiques : « Écouter mes morceaux / Choisir ce qui est visible / Trier ma musique / Créer une collection / Connecter mes applis musique », vocabulaire plus simple, mêmes actions et mêmes destinations.
 - Aucune modification App.tsx, Navigation.tsx, barre des 5 onglets, crédits, Supabase ou logique métier.
 - Nouveau contrat ChildFriendlyHomeChoices.contract.test.ts pour empêcher le retour de libellés ambigus.
+
+
+## [2026-09-30T18:55:00Z] chatgpt — garde navigateur aligné avec nouveau libellé enfant
+
+Le runtime Chromium a chargé l'app correctement mais le workflow cherchait encore l'ancien texte « Mes morceaux · N ». Correction du TEST uniquement : il cherche maintenant « Écouter mes morceaux · N ». Le titre interne après ouverture est aussi simplifié (« Choisir ce qui est visible » / « Trier ma musique »). Aucun changement métier.
