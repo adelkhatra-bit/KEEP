@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -1256,7 +1257,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>

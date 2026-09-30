@@ -19,6 +19,7 @@ import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -441,7 +442,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   if (!isActive) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={s.container}><PersonalThemeBackdrop />
         <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
@@ -512,7 +513,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const leftOpacity = signalScan.interpolate({ inputRange: [0, 0.72, 0.88, 1], outputRange: [0.15, 0.15, 1, 0.15] });
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
       <TopBar navigation={navigation} planCode={planCode} creditRemaining={creditRemaining} creditUnlimited={creditUnlimited} />
 

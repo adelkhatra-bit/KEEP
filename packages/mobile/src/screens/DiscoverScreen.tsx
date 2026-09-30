@@ -14,6 +14,7 @@ import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -445,7 +446,7 @@ export default function DiscoverScreen({ navigation }: any) {
 
   if (localDiscoveryChecked && !localDiscoveryEnabled) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
         <View style={styles.emptyCard}>
           <Text style={styles.title}>{t('nav.discover')}</Text>
           <Text style={styles.mutedHint}>Les découvertes sont temporairement indisponibles. Reviens un peu plus tard.</Text>
@@ -455,7 +456,7 @@ export default function DiscoverScreen({ navigation }: any) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{t('nav.discover')}</Text>
         <View style={styles.discoveryHeader}>

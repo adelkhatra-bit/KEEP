@@ -49,6 +49,7 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import AccountActionsPanel from '../components/AccountActionsPanel';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -703,7 +704,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return result;
   }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
-  if (!user) return <SafeAreaView style={s.container}><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><PersonalThemeBackdrop /><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View></SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const websiteLink = publicLinks.find((link) => link.platform === 'website' && link.url.trim());
@@ -1229,7 +1230,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return null;
   };
 
-  return <SafeAreaView style={s.container}>
+  return <SafeAreaView style={s.container}><PersonalThemeBackdrop />
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar} accessibilityLabel="Actions du profil">
         <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>

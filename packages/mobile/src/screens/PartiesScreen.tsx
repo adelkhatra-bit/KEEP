@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
 import MotionActionButton from '../components/MotionActionButton';
 import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -978,7 +979,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       : eventAccess?.planCode === 'CREATOR_PRO' ? (canCreate ? `＋ ${eventAccess.limit ?? 1} / MOIS` : '🔒 LIMITE') : '🔒 CRÉER';
 
   if (battleOpen) {
-    return <SafeAreaView style={styles.container}>
+    return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <View style={styles.battleFullscreen}>
         <KeepBattleArenaPanel
           enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
@@ -1121,7 +1122,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     ? new Date(currentEvent.startsAt) <= new Date() && (!currentEvent.endsAt || new Date(currentEvent.endsAt) >= new Date())
     : false;
 
-  return <SafeAreaView style={styles.container}>
+  return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.headerRow}>
         {/* Adel (08/09/2026) : "ça a rien à voir avec l'évènement ... il
