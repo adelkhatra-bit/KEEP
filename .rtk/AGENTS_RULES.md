@@ -1,3 +1,6 @@
+## BIBLIOTHÈQUE PRODUIT CANONIQUE
+Lire d'abord `config/keep-product-contract.json`. En cas de contradiction, la décision explicite la plus récente d'Adel + ce contrat priment sur les anciens tests/commentaires. Toute nouvelle décision durable doit mettre à jour contrat + spec + guard dans le même commit.
+
 # RÈGLES PARTAGÉES — Toutes les IA de Loki Music
 
 ## RÈGLE ABSOLUE
