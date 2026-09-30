@@ -2181,3 +2181,8 @@ Demande Adel : le déroulé Reprises est validé, Abonnés était trop technique
 ## [2026-10-01] chatgpt — plafond collections + garde serveur
 
 Audit live : 200 titres max existait uniquement à la création, mais aucune limite explicite de collections actives et l'ajout ultérieur pouvait dépasser 200. Correction additive : remote_config playlist_sale_max_active_offers=50 (configurable 1..500), trigger serveur couvrant toute création/réactivation, trigger 200 titres couvrant aussi les modifications, UI affiche actif/max et bloque proprement la création au plafond. Deux index manquants signalés par Supabase Advisor ajoutés. Aucun changement App.tsx/Navigation.tsx/5 onglets.
+
+
+## [2026-10-01] chatgpt — mémoire anti-répétition Solo/Battle
+
+Retour utilisateurs Adel : mêmes morceaux et mêmes faux artistes trop souvent. Correction serveur, sans liste géante dans l'app : une ligne bornée par profil garde les 120 derniers morceaux et 240 artistes/réponses récents. Solo et Arena priorisent automatiquement les candidats non récents, avec fallback au catalogue existant si un style est petit. La table est deny-all côté clients ; seules les fonctions serveur la maintiennent. Cette structure reste de taille constante par utilisateur et permet au catalogue central de grandir indépendamment.
