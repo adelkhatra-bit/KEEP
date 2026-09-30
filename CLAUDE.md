@@ -1,3 +1,6 @@
+## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
+Avant toute action, lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md`. Toute nouvelle intégration doit préserver les positions et comportements verrouillés, ou mettre à jour le cahier des charges dans le même changement si Adel a explicitement demandé une nouvelle règle.
+
 ## AVANT TOUTE ACTION
 Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
 
