@@ -17,24 +17,25 @@ must(metaStart >= 0 && locationStart > metaStart, 'owner identity row not found'
 const meta = profile.slice(metaStart, locationStart);
 
 const kind = meta.indexOf('style={[s.kindBadge');
-const free = meta.indexOf('style={[s.profileFreeInline');
 const battle = meta.indexOf('<BattleGlowButton');
 must(kind >= 0, 'profile type badge missing');
-must(free > kind, 'FREE must be aligned immediately after Utilisateur/Créateur');
-must(battle > free, 'Battle must remain on the same identity row after FREE');
+must(battle > kind, 'Battle must remain aligned with the profile type');
+must(!meta.includes('profileFreeInline'), 'FREE must not be beside Utilisateur/Créateur');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
 const metricsEnd = profile.indexOf('{freeDetailsOpen ? (', metricsStart);
 must(metricsStart >= 0 && metricsEnd > metricsStart, 'profile metrics bar not found');
 const metrics = profile.slice(metricsStart, metricsEnd);
-for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
-must(!metrics.includes('topMetricFreeHero'), 'FREE must not be duplicated in the metrics row');
-must(!metrics.includes('>FREE</Text>'), 'FREE text must appear only beside the profile type');
+for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>', '>FREE</Text>']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
+const reprises = metrics.indexOf('>Reprises</Text>');
+const free = metrics.indexOf('topMetricFreeHero');
+must(free > reprises, 'FREE must be aligned immediately after Reprises in the metrics row');
+must(!metrics.includes('profileFreeInline'), 'old compact FREE badge reintroduced in metrics');
 
 must(!profile.includes("{ key: 'account'"), 'Compte entry reintroduced in hamburger');
 must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel reintroduced in hamburger');
 must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout control missing from profile settings');
 
 console.log('KEEP UI baseline: PASS');
-console.log('profile: type -> FREE -> Battle; metrics: PLUS -> Abonnés -> Reprises');
+console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
