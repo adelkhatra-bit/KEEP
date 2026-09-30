@@ -1575,7 +1575,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         </View>
       </View>
     </Modal>
-
+  );
 
   const openOnline = async () => {
     if (!enabled) { onRequireAccount?.(); return; }
