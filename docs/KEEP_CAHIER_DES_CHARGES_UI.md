@@ -1,5 +1,7 @@
 # KEEP — Cahier des charges UI / source de vérité
 
+Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
+
 Version : **2026-09-30.1**  
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
