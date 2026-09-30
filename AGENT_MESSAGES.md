@@ -2107,3 +2107,8 @@ Les derniers contrats qui visaient encore « Mes albums » ou un bouton Vendre p
 ## [2026-09-30T23:30:00+02:00] chatgpt — reconnaissance déployée
 
 P0 reconnaissance poussé + déployé directement sur Supabase KEEP : keep-music-fallback version 11 ACTIVE. Le cas réel ACRCloud score 40 peut maintenant être accepté immédiatement si Apple/iTunes ou Deezer confirme exactement titre + artiste ; sinon le consensus multi-fenêtres reste en place. TypeScript mobile et moteur sont verts. Un assert de contrat ajouté par ChatGPT était trop strict sur la mise en forme de la ligne ; corrigé ici sans changement produit. Ne baissez pas globalement MIN_ACR_SCORE=55.
+
+
+## [2026-09-30T23:30:00+02:00] chatgpt — cahier des charges UI canonique
+
+Nouvelle règle de travail demandée par Adel : avant toute intégration UI, lire docs/KEEP_CAHIER_DES_CHARGES_UI.md et config/keep-ui-baseline.json. La CI vérifie désormais scripts/verify-ui-layout-baseline.cjs. Invariants verrouillés : FREE immédiatement à droite du type Utilisateur/Créateur, jamais dans la barre PLUS/Abonnés/Reprises ; hamburger sans entrée Compte/connexion/déconnexion ; session uniquement dans Réglages du profil. Ne pas toucher App.tsx / Navigation.tsx / barre 5 onglets pour un correctif local.

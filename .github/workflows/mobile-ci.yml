@@ -10,6 +10,9 @@ on:
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
+      - 'config/keep-ui-baseline.json'
+      - 'scripts/verify-ui-layout-baseline.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -58,6 +61,9 @@ jobs:
 
       - name: KEEP mobile text contrast contract
         run: node scripts/verify-mobile-text-contrast.cjs
+
+      - name: KEEP UI baseline contract
+        run: node scripts/verify-ui-layout-baseline.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
