@@ -9,6 +9,8 @@ export type KeepBattleArenaRules = {
   answerLockedOnTap: boolean;
   ranking: string;
   fullArenaNetPrize: number;
+  perfectScoreBonusFree: number;
+  /** @deprecated legacy alias kept for old clients */
   perfectDuelBonusFree: number;
   ruleText?: string;
 };
@@ -47,8 +49,9 @@ const FALLBACK_RULES: KeepBattleArenaRules = {
   answerLockedOnTap: true,
   ranking: 'CORRECT_ANSWERS_THEN_SPEED',
   fullArenaNetPrize: 27,
+  perfectScoreBonusFree: 3,
   perfectDuelBonusFree: 3,
-  ruleText: 'Bonnes réponses puis vitesse. Un seul gagnant.',
+  ruleText: 'Bonnes réponses puis vitesse. Chaque sans-faute reçoit un bonus Loki égal à la mise.',
 };
 
 function client() {
@@ -72,7 +75,8 @@ export async function loadKeepBattleArenaRules(): Promise<KeepBattleArenaRules> 
       answerLockedOnTap: raw.answerLockedOnTap !== false,
       ranking: String(raw.ranking || FALLBACK_RULES.ranking),
       fullArenaNetPrize: Number(raw.fullArenaNetPrize ?? Math.max(0, maxPlayers - 1) * stakeFree),
-      perfectDuelBonusFree: Number(raw.perfectDuelBonusFree ?? FALLBACK_RULES.perfectDuelBonusFree),
+      perfectScoreBonusFree: Number(raw.perfectScoreBonusFree ?? raw.perfectDuelBonusFree ?? stakeFree),
+      perfectDuelBonusFree: Number(raw.perfectScoreBonusFree ?? raw.perfectDuelBonusFree ?? stakeFree),
       ruleText: raw.ruleText ? String(raw.ruleText) : FALLBACK_RULES.ruleText,
     };
   } catch {
