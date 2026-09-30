@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-09-30.2**  
+Version : **2026-09-30.3**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -80,6 +80,10 @@ Source : `MyMusicScreen.tsx`.
 Source : `PartiesScreen.tsx`.
 
 - Battle ouvre directement le vrai Battle ;
+- accueil Battle : deux choix courts **SOLO | EN LIGNE** ; ne pas répéter « BATTLE » sur le second bouton ;
+- un Solo quotidien n'est consommé qu'au premier extrait audio réellement lancé, jamais à la simple préparation du pack ;
+- après ce premier démarrage, quitter en cours de partie conserve le Solo comme consommé ;
+- la consommation du quota Solo est idempotente : retry réseau/double effet React = une seule partie ;
 - classement Battle séparé/repliable ;
 - événements, RSVP, participants, playlist et lobby restent dans la même architecture.
 

@@ -15,13 +15,20 @@ describe('Battle Solo quota start contract', () => {
   });
 
   it('consumes exactly when the first playable audio has started', () => {
-    expect(service).toContain('export async function consumeKeepBattleSoloDailyStart');
+    expect(service).toContain('export async function consumeKeepBattleSoloDailyStart(sessionToken: string)');
+    expect(service).toContain("{ p_session_token: token }");
+    expect(game).toContain("const soloDailySessionTokenRef = React.useRef('');");
     expect(game).toContain('const soloDailyConsumedRef = React.useRef(false);');
-    expect(game).toContain('const consumed = await consumeKeepBattleSoloDailyStart();');
+    expect(game).toContain('soloDailyConsumedRef.current = true;');
+    expect(game).toContain('const consumed = await consumeKeepBattleSoloDailyStart(soloDailySessionTokenRef.current);');
     const playable = game.indexOf('if (ok) {');
-    const consume = game.indexOf('const consumed = await consumeKeepBattleSoloDailyStart();');
+    const lock = game.indexOf('soloDailyConsumedRef.current = true;', playable);
+    const consume = game.indexOf('const consumed = await consumeKeepBattleSoloDailyStart(soloDailySessionTokenRef.current);', lock);
+    const ready = game.indexOf('setAudioReady(true)', consume);
     expect(playable).toBeGreaterThanOrEqual(0);
-    expect(consume).toBeGreaterThan(playable);
+    expect(lock).toBeGreaterThan(playable);
+    expect(consume).toBeGreaterThan(lock);
+    expect(ready).toBeGreaterThan(consume);
   });
 
   it('labels the multiplayer choice EN LIGNE beside SOLO', () => {

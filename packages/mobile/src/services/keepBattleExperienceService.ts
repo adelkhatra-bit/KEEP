@@ -136,8 +136,10 @@ export async function loadMyFreeRechargeInfo(profileId: string, planCode: string
   return { profileCreatedAt: (profile as any)?.created_at ? String((profile as any).created_at) : null, monthlyBonus: Math.max(0, Number(latest?.free_bonus_per_month || 0)) };
 }
 
-export async function consumeKeepBattleSoloDailyStart(): Promise<KeepBattleSoloDailyStatus> {
-  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start');
+export async function consumeKeepBattleSoloDailyStart(sessionToken: string): Promise<KeepBattleSoloDailyStatus> {
+  const token = String(sessionToken || '').trim();
+  if (token.length < 8) throw new Error('BATTLE_SOLO_SESSION_TOKEN_INVALID');
+  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start', { p_session_token: token });
   if (error) {
     const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' ');
     if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {

@@ -429,8 +429,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // l'effet de timeout de lire la VRAIE valeur courante au lieu de sa propre
   // fermeture obsolète.
   const soloStartedAtRef = React.useRef(0);
-  // Ne débite qu'une seule fois, après le premier extrait réellement joué.
+  // Le quota ne s'engage qu'après le premier extrait réellement joué.
+  // Le token est aussi envoyé au serveur : même si React relance l'effet ou
+  // si le réseau retry, une session ne peut jamais compter deux fois.
+  const soloDailySessionTokenRef = React.useRef('');
   const soloDailyConsumedRef = React.useRef(false);
+  const [soloDailyStarted, setSoloDailyStarted] = React.useState(false);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
   // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
@@ -690,7 +694,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // de fin) à la garde centrale de sortie, avec le message exact de débit ;
   // et arrête proprement le Solo si la sortie est confirmée depuis ailleurs
   // (barre d'onglets). Le Battle en ligne n'est pas concerné.
-  const soloInProgress = Boolean(solo && !soloFinished);
+  const soloInProgress = Boolean(solo && soloDailyStarted && !soloFinished);
   React.useEffect(() => {
     if (soloInProgress) useGameSessionStore.getState().setGameInProgress(true, 'SOLO', soloQuitNotice(soloDailyStatus));
     else useGameSessionStore.getState().clearGameSession();
@@ -1009,13 +1013,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         if (!alive) return;
         if (ok) {
           if (soloIndex === 0 && !soloDailyConsumedRef.current) {
+            // Lock before await so two overlapping React effects cannot both
+            // consume. Server token is the second idempotency barrier.
+            soloDailyConsumedRef.current = true;
             try {
-              const consumed = await consumeKeepBattleSoloDailyStart();
+              const consumed = await consumeKeepBattleSoloDailyStart(soloDailySessionTokenRef.current);
               if (!alive) return;
-              soloDailyConsumedRef.current = true;
+              setSoloDailyStarted(true);
               setSoloDailyStatus(consumed);
             } catch (error) {
+              soloDailyConsumedRef.current = false;
               if (!alive) return;
+              setSoloDailyStarted(false);
               await stopTrackPreview().catch(() => {});
               setSolo(null);
               showSoloStartError(error);
@@ -1437,7 +1446,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // fraîche côté serveur juste avant de démarrer le pack solo.
       const freshPrefs = await loadMyMatchPreferences().catch(() => null);
       const pack = await loadKeepBattleSoloPack(themeCode, roundCount, freshPrefs?.themeCodes || myPreferredThemes);
+      soloDailySessionTokenRef.current = `solo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
       soloDailyConsumedRef.current = false;
+      setSoloDailyStarted(false);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
