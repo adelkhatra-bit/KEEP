@@ -2141,3 +2141,8 @@ Le premier run a trouvé deux défauts que je corrige sans changer la règle pro
 - la carte animation avait été injectée dans le ScrollView Solo par une ancre trop générique ; elle est déplacée uniquement dans FIN DU MATCH Arena ;
 - le ledger Battle est append-only : aucun UPDATE/UPSERT d'un événement financier existant. Le bonus va désormais dans keep_battle_perfect_bonus_events, ledger séparé append-only, additionné au total Free par le helper existant.
 La première migration reste immuable dans l'historique ; une migration corrective additive la neutralise.
+
+
+## [2026-10-01T00:45:00+02:00] chatgpt — comptabilité bonus Battle corrigée
+
+Le ledger parfait est maintenant classé dans battleAdjustment/battleWon/recentBattles (ARENA_BONUS). adminGrant revient strictement aux dons administrateur. Le solde Free réel inclut le bonus via keep_battle_credit_adjustment_for_profile. Aucun événement financier existant n'est modifié.

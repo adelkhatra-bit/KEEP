@@ -6,6 +6,7 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(...parts), 'ut
 describe('Battle multiplayer fastest perfect bonus', () => {
   const battle = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001003500_battle_multiplayer_fastest_perfect_bonus_append_only.sql');
+  const accounting = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001004500_battle_perfect_bonus_free_accounting.sql');
 
   it('awards the UI bonus only for a perfect multiplayer result and picks the fastest perfect player', () => {
     expect(battle).toContain('.filter((entry) => entry.correct === arena.roundCount)');
@@ -39,9 +40,15 @@ describe('Battle multiplayer fastest perfect bonus', () => {
     expect(migration).toContain("'FASTEST_PERFECT_ONLY'");
     expect(migration).toContain('insert into public.keep_battle_perfect_bonus_events');
     expect(migration).toContain('on conflict(arena_id, match_no) do nothing');
-    expect(migration).toContain('sum(b.amount)');
     expect(migration).not.toContain('keep_battle_arena_credit_events');
     expect(migration).not.toContain('do update set result');
     expect(migration).not.toContain('keep_battle_solo_credit_events');
+  });
+
+  it('counts the platform bonus as Battle winnings, never as an admin grant', () => {
+    expect(accounting).toContain('select amount from public.keep_battle_perfect_bonus_events where profile_id=p_uid');
+    expect(accounting).toContain("'ARENA_BONUS'::text as battle_type");
+    expect(accounting).toContain('admin_grant := public.keep_admin_credit_grant_total_for_profile(uid);');
+    expect(accounting).toContain('battle_adjustment := public.keep_battle_credit_adjustment_for_profile(p_uid);');
   });
 });
