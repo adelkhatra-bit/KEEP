@@ -284,7 +284,7 @@ jobs:
             await page.getByText('FORMAT DU BATTLE',{exact:true}).last().waitFor({state:'visible',timeout:20000});
             await page.getByText('10 s / titre',{exact:true}).last().waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Jouer en solo').last().waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Jouer un Battle en ligne').last().waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Jouer en ligne').last().waitFor({state:'visible',timeout:15000});
             await assertNoOverflow(page,'battle-390x844');
             await page.screenshot({path:'artifacts/dual-viewport/03-battle-v3.png',fullPage:true});
             await clickRobust(page,page.getByText('‹',{exact:true}).last(),'Close Battle');
