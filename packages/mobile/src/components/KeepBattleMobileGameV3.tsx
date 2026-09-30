@@ -2116,7 +2116,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [arena?.id]);
 
   const closeBattleArena = React.useCallback(() => {
-    if (!arena) {
+    // Match terminé / salon en attente : aucune pénalité, aucune confirmation
+    // bloquante. Chacun est libre de repartir immédiatement où il veut.
+    if (!arena || arena.status !== 'ACTIVE') {
       closeBattleArenaNow();
       return;
     }
@@ -2556,6 +2558,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         </ScrollView>
       </View>;
     }
+    if (arena.status === 'ACTIVE' && arena.me && arena.me.status !== 'ACTIVE') {
+      const missedRematch = arena.me.status === 'ELIMINATED';
+      return <View style={s.root}>
+        <View style={s.header}><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>{missedRematch ? 'LE BATTLE EST PARTI' : 'EN ATTENTE'}</Text></View></View>
+        <View style={s.waiting}>
+          <View style={s.waitingPulse}><Text style={s.trophy}>{missedRematch ? '⏱' : '⚡'}</Text></View>
+          <Text style={s.winner}>{missedRematch ? 'TU AS LOUPÉ CE TOUR' : 'TU REJOINS LA SUITE'}</Text>
+          <Text style={s.waitText}>{missedRematch ? 'Désolé, le délai de réponse est terminé. Le Battle a démarré sans toi. Attends le prochain tour.' : 'Le Battle a déjà démarré. Ta place est gardée pour la suite.'}</Text>
+          <TouchableOpacity style={s.finishSecondary} onPress={() => { void stopTrackPreview(); setArena(null); }} accessibilityRole="button" accessibilityLabel="Continuer ailleurs">
+            <Text style={s.finishSecondaryText}>CONTINUER AILLEURS</Text>
+          </TouchableOpacity>
+        </View>
+      </View>;
+    }
+
     return <View style={s.root}>
       {/* Adel (03/09/2026) : "on est dans un Battle, pourquoi elle reste" --
           la croix de fermeture n'a plus lieu d'être une fois la manche

@@ -34,5 +34,13 @@ describe('KEEP Battle rematch lifecycle', () => {
     expect(migration).toContain('Désolé, tu as loupé ce Battle. Attends le prochain tour.');
     expect(migration).toContain("if active_count>=2 then");
     expect(migration).toContain("perform public.keep_battle_arena_start(a.id)");
+    expect(game).toContain('TU AS LOUPÉ CE TOUR');
+    expect(game).toContain('Le Battle a démarré sans toi. Attends le prochain tour.');
+  });
+
+  it('never charges or blocks a player who leaves after the match is already finished', () => {
+    expect(game).toContain("if (!arena || arena.status !== 'ACTIVE')");
+    expect(game).toContain('closeBattleArenaNow();');
+    expect(game).toContain('La partie est en cours. Si tu quittes maintenant');
   });
 });
