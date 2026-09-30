@@ -2060,3 +2060,11 @@ TypeScript mobile + moteur musique verts sur d88489e. Un seul garde ancien direc
 ## [2026-09-30T21:55:00+02:00] chatgpt — Soirées scalable + retour unique
 
 Demande Adel : penser immédiatement à des millions d'utilisateurs, une seule logique de retour et des invitations adaptées au public de l'événement. Changements : retour « ‹ Soirées » standardisé dans Soirées et dans Découvertes quand ouvert depuis Soirées ; public événement Tout public / 18+ / Famille ; bannière EVENT_INVITE visible 20 s avec REFUSER / J'Y VAIS ; diffusion événement déplacée vers une file de jobs en lots idempotents ; feed événements filtré/rangé côté serveur. Ne pas créer un second système de notifications ou de retour.
+
+
+## [2026-09-30T22:55:00+02:00] chatgpt — Battle direct + FREE aligné au type de profil
+
+Demande Adel appliquée sans toucher App.tsx / Navigation.tsx / barre 5 onglets :
+- Soirées > BATTLE ouvre désormais directement le vrai Battle en un appui. Le lanceur intermédiaire « Salon musical / JOUER » est supprimé du parcours.
+- Le classement global Battle reste disponible depuis Soirées sous « Classement Battle », replié par défaut.
+- Profil propriétaire : FREE est replacé sur la même ligne que le badge Utilisateur/Créateur, sans doublon dans la barre PLUS / Abonnés / Reprises. Battle reste dans la même zone d’identité.

@@ -4,25 +4,28 @@ import path from 'path';
 describe('Owner profile metrics layout', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('keeps PLUS on the left and FREE on the right without changing their visual components', () => {
-    const metricsStart = source.indexOf('<View style={s.topMetricsBar}');
-    const more = source.indexOf('style={[s.topMetricMore', metricsStart);
-    const socials = source.indexOf('<View style={s.topMetricSocialGroup}>', metricsStart);
-    const free = source.indexOf('style={[s.topMetricFreeHero', metricsStart);
-    expect(metricsStart).toBeGreaterThanOrEqual(0);
-    expect(more).toBeGreaterThan(metricsStart);
-    expect(socials).toBeGreaterThan(more);
-    expect(free).toBeGreaterThan(socials);
-    expect(source).toContain("<Text style={s.topMetricMoreText}>PLUS</Text>");
-    expect(source).toContain("<Text style={s.topMetricFreeLabel}>FREE</Text>");
+  it('aligns FREE with the profile type badge and keeps Battle on the same identity row', () => {
+    const meta = source.indexOf('<View style={s.profileMetaTopRow}>');
+    const group = source.indexOf('<View style={s.profileMetaBadgeGroup}>', meta);
+    const kind = source.indexOf('style={[s.kindBadge', group);
+    const free = source.indexOf('style={[s.profileFreeInline', kind);
+    const battle = source.indexOf('<BattleGlowButton', free);
+    expect(meta).toBeGreaterThanOrEqual(0);
+    expect(group).toBeGreaterThan(meta);
+    expect(kind).toBeGreaterThan(group);
+    expect(free).toBeGreaterThan(kind);
+    expect(battle).toBeGreaterThan(free);
+    expect(source).toContain("<Text style={s.profileFreeInlineLabel}>FREE</Text>");
   });
 
-  it('keeps FREE alone on the right: Battle moved up beside the identity (Adel 29/09)', () => {
-    const stack = source.indexOf('<View style={s.topMetricRightStack}>');
-    const free = source.indexOf('style={[s.topMetricFreeHero', stack);
-    const metricsEnd = source.indexOf('{freeDetailsOpen ? (', stack);
-    expect(stack).toBeGreaterThanOrEqual(0);
-    expect(free).toBeGreaterThan(stack);
-    expect(source.slice(stack, metricsEnd)).not.toContain('<BattleGlowButton');
+  it('does not duplicate FREE in the counters row', () => {
+    const metricsStart = source.indexOf('<View style={s.topMetricsBar}');
+    const metricsEnd = source.indexOf('{freeDetailsOpen ? (', metricsStart);
+    const metrics = source.slice(metricsStart, metricsEnd);
+    expect(metrics).toContain('<Text style={s.topMetricMoreText}>PLUS</Text>');
+    expect(metrics).toContain('>Abonnés</Text>');
+    expect(metrics).toContain('>Reprises</Text>');
+    expect(metrics).not.toContain('topMetricFreeHero');
+    expect(metrics).not.toContain('>FREE</Text>');
   });
 });

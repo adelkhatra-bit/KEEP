@@ -250,6 +250,10 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  // Adel (30/09/2026) : le bouton Battle du haut ouvre directement le vrai
+  // Battle. Le classement global reste disponible séparément, replié dans
+  // Soirées, sans écran/lanceur intermédiaire.
+  const [battleSummaryOpen, setBattleSummaryOpen] = useState(false);
   const [partySection, setPartySection] = useState<'EVENT' | 'DETAILS' | 'PLAYLIST'>('EVENT');
   const [partyHome, setPartyHome] = useState(true);
   // Refonte Soirées (spec Adel 22/09/2026) : quand un événement est affiché,
@@ -359,7 +363,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // figée), même RPC que le reste de l'app.
   const [leaderboardTiers, setLeaderboardTiers] = useState<Record<string, ProfileCertificationTier>>({});
   useEffect(() => {
-    if ((partiesTab !== 'BATTLE' && eventTab !== 'CLASSEMENT') || !battleFeatureEnabled) return;
+    if ((!battleSummaryOpen && eventTab !== 'CLASSEMENT') || !battleFeatureEnabled) return;
     let live = true;
     setLeaderboardLoading(true);
     Promise.all([
@@ -378,7 +382,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       }
     }).catch(() => { if (live) setLeaderboard([]); }).finally(() => { if (live) setLeaderboardLoading(false); });
     return () => { live = false; };
-  }, [partiesTab, eventTab, battleFeatureEnabled]);
+  }, [battleSummaryOpen, eventTab, battleFeatureEnabled]);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -1170,12 +1174,12 @@ export default function PartiesScreen({ navigation, route }: any) {
           <Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.partiesTabBtn, partiesTab === 'BATTLE' && styles.partiesTabBtnOn]}
-          onPress={() => setPartiesTab('BATTLE')}
+          style={styles.partiesTabBtn}
+          onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }}
           accessibilityRole="button"
-          accessibilityLabel="Ouvrir Battle"
+          accessibilityLabel="Ouvrir directement Battle"
         >
-          <Text style={[styles.partiesTabText, partiesTab === 'BATTLE' && styles.partiesTabTextOn]}>BATTLE</Text>
+          <Text style={styles.partiesTabText}>BATTLE</Text>
         </TouchableOpacity>
       </View>
       
@@ -1242,6 +1246,20 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text><Text style={styles.partyHomeMeta}>Lieu, heure, participants et activité</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes invitations</Text><Text style={styles.partyHomeMeta}>Répondre oui, peut-être ou non</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => void openCreate()} accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer une soirée</Text><Text style={styles.partyHomeMeta}>{canCreate ? 'Créer maintenant' : 'Voir comment débloquer'}</Text></View><Text style={styles.partyHomeAccess}>{canCreate ? '🔓' : '🔒'}</Text><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          {battleFeatureEnabled ? <>
+            <TouchableOpacity
+              style={styles.partyHomeChoice}
+              onPress={() => setBattleSummaryOpen((value) => !value)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: battleSummaryOpen }}
+              accessibilityLabel={battleSummaryOpen ? 'Masquer le classement Battle' : 'Afficher le classement Battle'}
+            >
+              <View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>🏆</Text></View>
+              <View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Classement Battle</Text><Text style={styles.partyHomeMeta}>Podium, victoires et statistiques</Text></View>
+              <Text style={styles.partyHomeArrow}>{battleSummaryOpen ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+            {battleSummaryOpen ? renderLeaderboard() : null}
+          </> : null}
         </View> : <>
         <StandardBackButton label="Soirées" onPress={() => { setPartyHome(true); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Retour aux rubriques Soirées" />
           
@@ -1407,28 +1425,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           )}
         </> : null}
         </>}
-      </> : (
-        <>
-          {/* Adel (02/09/2026) : "le bouton salon musical au-dessus du
-              classement global, jouer en jaune au lieu de violet, le contour
-              du bouton battle en jaune" -- le lanceur passe avant le
-              classement, couleurs alignées sur le jaune de marque Battle. */}
-          <TouchableOpacity style={styles.battleLauncher} onPress={() => { setPendingArenaId(undefined); setBattleOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir le Salon Loki Music Battle">
-            <View style={styles.battleLauncherIcon}><Text style={styles.battleLauncherBolt}>⚡</Text></View>
-            <View style={styles.battleLauncherCopy}>
-              <View style={styles.battleLauncherKickerRow}>
-                <Text style={styles.battleLauncherKicker}>Loki Music BATTLE</Text>
-                {battleFreeBalance != null ? <View style={[styles.battleLauncherFreeBadge, { backgroundColor: `${myTierColors.colors[myTierColors.colors.length - 1]}33`, borderColor: myTierColors.ring }]}><Text style={[styles.battleLauncherFreeBadgeText, { color: myTierColors.ring }]}>{battleFreeBalance} Free</Text></View> : null}
-              </View>
-              <Text style={styles.battleLauncherTitle}>Salon musical</Text>
-              <Text style={styles.battleLauncherMeta}>Solo ou multijoueur · mode plein écran · aucun code à écrire</Text>
-            </View>
-            <Text style={styles.battleLauncherOpen}>JOUER ›</Text>
-          </TouchableOpacity>
-
-          {renderLeaderboard()}
-        </>
-      )}
+      </> : null}
     </ScrollView>
 
     <Modal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
