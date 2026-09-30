@@ -1,3 +1,5 @@
+Avant toute modification, lire d'abord `config/keep-product-contract.json` (bibliothèque machine canonique), puis `docs/KEEP_MASTER_SPEC.md` et `docs/KEEP_CAHIER_DES_CHARGES_UI.md`. La décision explicite la plus récente d'Adel prime sur les anciens commentaires/tests, et toute règle durable doit mettre à jour contrat + spec + guard dans le même changement.
+
 ### SOURCE PRODUIT OBLIGATOIRE
 Avant toute modification, lire `docs/KEEP_MASTER_SPEC.md` puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md`. Toute nouvelle règle validée doit mettre à jour le cahier des charges et son guard automatique afin d'éviter les régressions entre IA.
 
