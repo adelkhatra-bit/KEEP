@@ -4,7 +4,7 @@ import path from 'path';
 
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('MyMusicScreen marketplace selection — BUG fix (Adel, 21/09/2026, profil adel4a : morceau déjà en vente absent de la sélection)', () => {
+describe('MyMusicScreen collection membership — single collection flow', () => {
   const source = readNormalized(__dirname, '..', 'MyMusicScreen.tsx');
   const service = readNormalized(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
 
@@ -16,13 +16,14 @@ describe('MyMusicScreen marketplace selection — BUG fix (Adel, 21/09/2026, pro
   });
 
   it('never lets an already-offered track be silently re-bundled into a new selection', () => {
-    expect(source).toContain('if (myOfferedTrackIds[trackId]) return;');
+    expect(source).toContain('const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);');
+    expect(source).toContain('disabled={lockedByAnotherOffer}');
     expect(source).toContain('selectionCheckDisabled');
   });
 
   it('shows a clear collection-membership state on the track row instead of hiding the offer', () => {
-    expect(source).toContain("`◆ Dans collection · ${offered.playlistName}`");
-    expect(source).toContain('sellTrackButtonOffered');
+    expect(source).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}');
+    expect(source).not.toContain('styles.sellTrackButtonOffered');
   });
 
   it('offers a way to edit or remove the existing offer instead of leaving it unreachable', () => {

@@ -22,7 +22,8 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
     expect(myMusic).toContain('notOwnDiscovery && styles.selectionCheckLocked');
     expect(myMusic).toContain("? Alert.alert('Non éligible'");
-    expect(myMusic).toContain('disabled={Boolean(offered)}');
+    expect(myMusic).toContain('const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);');
+    expect(myMusic).toContain('disabled={lockedByAnotherOffer}');
   });
 
   it('removes every active-offer track from the public/free profile source', () => {

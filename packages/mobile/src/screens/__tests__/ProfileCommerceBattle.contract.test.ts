@@ -12,14 +12,15 @@ describe('Profile commerce + Battle contract', () => {
 
   it('lets a seller edit the tracks of an existing offer without recreating it', () => {
     expect(salePanel).toContain('accessibilityLabel={`Modifier les morceaux de ${item.playlistName}`}');
-    expect(salePanel).toContain("screen: 'Playlists'");
+    expect(salePanel).toContain("screen: 'MyMusic'");
     expect(salePanel).toContain('manageSaleOfferId: item.offerId || item.playlistId');
     expect(salePanel).toContain('manageSaleOfferName: item.playlistName');
 
     expect(myMusic).toContain("const offerId = String(route?.params?.manageSaleOfferId || '').trim();");
     expect(myMusic).toContain('setSaleEditOfferTarget({ offerId, playlistName });');
     expect(myMusic).toContain('setSaleSelectionMode(true);');
-    expect(myMusic).toContain('Sélectionne de nouveaux morceaux. Pour en retirer un déjà inclus, touche son badge collection puis “Retirer de la collection”.');
+    expect(myMusic).toContain('PRIX · € / FREE · STATUT');
+    expect(myMusic).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`');
   });
 
   it('keeps access-mode editing separate from track-content editing', () => {

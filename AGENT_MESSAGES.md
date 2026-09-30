@@ -2083,3 +2083,8 @@ Le vieux workspace interne COLLECTIONS de MyMusic a été supprimé, ainsi que s
 ## [2026-09-30T23:18:00+02:00] chatgpt — garde CI profil aligné avec la consigne FREE
 
 Mobile TypeScript et moteur musique passent. Le seul blocage Mobile CI avant Jest était verify-profile-hierarchy.cjs, resté sur l'ancienne règle FREE à droite de Reprises. Garde mis à jour : il exige maintenant type de profil → FREE → Battle sur la ligne identité et interdit tout doublon FREE dans la barre PLUS/Abonnés/Reprises.
+
+
+## [2026-09-30T23:24:00+02:00] chatgpt — contrats vente alignés sur le flux unique
+
+Les anciens tests qui réclamaient encore un bouton de vente par morceau/playlist ont été alignés sur le nouveau contrat : une collection déjà publiée apparaît uniquement via le badge compact « ◆ Collection · nom », la création passe uniquement par Collections/Pépites, et l’édition des morceaux cible l’offre existante sans recréer un produit.
