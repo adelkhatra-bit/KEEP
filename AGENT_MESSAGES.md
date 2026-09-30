@@ -2112,3 +2112,8 @@ P0 reconnaissance poussé + déployé directement sur Supabase KEEP : keep-music
 ## [2026-09-30T23:30:00+02:00] chatgpt — cahier des charges UI canonique
 
 Nouvelle règle de travail demandée par Adel : avant toute intégration UI, lire docs/KEEP_CAHIER_DES_CHARGES_UI.md et config/keep-ui-baseline.json. La CI vérifie désormais scripts/verify-ui-layout-baseline.cjs. Invariants verrouillés : FREE immédiatement à droite du type Utilisateur/Créateur, jamais dans la barre PLUS/Abonnés/Reprises ; hamburger sans entrée Compte/connexion/déconnexion ; session uniquement dans Réglages du profil. Ne pas toucher App.tsx / Navigation.tsx / barre 5 onglets pour un correctif local.
+
+
+## [2026-09-30T23:40:00+02:00] chatgpt — cahier des charges maître installé
+
+Demande Adel traitée sur la branche unique. FREE est verrouillé à droite du type Utilisateur/Créateur ; le hamburger ne contient plus Compte/connexion/déconnexion ; la session reste dans Réglages du profil. Création de docs/KEEP_MASTER_SPEC.md + docs/KEEP_CAHIER_DES_CHARGES_UI.md + config/keep-ui-baseline.json + scripts/verify-ui-layout-baseline.cjs. AGENTS.md, CLAUDE.md, Copilot et AI_INSTRUCTIONS doivent désormais lire le cahier avant de modifier. Mobile CI l'exécute sur push et PR. Le Guardian dual viewport obsolète a été corrigé pour le nouveau Battle direct, sans réintroduire Salon musical.
