@@ -312,3 +312,12 @@ fait.
 - Triage automatique : `.github/workflows/agent-command-triage.yml`.
 - Premier run réel du triage : GitHub Actions run `36316053776` = **SUCCESS** sur `572a431a92b765c108ff0fa6e5c7b8e77d208d37`.
 - Toute IA doit conserver la branche unique `reconcile/claude-main-20260825`, utiliser le verrou/journal existants et respecter les états LOCAL_ONLY → COMMITTED_LOCAL → PUSHED_REMOTE → TESTED_REMOTE → DEPLOYED.
+
+
+## 30/09/2026 — Protection données production + Public API Toolbox
+- **PUSHED_REMOTE + TESTED_REMOTE** : `8432ede5` ; Data preservation run `36781517649` = **SUCCESS**.
+- `config/keep-data-preservation.json` centralise les tables critiques et ledgers append-only.
+- `scripts/verify-data-preservation.cjs` bloque les opérations destructives et les modifications d'anciennes migrations ; checkout CI complet pour couvrir les push multi-commits.
+- `scripts/public-api-search.mjs` permet à ChatGPT/Claude de rechercher le catalogue GitHub `public-apis/public-apis` sans ajouter de dépendance à l'application.
+- Supabase KEEP est actuellement sur le **plan Free** : avant une échelle de millions d'utilisateurs, prévoir plan production, sauvegardes automatiques et PITR selon RPO/RTO.
+- Point sécurité ouvert : auditer individuellement les avertissements Security Advisor sur fonctions SECURITY DEFINER exécutables par anon avant montée en charge.

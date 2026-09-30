@@ -333,3 +333,11 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 
 **Branch**: reconcile/claude-main-20260825
 **Status**: READY FOR APP STORE PUBLICATION — Awaiting Adel manual actions + dev Phase 5 integration
+
+
+## 2026-09-30 — Public API toolbox + protection données production
+- Catalogue développeur GitHub `public-apis/public-apis` branché via `npm run public-api:search -- <besoin>` ; aucune dépendance runtime automatique.
+- Garde data renforcé : FREE, crédits, Battle, scores/résultats, achats, profils, playlists et événements protégés contre reset/drop/truncate/delete ; ledgers de crédits/audit append-only ; migrations déjà committées immuables.
+- Workflow `KEEP — Data preservation contract` run `36781517649` = SUCCESS sur `8432ede5`.
+- Audit live Supabase : projet KEEP actif, RLS présente sur les tables critiques contrôlées ; organisation actuellement plan Free. Avant montée à très grande échelle : offre adaptée + sauvegardes automatiques/PITR selon RPO.
+- Security Advisor : backlog SECURITY DEFINER/permissions à auditer séparément, sans révocation massive aveugle.

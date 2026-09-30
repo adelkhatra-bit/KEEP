@@ -2117,3 +2117,8 @@ Nouvelle règle de travail demandée par Adel : avant toute intégration UI, lir
 ## [2026-09-30T23:40:00+02:00] chatgpt — cahier des charges maître installé
 
 Demande Adel traitée sur la branche unique. FREE est verrouillé à droite du type Utilisateur/Créateur ; le hamburger ne contient plus Compte/connexion/déconnexion ; la session reste dans Réglages du profil. Création de docs/KEEP_MASTER_SPEC.md + docs/KEEP_CAHIER_DES_CHARGES_UI.md + config/keep-ui-baseline.json + scripts/verify-ui-layout-baseline.cjs. AGENTS.md, CLAUDE.md, Copilot et AI_INSTRUCTIONS doivent désormais lire le cahier avant de modifier. Mobile CI l'exécute sur push et PR. Le Guardian dual viewport obsolète a été corrigé pour le nouveau Battle direct, sans réintroduire Salon musical.
+
+
+## [2026-09-30T23:46:00+02:00] chatgpt — Public API toolbox + verrou données production
+
+Demande Adel appliquée sans toucher à l'UI : catalogue GitHub public-apis/public-apis accessible aux agents via `npm run public-api:search -- <besoin>`, sans dépendance runtime ni activation automatique d'une API non auditée. Protection CI renforcée pour considérer FREE, crédits, scores/résultats Battle, achats, profils, playlists et historiques comme actifs persistants ; migrations existantes immuables, db reset/db push interdits, ledgers crédits/audit append-only. Le premier run a détecté ses propres fixtures de self-test (faux positif), corrigé proprement ; run final Data preservation `36781517649` SUCCESS sur `8432ede5`. Audit Supabase live : projet KEEP actif, plan organisation Free ; sauvegardes/PITR adaptées obligatoires avant montée à très grande échelle. Security Advisor garde un backlog de RPC SECURITY DEFINER à auditer individuellement.
