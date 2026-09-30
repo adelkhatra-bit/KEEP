@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { mascotLine } from '../services/battleHomeInfo';
+import { mascotLine, type MascotMood } from '../services/battleHomeInfo';
+import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from '../services/audioPreviewService';
 
 // Adel (29/09/2026) : « un dessin animé avec une voix off, selon le score :
 // “Ah zut, c'est dommage, t'aurais pu mieux faire…”, un petit message très
@@ -12,50 +13,95 @@ import { mascotLine } from '../services/battleHomeInfo';
 // livrable en OTA), voix aiguë façon dessin animé. 🔊 pour réécouter.
 const NATIVE = Platform.OS !== 'web';
 
-export default function LokiMascotVoice({ correct, total, allTimeouts = false }: { correct: number; total: number; allTimeouts?: boolean }) {
-  const line = mascotLine(correct, total, allTimeouts);
+type LokiMascotVoiceProps = {
+  correct: number;
+  total: number;
+  allTimeouts?: boolean;
+  textOverride?: string;
+  moodOverride?: MascotMood;
+  compact?: boolean;
+};
+
+export default function LokiMascotVoice({ correct, total, allTimeouts = false, textOverride, moodOverride, compact = false }: LokiMascotVoiceProps) {
+  const defaultLine = mascotLine(correct, total, allTimeouts);
+  const line = textOverride ? { text: textOverride, mood: moodOverride ?? defaultLine.mood } : defaultLine;
   const [speaking, setSpeaking] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const speechModuleRef = useRef<typeof import('expo-speech') | null>(null);
   const bounce = useRef(new Animated.Value(0)).current;
   const blink = useRef(new Animated.Value(1)).current;
   const mouth = useRef(new Animated.Value(0)).current;
+  const duckTokenRef = useRef<number | null>(null);
+
+  const releaseDuck = useCallback((token: number | null) => {
+    if (token === null) return;
+    void restoreActivePreviewAfterSpeech(token).catch(() => {});
+  }, []);
 
   const speak = useCallback(async () => {
+    let duckToken: number | null = null;
     try {
-      // IMPORTANT OTA : le binaire TestFlight installé peut être plus ancien
-      // que l'ajout d'expo-speech. Un import statique ferait alors planter
-      // l'application dès le démarrage. Charger le module uniquement ici
-      // garde l'app utilisable ; sans module natif, la mascotte reste animée
-      // mais silencieuse jusqu'au prochain vrai build iOS.
       const Speech = speechModuleRef.current ?? await import('expo-speech').catch(() => null);
       if (!Speech) { setSpeaking(false); return; }
       speechModuleRef.current = Speech;
-      Speech.stop();
+
+      const previous = duckTokenRef.current;
+      duckTokenRef.current = null;
+      releaseDuck(previous);
+      try { await Speech.stop(); } catch {}
+
+      duckToken = await duckActivePreviewForSpeech(0.14).catch(() => null);
+      duckTokenRef.current = duckToken;
+
+      let voice: string | undefined;
+      try {
+        const voices = await Speech.getAvailableVoicesAsync();
+        const french = voices
+          .filter((candidate) => String(candidate.language || '').toLowerCase().startsWith('fr'))
+          .sort((a, b) => {
+            const aq = String((a as any).quality || '').toLowerCase();
+            const bq = String((b as any).quality || '').toLowerCase();
+            return Number(bq.includes('enhanced') || bq.includes('premium')) - Number(aq.includes('enhanced') || aq.includes('premium'));
+          })[0];
+        voice = french?.identifier;
+      } catch {}
+
       setSpeaking(true);
+      const finish = () => {
+        if (duckTokenRef.current === duckToken) duckTokenRef.current = null;
+        setSpeaking(false);
+        releaseDuck(duckToken);
+      };
       Speech.speak(line.text, {
         language: 'fr-FR',
-        pitch: 1.45,
-        rate: 1.02,
-        onDone: () => setSpeaking(false),
-        onStopped: () => setSpeaking(false),
-        onError: () => setSpeaking(false),
+        voice,
+        pitch: 1.02,
+        rate: 0.94,
+        volume: 1,
+        onDone: finish,
+        onStopped: finish,
+        onError: finish,
       });
     } catch {
+      if (duckTokenRef.current === duckToken) duckTokenRef.current = null;
       setSpeaking(false);
+      releaseDuck(duckToken);
     }
-  }, [line.text]);
+  }, [line.text, releaseDuck]);
 
   useEffect(() => {
     let live = true;
     AccessibilityInfo.isReduceMotionEnabled?.().then((v) => { if (live) setReduceMotion(Boolean(v)); }).catch(() => {});
-    const t = setTimeout(() => { void speak(); }, 700);
+    const t = setTimeout(() => { void speak(); }, 320);
     return () => {
       live = false;
       clearTimeout(t);
       try { speechModuleRef.current?.stop(); } catch {}
+      const token = duckTokenRef.current;
+      duckTokenRef.current = null;
+      releaseDuck(token);
     };
-  }, [speak]);
+  }, [speak, releaseDuck]);
 
   useEffect(() => {
     if (reduceMotion) return undefined;
@@ -87,6 +133,19 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
 
   const lift = bounce.interpolate({ inputRange: [0, 1], outputRange: [0, line.mood === 'party' || line.mood === 'happy' ? -14 : -4] });
   const sad = line.mood === 'oops' || line.mood === 'sleepy';
+  if (compact) {
+    return (
+      <View style={s.compactWrap}>
+        <View style={[s.bubble, s.compactBubble]}>
+          <Text style={s.bubbleText}>{line.text}</Text>
+          <TouchableOpacity onPress={speak} hitSlop={8} accessibilityRole="button" accessibilityLabel="Réécouter Loki Music" style={s.replay}>
+            <Text style={s.replayText}>{speaking ? '🔊' : '🔈'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.wrap}>
       <Animated.View style={[s.body, { transform: [{ translateY: lift }] }]} accessibilityRole="image" accessibilityLabel={`Loki Music dit : ${line.text}`}>
@@ -119,6 +178,8 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false }:
 
 const s = StyleSheet.create({
   wrap: { alignItems: 'center', marginTop: 4 },
+  compactWrap: { width: '100%', alignItems: 'center', marginTop: 4 },
+  compactBubble: { maxWidth: 340, width: '100%' },
   body: { width: 104, height: 104, borderRadius: 52, backgroundColor: colors.primary, borderWidth: 3, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   band: { position: 'absolute', top: -8, width: 92, height: 26, borderTopLeftRadius: 46, borderTopRightRadius: 46, borderWidth: 5, borderBottomWidth: 0, borderColor: '#2A2140' },
   ear: { position: 'absolute', top: 36, width: 20, height: 32, borderRadius: 8, backgroundColor: '#2A2140' },

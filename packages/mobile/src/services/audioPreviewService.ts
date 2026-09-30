@@ -41,6 +41,11 @@ let webProfilePreloadUrl: string | null = null;
 let webAudio: any = null;
 let webAudioKey: string | null = null;
 let webAudioListener: ((playing: boolean) => void) | null = null;
+let speechDuckSerial = 0;
+let speechDuckWebElement: any = null;
+let speechDuckWebVolume: number | null = null;
+let speechDuckNativeSound: NativeSound | null = null;
+let speechDuckNativeVolume: number | null = null;
 const SILENT_UNLOCK_SOURCE = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 
 function canUseWebAudio(): boolean {
@@ -56,6 +61,51 @@ function getWebAudio(): any {
     webAudio.playsInline = true;
   }
   return webAudio;
+}
+
+export async function duckActivePreviewForSpeech(targetVolume = 0.14): Promise<number> {
+  const token = ++speechDuckSerial;
+  const safeTarget = Math.max(0, Math.min(1, targetVolume));
+
+  const element = webAudio;
+  if (element && !element.paused) {
+    speechDuckWebElement = element;
+    speechDuckWebVolume = Number.isFinite(element.volume) ? Number(element.volume) : 1;
+    try { element.volume = Math.min(speechDuckWebVolume, safeTarget); } catch {}
+  }
+
+  const sound = activeSound;
+  if (sound) {
+    try {
+      const status = await sound.getStatusAsync();
+      if (status.isLoaded && status.isPlaying) {
+        speechDuckNativeSound = sound;
+        speechDuckNativeVolume = Number.isFinite((status as any).volume) ? Number((status as any).volume) : 1;
+        await sound.setVolumeAsync(Math.min(speechDuckNativeVolume, safeTarget));
+      }
+    } catch {}
+  }
+  return token;
+}
+
+export async function restoreActivePreviewAfterSpeech(token: number): Promise<void> {
+  if (token !== speechDuckSerial) return;
+
+  const element = speechDuckWebElement;
+  const webVolume = speechDuckWebVolume;
+  speechDuckWebElement = null;
+  speechDuckWebVolume = null;
+  if (element && webVolume !== null) {
+    try { element.volume = webVolume; } catch {}
+  }
+
+  const sound = speechDuckNativeSound;
+  const nativeVolume = speechDuckNativeVolume;
+  speechDuckNativeSound = null;
+  speechDuckNativeVolume = null;
+  if (sound && nativeVolume !== null) {
+    try { await sound.setVolumeAsync(nativeVolume); } catch {}
+  }
 }
 
 function clearActiveTimer() {
