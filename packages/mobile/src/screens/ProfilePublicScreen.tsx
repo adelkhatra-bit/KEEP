@@ -72,8 +72,8 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
   {
     title: 'PROFIL',
     items: [
-      { key: 'profile', icon: '👤', label: 'Modifier mon profil', hint: 'Photo, pseudo, bio, ville et pays' },
-      { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram, TikTok, Snapchat, YouTube, X, Facebook' },
+      { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo, pseudo, bio, ville et pays' },
+      { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web', hint: 'Instagram, TikTok, Snapchat, YouTube, X, Facebook' },
       { key: 'identityShare', icon: '▦', label: 'Carte & partage', hint: 'QR, lien public et invitation' },
     ],
   },
