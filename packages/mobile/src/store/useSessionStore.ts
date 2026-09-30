@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import { CanonicalTrack, RecognitionResult } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
@@ -338,9 +339,14 @@ let presenceGate = createMusicPresenceGateState();
 const WEAK_SIGNAL_PEAK = 0.018;
 
 function recognitionSampleDurationMs() {
-  // Premier essai court = résultat plus vite. Après un no-match, Loki donne au
-  // fournisseur un extrait plus long pour améliorer la couverture sans rendre
-  // chaque tentative lente par défaut.
+  // iOS dispose du catalogue ShazamKit natif : une première signature courte
+  // réduit nettement la latence perçue. Si elle ne matche pas, on allonge
+  // progressivement la fenêtre pour les fournisseurs serveur/bruit ambiant.
+  if (Platform.OS === 'ios') {
+    if (consecutiveNoMatches >= 3) return 8000;
+    if (consecutiveNoMatches >= 1) return 5000;
+    return 3000;
+  }
   if (consecutiveNoMatches >= 3) return 9500;
   if (consecutiveNoMatches >= 1) return 7000;
   return 4500;

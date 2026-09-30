@@ -123,8 +123,11 @@ export async function recordKeepDecision(
         album: track.album,
         durationSec: track.durationSec,
         artworkUrl: track.artworkUrl,
+        previewUrl: track.previewUrl,
         genres: track.genres ?? [],
         providerIds: track.providerIds ?? {},
+        externalUrls: track.externalUrls ?? {},
+        availableOn: track.availableOn ?? [],
       },
       context,
     }),
@@ -307,6 +310,25 @@ async function keepMemoryRecognition(blob: Blob, accessToken: string | null, dev
   return null;
 }
 
+/**
+ * Fast path shared with the native provider. It lets iOS run ShazamKit and the
+ * collective KEEP fingerprint memory concurrently instead of waiting for one
+ * before starting the other. No paid provider is called here.
+ */
+export async function recognizeWithKeepMemoryFast(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return null;
+  const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/wav' });
+  if (!blob.size || Date.now() < recognitionBackoffUntil) return null;
+  const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+  const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+  if (memory) {
+    recognitionBackoffUntil = 0;
+    fallbackUnavailableUntil = 0;
+    armStickyMatch();
+  }
+  return memory;
+}
+
 async function keylessSourceRecognition(accessToken: string | null): Promise<RecognitionResult | null> {
   const source = await getSharedMusicSource();
   if (!source) return null;
@@ -397,6 +419,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
   readonly providerId = 'keep-music-recognition-v2';
 
   async recognize(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, false);
+  }
+
+  async recognizeAfterMemory(audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
+    return this.recognizeInternal(audioSample, true);
+  }
+
+  private async recognizeInternal(audioSample: ArrayBuffer | Blob, skipMemory: boolean): Promise<RecognitionResult | null> {
     if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) {
       throw new Error(`Reconnaissance ${APP_NAME} indisponible : Supabase n’est pas configuré.`);
     }
@@ -421,12 +451,14 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // latence/quota externe), et seulement peuplee depuis des matchs deja
     // confirmes avec confiance -- donc pas moins fiable, seulement plus
     // rapide pour ce cas precis.
-    const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
-    if (memory) {
-      recognitionBackoffUntil = 0;
-      fallbackUnavailableUntil = 0;
-      armStickyMatch();
-      return memory;
+    if (!skipMemory) {
+      const memory = await keepMemoryRecognition(blob, accessToken, deviceId);
+      if (memory) {
+        recognitionBackoffUntil = 0;
+        fallbackUnavailableUntil = 0;
+        armStickyMatch();
+        return memory;
+      }
     }
 
     // Musique probablement toujours la même qu'à l'instant : on laisse une

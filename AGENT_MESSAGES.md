@@ -2186,3 +2186,8 @@ Audit live : 200 titres max existait uniquement à la création, mais aucune lim
 ## [2026-10-01] chatgpt — mémoire anti-répétition Solo/Battle
 
 Retour utilisateurs Adel : mêmes morceaux et mêmes faux artistes trop souvent. Correction serveur, sans liste géante dans l'app : une ligne bornée par profil garde les 120 derniers morceaux et 240 artistes/réponses récents. Solo et Arena priorisent automatiquement les candidats non récents, avec fallback au catalogue existant si un style est petit. La table est deny-all côté clients ; seules les fonctions serveur la maintiennent. Cette structure reste de taille constante par utilisateur et permet au catalogue central de grandir indépendamment.
+
+
+## [2026-10-01] chatgpt — reconnaissance plus rapide, mémoire profil -> empreintes
+
+Audit Shazam officiel + code KEEP : l'iOS utilisait déjà ShazamKit réel mais attendait 4,5 s de capture puis essayait Shazam, puis mémoire KEEP, donc latence inutile. Nouveau chemin : première fenêtre iOS 3,0 s (5 s puis 8 s seulement après échecs), ShazamKit + mémoire collective + source partagée partent en parallèle et le premier match fiable gagne ; AudD/ACRCloud démarrent seulement si les trois fast paths échouent. Les morceaux gardés avec preview seedent maintenant la mémoire d'empreintes côté serveur, y compris les matchs venant de ShazamKit qui contournaient auparavant les moteurs serveur. Aucun seuil ACRCloud fiable abaissé, aucun App.tsx/Navigation/5 onglets touché.

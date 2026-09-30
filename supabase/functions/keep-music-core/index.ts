@@ -276,8 +276,11 @@ type TrackInput = {
   album?: string;
   durationSec?: number;
   artworkUrl?: string;
+  previewUrl?: string;
   genres?: string[];
   providerIds?: Record<string, string | undefined>;
+  externalUrls?: Record<string, string | undefined>;
+  availableOn?: string[];
 };
 
 async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: string): Promise<string> {
@@ -285,6 +288,9 @@ async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: stri
   if (!existing.isrc && isrc) patch.isrc = isrc;
   if (!existing.album && track.album) patch.album = track.album;
   if (!existing.artwork_url && track.artworkUrl) patch.artwork_url = track.artworkUrl;
+  if (!existing.preview_url && track.previewUrl) patch.preview_url = track.previewUrl;
+  if ((!existing.external_urls || !Object.keys(existing.external_urls).length) && track.externalUrls) patch.external_urls = track.externalUrls;
+  if ((!existing.available_on || !existing.available_on.length) && track.availableOn?.length) patch.available_on = track.availableOn;
   const incomingProviderIds = track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {};
   if (Object.keys(incomingProviderIds).length) patch.provider_ids = { ...(existing.provider_ids ?? {}), ...incomingProviderIds };
   if (Object.keys(patch).length) await admin.from("tracks").update(patch).eq("id", existing.id);
@@ -293,14 +299,14 @@ async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: stri
 
 async function findExistingTrack(title: string, artist: string, isrc: string): Promise<any | null> {
   if (isrc) {
-    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
+    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids").eq("isrc", isrc).maybeSingle();
     if (data?.id) return data;
   }
   const normalizedSearchTitle = normalizeText(title);
   const normalizedSearchArtist = normalizeText(artist);
   const { data: matches, error } = await admin
     .from("tracks")
-    .select("id,isrc,album,artwork_url,provider_ids,title,artist")
+    .select("id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids,title,artist")
     .ilike("title", title)
     .limit(20);
   if (error) throw error;
@@ -328,8 +334,11 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
     album: track.album || null,
     duration_sec: Number.isFinite(track.durationSec) ? Math.round(Number(track.durationSec)) : null,
     artwork_url: track.artworkUrl || null,
+    preview_url: track.previewUrl || null,
     genres: Array.isArray(track.genres) ? track.genres.slice(0, 20) : [],
     provider_ids: track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {},
+    external_urls: track.externalUrls && typeof track.externalUrls === "object" ? track.externalUrls : {},
+    available_on: Array.isArray(track.availableOn) ? track.availableOn.slice(0, 20) : [],
   }).select("id").single();
 
   if (!error && data?.id) return String(data.id);
@@ -399,8 +408,25 @@ async function recordDecision(req: Request) {
   const decision = String(body?.decision ?? "").toUpperCase();
   if (decision !== "KEPT" && decision !== "PASSED") return json(400, { error: "invalid_decision" });
   const visibility: KeepVisibility = String(body?.visibility ?? "PRIVATE").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PRIVATE";
-  const trackId = await findOrCreateTrack((body?.track ?? {}) as TrackInput);
+  const trackInput = (body?.track ?? {}) as TrackInput;
+  const trackId = await findOrCreateTrack(trackInput);
   const context = body?.context && typeof body.context === "object" ? body.context : {};
+
+  // A track kept on a profile becomes useful to the collective recognition
+  // memory immediately when a legal preview is available. This also covers
+  // native ShazamKit matches, which previously bypassed the server recognizer
+  // and therefore never seeded KEEP fingerprints.
+  if (decision === "KEPT" && trackInput.previewUrl) {
+    seedInBackground(admin, {
+      title: String(trackInput.title ?? ""),
+      artist: String(trackInput.artist ?? ""),
+      album: trackInput.album,
+      artworkUrl: trackInput.artworkUrl,
+      previewUrl: trackInput.previewUrl,
+      externalUrls: trackInput.externalUrls as Record<string, string> | undefined,
+      providerIds: trackInput.providerIds as Record<string, string> | undefined,
+    });
+  }
 
   if (decision === "KEPT") {
     const current = await existingKeptDecision(userId, trackId);
