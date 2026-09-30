@@ -1323,7 +1323,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
+        <TouchableOpacity style={[styles.focusPrimary, { display: 'none' }]} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>◆</Text></View>
           <View style={styles.focusPrimaryCopy}>
             <Text style={styles.focusPrimaryTitle}>Mes albums / collections · {existingOffersForAdd.length}</Text>
