@@ -58,6 +58,86 @@ function mapNotificationRow(row: any): KeepNotification {
   };
 }
 
+const NOTIFICATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+
+function notificationDataValue(item: KeepNotification, keys: string[]): string {
+  for (const key of keys) {
+    const value = item.data?.[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+export function notificationSemanticKey(item: KeepNotification): string {
+  const type = String(item.type || '').trim().toUpperCase();
+  const arenaId = notificationDataValue(item, ['arenaId','arena_id']);
+  const matchNo = notificationDataValue(item, ['matchNo','match_no']);
+  if (['BATTLE_ARENA_WIN','BATTLE_ARENA_LOSS','BATTLE_ARENA_RESULT'].includes(type) && arenaId) {
+    return `${type}|arena:${arenaId}|match:${matchNo}`;
+  }
+  if (['BATTLE_ARENA_REMATCH','BATTLE_REMATCH'].includes(type) && arenaId) return `${type}|arena:${arenaId}`;
+
+  const stableId = notificationDataValue(item, [
+    'paymentId','payment_id','challengeId','challenge_id','eventId','event_id','offerId','offer_id',
+  ]);
+  if (stableId) return `${type}|entity:${stableId}`;
+
+  const trackId = notificationDataValue(item, ['trackId','track_id']);
+  if (trackId) {
+    const actorId = notificationDataValue(item, ['actorId','actor_id','profileId','profile_id','sellerId','seller_id','buyerId','buyer_id']);
+    return `${type}|track:${trackId}|actor:${actorId}`;
+  }
+
+  const normalized = (value: string) => value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr-FR');
+  return `${type}|text:${normalized(item.title)}|${normalized(item.body)}`;
+}
+
+export function dedupeNotifications(items: KeepNotification[]): KeepNotification[] {
+  const seen = new Map<string, number>();
+  const out: KeepNotification[] = [];
+  for (const item of items) {
+    const key = notificationSemanticKey(item);
+    const time = new Date(item.createdAt).getTime();
+    const previous = seen.get(key);
+    if (previous != null && Number.isFinite(time) && Math.abs(previous - time) <= NOTIFICATION_DEDUPE_WINDOW_MS) continue;
+    seen.set(key, Number.isFinite(time) ? time : Date.now());
+    out.push(item);
+  }
+  return out;
+}
+
+export async function deleteNotificationDuplicates(profileId: string, keep: KeepNotification): Promise<number> {
+  if (!supabase || !profileId) return 0;
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id,type,title,body,data,read_at,created_at')
+    .eq('profile_id', profileId)
+    .eq('type', keep.type)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  const keepKey = notificationSemanticKey(keep);
+  const keepTime = new Date(keep.createdAt).getTime();
+  const duplicateIds = (data ?? [])
+    .map(mapNotificationRow)
+    .filter((row) => row.id !== keep.id)
+    .filter((row) => notificationSemanticKey(row) === keepKey)
+    .filter((row) => {
+      const time = new Date(row.createdAt).getTime();
+      return !Number.isFinite(keepTime) || !Number.isFinite(time) || Math.abs(time - keepTime) <= NOTIFICATION_DEDUPE_WINDOW_MS;
+    })
+    .map((row) => row.id);
+  if (!duplicateIds.length) return 0;
+  const { error: deleteError } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId)
+    .in('id', duplicateIds);
+  if (deleteError) throw deleteError;
+  return duplicateIds.length;
+}
+
 export async function loadNotifications(profileId: string): Promise<KeepNotification[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -67,18 +147,20 @@ export async function loadNotifications(profileId: string): Promise<KeepNotifica
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
-  return (data ?? []).map(mapNotificationRow);
+  return dedupeNotifications((data ?? []).map(mapNotificationRow));
 }
 
 export async function loadUnreadNotificationCount(profileId: string): Promise<number> {
   if (!supabase) return 0;
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from('notifications')
-    .select('id', { count: 'exact', head: true })
+    .select('id,type,title,body,data,read_at,created_at')
     .eq('profile_id', profileId)
-    .is('read_at', null);
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(200);
   if (error) throw error;
-  return count ?? 0;
+  return dedupeNotifications((data ?? []).map(mapNotificationRow)).length;
 }
 
 /**

@@ -1156,6 +1156,24 @@ export default function PartiesScreen({ navigation, route }: any) {
           Battle et un côté les soirées ... par défaut ça revient toujours à
           soirée" -- deux onglets au lieu de mélanger les deux dans le même
           flux ; Soirées reste l'onglet par défaut. */}
+      <View style={styles.partiesTabs} accessibilityLabel="Choisir Soirées ou Battle">
+        <TouchableOpacity
+          style={[styles.partiesTabBtn, partiesTab === 'SOIREES' && styles.partiesTabBtnOn]}
+          onPress={() => { setPartiesTab('SOIREES'); setPartyHome(true); setBattleOpen(false); }}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir Soirées"
+        >
+          <Text style={[styles.partiesTabText, partiesTab === 'SOIREES' && styles.partiesTabTextOn]}>SOIRÉES</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.partiesTabBtn, partiesTab === 'BATTLE' && styles.partiesTabBtnOn]}
+          onPress={() => setPartiesTab('BATTLE')}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir Battle"
+        >
+          <Text style={[styles.partiesTabText, partiesTab === 'BATTLE' && styles.partiesTabTextOn]}>BATTLE</Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Adel (03/09/2026) : "il doit être en soirée, il doit être dans
           Battle, il est de partout pour pas le louper" -- bandeaux fixes

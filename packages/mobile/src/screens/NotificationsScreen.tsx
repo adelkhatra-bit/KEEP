@@ -5,8 +5,11 @@ import { useUserStore } from '../store/useUserStore';
 import {
   KeepNotification,
   NotificationPreferences,
+  dedupeNotifications,
   deleteAllNotifications,
   deleteNotification,
+  deleteNotificationDuplicates,
+  notificationSemanticKey,
   loadNotifications,
   loadNotificationPreferences,
   markAllNotificationsRead,
@@ -256,6 +259,44 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const closeEventDetail = () => { setDetailItem(null); setDetailEvent(null); };
 
+  const openNotification = async (item: KeepNotification) => {
+    if (!user) return;
+    await readOne(item);
+    await deleteNotificationDuplicates(user.id, item).catch(() => 0);
+    const tappedKey = notificationSemanticKey(item);
+    setItems((current) => dedupeNotifications([item, ...current.filter((row) => row.id !== item.id && notificationSemanticKey(row) !== tappedKey)]));
+
+    const data = item.data as Record<string, unknown> | null;
+    const type = String(item.type || '').toUpperCase();
+    const eventId = eventIdOf(item);
+    if (eventId) {
+      navigation.navigate('Main', { screen: 'Parties', params: { openEventId: eventId, source: 'NOTIFICATION' } });
+      return;
+    }
+
+    const arenaRaw = data?.arenaId ?? data?.arena_id;
+    const arenaId = typeof arenaRaw === 'string' && arenaRaw ? arenaRaw : undefined;
+    if (isBattleInvite(item) || type.includes('BATTLE')) {
+      navigation.navigate('Main', { screen: 'Parties', params: { openBattle: true, arenaId, source: 'NOTIFICATION' } });
+      return;
+    }
+
+    const offerRaw = data?.offerId ?? data?.offer_id;
+    const offerId = typeof offerRaw === 'string' && offerRaw ? offerRaw : null;
+    if (type.startsWith('PLAYLIST_SALE') && offerId) {
+      navigation.navigate('PlaylistSale', { manageSaleOfferId: offerId, source: 'NOTIFICATION' });
+      return;
+    }
+
+    const profileUsername = notificationProfileUsername(item);
+    if (profileUsername) {
+      navigation.navigate('PublicProfile', { username: profileUsername });
+      return;
+    }
+
+    if (type === 'PLAN_GIFTED' || type.includes('PLAN')) navigation.navigate('Offers');
+  };
+
   const readAll = async () => {
     if (!user) return;
     const previous = items;
@@ -353,10 +394,7 @@ export default function NotificationsScreen({ navigation }: any) {
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
               <TouchableOpacity
                 style={styles.cardMain}
-                onPress={() => {
-                  void readOne(item);
-                  if (profileUsername) navigation.navigate('PublicProfile', { username: profileUsername });
-                }}
+                onPress={() => { void openNotification(item); }}
                 activeOpacity={0.84}
                 accessibilityLabel={`${item.title}. ${item.readAt ? 'Lue' : 'Non lue'}${profileUsername ? `. Voir le profil de ${profileUsername}` : ''}`}
               >

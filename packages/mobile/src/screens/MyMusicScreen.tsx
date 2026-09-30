@@ -245,6 +245,24 @@ export default function MyMusicScreen({ navigation, route }: any) {
     navigation?.setParams?.({ manageSaleOfferId: undefined, manageSaleOfferName: undefined });
   }, [navigation, route?.params?.manageSaleOfferId, route?.params?.manageSaleOfferName, myOfferedTrackIds]);
 
+  // Le route param peut arriver avant la carte Supabase des morceaux de l'offre.
+  // Dans ce cas l'ancien effet cochait zéro morceau puis effaçait le paramètre.
+  // Dès que la carte réelle arrive, on ajoute les morceaux déjà inclus sans
+  // écraser les nouveaux choix faits par l'utilisateur.
+  useEffect(() => {
+    const offerId = saleEditOfferTarget?.offerId;
+    if (!saleSelectionMode || !offerId) return;
+    const includedIds = Object.entries(myOfferedTrackIds)
+      .filter(([, row]) => row.offerId === offerId)
+      .map(([trackId]) => trackId);
+    if (!includedIds.length) return;
+    setSelectedSaleTrackIds((current) => {
+      const next = new Set(current);
+      includedIds.forEach((trackId) => next.add(trackId));
+      return next;
+    });
+  }, [saleEditOfferTarget?.offerId, saleSelectionMode, myOfferedTrackIds]);
+
   const localKeptEntries = useMemo(() => {
     // Source canonique = Supabase. L'historique de sessions reste utile pour
     // les KEEPs locaux non encore synchronisés, mais il ne doit plus pouvoir

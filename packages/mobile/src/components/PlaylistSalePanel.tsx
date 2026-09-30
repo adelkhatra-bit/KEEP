@@ -11,6 +11,20 @@ import { splitSaleOffersByStatus } from '../services/saleListPaging';
 
 type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
+function transactionAmountLabel(transaction: PlaylistSaleTransaction, direction: 'RECEIVED' | 'SPENT' | 'NEUTRAL' = 'NEUTRAL'): string {
+  if (transaction.paymentMode === 'FREE' || transaction.amountFree > 0) {
+    const sign = direction === 'RECEIVED' ? '+ ' : direction === 'SPENT' ? '− ' : '';
+    return `${sign}${transaction.amountFree} FREE`;
+  }
+  return `${(transaction.amountCents / 100).toFixed(2).replace('.', ',')}€ ${transaction.currencyCode}`;
+}
+
+function transactionFreeBalanceLabel(transaction: PlaylistSaleTransaction): string | null {
+  if (transaction.paymentMode !== 'FREE' && transaction.amountFree <= 0) return null;
+  if (transaction.freeBalanceBefore == null || transaction.freeBalanceAfter == null) return 'Solde FREE de départ non enregistré pour cet ancien déblocage.';
+  return `Solde FREE : ${transaction.freeBalanceBefore} → ${transaction.freeBalanceAfter}`;
+}
+
 export default function PlaylistSalePanel({ navigation, route }: any) {
   const focusOfferId: string | undefined = route?.params?.manageSaleOfferId;
   const user = useUserStore((s) => s.user);
@@ -385,7 +399,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <View style={s.offerTop}>
                       <View style={s.offerInfo}>
                         <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
-                        <Text style={s.offerPrice}>{(sale.amountCents / 100).toFixed(2)}€ {sale.currencyCode}</Text>
+                        <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'NEUTRAL')}</Text>
                       </View>
                     </View>
                     <Text style={s.offerDate}>Demandé le {new Date(sale.createdAt).toLocaleDateString('fr-FR')} -- pas encore confirmé</Text>
@@ -421,7 +435,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 {sales.filter((s2) => s2.status === 'COMPLETED').map((sale) => (
                   <View key={sale.id} style={s.offerCard}>
                     <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
-                    <Text style={s.offerPrice}>{(sale.amountCents / 100).toFixed(2)}€ {sale.currencyCode}</Text>
+                    <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'RECEIVED')}</Text>
+                    {transactionFreeBalanceLabel(sale) ? <Text style={s.offerDate}>{transactionFreeBalanceLabel(sale)}</Text> : null}
                   </View>
                 ))}
               </View>
@@ -433,7 +448,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 {purchases.map((purchase) => (
                   <View key={purchase.id} style={s.offerCard}>
                     <Text style={s.offerName}>@{purchase.counterpartUsername} · {purchase.playlistName}</Text>
-                    <Text style={s.offerPrice}>{(purchase.amountCents / 100).toFixed(2)}€ {purchase.currencyCode}</Text>
+                    <Text style={s.offerPrice}>{transactionAmountLabel(purchase, 'SPENT')}</Text>
+                    {transactionFreeBalanceLabel(purchase) ? <Text style={s.offerDate}>{transactionFreeBalanceLabel(purchase)}</Text> : null}
                     <Text style={s.offerDate}>{purchase.status === 'COMPLETED' ? '✓ Débloqué -- va sur son profil pour voir les morceaux' : '⏳ En attente que le créateur confirme ton paiement'}</Text>
                   </View>
                 ))}

@@ -218,16 +218,57 @@ export type PlaylistSaleTransaction = {
   counterpartUsername: string;
   playlistName: string;
   amountCents: number;
+  amountFree: number;
+  paymentMode: PlaylistSalePaymentMode;
+  freeBalanceBefore: number | null;
+  freeBalanceAfter: number | null;
   currencyCode: string;
   status: 'PENDING' | 'COMPLETED';
   createdAt: string;
 };
 
+type PlaylistSalePaymentContext = {
+  amountFree: number;
+  paymentMode: PlaylistSalePaymentMode;
+  sellerFreeBefore: number | null;
+  sellerFreeAfter: number | null;
+  buyerFreeBefore: number | null;
+  buyerFreeAfter: number | null;
+};
+
+async function loadPlaylistSalePaymentContexts(paymentIds: string[]): Promise<Record<string, PlaylistSalePaymentContext>> {
+  if (!supabase || !paymentIds.length) return {};
+  try {
+    const { data, error } = await supabase
+      .from('playlist_sale_payments')
+      .select('id,amount_free,provider,seller_free_balance_before,seller_free_balance_after,buyer_free_balance_before,buyer_free_balance_after')
+      .in('id', paymentIds);
+    if (error) return {};
+    const out: Record<string, PlaylistSalePaymentContext> = {};
+    for (const row of data ?? []) {
+      const id = String((row as any).id ?? '');
+      if (!id) continue;
+      const amountFree = Number((row as any).amount_free ?? 0);
+      out[id] = {
+        amountFree,
+        paymentMode: amountFree > 0 || String((row as any).provider ?? '').toUpperCase() === 'FREE_CREDITS' ? 'FREE' : 'MONEY',
+        sellerFreeBefore: (row as any).seller_free_balance_before == null ? null : Number((row as any).seller_free_balance_before),
+        sellerFreeAfter: (row as any).seller_free_balance_after == null ? null : Number((row as any).seller_free_balance_after),
+        buyerFreeBefore: (row as any).buyer_free_balance_before == null ? null : Number((row as any).buyer_free_balance_before),
+        buyerFreeAfter: (row as any).buyer_free_balance_after == null ? null : Number((row as any).buyer_free_balance_after),
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export async function loadMyPlaylistSales(): Promise<PlaylistSaleTransaction[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_sales');
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  const rows = (Array.isArray(data) ? data : []).map((row: any) => ({
     id: String(row.id ?? ''),
     counterpartUsername: String(row.buyer_username ?? ''),
     playlistName: String(row.playlist_name ?? ''),
@@ -236,6 +277,17 @@ export async function loadMyPlaylistSales(): Promise<PlaylistSaleTransaction[]> 
     status: row.status,
     createdAt: String(row.created_at ?? ''),
   })).filter((row) => row.id);
+  const contexts = await loadPlaylistSalePaymentContexts(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const context = contexts[row.id];
+    return {
+      ...row,
+      amountFree: context?.amountFree ?? 0,
+      paymentMode: context?.paymentMode ?? 'MONEY',
+      freeBalanceBefore: context?.sellerFreeBefore ?? null,
+      freeBalanceAfter: context?.sellerFreeAfter ?? null,
+    };
+  });
 }
 
 // Adel (21/09/2026, mission 3/3) : "Écran historique des ventes : liste
@@ -349,7 +401,7 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_playlist_sale_my_purchases');
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  const rows = (Array.isArray(data) ? data : []).map((row: any) => ({
     id: String(row.id ?? ''),
     counterpartUsername: String(row.seller_username ?? ''),
     playlistName: String(row.playlist_name ?? ''),
@@ -358,6 +410,17 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
     status: row.status,
     createdAt: String(row.created_at ?? ''),
   })).filter((row) => row.id);
+  const contexts = await loadPlaylistSalePaymentContexts(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const context = contexts[row.id];
+    return {
+      ...row,
+      amountFree: context?.amountFree ?? 0,
+      paymentMode: context?.paymentMode ?? 'MONEY',
+      freeBalanceBefore: context?.buyerFreeBefore ?? null,
+      freeBalanceAfter: context?.buyerFreeAfter ?? null,
+    };
+  });
 }
 
 // Adel (16-17/09/2026) : "l'utilisateur va pouvoir sélectionner les
