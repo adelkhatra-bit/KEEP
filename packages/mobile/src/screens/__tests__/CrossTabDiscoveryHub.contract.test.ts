@@ -23,7 +23,7 @@ describe('Cross-tab People / Events / Collections integration', () => {
     expect(discover).toContain('PERSONNES');
     expect(discover).toContain('ÉVÉNEMENTS');
     expect(discover).toContain("navigation.navigate('Parties', { openEventId: event.id");
-    expect(discover).toContain('Rechercher un contact ou un pseudo Loki Music');
+    expect(discover).toContain('Rechercher un pseudo Loki Music');
   });
 
   it('opens a discovered event in the real Soirées screen, not a duplicate screen', () => {

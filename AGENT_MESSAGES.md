@@ -2050,3 +2050,8 @@ La simplification du 30/09 avait recouvert une partie du parcours validé sans s
 - Découvertes : sélecteur PERSONNES / ÉVÉNEMENTS. PERSONNES réutilise la vraie recherche pseudo existante ; ÉVÉNEMENTS charge les événements publics validés via loadUpcomingEvents() et ouvre le vrai PartiesScreen par openEventId.
 - Playlists : l'espace existant de gestion plein écran est remis en avant sous « Mes albums / collections » avec musiques disponibles, +/− morceaux, prix € / FREE, paiement et statut.
 - Nouveau contrat CrossTabDiscoveryHub.contract.test.ts pour empêcher une prochaine simplification de casser cette structure.
+
+
+## [2026-09-30T19:24:00Z] chatgpt — compatibilité recherche Découvertes
+
+TypeScript mobile + moteur musique verts sur d88489e. Un seul garde ancien directement touché attendait le placeholder exact « Rechercher un pseudo Loki Music ». Texte restauré sans retirer la nouvelle porte d'entrée « Rechercher un contact » depuis Soirées ni le mode PERSONNES/ÉVÉNEMENTS.
