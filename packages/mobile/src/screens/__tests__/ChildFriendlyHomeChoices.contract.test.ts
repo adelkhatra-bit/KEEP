@@ -18,10 +18,11 @@ describe('Child-friendly home choices', () => {
   });
 
   it('uses simple action verbs on Mes musiques', () => {
-    for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Mes albums / collections', 'Connecter mes applis musique']) {
+    for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Connecter mes applis musique']) {
       expect(music).toContain(label);
     }
-    expect(music).toContain('Écouter · Trier · Créer');
+    expect(music).toContain('Écouter · Trier · Organiser');
+    expect(music).not.toContain("setWorkspaceTab('COLLECTIONS')");
     expect(music).toContain("mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique'");
   });
 

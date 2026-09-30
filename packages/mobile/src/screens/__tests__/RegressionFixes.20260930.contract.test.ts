@@ -32,7 +32,8 @@ describe('30/09 regression locks', () => {
   it('keeps the Soirées/Battle selector visible', () => {
     const parties = read('screens/PartiesScreen.tsx');
     expect(parties).toContain('accessibilityLabel="Ouvrir Soirées"');
-    expect(parties).toContain('accessibilityLabel="Ouvrir Battle"');
+    expect(parties).toContain('accessibilityLabel="Ouvrir directement Battle"');
+    expect(parties).toContain('setPendingArenaId(undefined); setBattleOpen(true);');
     expect(parties).toContain("partiesTab === 'SOIREES'");
   });
 });

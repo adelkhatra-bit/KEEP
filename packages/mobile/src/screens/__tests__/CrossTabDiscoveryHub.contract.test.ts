@@ -7,6 +7,7 @@ describe('Cross-tab People / Events / Collections integration', () => {
   const parties = read('PartiesScreen.tsx');
   const discover = read('DiscoverScreen.tsx');
   const music = read('MyMusicScreen.tsx');
+  const salePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
   it('keeps the three event views aligned and permanently visible', () => {
     const rail = parties.slice(parties.indexOf('accessibilityLabel="Navigation de la soirée"') - 120, parties.indexOf('accessibilityLabel="Navigation de la soirée"') + 2600);
@@ -33,9 +34,12 @@ describe('Cross-tab People / Events / Collections integration', () => {
     expect(parties).toContain("setEventTab('LOBBY')");
   });
 
-  it('surfaces the full album/collection manager from Playlists', () => {
-    for (const marker of ['Mes albums / collections', 'MES ALBUMS / COLLECTIONS', 'MUSIQUES DISPONIBLES', '＋ / − MUSIQUES', 'PRIX · € / FREE · STATUT']) {
-      expect(music).toContain(marker);
+  it('keeps one collection manager and uses Playlists only as its track selector', () => {
+    for (const marker of ['MES COLLECTIONS PUBLIÉES', '♫ Morceaux', '€ / FREE', '＋ CRÉER UNE COLLECTION']) {
+      expect(salePanel).toContain(marker);
     }
+    expect(salePanel).toContain("params: { createSaleCollection: true }");
+    expect(music).toContain("route?.params?.createSaleCollection");
+    expect(music).not.toContain("setWorkspaceTab('COLLECTIONS')");
   });
 });
