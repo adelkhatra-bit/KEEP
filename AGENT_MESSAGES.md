@@ -2078,3 +2078,8 @@ Une seule entrée de création de vente : Collections/Pépites. Playlists ne mon
 ## [2026-09-30T23:12:00+02:00] chatgpt — suppression du dernier doublon caché ventes
 
 Le vieux workspace interne COLLECTIONS de MyMusic a été supprimé, ainsi que son bouton masqué et ses boutons de vente par playlist/album. Il ne peut plus être réactivé par erreur par une autre IA. Source unique : Profil > Collections > PlaylistSalePanel > Créer une collection > MyMusic utilisé uniquement comme sélecteur de plusieurs morceaux. Le texte du menu Profil rappelle maintenant le flux unique, le choix obligatoire € / FREE et l'obligation du mode de paiement en euros.
+
+
+## [2026-09-30T23:18:00+02:00] chatgpt — garde CI profil aligné avec la consigne FREE
+
+Mobile TypeScript et moteur musique passent. Le seul blocage Mobile CI avant Jest était verify-profile-hierarchy.cjs, resté sur l'ancienne règle FREE à droite de Reprises. Garde mis à jour : il exige maintenant type de profil → FREE → Battle sur la ligne identité et interdit tout doublon FREE dans la barre PLUS/Abonnés/Reprises.

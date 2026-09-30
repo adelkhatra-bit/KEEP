@@ -44,8 +44,19 @@ assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQui
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
-assertIncludes(owner, 'topMetricFreeStack:{width:82', 'Owner FREE right stack');
+assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type + FREE inline group');
+assertIncludes(owner, 'style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}', 'Owner FREE inline with profile type');
 assertIncludes(owner, 'style={s.profileBattleInline}', 'Owner Battle inline with profile identity');
+
+const ownerMeta = owner.slice(
+  owner.indexOf('<View style={s.profileMetaTopRow}>'),
+  owner.indexOf('{(user.city || user.countryCode)'),
+);
+assertOrdered(ownerMeta, [
+  'style={[s.kindBadge',
+  'accessibilityLabel="Voir le détail de mes Free"',
+  '<BattleGlowButton',
+], 'Owner identity order profile type -> FREE -> Battle');
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
@@ -55,8 +66,10 @@ assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-  'accessibilityLabel="Voir le détail de mes Free"',
-], 'Owner metrics order PLUS -> social -> FREE');
+], 'Owner metrics order PLUS -> social');
+if (ownerMetrics.includes('accessibilityLabel="Voir le détail de mes Free"')) {
+  throw new Error('Owner FREE must not be duplicated in the metrics row');
+}
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
@@ -111,6 +124,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: Battle inline with identity; PLUS left, followers/reprises center, FREE right');
+console.log('owner: profile type + FREE aligned in identity row; Battle inline; PLUS/followers/reprises below');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');
