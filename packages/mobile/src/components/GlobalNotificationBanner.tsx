@@ -1,15 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, AppState, Image, Modal, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { KeepNotification, loadNotificationPreferences, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
-import { respondBattleChallenge } from '../services/keepBattleLiveService';
-import { respondKeepBattleArenaRematch } from '../services/keepBattleService';
+import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
+import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
 import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
 import { setEventRsvp } from '../services/creatorEventService';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
+const BATTLE_DECISION_POLL_MS = 800;
 const EVENT_VISIBLE_MS = 20000;
 const BATTLE_INLINE_TYPES = new Set([
   'BATTLE_CHALLENGE',
@@ -51,6 +52,9 @@ export default function GlobalNotificationBanner() {
   const resetBattleAvailability = useBattleAvailabilityStore((s) => s.reset);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
+  const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
+  const [blockingRematch, setBlockingRematch] = useState<KeepBattlePendingRematch | null>(null);
+  const battleDecisionPollBusy = useRef(false);
   const OFFSCREEN_TOP = -260;
   const translateY = useRef(new Animated.Value(OFFSCREEN_TOP)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -71,6 +75,48 @@ export default function GlobalNotificationBanner() {
     }
     void syncBattleAvailability().catch(() => {});
   }, [isDemoMode, isLocalGuest, resetBattleAvailability, syncBattleAvailability, user?.id]);
+
+  const refreshBlockingBattleDecision = useCallback(async () => {
+    if (!user?.id || isDemoMode || isLocalGuest || battleDecisionPollBusy.current) {
+      if (!user?.id || isDemoMode || isLocalGuest) {
+        setBlockingChallenge(null);
+        setBlockingRematch(null);
+      }
+      return;
+    }
+    battleDecisionPollBusy.current = true;
+    try {
+      const [challenges, rematches] = await Promise.all([
+        loadIncomingBattleChallenges().catch(() => []),
+        loadPendingArenaRematches().catch(() => []),
+      ]);
+      const challenge = challenges[0] ?? null;
+      setBlockingChallenge(challenge);
+      setBlockingRematch(challenge ? null : (rematches[0] ?? null));
+    } finally {
+      battleDecisionPollBusy.current = false;
+    }
+  }, [isDemoMode, isLocalGuest, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || isDemoMode || isLocalGuest) {
+      setBlockingChallenge(null);
+      setBlockingRematch(null);
+      return undefined;
+    }
+    let alive = true;
+    const tick = () => { if (alive) void refreshBlockingBattleDecision(); };
+    tick();
+    const timer = setInterval(tick, BATTLE_DECISION_POLL_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') tick();
+    });
+    return () => {
+      alive = false;
+      clearInterval(timer);
+      appState.remove();
+    };
+  }, [isDemoMode, isLocalGuest, refreshBlockingBattleDecision, user?.id]);
 
   const dragY = useRef(0);
   const panResponder = useMemo(() => PanResponder.create({
@@ -134,17 +180,11 @@ export default function GlobalNotificationBanner() {
       // uniquement à l'intérieur de l'écran Battle lui-même (déjà en place),
       // pour ne jamais couper une session d'écoute en cours sans consentement.
       if (battleChallenge || battleRematch) {
-        if (!useBattleAvailabilityStore.getState().available) return;
-        // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la
-        // notification tu l'intègres uniquement dans
-        // Profil/Playlists/Découvertes/Écoute" -- `partiesTabOpen` reste vrai
-        // tant que l'écran Parties est monté, QUEL QUE SOIT son sous-onglet
-        // (classement compris) -- ce bandeau flottant ne doit jamais s'y
-        // afficher, un bandeau fixe interne prend déjà le relais partout là-
-        // bas. Remplace l'ancien test `battleScreenOpen` (trop étroit : ne
-        // couvrait que l'arène grande ouverte, pas tout l'onglet Soirées).
-        if (useBattleAvailabilityStore.getState().partiesTabOpen) return;
+        // Battle consent is handled by the blocking server-truth prompt.
+        void refreshBlockingBattleDecision();
+        return;
       }
+
 
       // Realtime reconnects must never replay the same visual notification.
       if (seenNotificationIds.current.has(notification.id)) return;
@@ -187,9 +227,70 @@ export default function GlobalNotificationBanner() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       hideTimer.current = null;
     };
-  }, [isDemoMode, isLocalGuest, opacity, translateY, user?.id]);
+  }, [isDemoMode, isLocalGuest, opacity, refreshBlockingBattleDecision, translateY, user?.id]);
 
-  if (!current || !user || isDemoMode || isLocalGuest) return null;
+  if (!user || isDemoMode || isLocalGuest) return null;
+
+  const answerBlockingChallenge = async (accept: boolean) => {
+    if (!blockingChallenge || respondBusy) return;
+    const item = blockingChallenge;
+    setRespondBusy(true);
+    try {
+      const result = await respondBattleChallenge(item.id, accept);
+      setBlockingChallenge(null);
+      if (accept && result.arenaId) navigateToBattleArena(result.arenaId);
+    } catch {
+      // Never dismiss a mandatory decision unless the server confirms it.
+    } finally {
+      setRespondBusy(false);
+      setTimeout(() => { void refreshBlockingBattleDecision(); }, 250);
+    }
+  };
+
+  const answerBlockingRematch = async (accept: boolean) => {
+    if (!blockingRematch || respondBusy) return;
+    const item = blockingRematch;
+    setRespondBusy(true);
+    try {
+      await respondKeepBattleArenaRematch(item.arenaId, accept);
+      setBlockingRematch(null);
+      if (accept) navigateToBattleArena(item.arenaId);
+    } catch {
+      // Same rule for rematches.
+    } finally {
+      setRespondBusy(false);
+      setTimeout(() => { void refreshBlockingBattleDecision(); }, 250);
+    }
+  };
+
+  if (blockingChallenge || blockingRematch) {
+    const challenge = blockingChallenge;
+    const rematch = blockingRematch;
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
+        <View style={styles.battleLockBackdrop}>
+          <View style={styles.battleLockCard} accessibilityRole="alert">
+            <Text style={styles.battleLockEyebrow}>LOKI MUSIC · DÉCISION REQUISE</Text>
+            <Text style={styles.battleLockTitle}>{challenge ? '⚡ INVITATION BATTLE' : '🔁 REVANCHE BATTLE'}</Text>
+            <Text style={styles.battleLockBody}>
+              {challenge ? `${challenge.username} te défie · ${challenge.roundCount} morceaux` : `${rematch?.participantUsernames?.join(', ') || 'Le groupe'} veut rejouer`}
+            </Text>
+            <Text style={styles.battleLockHint}>Cette invitation reste affichée tant que tu n’as pas choisi. Accepte ou refuse pour continuer dans l’application.</Text>
+            <View style={styles.battleLockActions}>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleLockNo, respondBusy && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(false) : answerBlockingRematch(false)); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
+                <Text style={styles.battleLockNoText}>REFUSER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleLockYes, respondBusy && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(true) : answerBlockingRematch(true)); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
+                <Text style={styles.battleLockYesText}>{respondBusy ? 'CONNEXION…' : 'ACCEPTER'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  if (!current) return null;
 
   const artworkUrl = dataText(current, 'artworkUrl');
   const trackTitle = dataText(current, 'trackTitle');
@@ -383,6 +484,17 @@ export default function GlobalNotificationBanner() {
 }
 
 const styles = StyleSheet.create({
+  battleLockBackdrop: { flex: 1, backgroundColor: 'rgba(7,5,12,0.9)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  battleLockCard: { width: '100%', maxWidth: 420, borderRadius: 24, borderWidth: 2, borderColor: '#7C5CFC', backgroundColor: '#15101F', paddingHorizontal: 18, paddingVertical: 20, shadowColor: '#000', shadowOpacity: 0.48, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 40 },
+  battleLockEyebrow: { color: '#68F2B1', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center' },
+  battleLockTitle: { color: '#FFF', fontSize: 22, lineHeight: 28, fontWeight: '900', textAlign: 'center', marginTop: 8 },
+  battleLockBody: { color: '#FFF', fontSize: 15, lineHeight: 21, fontWeight: '800', textAlign: 'center', marginTop: 10 },
+  battleLockHint: { color: '#C8C1D4', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 10 },
+  battleLockActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  battleLockNo: { flex: 1, minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },
+  battleLockNoText: { color: '#FFF', fontSize: 13, fontWeight: '900' },
+  battleLockYes: { flex: 1, minHeight: 50, borderRadius: 18, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },
+  battleLockYesText: { color: '#17130B', fontSize: 13, fontWeight: '900' },
   wrap: {
     position: 'absolute',
     zIndex: 10000,
