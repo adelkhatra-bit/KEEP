@@ -13,7 +13,7 @@ import { sharePlaylist } from '../services/sharingService';
 import { prepareKeylessMusicExport } from '../services/keylessMusicBridge';
 import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPlaylistPreference } from '../services/keepLibraryService';
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
-import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
+import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadDeliveredPlaylistSaleTracks, loadMyOfferedTrackIds, loadMyPlaylistPurchaseLibrary, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistPurchaseLibraryEntry, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { getPayoutLinkForProfile, payoutProviderLabel } from '../services/payoutLinkService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
@@ -150,6 +150,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // playlistSaleService.ts). Une seule fois par achat (visibility_choice_made).
   const [pendingVisibilityChoice, setPendingVisibilityChoice] = useState<PendingVisibilityChoice | null>(null);
   const [visibilityChoiceBusy, setVisibilityChoiceBusy] = useState(false);
+  // Les achats restent visibles ici même si la marketplace est masquée plus tard :
+  // une collection déjà payée appartient toujours à l'utilisateur.
+  const [purchaseLibrary, setPurchaseLibrary] = useState<PlaylistPurchaseLibraryEntry[]>([]);
+  const [purchaseOpen, setPurchaseOpen] = useState<PlaylistPurchaseLibraryEntry | null>(null);
+  const [purchaseTracks, setPurchaseTracks] = useState<CanonicalTrack[]>([]);
+  const [purchaseTracksLoading, setPurchaseTracksLoading] = useState(false);
   // Adel (21/09/2026) : "Hauteur fixe et uniforme pour toutes les cartes ...
   // le reste des informations passe dans un menu dépliable." Public/Privé,
   // Supprimer, Vendre et "Donné par" ne changent plus la hauteur de la
@@ -390,6 +396,29 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
+  const refreshPurchaseLibrary = async () => {
+    if (!userId || isLocalGuest || isDemoMode) {
+      setPurchaseLibrary([]);
+      return;
+    }
+    const rows = await loadMyPlaylistPurchaseLibrary(6).catch(() => []);
+    setPurchaseLibrary(rows);
+  };
+
+  const openPurchasedCollection = async (entry: PlaylistPurchaseLibraryEntry) => {
+    setPurchaseOpen(entry);
+    setPurchaseTracks([]);
+    setPurchaseTracksLoading(true);
+    try {
+      setPurchaseTracks(await loadDeliveredPlaylistSaleTracks(entry.deliveredPlaylistId));
+    } catch {
+      setPurchaseTracks([]);
+      Alert.alert('Mes achats', 'Impossible de charger cette collection pour le moment.');
+    } finally {
+      setPurchaseTracksLoading(false);
+    }
+  };
+
   const refreshLibrary = async () => {
     await syncUnsyncedKeeps().catch(() => {});
     if (userId && !isLocalGuest && !isDemoMode) {
@@ -401,6 +430,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     await refresh().catch(() => {});
     await refreshSmartState().catch(() => {});
     await refreshSaleState().catch(() => {});
+    await refreshPurchaseLibrary().catch(() => {});
   };
 
   useEffect(() => {
@@ -412,6 +442,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setSortAccess(null);
     setSaleAccess(null);
     setMyOffers({});
+    setPurchaseLibrary([]);
+    setPurchaseOpen(null);
+    setPurchaseTracks([]);
     setServerKeeps([]);
   }, [userId]);
 
@@ -1224,6 +1257,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
 
+        {purchaseLibrary.length ? (
+          <View style={styles.purchaseHome}>
+            <View style={styles.purchaseHomeHead}>
+              <Text style={styles.purchaseHomeTitle}>DERNIERS ACHATS</Text>
+              <Text style={styles.purchaseHomeCount}>{purchaseLibrary.length}</Text>
+            </View>
+            {purchaseLibrary.slice(0, 3).map((entry) => (
+              <TouchableOpacity key={entry.paymentId} style={styles.purchaseHomeRow} onPress={() => { void openPurchasedCollection(entry); }} accessibilityLabel={`Écouter mon achat ${entry.playlistName}`}>
+                <View style={styles.purchaseHomeIcon}><Text style={styles.purchaseHomeIconText}>✓</Text></View>
+                <View style={styles.purchaseHomeCopy}>
+                  <Text style={styles.purchaseHomeName} numberOfLines={1}>{entry.playlistName}</Text>
+                  <Text style={styles.purchaseHomeMeta} numberOfLines={1}>@{entry.sellerUsername} · {entry.trackCount} titre{entry.trackCount > 1 ? 's' : ''}</Text>
+                </View>
+                <Text style={styles.purchaseHomePlay}>▶</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.purchaseHomeHint}>Tes achats restent aussi classés automatiquement dans tes Styles.</Text>
+          </View>
+        ) : null}
+
         <View style={styles.focusActionStack}>
           <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
             <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
@@ -1579,6 +1632,30 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View></View>
       </Modal>
 
+      <Modal visible={Boolean(purchaseOpen)} transparent animationType="fade" onRequestClose={() => setPurchaseOpen(null)}>
+        <View style={styles.modalBackdrop}><View style={[styles.editCard, styles.purchaseModalCard]}>
+          <View style={styles.purchaseModalHead}>
+            <View style={styles.purchaseModalHeadCopy}>
+              <Text style={styles.editTitle}>{purchaseOpen?.playlistName || 'Mon achat'}</Text>
+              <Text style={styles.purchaseModalSeller}>{purchaseOpen?.sellerUsername ? `@${purchaseOpen.sellerUsername}` : ''}</Text>
+            </View>
+            <TouchableOpacity style={styles.purchaseModalClose} onPress={() => setPurchaseOpen(null)} accessibilityLabel="Fermer mes achats"><Text style={styles.purchaseModalCloseText}>×</Text></TouchableOpacity>
+          </View>
+          {purchaseTracksLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginVertical: 24 }} /> : (
+            <ScrollView style={styles.purchaseTracksScroll} contentContainerStyle={styles.purchaseTracksContent}>
+              {purchaseTracks.map((track) => (
+                <View key={track.id} style={styles.purchaseTrackRow}>
+                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.purchaseTrackCover} /> : <View style={[styles.purchaseTrackCover, styles.purchaseTrackCoverFallback]}><Text style={styles.purchaseTrackCoverText}>♪</Text></View>}
+                  <View style={styles.purchaseTrackCopy}><Text style={styles.purchaseTrackTitle} numberOfLines={1}>{track.title}</Text><Text style={styles.purchaseTrackArtist} numberOfLines={1}>{track.artist}</Text></View>
+                  <TrackPreviewButton trackKey={`purchase:${purchaseOpen?.paymentId || 'unknown'}:${track.id}`} previewUrl={track.previewUrl} square />
+                </View>
+              ))}
+              {!purchaseTracks.length ? <Text style={styles.editHint}>Aucun titre lisible dans cette collection.</Text> : null}
+            </ScrollView>
+          )}
+        </View></View>
+      </Modal>
+
       {/* Adel (21/09/2026, mission 2/3) : "après paiement, choix immédiat
           Rendre publique / Garder masquée" -- affiché la première fois que
           cet écran se recharge après une livraison marketplace (voir
@@ -1640,6 +1717,15 @@ const styles = StyleSheet.create({
   focusPrimaryIcon:{width:46,height:46,borderRadius:15,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
   focusPrimaryIconText:{color:colors.primaryLight,fontSize:21,fontWeight:'900'},
   focusPrimaryCopy:{flex:1,minWidth:0},focusPrimaryTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},focusPrimaryHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:4},
+  purchaseHome:{borderRadius:18,borderWidth:1,borderColor:'rgba(45,225,194,.36)',backgroundColor:'rgba(45,225,194,.06)',padding:10,gap:7},
+  purchaseHomeHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:3},
+  purchaseHomeTitle:{color:colors.success,fontSize:10,fontWeight:'900',letterSpacing:1},
+  purchaseHomeCount:{minWidth:24,height:24,borderRadius:12,backgroundColor:'rgba(45,225,194,.14)',color:colors.success,textAlign:'center',lineHeight:24,fontSize:11,fontWeight:'900'},
+  purchaseHomeRow:{minHeight:52,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:9},
+  purchaseHomeIcon:{width:30,height:30,borderRadius:15,backgroundColor:'rgba(45,225,194,.12)',borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},
+  purchaseHomeIconText:{color:colors.success,fontSize:14,fontWeight:'900'},
+  purchaseHomeCopy:{flex:1,minWidth:0},purchaseHomeName:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseHomeMeta:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
+  purchaseHomePlay:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},purchaseHomeHint:{color:colors.textMuted,fontSize:9,lineHeight:13,paddingHorizontal:3},
   focusActionStack:{gap:10},
   focusActionRow:{minHeight:70,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},
   focusActionIcon:{width:40,height:40,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
@@ -1654,6 +1740,13 @@ const styles = StyleSheet.create({
   focusChoiceIcon:{width:40,height:40,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
   focusChoiceIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   focusChoiceCopy:{flex:1,minWidth:0},focusChoiceTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusChoiceHint:{color:colors.textMuted,fontSize:10,marginTop:2},focusChoiceArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},
+  purchaseModalCard:{width:'92%',maxWidth:520,maxHeight:'78%'},
+  purchaseModalHead:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},purchaseModalHeadCopy:{flex:1,minWidth:0},purchaseModalSeller:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:2},
+  purchaseModalClose:{width:36,height:36,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},purchaseModalCloseText:{color:colors.textPrimary,fontSize:24,lineHeight:26,fontWeight:'700'},
+  purchaseTracksScroll:{maxHeight:430},purchaseTracksContent:{gap:7,paddingBottom:4},
+  purchaseTrackRow:{minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:7,flexDirection:'row',alignItems:'center',gap:9},
+  purchaseTrackCover:{width:42,height:42,borderRadius:10,backgroundColor:colors.backgroundCard},purchaseTrackCoverFallback:{alignItems:'center',justifyContent:'center'},purchaseTrackCoverText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  purchaseTrackCopy:{flex:1,minWidth:0},purchaseTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},purchaseTrackArtist:{color:colors.textMuted,fontSize:10,fontWeight:'700',marginTop:2},
   focusBar:{marginHorizontal:12,marginTop:9,marginBottom:5,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8,gap:9},
   focusBack:{width:38,height:38,borderRadius:12,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},focusBackText:{color:colors.primaryLight,fontSize:30,fontWeight:'700',lineHeight:32},focusBarCopy:{flex:1},focusBarTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusBarHint:{color:colors.textMuted,fontSize:9,marginTop:1},
   mobileAccordion:{marginHorizontal:12,marginTop:8,gap:7},
