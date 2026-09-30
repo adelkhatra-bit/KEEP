@@ -23,7 +23,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
-import { KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
+import { consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
 import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -429,6 +429,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // l'effet de timeout de lire la VRAIE valeur courante au lieu de sa propre
   // fermeture obsolète.
   const soloStartedAtRef = React.useRef(0);
+  // Ne débite qu'une seule fois, après le premier extrait réellement joué.
+  const soloDailyConsumedRef = React.useRef(false);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
   // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
@@ -1006,6 +1008,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const ok = await playVerified(cycleKey, url, ROUND_MS + 800);
         if (!alive) return;
         if (ok) {
+          if (soloIndex === 0 && !soloDailyConsumedRef.current) {
+            try {
+              const consumed = await consumeKeepBattleSoloDailyStart();
+              if (!alive) return;
+              soloDailyConsumedRef.current = true;
+              setSoloDailyStatus(consumed);
+            } catch (error) {
+              if (!alive) return;
+              await stopTrackPreview().catch(() => {});
+              setSolo(null);
+              showSoloStartError(error);
+              return;
+            }
+          }
           setAudioReady(true);
           soloStartedAtRef.current = Date.now(); setSoloStartedAt(soloStartedAtRef.current);
           return;
@@ -1421,6 +1437,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // fraîche côté serveur juste avant de démarrer le pack solo.
       const freshPrefs = await loadMyMatchPreferences().catch(() => null);
       const pack = await loadKeepBattleSoloPack(themeCode, roundCount, freshPrefs?.themeCodes || myPreferredThemes);
+      soloDailyConsumedRef.current = false;
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
       soloStartedAtRef.current = 0;
@@ -2825,8 +2842,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <TouchableOpacity style={[s.modeCard, soloDailyStatus && !soloDailyStatus.unlimited && (soloDailyStatus.remaining ?? 1) <= 0 && s.modeCardExhausted]} disabled={busy} onPress={() => { void startSolo(); }} accessibilityRole="button" accessibilityLabel="Jouer en solo">
           {busy ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={s.modeIconText}>◎</Text><Text style={s.modeTitle}>SOLO</Text></>}
         </TouchableOpacity>
-        <TouchableOpacity style={[s.modeCard, insufficientForRoundCount(roundCount) && s.modeCardExhausted]} disabled={busy} onPress={() => { void openOnline(); }} accessibilityRole="button" accessibilityLabel="Jouer un Battle en ligne">
-          <Text style={s.modeIconText}>⚡</Text><Text style={s.modeTitle}>BATTLE</Text>
+        <TouchableOpacity style={[s.modeCard, insufficientForRoundCount(roundCount) && s.modeCardExhausted]} disabled={busy} onPress={() => { void openOnline(); }} accessibilityRole="button" accessibilityLabel="Jouer en ligne">
+          <Text style={s.modeIconText}>⚡</Text><Text style={s.modeTitle}>EN LIGNE</Text>
         </TouchableOpacity>
       </View></ScrollView></View>;
 }
