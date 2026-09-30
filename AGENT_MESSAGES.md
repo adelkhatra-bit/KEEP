@@ -2055,3 +2055,8 @@ La simplification du 30/09 avait recouvert une partie du parcours validé sans s
 ## [2026-09-30T19:24:00Z] chatgpt — compatibilité recherche Découvertes
 
 TypeScript mobile + moteur musique verts sur d88489e. Un seul garde ancien directement touché attendait le placeholder exact « Rechercher un pseudo Loki Music ». Texte restauré sans retirer la nouvelle porte d'entrée « Rechercher un contact » depuis Soirées ni le mode PERSONNES/ÉVÉNEMENTS.
+
+
+## [2026-09-30T21:55:00+02:00] chatgpt — Soirées scalable + retour unique
+
+Demande Adel : penser immédiatement à des millions d'utilisateurs, une seule logique de retour et des invitations adaptées au public de l'événement. Changements : retour « ‹ Soirées » standardisé dans Soirées et dans Découvertes quand ouvert depuis Soirées ; public événement Tout public / 18+ / Famille ; bannière EVENT_INVITE visible 20 s avec REFUSER / J'Y VAIS ; diffusion événement déplacée vers une file de jobs en lots idempotents ; feed événements filtré/rangé côté serveur. Ne pas créer un second système de notifications ou de retour.
