@@ -27,12 +27,7 @@
   },
   "profileOwner": {
     "freePlacement": "metrics-after-reprises",
-    "metricsBarOrder": [
-      "PLUS",
-      "Abonnés",
-      "Reprises",
-      "FREE"
-    ],
+    "metricsBarOrder": ["PLUS", "Abonnés", "Reprises", "FREE"],
     "freeBesideProfileKind": false,
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
@@ -40,13 +35,7 @@
     "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true
   },
   "responsive": {
-    "requiredViewports": [
-      "390x844",
-      "430x932",
-      "768x700",
-      "900x700",
-      "1440x900"
-    ],
+    "requiredViewports": ["390x844", "430x932", "768x700", "900x700", "1440x900"],
     "desktopRootMustFillViewport": true,
     "resizeMustNotBlankApplication": true,
     "fiveTabsMustRemainVisible": true
@@ -74,6 +63,7 @@
     "duplicateDeliveryMustBeIdempotent": true,
     "partialMissingTrackRequest": true,
     "partialRequestSellerMayOfferFreePrice": true,
-    "partialOfferMustBePrivateToRequester": true,\n    "sellerCanSelectSubsetOfMissingTracks": true
+    "partialOfferMustBePrivateToRequester": true,
+    "sellerCanSelectSubsetOfMissingTracks": true
   }
 }
