@@ -2160,3 +2160,14 @@ RÈGLE CONFIRMÉE PAR ADEL, NE PLUS INVERSER : bonus uniquement en Battle MULTIJ
 - Solo: vrai Annuler avant démarrage, réponses descendues avec visuel solo plus grand, sans modifier le layout Battle partagé.
 - Fin Solo/Battle: voix automatique française plus naturelle, baisse temporaire du preview pendant la parole puis restauration.
 - PersonalThemeBackdrop existait déjà pour le décor Rose nuit du profil FEMALE; pas de nouvelle refonte globale ni modification App.tsx/Navigation.tsx/5 onglets.
+
+
+## [2026-10-01] USER LOCK — source produit canonique + FREE profil
+
+RÈGLE LA PLUS RÉCENTE, ELLE ANNULE LES ANCIENNES ENTRÉES CONTRADICTOIRES DU 30/09 :
+- lire `config/keep-product-contract.json` avant toute action ;
+- profil propriétaire : `PLUS | Abonnés | Reprises | FREE`, FREE juste après Reprises ;
+- FREE n'est PAS à côté de Utilisateur/Créateur ;
+- certification et solde FREE restent branchés sur Supabase réel ; ne jamais modifier la donnée live pour corriger une UI ;
+- si un ancien test/commentaire/message dit l'inverse, il est obsolète et doit être corrigé dans le même commit ;
+- App.tsx / Navigation.tsx / barre 5 onglets restent protégés.
