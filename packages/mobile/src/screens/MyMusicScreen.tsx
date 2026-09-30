@@ -943,6 +943,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
       Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant en euros.');
       return;
     }
+    if (sellPaymentMode === 'MONEY' && !payoutLink.trim()) {
+      Alert.alert(
+        'Mode de paiement requis',
+        'Pour publier en euros, configure d’abord le lien sur lequel tu veux être payé.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Configurer', onPress: () => { closeSellModal(); navigation.navigate('ProfileCreatorTools'); } },
+        ],
+      );
+      return;
+    }
     const stableKey = sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key;
     setSellBusy(true);
     try {
@@ -1617,6 +1628,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             placeholderTextColor={colors.textMuted}
             accessibilityLabel="Nom de la collection exclusive"
           /> : null}
+          <Text style={styles.saleStepLabel}>ÉTAPE 1 · TYPE D’ACCÈS</Text>
           {sellTarget?.kind === 'selection' ? (
             <View style={styles.priceChipsRow}>
               <TouchableOpacity
@@ -1635,6 +1647,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </TouchableOpacity>
             </View>
           ) : null}
+          <Text style={styles.saleStepLabel}>ÉTAPE 2 · PRIX</Text>
           <View style={styles.salePriceHeader}>
             <Text style={styles.salePriceLabel}>ACCÈS À TOUTE LA COLLECTION</Text>
             <Text style={styles.salePriceExplain}>
@@ -1666,10 +1679,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
           {sellPaymentMode === 'FREE' && sellFreePrice ? <Text style={styles.salePriceSummary}>
             DÉBLOCAGE COMPLET · {sellFreePrice} FREE pour {sellTarget?.kind === 'selection' ? `${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'toute la collection'}
           </Text> : null}
+          <Text style={styles.saleStepLabel}>ÉTAPE 3 · PAIEMENT</Text>
+          {sellPaymentMode === 'MONEY' ? (
+            <TouchableOpacity
+              style={[styles.salePaymentGate, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}
+              onPress={() => { closeSellModal(); navigation.navigate('ProfileCreatorTools'); }}
+              accessibilityLabel={payoutLink.trim() ? 'Modifier mon mode de paiement' : 'Configurer mon mode de paiement'}
+            >
+              <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? `✓ ${payoutProviderLabel(payoutLink)} connecté` : 'MODE DE PAIEMENT REQUIS'}</Text>
+              <Text style={styles.salePaymentGateHint}>{payoutLink.trim() ? 'Paiement direct sur ton lien personnel.' : 'Ajoute ton lien de paiement avant de publier en euros.'}</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.salePaymentGate, styles.salePaymentGateReady]}>
+              <Text style={styles.salePaymentGateTitle}>⚡ FREE LOKI MUSIC</Text>
+              <Text style={styles.salePaymentGateHint}>Aucun lien de paiement externe nécessaire.</Text>
+            </View>
+          )}
           <TouchableOpacity
             style={styles.saveButton}
             onPress={() => void saveSellPrice()}
-            disabled={sellBusy || (sellPaymentMode === 'MONEY' ? !sellPriceCents : !sellFreePrice)}
+            disabled={sellBusy || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
           >
             {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
           </TouchableOpacity>
@@ -1827,5 +1856,5 @@ const styles = StyleSheet.create({
   trackRowOuter:{flexDirection:'row',alignItems:'center',gap:8},trackRowGrid:{flex:1,minWidth:0},
   trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},visibilityTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:44,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:44,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},sellMini:{minHeight:44,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellMiniText:{color:'#FFD166',fontSize:8,fontWeight:'900'},sellTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#FFD166',backgroundColor:'#3D2F10',alignItems:'center',justifyContent:'center'},sellTrackButtonOffered:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},sellTrackText:{color:'#FFD166',fontSize:7,fontWeight:'900'},sellTrackTextOffered:{color:colors.primaryLight},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:44,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:44,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:44,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},salePriceHeader:{marginTop:12,marginBottom:8,padding:11,borderRadius:14,backgroundColor:'rgba(124,92,252,.10)',borderWidth:1,borderColor:'rgba(167,139,250,.45)'},salePriceLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},salePriceExplain:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:4},salePriceSummary:{color:colors.success,fontSize:12,lineHeight:17,fontWeight:'900',textAlign:'center',marginTop:9},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:44,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:'#FFD166'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:44,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:44,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},salePriceHeader:{marginTop:12,marginBottom:8,padding:11,borderRadius:14,backgroundColor:'rgba(124,92,252,.10)',borderWidth:1,borderColor:'rgba(167,139,250,.45)'},salePriceLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},salePriceExplain:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:4},salePriceSummary:{color:colors.success,fontSize:12,lineHeight:17,fontWeight:'900',textAlign:'center',marginTop:9},saleStepLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1,marginTop:12,marginBottom:7},salePaymentGate:{minHeight:58,borderRadius:15,borderWidth:1,paddingHorizontal:12,paddingVertical:10,marginBottom:10},salePaymentGateReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},salePaymentGateMissing:{borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)'},salePaymentGateTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},salePaymentGateHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:3},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:44,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:'#FFD166'},
 });
