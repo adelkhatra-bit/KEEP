@@ -5,10 +5,12 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { respondBattleChallenge } from '../services/keepBattleLiveService';
 import { respondKeepBattleArenaRematch } from '../services/keepBattleService';
-import { navigateToBattleArena } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
+import { setEventRsvp } from '../services/creatorEventService';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
+const EVENT_VISIBLE_MS = 20000;
 const BATTLE_INLINE_TYPES = new Set([
   'BATTLE_CHALLENGE',
   'KEEP_BATTLE_CHALLENGE',
@@ -35,6 +37,10 @@ function isBattleChallenge(notification: KeepNotification): boolean {
 // keep_battle_challenges.
 function isBattleRematch(notification: KeepNotification): boolean {
   return String(notification.type || '').toUpperCase() === 'BATTLE_ARENA_REMATCH';
+}
+
+function isEventInvite(notification: KeepNotification): boolean {
+  return String(notification.type || '').toUpperCase() === 'EVENT_INVITE';
 }
 
 export default function GlobalNotificationBanner() {
@@ -172,7 +178,7 @@ export default function GlobalNotificationBanner() {
         ]).start();
       });
 
-      hideTimer.current = setTimeout(() => animateOut(), (battleChallenge || battleRematch) ? BATTLE_VISIBLE_MS : VISIBLE_MS);
+      hideTimer.current = setTimeout(() => animateOut(), (battleChallenge || battleRematch) ? BATTLE_VISIBLE_MS : isEventInvite(notification) ? EVENT_VISIBLE_MS : VISIBLE_MS);
     });
 
     return () => {
@@ -205,6 +211,9 @@ export default function GlobalNotificationBanner() {
   const battleRematch = isBattleRematch(current);
   const challengeId = dataText(current, 'challengeId');
   const rematchArenaId = dataText(current, 'arenaId');
+  const eventInvite = isEventInvite(current);
+  const eventId = dataText(current, 'event_id') || dataText(current, 'eventId');
+  const eventAudience = dataText(current, 'audience_mode');
 
   // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
   // page ... êtes-vous prêt oui ou non" -- une fois "disponible" activé, le
@@ -246,6 +255,45 @@ export default function GlobalNotificationBanner() {
       setRespondBusy(false);
     }
   };
+
+  const respondEventFromBanner = async (accept: boolean) => {
+    if (!eventId || respondBusy) return;
+    setRespondBusy(true);
+    try {
+      await setEventRsvp(user.id, eventId, accept ? 'GOING' : 'NOT_GOING');
+      void markNotificationRead(user.id, current!.id).catch(() => {});
+      animateOut(() => { if (accept) navigateToEvent(eventId); });
+    } catch {
+      animateOut();
+    } finally {
+      setRespondBusy(false);
+    }
+  };
+
+  if (eventInvite && eventId) {
+    const audienceLabel = eventAudience === 'ADULTS_18_PLUS' ? '18+' : eventAudience === 'FAMILY' ? 'FAMILLE' : 'TOUT PUBLIC';
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+        <View style={[styles.banner, styles.eventBanner]}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
+          {artworkUrl ? <Image source={{ uri: artworkUrl }} style={styles.artwork} /> : <View style={styles.artworkFallback}><Text style={styles.note}>♬</Text></View>}
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.eventEyebrow}>SOIRÉE · {audienceLabel}</Text></View>
+            <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
+            <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
+            <View style={styles.battleActions}>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleNo, respondBusy && styles.battleDisabled]} onPress={() => { void respondEventFromBanner(false); }} accessibilityRole="button" accessibilityLabel="Refuser l’invitation à la soirée">
+                <Text style={styles.battleNoText}>REFUSER</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleYes, respondBusy && styles.battleDisabled]} onPress={() => { void respondEventFromBanner(true); }} accessibilityRole="button" accessibilityLabel="Accepter l’invitation à la soirée">
+                <Text style={styles.battleYesText}>{respondBusy ? '...' : 'J’Y VAIS'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
 
   if (battleRematch && rematchArenaId) {
     return (
@@ -361,6 +409,8 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
   },
+  eventBanner: { borderColor: '#7C5CFC' },
+  eventEyebrow: { color: '#B79CFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   closeButton: { position: 'absolute', top: 6, right: 6, zIndex: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   closeButtonText: { color: '#FFF', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   artwork: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#21162E' },
