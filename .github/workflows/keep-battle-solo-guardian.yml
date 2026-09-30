@@ -5,13 +5,19 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/src/components/KeepBattleArenaPanel.tsx'
+      - 'packages/mobile/src/components/KeepBattleMobileGameV3.tsx'
+      - 'packages/mobile/src/components/LokiMascotVoice.tsx'
       - 'packages/mobile/src/screens/PartiesScreen.tsx'
+      - 'packages/mobile/src/services/audioPreviewService.ts'
       - 'packages/mobile/src/services/keepBattleExperienceService.ts'
       - '.github/workflows/keep-battle-solo-guardian.yml'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/src/components/KeepBattleArenaPanel.tsx'
+      - 'packages/mobile/src/components/KeepBattleMobileGameV3.tsx'
+      - 'packages/mobile/src/components/LokiMascotVoice.tsx'
+      - 'packages/mobile/src/services/audioPreviewService.ts'
       - 'packages/mobile/src/services/keepBattleExperienceService.ts'
       - '.github/workflows/keep-battle-solo-guardian.yml'
   workflow_dispatch:
@@ -75,10 +81,18 @@ jobs:
             const playSolo = page.getByLabel('Jouer en solo').last();
             await playSolo.waitFor({ state: 'visible', timeout: 15000 });
             await playSolo.click();
-            await page.getByText('KEEP BATTLE · SOLO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
-            await page.getByText('PARTAGER', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
-            await page.getByText(/MORCEAU 1\//).last().waitFor({ state: 'visible', timeout: 15000 });
-            await page.getByText('Écoute. Qui est l’artiste ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+
+            // Le produit demande désormais 3 choix explicites avant un Solo :
+            // Annuler / jouer sans enregistrer / enregistrer. Le Guardian doit
+            // choisir volontairement, jamais contourner ce vrai retour arrière.
+            await page.getByText('Sauvegarder ce Battle ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            const playWithoutSaving = page.getByText('Jouer sans enregistrer', { exact: true }).last();
+            await playWithoutSaving.waitFor({ state: 'visible', timeout: 15000 });
+            await playWithoutSaving.click();
+
+            await page.getByText(/^SOLO · /).last().waitFor({ state: 'visible', timeout: 20000 });
+            await page.getByText('QUI CHANTE ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
+            await page.getByText('RÉPONDS VITE', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
             const candidate = page.locator('div[role="button"]').filter({ hasText: /.+/ });
             const count = await candidate.count();
             let answered = false;
@@ -93,13 +107,12 @@ jobs:
               }
             }
             if (!answered) throw new Error('Could not click a solo answer choice');
-            await page.getByText(/BONNE RÉPONSE|RÉPONSE :/).last().waitFor({ state: 'visible', timeout: 15000 });
-            await page.getByText('MORCEAU SUIVANT', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText(/GAGNÉ !|PERDU|OUPS · TROP TARD/).last().waitFor({ state: 'visible', timeout: 15000 });
             const dims = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth }));
             if (dims.scrollWidth > dims.width + 1) throw new Error(`Battle solo overflow: ${JSON.stringify(dims)}`);
             if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
             await browser.close();
-            console.log('BATTLE SOLO 390x844 OK: direct Battle -> SOLO, round, answer, next, share visible, no manual code');
+            console.log('BATTLE SOLO 390x844 OK: explicit save choice -> SOLO, 4 answers, result visible, no overflow');
           })().catch(e => { console.error(e); process.exit(1); });
           JS
           node battle-solo.cjs
