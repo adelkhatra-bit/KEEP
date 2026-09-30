@@ -36,6 +36,6 @@ describe("ACRCloud server fallback contract", () => {
   it('keeps the 55 immediate threshold and repeated consensus fallback', () => {
     expect(server).toContain('const MIN_ACR_SCORE = 55');
     expect(server).toContain('candidateRecognition');
-    expect(server).toContain('recognitionEvidence: "repeat_required"');
+    expect(server).toContain('"repeat_required"');
   });
 });

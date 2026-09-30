@@ -2102,3 +2102,8 @@ Correctif ciblé : seuil fiable 55 conservé ; score ACR >=40 accepté immédiat
 ## [2026-09-30T23:36:00+02:00] chatgpt — gardes vente finalisés
 
 Les derniers contrats qui visaient encore « Mes albums » ou un bouton Vendre par morceau ont été basculés sur PlaylistSalePanel, source unique. Le mode obligatoire est désormais testé avec le nouveau libellé, le mode FREE avec son bénéfice communauté, et les lignes MyMusic ne doivent plus contenir de bouton de vente séparé.
+
+
+## [2026-09-30T23:30:00+02:00] chatgpt — reconnaissance déployée
+
+P0 reconnaissance poussé + déployé directement sur Supabase KEEP : keep-music-fallback version 11 ACTIVE. Le cas réel ACRCloud score 40 peut maintenant être accepté immédiatement si Apple/iTunes ou Deezer confirme exactement titre + artiste ; sinon le consensus multi-fenêtres reste en place. TypeScript mobile et moteur sont verts. Un assert de contrat ajouté par ChatGPT était trop strict sur la mise en forme de la ligne ; corrigé ici sans changement produit. Ne baissez pas globalement MIN_ACR_SCORE=55.
