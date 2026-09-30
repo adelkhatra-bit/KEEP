@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   battleLockEyebrow: { color: '#68F2B1', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center' },
   battleLockTitle: { color: '#FFF', fontSize: 22, lineHeight: 28, fontWeight: '900', textAlign: 'center', marginTop: 8 },
   battleLockBody: { color: '#FFF', fontSize: 15, lineHeight: 21, fontWeight: '800', textAlign: 'center', marginTop: 10 },
-  battleLockHint: { color: '#C8C1D4', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 10 },
+  battleLockHint: { color: '#FFF', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 10 },
   battleLockActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
   battleLockNo: { flex: 1, minHeight: 50, borderRadius: 18, borderWidth: 1, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },
   battleLockNoText: { color: '#FFF', fontSize: 13, fontWeight: '900' },
