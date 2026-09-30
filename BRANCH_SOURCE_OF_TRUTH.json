@@ -24,5 +24,6 @@
     "security/*",
     "vercel/*"
   ],
-  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. All legacy human branches are preserved as archive tags, not active branches."
+  "rule": "Never infer the product source from GitHub's default branch. Always use canonicalBranch explicitly. Read productContract before any product edit. All legacy human branches are archive-only.",
+  "productContract": "config/keep-product-contract.json"
 }
