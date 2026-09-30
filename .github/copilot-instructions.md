@@ -1,3 +1,6 @@
+## Canonical product library
+Read `/config/keep-product-contract.json` first. It is the machine-enforced anti-regression contract. If an older test/comment/message conflicts with the user's latest explicit decision and this contract, update the stale artifact in the same commit. Never mutate live user certification/FREE/profile data to fix a UI regression.
+
 ## Mandatory product specification
 Read `/docs/KEEP_MASTER_SPEC.md` — mandatory master product specification — and `/docs/KEEP_CAHIER_DES_CHARGES_UI.md` before editing. Do not move or duplicate validated modules unless the user's current request explicitly changes the specification.
 
