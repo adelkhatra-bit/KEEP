@@ -7,11 +7,13 @@ Date : 24/09/2026
 1. Vérifier le repo : `adelkhatra-bit/KEEP`.
 2. Vérifier la branche : `reconcile/claude-main-20260825`.
 3. Lire `AGENTS.md`, `PROJECT_STATE.md`, `.context/activeContext.md`.
-4. Lire `docs/CODE_GPS.md` et `docs/ERROR_LEDGER.md`.
-5. Lire les derniers messages de `AGENT_MESSAGES.md`.
-6. Vérifier le HEAD et les 10 derniers commits.
-7. Vérifier le verrou agent (`scripts/agent-lock.cjs`) si l'agent a un terminal.
-8. Chercher si la fonction existe déjà avant de créer quoi que ce soit.
+4. Lire `docs/KEEP_MASTER_SPEC.md` et `docs/KEEP_CAHIER_DES_CHARGES_UI.md`.
+5. Vérifier qu'aucun module verrouillé par le cahier des charges n'est déplacé par la tâche en cours.
+6. Lire `docs/CODE_GPS.md` et `docs/ERROR_LEDGER.md`.
+7. Lire les derniers messages de `AGENT_MESSAGES.md`.
+8. Vérifier le HEAD et les 10 derniers commits.
+9. Vérifier le verrou agent (`scripts/agent-lock.cjs`) si l'agent a un terminal.
+10. Chercher si la fonction existe déjà avant de créer quoi que ce soit.
 
 ## Avant chaque fichier modifié
 
