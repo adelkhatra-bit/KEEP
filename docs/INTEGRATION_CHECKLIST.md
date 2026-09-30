@@ -1,6 +1,17 @@
 # INTEGRATION CHECKLIST — protocole unique pour tous les agents
 
-Date : 24/09/2026
+Date : 01/10/2026
+
+## Mémoire anti-régression et cache
+
+- Avant CHAQUE intégration, cherry-pick, reprise de session ou réécriture UI : `npm run integration:preflight`.
+- Après CHAQUE intégration et avant push : `npm run integration:postflight`.
+- Le preflight purge uniquement les caches générés locaux puis vérifie la branche/source unique, le baseline UI et `config/keep-product-contract.json`.
+- Toute règle explicitement validée par Adel et inscrite dans `config/keep-product-contract.json` / `config/keep-ui-baseline.json` est immuable jusqu'à une nouvelle demande explicite.
+- Un ancien commit, commentaire ou test contradictoire est OBSOLÈTE : ne jamais le réintégrer pour satisfaire un vieux test.
+- Profil propriétaire verrouillé : `PLUS → Abonnés → Reprises → FREE`.
+- Achats verrouillés : visibles dans `Playlists > Derniers achats`, lisibles directement, anti-doublon visible dans l'aperçu, offre partielle privée au demandeur.
+- Sur Windows, `START_KEEP_LIVE_CLEAN.bat` reste le lanceur canonique et ajoute Expo `--clear`, navigateur privé et URL nocache.
 
 ## Avant de commencer
 
