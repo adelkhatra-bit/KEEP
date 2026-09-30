@@ -1,22 +1,47 @@
 {
-  "version": "2026-09-30.1",
+  "version": "2026-10-01.1",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
   "profileOwner": {
-    "freePlacement": "same-row-after-profile-kind",
-    "freeMustNotAppearInMetricsBar": true,
-    "profileKindLabels": ["Utilisateur", "Créateur", "DJ", "Artiste", "Producteur", "Établissement"],
-    "metricsBarOrder": ["PLUS", "Abonnés", "Reprises"],
+    "freePlacement": "metrics-after-reprises",
+    "freeMustNotAppearBesideProfileKind": true,
+    "freeMustAppearExactlyOnce": true,
+    "profileKindLabels": [
+      "Utilisateur",
+      "Créateur",
+      "DJ",
+      "Artiste",
+      "Producteur",
+      "Établissement"
+    ],
+    "metricsBarOrder": [
+      "PLUS",
+      "Abonnés",
+      "Reprises",
+      "FREE"
+    ],
     "hamburgerAccountEntryAllowed": false,
     "sessionControlsLocation": "ProfileSettingsMobileScreen"
   },
   "navigation": {
-    "bottomTabsImmutable": ["Loki Music", "Découvertes", "Playlists", "Soirées", "Profil"],
+    "bottomTabsImmutable": [
+      "Loki Music",
+      "Découvertes",
+      "Playlists",
+      "Soirées",
+      "Profil"
+    ],
     "appTsxResponsiveRedesignAllowed": false,
     "navigationTsxRedesignAllowed": false
   },
   "responsive": {
-    "requiredViewports": ["390x844", "430x932", "768x700", "900x700", "1440x900"],
+    "requiredViewports": [
+      "390x844",
+      "430x932",
+      "768x700",
+      "900x700",
+      "1440x900"
+    ],
     "desktopAndMobileMustUseSameProductSource": true,
     "resizeMustNotBlankApplication": true
   }
