@@ -27,7 +27,7 @@ describe('Owner profile identity breathing room', () => {
     expect(source).toContain("avatar:{width:80,height:80,borderRadius:40");
     expect(source).toContain("identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16}");
     expect(source).toContain("profileMetaLeft:{alignItems:'stretch',gap:9,marginTop:10}");
-    expect(source).toContain("profileMetaBadgeGroup:{flexDirection:'row',alignItems:'center',gap:7,flexShrink:1}");
+    expect(source).toContain("profileMetaBadgeGroup:{flexDirection:'row',alignItems:'center',gap:7,flexShrink:1,flexWrap:'nowrap'}");
     expect(source).toContain("profileBattleInline:{flexShrink:0}");
   });
 });
