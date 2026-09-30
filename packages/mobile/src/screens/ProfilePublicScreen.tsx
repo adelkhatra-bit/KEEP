@@ -23,7 +23,7 @@ import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
-import { loadMyPlaylistSaleOffers, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadMyPlaylistSaleOffers, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -215,7 +215,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [opportunityPreviewOffer, setOpportunityPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
+  const [opportunityPreviewSuggestion, setOpportunityPreviewSuggestion] = useState<ProfileSaleSuggestion | null>(null);
   const [opportunityPurchaseBusy, setOpportunityPurchaseBusy] = useState(false);
+  const [opportunityMissingBusy, setOpportunityMissingBusy] = useState(false);
   const [marketplacePurchaseEnabled, setMarketplacePurchaseEnabled] = useState(false);
   useEffect(() => { let live = true; isPlaylistMarketplaceEnabled().then((enabled) => live && setMarketplacePurchaseEnabled(enabled)); return () => { live = false; }; }, []);
   const openOpportunityPreview = async (suggestion: ProfileSaleSuggestion) => {
@@ -224,8 +226,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
       const offers = await loadPlaylistSaleOffersForProfile(suggestion.sellerId);
       const offer = offers.find((row) => row.offerId === suggestion.offerId);
       if (!offer) throw new Error('OFFER_NOT_FOUND');
+      setOpportunityPreviewSuggestion(suggestion);
       setOpportunityPreviewOffer(offer);
     } catch {
+      setOpportunityPreviewSuggestion(null);
       Alert.alert('Découverte', 'Cette sélection n’est plus disponible pour le moment.');
     }
   };
@@ -253,6 +257,25 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setOpportunityPurchaseBusy(false);
     }
   };
+  const requestOpportunityMissingTracks = async (offer: PublicPlaylistSaleOffer) => {
+    if (opportunityMissingBusy) return;
+    setOpportunityMissingBusy(true);
+    try {
+      const result = await requestMissingPlaylistSaleTracks(offer.offerId);
+      Alert.alert(
+        'Demande envoyée',
+        `@${opportunityPreviewSuggestion?.sellerUsername || 'le créateur'} a reçu ta demande pour ${result.missingCount} morceau${result.missingCount > 1 ? 'x' : ''} manquant${result.missingCount > 1 ? 's' : ''}.`,
+      );
+      setOpportunityPreviewOffer(null);
+      setOpportunityPreviewSuggestion(null);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      Alert.alert('Demande', message.includes('ALL_TRACKS_ALREADY_OWNED') ? 'Tu as déjà tous les morceaux de cette collection.' : 'Impossible d’envoyer la demande pour le moment.');
+    } finally {
+      setOpportunityMissingBusy(false);
+    }
+  };
+
   const [profileSaleSuggestionIndex, setProfileSaleSuggestionIndex] = useState(0);
   // Adel (07/09/2026) : "j'ai pas un petit pop pour sélectionner si je suis
   // un DJ, un hôtel etc. ... rien ne se passe, il me redirige sur les
@@ -1422,9 +1445,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
           offer={opportunityPreviewOffer}
           visible
           busy={opportunityPurchaseBusy}
-          onClose={() => setOpportunityPreviewOffer(null)}
+          onClose={() => { setOpportunityPreviewOffer(null); setOpportunityPreviewSuggestion(null); }}
           onConfirmPurchase={(offer) => { void buyOpportunityOffer(offer); }}
           purchaseEnabled={opportunityPreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
+          sourceUsername={opportunityPreviewSuggestion?.sellerUsername}
+          freeBalance={freeBalance}
+          onOpenProfile={opportunityPreviewSuggestion ? () => {
+            const username = opportunityPreviewSuggestion.sellerUsername;
+            setOpportunityPreviewOffer(null);
+            setOpportunityPreviewSuggestion(null);
+            navigation.navigate('PublicProfile', { username });
+          } : undefined}
+          onRequestMissingTracks={(offer) => { void requestOpportunityMissingTracks(offer); }}
+          requestMissingBusy={opportunityMissingBusy}
+          onRechargeFree={() => {
+            setOpportunityPreviewOffer(null);
+            setOpportunityPreviewSuggestion(null);
+            navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' });
+          }}
         />
       ) : null}
 
