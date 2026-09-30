@@ -2220,16 +2220,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             ScrollView garantit que tout reste atteignable quelle que soit la
             taille de l'écran, au lieu de deviner une hauteur fixe. */}
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
-          {perfectBonusWinner ? (
-            <Animated.View style={[s.perfectBonusCard, perfectBonusGlowStyle]}>
-              <Text style={s.perfectBonusSpark}>✦ 👑 ✦</Text>
-              <Text style={s.perfectBonusKicker}>SANS-FAUTE · LE PLUS RAPIDE</Text>
-              <Text style={s.perfectBonusName}>@{perfectBonusWinner.username}</Text>
-              <Text style={s.perfectBonusScore}>{arena.roundCount}/{arena.roundCount}</Text>
-              <Animated.Text style={[s.perfectBonusAmount, jackpotScoreStyle]}>+{perfectBonusFree} FREE BONUS</Animated.Text>
-              <Text style={s.perfectBonusHint}>{perfectBonusIsMine ? 'TU PRENDS LE BONUS SYSTÈME' : 'Bonus attribué uniquement au sans-faute le plus rapide'}</Text>
-            </Animated.View>
-          ) : null}
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <LokiFinishBurst tone={soloScore >= Math.ceil(solo.rounds.length / 2) ? 'win' : 'try'} />
             {/* Adel (29/09/2026) : Loki, dessin animé avec voix off selon le score. */}
@@ -2448,6 +2438,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
+          {perfectBonusWinner ? (
+            <Animated.View style={[s.perfectBonusCard, perfectBonusGlowStyle]}>
+              <Text style={s.perfectBonusSpark}>✦ 👑 ✦</Text>
+              <Text style={s.perfectBonusKicker}>SANS-FAUTE · LE PLUS RAPIDE</Text>
+              <Text style={s.perfectBonusName}>@{perfectBonusWinner.username}</Text>
+              <Text style={s.perfectBonusScore}>{arena.roundCount}/{arena.roundCount}</Text>
+              <Animated.Text style={[s.perfectBonusAmount, jackpotScoreStyle]}>+{perfectBonusFree} FREE BONUS</Animated.Text>
+              <Text style={s.perfectBonusHint}>{perfectBonusIsMine ? 'TU PRENDS LE BONUS SYSTÈME' : 'Bonus attribué uniquement au sans-faute le plus rapide'}</Text>
+            </Animated.View>
+          ) : null}
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <LokiFinishBurst tone="win" />
             {/* Adel (29/09/2026) : trophée 3D à la place de la photo ; il nargue le perdant. */}

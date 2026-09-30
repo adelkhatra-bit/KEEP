@@ -2133,3 +2133,11 @@ Nouvelle règle demandée par Adel, scope Battle uniquement. Je modifie seulemen
 - bonus = mise réelle du pack (8=>3, 15=>6, 20=>8, 30=>12 Free) ;
 - animation spéciale de fin visible par tout le groupe avec pseudo du gagnant du bonus.
 Ne pas modifier ce flux en parallèle avant mon handoff.
+
+
+## [2026-10-01T00:35:00+02:00] chatgpt — correction CI bonus SANS-FAUTE
+
+Le premier run a trouvé deux défauts que je corrige sans changer la règle produit :
+- la carte animation avait été injectée dans le ScrollView Solo par une ancre trop générique ; elle est déplacée uniquement dans FIN DU MATCH Arena ;
+- le ledger Battle est append-only : aucun UPDATE/UPSERT d'un événement financier existant. Le bonus va désormais dans keep_battle_perfect_bonus_events, ledger séparé append-only, additionné au total Free par le helper existant.
+La première migration reste immuable dans l'historique ; une migration corrective additive la neutralise.
