@@ -268,10 +268,31 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                   <Text style={s.accessLabel}>{access.unlocked ? 'Débloquée' : 'Verrouillée'}</Text>
                 </View>
               </View>
-              {!access.unlocked && (
-                <Text style={s.accessHint}>
-                  Atteins {access.threshold - access.followers} abonné{access.threshold - access.followers > 1 ? 's' : ''} de plus pour publier tes collections.
-                </Text>
+              {!access.unlocked ? (
+                <>
+                  <Text style={s.accessHint}>
+                    🔒 Il te manque {Math.max(access.threshold - access.followers, 0)} abonné{Math.max(access.threshold - access.followers, 0) > 1 ? 's' : ''}. Fais grandir ta communauté pour débloquer la publication.
+                  </Text>
+                  <Text style={s.accessBenefit}>Une collection = un seul titre, plusieurs morceaux. En € : tu choisis ton paiement direct. En FREE : tu facilites les déblocages, les écoutes et la croissance de ta communauté.</Text>
+                  <TouchableOpacity
+                    style={[s.createCollectionBtn, s.createCollectionBtnLocked]}
+                    onPress={() => Alert.alert('Collections verrouillées', `Atteins ${access.threshold} abonnés pour publier. Tu en as ${access.followers}. Une fois débloqué, tu pourras choisir € ou FREE pour toute la collection.`)}
+                    accessibilityLabel="Voir comment débloquer la création de collections"
+                  >
+                    <Text style={s.createCollectionBtnText}>🔒 CRÉER UNE COLLECTION</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={s.accessBenefit}>Crée une playlist/collection avec plusieurs morceaux. Son titre devient le seul produit visible : jamais de vente morceau par morceau. Choisis ensuite obligatoirement € ou FREE.</Text>
+                  <TouchableOpacity
+                    style={s.createCollectionBtn}
+                    onPress={() => navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true } })}
+                    accessibilityLabel="Créer une nouvelle collection exclusive"
+                  >
+                    <Text style={s.createCollectionBtnText}>＋ CRÉER UNE COLLECTION</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
 
@@ -557,6 +578,10 @@ const s = StyleSheet.create({
   accessLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginTop: 2 },
   accessSeparator: { width: 1, height: 30, backgroundColor: colors.border },
   accessHint: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: spacing.md, textAlign: 'center', lineHeight: 16 },
+  accessBenefit: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: spacing.md, textAlign: 'center' },
+  createCollectionBtn: { minHeight: 48, marginTop: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  createCollectionBtnLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
+  createCollectionBtnText: { color: colors.white, fontSize: 12, fontWeight: '900', letterSpacing: .35 },
   manualNotice: { marginTop: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
   manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },

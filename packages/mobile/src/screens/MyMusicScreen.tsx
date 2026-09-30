@@ -199,7 +199,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     | { kind: 'selection'; key: string; name: string; trackIds: string[]; coverUrl?: string | null }
     | null
   >(null);
-  const [sellPaymentMode, setSellPaymentMode] = useState<PlaylistSalePaymentMode>('MONEY');
+  const [sellPaymentMode, setSellPaymentMode] = useState<PlaylistSalePaymentMode | null>(null);
   const [sellPriceCents, setSellPriceCents] = useState<number | null>(null);
   const [sellFreePrice, setSellFreePrice] = useState<number | null>(null);
   const [sellBusy, setSellBusy] = useState(false);
@@ -229,6 +229,21 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setManageMusicMode(true);
     navigation?.setParams?.({ openManageMusic: undefined });
   }, [navigation, route?.params?.openManageMusic]);
+
+  // Point d'entrée unique : Collections/Pépites ouvre Playlists seulement
+  // comme sélecteur de morceaux. Aucun deuxième bouton de vente ici.
+  useEffect(() => {
+    if (!route?.params?.createSaleCollection) return;
+    setWorkspaceTab('LIBRARY');
+    setMobileSection('TRACKS');
+    setActiveTab('MUSIQUES');
+    setOriginFilter('LISTEN');
+    setManageMusicMode(true);
+    setSelectedSaleTrackIds(new Set());
+    setSaleEditOfferTarget(null);
+    setSaleSelectionMode(true);
+    navigation?.setParams?.({ createSaleCollection: undefined });
+  }, [navigation, route?.params?.createSaleCollection]);
 
   useEffect(() => {
     const offerId = String(route?.params?.manageSaleOfferId || '').trim();
@@ -664,7 +679,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
-  const closeSellModal = () => { setSellTarget(null); setSellPriceCents(null); };
+  const closeSellModal = () => {
+    setSellTarget(null);
+    setSellPaymentMode(null);
+    setSellPriceCents(null);
+    setSellFreePrice(null);
+  };
 
   const setSaleTrackVisibility = async (trackId: string, visibility: 'PUBLIC' | 'PRIVATE') => {
     const track = localKeptTracks.find((item) => item.id === trackId);
@@ -932,14 +952,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setSellTarget(target);
     const existingKey = target?.kind === 'playlist' ? target.playlist.id : target?.key;
     const existing = existingKey ? myOffers[existingKey] : undefined;
-    const mode: PlaylistSalePaymentMode = existing?.paymentMode === 'FREE' ? 'FREE' : 'MONEY';
-    setSellPaymentMode(mode);
+    setSellPaymentMode(existing ? (existing.paymentMode === 'FREE' ? 'FREE' : 'MONEY') : null);
     setSellPriceCents(existing?.priceCents || null);
     setSellFreePrice(existing?.freePrice ?? null);
   };
 
   const saveSellPrice = async () => {
     if (!sellTarget) return;
+    if (!sellPaymentMode) {
+      Alert.alert('Mode de déblocage requis', 'Choisis comment cette collection sera débloquée : € EUROS ou ⚡ FREE.');
+      return;
+    }
     const amount = sellPaymentMode === 'FREE' ? sellFreePrice : sellPriceCents;
     if (!amount) {
       Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant en euros.');
@@ -1175,45 +1198,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
               >
                 {deleteBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.deleteTrackText}>SUPPRIMER</Text>}
               </TouchableOpacity>
-              {/* Règle produit 25/09/2026 : jamais de produit morceau par
-                  morceau. Ce bouton sélectionne uniquement ce titre pour
-                  composer une collection exclusive de plusieurs morceaux.
-                  Une collection déjà publiée reste gérable depuis son badge. */}
-              {marketplaceEnabled ? (
-                offered ? (
-                  <TouchableOpacity
-                    style={[styles.sellTrackButton, styles.sellTrackButtonOffered]}
-                    onPress={() => editExistingTrackOffer(track)}
-                    accessibilityLabel={`Gérer la collection contenant ${track.title}`}
-                  >
-                    <Text style={[styles.sellTrackText, styles.sellTrackTextOffered]}>{`◆ Dans collection · ${offered.playlistName}`}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <LockedFeatureCard
-                    unlocked={Boolean(saleAccess?.unlocked)}
-                    title="Créer une collection exclusive"
-                    requirementLabel="abonnés"
-                    current={saleAccess?.followers ?? 0}
-                    required={saleAccess?.threshold ?? 100}
-                    benefit="Compose une collection avec tes découvertes, fixe € / FREE, publie-la et suis chaque déblocage dans ton historique."
-                    actionLabel="Voir mon profil"
-                    onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                    lockedTeaser={<View style={styles.sellTrackButton}><Text style={styles.sellTrackText}>🔒 COLLECTION</Text></View>}
-                  >
-                    <TouchableOpacity
-                      style={styles.sellTrackButton}
-                      onPress={() => {
-                        setOriginFilter('LISTEN');
-                        setSelectedSaleTrackIds((current) => new Set(current).add(track.id));
-                        setSaleSelectionMode(true);
-                      }}
-                      accessibilityLabel={`Sélectionner ${track.title} pour une collection exclusive`}
-                    >
-                      <Text style={styles.sellTrackText}>＋ COLLECTION</Text>
-                    </TouchableOpacity>
-                  </LockedFeatureCard>
-                )
-              ) : null}
+              {/* Vente centralisée dans Collections/Pépites : aucun bouton de
+                  création de vente sur une ligne de morceau. */}
             </View>
           </TrackActionRow>
         </View>
@@ -1500,21 +1486,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 {regularPlaylists.map((playlist) => <View key={`manual:${playlist.id}`}>{renderPlaylist({ item: playlist })}</View>)}
               </View>
             ) : null}
-            {marketplaceEnabled && localKeptTracks.length && !saleSelectionMode ? <View style={styles.selectionToolbar}>
-              <LockedFeatureCard
-                unlocked={Boolean(saleAccess?.unlocked)}
-                title="Créer une collection exclusive"
-                requirementLabel="abonnés"
-                current={saleAccess?.followers ?? 0}
-                required={saleAccess?.threshold ?? 100}
-                benefit="Sélectionne plusieurs morceaux, mélange les styles si tu veux, puis publie-les comme une collection exclusive avec un prix en € ou en FREE."
-                actionLabel="Voir mon profil"
-                onAction={() => navigation.navigate('Main', { screen: 'Profile' })}
-                lockedTeaser={<View style={styles.selectionStartButton}><Text style={styles.selectionStartText}>🔒 CRÉER UNE COLLECTION EXCLUSIVE</Text></View>}
-              >
-                <TouchableOpacity style={styles.selectionStartButton} onPress={() => setSaleSelectionMode(true)} accessibilityLabel="Créer une collection exclusive"><Text style={styles.selectionStartText}>＋ CRÉER UNE COLLECTION EXCLUSIVE</Text></TouchableOpacity>
-              </LockedFeatureCard>
-            </View> : null}
             {localKeptEntries.length ? <View style={[styles.originSection, originFilter === 'USERS' ? styles.originSectionSocial : styles.originSectionOwn]}>
               <View style={styles.originSectionHeader}>
                 <View style={styles.originSectionTitleRow}>
@@ -1630,25 +1601,24 @@ export default function MyMusicScreen({ navigation, route }: any) {
             placeholderTextColor={colors.textMuted}
             accessibilityLabel="Nom de la collection exclusive"
           /> : null}
-          <Text style={styles.saleStepLabel}>ÉTAPE 1 · TYPE D’ACCÈS</Text>
-          {sellTarget?.kind === 'selection' ? (
-            <View style={styles.priceChipsRow}>
-              <TouchableOpacity
-                style={[styles.priceChip, sellPaymentMode === 'MONEY' && styles.priceChipOn]}
-                onPress={() => setSellPaymentMode('MONEY')}
-                accessibilityLabel="Choisir un déblocage en euros"
-              >
-                <Text style={[styles.priceChipText, sellPaymentMode === 'MONEY' && styles.priceChipTextOn]}>€ EUROS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.priceChip, sellPaymentMode === 'FREE' && styles.priceChipOn]}
-                onPress={() => setSellPaymentMode('FREE')}
-                accessibilityLabel="Choisir un déblocage en FREE"
-              >
-                <Text style={[styles.priceChipText, sellPaymentMode === 'FREE' && styles.priceChipTextOn]}>⚡ FREE</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+          <Text style={styles.saleStepLabel}>ÉTAPE 1 · MODE DE DÉBLOCAGE OBLIGATOIRE</Text>
+          <View style={styles.priceChipsRow}>
+            <TouchableOpacity
+              style={[styles.priceChip, sellPaymentMode === 'MONEY' && styles.priceChipOn]}
+              onPress={() => setSellPaymentMode('MONEY')}
+              accessibilityLabel="Choisir un déblocage en euros"
+            >
+              <Text style={[styles.priceChipText, sellPaymentMode === 'MONEY' && styles.priceChipTextOn]}>€ EUROS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.priceChip, sellPaymentMode === 'FREE' && styles.priceChipOn]}
+              onPress={() => setSellPaymentMode('FREE')}
+              accessibilityLabel="Choisir un déblocage en FREE"
+            >
+              <Text style={[styles.priceChipText, sellPaymentMode === 'FREE' && styles.priceChipTextOn]}>⚡ FREE</Text>
+            </TouchableOpacity>
+          </View>
+          {!sellPaymentMode ? <Text style={styles.salePriceExplain}>Choisis d’abord € ou FREE. Rien n’est publié tant que ce choix n’est pas fait.</Text> : null}
           <Text style={styles.saleStepLabel}>ÉTAPE 2 · PRIX</Text>
           <View style={styles.salePriceHeader}>
             <Text style={styles.salePriceLabel}>ACCÈS À TOUTE LA COLLECTION</Text>
@@ -1666,7 +1636,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               ))}
             </View>
-          ) : (
+          ) : sellPaymentMode === 'FREE' ? (
             <View style={styles.priceChipsRow}>
               {SALE_PRESET_FREE.map((free) => (
                 <TouchableOpacity key={free} style={[styles.priceChip, sellFreePrice === free && styles.priceChipOn]} onPress={() => setSellFreePrice(free)}>
@@ -1674,7 +1644,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 </TouchableOpacity>
               ))}
             </View>
-          )}
+          ) : null}
           {sellPaymentMode === 'MONEY' && sellPriceCents ? <Text style={styles.salePriceSummary}>
             DÉBLOCAGE COMPLET · {(sellPriceCents / 100).toFixed(2).replace('.', ',')}€ {sellTarget?.kind === 'selection' ? `pour ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'pour toute la collection'}
           </Text> : null}
@@ -1691,16 +1661,21 @@ export default function MyMusicScreen({ navigation, route }: any) {
               <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? `✓ ${payoutProviderLabel(payoutLink)} connecté` : 'MODE DE PAIEMENT REQUIS'}</Text>
               <Text style={styles.salePaymentGateHint}>{payoutLink.trim() ? 'Paiement direct sur ton lien personnel.' : 'Ajoute ton lien de paiement avant de publier en euros.'}</Text>
             </TouchableOpacity>
-          ) : (
+          ) : sellPaymentMode === 'FREE' ? (
             <View style={[styles.salePaymentGate, styles.salePaymentGateReady]}>
               <Text style={styles.salePaymentGateTitle}>⚡ FREE LOKI MUSIC</Text>
-              <Text style={styles.salePaymentGateHint}>Aucun lien de paiement externe nécessaire.</Text>
+              <Text style={styles.salePaymentGateHint}>Pas de lien bancaire : les FREE favorisent le déblocage, les écoutes et la circulation de ta collection dans la communauté.</Text>
+            </View>
+          ) : (
+            <View style={styles.salePaymentGate}>
+              <Text style={styles.salePaymentGateTitle}>CHOISIS € OU FREE</Text>
+              <Text style={styles.salePaymentGateHint}>Le mode de déblocage est obligatoire avant publication.</Text>
             </View>
           )}
           <TouchableOpacity
             style={styles.saveButton}
             onPress={() => void saveSellPrice()}
-            disabled={sellBusy || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
+            disabled={sellBusy || !sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
           >
             {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
           </TouchableOpacity>

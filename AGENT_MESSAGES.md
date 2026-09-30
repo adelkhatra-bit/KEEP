@@ -2068,3 +2068,8 @@ Demande Adel appliquée sans toucher App.tsx / Navigation.tsx / barre 5 onglets 
 - Soirées > BATTLE ouvre désormais directement le vrai Battle en un appui. Le lanceur intermédiaire « Salon musical / JOUER » est supprimé du parcours.
 - Le classement global Battle reste disponible depuis Soirées sous « Classement Battle », replié par défaut.
 - Profil propriétaire : FREE est replacé sur la même ligne que le badge Utilisateur/Créateur, sans doublon dans la barre PLUS / Abonnés / Reprises. Battle reste dans la même zone d’identité.
+
+
+## [2026-09-30T23:05:00+02:00] chatgpt — vente collections centralisée, sans doublon
+
+Une seule entrée de création de vente : Collections/Pépites. Playlists ne montre plus un bouton de création sur chaque morceau ni un deuxième bandeau. Le cadenas explique le seuil d'abonnés et le bénéfice. Une fois débloqué, « Créer une collection » ouvre Playlists uniquement comme sélecteur de plusieurs morceaux (minimum 2), puis le titre de collection est saisi. Le mode de déblocage n'est plus pré-coché : choix obligatoire € EUROS ou FREE. En euros, le lien de paiement reste obligatoire ; en FREE, aucun lien externe et l'UI explique l'objectif écoutes/communauté. Aucune vente morceau par morceau. Aucun App.tsx/Navigation.tsx/5 onglets modifié.
