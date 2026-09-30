@@ -69,13 +69,12 @@ jobs:
             const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
             if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
             await page.getByText('Soirées', { exact: true }).last().click();
-            const openSalon = page.getByLabel('Ouvrir le Salon Loki Music Battle').last();
-            await openSalon.waitFor({ state: 'visible', timeout: 15000 });
-            await openSalon.click();
-            await page.getByText('KEEP BATTLE · SALONS UTILISATEURS', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
-            const playNow = page.getByText('⚡ JOUER MAINTENANT', { exact: true }).last();
-            await playNow.waitFor({ state: 'visible', timeout: 15000 });
-            await playNow.click();
+            const openBattle = page.getByLabel('Ouvrir directement Battle').last();
+            await openBattle.waitFor({ state: 'visible', timeout: 15000 });
+            await openBattle.click();
+            const playSolo = page.getByLabel('Jouer en solo').last();
+            await playSolo.waitFor({ state: 'visible', timeout: 15000 });
+            await playSolo.click();
             await page.getByText('KEEP BATTLE · SOLO', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
             await page.getByText('PARTAGER', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
             await page.getByText(/MORCEAU 1\//).last().waitFor({ state: 'visible', timeout: 15000 });
@@ -100,7 +99,7 @@ jobs:
             if (dims.scrollWidth > dims.width + 1) throw new Error(`Battle solo overflow: ${JSON.stringify(dims)}`);
             if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
             await browser.close();
-            console.log('BATTLE SOLO 390x844 OK: play-now, round, answer, next, share visible, no manual code');
+            console.log('BATTLE SOLO 390x844 OK: direct Battle -> SOLO, round, answer, next, share visible, no manual code');
           })().catch(e => { console.error(e); process.exit(1); });
           JS
           node battle-solo.cjs
