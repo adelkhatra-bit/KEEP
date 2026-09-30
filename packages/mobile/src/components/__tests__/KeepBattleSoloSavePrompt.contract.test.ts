@@ -6,7 +6,7 @@ describe('Battle Solo save prompt contract', () => {
 
   it('labels the prompt as Battle Solo only', () => {
     expect(source).toContain('Sauvegarder ce Battle solo ?');
-    expect(source).toContain('Ce choix concerne uniquement ce Battle solo.');
+    expect(source).toContain('JOUER lance ce Battle solo sans l’enregistrer.');
   });
 
   it('keeps exactly three short actions aligned in one row', () => {

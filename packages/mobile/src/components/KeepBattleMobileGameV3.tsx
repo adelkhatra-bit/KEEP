@@ -1544,7 +1544,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Text style={s.soloSaveTitle}>Sauvegarder ce Battle solo ?</Text>
           {soloSavePrompt?.costLine ? <Text style={s.soloSaveCost}>{soloSavePrompt.costLine}</Text> : null}
           <Text style={s.soloSaveBody}>
-            Ce choix concerne uniquement ce Battle solo. Enregistrer ajoute ses morceaux à Mes Sessions à la fin.
+            JOUER lance ce Battle solo sans l’enregistrer. ENREGISTRER ajoute ses morceaux à Mes Sessions à la fin.
           </Text>
           <View style={s.soloSaveActions}>
             <TouchableOpacity
