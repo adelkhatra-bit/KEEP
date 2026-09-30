@@ -1,0 +1,50 @@
+{
+  "version": "2026-10-01.1",
+  "name": "KEEP / Loki Music — contrat produit canonique",
+  "repository": "adelkhatra-bit/KEEP",
+  "canonicalBranch": "reconcile/claude-main-20260825",
+  "supabaseProjectRef": "rrhqsqzcplvmwxizqnla",
+  "supabaseUrl": "https://rrhqsqzcplvmwxizqnla.supabase.co",
+  "precedence": [
+    "latest-explicit-user-decision",
+    "config/keep-product-contract.json",
+    "docs/KEEP_MASTER_SPEC.md",
+    "current-code-and-live-schema",
+    "older-comments-tests-or-agent-notes"
+  ],
+  "protectedFiles": [
+    "packages/mobile/App.tsx",
+    "packages/mobile/src/navigation/Navigation.tsx",
+    ".env",
+    ".p8",
+    "eas.json"
+  ],
+  "creditRules": {
+    "listen": 0,
+    "recognize": 0,
+    "PASS": 0,
+    "KEEP": -1
+  },
+  "profileOwner": {
+    "freePlacement": "metrics-after-reprises",
+    "metricsBarOrder": ["PLUS", "Abonnés", "Reprises", "FREE"],
+    "freeBesideProfileKind": false,
+    "freeMustAppearExactlyOnce": true,
+    "certificationSource": "public.profiles.certification_tier",
+    "freeBalanceSource": "Supabase RPC credit status",
+    "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true
+  },
+  "responsive": {
+    "requiredViewports": ["390x844", "430x932", "768x700", "900x700", "1440x900"],
+    "desktopRootMustFillViewport": true,
+    "resizeMustNotBlankApplication": true,
+    "fiveTabsMustRemainVisible": true
+  },
+  "changeProtocol": {
+    "auditBeforeEdit": true,
+    "checkRemoteHeadBeforeEdit": true,
+    "checkLiveSupabaseBeforeChangingDataRelatedUI": true,
+    "updateContractAndGuardsInSameCommitWhenAProductRuleChanges": true,
+    "neverFixUiByMutatingProductionUserData": true
+  }
+}
