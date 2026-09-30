@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 import { APP_NAME } from '../config/brand';
 import type { ProfileCertificationTier } from './publicProfileStateService';
 
+export type EventAudienceMode = 'GENERAL' | 'ADULTS_18_PLUS' | 'FAMILY';
+
 export type CreatorEvent = {
   id: string;
   creatorId: string;
@@ -20,6 +22,7 @@ export type CreatorEvent = {
   // photos" -- jusqu'a 3 ; imageUrl reste la couverture (= premiere photo).
   imageUrls: string[];
   requireQrCode: boolean;
+  audienceMode: EventAudienceMode;
   // Adel (17-18/09/2026) : "construis tout ce qui manque ... entrée
   // payante" -- même modèle que le marketplace (lien de paiement
   // personnel, KEEP n'encaisse rien). null = évènement gratuit.
@@ -41,7 +44,7 @@ export type CreatorEvent = {
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
-const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
+const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,audience_mode,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
   return {
@@ -59,6 +62,7 @@ function mapEventRow(row: any): CreatorEvent {
     imageUrl: row.image_url,
     imageUrls: Array.isArray(row.image_urls) && row.image_urls.length ? row.image_urls : (row.image_url ? [row.image_url] : []),
     requireQrCode: Boolean(row.require_qr_code),
+    audienceMode: (['ADULTS_18_PLUS','FAMILY'].includes(String(row.audience_mode)) ? String(row.audience_mode) : 'GENERAL') as EventAudienceMode,
     ticketPriceCents: row.ticket_price_cents ?? null,
     organizerPhone: row.organizer_phone_public,
     moderationStatus: (row.moderation_status as CreatorEvent['moderationStatus']) ?? 'DRAFT',
@@ -81,15 +85,7 @@ export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEven
   // Avant ce correctif, le filtre starts_at >= now-12h s'appliquait aussi au
   // créateur : une demande restait bien en base et visible au Super Admin,
   // mais disparaissait de l'app utilisateur dès qu'elle vieillissait.
-  const cutoff = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
-  const publicQuery = supabase
-    .from('events')
-    .select(EVENT_COLUMNS)
-    .eq('is_disabled', false)
-    .eq('moderation_status', 'APPROVED')
-    .gte('starts_at', cutoff)
-    .order('starts_at', { ascending: true })
-    .limit(100);
+  const publicQuery = supabase.rpc('keep_upcoming_events_for_me', { p_limit: 100 });
 
   if (!viewerId) {
     const { data, error } = await publicQuery;
@@ -274,6 +270,7 @@ export async function createCreatorEvent(input: {
   imageUrl?: string;
   imageUrls?: string[];
   requireQrCode?: boolean;
+  audienceMode?: EventAudienceMode;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
   includeRsvpButtons?: boolean;
@@ -308,6 +305,7 @@ export async function updateCreatorEvent(eventId: string, input: {
   imageUrl?: string;
   imageUrls?: string[];
   requireQrCode?: boolean;
+  audienceMode?: EventAudienceMode;
   organizerPhone?: string;
   showOrganizerPhone?: boolean;
   lat?: number;
