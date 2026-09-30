@@ -321,3 +321,12 @@ fait.
 - `scripts/public-api-search.mjs` permet à ChatGPT/Claude de rechercher le catalogue GitHub `public-apis/public-apis` sans ajouter de dépendance à l'application.
 - Supabase KEEP est actuellement sur le **plan Free** : avant une échelle de millions d'utilisateurs, prévoir plan production, sauvegardes automatiques et PITR selon RPO/RTO.
 - Point sécurité ouvert : auditer individuellement les avertissements Security Advisor sur fonctions SECURITY DEFINER exécutables par anon avant montée en charge.
+
+
+## 2026-10-01 — Bibliothèque produit canonique / anti-régression
+- Nouvelle source machine obligatoire : `config/keep-product-contract.json`.
+- Hiérarchie de vérité : dernière décision explicite d'Adel → product contract → master spec → code/schéma live → anciens commentaires/tests.
+- Profil propriétaire verrouillé : barre `PLUS | Abonnés | Reprises | FREE`; FREE juste après Reprises, jamais à côté du type Utilisateur/Créateur.
+- Certification et solde FREE sont des données réelles Supabase : aucun correctif UI n'a le droit de les écrire/réinitialiser pour faire correspondre l'écran.
+- Nouveau guard : `scripts/verify-product-contract.cjs` + workflow `KEEP — Product Contract Guard`.
+- Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
