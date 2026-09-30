@@ -126,12 +126,13 @@ export function soloCostNotice(status: SoloDailyStatusLike | null): string | nul
   return `Dès que la première musique démarre, cette partie utilise 1 Solo du jour : il t'en restera ${after} sur ${limit}. Si tu quittes ensuite, elle reste comptée.`;
 }
 
-// `status` = statut lu AVANT le départ (le compteur de l'accueil) : la partie
-// en cours est déjà décomptée côté serveur.
+// `status` = statut serveur APRES l'engagement du premier audio : remaining
+// contient déjà le Solo consommé. Ne jamais soustraire une seconde fois dans
+// le message de sortie.
 export function soloQuitNotice(status: SoloDailyStatusLike | null): string {
   if (!status || status.unlimited) return 'Ta partie en cours sera perdue (aucun Free gagné).';
   const limit = Math.max(0, status.limit ?? 0);
-  const left = Math.max(0, (status.remaining ?? 0) - 1);
+  const left = Math.max(0, status.remaining ?? 0);
   return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie.`;
 }
 
