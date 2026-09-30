@@ -81,7 +81,7 @@ const FALLBACK_RULES: CommercialRules = {
   venueDailyDownloads: null,
   creatorEventsPerMonth: 1,
   venueEventsPerMonth: null,
-  freeCostPerKeep: 3,
+  freeCostPerKeep: 1,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
