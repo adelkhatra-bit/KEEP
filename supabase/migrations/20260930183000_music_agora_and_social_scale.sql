@@ -259,8 +259,8 @@ revoke all on public.music_agora_message_reports from anon, authenticated;
 insert into public.music_agora_rooms(slug,label,prompt,sort_order,is_active) values
   ('place','La Place','Le morceau qui te suit depuis des années ?',10,true),
   ('souvenirs','Souvenirs','Quel titre te ramène instantanément à un moment précis ?',20,true),
-  ('decouvertes','Découvertes','Quel morceau mérite beaucoup plus d\'écoutes ?',30,true),
-  ('debats','Débats','Une opinion musicale que tu peux défendre sans t\'énerver ?',40,true)
+  ('decouvertes','Découvertes','Quel morceau mérite beaucoup plus d''écoutes ?',30,true),
+  ('debats','Débats','Une opinion musicale que tu peux défendre sans t''énerver ?',40,true)
 on conflict (slug) do update
 set label=excluded.label,prompt=excluded.prompt,sort_order=excluded.sort_order,is_active=excluded.is_active;
 
