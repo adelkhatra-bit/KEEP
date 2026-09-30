@@ -7,14 +7,19 @@ describe('Child-friendly home choices', () => {
   const parties = read('PartiesScreen.tsx');
   const music = read('MyMusicScreen.tsx');
 
-  it('keeps Soirées as a clean hub without mixing Battle into event actions', () => {
-    for (const label of ['Voir les soirées', 'Rechercher un contact', 'Découvrir des événements', 'Répondre aux invitations', 'Créer une soirée']) {
-      expect(parties).toContain(label);
-    }
-    expect(parties).toContain("navigation.navigate('Discover', { focus: 'PEOPLE'");
-    expect(parties).toContain("navigation.navigate('Discover', { focus: 'EVENTS'");
-    const home = parties.slice(parties.indexOf("{partyHome ? <View"), parties.indexOf("{partyHome ? <View") + 7000);
+  it('keeps Soirées as a clean four-choice hub in the requested order', () => {
+    const homeStart = parties.indexOf("{partyHome ? <View");
+    const home = parties.slice(homeStart, homeStart + 7000);
+    const publish = home.indexOf('Publier un événement');
+    const mine = home.indexOf('Mes soirées');
+    const invites = home.indexOf('Mes invitations');
+    const ranking = home.indexOf('Classement Battle');
+    expect(publish).toBeGreaterThan(-1);
+    expect(mine).toBeGreaterThan(publish);
+    expect(invites).toBeGreaterThan(mine);
+    expect(ranking).toBeGreaterThan(invites);
     expect(home).not.toContain('Jouer au Battle');
+    expect(parties).toContain('À quoi sert Événements ?');
   });
 
   it('uses simple action verbs on Mes musiques', () => {
