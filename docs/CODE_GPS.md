@@ -9,14 +9,16 @@ Branche de travail unique : `reconcile/claude-main-20260825`
 Ce fichier est le **GPS du code**. Il indique où chercher avant de modifier quoi que ce soit, afin d'éviter les doublons, les correctifs dans le mauvais écran et les régressions entre agents.
 
 Toute IA / tout développeur doit lire, dans cet ordre :
-1. `CLAUDE.md`
-2. `AGENTS.md`
-3. `PROJECT_STATE.md`
-4. `.context/activeContext.md`
-5. `docs/CODE_GPS.md` (ce fichier)
-6. `docs/ERROR_LEDGER.md`
-7. `docs/INTEGRATION_CHECKLIST.md`
-8. les derniers messages de `AGENT_MESSAGES.md`
+1. `docs/KEEP_MASTER_SPEC.md`
+2. `docs/KEEP_CAHIER_DES_CHARGES_UI.md`
+3. `CLAUDE.md`
+4. `AGENTS.md`
+5. `PROJECT_STATE.md`
+6. `.context/activeContext.md`
+7. `docs/CODE_GPS.md` (ce fichier)
+8. `docs/ERROR_LEDGER.md`
+9. `docs/INTEGRATION_CHECKLIST.md`
+10. les derniers messages de `AGENT_MESSAGES.md`
 
 ## Carte générale
 
