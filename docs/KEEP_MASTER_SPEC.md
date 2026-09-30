@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-09-30.1**  
+Version : **2026-09-30.2**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -159,9 +159,17 @@ Source : `PublicUserProfileScreen.tsx`.
 - données Battle/suivi/reprises réelles ;
 - premier découvreur conservé.
 
-## 17. Données
+## 17. Données et mises à jour
 
 Durable = Supabase, pas un state React isolé. Réutiliser les tables/services existants avant de créer quoi que ce soit.
+
+- Une mise à jour Web, OTA, TestFlight ou App Store ne réinitialise jamais les données utilisateur.
+- FREE, crédits, achats, scores/résultats Battle, profils, playlists et historiques sont des actifs persistants.
+- Les ledgers FREE/audit sont append-only : une correction ajoute un événement compensatoire, elle ne réécrit pas l'historique.
+- Les changements de schéma suivent Expand → Backfill → Switch → Contract et restent compatibles avec les anciennes données.
+- `supabase db reset` et `supabase db push` sont interdits contre la production tant que le drift local/remote n'est pas réconcilié.
+- Le CI `KEEP — Data preservation contract` doit bloquer toute opération destructive sur les tables protégées.
+- Avant une montée en charge réelle, la production doit disposer de sauvegardes et d'un RPO/RTO adaptés ; PITR est à activer si le besoin de restauration fine l'exige.
 
 ## 18. Super Admin
 
@@ -171,6 +179,14 @@ Source : `packages/admin`.
 - Remote Config UTF-8 ;
 - secrets serveur ;
 - feature flags/intégrations dans les briques existantes.
+
+### APIs publiques — toolbox agents
+
+- Catalogue de découverte : `public-apis/public-apis` via `npm run public-api:search -- <besoin>`.
+- Ce catalogue n'est jamais une dépendance runtime automatique.
+- ChatGPT/Claude doivent vérifier CGU, quota, HTTPS, confidentialité et disponibilité avant toute intégration.
+- Une clé API reste côté serveur/Vault/Edge Function ; jamais dans le bundle mobile.
+- Une API publique critique doit avoir timeout, gestion d'erreur et fallback.
 
 ## 19. Tests avant validation
 

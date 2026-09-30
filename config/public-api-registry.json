@@ -1,0 +1,49 @@
+{
+  "version": "2026-09-30.1",
+  "catalog": {
+    "repository": "public-apis/public-apis",
+    "url": "https://github.com/public-apis/public-apis",
+    "purpose": "developer-discovery-only",
+    "runtimeDependency": false
+  },
+  "productionRules": {
+    "defaultRuntimeLocation": "server-or-supabase-edge-function",
+    "clientSecretsAllowed": false,
+    "requireHttps": true,
+    "requireTimeout": true,
+    "requireRateLimitReview": true,
+    "requireTermsReview": true,
+    "requirePrivacyReview": true,
+    "requireFallbackForCriticalFlows": true
+  },
+  "alreadyUsed": [
+    {
+      "id": "itunes-search",
+      "purpose": "music metadata, artwork and preview fallback",
+      "auth": "none",
+      "runtime": "Supabase Edge Function",
+      "status": "active"
+    },
+    {
+      "id": "deezer-search",
+      "purpose": "music metadata and preview fallback",
+      "auth": "none",
+      "runtime": "Supabase Edge Function",
+      "status": "active"
+    },
+    {
+      "id": "bigdatacloud-reverse-geocode",
+      "purpose": "web city/country reverse geocoding",
+      "auth": "none-for-current-endpoint",
+      "runtime": "web fallback",
+      "status": "active"
+    },
+    {
+      "id": "nominatim-openstreetmap",
+      "purpose": "city/address geocoding fallback",
+      "auth": "none",
+      "runtime": "web + server resolver",
+      "status": "active"
+    }
+  ]
+}
