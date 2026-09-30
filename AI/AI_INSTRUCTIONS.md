@@ -1,3 +1,6 @@
+### SOURCE PRODUIT OBLIGATOIRE
+Avant toute modification, lire `docs/KEEP_MASTER_SPEC.md` puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md`. Toute nouvelle règle validée doit mettre à jour le cahier des charges et son guard automatique afin d'éviter les régressions entre IA.
+
 # Instructions ChatGPT → Claude Code
 
 Ce fichier est le miroir lisible des instructions envoyées par ChatGPT via le
