@@ -3,6 +3,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-ui-baseline.json'), 'utf8'));
+const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
 const profile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 const settings = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx'), 'utf8');
 
@@ -10,6 +11,8 @@ const fail = (message) => { throw new Error(`KEEP UI BASELINE: ${message}`); };
 const must = (condition, message) => { if (!condition) fail(message); };
 
 must(baseline.canonicalBranch === 'reconcile/claude-main-20260825', 'wrong canonical branch');
+must(baseline.profileOwner.freePlacement === productContract.profileOwner.freePlacement, 'UI baseline disagrees with canonical product contract');
+must(JSON.stringify(baseline.profileOwner.metricsBarOrder) === JSON.stringify(productContract.profileOwner.metricsBarOrder), 'metrics order disagrees with canonical product contract');
 
 const metaStart = profile.indexOf('<View style={s.profileMetaTopRow}>');
 const locationStart = profile.indexOf('{(user.city || user.countryCode)', metaStart);
