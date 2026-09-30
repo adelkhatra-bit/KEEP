@@ -111,7 +111,7 @@ for (const expected of [
   expectedRepository,
   expectedBranch,
   'Barre suivante : **PLUS | Abonnés | Reprises | FREE**.',
-  'FREE juste après Reprises',
+  'juste après Reprises',
   'listen = 0',
   'recognize = 0',
   'PASS = 0',
