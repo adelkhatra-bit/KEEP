@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-09-30.3**  
+Version : **2026-10-01.1**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -95,15 +95,18 @@ Zone identité :
 1. avatar ;
 2. pseudo + certification ;
 3. type Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement ;
-4. **FREE immédiatement à droite du badge de type, sur la même ligne** ;
-5. Battle dans la même zone identité, à droite ;
-6. ville / pays dessous.
+4. Battle dans la même zone identité, à droite ;
+5. ville / pays dessous.
 
-Barre suivante : **PLUS | Abonnés | Reprises**.
+Barre suivante : **PLUS | Abonnés | Reprises | FREE**.
+Le bloc FREE reste **juste après Reprises**, comme avant la régression du 30/09/2026.
 
 Interdictions :
-- pas de FREE dans la barre PLUS/Abonnés/Reprises ;
+- pas de FREE à côté du badge Utilisateur/Créateur ;
 - pas de second FREE ;
+- une correction UI ne doit jamais écrire ou réinitialiser la certification ou le solde FREE en production ;
+- certification = donnée réelle Supabase `profiles.certification_tier` ;
+- solde FREE = donnée réelle issue des RPC de crédit existantes ;
 - ne pas déplacer type/FREE pour corriger un autre module.
 
 ## 10. Hamburger profil
@@ -218,9 +221,12 @@ Avant toute modification :
 
 Après une nouvelle règle validée :
 - incrémenter la version ;
+- mettre à jour d'abord `config/keep-product-contract.json` (bibliothèque machine canonique) ;
 - modifier la règle ici ;
 - mettre à jour `config/keep-ui-baseline.json` si automatisable ;
-- mettre à jour le guard/test correspondant ;
+- mettre à jour le guard/test correspondant dans le même commit ;
 - ne jamais conserver deux règles contradictoires actives.
+
+En cas de conflit entre un vieux commentaire, un vieux test, un ancien message agent et une décision plus récente d'Adel, la décision explicite la plus récente + `config/keep-product-contract.json` gagnent.
 
 Le dernier cahier des charges validé remplace les anciennes consignes contradictoires.
