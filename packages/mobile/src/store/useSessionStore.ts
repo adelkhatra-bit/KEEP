@@ -363,7 +363,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   recognizing: false,
   micLevel: 0,
   musicPresence: 'unknown',
-  error: null;
+  error: null,
   signalHint: null,
   locationLabel: undefined,
   lat: undefined,
@@ -419,7 +419,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       recognizing: false,
       micLevel: 0,
       musicPresence: 'unknown',
-      micPaused: false;
+      micPaused: false,
       error: null,
       signalHint: null,
       locationLabel: undefined,
