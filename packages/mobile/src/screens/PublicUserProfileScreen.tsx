@@ -40,6 +40,7 @@ import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
 import { loadUpcomingEvents } from '../services/creatorEventService';
+import { loadFreeCreditBreakdown } from '../services/creditService';
 
 type PublicKeepTrack = {
   id: string;
@@ -777,6 +778,22 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // notée pour que le créateur sache qui débloquer une fois vraiment payé.
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
+  const [freeBalance, setFreeBalance] = useState<number | null>(null);
+  const [freePurchaseMessage, setFreePurchaseMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFreePurchaseMessage(null);
+    if (!immersivePreviewOffer || immersivePreviewOffer.paymentMode !== 'FREE' || !viewer || isLocalGuest || isDemoMode) {
+      setFreeBalance(null);
+      return undefined;
+    }
+    let live = true;
+    loadFreeCreditBreakdown()
+      .then((breakdown) => { if (live) setFreeBalance(breakdown?.remaining ?? null); })
+      .catch(() => { if (live) setFreeBalance(null); });
+    return () => { live = false; };
+  }, [immersivePreviewOffer?.offerId, immersivePreviewOffer?.paymentMode, viewer?.id, isLocalGuest, isDemoMode]);
+
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
     if (!viewer || isLocalGuest || isDemoMode) {
@@ -788,9 +805,20 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // immédiat, y compris sur mobile. Un seul débit débloque TOUTE la
     // collection, jamais morceau par morceau.
     if (offer.paymentMode === 'FREE') {
+      const requiredFree = Math.max(0, Number(offer.freePrice ?? 0));
       setPurchaseBusyId(offer.offerId);
+      setFreePurchaseMessage(null);
       try {
+        const breakdown = await loadFreeCreditBreakdown().catch(() => null);
+        if (breakdown) {
+          setFreeBalance(breakdown.remaining);
+          if (breakdown.remaining < requiredFree) {
+            setFreePurchaseMessage('Solde insuffisant : tu as ' + breakdown.remaining + ' FREE, il en faut ' + requiredFree + '. Recharge tes FREE pour débloquer cette collection.');
+            return;
+          }
+        }
         const result = await purchasePlaylistOfferWithFree(offer.offerId);
+        setFreeBalance(result.remainingFree);
         setSaleUnlocks((current) => ({
           ...current,
           [offer.offerId]: { offerId: offer.offerId, deliveredPlaylistId: result.playlistId },
@@ -804,10 +832,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         );
       } catch (e: any) {
         const message = String(e?.message || '');
-        const match = message.match(/NOT_ENOUGH_FREE:(\d+):(\d+)/);
-        if (match) Alert.alert('Pas assez de FREE', `Tu as ${match[1]} FREE, cette collection en demande ${match[2]}.`);
-        else if (message.includes('authentication_required')) goToOwnProfile();
-        else Alert.alert('Collection', 'Impossible de débloquer cette collection en FREE pour le moment.');
+        const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
+        if (match) {
+          const remaining = Number(match[1]);
+          const required = Number(match[2]);
+          setFreeBalance(remaining);
+          setFreePurchaseMessage('Solde insuffisant : tu as ' + remaining + ' FREE, il en faut ' + required + '. Recharge tes FREE pour débloquer cette collection.');
+        } else if (message.includes('authentication_required')) {
+          goToOwnProfile();
+        } else {
+          setFreePurchaseMessage('Impossible de vérifier ton solde FREE pour le moment. Réessaie dans un instant.');
+        }
       } finally {
         setPurchaseBusyId(null);
       }
@@ -1663,7 +1698,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
           purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
           sourceUsername={profile.username}
-          onOpenProfile={() => setImmersivePreviewOffer(null)}
+          freeBalance={freeBalance}
+          purchaseError={freePurchaseMessage}
+          onOpenProfile={() => {
+            setImmersivePreviewOffer(null);
+            navigation.navigate('PublicProfile', { username: profile.username });
+          }}
+          onRechargeFree={() => {
+            setImmersivePreviewOffer(null);
+            navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' });
+          }}
         />
       ) : null}
 

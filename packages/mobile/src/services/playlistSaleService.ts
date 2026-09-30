@@ -614,7 +614,12 @@ export async function updateOfferPrice(offerId: string, priceCents: number): Pro
 
 export async function purchasePlaylistOfferWithFree(offerId: string): Promise<PlaylistDeliveryResult & { freePrice: number; remainingFree: number; alreadyUnlocked: boolean }> {
   const { data, error } = await client().rpc('keep_playlist_sale_purchase_with_free', { p_offer_id: offerId });
-  if (error) throw new Error(String(error.message || 'PLAYLIST_FREE_PURCHASE_FAILED'));
+  if (error) {
+    const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' | ');
+    const shortage = raw.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
+    if (shortage) throw new Error('NOT_ENOUGH_FREE:' + shortage[1] + ':' + shortage[2]);
+    throw new Error(String(error.message || 'PLAYLIST_FREE_PURCHASE_FAILED'));
+  }
   const row = data as any;
   return {
     paymentId: String(row?.paymentId ?? ''),
