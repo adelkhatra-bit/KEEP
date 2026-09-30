@@ -557,6 +557,41 @@ export async function loadMyPlaylistSaleTrackRequests(): Promise<PlaylistSaleSel
   })).filter((row) => row.requestId);
 }
 
+export type PlaylistSaleSellerRequestTrack = {
+  trackId: string;
+  title: string;
+  artist: string;
+  artworkUrl: string | null;
+};
+
+export async function loadPlaylistSaleTrackRequestTracks(requestId: string): Promise<PlaylistSaleSellerRequestTrack[]> {
+  const { data, error } = await client().rpc('keep_playlist_sale_missing_request_tracks', { p_request_id: requestId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_REQUEST_TRACKS_FAILED'));
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    trackId: String(row.track_id ?? row.trackId ?? ''),
+    title: String(row.title ?? 'Titre'),
+    artist: String(row.artist ?? 'Artiste'),
+    artworkUrl: row.artwork_url ? String(row.artwork_url) : null,
+  })).filter((row) => row.trackId);
+}
+
+export async function offerPlaylistSaleRequestSelectionWithFree(requestId: string, trackIds: string[], freePrice: number): Promise<{ offerId: string; trackCount: number; freePrice: number }> {
+  const ids = Array.from(new Set(trackIds.filter(Boolean)));
+  if (!ids.length) throw new Error('TRACK_SELECTION_REQUIRED');
+  const { data, error } = await client().rpc('keep_playlist_sale_offer_request_tracks_with_free', {
+    p_request_id: requestId,
+    p_track_ids: ids,
+    p_free_price: Math.round(freePrice),
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_REQUEST_SELECTION_OFFER_FAILED'));
+  const row = data as any;
+  return {
+    offerId: String(row?.offerId ?? ''),
+    trackCount: Number(row?.trackCount ?? ids.length),
+    freePrice: Number(row?.freePrice ?? freePrice),
+  };
+}
+
 export async function offerPlaylistSaleTrackRequestWithFree(requestId: string, freePrice: number): Promise<{ offerId: string; trackCount: number; freePrice: number }> {
   const { data, error } = await client().rpc('keep_playlist_sale_offer_request_with_free', {
     p_request_id: requestId,
