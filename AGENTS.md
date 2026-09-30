@@ -1,3 +1,6 @@
+## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
+Lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md` avant toute modification. Une modification qui contredit ces fichiers sans nouvelle demande explicite est une régression.
+
 ## AVANT TOUTE ACTION
 Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
 
