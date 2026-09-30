@@ -8,14 +8,15 @@ describe('Simple mobile journeys', () => {
   const profile = read(__dirname, '..', 'ProfileSettingsMobileScreen.tsx');
 
   it('keeps Mes musiques understandable with three primary ideas and a compact services link', () => {
-    expect(music).toContain('Tout est ici, avec une action claire par ligne.');
-    expect(music).toContain('Mes morceaux · {localKeptEntries.length}');
-    expect(music).toContain('Gérer mes morceaux');
-    expect(music).toContain('Ranger ma musique');
+    expect(music).toContain('Choisis une action. Tu peux revenir ici quand tu veux.');
+    expect(music).toContain('Écouter mes morceaux · {localKeptEntries.length}');
+    expect(music).toContain('Choisir ce qui est visible');
+    expect(music).toContain('Trier ma musique');
     expect(music).toContain('focusActionStack');
     expect(music).not.toContain('focusQuickRow:{');
-    expect(music).toContain('Mes albums · {existingOffersForAdd.length}');
-    expect(music).toContain('Spotify, Apple Music et autres connexions');
+    expect(music).toContain('Créer une collection · {existingOffersForAdd.length}');
+    expect(music).toContain('Connecter mes applis musique');
+    expect(music).toContain('Spotify, Apple Music et autres');
   });
 
   it('keeps profile location compact without removing manual city/country or GPS', () => {

@@ -1261,20 +1261,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Mes musiques</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>Styles · Playlists · Artistes</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>Écouter · Trier · Créer</Text>
         </View>
 
       </View>
 
       {mobileSection === 'HOME' ? <View style={styles.focusHome}>
-        <Text style={styles.focusHomeTitle}>Ma musique</Text>
-        <Text style={styles.focusHomeHint}>Tout est ici, avec une action claire par ligne.</Text>
+        <Text style={styles.focusHomeTitle}>Que veux-tu faire ?</Text>
+        <Text style={styles.focusHomeHint}>Choisis une action. Tu peux revenir ici quand tu veux.</Text>
 
         <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
           <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Mes morceaux · {localKeptEntries.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Écouter et retrouver mes musiques</Text>
+            <Text style={styles.focusPrimaryTitle}>Écouter mes morceaux · {localKeptEntries.length}</Text>
+            <Text style={styles.focusPrimaryHint}>Toute ta musique au même endroit</Text>
           </View>
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
@@ -1282,12 +1282,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <View style={styles.focusActionStack}>
           <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
             <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Gérer mes morceaux</Text><Text style={styles.focusActionHint}>Public, privé ou retirer</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Choisir ce qui est visible</Text><Text style={styles.focusActionHint}>Public, privé ou retirer un morceau</Text></View>
             <Text style={styles.focusChoiceArrow}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
             <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>☷</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Ranger ma musique</Text><Text style={styles.focusActionHint}>Styles, artistes et tri</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Trier ma musique</Text><Text style={styles.focusActionHint}>Par style ou par artiste</Text></View>
             <Text style={styles.focusChoiceArrow}>›</Text>
           </TouchableOpacity>
         </View>
@@ -1295,8 +1295,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>◆</Text></View>
           <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Mes albums · {existingOffersForAdd.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Créer ou modifier mes collections</Text>
+            <Text style={styles.focusPrimaryTitle}>Créer une collection · {existingOffersForAdd.length}</Text>
+            <Text style={styles.focusPrimaryHint}>Regrouper plusieurs morceaux</Text>
           </View>
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
@@ -1304,8 +1304,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.focusServiceLink} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('SERVICES'); }} accessibilityLabel="Afficher les services musicaux ici">
           <Text style={styles.focusServiceIcon}>＋</Text>
           <View style={styles.focusServiceCopy}>
-            <Text style={styles.focusServiceTitle}>Services musicaux</Text>
-            <Text style={styles.focusServiceHint}>Spotify, Apple Music et autres connexions</Text>
+            <Text style={styles.focusServiceTitle}>Connecter mes applis musique</Text>
+            <Text style={styles.focusServiceHint}>Spotify, Apple Music et autres</Text>
           </View>
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
@@ -1313,7 +1313,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.focusLearnMoreButton} onPress={() => setHomeHelpExpanded((value) => !value)} accessibilityLabel="En savoir plus sur Mes musiques">
           <Text style={styles.focusLearnMoreButtonText}>{homeHelpExpanded ? 'Masquer l’aide' : 'Besoin d’aide ?'}</Text>
         </TouchableOpacity>
-        {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Morceaux = écouter. · Gérer = choisir public ou privé. · Ranger = retrouver par style ou artiste. · Albums = créer tes collections.</Text> : null}
+        {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Écouter = retrouver tes morceaux. · Visible = choisir public ou privé. · Trier = ranger par style ou artiste. · Collection = regrouper plusieurs morceaux.</Text> : null}
       </View> : workspaceTab === 'COLLECTIONS' ? (
         <TouchableOpacity style={styles.collectionCompactBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); }} accessibilityLabel="Revenir à Mes musiques"><Text style={styles.collectionCompactBackText}>‹ Ma musique</Text></TouchableOpacity>
       ) : <View style={styles.focusBar}>
@@ -1727,9 +1727,9 @@ const styles = StyleSheet.create({
   focusActionRow:{minHeight:70,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},
   focusActionIcon:{width:40,height:40,borderRadius:13,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   focusActionIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
-  focusActionCopy:{flex:1,minWidth:0},focusActionTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},focusActionHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:3},
+  focusActionCopy:{flex:1,minWidth:0},focusActionTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},focusActionHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},
   focusServiceLink:{minHeight:62,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:11},
-  focusServiceIcon:{width:30,textAlign:'center',color:colors.primaryLight,fontSize:20,fontWeight:'900'},focusServiceCopy:{flex:1,minWidth:0},focusServiceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},focusServiceHint:{color:colors.textMuted,fontSize:10,marginTop:2},
+  focusServiceIcon:{width:30,textAlign:'center',color:colors.primaryLight,fontSize:20,fontWeight:'900'},focusServiceCopy:{flex:1,minWidth:0},focusServiceTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},focusServiceHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:2},
   focusLearnMore:{marginTop:4,paddingHorizontal:4,color:colors.textSecondary,fontSize:12,lineHeight:18},
   focusLearnMoreButton:{alignSelf:'center',minHeight:36,justifyContent:'center',paddingHorizontal:16,marginTop:2},focusLearnMoreButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'800'},
   inlineServicesCard:{margin:spacing.md,padding:spacing.lg,borderRadius:radius.lg,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},inlineServicesTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginBottom:6},inlineServicesText:{color:colors.textSecondary,fontSize:13,lineHeight:19,marginBottom:14},inlineServicesAction:{minHeight:48,borderRadius:radius.md,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},inlineServicesActionText:{color:'#FFF',fontWeight:'900',fontSize:12},

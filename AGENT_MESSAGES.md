@@ -2026,3 +2026,12 @@ Demande Adel traitée sans fusionner les deux profils : le profil propriétaire 
 Test réel retrouvé dans Supabase KEEP : le micro envoie bien les extraits. AudD répond 409 car AUDD_API_KEY n'est plus configurée. ACRCloud est configuré et a renvoyé plusieurs fois le même candidat « I still see your smile — RKO prods » avec scores 37, 25 puis 46, tous rejetés par l'ancien seuil unique 55. Correctif : seuil 55 conservé pour un match immédiat, mais candidat >=20 renvoyé au client et accepté seulement si même titre+artiste répété sur plusieurs fenêtres avec consensus. AudD 409 mis en cache 5 min pour passer directement à ACRCloud.
 
 Arrêt auto : le chrono 1 min s'arme seulement après deux fenêtres consécutives classées voix/silence. Une fenêtre musique annule immédiatement le chrono. Les statuts passent sous le détecteur. Hamburger Écouter = violet comme Profil. Badge clignotant « N prêts à trier » quand la session contient des morceaux. Aucun changement App.tsx / Navigation.tsx / barre 5 onglets.
+
+
+## [2026-09-30T18:50:00Z] chatgpt — simplification enfants Soirées + Mes musiques
+
+Demande Adel sur captures iPhone : rendre Soirées et Mes musiques compréhensibles immédiatement, y compris pour un enfant, sans supprimer aucune fonction. Modifications limitées à PartiesScreen.tsx et MyMusicScreen.tsx :
+- Soirées : verbes simples « Créer une soirée / Voir les soirées / Répondre aux invitations / Voir la musique / Jouer au Battle », sous-textes courts, cartes plus grandes.
+- Mes musiques : « Écouter mes morceaux / Choisir ce qui est visible / Trier ma musique / Créer une collection / Connecter mes applis musique », vocabulaire plus simple, mêmes actions et mêmes destinations.
+- Aucune modification App.tsx, Navigation.tsx, barre des 5 onglets, crédits, Supabase ou logique métier.
+- Nouveau contrat ChildFriendlyHomeChoices.contract.test.ts pour empêcher le retour de libellés ambigus.
