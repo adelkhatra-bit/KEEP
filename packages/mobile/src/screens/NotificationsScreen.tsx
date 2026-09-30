@@ -283,6 +283,14 @@ export default function NotificationsScreen({ navigation }: any) {
 
     const offerRaw = data?.offerId ?? data?.offer_id;
     const offerId = typeof offerRaw === 'string' && offerRaw ? offerRaw : null;
+    if (type === 'PLAYLIST_SALE_PARTIAL_OFFER' && offerId) {
+      const sellerUsernameRaw = data?.sellerUsername ?? data?.seller_username;
+      const sellerUsername = typeof sellerUsernameRaw === 'string' ? sellerUsernameRaw.trim() : '';
+      if (sellerUsername) {
+        navigation.navigate('PublicProfile', { username: sellerUsername, openSaleOfferId: offerId, source: 'NOTIFICATION' });
+        return;
+      }
+    }
     if (type.startsWith('PLAYLIST_SALE') && offerId) {
       navigation.navigate('PlaylistSale', { manageSaleOfferId: offerId, source: 'NOTIFICATION' });
       return;
