@@ -108,34 +108,10 @@ export function dedupeNotifications(items: KeepNotification[]): KeepNotification
 }
 
 export async function deleteNotificationDuplicates(profileId: string, keep: KeepNotification): Promise<number> {
-  if (!supabase || !profileId) return 0;
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('id,type,title,body,data,read_at,created_at')
-    .eq('profile_id', profileId)
-    .eq('type', keep.type)
-    .order('created_at', { ascending: false })
-    .limit(100);
+  if (!supabase || !profileId || !keep.id) return 0;
+  const { data, error } = await supabase.rpc('keep_notification_remove_semantic_duplicates', { p_keep_id: keep.id });
   if (error) throw error;
-  const keepKey = notificationSemanticKey(keep);
-  const keepTime = new Date(keep.createdAt).getTime();
-  const duplicateIds = (data ?? [])
-    .map(mapNotificationRow)
-    .filter((row) => row.id !== keep.id)
-    .filter((row) => notificationSemanticKey(row) === keepKey)
-    .filter((row) => {
-      const time = new Date(row.createdAt).getTime();
-      return !Number.isFinite(keepTime) || !Number.isFinite(time) || Math.abs(time - keepTime) <= NOTIFICATION_DEDUPE_WINDOW_MS;
-    })
-    .map((row) => row.id);
-  if (!duplicateIds.length) return 0;
-  const { error: deleteError } = await supabase
-    .from('notifications')
-    .delete()
-    .eq('profile_id', profileId)
-    .in('id', duplicateIds);
-  if (deleteError) throw deleteError;
-  return duplicateIds.length;
+  return Number(data ?? 0);
 }
 
 export async function loadNotifications(profileId: string): Promise<KeepNotification[]> {
