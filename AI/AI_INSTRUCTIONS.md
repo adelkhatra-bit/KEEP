@@ -52,8 +52,3 @@ AUDIT/REFONTE MOBILE demandé par Adel. Continuer uniquement sur `reconcile/clau
 ### 2026-09-29 — reçu
 
 Adel demande un travail à deux avec ChatGPT Sol. ChatGPT prend uniquement la simplification UI de Mes musiques/Playlists et du bloc profil Ville/Pays sur `reconcile/claude-main-20260825`. Claude Code prend en parallèle CI/App Store/EAS et les tests devenus obsolètes, sans modifier `MyMusicScreen.tsx` ni `ProfileSettingsMobileScreen.tsx` jusqu'au handoff de fin. Ne pas toucher App.tsx, Navigation.tsx ni la barre des 5 onglets. Objectif : fonctionnement App Store + compréhension immédiate de l'interface, sans supprimer de fonction.
-
-
-### 2026-09-30 — VERROU DESIGN PROFIL, permanent
-
-Ne jamais réinterpréter la tête du profil sans demande explicite. Formule figée : sur `ProfilePublicScreen.tsx`, le badge de rôle (Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement — ou tout libellé métier futur) est à gauche et le contrôle animé `BATTLE ON/OFF` est sur la même ligne, à droite, sous la zone du hamburger. Dans la rangée de compteurs, l’ordre visuel reste `PLUS | Abonnés | Reprises | FREE` ; `FREE` est immédiatement à côté de `Reprises` et ne doit jamais être déplacé verticalement. Toute modification de cette zone doit préserver l’alignement horizontal et faire passer les contrats `ProfileOwnerMetricsLayout.contract.test.ts`, `ProfileMetricsLayout.contract.test.ts` et `ProfileIdentityBreathingRoom.contract.test.ts`. Ne pas « améliorer » ou réorganiser cette formule de sa propre initiative.

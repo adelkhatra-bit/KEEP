@@ -1248,63 +1248,42 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <ProfileCertificationBadge tier={certificationTier} compact />
             </View>
             <View style={s.profileMetaLeft}>
-              {/* VERROU DESIGN 30/09/2026 — ne plus déplacer séparément ces deux éléments :
-                  le badge de rôle reste à gauche et BATTLE reste sur LA MÊME LIGNE,
-                  aligné à droite sous le hamburger. Le libellé du rôle varie selon
-                  le profil (Utilisateur, Créateur, DJ, Artiste, Producteur, Établissement). */}
-              <View style={s.profileRoleBattleRow}>
-                <View style={s.profileRoleSlot}>
-                  {/* Adel (07/09/2026) : "quand il a la pastille payante ... il a
-                      la possibilité de cliquer dessus et il peut changer DJ etc."
-                      -- Creator Pro (9,99 €) et Venue Pro (29,99 €) débloquent
-                      déjà le changement de type de profil (CreatorToolsPanel,
-                      Réglages avancés) ; raccourci direct depuis la pastille au
-                      lieu d'obliger à chercher dans les réglages. Même couleur
-                      que la certification, comme pour le badge Free. */}
-                  {canChangeProfileKind ? (
-                    <TouchableOpacity style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]} onPress={() => setKindPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Changer le type de profil">
-                      <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
-                      <Text style={[s.kindBadgeEdit, { color: certificationColors.ring }]}>✎</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    // Adel (07/09/2026) : "quand un utilisateur va cliquer dessus
-                    // pour qu'il puisse savoir ... qu'il faut qu'il change son
-                    // forfait pour comprendre comment débloquer ses fonctions" --
-                    // même en FREE/PREMIUM, la pastille doit expliquer comment
-                    // devenir DJ/Artiste/Créateur/Producteur/Établissement, pas
-                    // rester une simple étiquette muette.
-                    <TouchableOpacity
-                      style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}
-                      onPress={() => Alert.alert(
-                        'Débloque DJ, Artiste, Créateur, Producteur…',
-                        'Passe à Creator Pro pour changer ton profil en DJ, Artiste, Créateur ou Producteur. Passe à Venue Pro si tu es un lieu ou un établissement.',
-                        [
-                          { text: 'Plus tard', style: 'cancel' },
-                          { text: 'Établissement · Venue Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'VENUE_PRO' }) },
-                          { text: 'DJ / Artiste · Creator Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO' }) },
-                        ],
-                      )}
-                      accessibilityRole="button"
-                      accessibilityLabel="Voir comment débloquer DJ, Artiste, Créateur ou Producteur"
-                    >
-                      <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
-                    </TouchableOpacity>
+              {/* Adel (07/09/2026) : "quand il a la pastille payante ... il a
+                  la possibilité de cliquer dessus et il peut changer DJ etc."
+                  -- Creator Pro (9,99 €) et Venue Pro (29,99 €) débloquent
+                  déjà le changement de type de profil (CreatorToolsPanel,
+                  Réglages avancés) ; raccourci direct depuis la pastille au
+                  lieu d'obliger à chercher dans les réglages. Même couleur
+                  que la certification, comme pour le badge Free. */}
+              {canChangeProfileKind ? (
+                <TouchableOpacity style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]} onPress={() => setKindPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Changer le type de profil">
+                  <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
+                  <Text style={[s.kindBadgeEdit, { color: certificationColors.ring }]}>✎</Text>
+                </TouchableOpacity>
+              ) : (
+                // Adel (07/09/2026) : "quand un utilisateur va cliquer dessus
+                // pour qu'il puisse savoir ... qu'il faut qu'il change son
+                // forfait pour comprendre comment débloquer ses fonctions" --
+                // même en FREE/PREMIUM, la pastille doit expliquer comment
+                // devenir DJ/Artiste/Créateur/Producteur/Établissement, pas
+                // rester une simple étiquette muette.
+                <TouchableOpacity
+                  style={[s.kindBadge, { backgroundColor: `${certificationColors.colors[certificationColors.colors.length - 1]}33`, borderColor: certificationColors.ring }]}
+                  onPress={() => Alert.alert(
+                    'Débloque DJ, Artiste, Créateur, Producteur…',
+                    'Passe à Creator Pro pour changer ton profil en DJ, Artiste, Créateur ou Producteur. Passe à Venue Pro si tu es un lieu ou un établissement.',
+                    [
+                      { text: 'Plus tard', style: 'cancel' },
+                      { text: 'Établissement · Venue Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'VENUE_PRO' }) },
+                      { text: 'DJ / Artiste · Creator Pro', onPress: () => navigation.navigate('Offers', { focusPlan: 'CREATOR_PRO' }) },
+                    ],
                   )}
-                </View>
-                {battleFeatureEnabled && !accountRequired ? (
-                  <BattleGlowButton
-                    compact
-                    style={s.profileBattleAligned}
-                    active={battleAvailable}
-                    disabled={battleAvailabilityBusy}
-                    label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
-                    onPress={() => { void setBattleAvailable(!battleAvailable); }}
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
-                    accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-                  />
-                ) : null}
-              </View>
+                  accessibilityRole="button"
+                  accessibilityLabel="Voir comment débloquer DJ, Artiste, Créateur ou Producteur"
+                >
+                  <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
+                </TouchableOpacity>
+              )}
               {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
             </View>
           </View>
@@ -1322,9 +1301,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
           </TouchableOpacity>
         </View>
-        {/* VERROU DESIGN 30/09/2026 — FREE reste dans la rangée des compteurs,
-            immédiatement à droite de Reprises. BATTLE n'entre jamais dans cette rangée. */}
-        <View style={s.topMetricFreeSlot}>
+        <View style={s.topMetricFreeStack}>
+          {battleFeatureEnabled && !accountRequired ? (
+            <BattleGlowButton
+              compact
+              style={s.profileBattleAboveFree}
+              active={battleAvailable}
+              disabled={battleAvailabilityBusy}
+              label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
+              onPress={() => { void setBattleAvailable(!battleAvailable); }}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
+              accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+            />
+          ) : null}
           <TouchableOpacity
             style={[s.topMetricFreeHero, freeDetailsOpen && s.topMetricFreeHeroOn]}
             onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
@@ -1778,7 +1768,7 @@ const s=StyleSheet.create({
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900',marginLeft:6},menuBackRow:{minHeight:36,justifyContent:'center',marginBottom:2},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10,width:'100%'},profileRoleBattleRow:{width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},profileRoleSlot:{minWidth:0,flexShrink:1},profileBattleAligned:{width:112,flexShrink:0,alignSelf:'center'},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
+  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'flex-start',gap:9,marginTop:10},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
 ownerActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
 ownerActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
@@ -1804,8 +1794,9 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
-  topMetricsBar:{marginHorizontal:0,marginTop:12,minHeight:58,flexDirection:'row',alignItems:'center',gap:8},
-  topMetricFreeSlot:{width:82,alignItems:'stretch',justifyContent:'center'},
+  topMetricsBar:{marginHorizontal:0,marginTop:12,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},
+  topMetricFreeStack:{width:82,alignItems:'stretch',justifyContent:'flex-end',gap:7,transform:[{translateY:-100}]},
+  profileBattleAboveFree:{alignSelf:'stretch'},
   topMetricFreeHero:{width:82,minHeight:58,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.12)',borderWidth:1.5,borderColor:colors.keep,shadowColor:colors.keep,shadowOpacity:.28,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   topMetricFreeHeroOn:{backgroundColor:'rgba(45,225,194,.20)',shadowOpacity:.55},
   topMetricFreeValue:{color:colors.keep,fontSize:18,fontWeight:'900'},topMetricFreeLabel:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.8,marginTop:1},topMetricFreeHint:{color:colors.textMutedGrey,fontSize:7,fontWeight:'700',marginTop:1},
