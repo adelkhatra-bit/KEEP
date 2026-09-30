@@ -560,7 +560,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 vérité, plus jamais un texte à mettre à jour à la main
                 quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : chacun engage sa mise. À 2, le gagnant prend la mise perdue par l'adversaire. À 3 et plus, les joueurs encore en course continuent entre eux ; chaque abandon est une défaite et sa mise alimente les gains. Si les autres abandonnent, le dernier joueur restant gagne les Free accumulés. Si la partie va jusqu'au bout, le classement final applique la répartition prévue pour le podium. Sans-faute (8/8 ou N/N) : s’il y a plusieurs joueurs parfaits, Loki attribue UN SEUL bonus égal à la mise au sans-faute le plus rapide. Sur 8 morceaux : +{battleRules.perfectScoreBonusFree} Free.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : chacun engage sa mise. À 2, le gagnant prend la mise perdue par l'adversaire. À 3 et plus, les joueurs encore en course continuent entre eux ; chaque abandon est une défaite et sa mise alimente les gains. Si les autres abandonnent, le dernier joueur restant gagne les Free accumulés. Si la partie va jusqu'au bout, le classement final applique la répartition prévue pour le podium. Sans-faute (8/8 ou N/N) : chaque joueur parfait reçoit un bonus Loki égal à la mise, en plus du résultat normal. Sur 8 morceaux : +{battleRules.perfectScoreBonusFree} Free.</Text>
               <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu'à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
@@ -571,7 +571,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.battleDetails}>
             <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
             <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d'abonnés, plus Loki Music t'offre de Free.</Text>
-            <Text style={s.battleDetailText}>⚡ Battle en ligne : un seul bonus sans-faute est attribué au joueur parfait le plus rapide (+{battleRules.perfectScoreBonusFree} Free sur 8 morceaux), en plus du résultat.</Text>
+            <Text style={s.battleDetailText}>⚡ Battle en ligne : chaque sans-faute reçoit un bonus Loki égal à la mise (+{battleRules.perfectScoreBonusFree} Free sur 8 morceaux), en plus du résultat.</Text>
             <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
             <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
           </View>
