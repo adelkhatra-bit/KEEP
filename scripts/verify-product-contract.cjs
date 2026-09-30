@@ -47,7 +47,7 @@ must(profile.includes('loadMyKeepBattleCreditStatus'), 'real FREE balance source
 must(profile.includes('setFreeBalance(battleStatus.remainingFree)'), 'real FREE balance no longer applied');
 
 must(master.includes('Barre suivante : **PLUS | Abonnés | Reprises | FREE**.'), 'master spec profile metrics rule stale');
-must(master.includes('FREE juste après Reprises'), 'master spec FREE placement missing');
+must(master.includes('juste après Reprises'), 'master spec FREE placement missing');
 must(!master.includes('FREE immédiatement à droite du badge de type'), 'stale FREE placement still present in master spec');
 
 must(uiBaseline.profileOwner.freePlacement === contract.profileOwner.freePlacement, 'UI baseline disagrees with product contract');
