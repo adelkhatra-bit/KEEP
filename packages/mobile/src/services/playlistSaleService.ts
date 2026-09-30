@@ -477,15 +477,136 @@ export async function setPlaylistSalePriceForSelection(trackIds: string[], name:
 export type PlaylistSalePreviewTrack = {
   trackId: string;
   previewUrl: string;
+  alreadyOwned: boolean;
 };
 
-export async function loadPlaylistSaleOfferPreviewTracks(playlistId: string): Promise<PlaylistSalePreviewTrack[]> {
+export type PlaylistSaleOverlap = {
+  totalCount: number;
+  ownedCount: number;
+  missingCount: number;
+};
+
+export async function loadPlaylistSaleOfferPreviewTracks(playlistId: string, offerId?: string): Promise<PlaylistSalePreviewTrack[]> {
   if (!supabase || !playlistId) return [];
-  const { data, error } = await supabase.rpc('keep_playlist_sale_offer_preview_tracks', { p_playlist_id: playlistId });
+  const rpc = offerId ? 'keep_playlist_sale_offer_preview_tracks_v2' : 'keep_playlist_sale_offer_preview_tracks';
+  const args = offerId ? { p_offer_id: offerId } : { p_playlist_id: playlistId };
+  const { data, error } = await supabase.rpc(rpc, args as any);
   if (error) throw error;
   return (Array.isArray(data) ? data : [])
-    .map((row: any) => ({ trackId: String(row.track_id ?? row.trackId ?? ''), previewUrl: String(row.preview_url ?? row.previewUrl ?? '') }))
+    .map((row: any) => ({
+      trackId: String(row.track_id ?? row.trackId ?? ''),
+      previewUrl: String(row.preview_url ?? row.previewUrl ?? ''),
+      alreadyOwned: Boolean(row.already_owned ?? row.alreadyOwned ?? false),
+    }))
     .filter((row) => row.trackId && row.previewUrl);
+}
+
+export async function loadPlaylistSaleOfferOverlap(offerId: string): Promise<PlaylistSaleOverlap> {
+  if (!supabase || !offerId) return { totalCount: 0, ownedCount: 0, missingCount: 0 };
+  const { data, error } = await supabase.rpc('keep_playlist_sale_offer_overlap', { p_offer_id: offerId });
+  if (error) throw error;
+  const row = data as any;
+  return {
+    totalCount: Number(row?.totalCount ?? 0),
+    ownedCount: Number(row?.ownedCount ?? 0),
+    missingCount: Number(row?.missingCount ?? 0),
+  };
+}
+
+export type PlaylistSaleMissingTrackRequestResult = {
+  requestId: string;
+  offerId: string;
+  missingCount: number;
+  totalCount: number;
+  status: 'PENDING' | 'OFFERED' | 'DECLINED';
+};
+
+export async function requestMissingPlaylistSaleTracks(offerId: string): Promise<PlaylistSaleMissingTrackRequestResult> {
+  const { data, error } = await client().rpc('keep_playlist_sale_request_missing_tracks', { p_offer_id: offerId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_MISSING_TRACK_REQUEST_FAILED'));
+  const row = data as any;
+  return {
+    requestId: String(row?.requestId ?? ''),
+    offerId: String(row?.offerId ?? offerId),
+    missingCount: Number(row?.missingCount ?? 0),
+    totalCount: Number(row?.totalCount ?? 0),
+    status: String(row?.status ?? 'PENDING').toUpperCase() as PlaylistSaleMissingTrackRequestResult['status'],
+  };
+}
+
+export type PlaylistSaleSellerTrackRequest = {
+  requestId: string;
+  offerId: string;
+  buyerUsername: string;
+  playlistName: string;
+  missingCount: number;
+  createdAt: string;
+};
+
+export async function loadMyPlaylistSaleTrackRequests(): Promise<PlaylistSaleSellerTrackRequest[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_missing_requests');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    requestId: String(row.request_id ?? row.requestId ?? ''),
+    offerId: String(row.offer_id ?? row.offerId ?? ''),
+    buyerUsername: String(row.buyer_username ?? row.buyerUsername ?? ''),
+    playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
+    missingCount: Number(row.missing_count ?? row.missingCount ?? 0),
+    createdAt: String(row.created_at ?? row.createdAt ?? ''),
+  })).filter((row) => row.requestId);
+}
+
+export async function offerPlaylistSaleTrackRequestWithFree(requestId: string, freePrice: number): Promise<{ offerId: string; trackCount: number; freePrice: number }> {
+  const { data, error } = await client().rpc('keep_playlist_sale_offer_request_with_free', {
+    p_request_id: requestId,
+    p_free_price: Math.round(freePrice),
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_REQUEST_OFFER_FAILED'));
+  const row = data as any;
+  return {
+    offerId: String(row?.offerId ?? ''),
+    trackCount: Number(row?.trackCount ?? 0),
+    freePrice: Number(row?.freePrice ?? freePrice),
+  };
+}
+
+export async function declinePlaylistSaleTrackRequest(requestId: string): Promise<void> {
+  const { error } = await client().rpc('keep_playlist_sale_decline_track_request', { p_request_id: requestId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_REQUEST_DECLINE_FAILED'));
+}
+
+export type PlaylistPurchaseLibraryEntry = {
+  paymentId: string;
+  offerId: string;
+  sellerUsername: string;
+  playlistName: string;
+  deliveredPlaylistId: string;
+  trackCount: number;
+  paymentMode: PlaylistSalePaymentMode;
+  amountCents: number;
+  amountFree: number;
+  currencyCode: string;
+  deliveredAt: string;
+};
+
+export async function loadMyPlaylistPurchaseLibrary(limit = 6): Promise<PlaylistPurchaseLibraryEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_my_purchase_library', { p_limit: Math.max(1, Math.min(20, Math.round(limit))) });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    paymentId: String(row.payment_id ?? row.paymentId ?? ''),
+    offerId: String(row.offer_id ?? row.offerId ?? ''),
+    sellerUsername: String(row.seller_username ?? row.sellerUsername ?? ''),
+    playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
+    deliveredPlaylistId: String(row.delivered_playlist_id ?? row.deliveredPlaylistId ?? ''),
+    trackCount: Number(row.track_count ?? row.trackCount ?? 0),
+    paymentMode: (String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY') as PlaylistSalePaymentMode,
+    amountCents: Number(row.amount_cents ?? row.amountCents ?? 0),
+    amountFree: Number(row.amount_free ?? row.amountFree ?? 0),
+    currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
+    deliveredAt: String(row.delivered_at ?? row.deliveredAt ?? ''),
+  })).filter((row) => row.paymentId && row.deliveredPlaylistId);
 }
 
 // (21/09/2026) BUG RÉEL corrigé (Adel, profil adel4a) : un morceau déjà
