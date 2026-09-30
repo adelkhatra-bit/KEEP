@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
-import { loadPlaylistSaleOfferPreviewTracks, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
+import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 /**
@@ -51,9 +51,11 @@ interface Props {
   freeBalance?: number | null;
   purchaseError?: string | null;
   onRechargeFree?: () => void;
+  onRequestMissingTracks?: (offer: PublicPlaylistSaleOffer) => void;
+  requestMissingBusy?: boolean;
 }
 
-export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree }: Props) {
+export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const compact = windowHeight < 760 || windowWidth < 360;
   const [explainerIndex] = useState(0);
@@ -62,6 +64,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const teaserOpacity = useRef(new Animated.Value(1)).current;
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
+  const [overlap, setOverlap] = useState<PlaylistSaleOverlap | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -118,20 +121,25 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     setWaiverAccepted(false);
     setDetailsOpen(false);
     setTracks(null);
+    setOverlap(null);
     tracksRef.current = null;
     setTrackIndex(0);
     setPlaying(false);
     setPreviewError(null);
     let live = true;
-    loadPlaylistSaleOfferPreviewTracks(offer.playlistId).then((loaded) => {
+    Promise.all([
+      loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId),
+      loadPlaylistSaleOfferOverlap(offer.offerId).catch(() => null),
+    ]).then(([loaded, overlapResult]) => {
       if (!live) return;
       setTracks(loaded);
+      setOverlap(overlapResult);
       tracksRef.current = loaded;
       // Le tap sur la carte a déjà déverrouillé l'audio dans le profil.
       // On lance donc immédiatement la première pépite dès que la RPC masquée
       // a livré les previews, sans imposer un deuxième tap « Écouter ».
       if (loaded.length > 0) playTrackAt(0);
-    }).catch(() => { if (live) { setTracks([]); tracksRef.current = []; setPreviewError('Les extraits protégés ne sont pas disponibles pour le moment.'); } });
+    }).catch(() => { if (live) { setTracks([]); setOverlap(null); tracksRef.current = []; setPreviewError('Les extraits protégés ne sont pas disponibles pour le moment.'); } });
     // La carte reste stable, mais une seule accroche courte tourne doucement
     // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
     const teaserTimer = setInterval(() => {
@@ -205,6 +213,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const freeInsufficient = freeAccess && freeBalance != null && freeBalance < requiredFree;
   const freeBlocked = freeAccess && Boolean(purchaseError || freeInsufficient);
   const normalizedUsername = sourceUsername?.replace(/^@+/, '') || '';
+  const currentTrackOwned = Boolean(tracks?.[trackIndex]?.alreadyOwned);
+  const allAlreadyOwned = Boolean(overlap && overlap.totalCount > 0 && overlap.missingCount === 0);
+  const partiallyOwned = Boolean(overlap && overlap.ownedCount > 0 && overlap.missingCount > 0);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -225,12 +236,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           <View style={s.sellerPriceRow}>
             {normalizedUsername && onOpenProfile ? (
               <TouchableOpacity style={s.profileLink} onPress={onOpenProfile} accessibilityLabel={'Voir le profil de ' + normalizedUsername}>
-                <Text style={s.profileLinkText}>VOIR @{normalizedUsername}</Text>
+                <Text style={s.profileLinkText}>@{normalizedUsername}</Text>
                 <Text style={s.profileLinkArrow}>›</Text>
               </TouchableOpacity>
             ) : <View />}
-            <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{freeAccess ? 'PRIX' : 'PRIX TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
+            <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{freeAccess ? 'PRIX' : 'TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
           </View>
+
+          {overlap && overlap.totalCount > 0 ? (
+            <View style={[s.overlapBar, allAlreadyOwned && s.overlapBarAll]}>
+              <Text style={s.overlapMain}>{allAlreadyOwned ? '✓ TU AS DÉJÀ TOUT' : `${overlap.ownedCount} DÉJÀ · ${overlap.missingCount} NOUVEAU${overlap.missingCount > 1 ? 'X' : ''}`}</Text>
+              <Text style={s.overlapCount}>{overlap.totalCount} au total</Text>
+            </View>
+          ) : null}
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -248,14 +266,26 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               onPress={togglePlayPause}
               accessibilityLabel="Extrait masqué, appuie pour lire ou mettre en pause"
             >
-              <View style={[s.visual, compact && s.visualCompact]}>
+              <Animated.View style={[s.visual, compact && s.visualCompact, {
+                transform: reduceMotionRef.current ? [] : [
+                  { perspective: 700 },
+                  { rotateY: revealGlow.interpolate({ inputRange: [0, 1], outputRange: ['-7deg', '7deg'] }) },
+                  { rotateX: revealGlow.interpolate({ inputRange: [0, 1], outputRange: ['3deg', '-3deg'] }) },
+                ],
+              }]}>
                 <Animated.View pointerEvents="none" style={[s.mysteryGlow, { opacity: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.42] }), transform: [{ scale: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] }) }] }]} />
                 <View style={s.mysteryLock}><Text style={s.mysteryLockText}>?</Text></View>
                 {bars.map((bar, i) => (
                   <Animated.View key={i} style={[s.bar, { height: bar.interpolate({ inputRange: [0, 1], outputRange: [16, 64] }) }]} />
                 ))}
-              </View>
-              {!tracksLoading && !tracksUnavailable ? <Text style={s.mysteryCaption}>PÉPITE {trackIndex + 1} · À RÉVÉLER</Text> : null}
+              </Animated.View>
+              {!tracksLoading && !tracksUnavailable ? (
+                <View style={[s.trackOwnershipPill, currentTrackOwned ? s.trackOwnershipOwned : s.trackOwnershipNew]}>
+                  <Text style={[s.trackOwnershipText, currentTrackOwned ? s.trackOwnershipTextOwned : s.trackOwnershipTextNew]}>
+                    {currentTrackOwned ? '✓ TU L’AS DÉJÀ' : '✦ NOUVELLE POUR TOI'}
+                  </Text>
+                </View>
+              ) : null}
               <Text style={s.trackStatus}>
                 {tracksLoading
                   ? 'Chargement des extraits...'
@@ -282,8 +312,20 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               pas seulement l'Alert transitoire après ouverture du lien. */}
           {purchaseEnabled && !freeAccess ? (
             <View style={s.manualNotice}>
-              <Text style={s.manualNoticeText}>ℹ️ Le paiement se fait sur le lien personnel du créateur de la collection (hors Loki Music). Loki Music ne voit ni ne garantit ce paiement : l'accès se débloque quand le créateur confirme l'avoir reçu.</Text>
+              <Text style={s.manualNoticeText}>ℹ️ Paiement sur le lien du créateur · accès après sa confirmation.</Text>
             </View>
+          ) : null}
+
+          {partiallyOwned && onRequestMissingTracks ? (
+            <TouchableOpacity
+              style={s.missingRequestButton}
+              disabled={requestMissingBusy}
+              onPress={() => onRequestMissingTracks(offer)}
+              accessibilityLabel={`Demander seulement les ${overlap?.missingCount ?? 0} morceaux manquants contre des FREE`}
+            >
+              <Text style={s.missingRequestTitle}>{requestMissingBusy ? '…' : `DEMANDER ${overlap?.missingCount ?? 0} MANQUANT${(overlap?.missingCount ?? 0) > 1 ? 'S' : ''}`}</Text>
+              <Text style={s.missingRequestHint}>Le créateur pourra te faire une offre en FREE.</Text>
+            </TouchableOpacity>
           ) : null}
 
           {purchaseEnabled ? (
@@ -313,12 +355,12 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
               <Animated.View style={[s.buyGlowShell,{ borderColor: ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}), transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }]}>
               <TouchableOpacity
-                style={[s.buyButton, (!waiverAccepted || freeBlocked) && s.buyButtonDisabled]}
-                disabled={!waiverAccepted || busy || freeBlocked}
+                style={[s.buyButton, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonDisabled]}
+                disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}
                 onPress={() => onConfirmPurchase(offer)}
-                accessibilityLabel={freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
+                accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked) && s.buyButtonTextDisabled]}>{busy ? '…' : freeBlocked ? 'SOLDE FREE INSUFFISANT' : `DÉBLOQUER · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `DÉBLOQUER · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
               {!freeAccess ? <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text> : null}
@@ -360,6 +402,19 @@ const s = StyleSheet.create({
   totalPricePill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
   totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
+  overlapBar:{marginTop:7,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:11,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+  overlapBarAll:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
+  overlapMain:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.45},
+  overlapCount:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
+  trackOwnershipPill:{marginTop:7,minHeight:24,borderRadius:12,borderWidth:1,paddingHorizontal:9,alignItems:'center',justifyContent:'center'},
+  trackOwnershipOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
+  trackOwnershipNew:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},
+  trackOwnershipText:{fontSize:9,fontWeight:'900',letterSpacing:.65},
+  trackOwnershipTextOwned:{color:colors.success},
+  trackOwnershipTextNew:{color:colors.primaryLight},
+  missingRequestButton:{marginTop:8,minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  missingRequestTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.45},
+  missingRequestHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:2},
   promiseBox: { marginTop: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.border },
   promiseKicker: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, textAlign: 'center' },
   marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3, minHeight: 18 },
