@@ -77,6 +77,11 @@ export function notificationSemanticKey(item: KeepNotification): string {
     return `${type}|arena:${arenaId}|match:${matchNo}`;
   }
   if (['BATTLE_ARENA_REMATCH','BATTLE_REMATCH'].includes(type) && arenaId) return `${type}|arena:${arenaId}`;
+  if (type === 'BATTLE_PLAYER_AVAILABLE') {
+    const sourceProfileId = notificationDataValue(item, ['sourceProfileId','source_profile_id','actorId','actor_id']);
+    const themeCode = notificationDataValue(item, ['themeCode','theme_code']);
+    if (sourceProfileId) return `${type}|source:${sourceProfileId}|theme:${themeCode}`;
+  }
 
   const stableId = notificationDataValue(item, [
     'paymentId','payment_id','challengeId','challenge_id','eventId','event_id','offerId','offer_id',
