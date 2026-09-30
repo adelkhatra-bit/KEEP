@@ -20,6 +20,11 @@ export function navigateToBattleArena(arenaId: string) {
   guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
 }
 
+export function navigateToEvent(eventId: string) {
+  if (!eventId || !navigationRef.isReady()) return;
+  guardedNavigate('Main', { screen: 'Parties', params: { openEventId: eventId, source: 'EVENT_BANNER' } });
+}
+
 // Adel (08/09/2026) : "quand [quelqu'un] partage un lien il peut Swiper les
 // musiques" -- un lien de partage ouvert dans un navigateur retombe sur
 // `?u=<pseudo>&share=<kind>` (voir share-profile.html) une fois que le
@@ -56,7 +61,7 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
   }
   const eventId = String(payload.eventId ?? payload.event_id ?? '').trim();
   if (eventId) {
-    guardedNavigate('Main', { screen: 'Parties', params: { eventId, openEvent: true } });
+    guardedNavigate('Main', { screen: 'Parties', params: { openEventId: eventId, source: 'NOTIFICATION' } });
     return;
   }
   const username = String(payload.username ?? payload.profileUsername ?? payload.creator_username ?? '').trim().replace(/^@+/, '');
