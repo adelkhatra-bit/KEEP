@@ -211,6 +211,25 @@ export type KeepBattlePendingRematch = {
   participantUsernames: string[];
 };
 
+export type KeepBattleRematchParticipant = {
+  profileId: string;
+  username: string;
+  rematchReady: boolean | null;
+  isProposer: boolean;
+  isMe: boolean;
+};
+
+export async function loadKeepBattleArenaRematchStatus(arenaId: string): Promise<KeepBattleRematchParticipant[]> {
+  const { data, error } = await client().rpc('keep_battle_arena_rematch_status', { p_arena_id: arenaId });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'Loki'),
+    rematchReady: row.rematch_ready == null ? null : Boolean(row.rematch_ready),
+    isProposer: Boolean(row.is_proposer ?? row.isProposer),
+    isMe: Boolean(row.is_me ?? row.isMe),
+  })).filter((row) => row.profileId);
+}
+
 export async function loadPendingArenaRematches(): Promise<KeepBattlePendingRematch[]> {
   const { data, error } = await client().rpc('keep_battle_arena_pending_rematch_for_me');
   return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
@@ -513,6 +532,11 @@ export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedA
 
 export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
+  return unwrap(data as KeepBattleArenaState | null, error);
+}
+
+export async function cancelKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  const { data, error } = await client().rpc('keep_battle_arena_cancel_rematch', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
