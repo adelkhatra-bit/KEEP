@@ -2040,3 +2040,13 @@ Demande Adel sur captures iPhone : rendre Soirées et Mes musiques compréhensib
 ## [2026-09-30T18:55:00Z] chatgpt — garde navigateur aligné avec nouveau libellé enfant
 
 Le runtime Chromium a chargé l'app correctement mais le workflow cherchait encore l'ancien texte « Mes morceaux · N ». Correction du TEST uniquement : il cherche maintenant « Écouter mes morceaux · N ». Le titre interne après ouverture est aussi simplifié (« Choisir ce qui est visible » / « Trier ma musique »). Aucun changement métier.
+
+
+## [2026-09-30T19:20:00Z] chatgpt — réintégration design Soirées / Découvertes / Playlists
+
+La simplification du 30/09 avait recouvert une partie du parcours validé sans supprimer la logique métier. Réintégration ciblée sans toucher App.tsx, Navigation.tsx ni la barre 5 onglets :
+- Soirées : hub propre avec Voir les soirées / Rechercher un contact / Découvrir des événements / Invitations / Créer ; Battle reste dans son onglet séparé.
+- Soirée ouverte : La soirée / Activité / Playlist restent TOUJOURS visibles et alignés sur une seule rangée ; l'onglet actif ne disparaît plus. Activité reste l'activité réelle de l'événement, pas le Battle global.
+- Découvertes : sélecteur PERSONNES / ÉVÉNEMENTS. PERSONNES réutilise la vraie recherche pseudo existante ; ÉVÉNEMENTS charge les événements publics validés via loadUpcomingEvents() et ouvre le vrai PartiesScreen par openEventId.
+- Playlists : l'espace existant de gestion plein écran est remis en avant sous « Mes albums / collections » avec musiques disponibles, +/− morceaux, prix € / FREE, paiement et statut.
+- Nouveau contrat CrossTabDiscoveryHub.contract.test.ts pour empêcher une prochaine simplification de casser cette structure.

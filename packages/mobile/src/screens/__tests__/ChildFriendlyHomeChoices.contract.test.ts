@@ -7,17 +7,18 @@ describe('Child-friendly home choices', () => {
   const parties = read('PartiesScreen.tsx');
   const music = read('MyMusicScreen.tsx');
 
-  it('uses simple action verbs on the Soirées home', () => {
-    for (const label of ['Créer une soirée', 'Voir les soirées', 'Répondre aux invitations', 'Voir la musique', 'Jouer au Battle']) {
+  it('keeps Soirées as a clean hub without mixing Battle into event actions', () => {
+    for (const label of ['Voir les soirées', 'Rechercher un contact', 'Découvrir des événements', 'Répondre aux invitations', 'Créer une soirée']) {
       expect(parties).toContain(label);
     }
-    expect(parties).toContain('Choisis une action.');
-    expect(parties).toContain('Oui, peut-être ou non');
-    expect(parties).toContain('Quiz musical');
+    expect(parties).toContain("navigation.navigate('Discover', { focus: 'PEOPLE'");
+    expect(parties).toContain("navigation.navigate('Discover', { focus: 'EVENTS'");
+    const home = parties.slice(parties.indexOf("{partyHome ? <View"), parties.indexOf("{partyHome ? <View") + 7000);
+    expect(home).not.toContain('Jouer au Battle');
   });
 
   it('uses simple action verbs on Mes musiques', () => {
-    for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Créer une collection', 'Connecter mes applis musique']) {
+    for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Mes albums / collections', 'Connecter mes applis musique']) {
       expect(music).toContain(label);
     }
     expect(music).toContain('Écouter · Trier · Créer');

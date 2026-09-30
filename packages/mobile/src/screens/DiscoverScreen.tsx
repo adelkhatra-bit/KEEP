@@ -15,6 +15,7 @@ import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/pu
 import { isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import { CreatorEvent, loadUpcomingEvents } from '../services/creatorEventService';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -61,7 +62,7 @@ function overlapScore(a: string[], b: string[]): number {
   return Math.round((matches / Math.max(left.size, right.size)) * 100);
 }
 
-export default function DiscoverScreen({ navigation }: any) {
+export default function DiscoverScreen({ navigation, route }: any) {
   const { t } = useTranslation();
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -76,6 +77,10 @@ export default function DiscoverScreen({ navigation }: any) {
   const [guestSeenIds, setGuestSeenIds] = useState<string[]>([]);
   const [avatarFailedFor, setAvatarFailedFor] = useState<string | null>(null);
   const [currentProfileSnapshot, setCurrentProfileSnapshot] = useState<PublicProfileSnapshot | null>(null);
+  const [discoverMode, setDiscoverMode] = useState<'PEOPLE' | 'EVENTS'>('PEOPLE');
+  const [upcomingEvents, setUpcomingEvents] = useState<CreatorEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(true);
   // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
   // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
   // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
@@ -89,6 +94,25 @@ export default function DiscoverScreen({ navigation }: any) {
   // jamais branché jusqu'ici. Coupe-circuit réel, pas décoratif.
   const [compareFeatureEnabled, setCompareFeatureEnabled] = useState(true);
   useEffect(() => { let live = true; isFeatureEnabled('compare_keep').then((enabled) => live && setCompareFeatureEnabled(enabled)); return () => { live = false; }; }, []);
+  useEffect(() => { let live = true; isFeatureEnabled('events').then((enabled) => { if (live) setEventsFeatureEnabled(enabled); }).catch(() => {}); return () => { live = false; }; }, []);
+
+  useEffect(() => {
+    const focus = String(route?.params?.focus ?? '').toUpperCase();
+    if (focus === 'EVENTS') setDiscoverMode('EVENTS');
+    if (focus === 'PEOPLE') setDiscoverMode('PEOPLE');
+    if (focus) navigation.setParams?.({ focus: undefined, source: undefined });
+  }, [navigation, route?.params?.focus]);
+
+  useEffect(() => {
+    if (!eventsFeatureEnabled) { setUpcomingEvents([]); return undefined; }
+    let live = true;
+    setEventsLoading(true);
+    loadUpcomingEvents()
+      .then((rows) => { if (live) setUpcomingEvents(rows); })
+      .catch(() => { if (live) setUpcomingEvents([]); })
+      .finally(() => { if (live) setEventsLoading(false); });
+    return () => { live = false; };
+  }, [eventsFeatureEnabled]);
   const [searchPosition, setSearchPosition] = useState<SearchPosition | null>(null);
   const [searchBusy, setSearchBusy] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -444,13 +468,17 @@ export default function DiscoverScreen({ navigation }: any) {
   const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
   const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
 
-  if (localDiscoveryChecked && !localDiscoveryEnabled) {
+  if (discoverMode === 'PEOPLE' && localDiscoveryChecked && !localDiscoveryEnabled) {
     return (
       <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
-        <View style={styles.emptyCard}>
+        <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>{t('nav.discover')}</Text>
-          <Text style={styles.mutedHint}>Les découvertes sont temporairement indisponibles. Reviens un peu plus tard.</Text>
-        </View>
+          <View style={styles.discoveryModes}>
+            <TouchableOpacity style={[styles.discoveryModeButton, styles.discoveryModeButtonOn]}><Text style={[styles.discoveryModeText, styles.discoveryModeTextOn]}>PERSONNES</Text></TouchableOpacity>
+            {eventsFeatureEnabled ? <TouchableOpacity style={styles.discoveryModeButton} onPress={() => setDiscoverMode('EVENTS')}><Text style={styles.discoveryModeText}>ÉVÉNEMENTS</Text></TouchableOpacity> : null}
+          </View>
+          <View style={styles.emptyCard}><Text style={styles.mutedHint}>La découverte de personnes est temporairement indisponible. Les événements restent accessibles ci-dessus.</Text></View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -459,13 +487,43 @@ export default function DiscoverScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{t('nav.discover')}</Text>
+        <View style={styles.discoveryModes} accessibilityLabel="Choisir le type de découverte">
+          <TouchableOpacity style={[styles.discoveryModeButton, discoverMode === 'PEOPLE' && styles.discoveryModeButtonOn]} onPress={() => setDiscoverMode('PEOPLE')} accessibilityRole="tab" accessibilityState={{ selected: discoverMode === 'PEOPLE' }}>
+            <Text style={[styles.discoveryModeText, discoverMode === 'PEOPLE' && styles.discoveryModeTextOn]}>PERSONNES</Text>
+          </TouchableOpacity>
+          {eventsFeatureEnabled ? <TouchableOpacity style={[styles.discoveryModeButton, discoverMode === 'EVENTS' && styles.discoveryModeButtonOn]} onPress={() => setDiscoverMode('EVENTS')} accessibilityRole="tab" accessibilityState={{ selected: discoverMode === 'EVENTS' }}>
+            <Text style={[styles.discoveryModeText, discoverMode === 'EVENTS' && styles.discoveryModeTextOn]}>ÉVÉNEMENTS</Text>
+          </TouchableOpacity> : null}
+        </View>
+        {discoverMode === 'EVENTS' ? (
+          <View style={styles.eventsDiscovery}>
+            <View style={styles.eventsDiscoveryHeader}><View style={{flex:1}}><Text style={styles.sectionTitle}>Événements à découvrir</Text><Text style={styles.mutedHint}>Soirées publiques validées, à venir sur Loki Music.</Text></View><Text style={styles.eventsCount}>{upcomingEvents.length}</Text></View>
+            {eventsLoading ? <ActivityIndicator color={colors.primaryLight} style={styles.eventsLoader} /> : upcomingEvents.length ? upcomingEvents.map((event) => {
+              const startsAt = new Date(event.startsAt);
+              const live = startsAt.getTime() <= Date.now() && (!event.endsAt || new Date(event.endsAt).getTime() >= Date.now());
+              return (
+                <TouchableOpacity key={event.id} style={styles.eventDiscoveryCard} onPress={() => navigation.navigate('Parties', { openEventId: event.id, source: 'DISCOVER_EVENTS' })} accessibilityLabel={`Ouvrir la soirée ${event.name}`}>
+                  {event.imageUrl ? <Image source={{ uri: event.imageUrl }} style={styles.eventDiscoveryCover} /> : <View style={[styles.eventDiscoveryCover, styles.eventDiscoveryFallback]}><Text style={styles.eventDiscoveryFallbackText}>♬</Text></View>}
+                  <View style={styles.eventDiscoveryCopy}>
+                    <View style={styles.eventDiscoveryKickerRow}><Text style={styles.eventDiscoveryKicker}>{live ? '● EN COURS' : 'À VENIR'}</Text><Text style={styles.eventDiscoveryPrice}>{event.ticketPriceCents ? `${(event.ticketPriceCents / 100).toFixed(2).replace('.', ',')} €` : 'ENTRÉE LIBRE'}</Text></View>
+                    <Text style={styles.eventDiscoveryTitle} numberOfLines={2}>{event.name}</Text>
+                    <Text style={styles.eventDiscoveryMeta} numberOfLines={1}>{startsAt.toLocaleString('fr-FR', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</Text>
+                    <Text style={styles.eventDiscoveryMeta} numberOfLines={1}>{[event.venueName, event.countryCode].filter(Boolean).join(' · ') || 'Lieu à préciser'}</Text>
+                    {event.djArtistNames.length ? <Text style={styles.eventDiscoveryArtists} numberOfLines={1}>{event.djArtistNames.map((name) => name.replace(/^@+/, '')).join(' · ')}</Text> : null}
+                  </View>
+                  <Text style={styles.eventDiscoveryArrow}>›</Text>
+                </TouchableOpacity>
+              );
+            }) : <View style={styles.emptyCard}><Text style={styles.mutedHint}>Aucun événement public validé à venir pour le moment.</Text></View>}
+          </View>
+        ) : <>
         <View style={styles.discoveryHeader}>
           <View style={{ flex: 1 }}><Text style={styles.sectionTitle}>Profils autour de moi</Text><Text style={styles.mutedHint}>Découvre des personnes par proximité et affinités musicales.</Text></View>
           {currentProfile && !discoveryUnlocked && !accessLoading ? <TouchableOpacity style={styles.lockBadge} onPress={openPremium}><Text style={styles.lockText}>🔒 Premium</Text></TouchableOpacity> : currentProfile && freeRemaining !== null ? <TouchableOpacity style={styles.trialBadge} onPress={openPremium} accessibilityRole="button" accessibilityLabel="Voir Premium pour plus de découvertes"><Text style={styles.trialText}>FREE · {freeRemaining} RESTANT{freeRemaining === 1 ? '' : 'S'}</Text></TouchableOpacity> : null}
         </View>
         <View style={styles.usernameSearch}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
-          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un utilisateur Loki Music par pseudo" />
+          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un contact ou un pseudo Loki Music" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un contact Loki Music par pseudo" />
           {profileQuery ? <MotionActionButton
             variant="ghost"
             size="small"
@@ -546,6 +604,7 @@ export default function DiscoverScreen({ navigation }: any) {
             </View>
           </View>
         )}
+        </>}
       </ScrollView>
     </SafeAreaView>
   );
@@ -555,6 +614,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 110 },
   title: { color: colors.white, fontSize: 22, fontWeight: '900', marginBottom: 10 },
+  discoveryModes:{flexDirection:'row',gap:8,marginBottom:12,padding:4,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  discoveryModeButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center'},
+  discoveryModeButtonOn:{backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},
+  discoveryModeText:{color:colors.textMuted,fontSize:11,fontWeight:'900',letterSpacing:.6},
+  discoveryModeTextOn:{color:colors.white},
+  eventsDiscovery:{gap:10},
+  eventsDiscoveryHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:2},
+  eventsCount:{minWidth:34,height:34,borderRadius:17,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,overflow:'hidden',textAlign:'center',textAlignVertical:'center',lineHeight:32,color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  eventsLoader:{marginVertical:24},
+  eventDiscoveryCard:{minHeight:108,borderRadius:20,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:12},
+  eventDiscoveryCover:{width:86,height:86,borderRadius:16,backgroundColor:colors.backgroundCard},
+  eventDiscoveryFallback:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.primary},
+  eventDiscoveryFallbackText:{color:colors.primaryLight,fontSize:30,fontWeight:'900'},
+  eventDiscoveryCopy:{flex:1,minWidth:0},
+  eventDiscoveryKickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+  eventDiscoveryKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.6},
+  eventDiscoveryPrice:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  eventDiscoveryTitle:{color:colors.white,fontSize:15,fontWeight:'900',marginTop:5},
+  eventDiscoveryMeta:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},
+  eventDiscoveryArtists:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4},
+  eventDiscoveryArrow:{color:colors.primaryLight,fontSize:26,fontWeight:'800'},
   discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:50,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1.5,borderColor:'#665B73'},usernameSearchIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:46,color:colors.white,fontSize:15,fontWeight:'600'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},usernameClearText:{color:colors.white,fontSize:22,lineHeight:24,fontWeight:'700'},
   sectionTitle:{color:colors.white,fontSize:16,fontWeight:'900'},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17},
   lockBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},lockText:{color:colors.white,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keepPressed},trialText:{color:colors.keep,fontSize:9,fontWeight:'900'},

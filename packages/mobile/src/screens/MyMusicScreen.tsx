@@ -1295,8 +1295,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('COLLECTIONS'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>◆</Text></View>
           <View style={styles.focusPrimaryCopy}>
-            <Text style={styles.focusPrimaryTitle}>Créer une collection · {existingOffersForAdd.length}</Text>
-            <Text style={styles.focusPrimaryHint}>Regrouper plusieurs morceaux</Text>
+            <Text style={styles.focusPrimaryTitle}>Mes albums / collections · {existingOffersForAdd.length}</Text>
+            <Text style={styles.focusPrimaryHint}>Créer, modifier, ajouter des morceaux et gérer le prix</Text>
           </View>
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
@@ -1322,7 +1322,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       </View>}
       {workspaceTab === 'COLLECTIONS' && mobileSection !== 'HOME' ? <View style={styles.collectionDashboard}>
         <View style={styles.collectionDashboardHead}>
-          <View style={styles.collectionDashboardHeadCopy}><Text style={styles.collectionDashboardTitle}>Mes albums</Text><Text style={styles.collectionDashboardHint}>Gère les morceaux, le prix et le paiement.</Text></View>
+          <View style={styles.collectionDashboardHeadCopy}><Text style={styles.collectionDashboardTitle}>MES ALBUMS / COLLECTIONS</Text><Text style={styles.collectionDashboardHint}>Tout est ici : morceaux, prix, € / FREE, paiement et statut.</Text></View>
           <TouchableOpacity style={styles.collectionMenuButton} onPress={openNewCollection} accessibilityLabel="Créer un nouvel album"><Text style={styles.collectionMenuButtonText}>＋</Text></TouchableOpacity>
         </View>
         <View style={styles.collectionQuickActions}><TouchableOpacity style={styles.collectionAllMusicButton} onPress={openAllAvailableMusic}><Text style={styles.collectionAllMusicButtonText}>♫ MUSIQUES DISPONIBLES · {ownDiscoveryTracks.length}</Text></TouchableOpacity></View>

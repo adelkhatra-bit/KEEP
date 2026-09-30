@@ -14,7 +14,7 @@ describe('Simple mobile journeys', () => {
     expect(music).toContain('Trier ma musique');
     expect(music).toContain('focusActionStack');
     expect(music).not.toContain('focusQuickRow:{');
-    expect(music).toContain('Créer une collection · {existingOffersForAdd.length}');
+    expect(music).toContain('Mes albums / collections · {existingOffersForAdd.length}');
     expect(music).toContain('Connecter mes applis musique');
     expect(music).toContain('Spotify, Apple Music et autres');
   });
