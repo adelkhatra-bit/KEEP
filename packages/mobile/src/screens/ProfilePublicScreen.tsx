@@ -50,6 +50,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import AccountActionsPanel from '../components/AccountActionsPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import MusicAgoraPanel from '../components/MusicAgoraPanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -72,28 +73,34 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
   {
     title: 'PROFIL',
     items: [
-      { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo, pseudo, bio, ville et pays' },
-      { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web', hint: 'Instagram, TikTok, Snapchat, YouTube, X, Facebook' },
-      { key: 'identityShare', icon: '▦', label: 'Carte & partage', hint: 'QR, lien public et invitation' },
+      { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo · pseudo · bio · ville · pays' },
+      { key: 'publicProfile', icon: '🌐', label: 'Profil public, réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
+      { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
     ],
   },
   {
-    title: 'MUSIQUE & ACTIVITÉ',
+    title: 'COMMUNAUTÉ',
     items: [
-      { key: 'music', icon: '🎧', label: 'Services musicaux', hint: 'Connecter et gérer tes plateformes' },
-      { key: 'offers', icon: '💳', label: 'Free & abonnement', hint: 'Solde, formule et avantages' },
-      { key: 'sellPlaylists', icon: '◆', label: 'Collections exclusives', hint: 'Créer et gérer tes collections' },
-      { key: 'creator', icon: '🪪', label: 'Profil créateur', hint: 'Type de profil et outils créateur' },
+      { key: 'community', icon: '◉', label: 'La Place', hint: 'Souvenirs · découvertes · débats musicaux' },
     ],
   },
   {
-    title: 'AIDE & COMPTE',
+    title: 'MUSIQUE',
     items: [
-      { key: 'help', icon: '🆘', label: 'Aide & confidentialité', hint: 'Support, légal et comptes bloqués' },
-      { key: 'account', icon: '⚙', label: 'Sécurité du compte', hint: 'Déconnexion ou suppression définitive' },
+      { key: 'music', icon: '🎧', label: 'Services', hint: 'Spotify · Deezer · YouTube Music · SoundCloud' },
+      { key: 'offers', icon: '💳', label: 'Free', hint: 'Solde · formule · avantages' },
+      { key: 'sellPlaylists', icon: '◆', label: 'Collections', hint: 'Créer · publier · gérer' },
+      { key: 'creator', icon: '🪪', label: 'Créateur', hint: 'Type · outils · événements' },
     ],
   },
-];
+  {
+    title: 'COMPTE',
+    items: [
+      { key: 'help', icon: '🆘', label: 'Aide', hint: 'Support · légal · comptes bloqués' },
+      { key: 'account', icon: '⚙', label: 'Compte', hint: 'Sécurité · déconnexion · suppression' },
+    ],
+  },
+]
 
 const LOCAL_PROFILE_PLAYLIST_ID = 'keep-local-history';
 const TABS: { key: ProfileTab; label: string }[] = [
@@ -1231,6 +1238,18 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'creator') return <>
       <Text style={s.shareTitle}>Type de profil &amp; outils créateur</Text>
       <CreatorToolsPanel navigation={navigation} />
+    </>;
+
+    if (key === 'community') return <>
+      <MusicAgoraPanel
+        currentProfileId={user.id}
+        enabled={!accountRequired}
+        onOpenProfile={(username) => {
+          setMenuOpen(false);
+          setExpandedMenuItem(null);
+          navigation.navigate('PublicProfile', { username });
+        }}
+      />
     </>;
 
     if (key === 'help') return <>

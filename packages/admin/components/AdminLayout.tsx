@@ -13,6 +13,7 @@ const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', roles: ALL_ROLES },
   { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+  { href: '/community', label: 'Communauté', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
   { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
   { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },

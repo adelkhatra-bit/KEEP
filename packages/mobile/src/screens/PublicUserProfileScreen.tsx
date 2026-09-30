@@ -251,7 +251,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       if (!raw) { setMarketBannerVisible(true); setMarketBannerHasNew(false); return; }
       try {
         const saved = JSON.parse(raw);
-        const hasNew = saved.playlists !== playlistSignature || saved.events !== eventSignature;
+        const hasNew = saved.playlists !== playlistSignature;
         const manuallyClosed = Boolean(saved.manuallyClosed);
         setMarketBannerVisible(!manuallyClosed);
         setMarketBannerHasNew(manuallyClosed && hasNew);
@@ -1264,17 +1264,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 
-        {marketBannerVisible ? (
+        {saleOffers.length > 0 && marketBannerVisible ? (
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={styles.marketplaceSection}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>LE CLUB DE @{profile.username}</Text>
-                <Text style={styles.sectionTitle}>Ses sélections exclusives</Text>
+                <Text style={styles.marketplaceKicker}>À ÉCOUTER · @{profile.username}</Text>
+                <Text style={styles.sectionTitle}>Drops musicaux</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
                 {saleOffers.length > 0 ? (
                   <View style={styles.marketplaceCountPill}>
-                    <Text style={styles.marketplaceCountText}>{saleOffers.length} COLL. · {marketBannerEventIds.length} SOIRÉE{marketBannerEventIds.length > 1 ? 'S' : ''}</Text>
+                    <Text style={styles.marketplaceCountText}>{saleOffers.length} DROP{saleOffers.length > 1 ? 'S' : ''}</Text>
                   </View>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
@@ -1282,7 +1282,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} pépites à découvrir · ${visiblePublicVibes.length} vibes · ${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''}` : 'Ses prochaines sélections et soirées apparaîtront ici'}</Text></View>
+            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres à découvrir · ${visiblePublicVibes.length} vibes publiques` : 'Ses prochains drops musicaux apparaîtront ici'}</Text></View>
             {saleOffers.length === 0 ? (
               <TouchableOpacity
                 style={styles.marketplaceEmpty}
@@ -1329,18 +1329,34 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     <Text style={styles.marketplaceBrowseAllText}>{visibleSaleCount >= saleOffers.length ? 'RÉDUIRE' : `VOIR PLUS · ${saleOffers.length - visibleSaleCount} AUTRE${saleOffers.length - visibleSaleCount > 1 ? 'S' : ''}`}</Text><Text style={styles.marketplaceReopenArrow}>{visibleSaleCount >= saleOffers.length ? '˄' : '˅'}</Text>
                   </TouchableOpacity>
                 ) : null}
-                <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Vendu par @{profile.username}</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Par @{profile.username}</Text></TouchableOpacity>
                 <Text style={styles.saleCarouselHint}>Aperçu sans révéler les titres · une collection déjà acquise reste signalée</Text>
               </>
             )}
           </ProfileMotionReveal>
-        ) : (
+        ) : saleOffers.length > 0 ? (
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVEAU CHEZ LUI' : 'SON CLUB MUSICAL'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collections · {visiblePublicVibes.length} vibes · {marketBannerEventIds.length} soirées</Text></View>
+            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVEAU CHEZ LUI' : 'SON CLUB MUSICAL'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} drops · {visiblePublicVibes.length} vibes</Text></View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
+
+        {marketBannerEventIds.length > 0 ? (
+          <TouchableOpacity
+            style={styles.eventSpotlight}
+            onPress={() => navigation.navigate('Parties')}
+            accessibilityLabel={`Voir les soirées, ${marketBannerEventIds.length} annoncée${marketBannerEventIds.length > 1 ? 's' : ''} par ${profile.username}`}
+          >
+            <View style={styles.eventSpotlightIcon}><Text style={styles.eventSpotlightIconText}>♫</Text></View>
+            <View style={styles.eventSpotlightCopy}>
+              <Text style={styles.eventSpotlightKicker}>À VIVRE</Text>
+              <Text style={styles.eventSpotlightTitle}>@{profile.username} annonce {marketBannerEventIds.length} soirée{marketBannerEventIds.length > 1 ? 's' : ''}</Text>
+              <Text style={styles.eventSpotlightMeta}>Lieu · date · invitations · billets</Text>
+            </View>
+            <Text style={styles.eventSpotlightArrow}>›</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.collectionHeader}>
           <Text style={styles.collectionTitle}>Ses styles</Text>
@@ -1782,6 +1798,14 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   sellerSignalMeta:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
   sellerSignalArrow:{color:colors.keep,fontSize:26,fontWeight:'700'},
   marketplaceSection:{marginHorizontal:18,marginTop:14,paddingVertical:14,paddingHorizontal:14,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},
+  eventSpotlight:{marginHorizontal:18,marginTop:10,minHeight:72,paddingHorizontal:13,paddingVertical:10,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:11},
+  eventSpotlightIcon:{width:42,height:42,borderRadius:14,backgroundColor:'rgba(45,225,194,.10)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  eventSpotlightIconText:{color:colors.keep,fontSize:18,fontWeight:'900'},
+  eventSpotlightCopy:{flex:1,minWidth:0},
+  eventSpotlightKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.1},
+  eventSpotlightTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
+  eventSpotlightMeta:{color:colors.textMuted,fontSize:10,marginTop:3},
+  eventSpotlightArrow:{color:colors.keep,fontSize:24,fontWeight:'900'},
   marketplaceReopenButton:{marginHorizontal:18,marginTop:10,minHeight:48,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
   marketplaceReopenIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},
   marketplaceReopenCopy:{flex:1,minWidth:0},

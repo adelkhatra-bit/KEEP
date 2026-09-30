@@ -282,9 +282,9 @@ export type ProfileRepriser = {
  * style musical et s'ils sont déjà suivis, pour proposer de s'abonner en un
  * geste.
  */
-export async function loadProfileReprisers(profileId: string): Promise<ProfileRepriser[]> {
+export async function loadProfileReprisers(profileId: string, limit = 16): Promise<ProfileRepriser[]> {
   if (!supabase || !profileId) return [];
-  const { data, error } = await supabase.rpc('keep_profile_reprisers', { p_profile_id: profileId });
+  const { data, error } = await supabase.rpc('keep_profile_reprisers_page', { p_profile_id: profileId, p_limit: Math.max(1, Math.min(limit, 40)) });
   if (error || !Array.isArray(data)) return [];
   return data.map((row: any) => ({
     profileId: String(row.profile_id),

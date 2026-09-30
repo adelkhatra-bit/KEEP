@@ -462,7 +462,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               </View>
             </View>
             <LokiIdleOrb />
-            <Text style={s.idleKicker}>RECONNAISSANCE MUSICALE</Text>
+            <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
             {error ? <Text style={s.error}>{error}</Text> : null}
@@ -473,10 +473,10 @@ export default function HomeScreenCompact({ navigation }: any) {
                 variant="primary"
                 size="large"
                 onPress={startSession}
-                accessibilityLabel="Activer le micro"
+                accessibilityLabel="Identifier un morceau"
                 accessibilityHint="Loki Music capte avec le micro du téléphone la musique jouée autour de toi"
               >
-                ●  ACTIVER LE MICRO
+                ◉  IDENTIFIER UN MORCEAU
               </MotionActionButton>
             </View>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>

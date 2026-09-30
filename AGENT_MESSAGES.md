@@ -2014,3 +2014,8 @@ Audit arrière demandé par Adel : le correctif robustesse acf2c160 n'avait pas 
 ## [2026-09-30T01:05:00+02:00] chatgpt — consigne capture profil réappliquée explicitement
 
 Demande utilisateur confirmée à nouveau : sur le profil propriétaire, PLUS doit être à gauche à la place de FREE ; FREE doit être à droite à la place de PLUS ; le switch BATTLE ON/OFF reste immédiatement AU-DESSUS de FREE. Abonnés/Reprises restent au centre. Même design, mêmes dimensions. Ce changement est volontaire et ne doit plus être revert comme « accidentel ». Aucun App.tsx, Navigation.tsx ni barre 5 onglets modifié.
+
+
+## [2026-09-30T18:30:00Z] chatgpt — échelle millions + La Place + séparation musique/soirées
+
+Demande Adel traitée sans fusionner les deux profils : le profil propriétaire et le profil visité restent deux écrans distincts. Abonnés/Abonnements passent à une pagination 24 profils + recherche pseudo (plus de chargement de 200 profils des deux sens au même clic) ; Reprises est borné côté serveur. Nouveau module « La Place » dans le hamburger : salons musicaux courts (souvenirs, découvertes, débats), 280 caractères, pas de DM, filtre serveur anti-insultes, rate-limit, signalement, blocage, retrait automatique à 3 signalements, file Super Admin. Sur profil visité, drops musicaux et soirées ne sont plus mélangés. Accueil : CTA explicite « IDENTIFIER UN MORCEAU ». ProfileOpportunityRail devient un drop animé plutôt qu'une liste « Choisi pour ton oreille ». Aucun App.tsx / Navigation.tsx / barre 5 onglets touché.
