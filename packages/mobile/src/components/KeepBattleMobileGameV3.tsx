@@ -553,6 +553,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   ), [opponentNeedsMoreFree, roundCount]);
   const [spectateJoinBusy, setSpectateJoinBusy] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [soloSavePrompt, setSoloSavePrompt] = React.useState<{ costLine: string } | null>(null);
   const [pending, setPending] = React.useState<string | null>(null);
   const [now, setNow] = React.useState(Date.now());
   const [audioReady, setAudioReady] = React.useState(false);
@@ -1527,16 +1528,54 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // Adel (29/09/2026) : l'utilisateur doit savoir AVANT de jouer qu'une
     // partie Solo est comptée dès le départ (même s'il quitte en route).
     const costLine = soloCostNotice(soloDailyStatus);
-    Alert.alert(
-      'Sauvegarder ce Battle ?',
-      `${costLine ? `${costLine}\n\n` : ''}Veux-tu retrouver les morceaux de cette partie dans Mes Sessions à la fin (les garder, les réécouter ou les effacer) ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Jouer sans enregistrer', onPress: () => { void runStartSolo(false); } },
-        { text: 'Oui, enregistrer', onPress: () => { void runStartSolo(true); } },
-      ],
-    );
+    setSoloSavePrompt({ costLine });
   };
+
+  const renderSoloSavePrompt = () => (
+    <Modal
+      visible={Boolean(soloSavePrompt)}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setSoloSavePrompt(null)}
+    >
+      <View style={s.soloSaveBackdrop} accessibilityViewIsModal>
+        <View style={s.soloSaveCard}>
+          <Text style={s.soloSaveEyebrow}>BATTLE SOLO</Text>
+          <Text style={s.soloSaveTitle}>Sauvegarder ce Battle solo ?</Text>
+          {soloSavePrompt?.costLine ? <Text style={s.soloSaveCost}>{soloSavePrompt.costLine}</Text> : null}
+          <Text style={s.soloSaveBody}>
+            Ce choix concerne uniquement ce Battle solo. Enregistrer ajoute ses morceaux à Mes Sessions à la fin.
+          </Text>
+          <View style={s.soloSaveActions}>
+            <TouchableOpacity
+              style={[s.soloSaveButton, s.soloSaveCancel]}
+              accessibilityRole="button"
+              accessibilityLabel="Annuler le Battle solo"
+              onPress={() => setSoloSavePrompt(null)}
+            >
+              <Text style={s.soloSaveCancelText}>ANNULER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.soloSaveButton, s.soloSavePlay]}
+              accessibilityRole="button"
+              accessibilityLabel="Jouer sans enregistrer"
+              onPress={() => { setSoloSavePrompt(null); void runStartSolo(false); }}
+            >
+              <Text style={s.soloSavePlayText}>JOUER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.soloSaveButton, s.soloSaveKeep]}
+              accessibilityRole="button"
+              accessibilityLabel="Enregistrer ce Battle solo"
+              onPress={() => { setSoloSavePrompt(null); void runStartSolo(true); }}
+            >
+              <Text style={s.soloSaveKeepText}>ENREGISTRER</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+
 
   const openOnline = async () => {
     if (!enabled) { onRequireAccount?.(); return; }
@@ -2808,7 +2847,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Battle etait le seul ecran rendu sans ScrollView, donc sur un viewport
   // court le bouton "BATTLE EN LIGNE" passait sous la barre d'onglets. Meme
   // patron de secours que solo/arene/browse/finish : tout reste atteignable.
-  return <View style={s.root}><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
+  return <View style={s.root}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
       {/* Adel (08/09/2026) : "mettre un ? avec un popup pour expliquer
           l'avantage de jouer en solo, l'avantage de jouer en Battle en ligne
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
@@ -2906,6 +2945,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' },
+  soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
+  soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
+  soloSaveTitle: { color: colors.textPrimary, fontSize: 20, lineHeight: 25, fontWeight: '900', textAlign: 'center', marginTop: 6 },
+  soloSaveCost: { color: colors.success, fontSize: 12, lineHeight: 17, fontWeight: '900', textAlign: 'center', marginTop: 10 },
+  soloSaveBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  soloSaveActions: { flexDirection: 'row', alignItems: 'stretch', gap: 6, marginTop: 16 },
+  soloSaveButton: { flex: 1, minWidth: 0, minHeight: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  soloSaveCancel: { backgroundColor: colors.backgroundCard, borderColor: colors.border },
+  soloSavePlay: { backgroundColor: '#1B1422', borderColor: colors.primaryLight },
+  soloSaveKeep: { backgroundColor: colors.primary, borderColor: colors.primaryLight },
+  soloSaveCancelText: { color: colors.textMutedGrey, fontSize: 10, fontWeight: '900' },
+  soloSavePlayText: { color: colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  soloSaveKeepText: { color: colors.white, fontSize: 9, fontWeight: '900', letterSpacing: .1 },
   matchContextBar: { minHeight: 32, marginBottom: 5, paddingHorizontal: 9, borderRadius: 12, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 },
   matchContextMode: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .7 },
   matchContextText: { flex: 1, color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', textAlign: 'center' },
