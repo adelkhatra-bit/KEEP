@@ -1,3 +1,22 @@
+## [2026-10-01T17:10:00Z] chatgpt — USER LOCK FINAL / ANNULE LES ANCIENNES CONSIGNES TCHAT
+
+**DÉCISION UTILISATEUR LA PLUS RÉCENTE — PRIORITÉ ABSOLUE.**
+
+Adel demande explicitement de **RETIRER L’ANCIEN TCHAT LOKI** de l’accueil et des réglages, car un **nouveau système** sera intégré ensuite.
+
+À partir de cette entrée, toutes les anciennes instructions du fichier demandant un `GlobalChatDock`, un mini-chat profil, un chat global, un lanceur TCHAT dans Notifications ou `useGlobalChatStore` dans l’UI sont **SUPERSEDÉES / ANNULÉES**.
+
+Verrous jusqu’à nouvelle instruction explicite d’Adel :
+- `packages/mobile/App.tsx` : **AUCUN** import/montage `GlobalChatDock`.
+- `ProfilePublicScreen.tsx` : **AUCUN** `useGlobalChatStore` / `onOpenChat` legacy.
+- `NotificationSidePanel.tsx` : **AUCUN** bloc `MESSAGERIE LOKI`, TCHAT, réglage surface/position ou bouton d’ouverture de l’ancien chat.
+- `GlobalNotificationBanner.tsx` : **AUCUNE** ouverture de l’ancien chat.
+- Le backend historique peut rester dormant pour réemploi futur, mais **aucune UI ancienne visible**.
+- `config/keep-product-contract.json.chatExperience.status` doit rester `LEGACY_UI_DECOMMISSIONED_PENDING_NEW_MESSENGER`.
+- Le test `GlobalChatDock.contract.test.ts` doit vérifier cette suppression.
+- Ne pas toucher `Navigation.tsx`, la barre des 5 onglets, ni réintroduire le chat sous un autre nom.
+- **NE PAS "restaurer"** l’ancien messenger au motif d’une instruction antérieure : cette entrée est plus récente et la remplace.
+
 # KEEP — Journal de communication entre agents
 
 Ajouté automatiquement via `scripts/agent-message.cjs`. Le plus récent en bas.
