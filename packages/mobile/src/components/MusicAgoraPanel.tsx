@@ -657,6 +657,10 @@ export default function MusicAgoraPanel({
       Alert.alert('Partage oui · revente non', sharePreflight?.sourceUsername ? `Cette musique vient déjà de @${sharePreflight.sourceUsername}. Tu peux la partager ou la faire écouter, mais pas la revendre.` : 'Cette musique ne t’appartient pas pour la revente. Tu peux la partager et la faire écouter, sans demander de FREE ni d’argent.');
       return;
     }
+    if (sharedTrack && sharePaymentMode !== 'NONE' && activeGroup?.id) {
+      Alert.alert('Partage de groupe', 'Dans une conversation à plusieurs, la pépite peut être partagée et écoutée, mais une demande de FREE ou de paiement doit être envoyée dans une conversation directe.');
+      return;
+    }
     if (sharedTrack && sharePaymentMode !== 'NONE' && !replyTarget?.profileId) {
       Alert.alert('Choisis le destinataire', 'Pour demander des FREE ou un paiement, réponds directement à l’utilisateur concerné.');
       return;
@@ -671,15 +675,22 @@ export default function MusicAgoraPanel({
     }
     setPosting(true);
     try {
-      await postMusicAgoraMessage(roomSlug, body, {
-        targetProfileId: replyTarget?.profileId ?? null,
-        sharedTrackId: sharedTrack?.id ?? null,
-        revealMode: sharedTrack ? (sharePaymentMode === 'NONE' ? shareRevealMode : 'MASKED') : 'NONE',
-        paymentMode: sharedTrack ? sharePaymentMode : 'NONE',
-        freePrice: sharedTrack && sharePaymentMode === 'FREE' ? requestedFreePrice : null,
-        priceCents: sharedTrack && sharePaymentMode === 'MONEY' ? requestedMoneyCents : null,
-        currencyCode: 'EUR',
-      });
+      if (activeGroup?.id) {
+        await postMusicAgoraGroupMessage(activeGroup.id, body, {
+          sharedTrackId: sharedTrack?.id ?? null,
+          revealMode: sharedTrack ? shareRevealMode : 'NONE',
+        });
+      } else {
+        await postMusicAgoraMessage(roomSlug, body, {
+          targetProfileId: replyTarget?.profileId ?? null,
+          sharedTrackId: sharedTrack?.id ?? null,
+          revealMode: sharedTrack ? (sharePaymentMode === 'NONE' ? shareRevealMode : 'MASKED') : 'NONE',
+          paymentMode: sharedTrack ? sharePaymentMode : 'NONE',
+          freePrice: sharedTrack && sharePaymentMode === 'FREE' ? requestedFreePrice : null,
+          priceCents: sharedTrack && sharePaymentMode === 'MONEY' ? requestedMoneyCents : null,
+          currencyCode: 'EUR',
+        });
+      }
       setDraft('');
       if (!(compact && chatMode === 'MESSAGES')) setReplyTarget(null);
       setSharedTrack(null);
