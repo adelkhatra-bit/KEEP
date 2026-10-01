@@ -16,16 +16,16 @@ describe('Web update cache-busting contract', () => {
     expect(source).toContain("const basePath = '/KEEP'");
   });
 
-  it('keeps a permanent manual update control on desktop web', () => {
-    expect(banner).toContain('keep-manual-update-control');
-    expect(banner).toContain('ACTUALISER LOKI MUSIC');
-    expect(banner).toContain('NOUVELLE VERSION DISPONIBLE');
-    expect(banner).toContain("if (Platform.OS !== 'web' || width < 768) return null");
-    expect(banner).toContain('checkNow().finally(reloadToLatest)');
+  it('keeps web updates automatic and invisible after auth bootstrap', () => {
+    expect(banner).toContain('return null;');
+    expect(banner).not.toContain('keep-manual-update-control');
+    expect(banner).not.toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(banner).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
+    expect(banner).toContain('reloadToLatest();');
   });
 
   it('auto-fetches and reloads compatible production OTAs on native launch', () => {
-    expect(banner).toContain("import * as Updates from 'expo-updates'");
+    expect(banner).toContain("await import('expo-updates')");
     expect(banner).toContain('Updates.checkForUpdateAsync()');
     expect(banner).toContain('Updates.fetchUpdateAsync()');
     expect(banner).toContain('Updates.reloadAsync()');
