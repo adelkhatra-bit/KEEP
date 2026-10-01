@@ -13,6 +13,7 @@ const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
 const BATTLE_DECISION_POLL_MS = 800;
 const EVENT_VISIBLE_MS = 20000;
+const FREE_CREDIT_VISIBLE_MS = 6500;
 const BATTLE_INLINE_TYPES = new Set([
   'BATTLE_CHALLENGE',
   'KEEP_BATTLE_CHALLENGE',
@@ -45,6 +46,11 @@ function isEventInvite(notification: KeepNotification): boolean {
   return String(notification.type || '').toUpperCase() === 'EVENT_INVITE';
 }
 
+function isFreeCreditNotification(notification: KeepNotification): boolean {
+  return String(notification.type || '').toUpperCase() === 'FREE_CREDITED'
+    || String(notification.data?.event || '').toUpperCase() === 'FREE_CREDITED';
+}
+
 function isAgoraNotification(notification: KeepNotification): boolean {
   const type = String(notification.type || '').toUpperCase();
   const event = String(notification.data?.event || '').toUpperCase();
@@ -65,6 +71,7 @@ export default function GlobalNotificationBanner() {
   const OFFSCREEN_TOP = -260;
   const translateY = useRef(new Animated.Value(OFFSCREEN_TOP)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const freeCreditPulse = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
@@ -217,6 +224,8 @@ export default function GlobalNotificationBanner() {
       opacity.stopAnimation();
       translateY.setValue(OFFSCREEN_TOP);
       opacity.setValue(0);
+      freeCreditPulse.stopAnimation();
+      freeCreditPulse.setValue(0);
       setCurrent(notification);
 
       requestAnimationFrame(() => {
@@ -224,9 +233,25 @@ export default function GlobalNotificationBanner() {
           Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 190, mass: 0.82, useNativeDriver: Platform.OS !== 'web' }),
           Animated.timing(opacity, { toValue: 1, duration: 170, useNativeDriver: Platform.OS !== 'web' }),
         ]).start();
+
+        if (isFreeCreditNotification(notification)) {
+          Animated.sequence([
+            Animated.timing(freeCreditPulse, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(freeCreditPulse, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(freeCreditPulse, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(freeCreditPulse, { toValue: 0, duration: 420, useNativeDriver: Platform.OS !== 'web' }),
+          ]).start();
+        }
       });
 
-      hideTimer.current = setTimeout(() => animateOut(), (battleChallenge || battleRematch) ? BATTLE_VISIBLE_MS : isEventInvite(notification) ? EVENT_VISIBLE_MS : VISIBLE_MS);
+      const visibleMs = isFreeCreditNotification(notification)
+        ? FREE_CREDIT_VISIBLE_MS
+        : (battleChallenge || battleRematch)
+          ? BATTLE_VISIBLE_MS
+          : isEventInvite(notification)
+            ? EVENT_VISIBLE_MS
+            : VISIBLE_MS;
+      hideTimer.current = setTimeout(() => animateOut(), visibleMs);
     });
 
     return () => {
@@ -303,6 +328,7 @@ export default function GlobalNotificationBanner() {
   const artworkUrl = dataText(current, 'artworkUrl');
   const trackTitle = dataText(current, 'trackTitle');
   const trackArtist = dataText(current, 'trackArtist');
+  const freeCreditNotification = isFreeCreditNotification(current);
   const isMusic = current.type.toUpperCase() === 'NEW_PUBLIC_KEEP';
   const displayBody = isMusic && (trackTitle || trackArtist)
     ? [trackTitle, trackArtist].filter(Boolean).join(' — ')
@@ -421,6 +447,50 @@ export default function GlobalNotificationBanner() {
             </View>
           </View>
         </View>
+      </Animated.View>
+    );
+  }
+
+  if (freeCreditNotification) {
+    return (
+      <Animated.View
+        pointerEvents="box-none"
+        style={[
+          styles.wrap,
+          {
+            opacity,
+            transform: [
+              { translateY },
+              { scale: freeCreditPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) },
+            ],
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
+          activeOpacity={0.95}
+          style={[styles.banner, styles.freeCreditBanner]}
+          onPress={() => { void markReadAndHide(); }}
+          accessibilityRole="button"
+          accessibilityLabel={`${current.title}. ${current.body}`}
+        >
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer">
+            <Text style={styles.closeButtonText}>×</Text>
+          </TouchableOpacity>
+          <View style={styles.freeCreditBurst}>
+            <Text style={styles.freeCreditSpark}>✦</Text>
+            <Text style={styles.freeCreditIcon}>🎆</Text>
+            <Text style={[styles.freeCreditSpark, styles.freeCreditSparkRight]}>✦</Text>
+          </View>
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}>
+              <Text style={styles.freeCreditEyebrow}>FREE CONFIRMÉS</Text>
+              <Text style={styles.closeHint}>crédit serveur validé</Text>
+            </View>
+            <Text style={styles.freeCreditTitle} numberOfLines={1}>{current.title}</Text>
+            <Text style={styles.freeCreditBody} numberOfLines={2}>{current.body}</Text>
+          </View>
+        </TouchableOpacity>
       </Animated.View>
     );
   }
@@ -551,6 +621,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
   },
   eventBanner: { borderColor: '#7C5CFC' },
+  freeCreditBanner: { borderWidth: 2, borderColor: '#2DE1C2', backgroundColor: 'rgba(18, 35, 37, 0.98)', shadowColor: '#2DE1C2', shadowOpacity: 0.45, shadowRadius: 18 },
+  freeCreditBurst: { width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(45,225,194,.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,.65)', position: 'relative' },
+  freeCreditIcon: { fontSize: 28 },
+  freeCreditSpark: { position: 'absolute', top: 4, left: 6, color: '#E5F266', fontSize: 13, fontWeight: '900' },
+  freeCreditSparkRight: { left: undefined, right: 5, top: 34 },
+  freeCreditEyebrow: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  freeCreditTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 19, fontWeight: '1000', marginTop: 2 },
+  freeCreditBody: { color: '#D8FFF6', fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '800' },
   eventEyebrow: { color: '#B79CFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   closeButton: { position: 'absolute', top: 6, right: 6, zIndex: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   closeButtonText: { color: '#FFF', fontSize: 15, lineHeight: 16, fontWeight: '700' },
