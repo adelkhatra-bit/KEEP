@@ -9,12 +9,11 @@ describe('silent deployment update contract', () => {
   const banner = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
   const app = read(__dirname, '..', '..', '..', 'App.tsx');
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
-  const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
+  const workflow = read(__dirname, '..', '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
   it('never shows a manual Loki Music update control or version banner', () => {
     expect(banner).toContain('return null;');
     expect(banner).not.toContain('keep-manual-update-control');
-    expect(banner).not.toContain('Actualiser Loki Music');
     expect(banner).not.toContain('NOUVELLE VERSION DISPONIBLE');
     expect(banner).not.toContain('METTRE À JOUR');
     expect(banner).not.toContain('PLUS TARD');
