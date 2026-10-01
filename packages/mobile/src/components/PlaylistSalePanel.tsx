@@ -233,7 +233,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       );
       await loadData();
       resetCollectionCart();
-      Alert.alert('Pépite publiée', `« ${created.playlistName} » est en ligne avec ${created.trackCount} morceau${created.trackCount > 1 ? 'x' : ''}. Tu es resté dans Pépites.`);
+      const publishedTrackCount = Number(created.trackCount ?? collectionCartIds.size);
+      Alert.alert('Pépite publiée', `« ${created.playlistName} » est en ligne avec ${publishedTrackCount} morceau${publishedTrackCount > 1 ? 'x' : ''}. Tu es resté dans Pépites.`);
     } catch (e: any) {
       Alert.alert('Publication', e?.message || 'Impossible de publier cette collection.');
     } finally {

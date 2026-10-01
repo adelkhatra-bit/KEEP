@@ -18,6 +18,7 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 
 const battleCatalogSeed = fs.readFileSync(path.join(root, 'supabase/functions/keep-battle-catalog-seed/index.ts'), 'utf8');
 const battleMemory = fs.readFileSync(path.join(root, 'supabase/migrations/20261001022000_battle_content_memory_anti_repeat.sql'), 'utf8');
 const battleCron = fs.readFileSync(path.join(root, 'supabase/migrations/20261001024000_battle_catalog_supabase_cron.sql'), 'utf8');
+const confirmedDuplicateSale = fs.readFileSync(path.join(root, 'supabase/migrations/20261001220000_playlist_sale_confirmed_duplicate_tracks.sql'), 'utf8');
 
 const failures = [];
 const must = (condition, message) => { if (!condition) failures.push(message); };
@@ -28,7 +29,7 @@ must(contract.supabaseProjectRef === 'rrhqsqzcplvmwxizqnla', 'wrong Supabase pro
 must(contract.creditRules.listen === 0, 'listen credit changed');
 must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
-must(contract.creditRules.KEEP === -1, 'KEEP credit changed');
+must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
 
 must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
 must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must not sit beside profile type');
@@ -101,7 +102,10 @@ must(contract.marketplacePurchases?.partialMissingTrackRequest === true, 'partia
 must(contract.marketplacePurchases?.partialOfferMustBePrivateToRequester === true, 'private partial offer contract missing');
 must(JSON.stringify(contract.marketplacePurchases?.sellerCollectionFilters) === JSON.stringify(['ALL','FREE','MONEY']), 'seller FREE/euro filters contract changed');
 must(JSON.stringify(contract.marketplacePurchases?.creationWizardSteps) === JSON.stringify(['TRACKS','MODE_PRICE','PAYOUT_PUBLISH']), 'collection creation wizard contract changed');
-must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === true, 'duplicate-track prevention contract missing');
+must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === false, 'confirmed duplicate-track policy changed');
+must(contract.marketplacePurchases?.existingOfferTrackPolicy === 'warn-and-allow-without-removing-existing-offer', 'confirmed duplicate-track policy missing');
+must(contract.marketplacePurchases?.collectionCreationMustRemainInPepites === true, 'Pépites inline creation contract missing');
+must(contract.marketplacePurchases?.cartSelectionReversible === true, 'Pépites reversible cart contract missing');
 must(contract.marketplacePurchases?.moneyPayoutConfiguredInline === true, 'inline payout setup contract missing');
 must(contract.marketplacePurchases?.freeModeRequiresExternalPayout === false, 'FREE mode must not require external payout');
 
@@ -120,9 +124,12 @@ must(saleService.includes('keep_playlist_sale_request_missing_tracks'), 'partial
 must(notifications.includes("'PLAYLIST_SALE_PARTIAL_OFFER'") && notifications.includes('includes(type)'), 'private offer notification routing missing');
 must(notifications.includes('openSaleOfferId: offerId'), 'private offer deep-link missing');
 must(salePanel.includes("offerFilter === 'FREE'") && salePanel.includes("offerFilter === 'MONEY'"), 'Pépites FREE/euro filters disconnected');
-must(myMusic.includes('ÉTAPE 1 SUR 3') && myMusic.includes('ÉTAPE 2 SUR 3') && myMusic.includes('ÉTAPE 3 SUR 3'), 'three-step collection wizard disconnected');
-must(myMusic.includes('DÉJÀ PUBLIÉE') && myMusic.includes('Un morceau ne peut pas être ajouté deux fois'), 'duplicate collection-track guard disconnected');
-must(myMusic.includes('setMyPayoutLink(clean)') && myMusic.includes('TESTER MON LIEN') && myMusic.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup/test disconnected');
+must(salePanel.includes("collectionCartStep === 'TRACKS'") && salePanel.includes("collectionCartStep === 'PRICE'") && salePanel.includes("collectionCartStep === 'REVIEW'"), 'three-step Pépites cart disconnected');
+must(salePanel.includes('Cette musique est déjà en vente') && salePanel.includes('AJOUTER QUAND MÊME') && salePanel.includes("selected ? 'RETIRER' : '+ PANIER'"), 'warn-and-allow Pépites cart guard disconnected');
+must(saleService.includes("keep_playlist_sale_set_offer_for_selection_v5") && saleService.includes('p_allow_existing: allowExisting'), 'confirmed duplicate sale RPC disconnected');
+must(confirmedDuplicateSale.includes('and not p_allow_existing') && !confirmedDuplicateSale.includes('delete from public.playlist_sale_offer_tracks'), 'confirmed duplicate server policy disconnected');
+must(!salePanel.includes("createSaleCollection: true"), 'Pépites creation redirects to Playlists again');
+must(salePanel.includes('setMyPayoutLink(clean)') && salePanel.includes('ENREGISTRER LE LIEN') && salePanel.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup disconnected from Pépites');
 must(!myMusic.includes("navigation.navigate('ProfileCreatorTools')"), 'dead payout route reintroduced');
 
 must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'integration cache-clean contract missing');
@@ -138,5 +145,5 @@ console.log('KEEP product contract: PASS');
 console.log('profile: identity type separate; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
-console.log('marketplace: FREE/€ filters + three-step creation + duplicate guard + payout test locked');
+console.log('marketplace: FREE/€ filters + inline Pépites cart + confirmed duplicate reuse + payout locked');
 console.log('integration: clean preflight + product-contract postflight locked');
