@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, MusicAgoraSurface } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, MusicAgoraSurface, saveMusicAgoraPosition, saveMusicAgoraSettings } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
