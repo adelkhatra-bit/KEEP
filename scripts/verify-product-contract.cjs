@@ -131,7 +131,9 @@ must(
     && salePanel.includes("collectionCartStep === 'REVIEW'")
     && salePanel.includes("collectionCartStep === 'PRICE'")
     && salePanel.includes("setCollectionCartStep('PUBLISH')")
-    && salePanel.includes('OUI, TOUT EST BON')
+    && salePanel.includes('OUI, MA SÉLECTION EST TERMINÉE')
+    && salePanel.includes('J’AI FINI MA SÉLECTION')
+    && salePanel.includes('OUVRIR MON PANIER')
     && salePanel.includes('MARKETPLACE_CURRENCIES'),
   'inline Pépites cart steps disconnected',
 );
@@ -139,7 +141,7 @@ must(salePanel.includes('Cette musique est déjà en vente') && salePanel.includ
 must(saleService.includes("keep_playlist_sale_set_offer_for_selection_v5") && saleService.includes('p_allow_existing: allowExisting'), 'confirmed duplicate sale RPC disconnected');
 must(confirmedDuplicateSale.includes('and not p_allow_existing') && !confirmedDuplicateSale.includes('delete from public.playlist_sale_offer_tracks'), 'confirmed duplicate server policy disconnected');
 must(!salePanel.includes("createSaleCollection: true"), 'Pépites creation redirects to Playlists again');
-must(salePanel.includes('setMyPayoutLink(clean)') && salePanel.includes('ENREGISTRER LE LIEN') && salePanel.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup disconnected from Pépites');
+must(salePanel.includes('setMyPayoutLink(clean)') && salePanel.includes('ENREGISTRER PAYPAL') && salePanel.includes("host === 'paypal.me'") && salePanel.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup disconnected from Pépites');
 must(!myMusic.includes("navigation.navigate('ProfileCreatorTools')"), 'dead payout route reintroduced');
 
 must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'integration cache-clean contract missing');
