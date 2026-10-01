@@ -20,9 +20,12 @@ describe('Solo : débit annoncé et sortie confirmée', () => {
     expect(battle).toContain("{ text: 'Continuer à jouer', style: 'cancel' }");
   });
   it('propose Annuler, jouer sans enregistrer ou enregistrer avant le départ', () => {
-    expect(battle).toContain("{ text: 'Annuler', style: 'cancel' }");
-    expect(battle).toContain("{ text: 'Jouer sans enregistrer'");
-    expect(battle).toContain("{ text: 'Oui, enregistrer'");
+    expect(battle).toContain('visible={Boolean(soloSavePrompt)}');
+    expect(battle).toContain('accessibilityLabel="Annuler le Battle solo"');
+    expect(battle).toContain('accessibilityLabel="Jouer sans enregistrer"');
+    expect(battle).toContain('accessibilityLabel="Enregistrer ce Battle solo"');
+    expect(battle).toContain('void runStartSolo(false)');
+    expect(battle).toContain('void runStartSolo(true)');
   });
   it('le compteur Solo est relu à chaque retour à l’accueil Battle', () => {
     expect(battle).toContain('if (!enabled || solo) return;');
