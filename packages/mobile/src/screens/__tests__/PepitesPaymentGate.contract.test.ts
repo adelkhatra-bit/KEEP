@@ -4,10 +4,11 @@ import path from 'path';
 describe('Pépites euro publication payment gate', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'MyMusicScreen.tsx'), 'utf8');
 
-  it('shows the publication flow in three explicit steps', () => {
-    expect(source).toContain('ÉTAPE 1 SUR 3');
-    expect(source).toContain('ÉTAPE 2 SUR 3');
-    expect(source).toContain('ÉTAPE 3 SUR 3');
+  it('shows the publication flow in four explicit steps', () => {
+    expect(source).toContain('ÉTAPE 1 SUR 4');
+    expect(source).toContain('ÉTAPE 2 SUR 4');
+    expect(source).toContain('ÉTAPE 3 SUR 4');
+    expect(source).toContain('ÉTAPE 4 SUR 4');
     expect(source).toContain('MODE DE DÉBLOCAGE');
     expect(source).toContain('PRIX DE LA COLLECTION');
   });
