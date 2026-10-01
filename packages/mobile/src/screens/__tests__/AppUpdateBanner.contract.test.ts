@@ -5,17 +5,24 @@ import path from 'path';
 const read = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('silent deployment update contract', () => {
+describe('deployment update visibility contract', () => {
   const banner = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('never exposes deployment/version management to end users', () => {
-    expect(banner).toContain('return null;');
-    expect(banner).not.toContain('keep-manual-update-control');
-    expect(banner).not.toContain('ACTUALISER LOKI MUSIC');
-    expect(banner).not.toContain('NOUVELLE VERSION DISPONIBLE');
-    expect(banner).not.toContain('METTRE À JOUR');
+  it('keeps a manual desktop update control permanently available', () => {
+    expect(banner).toContain("width >= 768");
+    expect(banner).toContain('keep-manual-update-control');
+    expect(banner).toContain('MISE À JOUR');
+    expect(banner).toContain('Actualiser Loki Music');
+    expect(banner).toContain('reloadToLatest()');
+  });
+
+  it('shows a real update banner with a later choice when a newer SHA is published', () => {
+    expect(banner).toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(banner).toContain('METTRE À JOUR');
+    expect(banner).toContain('PLUS TARD');
+    expect(banner).toContain('const dismiss = useAppUpdateStore');
   });
 
   it('keeps automatic cache-busted web refresh available', () => {
