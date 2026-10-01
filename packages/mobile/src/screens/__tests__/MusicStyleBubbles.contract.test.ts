@@ -6,14 +6,23 @@ const readNormalized = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
 describe('Loki Music style bubbles contract', () => {
+  const bubbles = readNormalized(__dirname, '..', '..', 'components', 'MusicStyleBubbles.tsx');
   const owner = readNormalized(__dirname, '..', 'ProfilePublicScreen.tsx');
   const visitor = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
   const home = readNormalized(__dirname, '..', 'HomeScreenCompact.tsx');
 
-  it('keeps the owner profile music styles as compact pills, not only large tiles', () => {
-    expect(owner).toContain('<View style={s.chips}>{dna.topGenres.slice(0,6).map');
-    expect(owner).toContain('style={s.chip}');
-    expect(owner).toContain('style={s.chipText}');
+  it('keeps one reusable compact style-bubble renderer', () => {
+    expect(bubbles).toContain('export default function MusicStyleBubbles');
+    expect(bubbles).toContain('horizontal');
+    expect(bubbles).toContain('borderRadius:18');
+    expect(bubbles).toContain('max = 8');
+  });
+
+  it('keeps the owner profile bubbles visible from persisted tastes, not only loaded tracks', () => {
+    expect(owner).toContain('profileStyleBubbles');
+    expect(owner).toContain('...(user?.favoriteGenres ?? [])');
+    expect(owner).toContain('testID="profile-music-style-bubbles"');
+    expect(owner).toContain('<MusicStyleBubbles');
     expect(owner).toContain('openSelectionSwipe');
   });
 
@@ -26,8 +35,8 @@ describe('Loki Music style bubbles contract', () => {
   it('shows the same musical identity at the bottom of Loki Music home', () => {
     expect(home).toContain('LOKI MUSIC DNA');
     expect(home).toContain('Tes styles musicaux');
-    expect(home).toContain('homeStyleBubbles.map');
-    expect(home).toContain('homeDnaBubble');
+    expect(home).toContain('testID="home-music-style-bubbles"');
+    expect(home).toContain('<MusicStyleBubbles');
   });
 
   it('hydrates home style bubbles from persistent Supabase keeps, not only device cache', () => {
