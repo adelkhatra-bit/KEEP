@@ -87,8 +87,9 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('Alertes dans l’application');
     expect(panel).toContain('MESSAGERIE LOKI');
     expect(panel).toContain('Tiroir latéral');
-    expect(panel).toContain('TCHAT PRÊT SUR LE CÔTÉ');
+    expect(panel).toContain('OUVRIR LA CONVERSATION');
     expect(panel).not.toContain("navigationRef");
+    expect(panel).toContain('useGlobalChatStore.getState().open(target)');
     expect(panel).not.toContain("navigation.navigate");
   });
 
