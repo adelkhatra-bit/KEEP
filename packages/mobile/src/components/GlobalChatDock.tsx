@@ -9,13 +9,18 @@ import {
   saveMusicAgoraSettings,
 } from '../services/musicAgoraService';
 import { navigateToSharedProfile } from '../navigation/navigationRef';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 export default function GlobalChatDock() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
-  const [open, setOpen] = useState(false);
-  const [side, setSide] = useState<'left' | 'right'>('right');
+  const open = useGlobalChatStore((state) => state.isOpen);
+  const side = useGlobalChatStore((state) => state.side);
+  const target = useGlobalChatStore((state) => state.target);
+  const openChat = useGlobalChatStore((state) => state.open);
+  const closeChat = useGlobalChatStore((state) => state.close);
+  const setSide = useGlobalChatStore((state) => state.setSide);
   const [tracks, setTracks] = useState<any[]>([]);
   const [unreadPulse, setUnreadPulse] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -25,7 +30,7 @@ export default function GlobalChatDock() {
 
   useEffect(() => {
     if (!enabled) {
-      setOpen(false);
+      closeChat();
       setTracks([]);
       return;
     }
@@ -35,11 +40,11 @@ export default function GlobalChatDock() {
       loadMusicAgoraShareableTracks(120).catch(() => []),
     ]).then(([settings, rows]) => {
       if (!live) return;
-      setOpen(Boolean(settings.homeEnabled));
+      if (settings.homeEnabled) openChat();
       setTracks(rows.map((row) => row.track));
     });
     return () => { live = false; };
-  }, [enabled, user?.id]);
+  }, [enabled, user?.id, closeChat, openChat]);
 
   useEffect(() => {
     if (!enabled || open) {
@@ -72,7 +77,7 @@ export default function GlobalChatDock() {
   const toggle = async () => {
     if (!enabled) return;
     const next = !open;
-    setOpen(next);
+    if (next) openChat(target); else closeChat();
     setUnreadPulse(false);
     if (next) {
       await saveMusicAgoraSettings(true, true).catch(() => null);
@@ -91,8 +96,10 @@ export default function GlobalChatDock() {
           currentProfileId={user.id}
           enabled
           shareableTracks={tracks}
+          initialRoomSlug={target?.roomSlug ?? undefined}
+          initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
           onOpenProfile={(username) => navigateToSharedProfile(username)}
-          onCompactClose={() => setOpen(false)}
+          onCompactClose={closeChat}
         />
       ) : null}
 
