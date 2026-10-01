@@ -69,7 +69,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [activeTab, setActiveTab] = useState<'MESSAGES' | 'ACTIVITY' | 'SETTINGS'>('ACTIVITY');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preparedChatId, setPreparedChatId] = useState<string | null>(null);
-  const [lockedPopup, setLockedPopup] = useState<{ title: string; plan: string } | null>(null);
+  const [lockedPopup, setLockedPopup] = useState<{ plan: string } | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
   const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
   const [accessRules, setAccessRules] = useState<NotificationAccessRule[]>([]);
@@ -218,7 +218,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (isNotificationAccessLocked(item.type, currentPlan, accessRules)) {
       const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
       setLockedPopup({
-        title: item.title || 'Notification Loki',
         plan: notificationPlanLabel(requiredPlan),
       });
       return;
@@ -371,7 +370,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <View style={s.lockedPopupIcon}><Text style={s.lockedPopupIconText}>🔒</Text></View>
                 <Text style={s.lockedPopupKicker}>ACCÈS LOKI</Text>
                 <Text style={s.lockedPopupTitle}>Pourquoi cette notification est verrouillée</Text>
-                <Text style={s.lockedPopupBody}>« {lockedPopup.title} » fait partie des notifications que le Super Admin a réservées à une formule spécifique.</Text>
+                <Text style={s.lockedPopupBody}>Cette notification fait partie des alertes que le Super Admin a réservées à une formule spécifique. Son contenu reste masqué tant qu’elle n’est pas débloquée.</Text>
                 <View style={s.lockedPopupPlan}><Text style={s.lockedPopupPlanText}>Disponible avec {lockedPopup.plan}</Text></View>
                 <Text style={s.lockedPopupHint}>Tu restes exactement dans ta cloche. Aucun changement d’écran et aucun contenu privé n’est affiché avant déblocage.</Text>
                 <TouchableOpacity style={s.lockedPopupClose} onPress={() => setLockedPopup(null)}><Text style={s.lockedPopupCloseText}>J’AI COMPRIS</Text></TouchableOpacity>
