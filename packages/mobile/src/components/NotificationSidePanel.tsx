@@ -69,12 +69,12 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
   const persistChat = async (
     enabled = chatEnabled,
     notificationsEnabled = chatNotifications,
-    surfaces = chatSurfaces,
+    surfaces: MusicAgoraSurface[] = chatSurfaces,
   ) => {
     if (chatSaving) return;
     setChatSaving(true);
     try {
-      const nextSurfaces = surfaces.length ? surfaces : ['PROFILE'];
+      const nextSurfaces: MusicAgoraSurface[] = surfaces.length ? surfaces : ['PROFILE'];
       const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, nextSurfaces);
       setChatEnabled(settings.homeEnabled);
       setChatNotifications(settings.notificationsEnabled);
