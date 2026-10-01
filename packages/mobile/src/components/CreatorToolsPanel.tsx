@@ -53,7 +53,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
       await setMyPayoutLink(payoutLinkInput);
       Alert.alert('Paiement prêt', `${payoutProviderLabel(payoutLinkInput)} est maintenant relié à ton profil. L’acheteur sera envoyé directement sur ce lien avec le montant prérempli quand PayPal.Me est utilisé.`);
     } catch (e: any) {
-      Alert.alert('Lien invalide', String(e?.message || '').includes('PAYOUT_LINK_MUST_BE_HTTPS') ? 'Utilise un lien sécurisé complet commençant par https://.' : (e?.message || 'Impossible d’enregistrer ce lien.'));
+      Alert.alert('Lien invalide', String(e?.message || '').includes('PAYOUT_LINK_MUST_BE_HTTPS') ? 'Entre ton pseudo PayPal.Me ou utilise un lien sécurisé https://.' : (e?.message || 'Impossible d’enregistrer ce lien.'));
     } finally {
       setSavingPayoutLink(false);
     }
@@ -187,12 +187,12 @@ export default function CreatorToolsPanel({ navigation }: any) {
           <Text style={s.paymentStatus}>{payoutLinkInput.trim() ? `✓ ${payoutProviderLabel(payoutLinkInput)} configuré` : payoutQrUrl.trim() ? '✓ QR PayPal configuré' : 'PayPal.Me recommandé'}</Text>
         </View>
       </View>
-      <Text style={s.paymentTeaserText}>PayPal.Me reste le plus fluide sur le même téléphone. Si tu ne retrouves pas ton lien, ajoute aussi ton QR PayPal : Loki Music le mémorise comme solution de secours.</Text>
+      <Text style={s.paymentTeaserText}>Entre simplement ton pseudo PayPal.Me ou colle le lien complet. Sur le même téléphone, PayPal.Me est le plus fluide ; le QR reste une solution de secours.</Text>
       <TextInput
         style={s.payoutLinkInput}
         value={payoutLinkInput}
         onChangeText={setPayoutLinkInput}
-        placeholder="https://paypal.me/tonpseudo"
+        placeholder="Pseudo PayPal.Me ou lien complet"
         placeholderTextColor={colors.textMutedGrey}
         autoCapitalize="none"
         autoCorrect={false}
