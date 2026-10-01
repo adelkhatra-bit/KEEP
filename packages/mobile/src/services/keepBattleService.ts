@@ -464,8 +464,26 @@ export async function loadMyKeepBattleStats(): Promise<KeepBattleStats> {
 }
 
 export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
-  const { data, error } = await client().rpc('keep_battle_credit_status');
-  return unwrap(data as KeepBattleCreditStatus | null, error);
+  const c = client();
+  const { data, error } = await c.rpc('keep_battle_credit_status');
+  if (!error && data) return unwrap(data as KeepBattleCreditStatus | null, null);
+
+  // Le portefeuille FREE ne dépend pas du bon fonctionnement du module Battle.
+  // Si l'ancien RPC Battle est momentanément indisponible après une migration,
+  // on lit le portefeuille unifié au lieu d'afficher 0 / rien à tous les utilisateurs.
+  const fallback = await c.rpc('keep_free_wallet_status', { p_timezone: 'Europe/Paris' });
+  if (fallback.error || !fallback.data) {
+    return unwrap(data as KeepBattleCreditStatus | null, error || fallback.error);
+  }
+  const row = fallback.data as any;
+  const earned = Number(row.earnedToday ?? row.earned_today ?? 0) || 0;
+  const lost = Number(row.lostToday ?? row.lost_today ?? 0) || 0;
+  return {
+    won: earned,
+    lost,
+    net: earned - lost,
+    remainingFree: Number(row.balance ?? 0) || 0,
+  };
 }
 
 // Adel (18/09/2026) : "Lorsqu'un utilisateur se connecte, il faut marquer son
