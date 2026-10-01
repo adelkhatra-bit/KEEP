@@ -17,11 +17,21 @@ describe('Social scale and musical agora contracts',()=>{
     expect(service).toContain('Math.min(limit, 40)');
   });
 
-  it('adds a moderated short-form music community without anonymous DMs',()=>{
+  it('keeps Loki chat realtime, chronological and profile-ready',()=>{
     const panel=read('components','MusicAgoraPanel.tsx');
-    expect(panel).toContain('LA PLACE');
-    expect(panel).toContain('maxLength={280}');
-    expect(panel).toContain('Pas de DM ici');
+    const service=read('services','musicAgoraService.ts');
+    const profile=read('screens','ProfilePublicScreen.tsx');
+    const notifications=read('screens','NotificationsScreen.tsx');
+    expect(panel).toContain('subscribeMusicAgoraRoom');
+    expect(panel).toContain('chatScrollRef.current?.scrollToEnd');
+    expect(panel).toContain("['❤️','🔥','👏','🎵']");
+    expect(panel).toContain('PARTAGER UNE MUSIQUE');
+    expect(panel).toContain('MINI-CHAT · ACTIVÉ');
+    expect(service).toContain("return rows.sort((a, b) => a.id - b.id)");
+    expect(profile).toContain('<MusicAgoraPanel\n          compact');
+    expect(notifications).toContain('CONFIDENTIALITÉ DU PROFIL');
+    expect(notifications).toContain('TCHAT LOKI');
+    expect(notifications).toContain('updateChatEnabled');
     expect(panel).toContain('reportMusicAgoraMessage');
     expect(panel).toContain('blockUser');
   });
