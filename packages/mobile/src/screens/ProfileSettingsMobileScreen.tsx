@@ -13,6 +13,7 @@ import { clearLocalGuestMarker, stageGuestProfileForUpgrade } from '../services/
 import { getCurrentKeepLocation, KeepApproximateCoordinates, KeepLocationPermissionError, searchKeepCity } from '../services/locationService';
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import AccountEmailPanel from '../components/AccountEmailPanel';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
   { key: 'MALE', label: 'Garçon / homme' },
@@ -294,6 +295,10 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
           Reglages avances (section Raccourcis), a l'identique. Retires
           d'ici : Reglages avances reste a un seul appui plus bas, un seul
           endroit pour ces raccourcis desormais. */}
+      <Section title="Compte & sécurité" subtitle="Adresse e-mail, mot de passe et tests de délivrabilité.">
+        <AccountEmailPanel enabled={hasRealAccount} username={username.trim().replace(/^@+/, '') || user.username} />
+      </Section>
+
       <Section title="Loki Music">
         <View style={s.supportCard}>
           <Text style={s.supportLabel}>N° membre / support</Text>
