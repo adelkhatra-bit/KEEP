@@ -284,7 +284,8 @@ export default function GlobalChatDock() {
   }, [accountReady, bottomOffset, minBottom, maxBottom, setBottomOffset, side]);
 
   const responder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 || Math.abs(gesture.dy) > 14,
     onPanResponderGrant: () => {
       dragStartBottom.current = bottomOffset;
       drag.setValue({ x: 0, y: 0 });
@@ -297,7 +298,9 @@ export default function GlobalChatDock() {
       const nextBottom = Math.max(minBottom, Math.min(maxBottom, dragStartBottom.current - gesture.dy));
       setSide(nextSide);
       setBottomOffset(nextBottom);
-      void saveMusicAgoraPosition(nextSide, nextBottom).catch(() => {});
+      void saveMusicAgoraPosition(nextSide, nextBottom)
+        .then((saved) => { setSide(saved.side); setBottomOffset(saved.bottomOffset); })
+        .catch(() => {});
       Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
     },
   }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide, side]);
@@ -357,20 +360,20 @@ export default function GlobalChatDock() {
 
   const chooseSide = (nextSide: 'left' | 'right') => {
     setSide(nextSide);
-    void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
+    void saveMusicAgoraPosition(nextSide, bottomOffset).then((saved) => { setSide(saved.side); setBottomOffset(saved.bottomOffset); }).catch(() => {});
   };
 
   const chooseVerticalPreset = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
     const nextBottom = preset === 'HIGH' ? maxBottom : preset === 'MIDDLE' ? middleBottom : minBottom;
     setBottomOffset(nextBottom);
-    void saveMusicAgoraPosition(side, nextBottom).catch(() => {});
+    void saveMusicAgoraPosition(side, nextBottom).then((saved) => { setSide(saved.side); setBottomOffset(saved.bottomOffset); }).catch(() => {});
   };
 
   const chooseTopAnchor = (anchor: 'MENU' | 'BELL') => {
     const nextSide: 'left' | 'right' = anchor === 'MENU' ? 'left' : 'right';
     setSide(nextSide);
     setBottomOffset(maxBottom);
-    void saveMusicAgoraPosition(nextSide, maxBottom).catch(() => {});
+    void saveMusicAgoraPosition(nextSide, maxBottom).then((saved) => { setSide(saved.side); setBottomOffset(saved.bottomOffset); }).catch(() => {});
   };
 
   const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
