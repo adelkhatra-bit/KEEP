@@ -54,7 +54,7 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain('maxLength={2000}');
     expect(panel).toContain('{draft.length}/2000');
     expect(panel).toContain('scrollEnabled');
-    expect(panel).toContain("inputCompact:{height:44,minHeight:44,maxHeight:44");
+    expect(panel).toContain("inputCompact:{height:52,minHeight:52,maxHeight:52");
   });
 
   it('shows ownership locks before payment choices and explains them inline', () => {
