@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
 import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
@@ -270,6 +271,65 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     }
   };
 
+
+  const deleteOne = (item: KeepNotification) => {
+    Alert.alert(
+      'Supprimer cette notification ?',
+      'Elle disparaîtra de cette liste. Le message ou l’activité d’origine ne sera pas supprimé.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        {
+          text: 'SUPPRIMER',
+          style: 'destructive',
+          onPress: () => {
+            const previous = items;
+            setItems((current) => current.filter((row) => row.id !== item.id));
+            setExpandedId((current) => current === item.id ? null : current);
+            if (!isDemoMode) {
+              void deleteNotification(profileId, item.id).catch(() => {
+                setItems(previous);
+                Alert.alert('Notifications', 'Impossible de supprimer cette notification pour le moment.');
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const deleteVisibleSection = () => {
+    if (activeTab === 'SETTINGS') return;
+    const sectionItems = activeTab === 'MESSAGES'
+      ? items.filter((item) => isChatNotificationType(item.type))
+      : items.filter((item) => !isChatNotificationType(item.type));
+    if (!sectionItems.length) return;
+
+    const sectionLabel = activeTab === 'MESSAGES' ? 'messages' : 'activités';
+    Alert.alert(
+      `Vider ${activeTab === 'MESSAGES' ? 'Messages' : 'Activité'} ?`,
+      `Les ${sectionItems.length} notification${sectionItems.length > 1 ? 's' : ''} de cette section seront retirées. Les contenus d’origine restent disponibles.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        {
+          text: 'VIDER',
+          style: 'destructive',
+          onPress: () => {
+            const ids = sectionItems.map((item) => item.id);
+            const previous = items;
+            setItems((current) => current.filter((item) => !ids.includes(item.id)));
+            setExpandedId(null);
+            if (!isDemoMode) {
+              void deleteNotifications(profileId, ids).catch(() => {
+                setItems(previous);
+                Alert.alert('Notifications', `Impossible de vider les ${sectionLabel} pour le moment.`);
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const toggleSystemNotifications = async (enabled: boolean) => {
     if (!notificationPrefs || notificationPrefsSaving) return;
     const previous = notificationPrefs;
@@ -324,7 +384,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
             <View>
               <Text style={s.eyebrow}>LOKI MUSIC</Text>
               <Text style={s.title}>Notifications</Text>
-              <Text style={s.headerHint}>Tout reste ici, sans changer d’écran.</Text>
+              <Text style={s.headerHint}>Messages, activité et réglages au même endroit.</Text>
             </View>
             <TouchableOpacity style={s.close} onPress={close} accessibilityLabel="Fermer"><Text style={s.closeText}>×</Text></TouchableOpacity>
           </View>
@@ -366,7 +426,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <View style={s.notificationMasterCopy}>
                   <Text style={s.chatEyebrow}>NOTIFICATIONS LOKI</Text>
                   <Text style={s.chatTitle}>Alertes dans l’application</Text>
-                  <Text style={s.chatHint}>Active ou coupe les alertes sans quitter cette cloche.</Text>
+                  <Text style={s.chatHint}>Active ou coupe les alertes sans quitter ce panneau.</Text>
                 </View>
                 <Switch value={notificationPrefs?.systemEnabled ?? true} disabled={!notificationPrefs || notificationPrefsSaving} onValueChange={(value) => void toggleSystemNotifications(value)} trackColor={{ false: colors.border, true: colors.keep }} />
               </View>
@@ -467,6 +527,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                                   <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : 'OUVRIR LA CONVERSATION'}</Text>
                                 </TouchableOpacity>
                               ) : null}
+                              <TouchableOpacity style={s.deleteOneButton} onPress={() => deleteOne(item)} accessibilityLabel="Supprimer cette notification">
+                                <Text style={s.deleteOneText}>SUPPRIMER</Text>
+                              </TouchableOpacity>
                             </>
                           )}
                         </View>
@@ -532,6 +595,10 @@ const s = StyleSheet.create({
   clearText:{color:colors.danger,fontSize:8,fontWeight:'900'},
   markAllButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
   markAllText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  clearSectionButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,91,107,.08)'},
+  clearSectionText:{color:colors.danger,fontSize:8,fontWeight:'900',letterSpacing:.5},
+  deleteOneButton:{alignSelf:'flex-start',minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',marginTop:8},
+  deleteOneText:{color:colors.danger,fontSize:8,fontWeight:'900',letterSpacing:.5},
   chatAccordion:{marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
   chatAccordionHead:{flexDirection:'row',alignItems:'flex-start',gap:8},
   chatEyebrow:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:1.1},
