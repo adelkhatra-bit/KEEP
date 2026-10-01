@@ -4,6 +4,7 @@ const path = require('path');
 describe('silent app update contract', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'AppUpdateBanner.tsx'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'App.tsx'), 'utf8');
+  const updateStore = fs.readFileSync(path.join(__dirname, '..', '..', 'store', 'useAppUpdateStore.ts'), 'utf8');
 
   it('never renders a user-facing version banner or manual refresh control', () => {
     expect(source).toContain('return null;');
@@ -23,6 +24,13 @@ describe('silent app update contract', () => {
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
     expect(source).toContain('reloadToLatest()');
     expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
+  });
+
+  it('cannot be blocked by a legacy dismissed-update SHA', () => {
+    expect(updateStore).not.toContain('keep_dismissed_update_sha');
+    expect(updateStore).not.toContain('readDismissedSha');
+    expect(updateStore).not.toContain('writeDismissedSha');
+    expect(updateStore).toContain('if (latest && latest !== current)');
   });
 
   it('deduplicates concurrent auth restoration and does not block on secondary syncs', () => {
