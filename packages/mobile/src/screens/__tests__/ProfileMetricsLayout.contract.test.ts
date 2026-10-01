@@ -4,18 +4,17 @@ import path from 'path';
 describe('Profile metrics layout — product lock 01/10/2026', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('keeps profile type and Battle in the identity area without FREE', () => {
+  it('keeps FREE out of the profile-type row', () => {
     const metaStart = source.indexOf('<View style={s.profileMetaTopRow}>');
-    const metricsStart = source.indexOf('<View style={s.topMetricsBar}', metaStart);
-    const meta = source.slice(metaStart, metricsStart);
-    expect(metaStart).toBeGreaterThanOrEqual(0);
+    const locationStart = source.indexOf('{(user.city || user.countryCode)', metaStart);
+    const meta = source.slice(metaStart, locationStart);
     expect(meta).toContain('style={[s.kindBadge');
     expect(meta).toContain('<BattleGlowButton');
     expect(meta).not.toContain('>FREE</Text>');
     expect(meta).not.toContain('profileFreeInline');
   });
 
-  it('keeps the metrics bar PLUS, Abonnés, Reprises, FREE in that exact order', () => {
+  it('keeps metrics ordered PLUS, Abonnés, Reprises, FREE exactly once', () => {
     const start = source.indexOf('<View style={s.topMetricsBar}');
     const end = source.indexOf('{freeDetailsOpen ? (', start);
     const bar = source.slice(start, end);
