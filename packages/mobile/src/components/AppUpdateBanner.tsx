@@ -2,41 +2,43 @@ import React, { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { reloadToLatest } from '../services/appUpdateService';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
-
-const AUTO_RELOAD_KEY = 'keep_auto_reloaded_sha_v1';
+import { useUserStore } from '../store/useUserStore';
 
 /**
- * Loki Music se met à jour sans bouton utilisateur.
- * Web : vérifie rapidement version.json et recharge automatiquement une fois
- * par SHA publié. Native/TestFlight : applique silencieusement une OTA EAS
- * compatible au lancement.
+ * Mises à jour Loki Music entièrement silencieuses :
+ * - aucun bouton "Actualiser" / "Mettre à jour" visible ;
+ * - web : contrôle toutes les 30 s et au retour sur l'onglet, puis recharge
+ *   automatiquement uniquement une fois l'authentification restaurée ;
+ * - iOS/Android : applique silencieusement une OTA compatible après bootstrap.
  */
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((state) => state.latestSha);
   const checkNow = useAppUpdateStore((state) => state.checkNow);
-  const reloadingRef = useRef(false);
+  const authReady = useUserStore((state) => state.authReady);
+  const webReloadingRef = useRef(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web') return undefined;
     void checkNow();
-    const interval = setInterval(() => { void checkNow(); }, 15_000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => { void checkNow(); }, 30_000);
+    const onVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') void checkNow();
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [checkNow]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !latestSha || reloadingRef.current) return;
-    try {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_RELOAD_KEY) === latestSha) return;
-      if (typeof localStorage !== 'undefined') localStorage.setItem(AUTO_RELOAD_KEY, latestSha);
-    } catch {
-      // Le cache navigateur peut être indisponible en navigation privée.
-    }
-    reloadingRef.current = true;
+    if (Platform.OS !== 'web' || !authReady || !latestSha || webReloadingRef.current) return;
+    webReloadingRef.current = true;
     reloadToLatest();
-  }, [latestSha]);
+  }, [authReady, latestSha]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || __DEV__) return undefined;
+    if (Platform.OS === 'web' || __DEV__ || !authReady) return undefined;
 
     let active = true;
     const applySilently = async () => {
@@ -55,7 +57,7 @@ export default function AppUpdateBanner() {
 
     void applySilently();
     return () => { active = false; };
-  }, []);
+  }, [authReady]);
 
   return null;
 }
