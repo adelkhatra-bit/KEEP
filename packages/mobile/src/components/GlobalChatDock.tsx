@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, PanResponder, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
@@ -87,7 +87,8 @@ export default function GlobalChatDock() {
   const lastNudgeUnread = useRef(0);
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const dragStartBottom = useRef(bottomOffset);
-  const insets = useSafeAreaInsets();
+  const safeAreaInsets = useContext(SafeAreaInsetsContext);
+  const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height } = useWindowDimensions();
 
   const accountReady = Boolean(user && !isDemoMode && !isLocalGuest);
