@@ -12,6 +12,7 @@ describe('Loki Music Découvertes immediate public profiles', () => {
 
   it('supports direct username lookup', () => {
     expect(source).toContain('Rechercher un pseudo Loki Music');
+    expect(source).toContain('placeholderTextColor={colors.textMutedGrey}');
     expect(source).toContain("profile.username.toLowerCase().includes(needle)");
     expect(source).toContain("committedQuery.trim().replace(/^@/, '').toLowerCase()");
   });
