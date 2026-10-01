@@ -148,7 +148,7 @@ must(!myMusic.includes("navigation.navigate('ProfileCreatorTools')"), 'dead payo
 
 must(contract.screenHelpRules?.parties?.permanentIntro === false, 'Soirées permanent intro must stay removed');
 must(contract.screenHelpRules?.parties?.helpTrigger === '?', 'Soirées help trigger changed');
-must(parties.includes('eventHelpButton') && parties.includes('Tout faire depuis Soirées'), 'Soirées compact ? help disconnected');
+must(parties.includes('eventHelpButton') && parties.includes('Tout faire dans Soirées'), 'Soirées compact ? help disconnected');
 must(!parties.includes('Tes soirées et invitations, sans doublon avec Découvertes.'), 'Soirées permanent explanatory subtitle reintroduced');
 must(!parties.includes('Publie, retrouve tes événements et réponds à tes invitations.'), 'Soirées permanent home hint reintroduced');
 
