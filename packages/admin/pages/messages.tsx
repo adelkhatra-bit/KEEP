@@ -17,9 +17,6 @@ export default function Messages() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [notificationRules, setNotificationRules] = useState<NotificationAccessRule[]>([]);
-  const [notificationRulesLoading, setNotificationRulesLoading] = useState(true);
-  const [notificationRuleBusy, setNotificationRuleBusy] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
