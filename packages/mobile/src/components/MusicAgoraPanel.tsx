@@ -59,12 +59,16 @@ export default function MusicAgoraPanel({
   onOpenProfile,
   shareableTracks = [],
   compact = false,
+  compactSide = 'right',
+  onCompactClose,
 }: {
   currentProfileId: string;
   enabled: boolean;
   onOpenProfile: (username: string) => void;
   shareableTracks?: CanonicalTrack[];
   compact?: boolean;
+  compactSide?: 'left' | 'right';
+  onCompactClose?: () => void;
 }) {
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
   const [roomSlug, setRoomSlug] = useState('');
