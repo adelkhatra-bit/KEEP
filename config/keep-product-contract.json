@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.23",
+  "version": "2026-10-01.24",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -453,7 +453,10 @@
     "compactDrawerCenteredWhenKeyboardClosed": true,
     "compactDrawerAnchoredAboveKeyboard": true,
     "nativeKeyboardInsetStrategy": "max-reported-height-and-screenY-cover",
-    "incomingOtherThreadMustNotReplaceOpenConversation": true
+    "incomingOtherThreadMustNotReplaceOpenConversation": true,
+    "groupInvitesRealtime": true,
+    "privateRoomRealtimeRls": "active-members-only-plus-own-invite",
+    "directTableWritesFromAuthenticatedClient": false
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
