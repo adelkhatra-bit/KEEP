@@ -109,7 +109,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // affichent alors à tort "connecte-toi" (cas reproduit sur le compte Inside).
   useEffect(() => {
     if (!supabase) {
-      setAuthenticatedViewerId(!isLocalGuest && !isDemoMode ? viewer?.id ?? null : null);
+      const state = useUserStore.getState();
+      setAuthenticatedViewerId(!state.isLocalGuest && !state.isDemoMode ? state.user?.id ?? null : null);
       return undefined;
     }
 
@@ -598,7 +599,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             const { data: ownKeeps } = await supabase
               .from('keep_decisions')
               .select('track_id')
-              .eq('profile_id', viewer.id)
+              .eq('profile_id', effectiveViewerId)
               .eq('decision', 'KEPT')
               .in('track_id', idChunk);
             for (const row of ownKeeps ?? []) if (row.track_id) alreadyKept.add(String(row.track_id));
@@ -768,7 +769,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [openSaleOfferId, saleOffers, navigation]);
 
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
-    const ownerViewingSelf = Boolean(viewer?.id && profile?.id && viewer.id === profile.id);
+    const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
     if (ownerViewingSelf) {
       void openFolderSwipe(offer.playlistName, () => loadOwnPlaylistSaleOfferTracks(offer.offerId), `sale:${offer.offerId}`);
       return;
@@ -993,7 +994,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
-    if (!viewer || isLocalGuest || isDemoMode) {
+    if (!effectiveViewerId) {
       goToOwnProfile();
       return;
     }
@@ -1132,14 +1133,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // création de compte s'ouvre maintenant ICI, par-dessus cet écran, avec
     // le profil visé déjà transmis (SourceProfileQuickView faisait déjà ça
     // pour l'intention, il manquait juste le "rester sur place").
-    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+    if (!supabase || !effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', `Crée ou connecte ton compte Loki Music : tu suivras ${profile?.username || 'ce profil'} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', profile?.username) },
       ]);
       return;
     }
-    if (!profile || viewer.id === profile.id || followBusy) return;
+    if (!profile || effectiveViewerId === profile.id || followBusy) return;
     setFollowBusy(true);
     // Adel (audit partage) : le suivi doit passer par les RPC sécurisées
     // (comme partout ailleurs dans l'appli), pas par une écriture directe sur
@@ -1164,7 +1165,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [repriseListOpen, profile?.id]);
 
   const toggleRepriserFollow = async (repriser: ProfileRepriser) => {
-    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+    if (!supabase || !effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', `Crée ou connecte ton compte Loki Music : tu suivras ${repriser.username} automatiquement dès que ton compte sera prêt.`, [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create', repriser.username) },
@@ -1190,7 +1191,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const requireAccountForModeration = () => {
-    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+    if (!supabase || !effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour signaler ou bloquer un profil.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
@@ -1237,7 +1238,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const toggleLike = async (trackId: string) => {
-    if (!supabase || !viewer || isLocalGuest || isDemoMode) {
+    if (!supabase || !effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte Loki Music pour liker ce morceau.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
@@ -1246,12 +1247,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const alreadyLiked = likedTrackIds.has(trackId);
     const next = new Set(likedTrackIds);
     if (alreadyLiked) {
-      const { error: deleteError } = await supabase.from('track_likes').delete().eq('profile_id', viewer.id).eq('track_id', trackId);
+      const { error: deleteError } = await supabase.from('track_likes').delete().eq('profile_id', effectiveViewerId).eq('track_id', trackId);
       if (deleteError) return;
       next.delete(trackId);
       setLikeCounts((current) => ({ ...current, [trackId]: Math.max(0, (current[trackId] || 0) - 1) }));
     } else {
-      const { error: insertError } = await supabase.from('track_likes').insert({ profile_id: viewer.id, track_id: trackId });
+      const { error: insertError } = await supabase.from('track_likes').insert({ profile_id: effectiveViewerId, track_id: trackId });
       if (insertError) return;
       next.add(trackId);
       setLikeCounts((current) => ({ ...current, [trackId]: (current[trackId] || 0) + 1 }));
@@ -1266,18 +1267,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const maybeSuggestFollow = () => {
-    if (!profile || !viewer || viewer.id === profile.id || isFollowing) return;
+    if (!profile || !effectiveViewerId || effectiveViewerId === profile.id || isFollowing) return;
     setFollowNudgeVisible(true);
   };
 
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
-    if (!viewer || isLocalGuest) {
+    if (!effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return false;
     }
-    if (profile && viewer.id === profile.id) return false;
+    if (profile && effectiveViewerId === profile.id) return false;
     if (alreadyInMyKeep(canonical.id)) {
       showAlreadyKept(canonical.title);
       return false;
@@ -1399,8 +1400,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <View style={styles.topSpacer} />
           {/* 29/09/2026 : arrivé par un lien partagé sans compte, on doit pouvoir se connecter tout de suite. */}
-          {!viewer || isLocalGuest || isDemoMode ? <LoginPill /> : null}
-          {viewer?.id !== profile.id ? (
+          {!effectiveViewerId ? <LoginPill /> : null}
+          {effectiveViewerId !== profile.id ? (
             <TouchableOpacity style={styles.shareTopButton} onPress={() => setModerationMenuOpen(true)} accessibilityLabel="Signaler ou bloquer ce profil"><Text style={styles.shareTopText}>⋯</Text></TouchableOpacity>
           ) : null}
         </View>
@@ -1419,7 +1420,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   {(() => {
                     // On se voit toujours « En ligne » sur son propre profil ;
                     // présence inconnue = pas de pastille (jamais un faux « Hors ligne »).
-                    const self = Boolean(viewer?.id && viewer.id === profile.id);
+                    const self = Boolean(viewer?.id && effectiveViewerId === profile.id);
                     const online = self || profilePresence.online;
                     if (!self && !profilePresence.known) return null;
                     const label = formatProfilePresence(profilePresence.lastSeenAt, online);
@@ -1463,7 +1464,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           ) : null}
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          {viewer?.id !== profile.id ? (
+          {effectiveViewerId !== profile.id ? (
             <>
             <TouchableOpacity
               style={[styles.followPrimaryButton, isFollowing && styles.followPrimaryButtonOn]}
@@ -1536,7 +1537,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     ▶ lance l'aperçu anonyme de 15 s (rien n'a disparu). */}
                 <View style={styles.saleList} accessibilityLabel="Collections musicales à débloquer">
                   {saleOffers.slice(0, visibleSaleCount).map((offer, index) => {
-                    const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && viewer.id === profile.id);
+                    const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && effectiveViewerId === profile.id);
                     const priceLabel = offer.paymentMode === 'FREE'
                       ? `${offer.freePrice ?? 0} FREE`
                       : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
@@ -1953,7 +1954,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         sourceByTrack={swipeSourceByTrack}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
-        requiresAccount={!viewer || isLocalGuest}
+        requiresAccount={!effectiveViewerId}
         onClose={() => { setSwipeOpen(false); setBrowseFilter(null); setFolderSwipeTracks([]); setFolderSwipeTitle(''); }}
         onKeep={addCanonicalToMyKeep}
         onOpenSourceProfile={(username) => { setSwipeOpen(false); navigation.navigate('PublicProfile', { username }); }}
