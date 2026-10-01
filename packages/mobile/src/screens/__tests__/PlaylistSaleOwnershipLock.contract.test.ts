@@ -101,7 +101,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(immersivePreview).toContain("Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.");
     expect(immersivePreview).toContain('FREE INSUFFISANTS');
     expect(immersivePreview).toContain('RECHARGER MES FREE');
-    expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
+    expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}');
   });
 
   it('lets the owner switch an existing collection between euro and FREE without rebuilding it', () => {
