@@ -398,6 +398,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       sourceProfileId: entry.sourceProfileId,
       sourceUsername: entry.sourceUsername,
       originSource: entry.originSource,
+      importedFrom: entry.importedFrom,
       creditSource: entry.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' as const : 'FREE' as const,
       sessionId: entry.sessionId || '__keep-server-library__',
     }));
@@ -428,7 +429,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
     [ownDiscoveryEntries],
   );
   const identifiedEntries = useMemo(
-    () => ownDiscoveryEntries.filter((entry: any) => String(entry.originSource || '').toLowerCase() !== 'loki_pulse'),
+    () => ownDiscoveryEntries.filter((entry: any) => {
+      const source = String(entry.originSource || '').toLowerCase();
+      return source !== 'loki_pulse' && source !== 'provider_favorite_import';
+    }),
     [ownDiscoveryEntries],
   );
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
@@ -1321,8 +1325,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
             badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
             originBadge={localEntry ? {
               label: localEntry.sourceProfileId
-                ? `${localEntry.sourceUsername ? `DÉCOUVERT PAR ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'UTILISATEUR'}`
-                : 'ÉCOUTE',
+                ? `${localEntry.sourceUsername ? `REPRIS DE ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'REPRIS D’UN UTILISATEUR'}`
+                : String((localEntry as any).originSource || '').toLowerCase() === 'loki_pulse'
+                  ? 'LOKI PULSE'
+                  : String((localEntry as any).originSource || '').toLowerCase() === 'provider_favorite_import'
+                    ? `IMPORT ${String((localEntry as any).importedFrom || 'SERVICE').replace(/_/g, ' ').toUpperCase()}`
+                    : 'IDENTIFIÉ PAR LOKI',
               tone: localEntry.sourceProfileId ? 'social' : 'listen',
               onPress: localEntry.sourceProfileId && localEntry.sourceUsername
                 ? () => openSourceProfile(localEntry.sourceUsername)
@@ -1590,11 +1598,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
           data={originFilter === 'USERS' ? socialRepriseTracks
             : originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)
             : originFilter === 'IDENTIFIED' ? identifiedEntries.map((entry) => entry.track)
+            : originFilter === 'ALL' ? localKeptTracks
             : saleEditOfferTarget
-            ? ownDiscoveryTracks
-                .filter((track) => !myOfferedTrackIds[track.id] || myOfferedTrackIds[track.id].offerId === saleEditOfferTarget.offerId)
-                .sort((a, b) => Number(selectedSaleTrackIds.has(b.id)) - Number(selectedSaleTrackIds.has(a.id)))
-            : ownDiscoveryTracks}
+              ? ownDiscoveryTracks
+                  .filter((track) => !myOfferedTrackIds[track.id] || myOfferedTrackIds[track.id].offerId === saleEditOfferTarget.offerId)
+                  .sort((a, b) => Number(selectedSaleTrackIds.has(b.id)) - Number(selectedSaleTrackIds.has(a.id)))
+              : ownDiscoveryTracks}
           renderItem={({ item }) => renderTrack(item)}
           keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
@@ -1618,11 +1627,27 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 <View style={styles.originSectionTitleRow}>
                   <Text style={styles.originSectionIcon}>{originFilter === 'USERS' ? '👥' : '🎧'}</Text>
                   <Text style={[styles.originSectionTitle, originFilter === 'USERS' ? styles.originSectionTitleSocial : styles.originSectionTitleOwn]}>
-                    {originFilter === 'USERS' ? "🔒 Reprises d'autres utilisateurs" : 'Mes découvertes'}
+                    {originFilter === 'USERS'
+                      ? "🔒 Reprises d'autres utilisateurs"
+                      : originFilter === 'PULSE'
+                        ? 'Loki Pulse'
+                        : originFilter === 'IDENTIFIED'
+                          ? 'Identifiées par Loki'
+                          : originFilter === 'ALL'
+                            ? 'Tous mes morceaux'
+                            : 'Mes découvertes'}
                   </Text>
                 </View>
                 <Text style={[styles.originSectionCount, originFilter === 'USERS' ? styles.originSectionCountSocial : styles.originSectionCountOwn]}>
-                  {originFilter === 'USERS' ? socialRepriseEntries.length : ownDiscoveryEntries.length} titres
+                  {originFilter === 'USERS'
+                    ? socialRepriseEntries.length
+                    : originFilter === 'PULSE'
+                      ? lokiPulseEntries.length
+                      : originFilter === 'IDENTIFIED'
+                        ? identifiedEntries.length
+                        : originFilter === 'ALL'
+                          ? localKeptEntries.length
+                          : ownDiscoveryEntries.length} titres
                 </Text>
               </View>
             </View> : null}
