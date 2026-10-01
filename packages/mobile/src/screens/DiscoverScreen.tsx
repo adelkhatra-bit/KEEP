@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
   title: { color: colors.white, fontSize: 22, fontWeight: '900', marginBottom: 10 },
   discoverTitleRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},
   discoverTitle:{flex:1,marginBottom:0},
-  discoverHelpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  discoverHelpButton:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   discoverHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   discoverHelpBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:22},
   discoverHelpCard:{width:'100%',maxWidth:460,borderRadius:22,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,padding:18,gap:14},
