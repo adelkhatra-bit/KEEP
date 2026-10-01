@@ -69,8 +69,9 @@ jobs:
             const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
             const page = await context.newPage();
             const errors = [];
+            const dialogs = [];
             page.on('pageerror', e => errors.push(String(e)));
-            page.on('dialog', async d => d.accept().catch(() => {}));
+            page.on('dialog', async d => { dialogs.push(`${d.type()}: ${d.message()}`); await d.accept().catch(() => {}); });
             await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             const tryFree = page.getByText('ESSAYER GRATUITEMENT', { exact: true }).last();
             if (await tryFree.isVisible().catch(() => false)) await tryFree.click();
@@ -89,10 +90,13 @@ jobs:
             // parcours Solo nécessite un compte Loki. Ce guardian web public
             // valide donc le gate, tandis que le contrat serveur authentifié
             // est vérifié séparément par les tests Supabase/release.
-            const accountGate = page.getByText('Compte Loki Music requis', { exact: true }).last();
-            await accountGate.waitFor({ state: 'visible', timeout: 15000 });
+            await page.waitForTimeout(500);
+            if (!dialogs.some(x => /Compte Loki Music requis|mode invité.*Battle.*réservé/i.test(x))) {
+              throw new Error(`Guest Solo did not show account gate. Dialogs: ${dialogs.join(' | ')}`);
+            }
+            if (errors.length) throw new Error(`Page errors: ${errors.join('\n')}`);
             await browser.close();
-            console.log('BATTLE SOLO 390x844 OK: guest is gated; authenticated Solo contract remains separate');
+            console.log('BATTLE SOLO 390x844 OK: guest gate is explicit; authenticated Solo is validated against Supabase separately');
             return;
 
             await page.getByText(/^SOLO · /).last().waitFor({ state: 'visible', timeout: 20000 });
