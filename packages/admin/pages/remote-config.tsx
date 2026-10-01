@@ -13,6 +13,7 @@ type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' |
 
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
+  demo_listen_limit: 'Mode démo · écoutes maximum avant compte',
   signup_bonus_successes: 'Morceaux offerts après inscription',
   battle_solo_daily_limit_free: 'Battle SOLO · parties par jour (formule gratuite)',
   battle_solo_daily_limit_premium: 'Battle SOLO · parties par jour (Premium)',
@@ -84,7 +85,7 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
-  if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
+  if (key.startsWith('session_') || key.startsWith('auth_') || key.startsWith('demo_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
 }
