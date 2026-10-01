@@ -29,15 +29,16 @@ must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -1, 'KEEP credit changed');
 
-must(contract.profileOwner.freePlacement === 'metrics-after-reprises', 'FREE placement contract changed');
-must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must not sit beside profile type');
-must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises','FREE']), 'profile metrics order changed');
+must(contract.profileOwner.freePlacement === 'beside-profile-kind', 'FREE placement contract changed');
+must(contract.profileOwner.freeBesideProfileKind === true, 'FREE must sit beside profile type');
+must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises']), 'profile metrics order changed');
 
 const metaStart = profile.indexOf('<View style={s.profileMetaTopRow}>');
 const locationStart = profile.indexOf('{(user.city || user.countryCode)', metaStart);
 must(metaStart >= 0 && locationStart > metaStart, 'owner identity row missing');
 const meta = profile.slice(metaStart, locationStart);
-must(!meta.includes('profileFreeInline'), 'FREE reintroduced beside Utilisateur/Créateur');
+must(meta.includes('profileFreeInline'), 'FREE missing beside Utilisateur/Créateur');
+must(meta.indexOf('profileFreeInline') > meta.indexOf('kindBadge'), 'FREE must follow the profile type badge');
 must(meta.includes('<BattleGlowButton'), 'Battle missing from identity row');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
@@ -47,20 +48,19 @@ const metrics = profile.slice(metricsStart, metricsEnd);
 const plus = metrics.indexOf('>PLUS</Text>');
 const followers = metrics.indexOf('>Abonnés</Text>');
 const reprises = metrics.indexOf('>Reprises</Text>');
-const free = metrics.indexOf('topMetricFreeHero');
-must(plus >= 0 && followers > plus && reprises > followers && free > reprises, 'metrics must remain PLUS -> Abonnés -> Reprises -> FREE');
-must((metrics.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once in metrics');
+must(plus >= 0 && followers > plus && reprises > followers, 'metrics must remain PLUS -> Abonnés -> Reprises');
+must(!metrics.includes('topMetricFreeHero') && !metrics.includes('>FREE</Text>'), 'FREE must not be duplicated in metrics');
 
 must(profile.includes('<ProfileCertificationBadge tier={certificationTier} compact />'), 'profile certification badge disconnected');
 must(profile.includes('loadMyKeepBattleCreditStatus'), 'real FREE balance source disconnected');
 must(profile.includes('setFreeBalance(battleStatus.remainingFree)'), 'real FREE balance no longer applied');
 
-must(master.includes('Barre suivante : **PLUS | Abonnés | Reprises | FREE**.'), 'master spec profile metrics rule stale');
-must(master.includes('juste après Reprises'), 'master spec FREE placement missing');
-must(!master.includes('FREE immédiatement à droite du badge de type'), 'stale FREE placement still present in master spec');
+must(master.includes('Barre suivante : **PLUS | Abonnés | Reprises**.'), 'master spec profile metrics rule stale');
+must(master.includes('FREE immédiatement à droite du badge de type'), 'master spec FREE placement missing');
+must(!master.includes('FREE reste **juste après Reprises**'), 'stale FREE placement still present in master spec');
 
 must(uiBaseline.profileOwner.freePlacement === contract.profileOwner.freePlacement, 'UI baseline disagrees with product contract');
-must(uiBaseline.profileOwner.freeMustNotAppearBesideProfileKind === true, 'UI baseline allows FREE beside profile type');
+must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === true, 'UI baseline must require FREE beside profile type');
 must(JSON.stringify(uiBaseline.profileOwner.metricsBarOrder) === JSON.stringify(contract.profileOwner.metricsBarOrder), 'UI baseline metrics order disagrees with product contract');
 
 for (const label of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) {
@@ -99,10 +99,10 @@ must(salePreview.includes('perspective: 700') && salePreview.includes('rotateY')
 must(salePreview.includes('onOpenProfile'), 'seller profile link missing from purchase preview');
 must(salePreview.includes('onRequestMissingTracks'), 'missing-track request CTA missing from purchase preview');
 must(salePanel.includes('loadMyPlaylistSaleTrackRequests'), 'seller missing-track inbox disconnected');
-must(salePanel.includes('offerPlaylistSaleTrackRequestWithFree'), 'seller FREE response action disconnected');
+must(salePanel.includes('offerPlaylistSaleRequestSelectionWithFree'), 'seller FREE response action disconnected');
 must(saleService.includes('keep_playlist_sale_my_purchase_library'), 'purchase library service RPC missing');
 must(saleService.includes('keep_playlist_sale_request_missing_tracks'), 'partial request service RPC missing');
-must(notifications.includes("type === 'PLAYLIST_SALE_PARTIAL_OFFER'"), 'private offer notification routing missing');
+must(notifications.includes("'PLAYLIST_SALE_PARTIAL_OFFER'") && notifications.includes('includes(type)'), 'private offer notification routing missing');
 must(notifications.includes('openSaleOfferId: offerId'), 'private offer deep-link missing');
 
 must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'integration cache-clean contract missing');
@@ -115,7 +115,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('KEEP product contract: PASS');
-console.log('profile metrics: PLUS -> Abonnés -> Reprises -> FREE');
+console.log('profile: type -> FREE; metrics: PLUS -> Abonnés -> Reprises');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: recent purchases + overlap + private missing-track offers locked');
