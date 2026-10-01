@@ -17,9 +17,12 @@ on:
       - '.github/workflows/eas-update-production.yml'
   workflow_dispatch:
 
+# Plusieurs agents peuvent pousser à quelques secondes d'intervalle.
+# Ne jamais annuler une publication OTA déjà commencée : sinon une rafale de
+# commits peut laisser TestFlight plusieurs versions derrière.
 concurrency:
   group: loki-ota-production-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -33,26 +36,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Resolve latest mobile-impact SHA
+        id: fresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin reconcile/claude-main-20260825 --depth=200
+          latest="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 --             packages/mobile/App.tsx packages/mobile/src packages/mobile/assets packages/music             packages/mobile/package.json package.json package-lock.json .github/workflows/eas-update-production.yml             ':(exclude)packages/mobile/**/__tests__/**'             ':(exclude)packages/mobile/**/*.test.ts'             ':(exclude)packages/mobile/**/*.test.tsx'             ':(exclude)packages/mobile/**/*.spec.ts'             ':(exclude)packages/mobile/**/*.spec.tsx')"
+          if [ "$GITHUB_SHA" = "$latest" ]; then
+            echo "publish=yes" >> "$GITHUB_OUTPUT"
+            echo "Latest mobile-impact SHA: $GITHUB_SHA"
+          else
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Stale OTA run skipped: $GITHUB_SHA; latest mobile-impact SHA is $latest"
+          fi
+
       - name: Setup Node
+        if: steps.fresh.outputs.publish == 'yes'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install exact dependencies
+        if: steps.fresh.outputs.publish == 'yes'
         run: npm ci
 
       - name: Setup EAS CLI
+        if: steps.fresh.outputs.publish == 'yes'
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Verify Expo authentication
+        if: steps.fresh.outputs.publish == 'yes'
         working-directory: packages/mobile
         run: eas whoami
 
       - name: Validate production OTA payload
+        if: steps.fresh.outputs.publish == 'yes'
         run: |
           set -euo pipefail
           node scripts/verify-source-of-truth.cjs
@@ -60,6 +83,7 @@ jobs:
           npm --workspace packages/mobile test -- --runInBand
 
       - name: Publish latest JS to production
+        if: steps.fresh.outputs.publish == 'yes'
         working-directory: packages/mobile
         env:
           CI: '1'
