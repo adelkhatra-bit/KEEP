@@ -10,11 +10,12 @@ describe('web update control contract', () => {
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('keeps a manual update button visible on every web width', () => {
-    expect(banner).toContain('keep-manual-update-control');
-    expect(banner).toContain('↻ Mise à jour');
-    expect(banner).not.toContain('if (width < 768) return null');
-    expect(banner).toContain('manualWrapCompact');
+  it('shows one discreet update button only when a newer deployed build exists', () => {
+    expect(banner).toContain("Platform.OS !== 'web' || !latestSha");
+    expect(banner).toContain('keep-update-available-button');
+    expect(banner).toContain('MISE À JOUR');
+    expect(banner).not.toContain('↻');
+    expect(banner).toContain('setInterval');
   });
 
   it('forces a cache-busting reload to the public KEEP root', () => {
