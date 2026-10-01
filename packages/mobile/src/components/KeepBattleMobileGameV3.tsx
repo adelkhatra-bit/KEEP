@@ -1921,8 +1921,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 <View style={s.statsSmallRow}>
                   <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>👥 {formatCompactNumber(statsData.followers)}</Text><Text style={s.statsSmallLabel}>Abonnés</Text></View>
                   <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>🎁 {formatCompactNumber(statsData.freeBalance)}</Text><Text style={s.statsSmallLabel}>Free restant</Text></View>
-                  <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>🏆 {formatCompactNumber(statsData.freeWon)}</Text><Text style={s.statsSmallLabel}>Free gagné</Text></View>
-                  <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>↘ {formatCompactNumber(statsData.freeLost)}</Text><Text style={s.statsSmallLabel}>Free perdu</Text></View>
+                  <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>🏆 {formatCompactNumber(statsData.freeWon)}</Text><Text style={s.statsSmallLabel}>FREE gagnés aujourd’hui</Text></View>
+                  <View style={s.statsSmallItem}><Text style={s.statsSmallValue}>↘ {formatCompactNumber(statsData.freeLost)}</Text><Text style={s.statsSmallLabel}>FREE perdus aujourd’hui</Text></View>
                 </View>
                 {statsData.avgResponseMs != null ? <Text style={s.statsAvg}>⚡ {(statsData.avgResponseMs / 1000).toFixed(1)}s de temps de réponse moyen</Text> : null}
                 {statsData.topThemes.length ? (
