@@ -41,6 +41,8 @@ type Props = {
   // jamais court-circuiter le choix Public/Privé : la confirmation de visibilité
   // reste toujours affichée avant toute tentative de GARDER.
   requiresAccount?: boolean;
+  /** Message explicite de coût affiché avant de confirmer GARDER. */
+  keepCostNotice?: string;
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
@@ -62,6 +64,7 @@ export default function MusicSwipeDeckModal({
   askVisibilityOnKeep = false,
   previewOnly = false,
   requiresAccount = false,
+  keepCostNotice,
   onClose,
   onKeep,
   onPass,
@@ -594,6 +597,15 @@ export default function MusicSwipeDeckModal({
             <Text style={s.keepPromptTitle}>Garder ce morceau ?</Text>
             <Text style={s.keepPromptTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
             <Text style={s.keepPromptBody}>Choisis seulement si tu veux vraiment le garder. Rien n’est enregistré tant que tu n’as pas choisi.</Text>
+            {keepCostNotice ? (
+              <View style={s.keepCostNotice}>
+                <Text style={s.keepCostNoticeIcon}>⚡</Text>
+                <View style={s.keepCostNoticeCopy}>
+                  <Text style={s.keepCostNoticeTitle}>CONFIRMATION FREE</Text>
+                  <Text style={s.keepCostNoticeText}>{keepCostNotice}</Text>
+                </View>
+              </View>
+            ) : null}
 
             <TouchableOpacity style={[s.keepChoice, s.keepChoicePublic]} onPress={() => { void confirmKeep('PUBLIC'); }} accessibilityLabel="Visible sur mon profil">
               <Text style={s.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
@@ -668,6 +680,7 @@ const s = StyleSheet.create({
   keepOverlay:{flex:1,backgroundColor:'rgba(4,3,8,.82)',alignItems:'center',justifyContent:'center',paddingHorizontal:22},
   keepPromptCard:{width:'100%',maxWidth:390,borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:20,shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:10},elevation:16},
   keepPromptEyebrow:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.3,textAlign:'center'},keepPromptTitle:{color:'#FFF',fontSize:22,fontWeight:'900',textAlign:'center',marginTop:6},keepPromptTrack:{color:'#D8CFE3',fontSize:12,fontWeight:'800',textAlign:'center',marginTop:5},keepPromptBody:{color:'#FFFFFF',fontSize:13,lineHeight:18,textAlign:'center',marginTop:10,marginBottom:14},
+  keepCostNotice:{minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',paddingHorizontal:12,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:10,marginBottom:6},keepCostNoticeIcon:{color:colors.keep,fontSize:20,fontWeight:'900'},keepCostNoticeCopy:{flex:1,minWidth:0},keepCostNoticeTitle:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.9},keepCostNoticeText:{color:'#FFF',fontSize:11,lineHeight:15,fontWeight:'800',marginTop:2},
   keepChoice:{minHeight:70,borderRadius:17,paddingHorizontal:15,paddingVertical:12,justifyContent:'center',marginTop:9,borderWidth:1},keepChoicePublic:{backgroundColor:'rgba(104,242,177,.12)',borderColor:'#68F2B1'},keepChoicePrivate:{backgroundColor:'#21182F',borderColor:'#5B3F8C'},keepChoicePublicTitle:{color:'#68F2B1',fontSize:13,fontWeight:'900'},keepChoicePrivateTitle:{color:'#D6C2FA',fontSize:13,fontWeight:'900'},keepChoiceText:{color:'#FFFFFF',fontSize:12,lineHeight:16,marginTop:3},
   keepCancel:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:12,borderRadius:14,borderWidth:1,borderColor:'#57313C',backgroundColor:'#1C1117'},keepCancelText:{color:'#FF8AA3',fontSize:12,fontWeight:'900'},keepCancelHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,textAlign:'center',marginTop:7},
   ownerPreviewCard:{width:'100%',maxWidth:350,borderRadius:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:18,shadowColor:'#000',shadowOpacity:.42,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:14},
