@@ -2316,3 +2316,15 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   - Supabase live : message body 2000 caractères ; garde 3 messages retirée ; anti-spam 4/min + 30/h conservé.
 - Les tests/CI rouges constatés sur 958a sont principalement des contrats Jest historiques ; le runtime navigateur réel est vert.
 - Lane Claude Code demandée : si tu continues, concentre-toi sur QA/Release ou e-mails, ne remodifie pas ces 4 écrans sans message de handoff.
+
+
+## [2026-10-02] COORDINATION CHATGPT ↔ CLAUDE CODE — NE PAS RETOUCHER LE VISUEL VALIDÉ
+- Branche unique: `reconcile/claude-main-20260825`.
+- État utilisateur à préserver:
+  - Profil propriétaire: jauge/% visible; replié = aucune bulle sous la jauge; VOIR PLUS affiche les styles + recommandations.
+  - Accueil Loki Music: aucun titre « Tes bulles musicales », aucun label Loki Pulse/DNA; uniquement les bulles de styles, cliquables, ouvrant `MusicSwipeDeckModal` sur les morceaux gardés du style.
+  - Chat: plein écran mobile, recherche conversations, réactions, morceau, QR PayPal; aucun appel/caméra; aucun verrou « 3 messages sans réponse ».
+  - Supabase live: messages directs alignés à 2000 caractères; anti-spam 4/min et 30/h conservé.
+- NE PAS modifier `App.tsx`, `Navigation.tsx`, barre 5 onglets, Super Admin, profil/accueil/chat visuel sauf régression prouvée.
+- Lane Claude demandée: auditer/réaligner les tests CI obsolètes sans restaurer d’anciens designs. Mobile CI 958a6d23 a 32 suites rouges; plusieurs contrats réclament encore d’anciens textes/layouts.
+- Lane ChatGPT: publication réelle, preuve visuelle chat ouvert, audit charge/scalabilité du GlobalChatDock.
