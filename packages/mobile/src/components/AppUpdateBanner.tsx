@@ -29,11 +29,15 @@ export default function AppUpdateBanner() {
     >
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel={latestSha ? 'Appliquer la nouvelle version de Loki Music' : 'Vérifier et recharger Loki Music'}
+        accessibilityLabel={latestSha ? 'Appliquer la nouvelle version de Loki Music' : 'Actualiser Loki Music'}
         style={[s.button, latestSha && s.buttonReady]}
         onPress={() => { void checkNow().finally(reloadToLatest); }}
       >
-        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'}</Text>
+        <View style={[s.iconCircle, latestSha && s.iconCircleReady]}><Text style={s.icon}>↻</Text></View>
+        <View style={s.copy}>
+          <Text style={[s.title, latestSha && s.titleReady]}>{latestSha ? 'NOUVELLE VERSION DISPONIBLE' : 'ACTUALISER LOKI MUSIC'}</Text>
+          <Text style={s.subtitle}>{latestSha ? 'Clique ici pour charger immédiatement le nouveau visuel' : 'Recharge la dernière version publiée'}</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -44,33 +48,66 @@ const s = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 82,
+    bottom: 86,
     alignItems: 'center',
     zIndex: 190,
     pointerEvents: 'box-none',
   },
   button: {
-    minHeight: 36,
-    paddingHorizontal: 15,
-    borderRadius: 18,
-    borderWidth: 1,
+    width: 286,
+    minHeight: 58,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1.5,
     borderColor: colors.primaryLight,
-    backgroundColor: colors.backgroundCard,
+    backgroundColor: 'rgba(20,14,31,.98)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.24,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    shadowOpacity: 0.34,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 12,
   },
   buttonReady: {
     borderColor: colors.keep,
+    backgroundColor: 'rgba(13,36,31,.98)',
   },
-  text: {
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    backgroundColor: colors.primaryFaint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconCircleReady: {
+    borderColor: colors.keep,
+    backgroundColor: 'rgba(45,225,194,.10)',
+  },
+  icon: {
     color: colors.textPrimary,
-    fontSize: 11,
+    fontSize: 22,
     fontWeight: '900',
-    letterSpacing: 0.4,
+    lineHeight: 24,
+  },
+  copy: { flex: 1, minWidth: 0 },
+  title: {
+    color: colors.textPrimary,
+    fontSize: 12.5,
+    fontWeight: '900',
+    letterSpacing: 0.35,
+  },
+  titleReady: { color: colors.keep },
+  subtitle: {
+    color: colors.textMutedGrey,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });
