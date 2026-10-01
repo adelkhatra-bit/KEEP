@@ -21,7 +21,7 @@ const CREATOR_KINDS: { key: ProfileKind; label: string }[] = [
 ];
 
 const KIND_LABELS: Record<ProfileKind, string> = {
-  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu / établissement',
+  USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
 };
 
 export default function CreatorToolsPanel({ navigation }: any) {
