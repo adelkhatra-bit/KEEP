@@ -537,5 +537,10 @@
     "noRedirectToProfile": true,
     "usesMusicStyleBubbles": true,
     "profileLokiPulseRemainsVisible": true
+  },
+  "lokiPulseTapBehavior": {
+    "tappedTrackMustOpenFirst": true,
+    "remainingTracksMayShuffleAfterTappedTrack": true,
+    "selectionMustUseCanonicalTrackId": true
   }
 }

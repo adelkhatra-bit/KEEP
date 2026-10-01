@@ -462,6 +462,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
   const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
+  const [lokiPulseSelectedTrackId, setLokiPulseSelectedTrackId] = useState<string | null>(null);
   const [pulseTasteOpen, setPulseTasteOpen] = useState(false);
   const lokiPulseGlow = useRef(new Animated.Value(0)).current;
   const lokiPulseScrollRef = useRef<ScrollView | null>(null);
@@ -2061,7 +2062,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
               <TouchableOpacity
                 key={item.track.id}
                 style={s.lokiPulseCard}
-                onPress={() => { unlockWebAudioForGesture(); setLokiPulseSwipeOpen(true); }}
+                onPress={() => {
+                  unlockWebAudioForGesture();
+                  setLokiPulseSelectedTrackId(item.track.id);
+                  setLokiPulseSwipeOpen(true);
+                }}
                 accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
               >
                 <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
@@ -2116,6 +2121,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     <MusicSwipeDeckModal
       visible={lokiPulseSwipeOpen}
       tracks={visibleLokiPulseItems.map((item) => item.track)}
+      initialTrackId={lokiPulseSelectedTrackId}
       title="Loki Pulse"
       subtitle={`Pour toi · GARDER coûte actuellement ${freeCostPerKeep} FREE`}
       emptyTitle="Ton Loki Pulse est à jour."
@@ -2126,7 +2132,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
       keepDebitAmount={freeCostPerKeep}
       onKeep={keepFromLokiPulse}
       onPass={hideFromLokiPulse}
-      onClose={() => setLokiPulseSwipeOpen(false)}
+      onClose={() => {
+        setLokiPulseSwipeOpen(false);
+        setLokiPulseSelectedTrackId(null);
+      }}
     />
 
     <Modal visible={pulseTasteOpen} transparent animationType="slide" onRequestClose={() => setPulseTasteOpen(false)}>

@@ -25,6 +25,8 @@ type AlreadyKeptState = 'checking' | 'yes' | 'no';
 type Props = {
   visible: boolean;
   tracks: CanonicalTrack[];
+  /** When opened from a tapped rail/card, keep that exact track first instead of shuffling it away. */
+  initialTrackId?: string | null;
   title?: string;
   subtitle?: string;
   sourceUsername?: string;
@@ -54,6 +56,7 @@ type Props = {
 export default function MusicSwipeDeckModal({
   visible,
   tracks,
+  initialTrackId,
   title = 'Découverte musicale',
   subtitle,
   sourceUsername,
@@ -166,17 +169,28 @@ export default function MusicSwipeDeckModal({
       // reste écoutable. On ne retire donc PLUS rien de la file sociale.
       // La détection anti-doublon reste faite morceau par morceau via
       // checkOwnKeepLibrary() : le CTA devient "DÉJÀ" mais l'audio continue.
-      preparedTracksRef.current = inputTracks;
+      const requestedTrackId = String(initialTrackId || '').trim();
+      const requestedTrack = requestedTrackId
+        ? inputTracks.find((track) => track.id === requestedTrackId)
+        : undefined;
+      const remainingTracks = requestedTrack
+        ? inputTracks.filter((track) => track.id !== requestedTrack.id)
+        : inputTracks;
+      const prepared = requestedTrack
+        ? [requestedTrack, ...(loop ? shuffle(remainingTracks) : remainingTracks)]
+        : (loop ? shuffle(inputTracks) : inputTracks);
+
+      preparedTracksRef.current = prepared;
       setPrefilterRemovedCount(0);
       setPrefilterVerified(false);
-      setDeckTracks(loop ? shuffle(inputTracks) : inputTracks);
+      setDeckTracks(prepared);
       setRound((value) => value + 1);
       setPreparingDeck(false);
     };
 
     void prepare();
     return () => { alive = false; };
-  }, [visible, loop, socialDiscoveryMode]);
+  }, [visible, loop, socialDiscoveryMode, initialTrackId]);
 
   useEffect(() => {
     let alive = true;
