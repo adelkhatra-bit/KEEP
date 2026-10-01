@@ -13,6 +13,7 @@ import TrackRow from '../components/TrackRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { getDownloadCreditStatus } from '../services/creditService';
 
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
@@ -37,12 +38,17 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   const [swipeOpen, setSwipeOpen] = useState(false);
   const [swipeTracks, setSwipeTracks] = useState<CanonicalTrack[]>([]);
   const [firstShareOffered, setFirstShareOffered] = useState(false);
+  const [keepCostPerKeep, setKeepCostPerKeep] = useState(3);
 
   useEffect(() => {
-    void refreshCreditLocks().catch(() => {});
-    const unsubscribe = navigation?.addListener?.('focus', () => {
+    const refreshCredits = () => {
       void refreshCreditLocks().catch(() => {});
-    });
+      void getDownloadCreditStatus().then((status) => {
+        setKeepCostPerKeep(Math.max(0, Number(status.costPerKeep || 3)));
+      }).catch(() => setKeepCostPerKeep(3));
+    };
+    refreshCredits();
+    const unsubscribe = navigation?.addListener?.('focus', refreshCredits);
     return () => unsubscribe?.();
   }, [navigation, refreshCreditLocks]);
 
@@ -221,6 +227,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     if (!entry) return true;
     await refreshCreditLocks().catch(() => {});
     await keepTrackInSession(sessionId, entry.id, undefined, visibility);
+    await refreshCreditLocks().catch(() => {});
     const refreshed = useSessionHistoryStore.getState().sessions.find((item) => item.id === sessionId)?.tracks.find((item) => item.id === entry.id);
     if (refreshed?.creditLocked) {
       setSwipeOpen(false);
@@ -363,6 +370,8 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep
+        keepCostNotice={`GARDER ce morceau débitera ${keepCostPerKeep} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
+        keepDebitAmount={keepCostPerKeep}
         onClose={closeSwipe}
         onKeep={handleSwipeKeep}
         onPass={handleSwipePass}
