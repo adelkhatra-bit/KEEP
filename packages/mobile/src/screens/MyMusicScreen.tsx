@@ -1381,7 +1381,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const visibility = isAllKeepView ? `${publicKeepCount} public · ${privateKeepCount} privé` : isGroupView ? null : (pref?.isPublic ? 'Public' : 'Privé');
     return <View style={[styles.playlistBlock, isSmart && styles.smartBlock]}>
       <TouchableOpacity style={styles.playlistCard} onPress={() => void togglePlaylist(item)} accessibilityLabel={`Ouvrir ${item.name}`}>
-        {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
+        {item.coverUrl ? <Image source={{ uri: item.coverUrl }} style={styles.playlistCover as any} /> : <View style={[styles.playlistCover, styles.playlistCoverFallback]}><Text style={styles.playlistCoverText}>{isSmart ? '✦' : '♪'}</Text></View>}
         <View style={styles.playlistInfo}>
           <View style={styles.playlistTitleRow}><Text style={styles.playlistName} numberOfLines={1}>{item.name}</Text>{isSmart ? <View style={styles.smartPill}><Text style={styles.smartPillText}>VIBE</Text></View> : null}</View>
           <Text style={styles.songCount}>{actualCount} morceau{actualCount > 1 ? 'x' : ''}{visibility ? ` · ${visibility}` : ''}</Text>
@@ -1767,7 +1767,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 {saleCartTracks.slice(0, 8).map((track, index) => (
                   <View key={track.id} style={styles.saleCartTrackRow}>
                     <Text style={styles.saleCartTrackNo}>{String(index + 1).padStart(2, '0')}</Text>
-                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.saleCartTrackCover} /> : <View style={[styles.saleCartTrackCover, styles.saleCartTrackCoverFallback]}><Text style={styles.saleCartTrackCoverText}>♪</Text></View>}
+                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.saleCartTrackCover as any} /> : <View style={[styles.saleCartTrackCover, styles.saleCartTrackCoverFallback]}><Text style={styles.saleCartTrackCoverText}>♪</Text></View>}
                     <View style={styles.saleCartTrackCopy}>
                       <Text style={styles.saleCartTrackTitle} numberOfLines={1}>{track.title}</Text>
                       <Text style={styles.saleCartTrackArtist} numberOfLines={1}>{track.artist}</Text>
