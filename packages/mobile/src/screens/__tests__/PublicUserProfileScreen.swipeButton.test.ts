@@ -27,4 +27,13 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
     expect(swipeIdx).toBeGreaterThan(bioIdx);
     expect(collectionIdx).toBeGreaterThan(swipeIdx);
   });
+
+  it('keeps the canonical visitor actions visible from any entry point', () => {
+    expect(source).toContain('▶ SWIPE');
+    expect(source).toContain('◉ TCHAT');
+    expect(source).toContain('⚡ BATTLE');
+    expect(source).toContain('↗ PARTAGER');
+    expect(source).toContain('const openProfileChat =');
+    expect(source).toContain('useGlobalChatStore.getState().open');
+  });
 });
