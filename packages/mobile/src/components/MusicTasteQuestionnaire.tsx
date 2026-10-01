@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Localization from 'expo-localization';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -44,6 +44,8 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [catalogBusy, setCatalogBusy] = useState(false);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -81,6 +83,33 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
     })();
     return () => { live = false; };
   }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) return undefined;
+    let live = true;
+    setCatalogBusy(true);
+    const timer = setTimeout(() => {
+      const request = tab === 'STYLES'
+        ? searchMusicGenres(query, 120)
+        : tab === 'LANGUAGES'
+          ? searchMusicLanguages(query, 220)
+          : searchMusicCountries(query, 260);
+      void request.then((rows: any[]) => {
+        if (!live) return;
+        if (tab === 'STYLES') setGenres(rows as MusicGenreOption[]);
+        else if (tab === 'LANGUAGES') setLanguages(rows as MusicLanguageOption[]);
+        else setCountries(rows as MusicCountryOption[]);
+      }).catch(() => {}).finally(() => { if (live) setCatalogBusy(false); });
+    }, 180);
+    return () => { live = false; clearTimeout(timer); };
+  }, [searchQuery, tab]);
+
+  const changeTab = (next: Tab) => {
+    setTab(next);
+    setSearchQuery('');
+    setCatalogBusy(false);
+  };
 
   const toggle = (value: string, current: string[], setter: React.Dispatch<React.SetStateAction<string[]>>, max: number) => {
     setter((rows) => {
@@ -165,8 +194,20 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE · POUR TOI</Text><Text style={s.title}>Construis ton univers musical</Text><Text style={s.subtitle}>Styles + langues + pays. Plus tu précises, plus les trouvailles deviennent pertinentes.</Text></View>
     </View>
     <View style={s.detected}><Text style={s.detectedTitle}>PRÉREMPLI AUTOMATIQUEMENT</Text><Text style={s.detectedText}>{detectedTag || 'Langue appareil'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · modifie uniquement ce que tu veux</Text></View>
-    <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>setTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
-    <Text style={s.readyHint}>Aucun texte à saisir · tout se choisit en un toucher</Text>
+    <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>changeTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
+    <View style={s.searchWrap}>
+      <TextInput
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={tab === 'STYLES' ? 'Rechercher un style dans tout le catalogue' : tab === 'LANGUAGES' ? 'Rechercher une langue' : 'Rechercher un pays'}
+        placeholderTextColor={colors.textMutedGrey}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={s.searchInput}
+      />
+      {catalogBusy ? <ActivityIndicator size="small" color={colors.keep}/> : searchQuery ? <TouchableOpacity style={s.searchClear} onPress={() => setSearchQuery('')}><Text style={s.searchClearText}>×</Text></TouchableOpacity> : null}
+    </View>
+    <Text style={s.readyHint}>{searchQuery ? 'Résultats du catalogue mondial' : 'Choisis directement ou recherche un style, une langue ou un pays'}</Text>
     <View style={s.selectedBox}>
       <Text style={s.selectedTitle}>DÉJÀ SÉLECTIONNÉ · TOUCHE × POUR RETIRER</Text>
       {selectedLabels.length ? (
@@ -209,7 +250,11 @@ const s=StyleSheet.create({
   eyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2},title:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:3},subtitle:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:5},
   detected:{marginHorizontal:14,marginTop:12,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:14,paddingTop:12},tab:{flex:1,minHeight:36,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:4},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:colors.textMuted,fontSize:8,fontWeight:'900'},tabTextOn:{color:'#FFF'},
-  readyHint:{marginHorizontal:14,marginTop:12,color:colors.textMutedGrey,fontSize:10,fontWeight:'800',textAlign:'center'},
+  searchWrap:{marginHorizontal:14,marginTop:12,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',paddingLeft:12,paddingRight:8,gap:8},
+  searchInput:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:11,fontWeight:'800',paddingVertical:9},
+  searchClear:{width:28,height:28,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  searchClearText:{color:colors.primaryLight,fontSize:18,fontWeight:'900',lineHeight:20},
+  readyHint:{marginHorizontal:14,marginTop:8,color:colors.textMutedGrey,fontSize:10,fontWeight:'800',textAlign:'center'},
   selectedBox:{marginHorizontal:14,marginTop:10,paddingVertical:9,borderTopWidth:1,borderBottomWidth:1,borderColor:colors.border},
   selectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8,marginBottom:7},
   selectedRail:{gap:7,paddingRight:8},
