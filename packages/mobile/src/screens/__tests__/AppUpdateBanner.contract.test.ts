@@ -16,6 +16,7 @@ describe('deployment update visibility contract', () => {
     expect(banner).toContain('MISE À JOUR');
     expect(banner).toContain('Actualiser Loki Music');
     expect(banner).toContain('reloadToLatest()');
+    expect(banner).toContain('setInterval');
   });
 
   it('shows a real update banner with a later choice when a newer SHA is published', () => {
