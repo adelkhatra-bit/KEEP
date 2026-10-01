@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 
 /**
@@ -70,4 +71,68 @@ export function buildPayoutCheckoutUrl(url: string, amountCents: number, currenc
   } catch {
     return clean;
   }
+}
+
+
+export type PayoutMethods = {
+  link: string;
+  qrUrl: string;
+};
+
+export async function getMyPayoutMethods(): Promise<PayoutMethods> {
+  if (!supabase) return { link: '', qrUrl: '' };
+  const { data, error } = await supabase.rpc('keep_my_payout_methods');
+  if (error) return { link: '', qrUrl: '' };
+  const row = data as any;
+  return {
+    link: String(row?.link ?? row?.payoutLink ?? ''),
+    qrUrl: String(row?.qrUrl ?? row?.payoutQrUrl ?? ''),
+  };
+}
+
+export async function setMyPayoutQrUrl(url: string): Promise<string> {
+  const { data, error } = await client().rpc('keep_set_payout_qr_url', { p_url: url });
+  if (error) throw new Error(String(error.message || 'PAYOUT_QR_SAVE_FAILED'));
+  return String(data || '');
+}
+
+export async function pickAndUploadPayoutQr(profileId: string): Promise<string | null> {
+  if (!supabase) throw new Error('Supabase indisponible.');
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) throw new Error('Autorise l’accès aux photos pour choisir ton QR PayPal.');
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.9,
+  });
+  if (result.canceled || !result.assets?.[0]?.uri) return null;
+  const asset = result.assets[0];
+
+  const { data: authState, error: authError } = await supabase.auth.getUser();
+  if (authError || !authState.user || authState.user.id !== profileId) {
+    throw new Error('Compte requis pour enregistrer un QR de paiement.');
+  }
+
+  const response = await fetch(asset.uri);
+  const blob = await response.blob();
+  const mime = asset.mimeType || blob.type || 'image/png';
+  const extension = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : mime.includes('webp') ? 'webp' : 'png';
+  const path = `${profileId}/payout-qr.${extension}`;
+
+  const { error: uploadError } = await supabase.storage.from('avatars').upload(path, blob, {
+    upsert: true,
+    contentType: mime,
+    cacheControl: '3600',
+  });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+  return setMyPayoutQrUrl(publicUrl);
+}
+
+export async function clearMyPayoutQrUrl(): Promise<void> {
+  await setMyPayoutQrUrl('');
 }
