@@ -2210,3 +2210,7 @@ Le run GitHub 36794367825 a échoué car KEEP_BATTLE_CATALOG_WORKER_KEY est abse
 
 ## [2026-10-01T00:20:00Z] chatgpt — décision explicite profil FREE
 Adel confirme visuellement : le compteur FREE doit être aligné avec la pastille Utilisateur/Créateur, pas rejeté après Reprises. Correction ciblée uniquement sur ProfilePublicScreen + contrats de garde. Ne pas déplacer les autres éléments du profil.
+
+
+## [2026-10-01T00:25:00Z] chatgpt — crédit mensuel + notification
+Premier crédit de fin de mois observé en production à 00:00 UTC. Ajout d'une notification automatique idempotente MONTHLY_FREE_CREDIT, avec montant et formule réels issus du grand livre mensuel. Le push worker existant la distribuera comme notification système. Message : remerciement + slogan « garde ce qui te ressemble ». Aucun changement des règles listen/recognize/PASS/KEEP.

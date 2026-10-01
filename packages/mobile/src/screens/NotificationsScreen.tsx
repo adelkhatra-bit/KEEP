@@ -43,6 +43,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'MUSIC_TAKEN') return 'MORCEAU REPRIS';
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
+  if (key === 'MONTHLY_FREE_CREDIT') return 'FREE DU MOIS';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
