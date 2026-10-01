@@ -104,6 +104,7 @@ export default function MusicAgoraPanel({
   const [shareMoneyPriceInput, setShareMoneyPriceInput] = useState('1');
   const [sharePreflight, setSharePreflight] = useState<MusicAgoraSharePreflight | null>(null);
   const [sharePreflightBusy, setSharePreflightBusy] = useState(false);
+  const [shareOwnershipOpen, setShareOwnershipOpen] = useState(false);
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
@@ -198,8 +199,10 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!sharedTrack?.id) {
       setSharePreflight(null);
+      setShareOwnershipOpen(false);
       return;
     }
+    setShareOwnershipOpen(false);
     let live = true;
     setSharePreflight(null);
     setSharePreflightBusy(true);
@@ -561,6 +564,13 @@ export default function MusicAgoraPanel({
     );
   };
 
+  const paymentLocked = Boolean(
+    sharedTrack && (
+      (sharedTrack as any).canSell === false ||
+      (sharePreflight && (!sharePreflight.canSell || sharePreflight.targetOwnsTrack))
+    )
+  );
+
   if (compact && (!enabled || !homeEnabled)) return null;
 
   return <View
@@ -796,20 +806,17 @@ export default function MusicAgoraPanel({
             <Text style={s.selectedMusicEyebrow}>PÉPITE SÉLECTIONNÉE</Text>
             <Text style={s.selectedMusicCompactTitle} numberOfLines={1}>{sharedTrack.title}</Text>
             <Text style={s.selectedMusicCompactArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
-            {(sharePreflight && !sharePreflight.canSell) || (sharedTrack as any).canSell === false ? (
+            {paymentLocked ? (
               <TouchableOpacity
                 style={s.shareLockPill}
-                onPress={() => {
-                  const source = sharePreflight?.sourceUsername || (sharedTrack as any).sourceUsername;
-                  Alert.alert(
-                    '🔒 Partage uniquement',
-                    source
-                      ? `Cette musique vient de @${source}. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.`
-                      : 'Cette musique vient d’un autre utilisateur. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.',
-                  );
-                }}
+                onPress={() => setShareOwnershipOpen((value) => !value)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: shareOwnershipOpen }}
+                accessibilityLabel="Pourquoi FREE et paiement sont verrouillés"
               >
-                <Text style={s.shareLockPillText}>🔒 PARTAGE UNIQUEMENT</Text>
+                <Text style={s.shareLockPillText}>
+                  {sharePreflight?.targetOwnsTrack ? '🔒 DÉJÀ CHEZ LUI' : '🔒 PARTAGE UNIQUEMENT'} {shareOwnershipOpen ? '⌃' : '⌄'}
+                </Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -823,10 +830,38 @@ export default function MusicAgoraPanel({
           >
             <Text style={s.shareAccordionToggleText}>{shareOptionsOpen ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.removeMusicCompact} onPress={() => { setSharedTrack(null); setShareOptionsOpen(false); setSharePaymentMode('NONE'); setSharePreflight(null); }} accessibilityLabel="Retirer cette musique">
+          <TouchableOpacity style={s.removeMusicCompact} onPress={() => { setSharedTrack(null); setShareOptionsOpen(false); setShareOwnershipOpen(false); setSharePaymentMode('NONE'); setSharePreflight(null); }} accessibilityLabel="Retirer cette musique">
             <Text style={s.removeMusicText}>×</Text>
           </TouchableOpacity>
         </View>
+
+        {shareOwnershipOpen && paymentLocked ? (
+          <View style={s.ownershipLock}>
+            <View style={s.ownershipLockHead}>
+              <Text style={s.ownershipLockIcon}>🔒</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={s.ownershipLockTitle}>
+                  {sharePreflight?.targetOwnsTrack ? 'AUCUN PAIEMENT NÉCESSAIRE' : 'PARTAGE AUTORISÉ · REVENTE BLOQUÉE'}
+                </Text>
+                <Text style={s.ownershipLockSub}>
+                  {sharePreflight?.targetOwnsTrack
+                    ? `@${sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} possède déjà le morceau`
+                    : ((sharePreflight?.sourceUsername || (sharedTrack as any).sourceUsername)
+                      ? `Source : @${sharePreflight?.sourceUsername || (sharedTrack as any).sourceUsername}`
+                      : 'Musique provenant d’un autre utilisateur')}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShareOwnershipOpen(false)} accessibilityLabel="Replier l’explication du cadenas">
+                <Text style={s.accordionArrow}>⌃</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.ownershipLockBody}>
+              {sharePreflight?.targetOwnsTrack
+                ? 'Loki bloque FREE et € pour éviter un débit ou un paiement inutile. Tu peux toujours partager et faire écouter ce morceau.'
+                : 'Tu peux partager et faire écouter ce morceau. Comme il ne t’appartient pas pour la revente, FREE et € restent verrouillés.'}
+            </Text>
+          </View>
+        ) : null}
 
         {shareOptionsOpen ? <ScrollView style={s.shareAccordionBody} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <View style={s.revealChoices}>
@@ -847,15 +882,29 @@ export default function MusicAgoraPanel({
             <Text style={s.paymentLabel}>ACCÈS</Text>
             <TouchableOpacity style={[s.paymentChip,sharePaymentMode==='NONE'&&s.paymentChipOn]} onPress={() => setSharePaymentMode('NONE')}><Text style={s.paymentChipText}>STANDARD</Text></TouchableOpacity>
             <TouchableOpacity
-              style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack||(sharedTrack as any).canSell===false)&&s.paymentChipDisabled]}
-              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)||(sharedTrack as any).canSell===false}
-              onPress={() => setSharePaymentMode('FREE')}
-            ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
+              style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,paymentLocked&&s.paymentChipDisabled]}
+              disabled={sharePreflightBusy}
+              onPress={() => {
+                if (paymentLocked) {
+                  setShareOwnershipOpen(true);
+                  return;
+                }
+                setSharePaymentMode('FREE');
+              }}
+              accessibilityLabel={paymentLocked ? 'FREE verrouillé, afficher pourquoi' : 'Utiliser FREE'}
+            ><Text style={s.paymentChipText}>{paymentLocked ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
             {Platform.OS === 'web' ? <TouchableOpacity
-              style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack||(sharedTrack as any).canSell===false)&&s.paymentChipDisabled]}
-              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)||(sharedTrack as any).canSell===false}
-              onPress={() => setSharePaymentMode('MONEY')}
-            ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
+              style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,paymentLocked&&s.paymentChipDisabled]}
+              disabled={sharePreflightBusy}
+              onPress={() => {
+                if (paymentLocked) {
+                  setShareOwnershipOpen(true);
+                  return;
+                }
+                setSharePaymentMode('MONEY');
+              }}
+              accessibilityLabel={paymentLocked ? 'Paiement euro verrouillé, afficher pourquoi' : 'Utiliser un paiement en euros'}
+            ><Text style={s.paymentChipText}>{paymentLocked ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
           </View>
           {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
             <View style={s.priceChoices}>
@@ -903,7 +952,7 @@ export default function MusicAgoraPanel({
 
           <TouchableOpacity
             style={s.validateMusic}
-            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && (!sharePreflight?.canSell || Boolean(sharePreflight?.targetOwnsTrack) || (sharedTrack as any).canSell===false))}
+            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && paymentLocked)}
             onPress={() => void publish()}
             accessibilityRole="button"
             accessibilityLabel="Valider la pépite dans le chat"
@@ -930,7 +979,11 @@ export default function MusicAgoraPanel({
         multiline
         scrollEnabled
         maxLength={2000}
-        onFocus={() => setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80)}
+        onFocus={() => {
+          forceBottomRef.current = true;
+          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
+          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
+        }}
         style={[s.input, compact && s.inputCompact]}
       />
       <View style={s.composerBottom}>
@@ -946,7 +999,7 @@ export default function MusicAgoraPanel({
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <View style={s.shareHead}><View style={{ flex:1 }}><Text style={s.shareTitle}>Ajouter une pépite</Text><Text style={s.shareHint}>Choisis un morceau. Dans une conversation privée, tu peux l’envoyer gratuitement, demander des FREE ou préparer un paiement conforme au canal disponible.</Text></View><TouchableOpacity onPress={() => setShareOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity></View>
         <ScrollView style={s.shareList} contentContainerStyle={{ gap:7 }}>
-          {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOptionsOpen(true); setShareOpen(false); }}>
+          {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOptionsOpen(true); setShareOwnershipOpen(false); setShareOpen(false); }}>
             <View style={s.shareTrackArtWrap}>
               {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.shareTrackArt}/> : <View style={[s.shareTrackArt,s.musicArtMasked]}><Text style={s.musicMaskIcon}>♫</Text></View>}
               {track.canSell === false ? <View style={s.shareTrackLockBadge}><Text style={s.shareTrackLockBadgeText}>🔒</Text></View> : null}
@@ -1074,12 +1127,12 @@ const s=StyleSheet.create({
   replyTargetText:{color:colors.info,fontSize:10,fontWeight:'900'},
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7,maxHeight:250,overflow:'hidden'},
-  selectedMusicCompactRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:8},
-  selectedMusicThumbWrap:{width:48,height:48,position:'relative',flexGrow:0,flexShrink:0},
-  selectedMusicThumb:{width:48,height:48,borderRadius:12,backgroundColor:colors.backgroundElevated},
+  selectedMusicCompactRow:{minHeight:90,flexDirection:'row',alignItems:'center',gap:9},
+  selectedMusicThumbWrap:{width:80,height:80,position:'relative',flexGrow:0,flexShrink:0},
+  selectedMusicThumb:{width:80,height:80,borderRadius:16,backgroundColor:colors.backgroundElevated},
   selectedMusicLockBadge:{position:'absolute',right:-5,top:-5,width:22,height:22,borderRadius:11,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
   selectedMusicLockBadgeText:{fontSize:11},
-  selectedMusicThumbFallback:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
+  selectedMusicThumbFallback:{color:colors.primaryLight,fontSize:30,fontWeight:'900'},
   selectedMusicCompactCopy:{flex:1,minWidth:0},
   selectedMusicCompactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
   selectedMusicCompactArtist:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800',marginTop:2},
@@ -1089,7 +1142,7 @@ const s=StyleSheet.create({
   shareAccordionBody:{maxHeight:180,marginTop:7,borderTopWidth:1,borderTopColor:colors.border},
   shareAccordionContent:{paddingTop:7,paddingBottom:4},
   shareLockPill:{alignSelf:'flex-start',marginTop:4,borderRadius:10,borderWidth:1,borderColor:colors.warning,paddingHorizontal:6,paddingVertical:3,backgroundColor:'rgba(255,184,107,.08)'},
-  shareLockPillText:{color:colors.warning,fontSize:8,fontWeight:'900'},
+  shareLockPillText:{color:colors.warning,fontSize:9,fontWeight:'900'},
   validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
   validateMusicText:{color:colors.background,fontSize:11,fontWeight:'900',letterSpacing:.6},
   selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
