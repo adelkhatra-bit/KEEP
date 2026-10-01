@@ -16,7 +16,7 @@ describe('Profile metrics layout — product lock 01/10/2026', () => {
 
   it('keeps metrics ordered PLUS, Abonnés, Reprises, FREE exactly once', () => {
     const start = source.indexOf('<View style={s.topMetricsBar}');
-    const end = source.indexOf('{freeDetailsOpen ? (', start);
+    const end = source.indexOf('{freeDetailsOpen && !isDemoMode ? (', start);
     const bar = source.slice(start, end);
     const plus = bar.indexOf('>PLUS</Text>');
     const followers = bar.indexOf('>Abonnés</Text>');
