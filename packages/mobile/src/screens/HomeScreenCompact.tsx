@@ -23,6 +23,7 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import { loadOwnProfileKeeps } from '../services/publicProfileStateService';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -104,6 +105,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const historySessions = useSessionHistoryStore((s) => s.sessions);
+  const [serverHomeStyles, setServerHomeStyles] = useState<string[]>([]);
   const homeDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = historySessions.flatMap((session) =>
       session.tracks
@@ -120,8 +122,38 @@ export default function HomeScreenCompact({ navigation }: any) {
   const homeStyleBubbles = useMemo(() => {
     const learned = homeDna.topGenres.map((row) => row.genre).filter(Boolean);
     const declared = Array.isArray(user?.favoriteGenres) ? user.favoriteGenres.filter(Boolean) : [];
-    return Array.from(new Set([...learned, ...declared])).slice(0, 8);
-  }, [homeDna.topGenres, user?.favoriteGenres]);
+    return Array.from(new Set([...serverHomeStyles, ...learned, ...declared])).slice(0, 8);
+  }, [homeDna.topGenres, serverHomeStyles, user?.favoriteGenres]);
+
+  useEffect(() => {
+    let live = true;
+    const refreshHomeStyles = async () => {
+      if (!user?.id || isDemoMode || musicEngine.isDemoMode) {
+        if (live) setServerHomeStyles([]);
+        return;
+      }
+      try {
+        const keeps = await loadOwnProfileKeeps();
+        const counts = new Map<string, number>();
+        for (const entry of keeps) {
+          for (const rawGenre of entry.track.genres ?? []) {
+            const genre = String(rawGenre || '').trim();
+            if (genre) counts.set(genre, (counts.get(genre) ?? 0) + 1);
+          }
+        }
+        const styles = Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .slice(0, 8)
+          .map(([genre]) => genre);
+        if (live) setServerHomeStyles(styles);
+      } catch {
+        // Le résumé local/déclaré reste visible si le serveur est momentanément indisponible.
+      }
+    };
+    void refreshHomeStyles();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomeStyles(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [isDemoMode, navigation, user?.id]);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
