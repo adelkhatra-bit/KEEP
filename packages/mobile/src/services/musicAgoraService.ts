@@ -205,7 +205,7 @@ export async function postMusicAgoraMessage(
   options: MusicAgoraPostOptions = {},
 ): Promise<number> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_post_message_v3', {
+  const { data, error } = await supabase.rpc('keep_agora_post_message_v4', {
     p_room_slug: roomSlug,
     p_body: body,
     p_target_profile_id: options.targetProfileId ?? null,
@@ -252,6 +252,60 @@ export async function loadMusicAgoraSharePreflight(
     targetUsername: row.targetUsername ?? row.target_username ?? null,
     targetOwnsTrack: Boolean(row.targetOwnsTrack ?? row.target_owns_track),
   };
+}
+
+export type MusicAgoraTrackSaleEligibility = {
+  hasTrack: boolean;
+  canSell: boolean;
+  sourceProfileId: string | null;
+  sourceUsername: string | null;
+  reason: string;
+};
+
+export type MusicAgoraShareableTrack = {
+  track: CanonicalTrack;
+  sourceProfileId: string | null;
+  sourceUsername: string | null;
+  canSell: boolean;
+};
+
+export async function loadMusicAgoraTrackSaleEligibility(trackId: string): Promise<MusicAgoraTrackSaleEligibility> {
+  if (!supabase || !trackId) return { hasTrack: false, canSell: false, sourceProfileId: null, sourceUsername: null, reason: 'UNKNOWN' };
+  const { data, error } = await supabase.rpc('keep_agora_my_track_sale_eligibility', { p_track_id: trackId });
+  if (error) throw error;
+  const row = data && typeof data === 'object' ? data as any : {};
+  return {
+    hasTrack: Boolean(row.hasTrack ?? row.has_track),
+    canSell: Boolean(row.canSell ?? row.can_sell),
+    sourceProfileId: row.sourceProfileId ?? row.source_profile_id ?? null,
+    sourceUsername: row.sourceUsername ?? row.source_username ?? null,
+    reason: String(row.reason || ''),
+  };
+}
+
+export async function loadMusicAgoraShareableTracks(limit = 120): Promise<MusicAgoraShareableTrack[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_agora_my_shareable_tracks', { p_limit: limit });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    track: {
+      id: String(row.id),
+      isrc: row.isrc || undefined,
+      title: String(row.title || ''),
+      artist: String(row.artist || ''),
+      album: row.album || undefined,
+      artworkUrl: row.artwork_url || undefined,
+      previewUrl: row.preview_url || undefined,
+      genres: Array.isArray(row.genres) ? row.genres : [],
+      providerIds: row.provider_ids || {},
+      externalUrls: row.external_urls || {},
+      availableOn: Array.isArray(row.available_on) ? row.available_on : [],
+      releaseYear: row.release_year || undefined,
+    } as CanonicalTrack,
+    sourceProfileId: row.source_profile_id ? String(row.source_profile_id) : null,
+    sourceUsername: row.source_username ? String(row.source_username) : null,
+    canSell: Boolean(row.can_sell),
+  })).filter((row) => row.track.id && row.track.title && row.track.artist);
 }
 
 export async function loadMusicAgoraSharedTrack(trackId: string): Promise<CanonicalTrack | null> {
