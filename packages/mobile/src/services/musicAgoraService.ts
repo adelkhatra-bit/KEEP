@@ -38,6 +38,21 @@ export type MusicAgoraMessage = {
   viewerPaymentId: string | null;
   viewerPaymentStatus: 'PENDING' | 'COMPLETED' | null;
   viewerMarkedPaid: boolean;
+  targetOwnsTrack: boolean;
+  viewerOwnsTrack: boolean;
+  senderCanResell: boolean;
+  discoveredByUsername: string | null;
+};
+
+export type MusicAgoraSharePreflight = {
+  hasTrack: boolean;
+  canSell: boolean;
+  sourceProfileId: string | null;
+  sourceUsername: string | null;
+  reason: 'TRACK_NOT_IN_YOUR_MUSIC' | 'ACQUIRED_FROM_ANOTHER_USER' | 'OWN_DISCOVERY' | string;
+  targetProfileId: string | null;
+  targetUsername: string | null;
+  targetOwnsTrack: boolean;
 };
 
 export type MusicAgoraSettings = {
@@ -121,7 +136,7 @@ export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
 
 export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number, limit = 24): Promise<MusicAgoraMessage[]> {
   if (!supabase || !roomSlug) return [];
-  const { data, error } = await supabase.rpc('keep_agora_messages_v4', {
+  const { data, error } = await supabase.rpc('keep_agora_messages_v5', {
     p_room_slug: roomSlug,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -160,6 +175,10 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
       ? String(row.viewer_payment_status).toUpperCase() as 'PENDING' | 'COMPLETED'
       : null,
     viewerMarkedPaid: Boolean(row.viewer_marked_paid),
+    targetOwnsTrack: Boolean(row.target_owns_track),
+    viewerOwnsTrack: Boolean(row.viewer_owns_track),
+    senderCanResell: Boolean(row.sender_can_resell),
+    discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
   })).filter((row) => row.id && row.profileId && row.body);
   if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
   return rows.sort((a, b) => a.id - b.id);
@@ -199,6 +218,40 @@ export async function postMusicAgoraMessage(
   });
   if (error) throw error;
   return Number((data as any)?.messageId ?? (data as any)?.message_id ?? data ?? 0);
+}
+
+export async function loadMusicAgoraSharePreflight(
+  trackId: string,
+  targetProfileId?: string | null,
+): Promise<MusicAgoraSharePreflight> {
+  if (!supabase || !trackId) {
+    return {
+      hasTrack: false,
+      canSell: false,
+      sourceProfileId: null,
+      sourceUsername: null,
+      reason: 'TRACK_NOT_IN_YOUR_MUSIC',
+      targetProfileId: targetProfileId ?? null,
+      targetUsername: null,
+      targetOwnsTrack: false,
+    };
+  }
+  const { data, error } = await supabase.rpc('keep_agora_share_preflight', {
+    p_track_id: trackId,
+    p_target_profile_id: targetProfileId ?? null,
+  });
+  if (error) throw error;
+  const row = (data ?? {}) as any;
+  return {
+    hasTrack: Boolean(row.hasTrack ?? row.has_track),
+    canSell: Boolean(row.canSell ?? row.can_sell),
+    sourceProfileId: row.sourceProfileId ?? row.source_profile_id ?? null,
+    sourceUsername: row.sourceUsername ?? row.source_username ?? null,
+    reason: String(row.reason || ''),
+    targetProfileId: row.targetProfileId ?? row.target_profile_id ?? targetProfileId ?? null,
+    targetUsername: row.targetUsername ?? row.target_username ?? null,
+    targetOwnsTrack: Boolean(row.targetOwnsTrack ?? row.target_owns_track),
+  };
 }
 
 export async function loadMusicAgoraSharedTrack(trackId: string): Promise<CanonicalTrack | null> {
