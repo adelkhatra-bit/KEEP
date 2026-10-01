@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.39",
+  "version": "2026-10-01.40",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -600,7 +600,13 @@
     "usesFavoriteGenresFallback": true,
     "regressionGuardRequired": true,
     "oneBubbleCardPerSurface": true,
-    "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts"
+    "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts",
+    "ownerProfileCollapsedByDefault": true,
+    "ownerProfileSingleToggle": true,
+    "ownerProfileToggleLabels": "VOIR MES N STYLES / MASQUER",
+    "ownerProfileShowsAllStylesWhenExpanded": true,
+    "homeRemainsVisibleWithoutExpansion": true,
+    "legacyVisibleDnaWordingRemoved": true
   },
   "publicProfilePerformance": {
     "firstPaintAfterIdentityAndBlockCheck": true,

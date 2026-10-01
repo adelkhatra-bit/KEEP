@@ -212,6 +212,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
+  const [profileStylesExpanded, setProfileStylesExpanded] = useState(false);
   const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
@@ -1063,7 +1064,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     user?.favoriteGenres,
     dna.topGenres.map((row) => row.genre),
     trackGenreOptions.map((row) => row.genre),
-  ], 12), [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
+  ], 40), [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
 
 
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
@@ -1957,15 +1958,34 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.dnaCompactMeter}>
             <View style={s.dnaCompactCopy}>
               <Text style={s.dnaEyebrow}>LOKI PULSE</Text>
-              <Text style={s.dnaCompactTitle}>Tes bulles musicales</Text>
+              <Text style={s.dnaCompactTitle}>
+                {profileStyleBubbles.length > 0
+                  ? `${profileStyleBubbles.length} style${profileStyleBubbles.length > 1 ? 's' : ''}`
+                  : 'Tes styles musicaux'}
+              </Text>
             </View>
-          </View>
-          <View style={s.dnaCompactDetails}>
             {profileStyleBubbles.length > 0 ? (
+              <TouchableOpacity
+                style={s.dnaCompactToggle}
+                onPress={() => setProfileStylesExpanded((value) => !value)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: profileStylesExpanded }}
+                accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
+              >
+                <Text style={s.dnaCompactToggleText}>
+                  {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
+                </Text>
+                <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {profileStylesExpanded && profileStyleBubbles.length > 0 ? (
+            <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-styles">
               <MusicStyleBubbles
                 testID="profile-music-style-bubbles"
                 genres={profileStyleBubbles}
-                max={8}
+                max={profileStyleBubbles.length}
                 onPressGenre={(genre) => {
                   const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
                   if (folder?.entries.length) {
@@ -1980,19 +2000,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   setTracksGrouping('GENRE');
                 }}
               />
-            ) : (
+            </View>
+          ) : null}
+
+          {!profileStyleBubbles.length ? (
+            <View style={s.dnaCompactDetails}>
               <Text style={s.muted}>Tes bulles apparaîtront ici dès que Loki Pulse connaît au moins un de tes styles.</Text>
-            )}
-            {genreFolders.length > 8 ? (
-              <TouchableOpacity
-                style={s.dnaSeeAll}
-                onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
-                accessibilityLabel={`Voir mes ${genreFolders.length} styles musicaux`}
-              >
-                <Text style={s.dnaSeeAllText}>VOIR MES {genreFolders.length} STYLES</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -2281,7 +2296,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
           <Text style={s.shareTitle}>Partager mon profil Loki Music</Text>
-          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Music DNA, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
+          <Text style={s.shareSubtitle}>Ton univers musical tient dans un lien. Fais découvrir ton Loki Pulse, tes Vibes, tes réseaux et ce qui te ressemble.</Text>
           <View style={s.linkPreview}><Text style={s.linkPreviewText} numberOfLines={2}>{publicProfileLink}</Text></View>
           <MotionActionButton variant="primary" size="medium" onPress={shareNative} accessibilityLabel="Decouvrir"><Text style={s.shareActionPrimaryText}>FAIRE DÉCOUVRIR MON Loki Music</Text></MotionActionButton>
           <View style={s.shareCompactRow}>
@@ -2378,6 +2393,9 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dnaCompactMeter:{borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
   dnaCompactCopy:{flex:1,minWidth:0},
   dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
+  dnaCompactToggle:{minHeight:34,maxWidth:'62%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
+  dnaCompactToggleText:{color:colors.primaryLight,fontSize:9.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+  dnaCompactToggleChevron:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   dnaCompactGauge:{width:118,alignItems:'flex-end',gap:5},
   dnaCompactTrack:{width:'100%',height:7,borderRadius:999,backgroundColor:colors.border,overflow:'hidden'},
   dnaCompactFill:{height:'100%',borderRadius:999,backgroundColor:colors.keep},
