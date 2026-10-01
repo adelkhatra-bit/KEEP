@@ -643,7 +643,7 @@ export async function loadMusicAgoraGroups(): Promise<MusicAgoraGroup[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_agora_my_groups');
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  return (Array.isArray(data) ? data : []).map((row: any): MusicAgoraGroup => ({
     id: String(row.group_id || ''),
     name: String(row.group_name || 'Conversation'),
     ownerId: String(row.owner_id || ''),
@@ -699,7 +699,7 @@ export async function loadMusicAgoraGroupMembers(groupId: string): Promise<Music
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_agora_group_members', { p_group_id: groupId });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  return (Array.isArray(data) ? data : []).map((row: any): MusicAgoraGroupMember => ({
     profileId: String(row.profile_id || ''),
     username: String(row.username || 'loki-user'),
     avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
@@ -738,7 +738,7 @@ export async function loadMusicAgoraGroupMessages(
     p_limit: limit,
   });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  return (Array.isArray(data) ? data : []).map((row: any): MusicAgoraMessage => ({
     id: Number(row.id),
     roomSlug: `group:${groupId}`,
     profileId: String(row.profile_id || ''),
