@@ -27,6 +27,7 @@ import { supabase } from '../services/supabaseClient';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
+import { loadMusicAgoraSettings, saveMusicAgoraSettings } from '../services/musicAgoraService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -120,6 +121,9 @@ export default function NotificationsScreen({ navigation }: any) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(false);
+  const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
+  const [chatSaving, setChatSaving] = useState(false);
   const autoReadInFlight = useRef(false);
   // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
   // boutons en dessous bien aligné, je ne participe pas, je répondrai plus
@@ -153,6 +157,19 @@ export default function NotificationsScreen({ navigation }: any) {
     loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code || 'FREE'); }).catch(() => {});
     return () => { live = false; };
   }, [user?.id]);
+  useEffect(() => {
+    if (!user || isLocalGuest || isDemoMode) {
+      setChatEnabled(false);
+      return;
+    }
+    let live = true;
+    loadMusicAgoraSettings().then((settings) => {
+      if (!live) return;
+      setChatEnabled(settings.homeEnabled);
+      setChatNotificationsEnabled(settings.notificationsEnabled);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [user?.id, isLocalGuest, isDemoMode]);
   useEffect(() => {
     if (marketingLocked && prefs.marketingEnabled === false && user) {
       void updatePrefs({ marketingEnabled: true });
@@ -268,6 +285,27 @@ export default function NotificationsScreen({ navigation }: any) {
       setError('Impossible de modifier la visibilité du profil pour le moment.');
     } finally {
       setVisibilitySaving(false);
+    }
+  };
+
+  const updateChatEnabled = async (value: boolean) => {
+    if (!user || isLocalGuest || isDemoMode || chatSaving) {
+      if (isLocalGuest || isDemoMode) setNotice('Connecte ton compte pour activer le Tchat Loki');
+      return;
+    }
+    const previous = chatEnabled;
+    setChatEnabled(value);
+    setChatSaving(true);
+    try {
+      const settings = await saveMusicAgoraSettings(value, chatNotificationsEnabled);
+      setChatEnabled(settings.homeEnabled);
+      setChatNotificationsEnabled(settings.notificationsEnabled);
+      setNotice(settings.homeEnabled ? 'Tchat Loki activé sur ton profil' : 'Tchat Loki masqué sur ton profil');
+    } catch {
+      setChatEnabled(previous);
+      setError('Impossible de modifier le Tchat pour le moment.');
+    } finally {
+      setChatSaving(false);
     }
   };
 
@@ -583,6 +621,25 @@ export default function NotificationsScreen({ navigation }: any) {
           {visibilitySaving ? <ActivityIndicator color={colors.primaryLight} /> : <Switch value={Boolean(user?.isPublic)} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.border, true: colors.primary }} />}
         </View>
 
+        <View style={[styles.visibilityCard, styles.chatControlCard]}>
+          <View style={styles.chatStatusIcon}><Text style={styles.chatStatusIconText}>◉</Text></View>
+          <View style={styles.visibilityCopy}>
+            <Text style={styles.visibilityEyebrow}>TCHAT LOKI</Text>
+            <Text style={styles.visibilityTitle}>{chatEnabled ? 'Tchat activé' : 'Tchat désactivé'}</Text>
+            <Text style={styles.visibilityHint}>{chatEnabled
+              ? 'Une petite fenêtre de discussion reste visible sur ton profil. Les nouveaux messages arrivent automatiquement.'
+              : 'Active-le pour afficher le mini-chat sur ton profil et discuter sans quitter ta page.'}</Text>
+          </View>
+          {chatSaving ? <ActivityIndicator color={colors.keep} /> : (
+            <Switch
+              value={chatEnabled}
+              onValueChange={(value) => void updateChatEnabled(value)}
+              disabled={isLocalGuest || isDemoMode}
+              trackColor={{ false: colors.border, true: colors.keep }}
+            />
+          )}
+        </View>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitleNoMargin}>Centre de notifications</Text>
@@ -814,6 +871,9 @@ const styles = StyleSheet.create({
   visibilityEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   visibilityTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 },
   visibilityHint: { color: colors.white, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  chatControlCard: { marginTop: -8, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.07)' },
+  chatStatusIcon: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.12)', alignItems: 'center', justifyContent: 'center' },
+  chatStatusIconText: { color: colors.keep, fontSize: 18, fontWeight: '900' },
     section: { marginBottom: spacing.xxl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
