@@ -82,10 +82,14 @@ export async function setMusicAgoraRoomSubscription(
 
 export async function markMusicAgoraRoomRead(roomSlug: string, messageId: number): Promise<void> {
   if (!supabase || !roomSlug || !messageId) return;
-  await supabase.rpc('keep_agora_mark_room_read', {
-    p_room_slug: roomSlug,
-    p_message_id: messageId,
-  }).catch(() => {});
+  try {
+    await supabase.rpc('keep_agora_mark_room_read', {
+      p_room_slug: roomSlug,
+      p_message_id: messageId,
+    });
+  } catch {
+    // Read receipts are best-effort and must never block the chat.
+  }
 }
 
 export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
