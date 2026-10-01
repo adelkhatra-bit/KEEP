@@ -2,6 +2,10 @@
 -- can be prepared without interrupting their current game.
 -- PostgreSQL cannot CREATE OR REPLACE a RETURNS TABLE function when its OUT row changes.
 -- Drop this exact two-argument overload first so a full migration replay stays valid.
+alter table public.keep_battle_solo_presence
+  add column if not exists solo_round_index integer,
+  add column if not exists solo_round_total integer;
+
 drop function if exists public.keep_battle_solo_available(integer,integer);
 create or replace function public.keep_battle_solo_available(p_limit integer default 12,p_round_count integer default 8)
 returns table(profile_id uuid,username text,avatar_url text,theme_code text,last_seen_at timestamptz,skill_tier text,preferred_theme_codes text[],preferred_round_count integer,remaining_free integer,has_paid_access boolean,solo_round_index integer,solo_round_total integer,solo_round_remaining integer)
