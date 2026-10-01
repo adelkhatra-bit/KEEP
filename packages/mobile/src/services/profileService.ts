@@ -75,6 +75,8 @@ function publicUserFromProfile(profile: any, socialLinks: SocialLink[], follower
     kind: safeProfileKind(profile?.kind),
     city: safeOptionalText(profile?.city),
     countryCode: safeOptionalText(profile?.country_code),
+    preferredLanguageTag: safeOptionalText(profile?.preferred_language_tag),
+    musicCountryCodes: normalizeProfileTextList(profile?.music_country_codes, 50).map((code) => code.toUpperCase()),
     website: safeOptionalText(profile?.website),
     favoriteGenres: normalizeProfileTextList(profile?.favorite_genres),
     favoriteArtists: normalizeProfileTextList(profile?.favorite_artists),
@@ -185,6 +187,8 @@ export function createProfileService(client: SupabaseClient) {
           avatar_url: null,
           country_code: null,
           city: null,
+          preferred_language_tag: null,
+          music_country_codes: [],
           kind: 'USER',
           language_code: 'fr',
           is_public: true,
@@ -344,6 +348,10 @@ export function createProfileService(client: SupabaseClient) {
         avatar_url: persistedAvatar || null,
         country_code: keepTextUnlessExplicitlyCleared(user.countryCode, existingProfile?.country_code, allowClearing),
         city: keepTextUnlessExplicitlyCleared(user.city, existingProfile?.city, allowClearing),
+        preferred_language_tag: keepTextUnlessExplicitlyCleared(user.preferredLanguageTag, existingProfile?.preferred_language_tag, allowClearing),
+        music_country_codes: (user.musicCountryCodes?.length || allowClearing)
+          ? normalizeProfileTextList(user.musicCountryCodes ?? [], 50).map((code) => code.toUpperCase()).filter((code) => /^[A-Z]{2}$/.test(code))
+          : normalizeProfileTextList(existingProfile?.music_country_codes, 50).map((code) => code.toUpperCase()),
         kind: user.kind || existingProfile?.kind || 'USER',
         is_public: user.isPublic,
         location_opt_in: user.locationOptIn,
