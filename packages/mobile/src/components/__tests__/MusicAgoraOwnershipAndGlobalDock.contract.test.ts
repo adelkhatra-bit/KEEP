@@ -19,7 +19,7 @@ describe('Music Agora ownership + global dock contract', () => {
 
   it('mounts exactly one app-wide dock outside individual screens', () => {
     expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
-    expect(app).toContain('{user ? <GlobalChatDock /> : null}');
+    expect(app).toContain('{authReady && user ? <GlobalChatDock /> : null}');
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("side === 'left' ? styles.fabLeft : styles.fabRight");
     expect(dock).not.toContain('if (settings.homeEnabled) openChat()');
