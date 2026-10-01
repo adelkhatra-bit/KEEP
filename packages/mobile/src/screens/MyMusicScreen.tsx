@@ -1106,7 +1106,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setPayoutLinkDraft(payoutLink);
     const existingKey = target?.kind === 'playlist' ? target.playlist.id : target?.key;
     const existing = existingKey ? myOffers[existingKey] : undefined;
-    setSellPaymentMode(existing ? (existing.paymentMode === 'FREE' ? 'FREE' : 'MONEY') : null);
+    setSellPaymentMode(existing ? (existing.paymentMode === 'FREE' ? 'FREE' : Platform.OS === 'web' ? 'MONEY' : null) : null);
     setSellPriceCents(existing?.priceCents || null);
     setSellFreePrice(existing?.freePrice ?? null);
     setSellCurrencyCode(existing?.currencyCode || defaultSaleCurrency((user as any)?.countryCode));
@@ -1115,7 +1115,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const saveSellPrice = async () => {
     if (!sellTarget) return;
     if (!sellPaymentMode) {
-      Alert.alert('Mode de déblocage requis', 'Choisis comment cette collection sera débloquée : ⚡ FREE ou paiement direct.');
+      Alert.alert('Mode de déblocage requis', Platform.OS === 'web'
+        ? 'Choisis comment cette collection sera débloquée : ⚡ FREE ou paiement direct.'
+        : 'Choisis le déblocage ⚡ FREE. Le paiement externe en euros est désactivé dans l’app iOS/Android.');
+      return;
+    }
+    if (sellPaymentMode === 'MONEY' && Platform.OS !== 'web') {
+      Alert.alert('Paiement € indisponible dans l’app', 'Pour protéger la soumission App Store / Google Play, un contenu numérique ne peut pas être publié ici avec un paiement externe.');
       return;
     }
     const amount = sellPaymentMode === 'FREE' ? sellFreePrice : sellPriceCents;
@@ -1888,15 +1894,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   <Text style={styles.saleModeTitle}>FREE</Text>
                   <Text style={styles.saleModeHint}>Dans Loki Music · aucun paiement externe</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.saleModeCard, sellPaymentMode === 'MONEY' && styles.saleModeCardOn]} onPress={() => setSellPaymentMode('MONEY')} accessibilityLabel="Choisir un déblocage en euros">
+                {Platform.OS === 'web' ? <TouchableOpacity style={[styles.saleModeCard, sellPaymentMode === 'MONEY' && styles.saleModeCardOn]} onPress={() => setSellPaymentMode('MONEY')} accessibilityLabel="Choisir un déblocage en euros">
                   <Text style={styles.saleModeIcon}>◎</Text>
                   <Text style={styles.saleModeTitle}>PAIEMENT DIRECT</Text>
                   <Text style={styles.saleModeHint}>Devise selon ton pays · PayPal ou lien personnel</Text>
-                </TouchableOpacity>
+                </TouchableOpacity> : null}
               </View>
 
               {sellPaymentMode ? <>
-                {sellPaymentMode === 'MONEY' ? (
+                {sellPaymentMode === 'MONEY' && Platform.OS === 'web' ? (
                   <>
                     <Text style={styles.saleStepLabel}>DEVISE</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.saleCurrencyRow}>
@@ -1921,12 +1927,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
                     </TouchableOpacity>;
                   })}
                 </View>
-              </> : <Text style={styles.salePriceExplain}>Choisis FREE ou PAIEMENT DIRECT pour afficher les prix correspondants.</Text>}
+              </> : <Text style={styles.salePriceExplain}>{Platform.OS === 'web' ? 'Choisis FREE ou PAIEMENT DIRECT pour afficher les prix correspondants.' : 'Choisis FREE pour fixer le prix de la collection.'}</Text>}
 
               <View style={styles.saleWizardDivider} />
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 4 SUR 4</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
 
-              {sellPaymentMode === 'MONEY' ? (
+              {sellPaymentMode === 'MONEY' && Platform.OS === 'web' ? (
                 <View style={[styles.salePaymentSetup, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
                   <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' déjà enregistré' : 'PAIEMENT À CONFIGURER'}</Text>
                   <Text style={styles.salePaymentGateHint}>Ton lien est mémorisé sur ton profil. PayPal.Me est recommandé : le montant et la devise sélectionnée sont préremplis pour l’acheteur.</Text>
