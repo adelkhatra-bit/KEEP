@@ -55,7 +55,8 @@ async function syncCountries() {
     const response = await fetch("https://restcountries.com/v3.1/all?fields=cca2,name,languages", { signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error(`countries_${response.status}`);
     const data = await response.json().catch(() => []);
-    const rows = (Array.isArray(data) ? data : []).flatMap((row: any) => {
+    const raw = Array.isArray(data) ? data : [];
+    const rows = raw.flatMap((row: any) => {
       const code = String(row?.cca2 ?? "").trim().toUpperCase();
       const name = String(row?.name?.common ?? row?.name?.official ?? "").trim();
       if (!/^[A-Z]{2}$/.test(code) || !name) return [];
@@ -67,7 +68,19 @@ async function syncCountries() {
         updated_at: new Date().toISOString(),
       }];
     });
+    const languageMap = new Map<string,string>();
+    for (const row of raw) {
+      if (!row?.languages || typeof row.languages !== "object") continue;
+      for (const [code, name] of Object.entries(row.languages)) {
+        const cleanCode = String(code ?? "").trim().toLowerCase();
+        const cleanName = String(name ?? "").trim();
+        if (cleanCode && cleanName && !languageMap.has(cleanCode)) languageMap.set(cleanCode, cleanName);
+      }
+    }
     await upsertChunks("music_country_catalog", rows);
+    await upsertChunks("music_language_catalog", Array.from(languageMap.entries()).map(([code,name]) => ({
+      code, name, source: "RESTCOUNTRIES", updated_at: new Date().toISOString(),
+    })));
   })().finally(() => { syncCountriesPromise = null; });
   return syncCountriesPromise;
 }
@@ -88,6 +101,12 @@ async function handle(payload: any) {
   if (kind === "countries") {
     const limit = cleanLimit(payload?.limit, 300, 300);
     const { data, error } = await admin.rpc("keep_music_country_search", { p_query: query || null, p_limit: limit });
+    if (error) throw error;
+    return { ok: true, kind, items: data ?? [] };
+  }
+  if (kind === "languages") {
+    const limit = cleanLimit(payload?.limit, 300, 300);
+    const { data, error } = await admin.rpc("keep_music_language_search", { p_query: query || null, p_limit: limit });
     if (error) throw error;
     return { ok: true, kind, items: data ?? [] };
   }
