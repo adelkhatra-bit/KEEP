@@ -51,11 +51,16 @@ function chatTarget(item: KeepNotification): GlobalChatTarget {
   const roomSlugRaw = data.roomSlug ?? data.room_slug;
   const senderIdRaw = data.senderId ?? data.sender_id ?? data.actorId ?? data.actor_id ?? data.profileId ?? data.profile_id;
   const senderUsernameRaw = data.senderUsername ?? data.sender_username ?? data.actorUsername ?? data.actor_username ?? data.username;
+  const groupIdRaw = data.groupId ?? data.group_id;
+  const groupNameRaw = data.groupName ?? data.group_name;
+  const groupId = typeof groupIdRaw === 'string' && groupIdRaw.trim() ? groupIdRaw.trim() : null;
   const messageIdRaw = data.messageId ?? data.message_id;
   return {
     roomSlug: typeof roomSlugRaw === 'string' && roomSlugRaw.trim() ? roomSlugRaw.trim() : null,
-    targetProfileId: typeof senderIdRaw === 'string' && senderIdRaw.trim() ? senderIdRaw.trim() : null,
-    targetUsername: typeof senderUsernameRaw === 'string' && senderUsernameRaw.trim() ? senderUsernameRaw.trim() : null,
+    targetProfileId: groupId ? null : (typeof senderIdRaw === 'string' && senderIdRaw.trim() ? senderIdRaw.trim() : null),
+    targetUsername: groupId ? null : (typeof senderUsernameRaw === 'string' && senderUsernameRaw.trim() ? senderUsernameRaw.trim() : null),
+    groupId,
+    groupName: typeof groupNameRaw === 'string' && groupNameRaw.trim() ? groupNameRaw.trim() : null,
     messageId: typeof messageIdRaw === 'number'
       ? messageIdRaw
       : typeof messageIdRaw === 'string' && messageIdRaw.trim()
