@@ -1981,6 +1981,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
 
+          {/* Permanent surface: all owner style bubbles stay visible and clickable below the percentage gauge. */}
           {profileStyleBubbles.length > 0 ? (
             <View style={s.dnaCompactPreview} testID="profile-loki-pulse-visible-styles">
               <MusicStyleBubbles
