@@ -446,7 +446,14 @@
     "nativeKeyboardUsesEndCoordinatesHeightAndScreenY": true,
     "compactComposerFontSizePx": 18,
     "messageBodyFontSizePx": 16,
-    "selectedTrackValidationPinned": true
+    "selectedTrackValidationPinned": true,
+    "adaptiveCompactDrawer": true,
+    "compactDrawerMaxHeightPx": 620,
+    "compactDrawerMinHeightPx": 300,
+    "compactDrawerCenteredWhenKeyboardClosed": true,
+    "compactDrawerAnchoredAboveKeyboard": true,
+    "nativeKeyboardInsetStrategy": "max-reported-height-and-screenY-cover",
+    "incomingOtherThreadMustNotReplaceOpenConversation": true
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
