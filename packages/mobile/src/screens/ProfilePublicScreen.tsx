@@ -1981,6 +1981,30 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
 
+          {!profilePulseExpanded && profileStyleBubbles.length > 0 ? (
+            <View style={s.dnaCompactPreview} testID="profile-loki-pulse-preview">
+              <MusicStyleBubbles
+                testID="profile-music-style-bubbles-preview"
+                genres={profileStyleBubbles}
+                max={4}
+                compact
+                onPressGenre={(genre) => {
+                  const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+                  if (folder?.entries.length) {
+                    openSelectionSwipe({
+                      title: folder.genre,
+                      subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                      tracks: folder.entries.map((entry) => entry.track),
+                    });
+                    return;
+                  }
+                  switchProfileTab('TRACKS');
+                  setTracksGrouping('GENRE');
+                }}
+              />
+            </View>
+          ) : null}
+
           {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
             <View style={s.pulseCompactActions}>
               <TouchableOpacity
@@ -2411,6 +2435,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dnaCompactMeter:{borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
   dnaCompactCopy:{flex:1,minWidth:0},
   dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
+  dnaCompactPreview:{marginTop:8},
   pulseCompactActions:{marginTop:8,flexDirection:'row',gap:8},
   dnaCompactToggle:{flex:1,minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
   dnaCompactToggleOn:{borderColor:colors.keep,backgroundColor:'rgba(82,255,185,.10)'},
