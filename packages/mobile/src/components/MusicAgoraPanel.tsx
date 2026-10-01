@@ -74,6 +74,7 @@ export default function MusicAgoraPanel({
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const initialScrollDone = useRef(false);
+  const browsingHistoryRef = useRef(false);
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
 
@@ -131,7 +132,9 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!messages.length) return;
     const timer = setTimeout(() => {
-      chatScrollRef.current?.scrollToEnd({ animated: initialScrollDone.current });
+      if (!initialScrollDone.current || !browsingHistoryRef.current) {
+        chatScrollRef.current?.scrollToEnd({ animated: initialScrollDone.current });
+      }
       initialScrollDone.current = true;
     }, 40);
     return () => clearTimeout(timer);
@@ -301,7 +304,15 @@ export default function MusicAgoraPanel({
           <Text style={s.compactTitle}>TCHAT LOKI · EN DIRECT</Text>
           <Text style={s.compactMeta}>{room?.label || 'Discussion musicale'} · nouveaux messages automatiques</Text>
         </View>
-        <Text style={s.compactBadge}>ACTIVÉ</Text>
+        <Text style={s.compactBadge}>EN DIRECT</Text>
+        <TouchableOpacity
+          style={s.compactClose}
+          onPress={() => void updateHomeChat(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Fermer le mini-chat du profil"
+        >
+          <Text style={s.compactCloseText}>×</Text>
+        </TouchableOpacity>
       </View>
     ) : <View style={s.intro}>
       <View style={s.titleRow}>
@@ -337,6 +348,12 @@ export default function MusicAgoraPanel({
       contentContainerStyle={s.list}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+        browsingHistoryRef.current = distanceFromBottom > 56;
+      }}
       onContentSizeChange={() => {
         if (!initialScrollDone.current) chatScrollRef.current?.scrollToEnd({ animated: false });
       }}
@@ -397,7 +414,7 @@ export default function MusicAgoraPanel({
         placeholderTextColor={colors.textMutedGrey}
         multiline
         maxLength={280}
-        style={s.input}
+        style={[s.input, compact && s.inputCompact]}
       />
       <View style={s.composerBottom}>
         <TouchableOpacity style={s.shareMusic} disabled={!shareableTracks.length} onPress={() => setShareOpen(true)}>
@@ -426,13 +443,15 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{marginHorizontal:18,marginVertical:10,padding:10,borderRadius:20,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(20,14,31,.94)',overflow:'hidden'},
+  shellCompact:{height:390,marginHorizontal:18,marginVertical:10,padding:10,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.96)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.28,shadowRadius:16,shadowOffset:{width:0,height:8},elevation:12},
   compactHeader:{minHeight:42,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
   compactTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},
   compactMeta:{color:colors.textMutedGrey,fontSize:8.5,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
+  compactClose:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
   intro:{padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},
   titleRow:{flexDirection:'row',alignItems:'center',gap:10},
   kicker:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1.4},
@@ -455,6 +474,7 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
   composerCompact:{padding:8,borderRadius:14},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
+  inputCompact:{height:46,minHeight:46,maxHeight:46,fontSize:12,lineHeight:17},
   quickReactions:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:6},
   quickReaction:{width:34,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionText:{fontSize:16},
@@ -469,7 +489,7 @@ const s=StyleSheet.create({
   lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
   chatScroll:{maxHeight:410},
-  chatScrollCompact:{maxHeight:250},
+  chatScrollCompact:{height:178,maxHeight:178,minHeight:178},
   list:{gap:8,paddingVertical:4},
   message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%'},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
