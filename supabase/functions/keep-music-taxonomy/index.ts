@@ -85,13 +85,14 @@ async function syncCountries() {
   return syncCountriesPromise;
 }
 async function ensureCatalogs() {
-  const [{ count: genreCount }, { count: countryCount }] = await Promise.all([
+  const [{ count: genreCount }, { count: countryCount }, { count: languageCount }] = await Promise.all([
     admin.from("music_genre_catalog").select("*", { count: "exact", head: true }),
     admin.from("music_country_catalog").select("*", { count: "exact", head: true }),
+    admin.from("music_language_catalog").select("*", { count: "exact", head: true }),
   ]);
   await Promise.all([
     (genreCount ?? 0) < 500 ? syncGenres().catch(() => {}) : Promise.resolve(),
-    (countryCount ?? 0) < 180 ? syncCountries().catch(() => {}) : Promise.resolve(),
+    ((countryCount ?? 0) < 180 || (languageCount ?? 0) < 120) ? syncCountries().catch(() => {}) : Promise.resolve(),
   ]);
 }
 async function handle(payload: any) {
