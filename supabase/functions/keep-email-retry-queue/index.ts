@@ -29,14 +29,22 @@ async function processEmailQueue() {
   // Supabase Edge Functions use rotating egress addresses, so retrying the same
   // blocked credential every five minutes only floods logs and can never heal
   // by itself. Pause delivery until the integration secret is changed.
-  const [{ data: brevoSecret }, { data: runtime }] = await Promise.all([
-    admin.from("integration_secrets").select("updated_at").eq("key", "BREVO_API_KEY").maybeSingle(),
+  const [{ data: emailSecrets }, { data: runtime }] = await Promise.all([
+    admin.from("integration_secrets")
+      .select("key,updated_at")
+      .in("key", ["RESEND_API_KEY","EMAIL_SENDER_ADDRESS","MAILJET_API_KEY","MAILJET_SECRET_KEY","BREVO_API_KEY"]),
     admin.from("integration_runtime_status").select("status,last_error,updated_at").eq("key", "BREVO_EMAIL_DELIVERY").maybeSingle(),
   ]);
+  const secretMap = new Map((emailSecrets || []).map((row: any) => [String(row.key), row]));
+  const brevoSecret = secretMap.get("BREVO_API_KEY") as any;
+  const resendReady = secretMap.has("RESEND_API_KEY") && secretMap.has("EMAIL_SENDER_ADDRESS");
+  const mailjetReady = secretMap.has("MAILJET_API_KEY") && secretMap.has("MAILJET_SECRET_KEY");
   const secretUpdatedAt = brevoSecret?.updated_at ? Date.parse(String(brevoSecret.updated_at)) : 0;
   const runtimeUpdatedAt = runtime?.updated_at ? Date.parse(String(runtime.updated_at)) : 0;
   if (
-    runtime?.status === "ERROR"
+    !resendReady
+    && !mailjetReady
+    && runtime?.status === "ERROR"
     && /brevo_ip_allowlist_blocked/i.test(String(runtime?.last_error || ""))
     && runtimeUpdatedAt >= secretUpdatedAt
   ) {

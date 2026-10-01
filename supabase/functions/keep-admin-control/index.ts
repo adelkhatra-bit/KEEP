@@ -16,6 +16,8 @@ const corsHeaders = {
 };
 
 const CATALOG: Record<string, { category: string; label: string; secret?: boolean }> = {
+  RESEND_API_KEY: { category: "email", label: "Resend API key", secret: true },
+  EMAIL_SENDER_ADDRESS: { category: "email", label: "E-mail expéditeur Loki Music (domaine vérifié)" },
   BREVO_API_KEY: { category: "email", label: "Brevo API key", secret: true },
   BREVO_SMTP_KEY: { category: "email", label: "Brevo SMTP key", secret: true },
   BREVO_SMTP_LOGIN: { category: "email", label: "Brevo SMTP login" },
@@ -185,7 +187,7 @@ type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUS
 function validateStructuredIntegrationValue(key: string, value: string): GenericIntegrationValidation | null {
   const clean = value.trim();
 
-  if (key === "BREVO_SENDER_EMAIL") {
+  if (key === "EMAIL_SENDER_ADDRESS" || key === "BREVO_SENDER_EMAIL") {
     return /^\S+@\S+\.\S+$/.test(clean)
       ? { valid: true, status: "ACTIVE", message: "Adresse expéditeur valide." }
       : { valid: false, status: "ERROR", message: "Adresse e-mail expéditeur invalide." };
