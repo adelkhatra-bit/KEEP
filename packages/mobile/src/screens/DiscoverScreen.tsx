@@ -8,7 +8,7 @@ import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { getDiscoveryAccess, getCompareAccess, DiscoveryAccess, QuotaAccess } from '../services/growthAccessService';
-import { loadCurrentPlanCode } from '../services/planService';
+import { loadCurrentPlanCode, loadDemoDiscoveryLocked } from '../services/planService';
 import ProfileCertificationBadge from '../components/ProfileCertificationBadge';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/publicProfileStateService';
@@ -96,6 +96,13 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [localDiscoveryEnabled, setLocalDiscoveryEnabled] = useState(true);
   const [localDiscoveryChecked, setLocalDiscoveryChecked] = useState(false);
   useEffect(() => { let live = true; isFeatureEnabled('local_discovery').then((enabled) => { if (live) { setLocalDiscoveryEnabled(enabled); setLocalDiscoveryChecked(true); } }); return () => { live = false; }; }, []);
+  const [demoDiscoveryLocked, setDemoDiscoveryLocked] = useState(true);
+  useEffect(() => {
+    let live = true;
+    if (!isDemoMode) { setDemoDiscoveryLocked(false); return () => { live = false; }; }
+    loadDemoDiscoveryLocked().then((locked) => { if (live) setDemoDiscoveryLocked(locked); }).catch(() => { if (live) setDemoDiscoveryLocked(true); });
+    return () => { live = false; };
+  }, [isDemoMode]);
   // Adel : le bloc "AFFINITÉ %" ci-dessous est la vraie fonctionnalité
   // derrière le flag Super Admin "compare_keep" ("Comparer nos KEEP") --
   // jamais branché jusqu'ici. Coupe-circuit réel, pas décoratif.
@@ -528,10 +535,10 @@ export default function DiscoverScreen({ navigation, route }: any) {
         : [currentProfile.city, currentProfile.countryCode].filter(Boolean).join(' · ')
     : '';
 
-  const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
+  const discoveryUnlocked = (isDemoMode && !demoDiscoveryLocked) || discoveryAccess?.allowed === true;
   const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
 
-  if (isDemoMode) {
+  if (isDemoMode && demoDiscoveryLocked) {
     return (
       <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
