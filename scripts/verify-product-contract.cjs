@@ -30,16 +30,17 @@ must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -1, 'KEEP credit changed');
 
-must(contract.profileOwner.freePlacement === 'beside-profile-kind', 'FREE placement contract changed');
-must(contract.profileOwner.freeBesideProfileKind === true, 'FREE must sit beside profile type');
-must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises']), 'profile metrics order changed');
+must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
+must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must not sit beside profile type');
+must(contract.profileOwner.freeImmediatelyAfterReprises === true, 'FREE must stay immediately after Reprises');
+must(contract.profileOwner.freeMustAppearExactlyOnce === true, 'FREE must appear exactly once');
+must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises','FREE']), 'profile metrics order changed');
 
 const metaStart = profile.indexOf('<View style={s.profileMetaTopRow}>');
 const locationStart = profile.indexOf('{(user.city || user.countryCode)', metaStart);
 must(metaStart >= 0 && locationStart > metaStart, 'owner identity row missing');
 const meta = profile.slice(metaStart, locationStart);
-must(meta.includes('profileFreeInline'), 'FREE missing beside Utilisateur/Créateur');
-must(meta.indexOf('profileFreeInline') > meta.indexOf('kindBadge'), 'FREE must follow the profile type badge');
+must(!meta.includes('>FREE</Text>') && !meta.includes('profileFreeInline'), 'FREE reintroduced beside profile type');
 must(meta.includes('<BattleGlowButton'), 'Battle missing from identity row');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
@@ -49,19 +50,22 @@ const metrics = profile.slice(metricsStart, metricsEnd);
 const plus = metrics.indexOf('>PLUS</Text>');
 const followers = metrics.indexOf('>Abonnés</Text>');
 const reprises = metrics.indexOf('>Reprises</Text>');
-must(plus >= 0 && followers > plus && reprises > followers, 'metrics must remain PLUS -> Abonnés -> Reprises');
-must(!metrics.includes('topMetricFreeHero') && !metrics.includes('>FREE</Text>'), 'FREE must not be duplicated in metrics');
+const free = metrics.indexOf('>FREE</Text>');
+must(plus >= 0 && followers > plus && reprises > followers && free > reprises, 'metrics must remain PLUS -> Abonnés -> Reprises -> FREE');
+must((metrics.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once in metrics');
+must(metrics.includes('topMetricFreeItem'), 'FREE metric item missing');
 
 must(profile.includes('<ProfileCertificationBadge tier={certificationTier} compact />'), 'profile certification badge disconnected');
 must(profile.includes('loadMyKeepBattleCreditStatus'), 'real FREE balance source disconnected');
 must(profile.includes('setFreeBalance(battleStatus.remainingFree)'), 'real FREE balance no longer applied');
 
-must(master.includes('Barre suivante : **PLUS | Abonnés | Reprises**.'), 'master spec profile metrics rule stale');
-must(master.includes('FREE immédiatement à droite du badge de type'), 'master spec FREE placement missing');
-must(!master.includes('FREE reste **juste après Reprises**'), 'stale FREE placement still present in master spec');
+must(master.includes('**PLUS | Abonnés | Reprises | FREE**'), 'master spec profile metrics rule stale');
+must(master.includes('FREE est immédiatement à droite de Reprises'), 'master spec FREE placement missing');
+must(!master.includes('FREE immédiatement à droite du badge de type'), 'stale FREE beside profile type rule still present');
 
 must(uiBaseline.profileOwner.freePlacement === contract.profileOwner.freePlacement, 'UI baseline disagrees with product contract');
-must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === true, 'UI baseline must require FREE beside profile type');
+must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === false, 'UI baseline must forbid FREE beside profile type');
+must(uiBaseline.profileOwner.freeImmediatelyAfterReprises === true, 'UI baseline must lock FREE after Reprises');
 must(JSON.stringify(uiBaseline.profileOwner.metricsBarOrder) === JSON.stringify(contract.profileOwner.metricsBarOrder), 'UI baseline metrics order disagrees with product contract');
 must(contract.profileOwner.visibilityControlLocation === 'Notifications top', 'profile visibility location contract changed');
 must(contract.profileOwner.visibilityControlRemovedFromNetworksPanel === true, 'profile visibility must stay out of networks panel');
@@ -131,7 +135,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('KEEP product contract: PASS');
-console.log('profile: type -> FREE; metrics: PLUS -> Abonnés -> Reprises');
+console.log('profile: identity type separate; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: FREE/€ filters + three-step creation + duplicate guard + payout test locked');
