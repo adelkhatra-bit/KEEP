@@ -33,12 +33,18 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('accessibilityRole="checkbox"');
   });
 
-  it('announces and previews the latest sender without exposing message content', () => {
+  it('announces and previews the latest sender only after explicit voice opt-in', () => {
     expect(dock).toContain("import * as Speech from 'expo-speech'");
     expect(dock).toContain('Message de');
     expect(dock).toContain('latestChatSender');
     expect(dock).toContain('chatNotificationTarget');
     expect(dock).toContain('drawerPeek');
+    expect(dock).toContain('chatVoiceEnabled');
+    expect(dock).toContain('saveMusicAgoraVoiceAnnouncements');
+    expect(service).toContain('voiceAnnouncementsEnabled');
+    expect(panel).toContain('Annonce vocale');
+    expect(panel).toContain('Le contenu privé du message n’est jamais lu.');
+    expect(dock).not.toContain('Speech.speak(item.body');
   });
 
   it('keeps the control visible and movable left/right near the bottom', () => {
@@ -51,8 +57,8 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('chatNudge');
     expect(dock).toContain('drawerPeek');
     expect(dock).toContain('drawerGrip');
-    expect(dock).toContain("outputRange: [-30, 0]");
-    expect(dock).toContain("outputRange: [30, 0]");
+    expect(dock).toContain("outputRange: [-50, 0]");
+    expect(dock).toContain("outputRange: [50, 0]");
   });
 
   it('keeps bell messages, activity and settings separated and inline', () => {
