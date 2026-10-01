@@ -18,7 +18,8 @@ describe('Collection sale flow — no duplicates, mandatory payment mode', () =>
   });
 
   it('publishes only a named multi-track collection', () => {
-    expect(panel).toContain('placeholder="Nom de la collection"');
+    expect(panel).toContain('<Text style={s.collectionCartFieldLabel}>NOM DE LA COLLECTION</Text>');
+    expect(panel).toContain('value={collectionCartName}');
     expect(panel).toContain("collectionCartStep === 'TRACKS' ? '1'");
     expect(panel).toContain('if (collectionCartIds.size < 2)');
   });
@@ -26,7 +27,8 @@ describe('Collection sale flow — no duplicates, mandatory payment mode', () =>
   it('forces mode selection, then distinguishes money from FREE', () => {
     expect(panel).toContain("setCollectionCartPaymentMode('FREE')");
     expect(panel).toContain("setCollectionCartPaymentMode('MONEY')");
-    expect(panel).toContain('PAIEMENT DIRECT');
+    expect(panel).toContain('PayPal · DEVISE');
+    expect(panel).toContain('PAYPAL DÉJÀ ENREGISTRÉ');
     expect(panel).toContain('FREE');
     expect(panel).toContain('collectionCartPayoutLink');
   });
