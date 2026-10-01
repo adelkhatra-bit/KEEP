@@ -837,7 +837,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }).catch(() => {});
   }, [enabled, initialArenaId, arena]);
 
-  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS): Promise<boolean> => {
+  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS, positionMillis = 0): Promise<boolean> => {
     if (!url) return false;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       // Adel (22/09/2026, audit latence) : le premier essai garde `key` tel
@@ -848,7 +848,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // forcer un chargement frais.
       const attemptKey = attempt === 0 ? key : `${key}:retry${attempt}`;
       try {
-        await playTrackPreviewSegment(attemptKey, url, 0, duration);
+        await playTrackPreviewSegment(attemptKey, url, positionMillis, duration);
         return true;
       } catch {
         await wait(220 + attempt * 180);
@@ -1350,7 +1350,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         });
       } catch {
         if (!alive) return;
-        const ok = await playVerified(`arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
+        const lateByMs = Math.max(0, Date.now() - startsAt);
+        const ok = await playVerified(
+          `arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`,
+          previewUrl,
+          Math.max(700, closesAt - Date.now() + 500),
+          9000 + lateByMs,
+        );
         if (alive && ok) { confirmed = true; setAudioReady(true); }
       }
       // Adel (02/09/2026) : "il y a du son uniquement sur la première dans
@@ -1368,7 +1374,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const safetyDelay = Math.max(0, startsAt - Date.now()) + 1200;
         await wait(safetyDelay);
         if (!alive || confirmed) return;
-        const ok = await playVerified(`arena-safety:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, Math.max(1600, closesAt - Date.now() + 500));
+        const lateByMs = Math.max(0, Date.now() - startsAt);
+        const ok = await playVerified(
+          `arena-safety:${arena.id}:${arena.matchNo}:${round.position}`,
+          previewUrl,
+          Math.max(700, closesAt - Date.now() + 500),
+          9000 + lateByMs,
+        );
         if (alive && ok) setAudioReady(true);
       }
     };
