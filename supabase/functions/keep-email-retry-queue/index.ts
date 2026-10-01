@@ -25,6 +25,25 @@ async function authorized(req: Request) {
 }
 
 async function processEmailQueue() {
+  // A Brevo IP allowlist rejection is configuration, not a transient outage.
+  // Supabase Edge Functions use rotating egress addresses, so retrying the same
+  // blocked credential every five minutes only floods logs and can never heal
+  // by itself. Pause delivery until the integration secret is changed.
+  const [{ data: brevoSecret }, { data: runtime }] = await Promise.all([
+    admin.from("integration_secrets").select("updated_at").eq("key", "BREVO_API_KEY").maybeSingle(),
+    admin.from("integration_runtime_status").select("status,last_error,updated_at").eq("key", "BREVO_EMAIL_DELIVERY").maybeSingle(),
+  ]);
+  const secretUpdatedAt = brevoSecret?.updated_at ? Date.parse(String(brevoSecret.updated_at)) : 0;
+  const runtimeUpdatedAt = runtime?.updated_at ? Date.parse(String(runtime.updated_at)) : 0;
+  if (
+    runtime?.status === "BLOCKED"
+    && /brevo_ip_allowlist_blocked/i.test(String(runtime?.last_error || ""))
+    && runtimeUpdatedAt >= secretUpdatedAt
+  ) {
+    const { count } = await admin.from("email_queue").select("id", { count: "exact", head: true }).eq("status", "pending");
+    return { processed: 0, failed: 0, blocked: Number(count || 0), exhausted: 0, providerPaused: true };
+  }
+
   const { data: pending, error: fetchError } = await admin
     .from("email_queue")
     .select("id,recipient_email,subject,html_content,text_content,email_type,retry_count,max_retries")
@@ -67,6 +86,13 @@ async function processEmailQueue() {
         retry_count: retryCount + 1,
         error_message: null,
       }).eq("id", email.id);
+      await admin.from("integration_runtime_status").upsert({
+        key: "BREVO_EMAIL_DELIVERY",
+        status: "ACTIVE",
+        last_checked_at: new Date().toISOString(),
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
       processed += 1;
     } else {
       const detail = sent.detail ? `${sent.error}:${sent.detail}` : sent.error;
@@ -77,6 +103,15 @@ async function processEmailQueue() {
           retry_count: retryCount,
           error_message: detail,
         }).eq("id", email.id);
+        await admin.from("integration_runtime_status").upsert({
+          key: "BREVO_EMAIL_DELIVERY",
+          status: "BLOCKED",
+          last_checked_at: new Date().toISOString(),
+          last_error: /unrecognised IP address/i.test(detail)
+            ? "brevo_ip_allowlist_blocked: authorize Supabase egress or disable Brevo IP allowlist"
+            : `brevo_provider_blocked: ${detail.slice(0, 300)}`,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "key" });
         blocked += 1;
       } else {
         const nextRetry = retryCount + 1;
