@@ -18,34 +18,36 @@ describe('Loki Music style bubbles contract', () => {
     expect(bubbles).toContain('max = 8');
   });
 
-  it('keeps the owner profile bubbles visible from persisted tastes, not only loaded tracks', () => {
+  it('keeps owner profile bubbles visible even while details are collapsed', () => {
     expect(owner).toContain('profileStyleBubbles');
-    expect(owner).toContain('...(user?.favoriteGenres ?? [])');
+    expect(owner).toContain('buildMusicStyleBubbles([');
+    expect(owner).toContain('user?.favoriteGenres');
+    expect(owner).toContain('!profilePulseExpanded && profileStyleBubbles.length > 0');
+    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
     expect(owner).toContain('testID="profile-music-style-bubbles"');
-    expect(owner).toContain('<MusicStyleBubbles');
     expect(owner).toContain('openSelectionSwipe');
-    expect(owner).toContain('!dnaFeatureEnabled && profileStyleBubbles.length > 0');
-    expect(owner).toContain('TES STYLES MUSICAUX');
   });
 
-  it('keeps music-style pills visible on a visited profile even while DNA is collapsed', () => {
+  it('keeps visited profile bubbles available behind its compact expansion', () => {
     expect(visitor).toContain('visitorStyleBubbles');
-    expect(visitor).toContain('testID="visitor-music-style-bubbles"');
+    expect(visitor).toContain('visitorPulseExpanded && visitorStyleBubbles.length > 0');
+    expect(visitor).toContain('testID="public-profile-music-style-bubbles"');
     expect(visitor).toContain('<MusicStyleBubbles');
     expect(visitor).toContain("openBrowseSwipe({ type: 'genre'");
   });
 
-  it('shows the same musical identity at the bottom of Loki Music home', () => {
-    expect(home).toContain('LOKI MUSIC DNA');
-    expect(home).toContain('Tes styles musicaux');
-    expect(home).toContain('testID="home-music-style-bubbles"');
+  it('shows the same musical identity on Listen home without extra DNA/Pulse branding', () => {
+    expect(home).toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
+    expect(home).toContain('testID="home-loki-pulse-bubbles"');
     expect(home).toContain('<MusicStyleBubbles');
+    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
+    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
   });
 
   it('hydrates home style bubbles from persistent Supabase keeps, not only device cache', () => {
-    expect(home).toContain("loadOwnProfileKeeps");
+    expect(home).toContain('loadOwnProfileKeeps');
     expect(home).toContain('serverHomeStyles');
-    expect(home).toContain('navigation?.addListener?.(\'focus\'');
+    expect(home).toContain("navigation?.addListener?.('focus'");
     expect(home).toContain('entry.track.genres');
   });
 });
