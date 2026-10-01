@@ -131,6 +131,12 @@ check('Renouvellements StoreKit resynchronisés au démarrage', contains(iapServ
 check('Abonnement affiche renouvellement et liens légaux', contains(offers, 'renouvelé automatiquement') && contains(offers, '/KEEP/terms/') && contains(offers, '/KEEP/privacy/'));
 check('Vérification serveur exige le compte Loki lié', contains(iapVerifier, '!payload.appAccountToken') && contains(iapVerifier, 'account_mismatch'));
 check('Vérification serveur refuse abonnement expiré ou révoqué', contains(iapVerifier, 'expiresAtMs <= Date.now()') && contains(iapVerifier, 'subscription_expired') && contains(iapVerifier, 'subscription_revoked'));
+const androidIap = 'packages/mobile/modules/keep-iap/android/src/main/java/expo/modules/keepiap/KeepIAPModule.kt';
+const androidIapGradle = 'packages/mobile/modules/keep-iap/android/build.gradle';
+check('Google Play Billing natif présent', exists(androidIap) && contains(androidIap, 'BillingClient') && contains(androidIapGradle, 'com.android.billingclient:billing-ktx'));
+check('Google Play purchaseToken envoyé au serveur', contains(iapService, "platform: 'android'") && contains(iapService, 'purchaseToken'));
+check('Google Play vérifié via Android Publisher API', contains(iapVerifier, 'purchases/subscriptionsv2/tokens') && contains(iapVerifier, 'androidpublisher'));
+check('Google Play lie achat et compte Loki', contains(iapVerifier, 'obfuscatedExternalAccountId') && contains(iapVerifier, 'account_mismatch'));
 
 check('Dossier de soumission App Store préparé', exists('docs/APP_STORE_SUBMISSION_READY.md'));
 check('Préflight iOS natif sans credential présent', exists('.github/workflows/app-store-native-preflight.yml'));
