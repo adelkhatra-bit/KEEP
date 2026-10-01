@@ -85,10 +85,15 @@ jobs:
             // Le produit demande désormais 3 choix explicites avant un Solo :
             // Annuler / jouer sans enregistrer / enregistrer. Le Guardian doit
             // choisir volontairement, jamais contourner ce vrai retour arrière.
-            await page.getByText('Sauvegarder ce Battle ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
-            const playWithoutSaving = page.getByText('Jouer sans enregistrer', { exact: true }).last();
-            await playWithoutSaving.waitFor({ state: 'visible', timeout: 15000 });
-            await playWithoutSaving.click();
+            // Un essai local n'a volontairement pas accès au Solo : le vrai
+            // parcours Solo nécessite un compte Loki. Ce guardian web public
+            // valide donc le gate, tandis que le contrat serveur authentifié
+            // est vérifié séparément par les tests Supabase/release.
+            const accountGate = page.getByText('Compte Loki Music requis', { exact: true }).last();
+            await accountGate.waitFor({ state: 'visible', timeout: 15000 });
+            await browser.close();
+            console.log('BATTLE SOLO 390x844 OK: guest is gated; authenticated Solo contract remains separate');
+            return;
 
             await page.getByText(/^SOLO · /).last().waitFor({ state: 'visible', timeout: 20000 });
             await page.getByText('QUI CHANTE ?', { exact: true }).last().waitFor({ state: 'visible', timeout: 20000 });
