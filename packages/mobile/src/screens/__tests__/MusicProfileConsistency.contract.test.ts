@@ -27,10 +27,10 @@ describe('Music profile consistency', () => {
 
   it('opens music management with explicit per-track actions', () => {
     expect(profile).toContain("params: { openManageMusic: true }");
-    expect(myMusic).toContain('MODE GESTION ACTIF');
-    expect(myMusic).toContain('PUBLIC / PRIVÉ');
+    expect(myMusic).toContain("manageMusicMode ? 'MODIFICATION ACTIVÉE' : 'MODE MODIFICATION'");
+    expect(myMusic).toContain("{publicTrack ? 'PUBLIC' : 'PRIVÉ'}");
     expect(myMusic).toContain('SUPPRIMER');
-    expect(myMusic).toContain('AJOUTER À UNE COLLECTION');
+    expect(myMusic).toContain('Vente centralisée dans Collections/Pépites');
   });
 
   it('routes collection members to full collection management instead of a price-only shortcut', () => {
