@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { KeepNotification, NotificationPreferences, loadNotificationPreferences, loadNotifications, markAllNotificationsRead, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
 import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
+import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from '../services/planService';
 import {
   isNotificationAccessLocked,
@@ -64,6 +65,7 @@ function chatTarget(item: KeepNotification): GlobalChatTarget {
 
 export default function NotificationSidePanel({ visible, profileId, onClose }: Props) {
   const slide = useRef(new Animated.Value(1)).current;
+  const isDemoMode = useUserStore((state) => state.isDemoMode);
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'MESSAGES' | 'ACTIVITY' | 'SETTINGS'>('ACTIVITY');
@@ -84,6 +86,14 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 
   const refresh = async () => {
     if (!profileId) return;
+    if (isDemoMode) {
+      setItems([]);
+      setAccessRules([]);
+      setCurrentPlan('FREE');
+      setNotificationPrefs(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [notifications, rules, plan, prefs] = await Promise.all([
@@ -102,6 +112,15 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   };
 
   const loadChatSettings = async () => {
+    if (isDemoMode) {
+      setChatEnabled(true);
+      setChatNotifications(true);
+      setChatVoiceEnabled(false);
+      setChatSurfaces(CHAT_SURFACE_OPTIONS.map((item) => item.key));
+      setChatSide('right');
+      setChatSettingsLoading(false);
+      return;
+    }
     setChatSettingsLoading(true);
     try {
       const settings = await loadMusicAgoraSettings();
@@ -123,6 +142,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     surfaces: MusicAgoraSurface[] = chatSurfaces,
   ) => {
     if (chatSaving) return;
+    if (isDemoMode) {
+      const nextSurfaces: MusicAgoraSurface[] = surfaces.length ? surfaces : ['PROFILE'];
+      setChatEnabled(enabled);
+      setChatNotifications(notificationsEnabled);
+      setChatSurfaces(nextSurfaces);
+      return;
+    }
     setChatSaving(true);
     try {
       const nextSurfaces: MusicAgoraSurface[] = surfaces.length ? surfaces : ['PROFILE'];
@@ -152,7 +178,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     setChatSide(side);
     useGlobalChatStore.getState().setSide(side);
     const bottom = useGlobalChatStore.getState().bottomOffset;
-    void saveMusicAgoraPosition(side, bottom).catch(() => {});
+    if (!isDemoMode) void saveMusicAgoraPosition(side, bottom).catch(() => {});
   };
 
   useEffect(() => {
@@ -164,11 +190,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     void refresh();
     void loadChatSettings();
     Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 2 }).start();
-    const unsub = subscribeToNotifications(profileId, (notification) => {
-      setItems((prev) => [notification, ...prev.filter((row) => row.id !== notification.id)].slice(0, 100));
-    });
+    const unsub = isDemoMode
+      ? () => {}
+      : subscribeToNotifications(profileId, (notification) => {
+          setItems((prev) => [notification, ...prev.filter((row) => row.id !== notification.id)].slice(0, 100));
+        });
     return () => unsub();
-  }, [visible, profileId]);
+  }, [visible, profileId, isDemoMode]);
 
   const close = () => {
     Animated.timing(slide, { toValue: 1, duration: 180, useNativeDriver: true }).start(({ finished }) => {
@@ -180,13 +208,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (item.readAt) return;
     const readAt = new Date().toISOString();
     setItems((prev) => prev.map((row) => row.id === item.id ? { ...row, readAt } : row));
-    await markNotificationRead(profileId, item.id).catch(() => {});
+    if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
   };
 
   const markAll = async () => {
     const readAt = new Date().toISOString();
     setItems((prev) => prev.map((row) => ({ ...row, readAt: row.readAt || readAt })));
-    await markAllNotificationsRead(profileId).catch(() => {});
+    if (!isDemoMode) await markAllNotificationsRead(profileId).catch(() => {});
   };
 
   const toggleSystemNotifications = async (enabled: boolean) => {
@@ -196,7 +224,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     setNotificationPrefs(next);
     setNotificationPrefsSaving(true);
     try {
-      await saveNotificationPreferences(profileId, next);
+      if (!isDemoMode) await saveNotificationPreferences(profileId, next);
     } catch {
       setNotificationPrefs(previous);
     } finally {
