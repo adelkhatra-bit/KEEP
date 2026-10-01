@@ -54,6 +54,7 @@ import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
+import AccountActionsPanel from '../components/AccountActionsPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
@@ -103,6 +104,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
     title: 'AIDE',
     items: [
       { key: 'help', icon: '🆘', label: 'Aide', hint: 'Support · légal · comptes bloqués' },
+      { key: 'account', icon: '◉', label: 'Compte', hint: 'Connexion · session · déconnexion' },
     ],
   },
 ]
@@ -131,20 +133,39 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [realSessionUserId, setRealSessionUserId] = useState<string | null>(null);
+  const [realSessionResolved, setRealSessionResolved] = useState(false);
 
   // Garde-fou auth propriétaire : Supabase est la source de vérité.
   // Un flag invité/démo local périmé ne doit jamais déconnecter visuellement
   // un vrai compte déjà restauré (cas Inside). Réconciliation au montage,
   // au focus et à chaque changement de session.
   useEffect(() => {
-    if (!supabase) return undefined;
+    if (!supabase) {
+      setRealSessionResolved(true);
+      return undefined;
+    }
     let live = true;
     const auth = createAuthService(supabase);
     const profiles = createProfileService(supabase);
 
     const reconcile = async () => {
-      const session = await auth.getCurrentSession().catch(() => null);
+      let session = await auth.getCurrentSession().catch(() => null);
+
+      // Supabase peut restaurer silencieusement une session expirée si le
+      // refresh token existe encore sur l'appareil. On tente donc toujours
+      // cette récupération avant d'afficher « déconnecté ».
+      if (!session) {
+        try {
+          await supabase.auth.refreshSession();
+          session = await auth.getCurrentSession().catch(() => null);
+        } catch {
+          // Aucun refresh token exploitable : état réellement déconnecté.
+        }
+      }
+
       if (!live) return;
+      setRealSessionResolved(true);
+
       if (!session || session.isAnonymous) {
         setRealSessionUserId(null);
         return;
@@ -158,7 +179,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           const ownProfile = await profiles.loadOrCreateOwnProfile(session);
           if (live) useUserStore.getState().setUser(ownProfile);
         } catch {
-          // La session réelle est déjà suffisante pour ne pas bloquer l'UI.
+          // La session réelle reste suffisante pour ne pas bloquer l'UI.
         }
       }
     };
@@ -167,6 +188,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const offFocus = navigation?.addListener?.('focus', () => { void reconcile(); });
     const offAuth = auth.onSessionChange((session) => {
       if (!live) return;
+      setRealSessionResolved(true);
       if (!session || session.isAnonymous) {
         setRealSessionUserId(null);
         return;
@@ -185,8 +207,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
     };
   }, [navigation]);
 
-  const effectiveAuthenticatedUserId = realSessionUserId
-    || (!isLocalGuest && !isDemoMode ? user?.id ?? null : null);
+  const effectiveAuthenticatedUserId = realSessionResolved
+    ? realSessionUserId
+    : (!isLocalGuest && !isDemoMode ? user?.id ?? null : null);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
@@ -1540,6 +1563,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       useGlobalChatStore.getState().open();
       return;
     }
+    if (key === 'account' && accountRequired) {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      useAccountGateStore.getState().requestAccount('login');
+      return;
+    }
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
@@ -1618,6 +1647,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'help') return <>
       <Text style={s.shareTitle}>Aide, légal &amp; comptes bloqués</Text>
       <HelpLegalPanel profileId={user.id} username={user.username} enabled={!accountRequired} />
+    </>;
+
+    if (key === 'account') return <>
+      <Text style={s.shareTitle}>{accountRequired ? 'Se connecter' : 'Compte connecté'}</Text>
+      <Text style={s.shareSubtitle}>
+        {accountRequired
+          ? 'Aucune session Supabase active sur cet appareil. Tes musiques privées restent masquées jusqu’à la reconnexion.'
+          : `Session active pour @${user.username}. Tu peux gérer la déconnexion ou la suppression du compte ici.`}
+      </Text>
+      {accountRequired ? <LoginPill /> : <AccountActionsPanel />}
     </>;
 
     return null;
@@ -2109,16 +2148,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 return <View key={group.title} style={s.menuGroup}>
                   <Text style={s.menuGroupTitle}>{group.title}</Text>
                   <View style={s.menuGroupCard}>
-                    {visibleItems.map((item, index) => (
-                      <TouchableOpacity key={item.key} style={[s.menuItemRow, index < visibleItems.length - 1 && s.menuItemDivider]} onPress={() => directMenuAction(item.key)} accessibilityRole="button" accessibilityLabel={item.label}>
-                        <View style={s.menuItemIcon}><Text style={s.menuItemIconText}>{item.icon}</Text></View>
-                        <View style={s.menuItemCopy}>
-                          <Text style={s.menuItemLabel}>{item.label}</Text>
-                          <Text style={s.menuItemHint}>{item.hint}</Text>
-                        </View>
-                        <Text style={s.menuChevron}>›</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {visibleItems.map((item, index) => {
+                      const accountItem = item.key === 'account';
+                      const label = accountItem ? (accountRequired ? 'Se connecter' : 'Compte connecté') : item.label;
+                      const hint = accountItem
+                        ? (accountRequired ? 'Session absente · reconnecter ce compte' : `@${user.username} · gérer ou se déconnecter`)
+                        : item.hint;
+                      return (
+                        <TouchableOpacity key={item.key} style={[s.menuItemRow, index < visibleItems.length - 1 && s.menuItemDivider]} onPress={() => directMenuAction(item.key)} accessibilityRole="button" accessibilityLabel={label}>
+                          <View style={s.menuItemIcon}><Text style={s.menuItemIconText}>{accountItem ? (accountRequired ? '↪' : '✓') : item.icon}</Text></View>
+                          <View style={s.menuItemCopy}>
+                            <Text style={s.menuItemLabel}>{label}</Text>
+                            <Text style={s.menuItemHint}>{hint}</Text>
+                          </View>
+                          <Text style={s.menuChevron}>›</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>;
               })}
