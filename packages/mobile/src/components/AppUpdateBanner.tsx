@@ -82,8 +82,10 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primaryLight,
     backgroundColor: colors.primaryFaint,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
   iconCircleReady: {
     borderColor: colors.keep,
