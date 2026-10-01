@@ -22,9 +22,10 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
     expect(myMusic).toContain('notOwnDiscovery && styles.selectionCheckLocked');
     expect(myMusic).toContain("? Alert.alert('Non éligible'");
-    expect(myMusic).toContain('const lockedByAnotherOffer = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));');
-    expect(myMusic).toContain("Alert.alert('Déjà publiée'");
-    expect(myMusic).toContain('disabled={trackVisibilityBusy === track.id}');
+    expect(myMusic).toContain('const offeredElsewhere = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));');
+    expect(myMusic).toContain("Alert.alert(\n        'Déjà en vente'");
+    expect(myMusic).toContain("{ text: 'Ajouter quand même', onPress: () => { void applySaleTrackToggle(trackId); } }");
+    expect(myMusic).toContain('disabled: Boolean(notOwnDiscovery)');
   });
 
   it('removes every active-offer track from the public/free profile source', () => {
@@ -97,7 +98,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   it('requires an explicit confirmation before debiting FREE for a collection', () => {
     expect(immersivePreview).toContain("const freeAccess = offer.paymentMode === 'FREE';");
     expect(immersivePreview).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
-    expect(immersivePreview).toContain("Utiliser ${priceLabel} pour toute la collection.");
+    expect(immersivePreview).toContain("Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.");
     expect(immersivePreview).toContain('FREE INSUFFISANTS');
     expect(immersivePreview).toContain('RECHARGER MES FREE');
     expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
@@ -118,7 +119,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(salePanel).toContain('modifier les morceaux');
     expect(salePanel).toContain('choisir € / FREE');
     expect(immersivePreview).toContain('PÉPITES À DÉCOUVRIR');
-    expect(immersivePreview).toContain('DÉBLOQUER · ${priceLabel}');
+    expect(immersivePreview).toContain('RÉVÉLER + AJOUTER · ${priceLabel}');
   });
 
   it('keeps sale access refresh reactive when marketplace visibility changes', () => {
