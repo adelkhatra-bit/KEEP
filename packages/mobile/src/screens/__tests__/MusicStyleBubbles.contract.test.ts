@@ -24,6 +24,8 @@ describe('Loki Music style bubbles contract', () => {
     expect(owner).toContain('testID="profile-music-style-bubbles"');
     expect(owner).toContain('<MusicStyleBubbles');
     expect(owner).toContain('openSelectionSwipe');
+    expect(owner).toContain('!dnaFeatureEnabled && profileStyleBubbles.length > 0');
+    expect(owner).toContain('TES STYLES MUSICAUX');
   });
 
   it('keeps music-style pills visible on a visited profile even while DNA is collapsed', () => {
