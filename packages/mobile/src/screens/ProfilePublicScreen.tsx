@@ -1615,7 +1615,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
           >
             <Text style={s.topMetricFreeItemValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
-            <Text style={s.topMetricFreeItemLabel}>{isDemoMode ? 'FREE ?' : 'FREE'}</Text>
+            <Text style={s.topMetricFreeItemLabel}>FREE</Text>
           </TouchableOpacity>
         </View>
       </View>
