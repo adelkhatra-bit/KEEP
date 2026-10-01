@@ -73,53 +73,6 @@ jobs:
           done
           [ "$missing" = "0" ]
 
-      - name: Verify App Store subscription products
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const crypto = require('node:crypto');
-          (async () => {
-            const privateKey = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
-            const keyId = String(process.env.ASC_KEY_ID || '').trim();
-            const issuerId = String(process.env.ASC_ISSUER_ID || '').trim();
-            const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-            const now = Math.floor(Date.now() / 1000);
-            const unsigned = encode({ alg: 'ES256', kid: keyId, typ: 'JWT' }) + '.' +
-              encode({ iss: issuerId, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
-            const jwt = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
-            const headers = { Authorization: 'Bearer ' + jwt };
-            const appsUrl = new URL('https://api.appstoreconnect.apple.com/v1/apps');
-            appsUrl.searchParams.set('filter[bundleId]', 'com.adelkhatra.keep');
-            appsUrl.searchParams.set('fields[apps]', 'bundleId,name');
-            const appsResponse = await fetch(appsUrl, { headers, signal: AbortSignal.timeout(30000) });
-            if (!appsResponse.ok) throw new Error('App Store apps API HTTP ' + appsResponse.status + ': ' + (await appsResponse.text()).slice(0, 300));
-            const appsPayload = await appsResponse.json();
-            const app = (appsPayload.data || []).find(item => item.attributes?.bundleId === 'com.adelkhatra.keep');
-            if (!app?.id) throw new Error('App com.adelkhatra.keep introuvable dans App Store Connect');
-            const url = new URL('https://api.appstoreconnect.apple.com/v1/apps/' + encodeURIComponent(app.id) + '/subscriptionGroups');
-            url.searchParams.set('include', 'subscriptions');
-            url.searchParams.set('fields[subscriptions]', 'productId,state');
-            url.searchParams.set('limit', '200');
-            url.searchParams.set('limit[subscriptions]', '50');
-            const response = await fetch(url, { headers, signal: AbortSignal.timeout(30000) });
-            if (!response.ok) throw new Error('App Store subscriptions API HTTP ' + response.status + ': ' + (await response.text()).slice(0, 300));
-            const payload = await response.json();
-            const subs = (payload.included || []).filter(item => item.type === 'subscriptions');
-            const byProduct = new Map(subs.map(item => [item.attributes?.productId, item.attributes?.state]));
-            const expected = [
-              'com.adelkhatra.keep.premium.monthly',
-              'com.adelkhatra.keep.creatorpro.monthly',
-              'com.adelkhatra.keep.venuepro.monthly',
-            ];
-            const missing = expected.filter(id => !byProduct.has(id));
-            if (missing.length) throw new Error('Abonnements App Store manquants: ' + missing.join(', '));
-            const badStates = new Set(['MISSING_METADATA','DEVELOPER_ACTION_NEEDED','REJECTED']);
-            const blocked = expected.filter(id => badStates.has(String(byProduct.get(id) || '')));
-            if (blocked.length) throw new Error('Abonnements App Store non prêts: ' + blocked.map(id => id + '=' + byProduct.get(id)).join(', '));
-            console.log('App Store subscriptions OK: ' + expected.map(id => id + '=' + byProduct.get(id)).join(', '));
-          })().catch(error => { console.error(error.message); process.exit(1); });
-          NODE
-
       - name: Setup Ruby
         uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1
         with:
@@ -128,6 +81,69 @@ jobs:
 
       - name: Install fastlane
         run: gem install fastlane --no-document
+
+      - name: Verify App Store subscription products
+        shell: bash
+        run: |
+          ruby <<'RUBY'
+          require 'jwt'
+          require 'openssl'
+          require 'base64'
+          require 'json'
+          require 'net/http'
+          require 'uri'
+
+          private_key = OpenSSL::PKey::EC.new(Base64.decode64(ENV.fetch('ASC_API_KEY_P8_BASE64').strip))
+          now = Time.now.to_i
+          token = JWT.encode(
+            { iss: ENV.fetch('ASC_ISSUER_ID').strip, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' },
+            private_key,
+            'ES256',
+            { kid: ENV.fetch('ASC_KEY_ID').strip, typ: 'JWT' }
+          )
+          headers = { 'Authorization' => "Bearer #{token}" }
+
+          def get_json(url, headers)
+            uri = URI(url)
+            request = Net::HTTP::Get.new(uri)
+            headers.each { |k,v| request[k]=v }
+            response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true, read_timeout: 30) { |http| http.request(request) }
+            raise "App Store API HTTP #{response.code}: #{response.body.to_s[0,300]}" unless response.is_a?(Net::HTTPSuccess)
+            JSON.parse(response.body)
+          end
+
+          apps_uri = URI('https://api.appstoreconnect.apple.com/v1/apps')
+          apps_uri.query = URI.encode_www_form('filter[bundleId]' => 'com.adelkhatra.keep', 'fields[apps]' => 'bundleId,name')
+          apps = get_json(apps_uri.to_s, headers)
+          app = Array(apps['data']).find { |item| item.dig('attributes','bundleId') == 'com.adelkhatra.keep' }
+          raise 'App com.adelkhatra.keep introuvable dans App Store Connect' unless app && app['id']
+
+          groups_uri = URI("https://api.appstoreconnect.apple.com/v1/apps/#{URI.encode_www_form_component(app['id'])}/subscriptionGroups")
+          groups_uri.query = URI.encode_www_form(
+            'include' => 'subscriptions',
+            'fields[subscriptions]' => 'productId,state',
+            'limit' => '200',
+            'limit[subscriptions]' => '50'
+          )
+          payload = get_json(groups_uri.to_s, headers)
+          by_product = Array(payload['included'])
+            .select { |item| item['type'] == 'subscriptions' }
+            .to_h { |item| [item.dig('attributes','productId'), item.dig('attributes','state')] }
+
+          expected = [
+            'com.adelkhatra.keep.premium.monthly',
+            'com.adelkhatra.keep.creatorpro.monthly',
+            'com.adelkhatra.keep.venuepro.monthly'
+          ]
+          missing = expected.reject { |id| by_product.key?(id) }
+          raise "Abonnements App Store manquants: #{missing.join(', ')}" unless missing.empty?
+
+          blocked_states = %w[MISSING_METADATA DEVELOPER_ACTION_NEEDED REJECTED]
+          blocked = expected.select { |id| blocked_states.include?(by_product[id].to_s) }
+          raise "Abonnements App Store non prêts: #{blocked.map { |id| "#{id}=#{by_product[id]}" }.join(', ')}" unless blocked.empty?
+
+          puts "App Store subscriptions OK: #{expected.map { |id| "#{id}=#{by_product[id]}" }.join(', ')}"
+          RUBY
 
       - name: Run App Store lane
         working-directory: packages/mobile
