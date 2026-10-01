@@ -3,27 +3,29 @@ import fs from 'fs';
 import path from 'path';
 
 const read = (...segments: string[]) =>
-  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\\r\\n/g, '\\n');
 
-describe('deployment update visibility contract', () => {
+describe('silent deployment update contract', () => {
   const banner = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
+  const app = read(__dirname, '..', '..', '..', 'App.tsx');
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('keeps a manual desktop update control permanently available', () => {
-    expect(banner).toContain("width >= 768");
-    expect(banner).toContain('keep-manual-update-control');
-    expect(banner).toContain('MISE À JOUR');
-    expect(banner).toContain('Actualiser Loki Music');
-    expect(banner).toContain('reloadToLatest()');
-    expect(banner).toContain('setInterval');
+  it('never shows a manual Loki Music update control or version banner', () => {
+    expect(banner).toContain('return null;');
+    expect(banner).not.toContain('keep-manual-update-control');
+    expect(banner).not.toContain('Actualiser Loki Music');
+    expect(banner).not.toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(banner).not.toContain('METTRE À JOUR');
+    expect(banner).not.toContain('PLUS TARD');
   });
 
-  it('shows a real update banner with a later choice when a newer SHA is published', () => {
-    expect(banner).toContain('NOUVELLE VERSION DISPONIBLE');
-    expect(banner).toContain('METTRE À JOUR');
-    expect(banner).toContain('PLUS TARD');
-    expect(banner).toContain('const dismiss = useAppUpdateStore');
+  it('waits for auth bootstrap before checking or reloading web', () => {
+    expect(app).toContain('<AppUpdateBanner authReady={authReady} />');
+    expect(app).toContain('authReady ? (user ? <Navigation /> : <OnboardingScreen />)');
+    expect(banner).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
+    expect(banner).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
+    expect(banner).toContain('setInterval(() => { void checkNow(); }, 60_000)');
   });
 
   it('keeps automatic cache-busted web refresh available', () => {
@@ -33,7 +35,8 @@ describe('deployment update visibility contract', () => {
     expect(service).toContain('window.location.replace');
   });
 
-  it('auto-applies a compatible production OTA on native TestFlight launch', () => {
+  it('auto-applies a compatible production OTA after auth bootstrap', () => {
+    expect(banner).toContain("!authReady || Platform.OS === 'web' || __DEV__");
     expect(banner).toContain("await import('expo-updates')");
     expect(banner).toContain('Updates.checkForUpdateAsync()');
     expect(banner).toContain('Updates.fetchUpdateAsync()');

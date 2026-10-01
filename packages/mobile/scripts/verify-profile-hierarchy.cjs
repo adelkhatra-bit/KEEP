@@ -33,7 +33,7 @@ assertOrdered(owner, [
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   'accessibilityLabel="Gérer mes musiques"',
-  '<Text style={s.dnaTitle}>Tes styles dominants</Text>',
+  '<Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
   '<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>',
   'accessibilityLabel="Partager mon profil Loki Music"',
@@ -130,6 +130,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; DNA -> réseaux -> Loki Pulse -> partage');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; empreinte musicale -> réseaux -> Loki Pulse -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: owner APERÇU/PÉPITES/BATTLE and visitor SWIPE/TCHAT/BATTLE/PARTAGER equal-width rows preserved');
