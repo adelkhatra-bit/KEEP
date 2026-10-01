@@ -18,8 +18,8 @@ describe('Événements home order and help', () => {
 
   it('uses a help question mark instead of a duplicate lock in the header', () => {
     expect(source).toContain('eventHelpButtonText}>?</Text>');
-    expect(source).toContain('À quoi sert Événements ?');
-    expect(source).toContain('tes abonnés et les personnes qui ont déjà gardé une musique découverte grâce à toi');
+    expect(source).toContain('Tout faire depuis Soirées');
+    expect(source).toContain('Reçois et réponds aux invitations de ta communauté');
     expect(source).not.toContain("accessibilityLabel=\"Afficher mes droits de création d'événement\"");
   });
 });
