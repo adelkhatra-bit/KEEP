@@ -1962,10 +1962,38 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </MotionActionButton>
       ) : null}
 
-      {/* Adel (02/09/2026) : "le bouton est parfait, par contre je le ferai
-          un tout petit peu plus petit ... mettre un petit bouton info pour
-          comprendre" -- ligne compacte (juste Disponible/Indisponible),
-          l'explication ne s'affiche plus que sur demande via le ⓘ. */}
+      {!dnaFeatureEnabled && profileStyleBubbles.length > 0 ? (
+        <View style={s.dna}>
+          <View style={s.dnaHeader}>
+            <View>
+              <Text style={s.dnaEyebrow}>TES STYLES MUSICAUX</Text>
+              <Text style={s.dnaTitle}>Ton identité musicale</Text>
+              <Text style={s.dnaCountHint}>{Math.min(8, profileStyleBubbles.length)} style{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''} affiché{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+          <MusicStyleBubbles
+            testID="profile-music-style-bubbles"
+            genres={profileStyleBubbles}
+            max={8}
+            onPressGenre={(genre) => {
+              const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+              if (folder?.entries.length) {
+                openSelectionSwipe({
+                  title: folder.genre,
+                  subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                  tracks: folder.entries.map((entry) => entry.track),
+                });
+                return;
+              }
+              switchProfileTab('TRACKS');
+              setTracksGrouping('GENRE');
+            }}
+          />
+        </View>
+      ) : null}
+
+      {/* Le flag keep_dna pilote les métriques avancées, pas la disparition
+          des styles musicaux de base du profil. */}
       {dnaFeatureEnabled && (
         <View style={s.dna}>
           <View style={s.dnaHeader}>
