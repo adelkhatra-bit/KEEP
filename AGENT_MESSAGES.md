@@ -2223,3 +2223,11 @@ Retour Adel : la notification de crédit mensuel est apparue en double. Cause c�
 
 ## [2026-10-01T00:44:00Z] chatgpt — cloche + visibilité profil + destinations notifications
 Décision Adel intégrée sans toucher App.tsx/Navigation.tsx/5 onglets : la visibilité globale du profil quitte « Profil public, réseaux & site web » et devient le premier réglage du centre Notifications. La cloche bouge brièvement tant qu'il reste du non-lu et affiche une languette temporaire « N messages · pense à regarder ». Ouvrir le centre marque automatiquement les notifications lues après 900 ms. Audit des destinations renforcé : Free mensuels -> Offres/Free ; événements -> événement ; Battle -> arène ; collection livrée -> achat exact dans Playlists ; offre marketplace -> vendeur + offre exacte ; social/profil/follower -> profil source, même pour anciens payloads avec seulement profile_id.
+
+
+## [2026-10-01] USER LOCK — popup type de profil bleu
+- Popup « Ton profil Loki » : Fan / Créateur / DJ / Artiste / Producteur / Lieu et les CTA Pro ne doivent jamais apparaître comme boutons noirs.
+- Tous les choix ont au minimum un contour bleu `colors.info` et un léger fond bleu ; l’état actif reste nettement coloré.
+- Règle verrouillée dans `config/keep-product-contract.json` + test ownerLayout.
+- Ne pas rétablir `colors.border` seul sur ces choix.
+- Continuer sans toucher App.tsx / Navigation.tsx / barre 5 onglets.
