@@ -286,6 +286,7 @@ async function playWebSegment(
   onStateChange?: (playing: boolean) => void,
   onEnded?: () => void,
   defaultToBattleOffset = true,
+  syncStartEpochMs?: number,
 ): Promise<void> {
   const element = getWebAudio();
   if (!element) throw new Error('WEB_AUDIO_UNAVAILABLE');
@@ -310,7 +311,12 @@ async function playWebSegment(
   await waitForPlayable(element);
   if (webAudioKey !== key) return;
 
-  const effectivePosition = positionMillis > 0 ? positionMillis : defaultToBattleOffset ? 9000 : 0;
+  const basePosition = positionMillis > 0 ? positionMillis : defaultToBattleOffset ? 9000 : 0;
+  const lateByMs = syncStartEpochMs ? Math.max(0, Date.now() - syncStartEpochMs) : 0;
+  const effectivePosition = basePosition + lateByMs;
+  const effectiveDuration = syncStartEpochMs
+    ? Math.max(700, durationMillis - lateByMs)
+    : durationMillis;
   try {
     if (Number.isFinite(element.duration) && element.duration > 0) {
       element.currentTime = Math.min(effectivePosition / 1000, Math.max(0, element.duration - 0.25));
@@ -346,7 +352,7 @@ async function playWebSegment(
     onEnded?.();
   };
   element.addEventListener('ended', finish);
-  activeTimer = setTimeout(finish, Math.max(1000, Math.round(durationMillis)));
+  activeTimer = setTimeout(finish, Math.max(700, Math.round(effectiveDuration)));
 }
 
 /**
@@ -623,14 +629,16 @@ export async function scheduleTrackPreviewSegment(
       activeStartTimer = setTimeout(() => {
         activeStartTimer = null;
         void serialize(async () => {
-          const lateByMs = Math.min(
-            Math.max(0, Date.now() - startAtEpochMs),
-            Math.max(0, durationMillis - 700),
+          await playWebSegment(
+            key,
+            previewUrl,
+            positionMillis,
+            durationMillis,
+            onStateChange,
+            undefined,
+            true,
+            startAtEpochMs,
           );
-          const basePosition = positionMillis > 0 ? positionMillis : 9000;
-          const syncedPosition = basePosition + lateByMs;
-          const remainingDuration = Math.max(700, durationMillis - lateByMs);
-          await playWebSegment(key, previewUrl, syncedPosition, remainingDuration, onStateChange);
         });
       }, delay);
       return;
