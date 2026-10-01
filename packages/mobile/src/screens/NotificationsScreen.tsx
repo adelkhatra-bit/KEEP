@@ -27,7 +27,7 @@ import { supabase } from '../services/supabaseClient';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
-import { loadMusicAgoraSettings, saveMusicAgoraSettings } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
@@ -75,6 +75,14 @@ async function resolveNotificationProfileUsername(item: KeepNotification): Promi
   return username ? username.replace(/^@+/, '') : null;
 }
 
+const CHAT_SURFACE_OPTIONS: { key: MusicAgoraSurface; label: string }[] = [
+  { key: 'LISTEN', label: 'Écouter' },
+  { key: 'DISCOVER', label: 'Découvertes' },
+  { key: 'PLAYLISTS', label: 'Playlists' },
+  { key: 'PARTIES', label: 'Soirées' },
+  { key: 'PROFILE', label: 'Profil' },
+];
+
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
   if (key === 'NEW_FOLLOWER') return 'NOUVEL ABONNÉ';
@@ -92,6 +100,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
+  if (key === 'CHAT_ACTIVATION_AVAILABLE') return 'ACTIVE TON CHAT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
@@ -124,6 +133,8 @@ export default function NotificationsScreen({ navigation }: any) {
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
+  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [chatSaving, setChatSaving] = useState(false);
   const autoReadInFlight = useRef(false);
   // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
@@ -168,6 +179,7 @@ export default function NotificationsScreen({ navigation }: any) {
       if (!live) return;
       setChatEnabled(settings.homeEnabled);
       setChatNotificationsEnabled(settings.notificationsEnabled);
+      setChatSurfaces(settings.surfaces);
     }).catch(() => {});
     return () => { live = false; };
   }, [user?.id, isLocalGuest, isDemoMode]);
@@ -289,25 +301,44 @@ export default function NotificationsScreen({ navigation }: any) {
     }
   };
 
-  const updateChatEnabled = async (value: boolean) => {
+  const persistChatSettings = async (
+    enabled: boolean,
+    surfaces: MusicAgoraSurface[],
+    notifications = chatNotificationsEnabled,
+  ) => {
     if (!user || isLocalGuest || isDemoMode || chatSaving) {
       if (isLocalGuest || isDemoMode) setNotice('Connecte ton compte pour activer le Tchat Loki');
       return;
     }
-    const previous = chatEnabled;
-    setChatEnabled(value);
+    const previousEnabled = chatEnabled;
+    const previousSurfaces = chatSurfaces;
+    setChatEnabled(enabled);
+    setChatSurfaces(surfaces);
     setChatSaving(true);
     try {
-      const settings = await saveMusicAgoraSettings(value, chatNotificationsEnabled);
+      const settings = await saveMusicAgoraSettings(enabled, notifications, surfaces);
       setChatEnabled(settings.homeEnabled);
       setChatNotificationsEnabled(settings.notificationsEnabled);
-      setNotice(settings.homeEnabled ? 'Tchat Loki activé sur ton profil' : 'Tchat Loki masqué sur ton profil');
+      setChatSurfaces(settings.surfaces);
+      setNotice(settings.homeEnabled ? 'Tchat Loki activé sur les écrans choisis' : 'Tchat Loki désactivé');
     } catch {
-      setChatEnabled(previous);
+      setChatEnabled(previousEnabled);
+      setChatSurfaces(previousSurfaces);
       setError('Impossible de modifier le Tchat pour le moment.');
     } finally {
       setChatSaving(false);
     }
+  };
+
+  const updateChatEnabled = async (value: boolean) => {
+    await persistChatSettings(value, chatSurfaces);
+  };
+
+  const toggleChatSurface = async (surface: MusicAgoraSurface) => {
+    const next = chatSurfaces.includes(surface)
+      ? chatSurfaces.filter((item) => item !== surface)
+      : [...chatSurfaces, surface];
+    await persistChatSettings(chatEnabled || next.length > 0, next.length ? next : ['PROFILE']);
   };
 
   const updatePrefs = async (patch: Partial<NotificationPreferences>) => {
@@ -467,6 +498,11 @@ export default function NotificationsScreen({ navigation }: any) {
     const data = item.data as Record<string, unknown> | null;
     const type = String(item.type || '').toUpperCase();
     const eventId = eventIdOf(item);
+
+    if (type === 'CHAT_ACTIVATION_AVAILABLE') {
+      setChatSettingsOpen(true);
+      return;
+    }
 
     if (type.startsWith('AGORA')) {
       const roomRaw = data?.roomSlug ?? data?.room_slug;
@@ -642,10 +678,13 @@ export default function NotificationsScreen({ navigation }: any) {
           <View style={styles.chatStatusIcon}><Text style={styles.chatStatusIconText}>◉</Text></View>
           <View style={styles.visibilityCopy}>
             <Text style={styles.visibilityEyebrow}>TCHAT LOKI</Text>
-            <Text style={styles.visibilityTitle}>{chatEnabled ? 'Tchat activé' : 'Tchat désactivé'}</Text>
+            <Text style={styles.visibilityTitle}>{chatEnabled ? 'Mini-chat actif' : 'Mini-chat désactivé'}</Text>
             <Text style={styles.visibilityHint}>{chatEnabled
-              ? 'Une petite fenêtre de discussion reste visible sur ton profil. Les nouveaux messages arrivent automatiquement.'
-              : 'Active-le pour afficher le mini-chat sur ton profil et discuter sans quitter ta page.'}</Text>
+              ? `Visible sur ${chatSurfaces.length} écran${chatSurfaces.length > 1 ? 's' : ''}. Tu peux le déplacer à gauche, à droite et en hauteur.`
+              : 'Active-le puis choisis précisément où le bouton flottant doit apparaître.'}</Text>
+            <TouchableOpacity style={styles.chatChooseButton} onPress={() => setChatSettingsOpen((value) => !value)} accessibilityRole="button">
+              <Text style={styles.chatChooseButtonText}>{chatSettingsOpen ? 'FERMER LES EMPLACEMENTS' : 'CHOISIR OÙ IL APPARAÎT'}</Text>
+            </TouchableOpacity>
           </View>
           {chatSaving ? <ActivityIndicator color={colors.keep} /> : (
             <Switch
@@ -656,6 +695,29 @@ export default function NotificationsScreen({ navigation }: any) {
             />
           )}
         </View>
+        {chatSettingsOpen ? (
+          <View style={styles.chatSurfacePanel}>
+            <Text style={styles.chatSurfaceTitle}>Où afficher ton chat ?</Text>
+            <Text style={styles.chatSurfaceHint}>L’écoute et l’envoi de messages restent gratuits. Le bouton flottant n’apparaît que sur les écrans sélectionnés.</Text>
+            <View style={styles.chatSurfaceGrid}>
+              {CHAT_SURFACE_OPTIONS.map((option) => {
+                const active = chatSurfaces.includes(option.key);
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[styles.chatSurfaceChip, active && styles.chatSurfaceChipOn]}
+                    disabled={chatSaving}
+                    onPress={() => void toggleChatSurface(option.key)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: active }}
+                  >
+                    <Text style={[styles.chatSurfaceChipText, active && styles.chatSurfaceChipTextOn]}>{active ? '✓ ' : ''}{option.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -891,6 +953,16 @@ const styles = StyleSheet.create({
   chatControlCard: { marginTop: -8, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.07)' },
   chatStatusIcon: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.12)', alignItems: 'center', justifyContent: 'center' },
   chatStatusIconText: { color: colors.keep, fontSize: 18, fontWeight: '900' },
+  chatChooseButton:{alignSelf:'flex-start',marginTop:8,minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.08)',alignItems:'center',justifyContent:'center'},
+  chatChooseButtonText:{color:colors.info,fontSize:9,fontWeight:'900',letterSpacing:.5},
+  chatSurfacePanel:{marginTop:-14,marginBottom:spacing.xl,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.06)'},
+  chatSurfaceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  chatSurfaceHint:{color:colors.white,fontSize:10,lineHeight:15,marginTop:3},
+  chatSurfaceGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},
+  chatSurfaceChip:{minHeight:36,paddingHorizontal:12,borderRadius:18,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  chatSurfaceChipOn:{backgroundColor:'rgba(41,194,255,.18)',borderColor:colors.primaryLight},
+  chatSurfaceChipText:{color:colors.textMuted,fontSize:10,fontWeight:'900'},
+  chatSurfaceChipTextOn:{color:colors.primaryLight},
     section: { marginBottom: spacing.xxl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
