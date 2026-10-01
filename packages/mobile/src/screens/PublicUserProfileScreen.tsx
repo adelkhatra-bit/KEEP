@@ -536,6 +536,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         setProfile(result);
         setFollowerCount(result.followerCount);
 
+        // PERF CONTRACT: dès que l'identité publique et le contrôle de blocage
+        // sont résolus, afficher le profil immédiatement. Les morceaux, likes,
+        // impacts, offres et compteurs secondaires se remplissent ensuite sans
+        // masquer tout l'écran derrière un spinner.
+        if (coldLoad) setLoading(false);
+
         const snapshotPromise = loadPublicProfileSnapshot(result.id).catch(() => null);
         const impactPromise = loadProfileDiscoveryImpacts(result.id).catch(() => ({}));
 
@@ -631,7 +637,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           setViewerKeepTrackIds(alreadyKept);
         }
       } catch {
-        if (!cancelled) setError('Impossible de charger ce profil pour le moment.');
+        if (!cancelled) {
+          // Si l'identité n'a jamais été chargée, l'écran est réellement
+          // indisponible. Si elle est déjà visible, une panne secondaire ne
+          // doit pas remplacer tout le profil par une erreur globale.
+          if (!profile && loadedUsernameRef.current !== String(username || '').toLowerCase()) {
+            setError('Impossible de charger ce profil pour le moment.');
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

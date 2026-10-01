@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.37",
+  "version": "2026-10-01.38",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -588,5 +588,11 @@
     "regressionGuardRequired": true,
     "oneBubbleCardPerSurface": true,
     "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts"
+  },
+  "publicProfilePerformance": {
+    "firstPaintAfterIdentityAndBlockCheck": true,
+    "secondarySectionsProgressive": true,
+    "profileViewNotificationNeverBlocksRender": true,
+    "fullScreenSpinnerMustNotWaitForTracksLikesSalesOrImpacts": true
   }
 }
