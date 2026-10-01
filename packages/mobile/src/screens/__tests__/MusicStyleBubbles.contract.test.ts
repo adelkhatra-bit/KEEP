@@ -22,8 +22,8 @@ describe('Loki Music style bubbles contract', () => {
     expect(owner).toContain('profileStyleBubbles');
     expect(owner).toContain('buildMusicStyleBubbles([');
     expect(owner).toContain('user?.favoriteGenres');
-    expect(owner).toContain('!profilePulseExpanded && profileStyleBubbles.length > 0');
-    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
+    expect(owner).toContain('testID="profile-loki-pulse-visible-styles"');
+    expect(owner).not.toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
     expect(owner).toContain('testID="profile-music-style-bubbles"');
     expect(owner).toContain('openSelectionSwipe');
   });
