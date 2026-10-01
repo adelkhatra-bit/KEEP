@@ -163,8 +163,8 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
 }
 
 const s=StyleSheet.create({
-  root:{width:'100%',maxHeight:'88%',backgroundColor:colors.backgroundCard,borderRadius:24,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
-  compact:{maxHeight:'100%',borderRadius:0,borderWidth:0,flex:1},
+  root:{width:'100%',maxWidth:640,maxHeight:'84%',alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:24,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  compact:{width:'100%',maxWidth:640,maxHeight:'100%',alignSelf:'center',borderRadius:18,borderWidth:1,flex:1},
   loading:{minHeight:260,alignItems:'center',justifyContent:'center',gap:12,backgroundColor:colors.backgroundCard,borderRadius:24},
   loadingText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},
   hero:{padding:18,flexDirection:'row',alignItems:'center',gap:12,borderBottomWidth:1,borderBottomColor:colors.border},
@@ -174,7 +174,7 @@ const s=StyleSheet.create({
   detected:{marginHorizontal:14,marginTop:12,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:14,paddingTop:12},tab:{flex:1,minHeight:36,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:4},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:colors.textMuted,fontSize:8,fontWeight:'900'},tabTextOn:{color:'#FFF'},
   readyHint:{marginHorizontal:14,marginTop:12,color:colors.textMutedGrey,fontSize:10,fontWeight:'800',textAlign:'center'},
-  scroll:{maxHeight:380},scrollContent:{padding:14,paddingBottom:18},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
+  scroll:{maxHeight:330},scrollContent:{padding:14,paddingBottom:18},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:7},chip:{minHeight:34,maxWidth:'100%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:5},catalogChip:{maxWidth:210},chipOn:{backgroundColor:colors.keep,borderColor:colors.keep},chipText:{maxWidth:165,color:colors.textPrimary,fontSize:11,fontWeight:'800'},chipTextOn:{color:colors.black,fontWeight:'900'},countMini:{color:colors.textMuted,fontSize:8,fontWeight:'900'},countMiniOn:{color:'rgba(0,0,0,.65)'},
   footer:{padding:14,borderTopWidth:1,borderTopColor:colors.border,gap:8},summary:{color:colors.textMuted,fontSize:10,textAlign:'center'},footerActions:{flexDirection:'row',alignItems:'stretch',gap:8},footerAction:{flex:1,minWidth:0},primary:{minHeight:48,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},disabled:{opacity:.6},primaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.4,textAlign:'center'},cancel:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10},cancelText:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},reminderText:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},later:{minHeight:36,alignItems:'center',justifyContent:'center'},laterText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
 });
