@@ -1369,7 +1369,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Écouter = retrouver tes morceaux. · Visible = choisir public ou privé. · Trier = ranger par style ou artiste. · Collection = regrouper plusieurs morceaux.</Text> : null}
       </View> : <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
-        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
+        <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
       </View>}
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' ? <View style={styles.mobileAccordionBody}>{activeTab === 'SERVICES' ? <View style={styles.inlineServicesCard}><Text style={styles.inlineServicesTitle}>Services musicaux</Text><Text style={styles.inlineServicesText}>Connecte ou synchronise tes services depuis Mes musiques. La gestion détaillée reste intégrée à ce parcours.</Text><TouchableOpacity style={styles.inlineServicesAction} onPress={() => navigation.navigate('MusicConnections')}><Text style={styles.inlineServicesActionText}>GÉRER MES CONNEXIONS</Text></TouchableOpacity></View> : <View style={styles.tabs}>{LIBRARY_TABS.filter((tab) => tab.key !== 'MUSIQUES').map((tab) => (
         <TouchableOpacity key={tab.key} style={styles.tab} onPress={() => setActiveTab(tab.key)}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextOn]}>{tab.label}</Text>{activeTab === tab.key ? <View style={styles.tabIndicator} /> : null}</TouchableOpacity>
@@ -1427,7 +1427,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </View> : null}
 
-      {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length ? <View style={styles.originSummary}>
+      {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length && !saleSelectionMode ? <View style={styles.originSummary}>
         <View style={styles.originFilters}>
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
@@ -1488,7 +1488,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
           keyExtractor={(item) => `own:${trackIdentity(item)}`}
           refreshing={isLoading}
           onRefresh={() => { void refreshLibrary(); }}
-          ListHeaderComponent={<>
+          ListHeaderComponent={saleSelectionMode ? (
+            <View style={styles.saleWizardIntro}>
+              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 3</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
+              <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
+              <Text style={styles.saleWizardHint}>2 morceaux minimum. Les titres déjà publiés sont marqués « DÉJÀ PUBLIÉE » et ne peuvent pas être ajoutés deux fois.</Text>
+            </View>
+          ) : <>
             {regularPlaylists.length ? (
               <View style={styles.playlistFoldersIntro}>
                 <Text style={styles.playlistFoldersTitle}>MES PLAYLISTS</Text>
@@ -1510,7 +1516,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </View>
             </View> : null}
           </>}
-          ListFooterComponent={originFilter === 'ALL' && socialRepriseEntries.length ? <View style={[styles.originSection, styles.originSectionSocial]}>
+          ListFooterComponent={!saleSelectionMode && originFilter === 'ALL' && socialRepriseEntries.length ? <View style={[styles.originSection, styles.originSectionSocial]}>
             <TouchableOpacity
               style={styles.originSectionHeader}
               onPress={() => setSocialSectionExpanded((value) => !value)}
@@ -1560,7 +1566,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {activeTab === 'MUSIQUES' && saleSelectionMode ? (
         <View style={styles.stickySelectionFooter}>
           <View style={styles.selectionToolbarCopy}>
-            <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `${selectedSaleTrackIds.size} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
+            <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `ÉTAPE 1 · ${selectedSaleTrackIds.size} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
           </View>
           <View style={styles.stickySelectionActions}>
             <TouchableOpacity style={styles.selectionCancelButton} onPress={() => void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
@@ -1570,10 +1576,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </TouchableOpacity>
             ) : (
               <>
-                {existingOffersForAdd.length ? (
-                  <TouchableOpacity style={styles.selectionAddButton} disabled={!selectedSaleTrackIds.size} onPress={addSelectionToExistingOffer}><Text style={styles.selectionAddText}>＋ COLLECTION EXISTANTE</Text></TouchableOpacity>
-                ) : null}
-                <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CRÉER LA COLLECTION ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CONTINUER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
               </>
             )}
           </View>
@@ -1851,7 +1854,8 @@ const styles = StyleSheet.create({
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
-  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:36,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,0.12)'},selectionCheckText:{color:'#1B1405',fontSize:15,fontWeight:'900'},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:36,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
+  saleWizardIntro:{marginHorizontal:2,marginBottom:12,padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},saleWizardTopRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},saleWizardStep:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},saleWizardCount:{color:colors.keep,fontSize:10,fontWeight:'900'},saleWizardTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:7},saleWizardHint:{color:colors.textMutedGrey,fontSize:12,lineHeight:18,marginTop:5},
   // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
   // confirmation collée en bas de l'écran pendant la sélection multiple.
   listWithStickyFooter:{paddingBottom:68},
