@@ -10,6 +10,15 @@ import {
   loadMusicAgoraMessages,
   loadMusicAgoraConversations,
   loadMusicAgoraDirectMessages,
+  loadMusicAgoraGroups,
+  loadMusicAgoraGroupMessages,
+  loadMusicAgoraGroupMembers,
+  searchMusicAgoraGroupPeople,
+  createMusicAgoraGroup,
+  acceptMusicAgoraGroup,
+  declineMusicAgoraGroup,
+  inviteMusicAgoraGroupMember,
+  removeMusicAgoraGroupMember,
   loadMusicAgoraRooms,
   loadMusicAgoraSettings,
   loadMusicAgoraSharePreflight,
@@ -19,6 +28,9 @@ import {
   shareMyPayoutQrInAgora,
   loadMusicAgoraSharedTrack,
   MusicAgoraConversation,
+  MusicAgoraGroup,
+  MusicAgoraGroupPerson,
+  MusicAgoraGroupMember,
   MusicAgoraMessage,
   MusicAgoraPaymentMode,
   MusicAgoraRevealMode,
@@ -26,6 +38,7 @@ import {
   MusicAgoraRoom,
   MusicAgoraSurface,
   postMusicAgoraMessage,
+  postMusicAgoraGroupMessage,
   reportMusicAgoraMessage,
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
@@ -101,6 +114,16 @@ export default function MusicAgoraPanel({
   const [roomSlug, setRoomSlug] = useState('');
   const [messages, setMessages] = useState<MusicAgoraMessage[]>([]);
   const [conversations, setConversations] = useState<MusicAgoraConversation[]>([]);
+  const [groups, setGroups] = useState<MusicAgoraGroup[]>([]);
+  const [activeGroup, setActiveGroup] = useState<MusicAgoraGroup | null>(null);
+  const [groupCreateOpen, setGroupCreateOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupSearch, setGroupSearch] = useState('');
+  const [groupPeople, setGroupPeople] = useState<MusicAgoraGroupPerson[]>([]);
+  const [groupSelectedIds, setGroupSelectedIds] = useState<string[]>([]);
+  const [groupMembersOpen, setGroupMembersOpen] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<MusicAgoraGroupMember[]>([]);
+  const [groupBusy, setGroupBusy] = useState(false);
   const [chatMode, setChatMode] = useState<'MESSAGES' | 'PLACE'>(compact ? 'MESSAGES' : 'PLACE');
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
