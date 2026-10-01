@@ -4,27 +4,28 @@ import path from 'path';
 
 const read = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('Loki Pulse permanent placement', () => {
+describe('music bubbles permanent placement', () => {
   const home = read(__dirname, '..', 'HomeScreenCompact.tsx');
   const owner = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const visitor = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('keeps Pulse directly on Listen home', () => {
-    expect(home).toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
+  it('keeps bubbles directly on Listen home without extra Pulse/DNA eyebrow', () => {
     expect(home).toContain('testID="home-loki-pulse-bubbles"');
+    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
   });
 
-  it('keeps one owner Pulse card with persistent gauge', () => {
+  it('keeps one owner card with persistent gauge and collapsed preview bubbles', () => {
     expect(owner).toContain('testID="profile-loki-pulse-bubbles-card"');
     expect(owner).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
+    expect(owner).toContain('testID="profile-loki-pulse-preview"');
+    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
     expect(owner).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
   });
 
-  it('keeps one visited Pulse card with persistent gauge', () => {
+  it('keeps one visited card with persistent gauge', () => {
     expect(visitor).toContain('testID="public-profile-loki-pulse-bubbles-card"');
     expect(visitor).toContain('<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>');
-    expect(visitor).toContain('visitorPulseExpanded && visitorStyleBubbles.length > 0');
   });
 
   it('never renders duplicate Pulse cards', () => {
