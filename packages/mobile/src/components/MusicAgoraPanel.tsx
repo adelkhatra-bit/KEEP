@@ -46,7 +46,7 @@ function readableError(error: unknown): string {
   if (message.includes('message_blocked_language')) return 'Message refusé : garde le débat musical, enlève les insultes.';
   if (message.includes('rate_limited')) return 'Trop de messages d’un coup. Réessaie dans un instant.';
   if (message.includes('authentication_required')) return 'Connecte ton compte pour participer.';
-  if (message.includes('message_length')) return 'Écris un message court, jusqu’à 280 caractères.';
+  if (message.includes('message_length')) return 'Ton message peut aller jusqu’à 2 000 caractères.';
   if (message.includes('blocked_relationship')) return 'Cette conversation n’est pas disponible.';
   if (message.includes('paid_share_requires_recipient')) return 'Pour faire payer une pépite, réponds directement à un utilisateur.';
   if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) return 'Ajoute d’abord ton lien de paiement dans ton profil.';
@@ -817,7 +817,7 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         </View>
 
-        {shareOptionsOpen ? <View style={s.shareAccordionBody}>
+        {shareOptionsOpen ? <ScrollView style={s.shareAccordionBody} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <View style={s.revealChoices}>
             <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
             <TouchableOpacity
@@ -899,7 +899,7 @@ export default function MusicAgoraPanel({
           >
             <Text style={s.validateMusicText}>{posting ? 'VALIDATION…' : 'VALIDER LA PÉPITE'}</Text>
           </TouchableOpacity>
-        </View> : null}
+        </ScrollView> : null}
       </View> : null}
       <View style={s.quickReactions}>
         {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity
@@ -918,7 +918,7 @@ export default function MusicAgoraPanel({
         placeholderTextColor={colors.textMutedGrey}
         multiline
         scrollEnabled
-        maxLength={280}
+        maxLength={2000}
         onFocus={() => setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80)}
         style={[s.input, compact && s.inputCompact]}
       />
@@ -926,7 +926,7 @@ export default function MusicAgoraPanel({
         <TouchableOpacity style={s.shareMusic} disabled={!shareableTracks.length} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
           <Text style={s.shareMusicText}>＋ PÉPITE</Text>
         </TouchableOpacity>
-        <Text style={s.counter}>{draft.length}/1000</Text>
+        <Text style={s.counter}>{draft.length}/2000</Text>
         <TouchableOpacity style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
     </View> : <View style={s.locked}><Text style={s.lockedText}>Connecte-toi pour écrire. La lecture reste ouverte.</Text></View>}
@@ -1072,7 +1072,8 @@ const s=StyleSheet.create({
   shareAccordionToggle:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
   shareAccordionToggleText:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
   removeMusicCompact:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  shareAccordionBody:{maxHeight:180,overflow:'hidden',marginTop:7,paddingTop:7,borderTopWidth:1,borderTopColor:colors.border},
+  shareAccordionBody:{maxHeight:180,marginTop:7,borderTopWidth:1,borderTopColor:colors.border},
+  shareAccordionContent:{paddingTop:7,paddingBottom:4},
   shareLockPill:{alignSelf:'flex-start',marginTop:4,borderRadius:10,borderWidth:1,borderColor:colors.warning,paddingHorizontal:6,paddingVertical:3,backgroundColor:'rgba(255,184,107,.08)'},
   shareLockPillText:{color:colors.warning,fontSize:8,fontWeight:'900'},
   validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
