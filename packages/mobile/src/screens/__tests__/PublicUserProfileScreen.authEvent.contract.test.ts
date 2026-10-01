@@ -21,14 +21,18 @@ describe('PublicUserProfileScreen real-session + inline event contract', () => {
     expect(source).not.toContain('!viewer?.id || isLocalGuest');
     expect(source).not.toContain('requiresAccount={!viewer || isLocalGuest}');
     expect(source).toContain('requiresAccount={!effectiveViewerId}');
-    expect(source).toContain("setEventRsvp(effectiveViewerId, profileEvent.id, 'GOING')");
+    expect(source).toContain('const chooseProfileEventRsvp = async (status: EventRsvpStatus) =>');
+    expect(source).toContain('await setEventRsvp(effectiveViewerId, profileEvent.id, status);');
   });
 
   it('keeps profile events inline and never redirects to Parties', () => {
     expect(source).toContain('openProfileEventInline');
     expect(source).toContain('onPress={() => { void openProfileEventInline(); }}');
     expect(source).toContain('EN ATTENTE D’APPROBATION');
-    expect(source).toContain('TU PARTICIPES DÉJÀ');
+    expect(source).toContain("['GOING', 'JE PARTICIPE']");
+    expect(source).toContain("['MAYBE', 'PEUT-ÊTRE']");
+    expect(source).toContain("['NOT_GOING', 'JE NE PARTICIPE PAS']");
+    expect(source).toContain("{selected ? '✓ ' : ''}{label}");
     expect(source).not.toContain("navigation.navigate('Parties', { openEventId");
   });
 });
