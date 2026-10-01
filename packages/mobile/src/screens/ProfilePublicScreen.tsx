@@ -230,6 +230,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freeSpentToday, setFreeSpentToday] = useState(0);
   const [freeSpentKeepCount, setFreeSpentKeepCount] = useState(0);
+  const [freeMarketplaceSpentToday, setFreeMarketplaceSpentToday] = useState(0);
+  const [freeMarketplacePurchaseCount, setFreeMarketplacePurchaseCount] = useState(0);
   const [freeWon, setFreeWon] = useState(0);
   const [freeLost, setFreeLost] = useState(0);
   // Adel (04/09/2026) : le coût réel d'un Garder (free_cost_per_keep, Super
@@ -264,8 +266,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
     try {
       if (offer.paymentMode === 'FREE') {
         await purchasePlaylistOfferWithFree(offer.offerId);
+        const [battleStatus, dailySpend, downloadStatus] = await Promise.all([
+          loadMyKeepBattleCreditStatus().catch(() => null),
+          loadFreeSpentToday().catch(() => null),
+          getDownloadCreditStatus().catch(() => null),
+        ]);
+        if (battleStatus) setFreeBalance(battleStatus.remainingFree);
+        if (downloadStatus) {
+          setCreditRemaining(downloadStatus.remaining);
+          setCreditUnlimited(downloadStatus.unlimited);
+        }
+        if (dailySpend) {
+          setFreeSpentToday(dailySpend.spent);
+          setFreeSpentKeepCount(dailySpend.keeps);
+          setFreeMarketplaceSpentToday(dailySpend.marketplaceSpent);
+          setFreeMarketplacePurchaseCount(dailySpend.marketplacePurchases);
+        }
         setOpportunityPreviewOffer(null);
-        Alert.alert('Débloquée', 'La sélection est maintenant disponible dans ton Loki Music.');
+        Alert.alert(
+          'Collection ajoutée',
+          `${offer.freePrice ?? 0} FREE débités · ${battleStatus ? `${battleStatus.remainingFree} FREE restants · ` : ''}les nouveaux morceaux sont maintenant dans ton Loki Music.`,
+        );
         return;
       }
       if (!marketplacePurchaseEnabled) {
@@ -567,6 +588,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           setFreeBalance(battleStatus.remainingFree);
           setFreeSpentToday(dailySpend?.spent ?? 0);
           setFreeSpentKeepCount(dailySpend?.keeps ?? 0);
+          setFreeMarketplaceSpentToday(dailySpend?.marketplaceSpent ?? 0);
+          setFreeMarketplacePurchaseCount(dailySpend?.marketplacePurchases ?? 0);
           setFreeWon(dailyBattleStats.freeWon);
           setFreeLost(dailyBattleStats.freeLost);
         } catch {
@@ -579,6 +602,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setFreeBalance(null);
         setFreeSpentToday(0);
         setFreeSpentKeepCount(0);
+        setFreeMarketplaceSpentToday(0);
+        setFreeMarketplacePurchaseCount(0);
         setFreeWon(0);
         setFreeLost(0);
       } else if (live) {
@@ -588,6 +613,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setFreeBalance(guestStatus?.remaining ?? null);
         setFreeSpentToday(0);
         setFreeSpentKeepCount(0);
+        setFreeMarketplaceSpentToday(0);
+        setFreeMarketplacePurchaseCount(0);
         setFreeWon(0);
         setFreeLost(0);
       }
@@ -1679,7 +1706,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View style={s.freeInlineStat}><Text style={[s.freeInlineValue, s.freeInlineValueWon]}>+{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés aujourd’hui</Text></View>
             <View style={s.freeInlineStat}><Text style={[s.freeInlineValue, s.freeInlineValueLost]}>−{freeLost}</Text><Text style={s.freeInlineLabel}>perdus aujourd’hui</Text></View>
           </View>
-          <Text style={s.freeInlineHint}>{freeSpentKeepCount} morceau{freeSpentKeepCount > 1 ? 'x' : ''} ajouté{freeSpentKeepCount > 1 ? 's' : ''} avec des FREE aujourd’hui · journée 02:00 → 01:59 · coût actuel : {freeCostPerKeep} FREE.</Text>
+          <Text style={s.freeInlineHint}>
+            {freeSpentKeepCount} morceau{freeSpentKeepCount > 1 ? 'x' : ''} ajouté{freeSpentKeepCount > 1 ? 's' : ''} avec des FREE aujourd’hui
+            {freeMarketplacePurchaseCount > 0 ? ` · ${freeMarketplacePurchaseCount} collection${freeMarketplacePurchaseCount > 1 ? 's' : ''} : −${freeMarketplaceSpentToday} FREE` : ''}
+            {' · '}journée 02:00 → 01:59 · coût GARDER : {freeCostPerKeep} FREE.
+          </Text>
           <TouchableOpacity style={s.freeInlineCta} onPress={() => navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' })}><Text style={s.freeInlineCtaText}>COMMENT GAGNER PLUS DE FREE ›</Text></TouchableOpacity>
         </View>
       ) : null}
