@@ -261,5 +261,4 @@ begin
 
   return jsonb_set(payload, '{rounds}', rounds, false);
 end;
-$function$
-
+$function$;
