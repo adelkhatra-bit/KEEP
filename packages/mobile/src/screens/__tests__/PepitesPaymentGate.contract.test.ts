@@ -13,12 +13,13 @@ describe('Pépites euro publication payment gate', () => {
     expect(source).toContain('PRIX DE LA COLLECTION');
   });
 
-  it('blocks euro publication until the seller configured a tested payout link', () => {
-    expect(source).toContain("if (sellPaymentMode === 'MONEY' && !payoutLink.trim())");
+  it('blocks euro publication until the seller configured PayPal.Me or a PayPal QR', () => {
+    expect(source).toContain("if (sellPaymentMode === 'MONEY' && !payoutLink.trim() && !payoutQrUrl.trim())");
     expect(source).toContain('PAIEMENT À CONFIGURER');
-    expect(source).toContain("(!sellPriceCents || !payoutLink.trim())");
+    expect(source).toContain("(!sellPriceCents || (!payoutLink.trim() && !payoutQrUrl.trim()))");
     expect(source).toContain('TESTER MON LIEN');
     expect(source).toContain('setMyPayoutLink(clean)');
+    expect(source).toContain('PayPalQrPayoutControl');
   });
 
   it('keeps FREE publication independent from external payout', () => {
