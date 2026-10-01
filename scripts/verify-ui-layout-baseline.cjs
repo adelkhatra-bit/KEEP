@@ -36,14 +36,14 @@ must(!meta.includes('profileFreeInline') && !meta.includes('>FREE</Text>'), 'FRE
 must(battle > kind, 'Battle must remain aligned in the identity row');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
-const metricsEnd = profile.indexOf('{freeDetailsOpen ? (', metricsStart);
+const metricsEnd = profile.indexOf('{freeDetailsOpen', metricsStart);
 must(metricsStart >= 0 && metricsEnd > metricsStart, 'profile metrics bar not found');
 const metrics = profile.slice(metricsStart, metricsEnd);
-for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>', '>FREE</Text>']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
+for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>', 'topMetricFreeItemLabel']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
 const plus = metrics.indexOf('>PLUS</Text>');
 const followers = metrics.indexOf('>Abonnés</Text>');
 const reprises = metrics.indexOf('>Reprises</Text>');
-const free = metrics.indexOf('>FREE</Text>');
+const free = metrics.indexOf('topMetricFreeItemLabel');
 must(plus >= 0 && followers > plus && reprises > followers && free > reprises, 'metrics order must be PLUS -> Abonnés -> Reprises -> FREE');
 must((metrics.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once in metrics');
 must(metrics.includes('topMetricFreeItem'), 'FREE metric item missing');
