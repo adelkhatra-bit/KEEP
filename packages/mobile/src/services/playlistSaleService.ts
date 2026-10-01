@@ -156,6 +156,7 @@ export type PlaylistPurchaseRequest = {
   currencyCode: string;
   sellerUsername: string;
   payoutLink: string;
+  payoutQrUrl: string;
 };
 
 export type PlaylistOfferDetails = {
@@ -188,6 +189,7 @@ export async function requestPlaylistPurchase(offerId: string): Promise<Playlist
     currencyCode: String(row?.currencyCode ?? 'EUR'),
     sellerUsername: String(row?.sellerUsername ?? ''),
     payoutLink: String(row?.payoutLink ?? ''),
+    payoutQrUrl: String(row?.payoutQrUrl ?? row?.payout_qr_url ?? ''),
   };
 }
 
