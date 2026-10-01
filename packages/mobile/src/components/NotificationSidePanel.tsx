@@ -29,6 +29,11 @@ const CHAT_SURFACE_OPTIONS: Array<{ key: MusicAgoraSurface; label: string }> = [
   { key: 'NOTIFICATIONS', label: 'Notifications' },
 ];
 
+function isChatNotificationType(type: string): boolean {
+  const value = String(type || '').toUpperCase();
+  return value.startsWith('AGORA') || value.startsWith('CHAT');
+}
+
 function timeLabel(value: string): string {
   const d = new Date(value);
   const now = Date.now();
@@ -62,9 +67,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const slide = useRef(new Animated.Value(1)).current;
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'SETTINGS' | 'INBOX'>('INBOX');
+  const [activeTab, setActiveTab] = useState<'MESSAGES' | 'ACTIVITY' | 'SETTINGS'>('ACTIVITY');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preparedChatId, setPreparedChatId] = useState<string | null>(null);
+  const [lockedPopup, setLockedPopup] = useState<{ title: string; plan: string } | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
   const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
   const [accessRules, setAccessRules] = useState<NotificationAccessRule[]>([]);
@@ -206,6 +212,14 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 
   const toggleNotification = async (item: KeepNotification) => {
     await markRead(item);
+    if (isNotificationAccessLocked(item.type, currentPlan, accessRules)) {
+      const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
+      setLockedPopup({
+        title: item.title || 'Notification Loki',
+        plan: notificationPlanLabel(requiredPlan),
+      });
+      return;
+    }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId((current) => current === item.id ? null : item.id);
   };
@@ -225,13 +239,17 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           </View>
 
           <View style={s.tabs}>
+            <TouchableOpacity style={[s.tab, activeTab === 'MESSAGES' && s.tabOn]} onPress={() => setActiveTab('MESSAGES')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'MESSAGES' }}>
+              <Text style={[s.tabText, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
+              <Text style={s.tabHint}>{items.filter((item) => isChatNotificationType(item.type) && !item.readAt).length} non lu{items.filter((item) => isChatNotificationType(item.type) && !item.readAt).length > 1 ? 's' : ''}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.tab, activeTab === 'ACTIVITY' && s.tabOn]} onPress={() => setActiveTab('ACTIVITY')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'ACTIVITY' }}>
+              <Text style={[s.tabText, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
+              <Text style={s.tabHint}>{items.filter((item) => !isChatNotificationType(item.type) && !item.readAt).length} non lue{items.filter((item) => !isChatNotificationType(item.type) && !item.readAt).length > 1 ? 's' : ''}</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => setActiveTab('SETTINGS')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
               <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
-              <Text style={s.tabHint}>activation</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[s.tab, activeTab === 'INBOX' && s.tabOn]} onPress={() => setActiveTab('INBOX')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'INBOX' }}>
-              <Text style={[s.tabText, activeTab === 'INBOX' && s.tabTextOn]}>NOTIFICATIONS</Text>
-              <Text style={s.tabHint}>{items.filter((item) => !item.readAt).length} non lue{items.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
+              <Text style={s.tabHint}>activer / couper</Text>
             </TouchableOpacity>
           </View>
 
@@ -287,8 +305,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <TouchableOpacity style={s.markAllButton} onPress={() => void markAll()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
               </View>
               {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
-              {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>🔔</Text><Text style={s.emptyTitle}>Rien de nouveau</Text><Text style={s.empty}>Tes Battles, reprises, visites, événements et gains apparaîtront ici.</Text></View> : null}
-              {items.map((item) => {
+              {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>{activeTab === 'MESSAGES' ? '💬' : '🔔'}</Text><Text style={s.emptyTitle}>{activeTab === 'MESSAGES' ? 'Aucun message' : 'Rien de nouveau'}</Text><Text style={s.empty}>{activeTab === 'MESSAGES' ? 'Tes nouveaux messages apparaîtront ici, séparés des autres notifications.' : 'Tes Battles, reprises, visites, événements et gains apparaîtront ici.'}</Text></View> : null}
+              {items.filter((item) => activeTab === 'MESSAGES' ? isChatNotificationType(item.type) : !isChatNotificationType(item.type)).map((item) => {
                 const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
                 const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
                 const expanded = expandedId === item.id;
@@ -305,12 +323,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                       </View>
                       {expanded ? (
                         <View style={s.details}>
-                          {locked ? (
-                            <>
-                              <Text style={s.lockedTitle}>CONTENU PROTÉGÉ</Text>
-                              <Text style={s.lockedBody}>Cette notification se débloque à partir de {notificationPlanLabel(requiredPlan)}. Le contenu reste masqué ici.</Text>
-                            </>
-                          ) : (
+                          {locked ? null : (
                             <>
                               <Text style={s.body}>{item.body}</Text>
                               <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
@@ -329,6 +342,21 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               })}
             </ScrollView>
           )}
+
+          {lockedPopup ? (
+            <View style={s.lockedOverlay}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setLockedPopup(null)} accessibilityLabel="Fermer l’explication" />
+              <View style={s.lockedPopupCard}>
+                <View style={s.lockedPopupIcon}><Text style={s.lockedPopupIconText}>🔒</Text></View>
+                <Text style={s.lockedPopupKicker}>ACCÈS LOKI</Text>
+                <Text style={s.lockedPopupTitle}>Pourquoi cette notification est verrouillée</Text>
+                <Text style={s.lockedPopupBody}>« {lockedPopup.title} » fait partie des notifications que le Super Admin a réservées à une formule spécifique.</Text>
+                <View style={s.lockedPopupPlan}><Text style={s.lockedPopupPlanText}>Disponible avec {lockedPopup.plan}</Text></View>
+                <Text style={s.lockedPopupHint}>Tu restes exactement dans ta cloche. Aucun changement d’écran et aucun contenu privé n’est affiché avant déblocage.</Text>
+                <TouchableOpacity style={s.lockedPopupClose} onPress={() => setLockedPopup(null)}><Text style={s.lockedPopupCloseText}>J’AI COMPRIS</Text></TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
         </Animated.View>
       </View>
     </Modal>
@@ -345,8 +373,8 @@ const s = StyleSheet.create({
   headerHint:{color:colors.textMutedGrey,fontSize:10,marginTop:3},
   close:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   closeText:{color:colors.textPrimary,fontSize:26,lineHeight:28,fontWeight:'700'},
-  tabs:{flexDirection:'row',gap:8,paddingHorizontal:16,paddingTop:14,paddingBottom:10},
-  tab:{flex:1,minHeight:52,borderRadius:16,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated},
+  tabs:{flexDirection:'row',gap:6,paddingHorizontal:12,paddingTop:14,paddingBottom:10},
+  tab:{flex:1,minHeight:52,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
   tabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   tabText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.5},
   tabTextOn:{color:colors.primaryLight},
@@ -398,6 +426,18 @@ const s = StyleSheet.create({
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
   notificationActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
+  lockedOverlay:{...StyleSheet.absoluteFillObject,zIndex:60,elevation:60,backgroundColor:'rgba(4,2,9,.72)',alignItems:'center',justifyContent:'center',padding:18},
+  lockedPopupCard:{width:'100%',maxWidth:330,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:18,alignItems:'center',shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10}},
+  lockedPopupIcon:{width:54,height:54,borderRadius:27,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  lockedPopupIconText:{fontSize:24},
+  lockedPopupKicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.2,marginTop:10},
+  lockedPopupTitle:{color:colors.textPrimary,fontSize:17,fontWeight:'900',textAlign:'center',marginTop:4},
+  lockedPopupBody:{color:colors.textMutedGrey,fontSize:11,lineHeight:17,textAlign:'center',marginTop:8},
+  lockedPopupPlan:{minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center',paddingHorizontal:16,marginTop:12},
+  lockedPopupPlanText:{color:colors.keep,fontSize:11,fontWeight:'900'},
+  lockedPopupHint:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:15,textAlign:'center',marginTop:10},
+  lockedPopupClose:{width:'100%',minHeight:44,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},
+  lockedPopupCloseText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   emptyCard:{padding:20,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center'},
   emptyIcon:{fontSize:28,marginBottom:8},
   emptyTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',marginBottom:4},
