@@ -26,10 +26,10 @@ import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
-import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -132,6 +132,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
+  const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
@@ -443,20 +444,18 @@ export default function NotificationsScreen({ navigation }: any) {
   const openPaymentFromNotification = async (item: KeepNotification) => {
     const data = item.data as Record<string, unknown> | null;
     const payoutLink = typeof data?.payoutLink === 'string' ? data.payoutLink.trim() : '';
-    if (!payoutLink) {
-      setError('Le lien de paiement du vendeur n’est plus disponible.');
+    const payoutQrUrl = typeof data?.payoutQrUrl === 'string'
+      ? data.payoutQrUrl.trim()
+      : typeof data?.payout_qr_url === 'string'
+        ? data.payout_qr_url.trim()
+        : '';
+    if (!payoutLink && !payoutQrUrl) {
+      setError('Le vendeur n’a plus de PayPal.Me ni de QR PayPal disponible.');
       return;
     }
-    const amountCents = Number(data?.amountCents ?? 0);
-    const currencyCode = String(data?.currencyCode ?? 'EUR');
-    const checkoutUrl = buildPayoutCheckoutUrl(payoutLink, amountCents, currencyCode);
-    try {
-      await readOne(item);
-      await Linking.openURL(checkoutUrl);
-      setNotice(`${payoutProviderLabel(payoutLink)} ouvert · confirme ici après paiement`);
-    } catch {
-      setError('Impossible d’ouvrir le paiement pour le moment.');
-    }
+    await readOne(item);
+    setPaymentCheckoutItem(item);
+    setError(null);
   };
 
   const signalPlaylistPaymentSent = async (item: KeepNotification) => {
@@ -930,6 +929,20 @@ export default function NotificationsScreen({ navigation }: any) {
           />
         </View>
       </ScrollView>
+
+      <PayoutCheckoutSheet
+        visible={Boolean(paymentCheckoutItem)}
+        sellerUsername={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.sellerUsername ?? (paymentCheckoutItem.data as any)?.seller_username ?? '') : ''}
+        amountCents={paymentCheckoutItem ? Number((paymentCheckoutItem.data as any)?.amountCents ?? (paymentCheckoutItem.data as any)?.amount_cents ?? 0) : 0}
+        currencyCode={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.currencyCode ?? (paymentCheckoutItem.data as any)?.currency_code ?? 'EUR') : 'EUR'}
+        payoutLink={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutLink ?? (paymentCheckoutItem.data as any)?.payout_link ?? '') : ''}
+        payoutQrUrl={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutQrUrl ?? (paymentCheckoutItem.data as any)?.payout_qr_url ?? '') : ''}
+        onClose={() => setPaymentCheckoutItem(null)}
+        onPaid={paymentCheckoutItem ? async () => {
+          await signalPlaylistPaymentSent(paymentCheckoutItem);
+          setPaymentCheckoutItem(null);
+        } : undefined}
+      />
 
       {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
           explications, tenue exigee etc. ... un bouton en savoir plus ...
