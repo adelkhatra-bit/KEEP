@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, PanResponder, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
@@ -12,6 +13,31 @@ import { useGlobalChatStore } from '../store/useGlobalChatStore';
 function isChatNotification(item: KeepNotification): boolean {
   const type = String(item.type || '').toUpperCase();
   return type.startsWith('AGORA') || type.startsWith('CHAT');
+}
+
+function chatNotificationSender(item: KeepNotification): string {
+  const data = item.data ?? {};
+  const raw = data.senderUsername ?? data.sender_username ?? data.actorUsername ?? data.actor_username ?? data.username;
+  const value = typeof raw === 'string' ? raw.trim().replace(/^@/, '') : '';
+  return value || 'un membre Loki';
+}
+
+function chatNotificationTarget(item: KeepNotification) {
+  const data = item.data ?? {};
+  const roomSlugRaw = data.roomSlug ?? data.room_slug;
+  const senderIdRaw = data.senderId ?? data.sender_id ?? data.actorId ?? data.actor_id ?? data.profileId ?? data.profile_id;
+  const senderUsernameRaw = data.senderUsername ?? data.sender_username ?? data.actorUsername ?? data.actor_username ?? data.username;
+  const messageIdRaw = data.messageId ?? data.message_id;
+  return {
+    roomSlug: typeof roomSlugRaw === 'string' && roomSlugRaw.trim() ? roomSlugRaw.trim() : null,
+    targetProfileId: typeof senderIdRaw === 'string' && senderIdRaw.trim() ? senderIdRaw.trim() : null,
+    targetUsername: typeof senderUsernameRaw === 'string' && senderUsernameRaw.trim() ? senderUsernameRaw.trim() : null,
+    messageId: typeof messageIdRaw === 'number'
+      ? messageIdRaw
+      : typeof messageIdRaw === 'string' && messageIdRaw.trim()
+        ? Number(messageIdRaw) || null
+        : null,
+  };
 }
 
 const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'];
@@ -50,6 +76,7 @@ export default function GlobalChatDock() {
   const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [latestChatSender, setLatestChatSender] = useState('');
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawerPeek = useRef(new Animated.Value(0)).current;
@@ -98,7 +125,11 @@ export default function GlobalChatDock() {
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
-      setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
+      const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
+      setUnreadCount(unreadChat.length);
+      const latest = unreadChat[0];
+      setLatestChatSender(latest ? chatNotificationSender(latest) : '');
+      if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
     });
 
     return () => { live = false; };
@@ -108,9 +139,20 @@ export default function GlobalChatDock() {
     if (!accountReady || !user?.id) return;
     return subscribeToNotifications(user.id, (item) => {
       if (!isChatNotification(item)) return;
+      const sender = chatNotificationSender(item);
       setUnreadCount((value) => value + 1);
+      setLatestChatSender(sender);
+      useGlobalChatStore.getState().prime(chatNotificationTarget(item));
+      if (chatNotificationsEnabled && !useGlobalChatStore.getState().isOpen) {
+        void Speech.stop().catch(() => {});
+        Speech.speak(`Message de ${sender}`, {
+          language: 'fr-FR',
+          rate: 0.95,
+          pitch: 1,
+        });
+      }
     });
-  }, [accountReady, user?.id]);
+  }, [accountReady, user?.id, chatNotificationsEnabled]);
 
   useEffect(() => {
     if (!accountReady || (!chatEnabled && !open)) {
@@ -372,7 +414,7 @@ export default function GlobalChatDock() {
           ]}
         >
           <Text style={styles.chatNudgeText} numberOfLines={1}>
-            {unreadCount} nouveau{unreadCount > 1 ? 'x' : ''} message{unreadCount > 1 ? 's' : ''}
+            {latestChatSender ? `Message de @${latestChatSender}` : `${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`}
           </Text>
         </Animated.View>
       ) : null}
@@ -413,8 +455,8 @@ export default function GlobalChatDock() {
                 <View style={styles.robotMouth}/>
               </View>
               <View style={styles.drawerCopy}>
-                <Text style={styles.drawerLabel}>LOKI</Text>
-                <Text style={styles.drawerSub}>CHAT</Text>
+                <Text style={styles.drawerLabel}>TCHAT</Text>
+                <Text style={styles.drawerSub} numberOfLines={1}>{unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
@@ -451,7 +493,7 @@ const styles = StyleSheet.create({
   sideChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.7},
   sideChoiceTextOn:{color:colors.keep},
 
-  chatNudge:{position:'absolute',zIndex:88,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
+  chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
   chatNudgeText:{minWidth:168,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
@@ -474,7 +516,7 @@ const styles = StyleSheet.create({
   robotEyes:{flexDirection:'row',gap:6},
   robotEye:{width:4,height:4,borderRadius:2,backgroundColor:colors.primaryLight},
   robotMouth:{width:9,height:2,borderRadius:1,backgroundColor:colors.keep,marginTop:3},
-  drawerCopy:{minWidth:23},
+  drawerCopy:{minWidth:29,maxWidth:34},
   drawerLabel:{color:colors.textPrimary,fontSize:8,fontWeight:'900',letterSpacing:.7},
   drawerSub:{color:colors.primaryLight,fontSize:6.5,fontWeight:'900',letterSpacing:.5,marginTop:1},
   drawerChevron:{color:colors.primaryLight,fontSize:17,fontWeight:'900',marginLeft:'auto'},
