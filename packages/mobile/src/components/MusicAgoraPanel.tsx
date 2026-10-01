@@ -134,6 +134,13 @@ export default function MusicAgoraPanel({
       : Math.max(300, Math.min(620, Math.round(viewportHeight * 0.68)))
     : undefined;
 
+  const followChatBottom = (animated = true) => {
+    browsingHistoryRef.current = false;
+    requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated }));
+    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated }), 80);
+    setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 220);
+  };
+
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
 
   useEffect(() => {
@@ -257,7 +264,7 @@ export default function MusicAgoraPanel({
     if (!messages.length) return;
     const timer = setTimeout(() => {
       if (!initialScrollDone.current || !browsingHistoryRef.current) {
-        chatScrollRef.current?.scrollToEnd({ animated: initialScrollDone.current });
+        followChatBottom(initialScrollDone.current);
       }
       initialScrollDone.current = true;
     }, 40);
@@ -370,6 +377,7 @@ export default function MusicAgoraPanel({
       setSharePreflight(null);
       browsingHistoryRef.current = false;
       await refresh(roomSlug);
+      followChatBottom(true);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
     } finally {
@@ -385,6 +393,7 @@ export default function MusicAgoraPanel({
       if (!(compact && chatMode === 'MESSAGES')) setReplyTarget(null);
       browsingHistoryRef.current = false;
       await refresh(roomSlug, true);
+      followChatBottom(true);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
     } finally {
@@ -740,7 +749,20 @@ export default function MusicAgoraPanel({
     {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyTarget ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
-        <Text style={s.selectedMusicTitle} numberOfLines={1}>♫ {sharedTrack.title} · {sharedTrack.artist}</Text>
+        <View style={s.selectedMusicPreview}>
+          {sharedTrack.artworkUrl
+            ? <Image source={{ uri: sharedTrack.artworkUrl }} style={s.selectedMusicArtwork} resizeMode="cover" />
+            : <View style={[s.selectedMusicArtwork, s.selectedMusicArtworkFallback]}><Text style={s.selectedMusicFallbackText}>♫</Text></View>}
+          <View style={s.selectedMusicShade}>
+            <Text style={s.selectedMusicEyebrow}>APERÇU AVANT ENVOI</Text>
+            <Text style={s.selectedMusicTitle} numberOfLines={2}>{sharedTrack.title}</Text>
+            <Text style={s.selectedMusicArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
+            <View style={s.selectedMusicPlayRow}>
+              <TrackPreviewButton trackKey={sharedTrack.id} previewUrl={sharedTrack.previewUrl || undefined} compact />
+              <TouchableOpacity style={s.removeMusicLarge} onPress={() => { setSharedTrack(null); setSharePaymentMode('NONE'); setSharePreflight(null); }} accessibilityLabel="Retirer cette musique"><Text style={s.removeMusicText}>×</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
         <View style={s.revealChoices}>
           <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
           <TouchableOpacity
@@ -748,7 +770,6 @@ export default function MusicAgoraPanel({
             disabled={sharePaymentMode!=='NONE'}
             onPress={() => setShareRevealMode('FULL')}
           ><Text style={s.revealChipText}>TITRE + JAQUETTE</Text></TouchableOpacity>
-          <TouchableOpacity style={s.removeMusic} onPress={() => { setSharedTrack(null); setSharePaymentMode('NONE'); setSharePreflight(null); }}><Text style={s.removeMusicText}>×</Text></TouchableOpacity>
         </View>
         {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule}>🔒 Vente = identité masquée jusqu’au déblocage. L’extrait reste écoutable.</Text> : null}
         {sharePreflightBusy ? <Text style={s.preflightText}>Vérification propriété…</Text> : null}
@@ -815,7 +836,14 @@ export default function MusicAgoraPanel({
         </View> : null}
       </View> : null}
       <View style={s.quickReactions}>
-        {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity key={emoji} style={s.quickReaction} disabled={posting} onPress={() => void sendQuickReaction(emoji)} accessibilityLabel={`Envoyer ${emoji}`}><Text style={s.quickReactionText}>{emoji}</Text></TouchableOpacity>)}
+        {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity
+          key={emoji}
+          style={s.quickReaction}
+          disabled={posting}
+          activeOpacity={0.7}
+          onPress={() => void sendQuickReaction(emoji)}
+          accessibilityLabel={`Envoyer ${emoji}`}
+        ><Text style={s.quickReactionText}>{emoji}</Text></TouchableOpacity>)}
       </View>
       <TextInput
         value={draft}
@@ -912,9 +940,9 @@ const s=StyleSheet.create({
   composerCompact:{padding:7,borderRadius:14,flexShrink:0},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
   inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7},
-  quickReactions:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:6},
-  quickReaction:{width:34,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
-  quickReactionText:{fontSize:16},
+  quickReactions:{minHeight:40,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexShrink:0},
+  quickReaction:{width:42,height:38,flexGrow:0,flexShrink:0,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  quickReactionText:{fontSize:19},
   composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
   counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
@@ -964,8 +992,17 @@ const s=StyleSheet.create({
   replyTarget:{minHeight:30,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:9,borderRadius:12,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.info,marginBottom:7},
   replyTargetText:{color:colors.info,fontSize:10,fontWeight:'900'},
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
-  selectedMusic:{padding:8,borderRadius:12,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7},
-  selectedMusicTitle:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
+  selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7},
+  selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
+  selectedMusicArtwork:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},
+  selectedMusicArtworkFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},
+  selectedMusicFallbackText:{color:colors.primaryLight,fontSize:54,fontWeight:'900'},
+  selectedMusicShade:{padding:14,paddingTop:70,backgroundColor:'rgba(9,6,16,.66)'},
+  selectedMusicEyebrow:{color:colors.keep,fontSize:9.5,fontWeight:'900',letterSpacing:1},
+  selectedMusicTitle:{color:'#FFF',fontSize:20,lineHeight:23,fontWeight:'900',marginTop:3},
+  selectedMusicArtist:{color:'#F0EAF7',fontSize:13,fontWeight:'800',marginTop:3},
+  selectedMusicPlayRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
+  removeMusicLarge:{marginLeft:'auto',width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(10,8,15,.82)',alignItems:'center',justifyContent:'center'},
   revealChoices:{flexDirection:'row',alignItems:'center',gap:6,marginTop:7},
   revealChip:{minHeight:28,paddingHorizontal:8,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   revealChipOn:{borderColor:colors.keep,backgroundColor:colors.successSoft},
