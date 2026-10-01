@@ -1287,34 +1287,51 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return () => { live = false; clearInterval(id); };
   }, [arena?.id, arena?.rematchDeadline]);
 
-  // Adel (07/09/2026) : "si l'utilisateur a pas suffisamment de Free ... il
-  // faut lui marquer crédit insuffisant" -- ce solde doit déjà être connu
-  // AVANT de lancer un Battle (sur les écrans de sélection du nombre de
-  // manches), pas seulement une fois dans une arène.
-  React.useEffect(() => {
-    // Le RPC de crédit est authentifié. En mode visiteur/demo, ne jamais
-    // l'appeler : cela provoquait un 401 toutes les 4 s et faisait échouer
-    // l'audit navigateur alors que le Battle invité doit rester consultable.
+  // Source unique des compteurs FREE affichés dans Battle.
+  // Le serveur comptabilise déjà correctement les gains/pertes : le bug était
+  // visuel, myPlayerStats n'était chargé qu'une fois au montage et pouvait
+  // donc rester à 0 après un résultat. On rafraîchit solde + gagnés/perdus
+  // ensemble, pour tous les comptes réels, sans toucher aux réglages individuels.
+  const refreshMyFreeCounters = React.useCallback(async () => {
     const userState = useUserStore.getState();
-    if (!userState.user?.id || userState.isLocalGuest || userState.isDemoMode) {
+    const userId = userState.user?.id;
+    if (!userId || userState.isLocalGuest || userState.isDemoMode) {
       setMyCreditStatus(null);
-      return undefined;
+      setMyPlayerStats(null);
+      return;
     }
-    let live = true;
-    const load = () => { void loadBattleCreditStatusIfAuthenticated().then((v) => { if (live && v) setMyCreditStatus(v); }); };
-    load();
-    const id = setInterval(load, 4000);
-    return () => { live = false; clearInterval(id); };
+    const [credit, stats] = await Promise.all([
+      loadBattleCreditStatusIfAuthenticated().catch(() => null),
+      loadKeepBattlePlayerStats(userId).catch(() => null),
+    ]);
+    if (credit) setMyCreditStatus(credit);
+    if (stats) setMyPlayerStats(stats);
   }, []);
 
-  // Charger les statistiques du joueur au démarrage
   React.useEffect(() => {
     let live = true;
-    const userId = useUserStore.getState().user?.id;
-    if (!userId) return;
-    loadKeepBattlePlayerStats(userId).then((stats) => { if (live) setMyPlayerStats(stats); }).catch(() => {});
-    return () => { live = false; };
-  }, []);
+    const load = () => {
+      if (!live) return;
+      void refreshMyFreeCounters();
+    };
+    load();
+    // Filet de sécurité pendant l'écran Battle : un crédit peut être appliqué
+    // côté serveur après la dernière réponse ou à la fin d'un match distant.
+    const id = setInterval(load, 3000);
+    return () => { live = false; clearInterval(id); };
+  }, [refreshMyFreeCounters]);
+
+  // Rafraîchissement immédiat dès qu'un résultat Arena est reçu.
+  React.useEffect(() => {
+    if (!arena?.lastResult?.matchNo) return;
+    void refreshMyFreeCounters();
+  }, [arena?.lastResult?.matchNo, refreshMyFreeCounters]);
+
+  // Rafraîchissement immédiat à la fin d'un Solo, sans attendre le polling.
+  React.useEffect(() => {
+    if (!soloFinished) return;
+    void refreshMyFreeCounters();
+  }, [soloFinished, soloFreeEarned, soloCreditPending, refreshMyFreeCounters]);
 
   React.useEffect(() => {
     const round = arena?.round;
