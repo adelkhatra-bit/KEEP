@@ -24,4 +24,10 @@ describe('Loki Pulse gauge memory contract', () => {
     expect(owner).toContain('<Text style={s.dnaEyebrow}>LOKI PULSE</Text>');
     expect(owner).not.toContain('Loki Music DNA');
   });
+  it('resets recommendations closed on every profile focus', () => {
+    expect(owner).toContain("navigation?.addListener?.('focus'");
+    expect(owner).toContain('setProfilePulseExpanded(false);');
+    expect(owner).toContain('profilePulseExpanded && visibleLokiPulseItems.length > 0');
+  });
+
 });

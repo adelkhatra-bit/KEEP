@@ -213,6 +213,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      // Les bulles de styles restent visibles, mais les recommandations Loki Pulse
+      // repartent toujours masquées quand on revient sur le profil.
+      setProfilePulseExpanded(false);
+    });
+    return () => unsubscribe?.();
+  }, [navigation]);
   const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
