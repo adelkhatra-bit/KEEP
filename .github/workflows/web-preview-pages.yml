@@ -7,6 +7,11 @@ on:
       # Public Pages deploys only when the public web artifact can change.
       # Backend/database-only commits must not consume a Pages deployment.
       - 'packages/mobile/**'
+      - '!packages/mobile/**/__tests__/**'
+      - '!packages/mobile/**/*.test.ts'
+      - '!packages/mobile/**/*.test.tsx'
+      - '!packages/mobile/**/*.spec.ts'
+      - '!packages/mobile/**/*.spec.tsx'
       - 'packages/music/**'
       - 'packages/admin/**'
       - 'scripts/verify-source-of-truth.cjs'
@@ -72,7 +77,15 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
-          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" --             packages/mobile packages/music packages/admin             scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs             package.json package-lock.json .github/workflows/web-preview-pages.yml)"
+          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- \
+            packages/mobile packages/music packages/admin \
+            scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs \
+            package.json package-lock.json .github/workflows/web-preview-pages.yml \
+            ':(exclude)packages/mobile/**/__tests__/**' \
+            ':(exclude)packages/mobile/**/*.test.ts' \
+            ':(exclude)packages/mobile/**/*.test.tsx' \
+            ':(exclude)packages/mobile/**/*.spec.ts' \
+            ':(exclude)packages/mobile/**/*.spec.tsx')"
           test -n "$latest"
           if [ "$GITHUB_SHA" = "$latest" ]; then
             echo "build=yes" >> "$GITHUB_OUTPUT"
@@ -296,7 +309,15 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
-          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" --             packages/mobile packages/music packages/admin             scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs             package.json package-lock.json .github/workflows/web-preview-pages.yml)"
+          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- \
+            packages/mobile packages/music packages/admin \
+            scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs \
+            package.json package-lock.json .github/workflows/web-preview-pages.yml \
+            ':(exclude)packages/mobile/**/__tests__/**' \
+            ':(exclude)packages/mobile/**/*.test.ts' \
+            ':(exclude)packages/mobile/**/*.test.tsx' \
+            ':(exclude)packages/mobile/**/*.spec.ts' \
+            ':(exclude)packages/mobile/**/*.spec.tsx')"
           test -n "$latest"
           echo "publish=yes" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_SHA" = "$latest" ]; then
