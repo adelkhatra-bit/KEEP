@@ -103,7 +103,11 @@ export default function GlobalChatDock() {
   useEffect(() => {
     const syncRoute = () => {
       const current = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
-      setActiveSurface(chatSurfaceForRoute(current));
+      const nextSurface = chatSurfaceForRoute(current);
+      // Une transition React Navigation peut brièvement renvoyer une route
+      // intermédiaire inconnue. Ne jamais faire disparaître la languette pour
+      // cette seule frame : on conserve la dernière surface valide.
+      if (nextSurface) setActiveSurface(nextSurface);
     };
     syncRoute();
     const timer = setInterval(syncRoute, 750);
@@ -285,7 +289,7 @@ export default function GlobalChatDock() {
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 || Math.abs(gesture.dy) > 14,
+    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 24 || Math.abs(gesture.dy) > 24,
     onPanResponderGrant: () => {
       dragStartBottom.current = bottomOffset;
       drag.setValue({ x: 0, y: 0 });
@@ -384,7 +388,7 @@ export default function GlobalChatDock() {
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
   return (
-    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+    <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.globalOverlay]}>
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
         <View style={styles.settingsBackdrop}>
           <View style={styles.settingsSheet}>
@@ -505,12 +509,12 @@ export default function GlobalChatDock() {
         </View>
       </Modal>
 
-      {chatEnabled && open ? (
+      {open ? (
         <MusicAgoraPanel
           compact
           compactSide={side}
           currentProfileId={user.id}
-          enabled
+          enabled={accountReady}
           shareableTracks={tracks}
           initialRoomSlug={target?.roomSlug ?? undefined}
           initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
@@ -592,6 +596,7 @@ export default function GlobalChatDock() {
 }
 
 const styles = StyleSheet.create({
+  globalOverlay:{zIndex:1000,elevation:100},
   settingsBackdrop:{flex:1,backgroundColor:'rgba(5,4,10,.78)',alignItems:'center',justifyContent:'center',paddingHorizontal:18},
   settingsSheet:{width:'100%',maxWidth:360,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
   settingsHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},
