@@ -185,6 +185,7 @@ export interface PersistedKeepDecision {
   sessionId?: string;
   sourceProfileId?: string;
   sourceUsername?: string;
+  originSource?: string;
   creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT';
   track: CanonicalTrack;
 }
@@ -238,6 +239,11 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
         : undefined;
     const creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT' =
       context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP';
+    const originSource = typeof context.source === 'string' && context.source.trim()
+      ? context.source.trim()
+      : row?.source_type
+        ? String(row.source_type)
+        : undefined;
     return [{
       decisionId: String(row.id),
       visibility,
@@ -246,6 +252,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       sessionId,
       sourceProfileId,
       sourceUsername,
+      originSource,
       creditPolicy,
       track: {
         id: String(track.id),
