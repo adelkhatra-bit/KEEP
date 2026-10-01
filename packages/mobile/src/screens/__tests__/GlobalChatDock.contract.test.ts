@@ -74,6 +74,9 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('drawerGrip');
     expect(dock).toContain("outputRange: [-50, 0]");
     expect(dock).toContain("outputRange: [50, 0]");
+    expect(dock).toContain("if (!previewOnly && !settingsOpen && !accountReady) return null;");
+    expect(dock).not.toContain("(!accountReady || !chatEnabled)) return null");
+    expect(dock).toContain("chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'");
   });
 
   it('keeps bell messages, activity and settings separated and inline', () => {
