@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.22",
+  "version": "2026-10-01.10",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -242,6 +242,28 @@
         "Connecter ses services"
       ],
       "compactHomeActions": true
+    },
+    "canonicalHelpSheet": {
+      "component": "ContextHelpSheet",
+      "trigger": "?",
+      "sameDesignEverywhere": true,
+      "childUnderstandableCopy": true,
+      "numberedSteps": true,
+      "bluePrimaryStyling": true,
+      "nativeAlertForbiddenForPrimaryScreenHelp": true,
+      "closeAction": "J’AI COMPRIS"
+    },
+    "battle": {
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "canonicalHelpSheet": true,
+      "helpContains": [
+        "Solo expliqué séparément du Battle en ligne",
+        "Styles de jeu séparés des goûts Loki Pulse",
+        "FREE gagnés/perdus du jour",
+        "Reset quotidien 02:00",
+        "Invitations et disponibilité"
+      ]
     }
   },
   "eventDiscovery": {
