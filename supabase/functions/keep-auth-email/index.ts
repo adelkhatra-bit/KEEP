@@ -63,22 +63,38 @@ async function handleSignup(body: any) {
     return json({ ok: false, error: "server_error" }, 500);
   }
 
+  const signupSubject = "Confirme ton compte Loki Music";
+  const signupHtml = lokiEmailCtaShell(
+    signupSubject,
+    "Confirme ton adresse e-mail",
+    `<strong style="color:#ffffff">@${escapeHtml(username)}</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
+    "Confirmer mon compte",
+    data.properties.action_link,
+    "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
+  );
+  const signupText = `@${username}, confirme ton compte Loki Music en ouvrant ce lien : ${data.properties.action_link}`;
   const sent = await sendTransactionalEmail(
     email,
-    "Confirme ton compte Loki Music",
-    lokiEmailCtaShell(
-      "Confirme ton compte Loki Music",
-      "Confirme ton adresse e-mail",
-      `<strong style="color:#ffffff">@${escapeHtml(username)}</strong>, plus qu’une étape pour activer ton compte Loki Music et pouvoir récupérer ton mot de passe si besoin.`,
-      "Confirmer mon compte",
-      data.properties.action_link,
-      "Tu n’es pas à l’origine de cette inscription ? Ignore simplement cet e-mail.",
-    ),
-    `@${username}, confirme ton compte Loki Music en ouvrant ce lien : ${data.properties.action_link}`,
+    signupSubject,
+    signupHtml,
+    signupText,
     "signup-confirmation",
     "keep-auth-email",
   );
   if (sent.ok) return json({ ok: true, userId: data.user?.id, requiresEmailConfirmation: true });
+
+  const { error: signupQueueError } = await admin.from("email_queue").insert({
+    recipient_email: email,
+    subject: signupSubject,
+    html_content: signupHtml,
+    text_content: signupText,
+    email_type: "signup",
+    user_id: data.user?.id || null,
+    status: "pending",
+    metadata: { action_link: data.properties.action_link, username },
+  });
+  if (signupQueueError) console.error("[keep-auth-email] signup email_queue insert failed", signupQueueError);
+  else console.log("[keep-auth-email] signup confirmation queued for retry");
 
   // Adel (03/09/2026) : "il ne faut pas bloquer les utilisateurs" quand un
   // systeme externe (ici Brevo) n'est pas disponible -- l'inscription doit se
