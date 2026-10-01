@@ -12,7 +12,9 @@ export type FreeWalletStatus = {
   adminEarnedToday: number;
   marketplaceEarnedToday: number;
   keepSpentToday: number;
+  keepCountToday: number;
   marketplaceSpentToday: number;
+  marketplacePurchaseCountToday: number;
   period: string;
   timezone: string;
   startedAt: string | null;
@@ -53,7 +55,9 @@ export async function loadMyFreeWalletStatus(): Promise<FreeWalletStatus> {
     adminEarnedToday: n(row.adminEarnedToday ?? row.admin_earned_today),
     marketplaceEarnedToday: n(row.marketplaceEarnedToday ?? row.marketplace_earned_today),
     keepSpentToday: n(row.keepSpentToday ?? row.keep_spent_today),
+    keepCountToday: n(row.keepCountToday ?? row.keep_count_today),
     marketplaceSpentToday: n(row.marketplaceSpentToday ?? row.marketplace_spent_today),
+    marketplacePurchaseCountToday: n(row.marketplacePurchaseCountToday ?? row.marketplace_purchase_count_today),
     period: String(row.period ?? 'TODAY_2AM'),
     timezone: String(row.timezone ?? deviceTimeZone()),
     startedAt: row.startedAt ?? row.started_at ?? null,
