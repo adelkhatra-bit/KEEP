@@ -16,7 +16,7 @@ import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPla
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadDeliveredPlaylistSaleTracks, loadMyOfferedTrackIds, loadMyPlaylistPurchaseLibrary, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistPurchaseLibraryEntry, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
-import { getPayoutLinkForProfile, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
+import { getMyPayoutMethods, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -30,6 +30,7 @@ import {
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
 import ContextHelpSheet from '../components/ContextHelpSheet';
+import PayPalQrPayoutControl from '../components/PayPalQrPayoutControl';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -209,11 +210,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [playlistHelpOpen, setPlaylistHelpOpen] = useState(false);
   const [payoutLink, setPayoutLink] = useState('');
   const [payoutLinkDraft, setPayoutLinkDraft] = useState('');
+  const [payoutQrUrl, setPayoutQrUrl] = useState('');
   const [payoutSaving, setPayoutSaving] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!userId || isLocalGuest || isDemoMode) { setPayoutLink(''); setPayoutLinkDraft(''); return undefined; }
-    const loadPayout = () => getPayoutLinkForProfile(userId).then((value) => { if (live) { setPayoutLink(value); setPayoutLinkDraft(value); } }).catch(() => { if (live) { setPayoutLink(''); setPayoutLinkDraft(''); } });
+    if (!userId || isLocalGuest || isDemoMode) { setPayoutLink(''); setPayoutLinkDraft(''); setPayoutQrUrl(''); return undefined; }
+    const loadPayout = () => getMyPayoutMethods().then((value) => { if (live) { setPayoutLink(value.link); setPayoutLinkDraft(value.link); setPayoutQrUrl(value.qrUrl); } }).catch(() => { if (live) { setPayoutLink(''); setPayoutLinkDraft(''); setPayoutQrUrl(''); } });
     void loadPayout();
     const unsubscribe = navigation?.addListener?.('focus', loadPayout);
     return () => { live = false; unsubscribe?.(); };
@@ -1129,10 +1131,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
       Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant dans la devise sélectionnée.');
       return;
     }
-    if (sellPaymentMode === 'MONEY' && !payoutLink.trim()) {
+    if (sellPaymentMode === 'MONEY' && !payoutLink.trim() && !payoutQrUrl.trim()) {
       Alert.alert(
         'Mode de paiement requis',
-        'Pour publier avec un paiement direct, configure d’abord le lien sur lequel tu veux être payé.',
+        'Pour publier avec un paiement direct, configure un lien PayPal.Me ou ajoute ton QR PayPal.',
         [
           { text: 'OK', style: 'cancel' },
         ],
@@ -1933,10 +1935,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 4 SUR 4</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
 
               {sellPaymentMode === 'MONEY' && Platform.OS === 'web' ? (
-                <View style={[styles.salePaymentSetup, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
-                  <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' déjà enregistré' : 'PAIEMENT À CONFIGURER'}</Text>
+                <View style={[styles.salePaymentSetup, (payoutLink.trim() || payoutQrUrl.trim()) ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
+                  <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' déjà enregistré' : payoutQrUrl.trim() ? '✓ QR PayPal enregistré' : 'PAIEMENT À CONFIGURER'}</Text>
                   <Text style={styles.salePaymentGateHint}>Ton lien est mémorisé sur ton profil. PayPal.Me est recommandé : le montant et la devise sélectionnée sont préremplis pour l’acheteur.</Text>
-                  <Text style={styles.payoutChecklist}>1 · Lien PayPal une seule fois  ·  2 · Teste-le  ·  3 · Loki le réutilise pour tes prochaines Pépites</Text>
+                  <Text style={styles.payoutChecklist}>1 · PayPal.Me recommandé sur le même téléphone  ·  2 · QR PayPal en secours  ·  3 · Loki mémorise les deux</Text>
                   <TextInput
                     style={styles.payoutInput}
                     value={payoutLinkDraft}
@@ -1955,6 +1957,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                       {payoutSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.payoutSaveText}>3 · ENREGISTRER LE LIEN</Text>}
                     </TouchableOpacity>
                   </View>
+                  {userId ? <PayPalQrPayoutControl profileId={userId} qrUrl={payoutQrUrl} onChange={setPayoutQrUrl} disabled={payoutSaving} /> : null}
                   <Text style={styles.salePaymentFootnote}>Loki Music n’encaisse pas l’argent. Tu confirmes ensuite la réception avant le déblocage.</Text>
                 </View>
               ) : sellPaymentMode === 'FREE' ? (
@@ -1965,9 +1968,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
               ) : null}
 
               <TouchableOpacity
-                style={[styles.saveButton, (!sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)) && styles.publishButtonDisabled]}
+                style={[styles.saveButton, (!sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || (!payoutLink.trim() && !payoutQrUrl.trim())) : !sellFreePrice)) && styles.publishButtonDisabled]}
                 onPress={() => void saveSellPrice()}
-                disabled={sellBusy || !sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
+                disabled={sellBusy || !sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || (!payoutLink.trim() && !payoutQrUrl.trim())) : !sellFreePrice)}
               >
                 {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
               </TouchableOpacity>
