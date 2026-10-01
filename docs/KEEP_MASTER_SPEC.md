@@ -129,6 +129,11 @@ Interdictions :
 - certification = donnée réelle Supabase `profiles.certification_tier` ;
 - solde FREE = donnée réelle issue des RPC de crédit existantes ;
 - ne pas déplacer FREE hors de la position immédiatement après Reprises pour corriger un autre module.
+- le nombre FREE principal reste uniquement dans la barre `PLUS | Abonnés | Reprises | FREE` ;
+- quand l’utilisateur ouvre le détail FREE, **ne pas répéter “FREE disponibles”** : la première statistique est **FREE dépensés aujourd’hui** pour les vrais GARDER débités ;
+- cette dépense quotidienne vient du journal serveur `keep_free_spend_events` / RPC `keep_free_spent_today`, avec le montant réellement débité au moment de l’action ; ne jamais la recalculer avec le prix actuel ;
+- une reprise sociale à 0 FREE ne compte jamais comme dépense ;
+- la journée FREE suit le cycle produit 02:00 → 01:59 dans le fuseau local de l’appareil.
 
 ## 10. Hamburger profil
 
