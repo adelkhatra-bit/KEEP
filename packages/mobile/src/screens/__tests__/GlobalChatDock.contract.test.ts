@@ -55,9 +55,14 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("previewOnly ? 'CONNEXION'");
   });
 
-  it('opens into a large conversation drawer and returns to the edge tab', () => {
-    expect(messenger).toContain("height:'68%'");
-    expect(messenger).toContain('maxHeight:620');
+  it('keeps the conversation drawer fixed-height and lifts it by the measured keyboard', () => {
+    expect(messenger).toContain('baseViewportHeightRef');
+    expect(messenger).toContain('visualViewport');
+    expect(messenger).toContain('keyboardInset > 0 ? keyboardInset + 8 : 78');
+    expect(messenger).toContain('minHeight:compactPanelHeight');
+    expect(messenger).toContain('maxHeight:compactPanelHeight');
+    expect(messenger).toContain('height:52,minHeight:52,maxHeight:52');
+    expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('onCompactClose');
     expect(dock).toContain('onCompactClose={closeChat}');
   });
@@ -103,5 +108,27 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('MESSAGES');
     expect(messenger).toContain('LA PLACE');
     expect(messenger).toContain('＋ PÉPITE');
+  });
+
+  it('keeps music sharing compact, explicit and anti-resale', () => {
+    expect(messenger).toContain('VALIDER LA PÉPITE');
+    expect(messenger).toContain('shareOptionsOpen');
+    expect(messenger).toContain('shareOwnershipOpen');
+    expect(messenger).toContain('🔒 PARTAGE UNIQUEMENT');
+    expect(messenger).toContain('FREE et € restent verrouillés');
+    expect(messenger).toContain('paymentLocked');
+  });
+
+  it('keeps PayPal QR and payment confirmation inside the chat flow', () => {
+    expect(service).toContain('keep_agora_share_my_payout_qr');
+    expect(service).toContain('keep_marketplace_terms_status');
+    expect(service).toContain('keep_marketplace_accept_terms');
+    expect(service).toContain('keep_agora_offer_payment_states');
+    expect(messenger).toContain('QR PAYPAL');
+    expect(messenger).toContain('paymentInline');
+    expect(messenger).toContain('J’AI PAYÉ');
+    expect(messenger).toContain('PAIEMENT REÇU · DÉBLOQUER');
+    expect(messenger).toContain('markPlaylistSalePaid');
+    expect(messenger).toContain('acceptMarketplacePaymentTerms');
   });
 });
