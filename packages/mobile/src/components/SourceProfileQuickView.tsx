@@ -7,7 +7,7 @@ import ProfileCertificationBadge from './ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 
 const KIND_LABELS: Record<string, string> = {
-  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu / établissement',
+  USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
 };
 
 type QuickProfile = {
