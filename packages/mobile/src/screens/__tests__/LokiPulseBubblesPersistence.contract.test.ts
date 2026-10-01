@@ -4,47 +4,31 @@ import path from 'path';
 
 const read = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('music bubbles persistence contract', () => {
+describe('DNA and Loki Pulse separation', () => {
   const home = read(__dirname, '..', 'HomeScreenCompact.tsx');
   const owner = read(__dirname, '..', 'ProfilePublicScreen.tsx');
-  const visitor = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
-  const helper = read(__dirname, '..', '..', 'services', 'musicStyleBubbles.ts');
 
-  it('keeps home bubbles directly visible without DNA/Pulse labels', () => {
-    expect(home).toContain('testID="home-loki-pulse-bubbles"');
-    expect(home).toContain('testID="home-loki-pulse-bubbles"');
-    expect(home).toContain('onPressGenre={openHomeStyle}');
-    expect(home).not.toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
-    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
-    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
+  it('keeps owner DNA compact and independently collapsible', () => {
+    expect(owner).toContain('testID="profile-music-dna-card"');
+    expect(owner).toContain('<Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>');
+    expect(owner).toContain('<Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>');
+    expect(owner).toContain('const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);');
+    expect(owner).toContain('ownerDnaExpanded ? (');
+    expect(owner).toContain('testID="profile-music-dna-expanded"');
   });
 
-  it('keeps owner gauge visible while Pulse content stays masked when collapsed', () => {
-    expect(owner).toContain('testID="profile-loki-pulse-bubbles-card"');
-    expect(owner).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
-    expect(owner).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
-    expect(owner).not.toContain('profile-loki-pulse-preview');
-    expect(owner).not.toContain('profile-music-style-bubbles-preview');
-    expect(owner).not.toContain('Loki Music DNA');
+  it('keeps a separate clickable track-bubble Loki Pulse section lower on profile', () => {
+    expect(owner).toContain('testID="profile-loki-pulse-track-bubbles"');
+    expect(owner).toContain('<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>');
+    expect(owner).toContain('setLokiPulseSelectedTrackId(item.track.id)');
+    expect(owner).toContain('setLokiPulseSwipeOpen(true)');
   });
 
-  it('keeps full owner bubbles and recommendations available after expansion', () => {
-    expect(owner).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
-    expect(owner).toContain('testID="profile-music-style-bubbles"');
-    expect(owner).toContain('profilePulseExpanded && visibleLokiPulseItems.length > 0');
-  });
-
-  it('keeps visited profile compact with gauge and expandable bubbles', () => {
-    expect(visitor).toContain('testID="public-profile-loki-pulse-bubbles-card"');
-    expect(visitor).toContain('<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>');
-    expect(visitor).toContain('visitorPulseExpanded && visitorStyleBubbles.length > 0');
-    expect(visitor).not.toContain('Loki Music DNA');
-  });
-
-  it('uses one deduplicating merge rule across surfaces', () => {
-    expect(helper).toContain('export function buildMusicStyleBubbles');
-    expect(home).toContain('buildMusicStyleBubbles');
-    expect(owner).toContain('buildMusicStyleBubbles');
-    expect(visitor).toContain('buildMusicStyleBubbles');
+  it('uses track bubbles, not genre/style bubbles, on Loki Music home', () => {
+    expect(home).toContain('loadLokiPulse(24)');
+    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
+    expect(home).toContain('openHomePulseTrack(item.track.id)');
+    expect(home).not.toContain('homeStyleBubbles');
+    expect(home).not.toContain('Styles musicaux cliquables');
   });
 });

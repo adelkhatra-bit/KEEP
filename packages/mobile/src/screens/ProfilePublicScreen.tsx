@@ -212,12 +212,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
-  const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);
+  const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
-      // Les bulles de styles restent visibles, mais les recommandations Loki Pulse
-      // repartent toujours masquées quand on revient sur le profil.
-      setProfilePulseExpanded(false);
+      setOwnerDnaExpanded(false);
     });
     return () => unsubscribe?.();
   }, [navigation]);
@@ -1970,108 +1968,63 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
       {!accountRequired ? (
-        <View style={s.dnaCompactWrap} testID="profile-loki-pulse-bubbles-card">
-          <View style={s.dnaCompactMeter}>
+        <View style={s.dnaCompactWrap} testID="profile-music-dna-card">
+          <TouchableOpacity
+            style={s.dnaCompactMeter}
+            onPress={() => setOwnerDnaExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: ownerDnaExpanded }}
+            accessibilityLabel={ownerDnaExpanded ? 'Masquer mon empreinte musicale' : 'Afficher mon empreinte musicale'}
+          >
             <View style={s.dnaCompactCopy}>
-              <Text style={s.dnaEyebrow}>LOKI PULSE</Text>
+              <Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>
               <Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>
-              <Text style={s.dnaCountHint}>
-                {profileStyleBubbles.length > 0
-                  ? `${profileStyleBubbles.length} style${profileStyleBubbles.length > 1 ? 's' : ''}`
-                  : 'Aucun style détecté'}
-              </Text>
             </View>
             <View style={s.dnaCompactGauge}>
               <View style={s.dnaCompactTrack}>
                 <View style={[s.dnaCompactFill, { width: `${styleCoveragePercent}%` }]} />
               </View>
-              <Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>
-            </View>
-          </View>
-
-          {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
-            <View style={s.pulseCompactActions}>
-              <TouchableOpacity
-                style={[s.dnaCompactToggle, profilePulseExpanded && s.dnaCompactToggleOn]}
-                onPress={() => setProfilePulseExpanded((value) => !value)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: profilePulseExpanded }}
-                accessibilityLabel={profilePulseExpanded ? 'Masquer les détails Loki Pulse' : 'Voir plus de détails Loki Pulse'}
-              >
-                <Text style={s.dnaCompactToggleText}>
-                  {profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'}
-                </Text>
-                <Text style={s.dnaCompactToggleChevron}>{profilePulseExpanded ? '⌃' : '⌄'}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          {profilePulseExpanded && profileStyleBubbles.length > 0 ? (
-            <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-styles">
-              <Text style={s.dnaCountHint}>MES STYLES · {profileStyleBubbles.length}</Text>
-              <MusicStyleBubbles
-                testID="profile-music-style-bubbles"
-                genres={profileStyleBubbles}
-                max={profileStyleBubbles.length}
-                onPressGenre={(genre) => {
-                  const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-                  if (folder?.entries.length) {
-                    openSelectionSwipe({
-                      title: folder.genre,
-                      subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                      tracks: folder.entries.map((entry) => entry.track),
-                    });
-                    return;
-                  }
-                  switchProfileTab('TRACKS');
-                  setTracksGrouping('GENRE');
-                }}
-              />
-            </View>
-          ) : null}
-
-          {profilePulseExpanded && visibleLokiPulseItems.length > 0 ? (
-            <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-music">
-              <View style={s.lokiPulseHeader}>
-                <View style={s.lokiPulseHeaderCopy}>
-                  <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
-                </View>
-                <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
+              <View style={s.dnaCompactScoreRow}>
+                <Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>
+                <Text style={s.dnaCompactChevron}>{ownerDnaExpanded ? '⌃' : '⌄'}</Text>
               </View>
-              <Text style={s.lokiPulseHint}>Adapté à tes styles. PASSER masque le son ; GARDER te laisse choisir Public ou Privé.</Text>
-              <ScrollView
-                ref={lokiPulseScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.lokiPulseRail}
-              >
-                {visibleLokiPulseItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.track.id}
-                    style={s.lokiPulseCard}
-                    onPress={() => {
-                      unlockWebAudioForGesture();
-                      setLokiPulseSelectedTrackId(item.track.id);
-                      setLokiPulseSwipeOpen(true);
-                    }}
-                    accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
-                  >
-                    <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
-                      {item.track.artworkUrl
-                        ? <Image source={{ uri: item.track.artworkUrl }} style={s.lokiPulseArtwork} />
-                        : <View style={[s.lokiPulseArtwork, s.avatarFallback]}><Text style={s.lokiPulseFallback}>♫</Text></View>}
-                      {item.isNew ? <View style={s.lokiPulseNewDot}><Text style={s.lokiPulseNewText}>NEW</Text></View> : null}
-                    </Animated.View>
-                    <Text style={s.lokiPulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
-                    <Text style={s.lokiPulseArtist} numberOfLines={1}>{item.track.artist}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
             </View>
-          ) : null}
+          </TouchableOpacity>
 
-          {!profileStyleBubbles.length ? (
-            <View style={s.dnaCompactDetails}>
-              <Text style={s.muted}>Tes bulles apparaîtront ici dès que Loki Pulse connaît au moins un de tes styles.</Text>
+          {ownerDnaExpanded ? (
+            <View style={s.dnaCompactDetails} testID="profile-music-dna-expanded">
+              <Text style={s.dnaCountHint}>TES STYLES MUSICAUX · {profileStyleBubbles.length}</Text>
+              {profileStyleBubbles.length > 0 ? (
+                <MusicStyleBubbles
+                  testID="profile-music-style-bubbles"
+                  genres={profileStyleBubbles}
+                  max={8}
+                  onPressGenre={(genre) => {
+                    const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+                    if (folder?.entries.length) {
+                      openSelectionSwipe({
+                        title: folder.genre,
+                        subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                        tracks: folder.entries.map((entry) => entry.track),
+                      });
+                      return;
+                    }
+                    switchProfileTab('TRACKS');
+                    setTracksGrouping('GENRE');
+                  }}
+                />
+              ) : (
+                <Text style={s.muted}>Ton empreinte musicale se construit avec tes écoutes et tes morceaux gardés.</Text>
+              )}
+              {profileStyleBubbles.length > 8 ? (
+                <TouchableOpacity
+                  style={s.dnaSeeAll}
+                  onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
+                  accessibilityLabel={`Voir mes ${profileStyleBubbles.length} styles musicaux`}
+                >
+                  <Text style={s.dnaSeeAllText}>VOIR MES {profileStyleBubbles.length} STYLES</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -2085,6 +2038,47 @@ export default function ProfilePublicScreen({ navigation }: any) {
         })}</View>
       </View>
 
+
+      {!accountRequired && visibleLokiPulseItems.length ? (
+        <View style={s.lokiPulseSection} testID="profile-loki-pulse-track-bubbles">
+          <View style={s.lokiPulseHeader}>
+            <View style={s.lokiPulseHeaderCopy}>
+              <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
+              <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
+            </View>
+            <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
+          </View>
+          <Text style={s.lokiPulseHint}>Appris par Loki à partir de tes écoutes et adapté à tes goûts. Appuie sur une bulle pour écouter.</Text>
+          <ScrollView
+            ref={lokiPulseScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.lokiPulseRail}
+          >
+            {visibleLokiPulseItems.map((item) => (
+              <TouchableOpacity
+                key={item.track.id}
+                style={s.lokiPulseCard}
+                onPress={() => {
+                  unlockWebAudioForGesture();
+                  setLokiPulseSelectedTrackId(item.track.id);
+                  setLokiPulseSwipeOpen(true);
+                }}
+                accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
+              >
+                <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
+                  {item.track.artworkUrl
+                    ? <Image source={{ uri: item.track.artworkUrl }} style={s.lokiPulseArtwork} />
+                    : <View style={[s.lokiPulseArtwork, s.avatarFallback]}><Text style={s.lokiPulseFallback}>♫</Text></View>}
+                  {item.isNew ? <View style={s.lokiPulseNewDot}><Text style={s.lokiPulseNewText}>NEW</Text></View> : null}
+                </Animated.View>
+                <Text style={s.lokiPulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
+                <Text style={s.lokiPulseArtist} numberOfLines={1}>{item.track.artist}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {!accountRequired ? (
         <View>

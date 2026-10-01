@@ -45,15 +45,13 @@ const ownerActionsEnd = owner.indexOf('</ProfileMotionReveal>', ownerActionsStar
 const ownerActions = owner.slice(ownerActionsStart, ownerActionsEnd);
 assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
 
-assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
-assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
-assertIncludes(owner, "profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'", 'Owner Loki Pulse single compact toggle');
-if (owner.includes('profile-loki-pulse-preview') || owner.includes('profile-music-style-bubbles-preview')) throw new Error('Owner collapsed Loki Pulse must not render style bubbles');
-assertIncludes(owner, 'profilePulseExpanded && profileStyleBubbles.length > 0', 'Owner styles only after VOIR PLUS');
-assertIncludes(owner, 'testID="profile-loki-pulse-expanded-styles"', 'Owner styles inside merged Loki Pulse card');
-assertIncludes(owner, 'testID="profile-loki-pulse-expanded-music"', 'Owner profile recommendations inside merged Loki Pulse card');
-if (owner.includes('style={s.lokiPulseSection}')) throw new Error('Owner profile has one merged Loki Pulse block; standalone section must not return');
-if (owner.includes('Loki Music DNA')) throw new Error('Owner profile must not restore visible Loki Music DNA');
+assertIncludes(owner, 'testID="profile-music-dna-card"', 'Owner compact DNA card');
+assertIncludes(owner, '<Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>', 'Owner DNA branding');
+assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner DNA percentage gauge');
+assertIncludes(owner, 'const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);', 'Owner DNA collapsed state');
+assertIncludes(owner, 'testID="profile-music-dna-expanded"', 'Owner DNA expandable details');
+assertIncludes(owner, 'testID="profile-loki-pulse-track-bubbles"', 'Owner separate Loki Pulse track bubbles');
+assertIncludes(owner, 'style={s.lokiPulseSection}', 'Owner standalone Loki Pulse section');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
 assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
 assertIncludes(owner, 'style={s.profileBattleInline}', 'Owner Battle inline with profile identity');
@@ -140,6 +138,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; jauge masquée compacte -> VOIR PLUS styles + recommandations -> réseaux -> partage');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; DNA compact masquable -> réseaux -> Loki Pulse track bubbles -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: owner APERÇU/PÉPITES/BATTLE and visitor SWIPE/TCHAT/BATTLE/PARTAGER equal-width rows preserved');

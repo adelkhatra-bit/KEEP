@@ -2394,3 +2394,13 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - VOIR PLUS affiche les styles cliquables + recommandations ; MASQUER replie tout.
 - Ne pas remettre d'aperçu 4 bulles tant qu'Adel n'a pas validé visuellement.
 - Ne pas toucher HomeScreenCompact, chat, Super Admin, App.tsx, Navigation.tsx ou barre 5 onglets pour cette correction.
+
+
+## [2026-10-02] PENDING USER VALIDATION — DNA SÉPARÉ DE LOKI PULSE
+- Coordination seulement. NE PAS recopier dans le cahier des charges avant validation visuelle explicite d'Adel.
+- Profil propriétaire : restaurer deux concepts séparés.
+  1. LOKI MUSIC DNA = jauge % / « Ton empreinte musicale », compact et dépliable/masquable ; styles seulement quand on ouvre l'ADN.
+  2. LOKI PULSE = section distincte plus bas avec petites bulles de morceaux (artworks) cliquables qui ouvrent l'écoute.
+- Accueil Loki Music : supprimer les pastilles de styles/genres et afficher seulement les petites bulles de morceaux Loki Pulse, cliquables pour écouter.
+- Ne pas toucher au chat, Super Admin, App.tsx, Navigation.tsx ni barre 5 onglets pour cette correction.
+- Coco/Claude indique un 403 car le dépôt n'est pas autorisé dans sa session Claude : problème de source autorisée côté Claude, pas de credential GitHub.

@@ -4,19 +4,16 @@ import path from 'path';
 
 const owner = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
-describe('single owner Loki Pulse card contract', () => {
-  it('keeps styles and recommendations inside one compact card', () => {
-    expect(owner).toContain('const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);');
-    expect(owner).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
-    expect(owner).toContain('testID="profile-loki-pulse-expanded-styles"');
-    expect(owner).toContain('testID="profile-loki-pulse-expanded-music"');
+describe('owner DNA and Loki Pulse are separate', () => {
+  it('keeps one compact DNA card and one separate Pulse track section', () => {
+    expect((owner.match(/testID="profile-music-dna-card"/g) || []).length).toBe(1);
+    expect((owner.match(/testID="profile-loki-pulse-track-bubbles"/g) || []).length).toBe(1);
+    expect(owner).toContain('<Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>');
+    expect(owner).toContain('<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>');
   });
 
-  it('keeps both styles and recommendations hidden until VOIR PLUS', () => {
-    expect(owner).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
-    expect(owner).toContain('profilePulseExpanded && visibleLokiPulseItems.length > 0');
-    expect(owner).not.toContain('profile-loki-pulse-preview');
-    expect(owner).not.toContain('profile-music-style-bubbles-preview');
-    expect(owner).not.toContain('style={s.lokiPulseSection}');
+  it('does not merge Pulse recommendations into DNA', () => {
+    expect(owner).not.toContain('profilePulseExpanded');
+    expect(owner).toContain('style={s.lokiPulseSection}');
   });
 });

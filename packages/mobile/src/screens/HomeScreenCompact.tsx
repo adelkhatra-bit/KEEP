@@ -3,10 +3,8 @@ import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Sty
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
-import { CanonicalTrack, computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
-import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -23,11 +21,9 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
-import { loadOwnProfileKeeps, PublicProfileKeep } from '../services/publicProfileStateService';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
+import { loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -108,71 +104,33 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
-  const historySessions = useSessionHistoryStore((s) => s.sessions);
-  const [serverHomeStyles, setServerHomeStyles] = useState<string[]>([]);
-  const [homeKeeps, setHomeKeeps] = useState<PublicProfileKeep[]>([]);
-  const [homeStyleSelection, setHomeStyleSelection] = useState<{ genre: string; tracks: CanonicalTrack[] } | null>(null);
-  const homeDna = useMemo(() => {
-    const decisions: DnaSourceDecision[] = historySessions.flatMap((session) =>
-      session.tracks
-        .filter((entry) => entry.status === 'kept')
-        .map((entry) => ({
-          artist: entry.track.artist,
-          genres: entry.track.genres ?? [],
-          decision: 'KEPT' as const,
-          createdAt: entry.detectedAt,
-        })),
-    );
-    return computeMusicDNA(decisions);
-  }, [historySessions]);
-  const homeStyleBubbles = useMemo(() => buildMusicStyleBubbles([
-    serverHomeStyles,
-    homeDna.topGenres.map((row) => row.genre),
-    user?.favoriteGenres,
-  ], 8), [homeDna.topGenres, serverHomeStyles, user?.favoriteGenres]);
+  const [homePulseItems, setHomePulseItems] = useState<LokiPulseItem[]>([]);
+  const [homePulseOpen, setHomePulseOpen] = useState(false);
+  const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
-    const refreshHomeStyles = async () => {
+    const refreshHomePulse = async () => {
       if (!user?.id || isDemoMode || musicEngine.isDemoMode) {
-        if (live) {
-          setServerHomeStyles([]);
-          setHomeKeeps([]);
-        }
+        if (live) setHomePulseItems([]);
         return;
       }
       try {
-        const keeps = await loadOwnProfileKeeps();
-        if (live) setHomeKeeps(keeps);
-        const counts = new Map<string, number>();
-        for (const entry of keeps) {
-          for (const rawGenre of entry.track.genres ?? []) {
-            const genre = String(rawGenre || '').trim();
-            if (genre) counts.set(genre, (counts.get(genre) ?? 0) + 1);
-          }
-        }
-        const styles = Array.from(counts.entries())
-          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-          .slice(0, 8)
-          .map(([genre]) => genre);
-        if (live) setServerHomeStyles(styles);
+        const items = await loadLokiPulse(24);
+        if (live) setHomePulseItems(items);
       } catch {
-        // Le résumé local/déclaré reste visible si le serveur est momentanément indisponible.
+        if (live) setHomePulseItems([]);
       }
     };
-    void refreshHomeStyles();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomeStyles(); });
+    void refreshHomePulse();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomePulse(); });
     return () => { live = false; unsubscribe?.(); };
   }, [isDemoMode, navigation, user?.id]);
-  const openHomeStyle = (genre: string) => {
-    const normalize = (value: string) => String(value || '').normalize('NFKC').trim().toLocaleLowerCase('fr-FR');
-    const wanted = normalize(genre);
-    const selected = homeKeeps
-      .map((entry) => entry.track)
-      .filter((track) => (track.genres ?? []).some((item) => normalize(item) === wanted));
-    if (!selected.length) return;
+
+  const openHomePulseTrack = (trackId: string) => {
     unlockWebAudioForGesture();
-    setHomeStyleSelection({ genre, tracks: selected });
+    setHomePulseSelectedTrackId(trackId);
+    setHomePulseOpen(true);
   };
 
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
@@ -635,35 +593,43 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
           ) : null}
 
-          {!isDemoMode && user ? (
-            <View
-              style={s.homeDnaCard}
-              accessibilityLabel="Styles musicaux cliquables"
-            >
-              {homeStyleBubbles.length ? (
-                <MusicStyleBubbles
-                  testID="home-loki-pulse-bubbles"
-                  genres={homeStyleBubbles}
-                  max={8}
-                  compact
-                  onPressGenre={openHomeStyle}
-                />
-              ) : (
-                <Text style={s.homeDnaEmpty}>Tes styles apparaîtront ici à mesure que tes goûts se précisent.</Text>
-              )}
+          {!isDemoMode && user && homePulseItems.length ? (
+            <View style={s.homePulseWrap} testID="home-loki-pulse-track-bubbles" accessibilityLabel="Bulles musicales Loki Pulse">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.homePulseRail}>
+                {homePulseItems.slice(0, 8).map((item) => (
+                  <TouchableOpacity
+                    key={item.track.id}
+                    style={s.homePulseCard}
+                    onPress={() => openHomePulseTrack(item.track.id)}
+                    accessibilityLabel={`Écouter ${item.track.title}`}
+                  >
+                    <View style={s.homePulseArtworkRing}>
+                      {item.track.artworkUrl
+                        ? <Image source={{ uri: item.track.artworkUrl }} style={s.homePulseArtwork} />
+                        : <View style={[s.homePulseArtwork, s.homePulseFallbackWrap]}><Text style={s.homePulseFallback}>♫</Text></View>}
+                      {item.isNew ? <View style={s.homePulseNewDot}><Text style={s.homePulseNewText}>NEW</Text></View> : null}
+                    </View>
+                    <Text style={s.homePulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           ) : null}
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
         <MusicSwipeDeckModal
-          visible={Boolean(homeStyleSelection)}
-          tracks={homeStyleSelection?.tracks ?? []}
-          title={homeStyleSelection?.genre ?? 'Style musical'}
-          subtitle="Tes morceaux gardés dans ce style."
-          emptyTitle="Aucun morceau dans ce style."
+          visible={homePulseOpen}
+          tracks={homePulseItems.map((item) => item.track)}
+          initialTrackId={homePulseSelectedTrackId}
+          title="Loki Pulse"
+          subtitle="Appuie pour écouter les morceaux proposés pour toi."
+          emptyTitle="Aucun morceau Loki Pulse pour le moment."
           backLabel="REVENIR À LOKI MUSIC"
           previewOnly
-          onClose={() => setHomeStyleSelection(null)}
+          onClose={() => {
+            setHomePulseOpen(false);
+            setHomePulseSelectedTrackId(null);
+          }}
         />
 </SafeAreaView>
     );
@@ -1136,15 +1102,16 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  homeDnaCard:{width:'100%',maxWidth:692,marginTop:16,padding:12,borderRadius:18,borderWidth:1,borderColor:C.line,backgroundColor:'rgba(21,16,32,.88)'},
-  homeDnaHeader:{flexDirection:'row',alignItems:'center',gap:8},
-  homeDnaEyebrow:{color:C.purpleLight,fontSize:10,fontWeight:'900',letterSpacing:1.1},
-  homeDnaTitle:{color:C.text,fontSize:15,fontWeight:'900',marginTop:2},
-  homeDnaArrow:{color:C.purpleLight,fontSize:28,fontWeight:'900',lineHeight:30},
-  homeDnaBubbles:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},
-  homeDnaBubble:{minHeight:32,maxWidth:'100%',paddingHorizontal:12,borderRadius:16,borderWidth:1,borderColor:C.purple,backgroundColor:'rgba(124,92,252,.14)',alignItems:'center',justifyContent:'center'},
-  homeDnaBubbleText:{color:C.text,fontSize:12,fontWeight:'800',maxWidth:148},
-  homeDnaEmpty:{color:C.mutedGrey,fontSize:11,lineHeight:16,marginTop:8},
+  homePulseWrap:{width:'100%',maxWidth:692,marginTop:16},
+  homePulseRail:{paddingHorizontal:2,paddingVertical:4,gap:10},
+  homePulseCard:{width:72,alignItems:'center'},
+  homePulseArtworkRing:{position:'relative',width:62,height:62,borderRadius:31,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
+  homePulseArtwork:{width:'100%',height:'100%',borderRadius:27},
+  homePulseFallbackWrap:{backgroundColor:C.card,alignItems:'center',justifyContent:'center'},
+  homePulseFallback:{color:C.purpleLight,fontSize:20,fontWeight:'900'},
+  homePulseNewDot:{position:'absolute',right:-5,bottom:-2,minWidth:25,height:16,borderRadius:8,paddingHorizontal:4,backgroundColor:C.green,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:C.bg},
+  homePulseNewText:{color:C.bg,fontSize:6,fontWeight:'900',letterSpacing:.4},
+  homePulseTrackTitle:{width:'100%',color:C.text,fontSize:9,fontWeight:'800',textAlign:'center',marginTop:5},
   livePanel: { marginBottom: 8 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
