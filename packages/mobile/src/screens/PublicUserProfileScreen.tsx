@@ -5,6 +5,7 @@ import { Alert } from '../utils/keepAlert';
 import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
+import { createAuthService } from '../services/authService';
 import { requestSocialLink } from '../services/notificationService';
 import { DiscoveryImpact, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
@@ -100,6 +101,69 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const viewer = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const [authenticatedViewerId, setAuthenticatedViewerId] = useState<string | null>(null);
+
+  // Source de vérité : la session Supabase réelle. Après un changement de
+  // compte / refresh / deep-link, Zustand peut rester brièvement sur l'ancien
+  // état invité ou démo. Le profil public est visible mais les actions
+  // affichent alors à tort "connecte-toi" (cas reproduit sur le compte Inside).
+  useEffect(() => {
+    if (!supabase) {
+      setAuthenticatedViewerId(!isLocalGuest && !isDemoMode ? viewer?.id ?? null : null);
+      return undefined;
+    }
+
+    let live = true;
+    const auth = createAuthService(supabase);
+    const profiles = createProfileService(supabase);
+
+    const reconcile = async () => {
+      const session = await auth.getCurrentSession().catch(() => null);
+      if (!live) return;
+
+      if (!session || session.isAnonymous) {
+        setAuthenticatedViewerId(null);
+        return;
+      }
+
+      setAuthenticatedViewerId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+        try {
+          const ownProfile = await profiles.loadOrCreateOwnProfile(session);
+          if (live) useUserStore.getState().setUser(ownProfile);
+        } catch {
+          // La session suffit déjà à rétablir les actions. App.tsx garde la
+          // responsabilité de réhydrater ensuite le profil complet.
+        }
+      }
+    };
+
+    void reconcile();
+    const unsubscribeFocus = navigation?.addListener?.('focus', () => { void reconcile(); });
+    const unsubscribeAuth = auth.onSessionChange((session) => {
+      if (!live) return;
+      if (!session || session.isAnonymous) {
+        setAuthenticatedViewerId(null);
+        return;
+      }
+      setAuthenticatedViewerId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+      }
+    });
+
+    return () => {
+      live = false;
+      unsubscribeFocus?.();
+      unsubscribeAuth();
+    };
+  }, [navigation]);
+
+  const effectiveViewerId = authenticatedViewerId
+    || (!isLocalGuest && !isDemoMode ? viewer?.id ?? null : null);
   const [profile, setProfile] = useState<User | null>(null);
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
@@ -241,7 +305,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // nouveaux pour le visiteur. Le calcul reste côté serveur afin de ne jamais
   // révéler les titres masqués de la collection.
   useEffect(() => {
-    if (!viewer?.id || isLocalGuest || isDemoMode || saleOffers.length === 0) {
+    if (!effectiveViewerId || saleOffers.length === 0) {
       setSaleOfferOverlaps({});
       return undefined;
     }
@@ -260,7 +324,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setSaleOfferOverlaps(next);
     });
     return () => { live = false; };
-  }, [viewer?.id, isLocalGuest, isDemoMode, saleOffers]);
+  }, [effectiveViewerId, saleOffers]);
   useEffect(() => {
     if (!profile?.id) {
       setMarketBannerEventIds([]);
@@ -310,7 +374,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       const [event, counts, myRsvps] = await Promise.all([
         loadEventById(eventId),
         loadEventRsvpCounts(eventId),
-        viewer?.id && !isLocalGuest && !isDemoMode ? loadMyRsvps(viewer.id) : Promise.resolve({} as Record<string, EventRsvpStatus>),
+        effectiveViewerId ? loadMyRsvps(effectiveViewerId) : Promise.resolve({} as Record<string, EventRsvpStatus>),
       ]);
       setProfileEvent(event);
       setProfileEventCounts(counts);
@@ -325,7 +389,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const joinProfileEvent = async () => {
     if (!profileEvent || profileEventRsvp === 'GOING' || profileEventBusy) return;
-    if (!viewer?.id || isLocalGuest || isDemoMode) {
+    if (!effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour participer à cet événement.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
@@ -334,7 +398,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     setProfileEventBusy(true);
     try {
-      await setEventRsvp(viewer.id, profileEvent.id, 'GOING');
+      await setEventRsvp(effectiveViewerId, profileEvent.id, 'GOING');
       setProfileEventRsvp('GOING');
       setProfileEventCounts((current) => ({ ...current, going: current.going + 1 }));
     } catch {
@@ -395,11 +459,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return () => { live = false; };
   }, [profile?.id]);
   useEffect(() => {
-    if (!viewer?.id || isLocalGuest || isDemoMode) { setSaleUnlocks({}); return undefined; }
+    if (!effectiveViewerId) { setSaleUnlocks({}); return undefined; }
     let live = true;
     loadMyPlaylistSaleUnlocks().then((rows) => { if (live) setSaleUnlocks(rows); }).catch(() => { if (live) setSaleUnlocks({}); });
     return () => { live = false; };
-  }, [viewer?.id, isLocalGuest, isDemoMode, saleOffers.length]);
+  }, [effectiveViewerId, saleOffers.length]);
 
   // Une Vibe KEEP_SMART mise en vente ne doit jamais apparaître deux fois :
   // une fois gratuitement comme Vibe publique ET une fois verrouillée comme
@@ -888,7 +952,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   useEffect(() => {
     setFreePurchaseMessage(null);
-    if (!immersivePreviewOffer || immersivePreviewOffer.paymentMode !== 'FREE' || !viewer || isLocalGuest || isDemoMode) {
+    if (!immersivePreviewOffer || immersivePreviewOffer.paymentMode !== 'FREE' || !effectiveViewerId) {
       setFreeBalance(null);
       return undefined;
     }
@@ -897,11 +961,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       .then((breakdown) => { if (live) setFreeBalance(breakdown?.remaining ?? null); })
       .catch(() => { if (live) setFreeBalance(null); });
     return () => { live = false; };
-  }, [immersivePreviewOffer?.offerId, immersivePreviewOffer?.paymentMode, viewer?.id, isLocalGuest, isDemoMode]);
+  }, [immersivePreviewOffer?.offerId, immersivePreviewOffer?.paymentMode, effectiveViewerId]);
 
   const requestOnlyMissingTracks = async (offer: PublicPlaylistSaleOffer) => {
     if (missingRequestBusyId) return;
-    if (!viewer || isLocalGuest || isDemoMode) {
+    if (!effectiveViewerId) {
       goToOwnProfile();
       return;
     }
@@ -1021,8 +1085,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const goToOwnProfile = () => useAccountGateStore.getState().requestAccount('create');
 
   const challengeProfileToBattle = async () => {
-    if (!profile || battleInviteBusy || viewer?.id === profile.id) return;
-    if (!viewer || isLocalGuest || isDemoMode) {
+    if (!profile || battleInviteBusy || effectiveViewerId === profile.id) return;
+    if (!effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour défier cette personne en Battle.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('login') },
@@ -1245,13 +1309,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const openKeepPrompt = (track: PublicKeepTrack) => {
-    if (!viewer) {
+    if (!effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
     }
-    if (profile && viewer.id === profile.id) return;
+    if (profile && effectiveViewerId === profile.id) return;
     if (alreadyInMyKeep(track.trackId)) {
       showAlreadyKept(track.title);
       return;
@@ -1261,7 +1325,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const addToMyKeep = async (track: PublicKeepTrack, visibility: KeepVisibility) => {
-    if (!viewer || isLocalGuest) {
+    if (!effectiveViewerId) {
       setKeepPromptTrack(null);
       Alert.alert('Compte Loki Music requis', 'Ton choix de visibilité est bien pris en compte, mais crée ou connecte ton compte pour enregistrer réellement ce morceau.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
