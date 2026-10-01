@@ -67,6 +67,7 @@ export async function loadMyFreeWalletStatus(): Promise<FreeWalletStatus> {
 
 export function subscribeMyFreeWalletChanges(profileId: string, onChange: () => void): () => void {
   if (!supabase || !profileId) return () => {};
+  const client = supabase;
   const filters: Array<{ table: string; filter: string }> = [
     { table: 'keep_battle_credit_events', filter: `profile_id=eq.${profileId}` },
     { table: 'keep_battle_arena_credit_events', filter: `profile_id=eq.${profileId}` },
@@ -77,10 +78,10 @@ export function subscribeMyFreeWalletChanges(profileId: string, onChange: () => 
     { table: 'playlist_sale_payments', filter: `buyer_id=eq.${profileId}` },
     { table: 'playlist_sale_payments', filter: `seller_id=eq.${profileId}` },
   ];
-  let channel = supabase.channel(`free-wallet:${profileId}:${Date.now()}`);
+  let channel = client.channel(`free-wallet:${profileId}:${Date.now()}`);
   filters.forEach(({ table, filter }) => {
     channel = channel.on('postgres_changes', { event: '*', schema: 'public', table, filter }, onChange);
   });
   channel.subscribe();
-  return () => { void supabase.removeChannel(channel); };
+  return () => { void client.removeChannel(channel); };
 }
