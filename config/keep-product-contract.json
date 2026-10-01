@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.31",
+  "version": "2026-10-01.32",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -553,5 +553,16 @@
     "composerPinnedAtBottom": true,
     "actionsWrapOnNarrowPhones": true,
     "keepsPublicAndPrivateChatFeatures": true
+  },
+  "lokiPulseStyleBubbles": {
+    "canonicalSurfaces": [
+      "LISTEN_HOME",
+      "OWNER_PROFILE",
+      "VISITED_PROFILE"
+    ],
+    "alwaysVisibleOutsideDnaAccordion": true,
+    "homeReplacesLokiMusicDna": true,
+    "usesFavoriteGenresFallback": true,
+    "regressionGuardRequired": true
   }
 }

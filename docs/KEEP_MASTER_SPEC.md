@@ -281,3 +281,9 @@ Le dernier cahier des charges validé remplace les anciennes consignes contradic
 - Le clavier iOS/Android/web mobile ne doit jamais recouvrir la zone de saisie ; la safe area haute et basse reste respectée.
 - Les messages utilisent la majorité de la hauteur disponible ; le compositeur reste en bas et les actions secondaires se replient/se répartissent sans écraser le champ texte.
 - MESSAGES, LA PLACE, salons privés, réactions, Pépites, FREE, PayPal/QR et profils restent fonctionnels après la refonte visuelle.
+
+## Loki Pulse — bulles musicales
+- Les petites bulles Loki Pulse sont un élément permanent sur l'accueil Écouter, le profil personnel et le profil visité.
+- Elles sont indépendantes de l'accordéon Loki Music DNA : replier, désactiver ou modifier DNA ne doit jamais masquer Loki Pulse.
+- Sur l'accueil, Loki Pulse remplace visuellement l'ancien bloc Loki Music DNA et ne redirige pas vers le profil.
+- Les genres déclarés du profil servent de repli afin qu'un compte déjà renseigné ne perde pas ses bulles après refresh ou intégration.

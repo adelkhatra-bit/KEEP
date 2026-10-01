@@ -23,6 +23,7 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import ProfileStyleCard from '../components/ProfileStyleCard';
+import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import SaleCollectionRow from '../components/SaleCollectionRow';
 import LoginPill from '../components/LoginPill';
 import { nextSaleVisibleCount, SALE_ROWS_INITIAL } from '../services/saleListPaging';
@@ -1877,6 +1878,27 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </ProfileMotionReveal>
         )}
 
+        <View testID="visitor-loki-pulse-card" style={styles.pulseBubbleCard} accessibilityLabel={`Loki Pulse de ${profile.username}`}>
+          <View style={styles.pulseBubbleHeader}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.pulseBubbleEyebrow}>LOKI PULSE</Text>
+              <Text style={styles.pulseBubbleTitle}>Ses bulles musicales</Text>
+            </View>
+            <Text style={styles.pulseBubbleCount}>{visitorStyleBubbles.length}</Text>
+          </View>
+          {visitorStyleBubbles.length > 0 ? (
+            <MusicStyleBubbles
+              testID="visitor-loki-pulse-bubbles"
+              genres={visitorStyleBubbles}
+              max={8}
+              compact
+              onPressGenre={(genre) => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
+            />
+          ) : (
+            <Text style={styles.pulseBubbleEmpty}>Ses bulles apparaîtront ici quand Loki connaîtra mieux ses styles.</Text>
+          )}
+        </View>
+
         <View style={styles.dna}>
           <TouchableOpacity style={styles.dnaHeader} onPress={() => setDnaExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={dnaExpanded ? 'Réduire son ADN musical' : 'Voir son ADN musical'}>
             <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.dnaEyebrow}>Loki Music DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View>
@@ -2180,7 +2202,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   visitorDnaSummaryScore:{color:colors.keep,fontSize:13,fontWeight:'900'},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
-  socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
+  pulseBubbleCard:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:20,borderWidth:1,borderColor:'rgba(168,132,250,.42)',backgroundColor:'rgba(19,13,30,.96)'},pulseBubbleHeader:{flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',gap:8},pulseBubbleEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.5},pulseBubbleTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},pulseBubbleCount:{color:colors.keep,fontSize:11,fontWeight:'900'},pulseBubbleEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:8},socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
   browseSection:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,maxWidth:220,paddingHorizontal:12,borderRadius:16,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},browseChipText:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},
   folderIntro:{marginBottom:10},folderIntroText:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:4},folderGrid:{gap:8},folderCard:{minHeight:68,flexDirection:'row',alignItems:'center',gap:10,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},folderCardSale:{backgroundColor:'rgba(124,92,252,.09)',borderColor:colors.primary},folderCardUnlocked:{backgroundColor:'rgba(45,225,194,.08)',borderColor:colors.success},folderIcon:{width:50,height:50,borderRadius:12,backgroundColor:'rgba(124,92,252,.16)',borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center'},folderIconSale:{backgroundColor:'rgba(124,92,252,.12)'},folderIconText:{color:'#FFF',fontSize:20,fontWeight:'900'},folderCover:{width:50,height:50,borderRadius:12,backgroundColor:colors.backgroundElevated},folderCopy:{flex:1,minWidth:0},folderTitle:{color:'#FFF',fontSize:14,fontWeight:'900'},folderMeta:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:3},folderAction:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},folderPrice:{minWidth:58,minHeight:32,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},folderUnlockedPill:{backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.success},folderPriceText:{color:'#FFF',fontSize:10,fontWeight:'900'},
     followPrimaryButton:{marginTop:14,minHeight:48,borderRadius:16,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,paddingHorizontal:18},followPrimaryButtonOn:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary},followPrimaryButtonText:{color:colors.white,fontSize:14,fontWeight:'900',letterSpacing:0.7},followPrimaryButtonTextOn:{color:colors.primaryLight},

@@ -1971,6 +1971,39 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </MotionActionButton>
       ) : null}
 
+      <View testID="profile-loki-pulse-card" style={s.pulseBubbleCard} accessibilityLabel="Loki Pulse, mes bulles musicales">
+        <View style={s.pulseBubbleHeader}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.pulseBubbleEyebrow}>LOKI PULSE</Text>
+            <Text style={s.pulseBubbleTitle}>Tes bulles musicales</Text>
+          </View>
+          <Text style={s.pulseBubbleCount}>{profileStyleBubbles.length}</Text>
+        </View>
+        {profileStyleBubbles.length > 0 ? (
+          <MusicStyleBubbles
+            testID="profile-loki-pulse-bubbles"
+            genres={profileStyleBubbles}
+            max={8}
+            compact
+            onPressGenre={(genre) => {
+              const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+              if (folder?.entries.length) {
+                openSelectionSwipe({
+                  title: folder.genre,
+                  subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                  tracks: folder.entries.map((entry) => entry.track),
+                });
+                return;
+              }
+              switchProfileTab('TRACKS');
+              setTracksGrouping('GENRE');
+            }}
+          />
+        ) : (
+          <Text style={s.pulseBubbleEmpty}>Tes bulles apparaîtront ici dès que Loki connaît tes styles.</Text>
+        )}
+      </View>
+
       {(profileStyleBubbles.length > 0 || dnaFeatureEnabled) ? (
         <View style={s.dnaCompactWrap}>
           <TouchableOpacity
@@ -2412,7 +2445,7 @@ ownerBattleMicroTextOn:{color:colors.success},
 ownerQuickActionMotion:{flex:1},ownerSwipeMotion:{marginTop:12},ownerSoloBattleMotion:{marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:54,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center',paddingHorizontal:8},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900',textAlign:'center'},ownerSellCount:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:2},ownerBattleCard:{marginTop:8},ownerBattleCopy:{flex:1,minWidth:0},ownerBattleSub:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:8,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:2,borderColor:colors.primaryLight,shadowColor:colors.primaryLight,shadowOpacity:.55,shadowRadius:9,shadowOffset:{width:0,height:0},elevation:7},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success,shadowColor:colors.success,shadowOpacity:.9,shadowRadius:12,elevation:9},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},ownerSoloBattleButton:{minHeight:56,marginTop:8,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:2,borderColor:colors.primaryLight,flexDirection:'row',alignItems:'center',gap:10,shadowColor:colors.primaryLight,shadowOpacity:.7,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:8},ownerSoloBattleCopy:{flex:1,minWidth:0},ownerSoloBattleTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},ownerSoloBattleSub:{color:colors.textPrimary,fontSize:10,lineHeight:14,marginTop:2},ownerSoloBattleArrow:{color:colors.textPrimary,fontSize:26,fontWeight:'700'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
-  dnaCompactWrap:{marginHorizontal:18,marginTop:12},
+  pulseBubbleCard:{marginHorizontal:18,marginTop:12,padding:12,borderRadius:20,borderWidth:1,borderColor:'rgba(168,132,250,.42)',backgroundColor:'rgba(19,13,30,.96)'},pulseBubbleHeader:{flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',gap:8},pulseBubbleEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.5},pulseBubbleTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},pulseBubbleCount:{color:colors.keep,fontSize:11,fontWeight:'900'},pulseBubbleEmpty:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:8},dnaCompactWrap:{marginHorizontal:18,marginTop:12},
   dnaCompactMeter:{borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
   dnaCompactCopy:{flex:1,minWidth:0},
   dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
