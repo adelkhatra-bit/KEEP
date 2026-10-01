@@ -97,9 +97,19 @@ const PAYPAL_QR_PREFIX = '[[KEEP_PAYPAL_QR]]';
 export function extractMusicAgoraPayoutQrUrl(body: string): string | null {
   const raw = String(body || '');
   if (!raw.startsWith(PAYPAL_QR_PREFIX)) return null;
-  const url = raw.slice(PAYPAL_QR_PREFIX.length).trim();
-  if (!/^https:\/\//i.test(url)) return null;
-  return url;
+  const candidate = raw.slice(PAYPAL_QR_PREFIX.length).trim();
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.toLowerCase();
+    const isKeepSupabase = host === 'rrhqsqzcplvmwxizqnla.supabase.co';
+    const isPublicAvatarObject = path.includes('/storage/v1/object/public/avatars/');
+    const isPayoutQr = /\/payout-qr\.(png|jpe?g|webp)$/i.test(path);
+    if (url.protocol !== 'https:' || !isKeepSupabase || !isPublicAvatarObject || !isPayoutQr) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function musicAgoraBodyPreview(body: string): string {
