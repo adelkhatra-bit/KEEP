@@ -252,8 +252,14 @@ export default function GlobalChatDock() {
     ]).start();
   }, [accountReady, open, unreadCount, nudge, drawerPeek]);
 
-  const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.38));
+  const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.44));
   const maxBottom = Math.max(minBottom, height - 150);
+  const middleBottom = Math.max(minBottom, Math.min(maxBottom, Math.round(height * 0.58)));
+  const verticalPreset = Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - middleBottom) && Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - minBottom)
+    ? 'HIGH'
+    : Math.abs(bottomOffset - middleBottom) <= Math.abs(bottomOffset - minBottom)
+      ? 'MIDDLE'
+      : 'LOW';
 
   useEffect(() => {
     if (bottomOffset < minBottom) setBottomOffset(minBottom);
@@ -325,6 +331,12 @@ export default function GlobalChatDock() {
   const chooseSide = (nextSide: 'left' | 'right') => {
     setSide(nextSide);
     void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
+  };
+
+  const chooseVerticalPreset = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
+    const nextBottom = preset === 'HIGH' ? maxBottom : preset === 'MIDDLE' ? middleBottom : minBottom;
+    setBottomOffset(nextBottom);
+    void saveMusicAgoraPosition(side, nextBottom).catch(() => {});
   };
 
   const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
@@ -410,6 +422,21 @@ export default function GlobalChatDock() {
               </View>
             </View>
 
+            <Text style={styles.settingsScreenTitle}>POSITION DU TIROIR</Text>
+            <View style={styles.positionRow}>
+              <TouchableOpacity style={[styles.positionChoice, verticalPreset === 'HIGH' && styles.positionChoiceOn]} onPress={() => chooseVerticalPreset('HIGH')} accessibilityLabel="Placer le Tchat en haut">
+                <Text style={[styles.positionChoiceText, verticalPreset === 'HIGH' && styles.positionChoiceTextOn]}>HAUT</Text>
+                <Text style={styles.positionChoiceHint}>près des commandes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.positionChoice, verticalPreset === 'MIDDLE' && styles.positionChoiceOn]} onPress={() => chooseVerticalPreset('MIDDLE')} accessibilityLabel="Placer le Tchat au milieu">
+                <Text style={[styles.positionChoiceText, verticalPreset === 'MIDDLE' && styles.positionChoiceTextOn]}>MILIEU</Text>
+                <Text style={styles.positionChoiceHint}>recommandé</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.positionChoice, verticalPreset === 'LOW' && styles.positionChoiceOn]} onPress={() => chooseVerticalPreset('LOW')} accessibilityLabel="Placer le Tchat plus bas">
+                <Text style={[styles.positionChoiceText, verticalPreset === 'LOW' && styles.positionChoiceTextOn]}>BAS</Text>
+                <Text style={styles.positionChoiceHint}>au-dessus des onglets</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.sideRow}>
               <TouchableOpacity style={[styles.sideChoice, side === 'left' && styles.sideChoiceOn]} onPress={() => chooseSide('left')} accessibilityLabel="Placer le Tchat à gauche">
                 <Text style={[styles.sideChoiceText, side === 'left' && styles.sideChoiceTextOn]}>GAUCHE</Text>
@@ -525,6 +552,12 @@ const styles = StyleSheet.create({
   screenChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   screenChipText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
   screenChipTextOn:{color:colors.primaryLight},
+  positionRow:{flexDirection:'row',gap:7,marginTop:4,marginBottom:2},
+  positionChoice:{flex:1,minHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:5},
+  positionChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  positionChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.6},
+  positionChoiceTextOn:{color:colors.primaryLight},
+  positionChoiceHint:{color:colors.textMutedGrey,fontSize:7.5,fontWeight:'700',marginTop:2,textAlign:'center'},
   sideRow:{flexDirection:'row',gap:8,marginTop:10},
   sideChoice:{flex:1,minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   sideChoiceOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)'},
