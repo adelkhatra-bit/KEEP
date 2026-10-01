@@ -30,7 +30,9 @@ describe('Pépites marketplace professional flow', () => {
     expect(myMusic).toContain('TESTER MON LIEN');
     expect(myMusic).toContain('testPayoutDirect');
     expect(myMusic).toContain('void Linking.openURL(clean)');
+    expect(myMusic).toContain('setMyPayoutLink(clean)');
     expect(myMusic).toContain('ENREGISTRER LE LIEN');
     expect(myMusic).toContain('OUVRIR PAYPAL.ME');
+    expect(myMusic).not.toContain("navigation.navigate('ProfileCreatorTools')");
   });
 });
