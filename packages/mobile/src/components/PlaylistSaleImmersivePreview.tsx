@@ -247,12 +247,29 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
               <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
               <View style={s.overlapDivider} />
-              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ</Text></View>
+              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ CHEZ TOI</Text></View>
               <View style={s.overlapDivider} />
               <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
-              {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ déjà dans ta musique</Text> : null}
+              {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ rien à reprendre</Text> : null}
             </View>
           ) : null}
+
+          <View style={[s.unlockExplain, allAlreadyOwned && s.unlockExplainOwned]}>
+            <Text style={[s.unlockExplainTitle, allAlreadyOwned && s.unlockExplainTitleOwned]}>
+              {allAlreadyOwned
+                ? 'TU AS DÉJÀ TOUTE CETTE COLLECTION'
+                : partiallyOwned
+                  ? `CE QUE TU OBTIENS · ${overlap?.missingCount ?? 0} NOUVEAU${(overlap?.missingCount ?? 0) > 1 ? 'X' : ''}`
+                  : `CE QUE TU OBTIENS · ${trackCountLabel} MORCEAU${trackCountLabel > 1 ? 'X' : ''}`}
+            </Text>
+            <Text style={s.unlockExplainText}>
+              {allAlreadyOwned
+                ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
+                : partiallyOwned
+                  ? `Tu as déjà ${overlap?.ownedCount ?? 0} morceau${(overlap?.ownedCount ?? 0) > 1 ? 'x' : ''}. Ils ne seront jamais ajoutés en double. Le Drop sert à révéler uniquement ce qui te manque.`
+                  : `Tu écoutes les extraits gratuitement. Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
+            </Text>
+          </View>
 
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
@@ -352,7 +369,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
                 <Text style={s.waiverText}>
                   {freeAccess
-                    ? `Utiliser ${priceLabel} pour toute la collection.`
+                    ? `Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.`
                     : 'Je demande l’accès numérique dès confirmation du paiement par le créateur et je renonce à mon droit de rétractation une fois le contenu débloqué.'}
                 </Text>
               </TouchableOpacity>
@@ -362,9 +379,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 style={[s.buyButton, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}
                 onPress={() => onConfirmPurchase(offer)}
-                accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Débloquer et ajouter à mon Loki Music, ${priceLabel}`}
+                accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Révéler cette collection et ajouter les nouveaux morceaux à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `DÉBLOQUER · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
               {!freeAccess ? <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text> : null}
@@ -415,6 +432,11 @@ const s = StyleSheet.create({
   overlapNew:{color:colors.primaryLight},
   overlapDivider:{width:1,height:24,backgroundColor:colors.border},
   overlapAllText:{position:'absolute',right:7,top:3,color:colors.success,fontSize:6,fontWeight:'900'},
+  unlockExplain:{marginTop:7,borderRadius:13,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:8},
+  unlockExplainOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.07)'},
+  unlockExplainTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'1000',letterSpacing:.65},
+  unlockExplainTitleOwned:{color:colors.success},
+  unlockExplainText:{color:colors.textPrimary,fontSize:10,lineHeight:15,fontWeight:'700',marginTop:3},
   trackOwnershipPill:{marginTop:7,minHeight:24,borderRadius:12,borderWidth:1,paddingHorizontal:9,alignItems:'center',justifyContent:'center'},
   trackOwnershipOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
   trackOwnershipNew:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},
