@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.11",
+  "version": "2026-10-01.12",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -23,7 +23,11 @@
     "listen": 0,
     "recognize": 0,
     "PASS": 0,
-    "KEEP": -3
+    "MASK": 0,
+    "KEEP": -3,
+    "keepMustShowDebitBeforeVisibilityChoice": true,
+    "keepSuccessMustConfirmDebitedFree": true,
+    "cancelKeepMustNeverDebit": true
   },
   "profileOwner": {
     "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
