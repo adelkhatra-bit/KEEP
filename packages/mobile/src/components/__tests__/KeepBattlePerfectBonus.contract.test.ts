@@ -26,7 +26,7 @@ describe('Battle multiplayer perfect bonus — fastest perfect only', () => {
     expect(migration).toContain('if participant_count<2 then');
     expect(migration).toContain('if exists(');
     expect(migration).toContain("set value='0'::jsonb");
-    expect(migration).not.toContain('ALL_PERFECT_PLAYERS');
+    expect(migration).toContain('drop function if exists public.keep_battle_apply_all_perfect_bonuses();');\n    expect(migration).toContain("'perfectBonusRule','FASTEST_PERFECT_ONLY'");
   });
 
   it('explains the rule consistently before the match and in Offers', () => {
