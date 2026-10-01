@@ -176,7 +176,12 @@ export const useUserStore = create<UserStore>((set, get) => ({
       clearAppleMusicIdentity(s.user.id);
       clearLocalMusicIdentity();
     }
-    return { user, isDemoMode: false, isAnonymous: s.isAnonymous, isLocalGuest: s.isLocalGuest };
+    // Invariant globale : setUser() n'est utilisé que pour un profil réel
+    // hydraté depuis Supabase. Il est interdit de conserver un ancien état
+    // invité/démo après le chargement d'un compte réel, sinon toutes les
+    // fonctions gated (chat, Pépites, soirées, notifications...) peuvent
+    // afficher à tort "connecte-toi" pour cet utilisateur.
+    return { user, isDemoMode: false, isAnonymous: false, isLocalGuest: false };
   }),
   enterDemoMode: () => {
     cacheWebRealUser(null);
