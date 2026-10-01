@@ -15,10 +15,11 @@ describe('Loki Music playlist marketplace delivery contract', () => {
   });
 
   it('lets a creator build and name a multi-track exclusive collection with preset prices', () => {
-    expect(myMusic).toContain('CRÉER UNE COLLECTION EXCLUSIVE');
+    expect(myMusic).toContain('Créer une collection');
+    expect(myMusic).toContain('ÉTAPE 1 SUR 3');
     expect(myMusic).toContain('selectedSaleTrackIds');
     expect(myMusic).toContain('Nom de la collection exclusive');
-    expect(myMusic).toContain('SALE_PRESET_PRICES_CENTS.map');
+    expect(myMusic).toContain("(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map");
     expect(salePanel).toContain('SALE_PRESET_PRICES_CENTS');
     expect(salePanel).toContain('SALE_PRESET_FREE');
     expect(salePanel).toContain('updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount)');
