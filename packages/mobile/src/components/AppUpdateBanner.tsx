@@ -4,19 +4,18 @@ import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
 
-// Mise à jour web volontairement non bloquante : rien n'est affiché tant que
-// version.json ne signale pas un nouveau build. Quand un nouveau push est
-// réellement déployé, un seul petit bouton apparaît. L'utilisateur choisit
-// quand l'appliquer afin de ne jamais interrompre un test en cours.
+// Action de mise à jour réservée au web desktop. Sur mobile, elle ne doit
+// jamais encombrer l'interface : les petits écrans gardent 100 % de l'espace
+// pour l'application.
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
   const { width } = useWindowDimensions();
 
-  if (Platform.OS !== 'web') return null;
+  if (Platform.OS !== 'web' || width < 768) return null;
 
   return (
     <View
-      style={[s.wrap, width < 768 && s.wrapCompact]}
+      style={s.wrap}
       pointerEvents="box-none"
       testID="keep-update-available-button"
     >
@@ -41,11 +40,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     zIndex: 190,
     pointerEvents: 'box-none',
-  },
-  wrapCompact: {
-    bottom: 132,
-    alignItems: 'flex-start',
-    paddingLeft: 10,
   },
   button: {
     minHeight: 36,
