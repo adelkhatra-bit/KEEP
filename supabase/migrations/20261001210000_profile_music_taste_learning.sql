@@ -126,48 +126,48 @@ for each row execute function public.keep_taste_from_listen_trigger();
 
 -- One-time backfill from the history already owned by the platform.
 insert into public.profile_music_taste_genres(profile_id,genre_key,display_genre,score,keep_events,listen_events,updated_at)
-select kd.profile_id, lower(regexp_replace(trim(g),'\s+',' ','g')), trim(g),
+select kd.profile_id, lower(regexp_replace(trim(g),'\s+',' ','g')) as genre_key, min(trim(g)) as display_genre,
        count(*)*4::numeric, count(*)::integer, 0, now()
 from public.keep_decisions kd
 join public.tracks t on t.id=kd.track_id
 cross join lateral unnest(coalesce(t.genres,array[]::text[])) g
 where kd.decision='KEPT' and nullif(trim(g),'') is not null
-group by kd.profile_id,lower(regexp_replace(trim(g),'\s+',' ','g')),trim(g)
+group by kd.profile_id,lower(regexp_replace(trim(g),'\s+',' ','g'))
 on conflict(profile_id,genre_key) do update set
   score=greatest(public.profile_music_taste_genres.score,excluded.score),
   keep_events=greatest(public.profile_music_taste_genres.keep_events,excluded.keep_events),
   updated_at=now();
 
 insert into public.profile_music_taste_genres(profile_id,genre_key,display_genre,score,keep_events,listen_events,updated_at)
-select psl.listener_id, lower(regexp_replace(trim(g),'\s+',' ','g')), trim(g),
+select psl.listener_id, lower(regexp_replace(trim(g),'\s+',' ','g')) as genre_key, min(trim(g)) as display_genre,
        count(*)::numeric, 0, count(*)::integer, now()
 from public.profile_swipe_listens psl
 join public.tracks t on t.id=psl.track_id
 cross join lateral unnest(coalesce(t.genres,array[]::text[])) g
 where nullif(trim(g),'') is not null
-group by psl.listener_id,lower(regexp_replace(trim(g),'\s+',' ','g')),trim(g)
+group by psl.listener_id,lower(regexp_replace(trim(g),'\s+',' ','g'))
 on conflict(profile_id,genre_key) do update set
   score=least(1000,public.profile_music_taste_genres.score+excluded.score),
   listen_events=greatest(public.profile_music_taste_genres.listen_events,excluded.listen_events),
   updated_at=now();
 
 insert into public.profile_music_taste_artists(profile_id,artist_key,display_artist,score,keep_events,listen_events,updated_at)
-select kd.profile_id, lower(regexp_replace(trim(t.artist),'\s+',' ','g')), trim(t.artist),
+select kd.profile_id, lower(regexp_replace(trim(t.artist),'\s+',' ','g')) as artist_key, min(trim(t.artist)) as display_artist,
        count(*)*3.4::numeric, count(*)::integer, 0, now()
 from public.keep_decisions kd join public.tracks t on t.id=kd.track_id
 where kd.decision='KEPT' and nullif(trim(t.artist),'') is not null
-group by kd.profile_id,lower(regexp_replace(trim(t.artist),'\s+',' ','g')),trim(t.artist)
+group by kd.profile_id,lower(regexp_replace(trim(t.artist),'\s+',' ','g'))
 on conflict(profile_id,artist_key) do update set
   score=greatest(public.profile_music_taste_artists.score,excluded.score),
   keep_events=greatest(public.profile_music_taste_artists.keep_events,excluded.keep_events),
   updated_at=now();
 
 insert into public.profile_music_taste_artists(profile_id,artist_key,display_artist,score,keep_events,listen_events,updated_at)
-select psl.listener_id, lower(regexp_replace(trim(t.artist),'\s+',' ','g')), trim(t.artist),
+select psl.listener_id, lower(regexp_replace(trim(t.artist),'\s+',' ','g')) as artist_key, min(trim(t.artist)) as display_artist,
        count(*)*0.7::numeric, 0, count(*)::integer, now()
 from public.profile_swipe_listens psl join public.tracks t on t.id=psl.track_id
 where nullif(trim(t.artist),'') is not null
-group by psl.listener_id,lower(regexp_replace(trim(t.artist),'\s+',' ','g')),trim(t.artist)
+group by psl.listener_id,lower(regexp_replace(trim(t.artist),'\s+',' ','g'))
 on conflict(profile_id,artist_key) do update set
   score=least(1000,public.profile_music_taste_artists.score+excluded.score),
   listen_events=greatest(public.profile_music_taste_artists.listen_events,excluded.listen_events),
