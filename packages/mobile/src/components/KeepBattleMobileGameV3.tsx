@@ -160,7 +160,10 @@ const FALLBACK_THEMES: KeepBattleTheme[] = [
   { code: 'ROCK', label: 'Rock' }, { code: 'LATINO', label: 'Latino' }, { code: 'RAI', label: 'Raï' },
   { code: 'CLASSIQUE', label: 'Classique' }, { code: 'RUSSE', label: 'Russe' }, { code: 'TURC', label: 'Turc' },
   { code: 'KPOP', label: 'K-Pop' }, { code: 'ARABE', label: 'Arabe' }, { code: 'BRESIL', label: 'Brésil' },
-  { code: 'INDE', label: 'Bollywood' },
+  { code: 'INDE', label: 'Bollywood' }, { code: 'HOUSE', label: 'House' }, { code: 'REGGAETON', label: 'Reggaeton' },
+  { code: 'AMAPIANO', label: 'Amapiano' }, { code: 'ALTERNATIVE', label: 'Alternative / Indie' },
+  { code: 'COUNTRY', label: 'Country' }, { code: 'METAL', label: 'Metal' }, { code: 'SOUNDTRACK', label: 'Bandes originales' },
+  { code: 'BLUES', label: 'Blues' },
 ];
 
 // Adel (01/09/2026) : "un truc plus propre" à la place de la note ♫ fixe
