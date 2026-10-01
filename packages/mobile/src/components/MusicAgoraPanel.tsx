@@ -134,7 +134,7 @@ export default function MusicAgoraPanel({
         settings.homeEnabled ? 'Tchat activé' : 'Tchat retiré de l’accueil',
         settings.homeEnabled
           ? 'Un aperçu discret du Tchat apparaîtra sur Écouter. Tu peux le désactiver ici quand tu veux.'
-          : 'Le Tchat reste disponible ici dans La Place.',
+          : 'Le Tchat reste disponible ici sur ton profil.',
       );
     } catch {
       Alert.alert('Tchat', 'Impossible de modifier ce réglage pour le moment.');
@@ -255,8 +255,8 @@ export default function MusicAgoraPanel({
     <View style={s.intro}>
       <View style={s.titleRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.kicker}>TCHAT COMMUNAUTÉ</Text>
-          <Text style={s.title}>La Place · partage tes pépites.</Text>
+          <Text style={s.kicker}>TCHAT LOKI</Text>
+          <Text style={s.title}>Parle, partage et garde tes pépites.</Text>
         </View>
         {enabled ? <TouchableOpacity style={[s.homeToggle, homeEnabled && s.homeToggleOn]} disabled={settingsBusy} onPress={() => void updateHomeChat(!homeEnabled)} accessibilityRole="switch" accessibilityState={{ checked: homeEnabled }}>
           <Text style={[s.homeToggleText, homeEnabled && s.homeToggleTextOn]}>{homeEnabled ? 'ACCUEIL ON' : 'ACCUEIL OFF'}</Text>
