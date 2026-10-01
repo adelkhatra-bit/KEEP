@@ -47,6 +47,14 @@ describe('global Loki messenger contract', () => {
     expect(dock).not.toContain('Speech.speak(item.body');
   });
 
+  it('keeps the drawer visible in web preview without opening a fake conversation', () => {
+    expect(dock).toContain("process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1'");
+    expect(dock).toContain('const previewOnly');
+    expect(dock).toContain('const displayReady = accountReady || previewOnly');
+    expect(dock).toContain("requestAccount('login')");
+    expect(dock).toContain("previewOnly ? 'CONNEXION'");
+  });
+
   it('keeps the control visible and movable left/right near the bottom', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
