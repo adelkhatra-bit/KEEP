@@ -4,9 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, MusicAgoraSurface } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
-import { navigateToSharedProfile } from '../navigation/navigationRef';
+import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 function isChatNotification(item: KeepNotification): boolean {
@@ -27,8 +27,12 @@ export default function GlobalChatDock() {
   const setBottomOffset = useGlobalChatStore((state) => state.setBottomOffset);
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
+  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+  const [currentSurface, setCurrentSurface] = useState<MusicAgoraSurface | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
+  const nudge = useRef(new Animated.Value(0)).current;
+  const lastNudgeUnread = useRef(0);
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const dragStartBottom = useRef(bottomOffset);
   const insets = useSafeAreaInsets();
@@ -41,16 +45,18 @@ export default function GlobalChatDock() {
       closeChat();
       setTracks([]);
       setChatEnabled(false);
+      setChatSurfaces(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
       setUnreadCount(0);
       return;
     }
     let live = true;
     Promise.all([
-      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true })),
+      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] })),
       loadNotifications(user.id).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
+      setChatSurfaces(settings.surfaces);
       setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
       if (!settings.homeEnabled) closeChat();
     });
@@ -66,6 +72,40 @@ export default function GlobalChatDock() {
   }, [accountReady, user?.id]);
 
   useEffect(() => {
+    const routeToSurface = (name?: string): MusicAgoraSurface | null => {
+      if (!name) return null;
+      if (name === 'Listen') return 'LISTEN';
+      if (name === 'Discover') return 'DISCOVER';
+      if (['MyMusic','PlaylistSale','PlaylistSaleHistory'].includes(name)) return 'PLAYLISTS';
+      if (name === 'Parties') return 'PARTIES';
+      if (['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections'].includes(name)) return 'PROFILE';
+      return null;
+    };
+    let live = true;
+    const sync = () => {
+      if (!live) return;
+      const next = routeToSurface(navigationRef.getCurrentRoute()?.name);
+      setCurrentSurface(next);
+      if (accountReady && user?.id) {
+        loadMusicAgoraSettings().then((settings) => {
+          if (!live) return;
+          setChatEnabled(Boolean(settings.homeEnabled));
+          setChatSurfaces(settings.surfaces);
+        }).catch(() => {});
+      }
+    };
+    const timer = setTimeout(sync, 0);
+    const unsubscribe = navigationRef.addListener('state', sync);
+    return () => { live = false; clearTimeout(timer); unsubscribe(); };
+  }, [accountReady, user?.id]);
+
+  const surfaceVisible = Boolean(currentSurface && chatSurfaces.includes(currentSurface));
+
+  useEffect(() => {
+    if (!surfaceVisible && open) closeChat();
+  }, [surfaceVisible, open, closeChat]);
+
+  useEffect(() => {
     if (!chatEnabled || !accountReady) return;
     let live = true;
     loadMusicAgoraShareableTracks(160).then((rows) => {
@@ -76,7 +116,7 @@ export default function GlobalChatDock() {
   }, [chatEnabled, accountReady, user?.id, open]);
 
   useEffect(() => {
-    if (!accountReady || !chatEnabled || open) {
+    if (!accountReady || !chatEnabled || !surfaceVisible || open) {
       pulse.stopAnimation();
       pulse.setValue(1);
       return;
@@ -89,7 +129,25 @@ export default function GlobalChatDock() {
     );
     loop.start();
     return () => loop.stop();
-  }, [accountReady, chatEnabled, open, pulse]);
+  }, [accountReady, chatEnabled, surfaceVisible, open, pulse]);
+
+  useEffect(() => {
+    if (!accountReady || !chatEnabled || !surfaceVisible || open) {
+      nudge.stopAnimation();
+      nudge.setValue(0);
+      return;
+    }
+    const shouldShow = unreadCount > lastNudgeUnread.current || (lastNudgeUnread.current === 0 && unreadCount === 0);
+    lastNudgeUnread.current = unreadCount;
+    if (!shouldShow) return;
+    nudge.stopAnimation();
+    nudge.setValue(0);
+    Animated.sequence([
+      Animated.timing(nudge, { toValue: 1, duration: 360, useNativeDriver: false }),
+      Animated.delay(unreadCount > 0 ? 3000 : 1600),
+      Animated.timing(nudge, { toValue: 0, duration: 420, useNativeDriver: false }),
+    ]).start();
+  }, [accountReady, chatEnabled, surfaceVisible, open, unreadCount, nudge]);
 
   const minBottom = 82 + insets.bottom;
   const maxBottom = Math.max(minBottom, height - 150);
@@ -127,7 +185,7 @@ export default function GlobalChatDock() {
     openChat(target);
   };
 
-  if (!accountReady || !chatEnabled || !user) return null;
+  if (!accountReady || !chatEnabled || !surfaceVisible || !user) return null;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -143,6 +201,27 @@ export default function GlobalChatDock() {
           onOpenProfile={(username) => navigateToSharedProfile(username)}
           onCompactClose={closeChat}
         />
+      ) : null}
+
+      {!open ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.chatNudge,
+            side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight,
+            {
+              bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)) + 7,
+              opacity: nudge,
+              width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 190] }),
+              transform: [{ scaleX: nudge.interpolate({ inputRange: [0, 1], outputRange: [.72, 1] }) }],
+            },
+          ]}
+        >
+          <View style={styles.chatNudgeDepth} />
+          <Text style={styles.chatNudgeText} numberOfLines={1}>
+            {unreadCount > 0 ? `${unreadCount} message${unreadCount > 1 ? 's' : ''} · ouvre le chat` : 'Tchat Loki · prêt à discuter'}
+          </Text>
+        </Animated.View>
       ) : null}
 
       <Animated.View
@@ -177,6 +256,8 @@ export default function GlobalChatDock() {
 }
 
 const styles = StyleSheet.create({
+  chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
+  chatNudgeLeft:{left:70},chatNudgeRight:{right:70},chatNudgeDepth:{position:'absolute',left:5,right:5,bottom:3,height:5,borderRadius:3,backgroundColor:'rgba(90,61,196,.28)'},chatNudgeText:{minWidth:190,paddingHorizontal:13,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
   fabWrap: { position: 'absolute', zIndex: 90, elevation: 30 },
   fabLeft: { left: 12 },
   fabRight: { right: 12 },
