@@ -64,7 +64,7 @@ export default function GlobalNotificationBanner() {
   const recentSemanticKeys = useRef(new Map<string, number>());
   // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
   // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
-  // remonter vers le haut" -- remplace l'entrée/sortie latérale (translateX)
+  // remonter vers le haut" -- remplace l'ancienne entrée/sortie latérale
   // par une entrée/sortie verticale depuis le haut de l'écran, et le swipe de
   // fermeture latéral par un swipe vers le HAUT uniquement (le doigt ne peut
   // pas tirer le bandeau vers le bas au-delà de sa position posée).
