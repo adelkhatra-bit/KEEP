@@ -425,6 +425,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
   };
 
+  useEffect(() => {
+    const requestedId = String(route?.params?.openPurchasePlaylistId || '').trim();
+    if (!requestedId || !purchaseLibrary.length) return;
+    const entry = purchaseLibrary.find((row) => row.deliveredPlaylistId === requestedId || row.paymentId === requestedId);
+    if (!entry) return;
+    setWorkspaceTab('LIBRARY');
+    setMobileSection('HOME');
+    void openPurchasedCollection(entry);
+    navigation?.setParams?.({ openPurchasePlaylistId: undefined, source: undefined });
+  }, [navigation, route?.params?.openPurchasePlaylistId, purchaseLibrary]);
+
   const refreshLibrary = async () => {
     await syncUnsyncedKeeps().catch(() => {});
     if (userId && !isLocalGuest && !isDemoMode) {

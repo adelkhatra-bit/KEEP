@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -21,6 +21,9 @@ import { spacing, radius, typography } from '../theme/spacing';
 import { colors } from '../theme/colors';
 import { loadCurrentPlanCode } from '../services/planService';
 import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent } from '../services/creatorEventService';
+import { createProfileService } from '../services/profileService';
+import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
+import { supabase } from '../services/supabaseClient';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -31,8 +34,38 @@ import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent
 function notificationProfileUsername(item: KeepNotification): string | null {
   const data = item.data as Record<string, unknown> | null;
   if (!data) return null;
-  const candidate = data.username ?? data.actorUsername ?? data.actor_username;
-  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
+  const candidate = data.username
+    ?? data.actorUsername ?? data.actor_username
+    ?? data.viewerUsername ?? data.viewer_username
+    ?? data.requesterUsername ?? data.requester_username
+    ?? data.followerUsername ?? data.follower_username
+    ?? data.sellerUsername ?? data.seller_username
+    ?? data.inviterUsername ?? data.inviter_username
+    ?? data.originUsername ?? data.origin_username;
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim().replace(/^@+/, '') : null;
+}
+
+function notificationProfileId(item: KeepNotification): string | null {
+  const data = item.data as Record<string, unknown> | null;
+  if (!data) return null;
+  const candidate = data.actorId ?? data.actor_id
+    ?? data.viewerId ?? data.viewer_id
+    ?? data.requesterId ?? data.requester_id
+    ?? data.followerId ?? data.follower_id
+    ?? data.sellerId ?? data.seller_id
+    ?? data.sourceProfileId ?? data.source_profile_id
+    ?? data.originProfileId ?? data.origin_profile_id;
+  return typeof candidate === 'string' && /^[0-9a-f-]{36}$/i.test(candidate) ? candidate : null;
+}
+
+async function resolveNotificationProfileUsername(item: KeepNotification): Promise<string | null> {
+  const direct = notificationProfileUsername(item);
+  if (direct) return direct;
+  const profileId = notificationProfileId(item);
+  if (!profileId || !supabase) return null;
+  const { data } = await supabase.from('profiles').select('username').eq('id', profileId).maybeSingle();
+  const username = String((data as any)?.username || '').trim();
+  return username ? username.replace(/^@+/, '') : null;
 }
 
 function notificationTypeLabel(type: string) {
@@ -62,6 +95,9 @@ function notificationTypeLabel(type: string) {
 
 export default function NotificationsScreen({ navigation }: any) {
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+  const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true, moneyEnabled: true, battleEnabled: true, musicEnabled: true, moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT' });
   const [loading, setLoading] = useState(true);
@@ -69,6 +105,8 @@ export default function NotificationsScreen({ navigation }: any) {
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const autoReadInFlight = useRef(false);
   // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
   // boutons en dessous bien aligné, je ne participe pas, je répondrai plus
   // tard ou je participe" -- l'infrastructure RSVP (event_rsvps,
@@ -178,6 +216,47 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
 
+  // Ouvrir ce centre = les notifications ont été regardées. Une courte
+  // temporisation laisse les cartes non lues visibles avant de remettre le
+  // compteur global à zéro, sans imposer un second bouton.
+  useEffect(() => {
+    if (loading || !user || unread <= 0 || autoReadInFlight.current) return undefined;
+    const timer = setTimeout(() => {
+      if (autoReadInFlight.current) return;
+      autoReadInFlight.current = true;
+      const now = new Date().toISOString();
+      void markAllNotificationsRead(user.id)
+        .then(() => setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? now }))))
+        .catch(() => {})
+        .finally(() => { autoReadInFlight.current = false; });
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [loading, unread, user?.id]);
+
+  const updateProfileVisibility = async (value: boolean) => {
+    if (!user || visibilitySaving) return;
+    const previous = user;
+    const nextUser = { ...user, isPublic: value };
+    setUser(nextUser);
+    setVisibilitySaving(true);
+    try {
+      if (isDemoMode) {
+        setNotice(value ? 'Profil visible en mode démo' : 'Profil masqué en mode démo');
+      } else if (isLocalGuest || !supabase) {
+        await stageGuestProfileForUpgrade(nextUser);
+        setNotice(value ? 'Profil visible sur cet appareil' : 'Profil privé sur cet appareil');
+      } else {
+        await createProfileService(supabase).saveOwnProfile(nextUser);
+        setNotice(value ? 'Ton profil est maintenant visible' : 'Ton profil est maintenant privé');
+      }
+    } catch {
+      setUser(previous);
+      setError('Impossible de modifier la visibilité du profil pour le moment.');
+    } finally {
+      setVisibilitySaving(false);
+    }
+  };
+
   const updatePrefs = async (patch: Partial<NotificationPreferences>) => {
     if (!user) return;
     const previous = prefs;
@@ -272,6 +351,11 @@ export default function NotificationsScreen({ navigation }: any) {
     const data = item.data as Record<string, unknown> | null;
     const type = String(item.type || '').toUpperCase();
     const eventId = eventIdOf(item);
+
+    if (type === 'MONTHLY_FREE_CREDIT') {
+      navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' });
+      return;
+    }
     if (eventId) {
       navigation.navigate('Main', { screen: 'Parties', params: { openEventId: eventId, source: 'NOTIFICATION' } });
       return;
@@ -286,26 +370,37 @@ export default function NotificationsScreen({ navigation }: any) {
 
     const offerRaw = data?.offerId ?? data?.offer_id;
     const offerId = typeof offerRaw === 'string' && offerRaw ? offerRaw : null;
-    if (type === 'PLAYLIST_SALE_PARTIAL_OFFER' && offerId) {
-      const sellerUsernameRaw = data?.sellerUsername ?? data?.seller_username;
-      const sellerUsername = typeof sellerUsernameRaw === 'string' ? sellerUsernameRaw.trim() : '';
+
+    if (type === 'PLAYLIST_SALE_DELIVERED') {
+      const deliveredRaw = data?.playlistId ?? data?.playlist_id;
+      const deliveredPlaylistId = typeof deliveredRaw === 'string' ? deliveredRaw : '';
+      navigation.navigate('Main', { screen: 'MyMusic', params: { openPurchasePlaylistId: deliveredPlaylistId, source: 'NOTIFICATION' } });
+      return;
+    }
+
+    if (['PLAYLIST_SALE_PARTIAL_OFFER','PLAYLIST_SALE_NEW_OFFER','PLAYLIST_SALE_OFFER_CREATED'].includes(type) && offerId) {
+      const sellerUsername = await resolveNotificationProfileUsername(item);
       if (sellerUsername) {
         navigation.navigate('PublicProfile', { username: sellerUsername, openSaleOfferId: offerId, source: 'NOTIFICATION' });
         return;
       }
     }
-    if (type.startsWith('PLAYLIST_SALE') && offerId) {
+
+    if (type === 'PLAYLIST_SALE_COMPLETED' && offerId) {
       navigation.navigate('PlaylistSale', { manageSaleOfferId: offerId, source: 'NOTIFICATION' });
       return;
     }
 
-    const profileUsername = notificationProfileUsername(item);
+    const profileUsername = await resolveNotificationProfileUsername(item);
     if (profileUsername) {
       navigation.navigate('PublicProfile', { username: profileUsername });
       return;
     }
 
-    if (type === 'PLAN_GIFTED' || type.includes('PLAN')) navigation.navigate('Offers');
+    if (type === 'PLAN_GIFTED' || type.includes('PLAN')) {
+      navigation.navigate('Offers');
+      return;
+    }
   };
 
   const readAll = async () => {
@@ -390,6 +485,17 @@ export default function NotificationsScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <View><Text style={styles.title}>Notifications</Text><Text style={styles.subtitle}>{unread} non lue{unread > 1 ? 's' : ''}</Text></View>
           <TouchableOpacity style={styles.moreButton} onPress={openActions} accessibilityLabel="Actions notifications"><Text style={styles.moreText}>•••</Text></TouchableOpacity>
+        </View>
+
+        <View style={styles.visibilityCard}>
+          <View style={styles.visibilityCopy}>
+            <Text style={styles.visibilityEyebrow}>CONFIDENTIALITÉ DU PROFIL</Text>
+            <Text style={styles.visibilityTitle}>{user?.isPublic ? 'Profil visible' : 'Profil privé'}</Text>
+            <Text style={styles.visibilityHint}>{user?.isPublic
+              ? 'Les autres utilisateurs peuvent découvrir ton univers musical.'
+              : 'Ton profil n’apparaît pas dans la découverte publique.'}</Text>
+          </View>
+          {visibilitySaving ? <ActivityIndicator color={colors.primaryLight} /> : <Switch value={Boolean(user?.isPublic)} onValueChange={(value) => void updateProfileVisibility(value)} trackColor={{ false: colors.border, true: colors.primary }} />}
         </View>
 
         <View style={styles.section}>
@@ -589,7 +695,12 @@ const styles = StyleSheet.create({
   moreText: { color: colors.primaryLight, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   notice: { position: 'absolute', zIndex: 20, top: 12, alignSelf: 'center', maxWidth: '78%', backgroundColor: 'rgba(27,19,41,.96)', borderWidth: 1, borderColor: colors.primary, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
   noticeText: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
-  section: { marginBottom: spacing.xxl },
+  visibilityCard: { minHeight: 92, marginBottom: spacing.xl, paddingHorizontal: spacing.md, paddingVertical: 13, borderRadius: 18, borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,.10)', flexDirection: 'row', alignItems: 'center', gap: 12 },
+  visibilityCopy: { flex: 1, minWidth: 0 },
+  visibilityEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  visibilityTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 },
+  visibilityHint: { color: colors.white, fontSize: 11, lineHeight: 16, marginTop: 3 },
+    section: { marginBottom: spacing.xxl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
   sectionTitleNoMargin: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },

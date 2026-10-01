@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
 import { canonicalArtistIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
@@ -326,6 +326,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
   };
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationNudgeVisible, setNotificationNudgeVisible] = useState(false);
+  const notificationBellShake = useRef(new Animated.Value(0)).current;
+  const lastNotificationNudgeCount = useRef(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [affiliatedProfileLink, setAffiliatedProfileLink] = useState('');
@@ -583,6 +586,38 @@ export default function ProfilePublicScreen({ navigation }: any) {
       unsubscribeFocus?.();
     };
   }, [accountRequired, navigation, user?.id]);
+
+  useEffect(() => {
+    notificationBellShake.stopAnimation();
+    notificationBellShake.setValue(0);
+    if (unreadCount <= 0) {
+      setNotificationNudgeVisible(false);
+      lastNotificationNudgeCount.current = 0;
+      return undefined;
+    }
+
+    const shake = Animated.loop(Animated.sequence([
+      Animated.delay(1200),
+      Animated.timing(notificationBellShake, { toValue: -1, duration: 75, useNativeDriver: false }),
+      Animated.timing(notificationBellShake, { toValue: 1, duration: 110, useNativeDriver: false }),
+      Animated.timing(notificationBellShake, { toValue: -1, duration: 95, useNativeDriver: false }),
+      Animated.timing(notificationBellShake, { toValue: 0, duration: 75, useNativeDriver: false }),
+      Animated.delay(3800),
+    ]));
+    shake.start();
+
+    let hideNudge: ReturnType<typeof setTimeout> | null = null;
+    if (lastNotificationNudgeCount.current !== unreadCount) {
+      lastNotificationNudgeCount.current = unreadCount;
+      setNotificationNudgeVisible(true);
+      hideNudge = setTimeout(() => setNotificationNudgeVisible(false), 3600);
+    }
+
+    return () => {
+      shake.stop();
+      if (hideNudge) clearTimeout(hideNudge);
+    };
+  }, [notificationBellShake, unreadCount]);
 
   // 29/09/2026 : confirmation de sortie d'un Solo centralisée (gameExitGuard).
 
@@ -1284,10 +1319,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
   return <SafeAreaView style={s.container}><PersonalThemeBackdrop />
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.topBar} accessibilityLabel="Actions du profil">
-        <TouchableOpacity style={s.iconButton} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
-          <Text style={s.bell}>🔔</Text>
-          {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
-        </TouchableOpacity>
+        <View style={s.notificationBellWrap}>
+          <Animated.View style={{ transform: [{ rotate: notificationBellShake.interpolate({ inputRange: [-1, 1], outputRange: ['-11deg', '11deg'] }) }] }}>
+            <TouchableOpacity style={s.iconButton} onPress={() => { setNotificationNudgeVisible(false); notificationBellShake.stopAnimation(); notificationBellShake.setValue(0); setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+              <Text style={s.bell}>🔔</Text>
+              {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
+            </TouchableOpacity>
+          </Animated.View>
+          {notificationNudgeVisible && unreadCount > 0 ? <TouchableOpacity style={s.notificationNudge} onPress={() => { setNotificationNudgeVisible(false); navigation.navigate('Notifications'); }} accessibilityLabel={`Consulter mes ${unreadCount} notifications`}>
+            <Text style={s.notificationNudgeText}>{unreadCount} message{unreadCount > 1 ? 's' : ''} · pense à regarder</Text>
+          </TouchableOpacity> : null}
+        </View>
         {accountRequired ? <View style={s.topBarRight}><LoginPill /><TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity></View> : <TouchableOpacity style={s.menuButton} onPress={() => { setExpandedMenuItem(null); setMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={s.menuText}>☰</Text></TouchableOpacity>}
       </View>
 
@@ -1838,6 +1880,7 @@ const s=StyleSheet.create({
   profileShareBottom:{marginHorizontal:18,marginTop:10,minHeight:52,borderRadius:18,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,paddingHorizontal:14},profileShareBottomIcon:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},profileShareBottomTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},profileShareInfo:{color:colors.textMutedGrey,fontSize:12,lineHeight:16,fontWeight:'700',textAlign:'center',marginHorizontal:18,marginTop:10,marginBottom:-4},
 
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
+  notificationBellWrap:{position:'relative',zIndex:6},notificationNudge:{position:'absolute',left:50,top:8,minHeight:30,maxWidth:185,paddingHorizontal:11,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,justifyContent:'center',shadowColor:'#000',shadowOpacity:.24,shadowRadius:8,shadowOffset:{width:0,height:3},elevation:8},notificationNudgeText:{color:colors.textPrimary,fontSize:10,fontWeight:'800'},
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},
   topBar:{minHeight:46,paddingHorizontal:18,paddingTop:5,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
