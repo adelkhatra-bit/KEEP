@@ -1,0 +1,53 @@
+// @ts-nocheck
+import fs from 'fs';
+import path from 'path';
+
+const read = (...segments: string[]) =>
+  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+
+describe('Profile notifications drawer + sale origin guard', () => {
+  const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
+  const notificationPanel = read(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx');
+  const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
+  const migration = read(
+    __dirname, '..', '..', '..', '..', '..',
+    'supabase', 'migrations', '20261001205500_playlist_sale_origin_guard.sql',
+  );
+
+  it('opens notifications in a side drawer instead of navigating away on bell tap', () => {
+    expect(profile).toContain("import NotificationSidePanel from '../components/NotificationSidePanel';");
+    expect(profile).toContain('setNotificationPanelOpen(true)');
+    expect(profile).toContain('visible={notificationPanelOpen}');
+    const bellBlock = profile.slice(profile.indexOf('style={s.iconButton}'), profile.indexOf('style={s.iconButton}') + 900);
+    expect(bellBlock).not.toContain("navigation.navigate('Notifications')");
+  });
+
+  it('keeps chat out of the hamburger and accessible from notifications', () => {
+    expect(profile).not.toContain("title: 'TCHAT'");
+    expect(notificationPanel).toContain('onOpenChat');
+    expect(notificationPanel).toContain('>TCHAT<');
+  });
+
+  it('keeps the first hamburger click inside the drawer', () => {
+    const start = profile.indexOf('const directMenuAction');
+    const block = profile.slice(start, start + 1500);
+    expect(block).not.toContain("return openFromMenu('ProfileSettings')");
+    expect(block).not.toContain("return openFromMenu('MusicConnections')");
+    expect(block).not.toContain("return openFromMenu('Offers')");
+    expect(block).not.toContain("return openFromMenu('PlaylistSale')");
+    expect(block).toContain('setExpandedMenuItem(key)');
+  });
+
+  it('shows social tracks as share-only and visibly locked for resale', () => {
+    expect(myMusic).toContain('🔒 PARTAGE SEUL');
+    expect(myMusic).toContain('Partage autorisé · vente FREE/€ bloquée');
+    expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
+  });
+
+  it('blocks social-origin tracks at the database boundary for every sale path', () => {
+    expect(migration).toContain('trg_guard_playlist_sale_track_origin');
+    expect(migration).toContain("raise exception 'TRACK_NOT_OWN_DISCOVERY'");
+    expect(migration).toContain('kd.source_user_id is not null');
+    expect(migration).toContain("coalesce(kd.context->>'creditPolicy','')='SOCIAL_ZERO_CREDIT'");
+  });
+});
