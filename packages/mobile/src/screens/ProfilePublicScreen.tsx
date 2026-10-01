@@ -1997,7 +1997,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
                 >
                   <Text style={s.dnaCompactToggleText}>
-                    {profileStylesExpanded ? 'MASQUER' : `MES ${profileStyleBubbles.length} STYLES`}
+                    {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
                   </Text>
                   <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
                 </TouchableOpacity>

@@ -10,7 +10,7 @@ describe('single owner Loki Pulse card contract', () => {
     expect(owner).toContain('testID="profile-loki-pulse-expanded-styles"');
     expect(owner).toContain('testID="profile-loki-pulse-expanded-music"');
     expect(owner).toContain("profileMusicExpanded ? 'MASQUER' : 'POUR MOI'");
-    expect(owner).toContain('MES ${profileStyleBubbles.length} STYLES');
+    expect(owner).toContain('VOIR MES ${profileStyleBubbles.length} STYLES');
   });
 
   it('keeps the two panels mutually exclusive and removes the old standalone Pulse section', () => {
