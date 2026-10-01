@@ -13,7 +13,7 @@ import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { splitSaleOffersByStatus } from '../services/saleListPaging';
 import { loadOwnPersistedKeeps } from '../services/keepMusicCoreRecognition';
-import { getMyPayoutMethods, setMyPayoutLink } from '../services/payoutLinkService';
+import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
 import type { CanonicalTrack } from '@keep/music';
 import PayPalQrPayoutControl from './PayPalQrPayoutControl';
 
@@ -323,9 +323,10 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       return;
     }
     if (collectionCartPaymentMode === 'MONEY') {
-      const clean = collectionCartPayoutLink.trim();
+      const rawPayout = collectionCartPayoutLink.trim();
+      const clean = normalizePayoutLinkInput(rawPayout);
       if (!clean && !collectionCartPayoutQrUrl.trim()) {
-        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.Me ou ton QR PayPal avant de publier.');
+        Alert.alert('PayPal requis', 'Ajoute ton pseudo PayPal.Me, ton lien PayPal.Me ou ton QR PayPal avant de publier.');
         return;
       }
       if (clean) {
@@ -759,7 +760,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     {collectionCartPaymentMode === 'MONEY' ? (
                       <View style={s.collectionCartPayout}>
                         <Text style={s.collectionCartFieldLabel}>{collectionCartPayoutLink.trim() ? 'PAYPAL DÉJÀ ENREGISTRÉ' : 'TON LIEN PAYPAL.ME'}</Text>
-                        <TextInput value={collectionCartPayoutLink} onChangeText={setCollectionCartPayoutLink} autoCapitalize="none" autoCorrect={false} placeholder="https://paypal.me/tonpseudo" placeholderTextColor={colors.textMuted} style={s.collectionCartInput} />
+                        <TextInput value={collectionCartPayoutLink} onChangeText={setCollectionCartPayoutLink} autoCapitalize="none" autoCorrect={false} placeholder="Pseudo PayPal.Me ou https://paypal.me/tonpseudo" placeholderTextColor={colors.textMuted} style={s.collectionCartInput} />
                         <View style={s.collectionCartPayoutActions}>
                           <TouchableOpacity style={s.collectionCartSecondary} onPress={() => { void Linking.openURL('https://www.paypal.com/paypalme/'); }}><Text style={s.collectionCartSecondaryText}>OUVRIR PAYPAL.ME</Text></TouchableOpacity>
                           <TouchableOpacity style={s.collectionCartSecondary} disabled={!collectionCartPayoutLink.trim() || busy} onPress={async () => { try { const saved=await setMyPayoutLink(collectionCartPayoutLink.trim()); setCollectionCartPayoutLink(saved || collectionCartPayoutLink.trim()); Alert.alert('Paiement','Lien enregistré. Il sera prérempli la prochaine fois.'); } catch(e:any) { Alert.alert('Paiement',e?.message || 'Impossible d’enregistrer le lien.'); } }}><Text style={s.collectionCartSecondaryText}>ENREGISTRER PAYPAL</Text></TouchableOpacity>
