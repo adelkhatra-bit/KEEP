@@ -166,7 +166,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
   const [visibilityIntroOpen, setVisibilityIntroOpen] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
-  const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
+  const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
   // Adel (14/09/2026) : "chaque utilisateur ... vendre leur playlist ...
   // pour le debloquer il faut un certain nombre d'abonnes" -- construit
@@ -397,6 +397,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       keepDecisionId: entry.decisionId,
       sourceProfileId: entry.sourceProfileId,
       sourceUsername: entry.sourceUsername,
+      originSource: entry.originSource,
       creditSource: entry.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL' as const : 'FREE' as const,
       sessionId: entry.sessionId || '__keep-server-library__',
     }));
@@ -421,6 +422,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const socialRepriseEntries = useMemo(
     () => localKeptEntries.filter((entry) => Boolean(entry.sourceProfileId)),
     [localKeptEntries],
+  );
+  const lokiPulseEntries = useMemo(
+    () => ownDiscoveryEntries.filter((entry: any) => String(entry.originSource || '').toLowerCase() === 'loki_pulse'),
+    [ownDiscoveryEntries],
+  );
+  const identifiedEntries = useMemo(
+    () => ownDiscoveryEntries.filter((entry: any) => String(entry.originSource || '').toLowerCase() !== 'loki_pulse'),
+    [ownDiscoveryEntries],
   );
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
@@ -1525,11 +1534,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length && !saleSelectionMode ? <View style={styles.originSummary}>
-        <View style={styles.originFilters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.originFilters}>
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
             ['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`],
             ['USERS', `REPRISES · ${socialRepriseEntries.length}`],
+            ['IDENTIFIED', `IDENTIFIÉ LOKI · ${identifiedEntries.length}`],
+            ['PULSE', `LOKI PULSE · ${lokiPulseEntries.length}`],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               key={key}
@@ -1542,7 +1553,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               <Text style={[styles.originFilterText, originFilter === key && styles.originFilterTextOn]}>{label}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' && analysis ? <TouchableOpacity style={styles.analysisSummary} onPress={() => setAnalysisExpanded((value) => !value)}>
@@ -1576,7 +1587,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
-          data={originFilter === 'USERS' ? socialRepriseTracks : saleEditOfferTarget
+          data={originFilter === 'USERS' ? socialRepriseTracks
+            : originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)
+            : originFilter === 'IDENTIFIED' ? identifiedEntries.map((entry) => entry.track)
+            : saleEditOfferTarget
             ? ownDiscoveryTracks
                 .filter((track) => !myOfferedTrackIds[track.id] || myOfferedTrackIds[track.id].offerId === saleEditOfferTarget.offerId)
                 .sort((a, b) => Number(selectedSaleTrackIds.has(b.id)) - Number(selectedSaleTrackIds.has(a.id)))
