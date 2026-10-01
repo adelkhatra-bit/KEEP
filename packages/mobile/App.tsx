@@ -6,6 +6,7 @@ import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
+import GlobalChatDock from './src/components/GlobalChatDock';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
@@ -237,6 +238,7 @@ export default function App() {
     <>
       {user ? <Navigation /> : <OnboardingScreen />}
       {user ? <GlobalNotificationBanner /> : null}
+      {user ? <GlobalChatDock /> : null}
       <AppUpdateBanner />
       <AlertHost />
       <AccountGateModal />
