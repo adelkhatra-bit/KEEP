@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   freeCreditSpark: { position: 'absolute', top: 4, left: 6, color: '#E5F266', fontSize: 13, fontWeight: '900' },
   freeCreditSparkRight: { left: undefined, right: 5, top: 34 },
   freeCreditEyebrow: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  freeCreditTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 19, fontWeight: '1000', marginTop: 2 },
+  freeCreditTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 19, fontWeight: '900', marginTop: 2 },
   freeCreditBody: { color: '#D8FFF6', fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '800' },
   eventEyebrow: { color: '#B79CFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   closeButton: { position: 'absolute', top: 6, right: 6, zIndex: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
