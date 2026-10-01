@@ -56,6 +56,31 @@ export type MusicAgoraConversation = {
   lastSaleOfferId: string | null;
 };
 
+export type MusicAgoraGroup = {
+  id: string;
+  name: string;
+  ownerId: string;
+  ownerUsername: string;
+  myRole: 'OWNER' | 'MEMBER';
+  myStatus: 'INVITED' | 'ACTIVE';
+  memberCount: number;
+  invitedCount: number;
+  lastMessageId: number | null;
+  lastBody: string;
+  lastCreatedAt: string | null;
+};
+
+export type MusicAgoraGroupPerson = {
+  profileId: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
+export type MusicAgoraGroupMember = MusicAgoraGroupPerson & {
+  role: 'OWNER' | 'MEMBER';
+  status: 'INVITED' | 'ACTIVE';
+};
+
 export type MusicAgoraSharePreflight = {
   hasTrack: boolean;
   canSell: boolean;
@@ -572,4 +597,156 @@ export async function saveMusicAgoraVoiceAnnouncements(enabled: boolean): Promis
     ?? row?.voice_announcements
     ?? false
   );
+}
+
+
+export async function loadMusicAgoraGroups(): Promise<MusicAgoraGroup[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_agora_my_groups');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: String(row.group_id || ''),
+    name: String(row.group_name || 'Conversation'),
+    ownerId: String(row.owner_id || ''),
+    ownerUsername: String(row.owner_username || 'loki-user'),
+    myRole: String(row.my_role || 'MEMBER').toUpperCase() === 'OWNER' ? 'OWNER' : 'MEMBER',
+    myStatus: String(row.my_status || 'INVITED').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'INVITED',
+    memberCount: Number(row.member_count || 0),
+    invitedCount: Number(row.invited_count || 0),
+    lastMessageId: row.last_message_id == null ? null : Number(row.last_message_id),
+    lastBody: musicAgoraBodyPreview(String(row.last_body || '')),
+    lastCreatedAt: row.last_created_at ? String(row.last_created_at) : null,
+  })).filter((row) => row.id);
+}
+
+export async function searchMusicAgoraGroupPeople(query = '', limit = 30): Promise<MusicAgoraGroupPerson[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_agora_group_people_search', {
+    p_query: String(query || ''),
+    p_limit: Math.max(1, Math.min(60, limit)),
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    profileId: String(row.profile_id || ''),
+    username: String(row.username || 'loki-user'),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+  })).filter((row) => row.profileId);
+}
+
+export async function createMusicAgoraGroup(name: string, memberIds: string[]): Promise<string> {
+  if (!supabase) throw new Error('service_unavailable');
+  const uniqueIds = [...new Set(memberIds.filter(Boolean))].slice(0, 44);
+  const { data, error } = await supabase.rpc('keep_agora_create_group', {
+    p_name: String(name || '').trim(),
+    p_member_ids: uniqueIds,
+  });
+  if (error) throw error;
+  return String(data || '');
+}
+
+export async function acceptMusicAgoraGroup(groupId: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_accept_group', { p_group_id: groupId });
+  if (error) throw error;
+}
+
+export async function declineMusicAgoraGroup(groupId: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_decline_group', { p_group_id: groupId });
+  if (error) throw error;
+}
+
+export async function loadMusicAgoraGroupMembers(groupId: string): Promise<MusicAgoraGroupMember[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_agora_group_members', { p_group_id: groupId });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    profileId: String(row.profile_id || ''),
+    username: String(row.username || 'loki-user'),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+    role: String(row.role || 'MEMBER').toUpperCase() === 'OWNER' ? 'OWNER' : 'MEMBER',
+    status: String(row.status || 'INVITED').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'INVITED',
+  })).filter((row) => row.profileId);
+}
+
+export async function inviteMusicAgoraGroupMember(groupId: string, profileId: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_invite_group_member', {
+    p_group_id: groupId,
+    p_profile_id: profileId,
+  });
+  if (error) throw error;
+}
+
+export async function removeMusicAgoraGroupMember(groupId: string, profileId: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_remove_group_member', {
+    p_group_id: groupId,
+    p_profile_id: profileId,
+  });
+  if (error) throw error;
+}
+
+export async function loadMusicAgoraGroupMessages(
+  groupId: string,
+  beforeId?: number,
+  limit = 30,
+): Promise<MusicAgoraMessage[]> {
+  if (!supabase || !groupId) return [];
+  const { data, error } = await supabase.rpc('keep_agora_group_messages', {
+    p_group_id: groupId,
+    p_before_id: beforeId ?? null,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: Number(row.id),
+    roomSlug: `group:${groupId}`,
+    profileId: String(row.profile_id || ''),
+    username: String(row.username || 'loki-user'),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+    kind: 'USER',
+    body: String(row.body || ''),
+    createdAt: String(row.created_at || ''),
+    targetProfileId: null,
+    targetUsername: null,
+    sharedTrackId: row.shared_track_id ? String(row.shared_track_id) : null,
+    musicRevealMode: (['MASKED','FULL'].includes(String(row.music_reveal_mode || '').toUpperCase())
+      ? String(row.music_reveal_mode).toUpperCase()
+      : 'NONE') as MusicAgoraRevealMode,
+    trackTitle: row.track_title ? String(row.track_title) : null,
+    trackArtist: row.track_artist ? String(row.track_artist) : null,
+    trackArtworkUrl: row.track_artwork_url ? String(row.track_artwork_url) : null,
+    trackPreviewUrl: row.track_preview_url ? String(row.track_preview_url) : null,
+    saleOfferId: null,
+    paymentMode: 'NONE',
+    freePrice: null,
+    priceCents: 0,
+    currencyCode: 'EUR',
+    offerActive: false,
+    viewerUnlocked: false,
+    viewerPaymentId: null,
+    viewerPaymentStatus: null,
+    viewerMarkedPaid: false,
+    targetOwnsTrack: false,
+    viewerOwnsTrack: false,
+    senderCanResell: false,
+    discoveredByUsername: null,
+  })).filter((row) => row.id && row.profileId).sort((a, b) => a.id - b.id);
+}
+
+export async function postMusicAgoraGroupMessage(
+  groupId: string,
+  body: string,
+  options: Pick<MusicAgoraPostOptions, 'sharedTrackId' | 'revealMode'> = {},
+): Promise<number> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_post_group_message', {
+    p_group_id: groupId,
+    p_body: String(body || ''),
+    p_shared_track_id: options.sharedTrackId ?? null,
+    p_reveal_mode: options.revealMode ?? 'NONE',
+  });
+  if (error) throw error;
+  return Number(data || 0);
 }
