@@ -112,8 +112,13 @@ function simplifyArtistCredit(raw: string): string {
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
 export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt: string | null };
 
+function deviceTimeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris'; }
+  catch { return 'Europe/Paris'; }
+}
+
 export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDailyStatus> {
-  const { data, error } = await client().rpc('keep_battle_solo_daily_status');
+  const { data, error } = await client().rpc('keep_battle_solo_daily_status', { p_timezone: deviceTimeZone() });
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_STATUS_UNAVAILABLE'));
   const raw = data as any;
   return {
@@ -143,7 +148,7 @@ export async function loadMyFreeRechargeInfo(profileId: string, planCode: string
 export async function consumeKeepBattleSoloDailyStart(sessionToken: string): Promise<KeepBattleSoloDailyStatus> {
   const token = String(sessionToken || '').trim();
   if (token.length < 8) throw new Error('BATTLE_SOLO_SESSION_TOKEN_INVALID');
-  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start', { p_session_token: token });
+  const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start', { p_session_token: token, p_timezone: deviceTimeZone() });
   if (error) {
     const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' ');
     if (/BATTLE[_\s-]*SOLO[_\s-]*DAILY[_\s-]*LIMIT[_\s-]*REACHED/i.test(raw)) {
