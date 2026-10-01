@@ -328,10 +328,12 @@ export default function MusicAgoraPanel({
       loadMusicAgoraRooms().catch(() => []),
       enabled ? loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] })) : Promise.resolve({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] }),
       enabled ? loadMusicAgoraConversations(40).catch(() => []) : Promise.resolve([] as MusicAgoraConversation[]),
-    ]).then(([rows, settings, inbox]) => {
+      enabled ? loadMusicAgoraGroups().catch(() => []) : Promise.resolve([] as MusicAgoraGroup[]),
+    ]).then(([rows, settings, inbox, groupRows]) => {
       if (!live) return;
       setRooms(rows);
       setConversations(inbox);
+      setGroups(groupRows);
       setRoomSlug((current) => current || initialRoomSlug || rows[0]?.slug || 'place');
       setHomeEnabled(settings.homeEnabled);
       setNotificationsEnabled(settings.notificationsEnabled);
@@ -341,17 +343,29 @@ export default function MusicAgoraPanel({
   }, [enabled]);
 
   const refreshInbox = async () => {
-    try { setConversations(await loadMusicAgoraConversations(40)); }
-    catch { setConversations([]); }
+    try {
+      const [directRows, groupRows] = await Promise.all([
+        loadMusicAgoraConversations(40).catch(() => [] as MusicAgoraConversation[]),
+        loadMusicAgoraGroups().catch(() => [] as MusicAgoraGroup[]),
+      ]);
+      setConversations(directRows);
+      setGroups(groupRows);
+      setActiveGroup((current) => current ? (groupRows.find((row) => row.id === current.id) ?? current) : null);
+    } catch {
+      setConversations([]);
+      setGroups([]);
+    }
   };
 
   const refresh = async (slug = roomSlug, quiet = false) => {
-    if (!slug && !(chatMode === 'MESSAGES' && replyTarget?.profileId)) return;
+    if (!slug && !(chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))) return;
     if (!quiet) setLoading(true);
     try {
-      const rows = chatMode === 'MESSAGES' && replyTarget?.profileId
-        ? await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)
-        : await loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
+      const rows = chatMode === 'MESSAGES' && activeGroup?.id
+        ? await loadMusicAgoraGroupMessages(activeGroup.id, undefined, PAGE_SIZE)
+        : chatMode === 'MESSAGES' && replyTarget?.profileId
+          ? await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)
+          : await loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
       if (chatMode === 'MESSAGES') void refreshInbox();
@@ -368,20 +382,22 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!roomSlug) return;
     initialScrollDone.current = false;
-    if (chatMode === 'MESSAGES' && !replyTarget?.profileId) {
+    if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) {
       setMessages([]);
       setHasMore(false);
       void refreshInbox();
     } else {
       void refresh(roomSlug);
     }
-    if (enabled && homeEnabled) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
-    const unsubscribe = subscribeMusicAgoraRoom(roomSlug, () => {
-      if (chatMode === 'MESSAGES' && !replyTarget?.profileId) void refreshInbox();
-      else void refresh(roomSlug, true);
-    });
+    if (enabled && homeEnabled && !activeGroup?.id) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
+    const unsubscribe = activeGroup?.id
+      ? () => {}
+      : subscribeMusicAgoraRoom(roomSlug, () => {
+          if (chatMode === 'MESSAGES' && !replyTarget?.profileId) void refreshInbox();
+          else void refresh(roomSlug, true);
+        });
     const timer = setInterval(() => {
-      if (chatMode === 'MESSAGES' && !replyTarget?.profileId) void refreshInbox();
+      if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) void refreshInbox();
       else void refresh(roomSlug, true);
       if (compact && enabled) {
         void loadMusicAgoraSettings().then((settings) => {
@@ -392,7 +408,7 @@ export default function MusicAgoraPanel({
       }
     }, 5000);
     return () => { unsubscribe(); clearInterval(timer); };
-  }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId]);
+  }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -409,9 +425,11 @@ export default function MusicAgoraPanel({
     if (!roomSlug || !messages.length || olderBusy) return;
     setOlderBusy(true);
     try {
-      const rows = chatMode === 'MESSAGES' && replyTarget?.profileId
-        ? await loadMusicAgoraDirectMessages(replyTarget.profileId, messages[0]?.id, PAGE_SIZE)
-        : await loadMusicAgoraMessages(roomSlug, messages[0]?.id, PAGE_SIZE);
+      const rows = chatMode === 'MESSAGES' && activeGroup?.id
+        ? await loadMusicAgoraGroupMessages(activeGroup.id, messages[0]?.id, PAGE_SIZE)
+        : chatMode === 'MESSAGES' && replyTarget?.profileId
+          ? await loadMusicAgoraDirectMessages(replyTarget.profileId, messages[0]?.id, PAGE_SIZE)
+          : await loadMusicAgoraMessages(roomSlug, messages[0]?.id, PAGE_SIZE);
       setMessages((current) => [...rows.filter((row) => !current.some((item) => item.id === row.id)), ...current]);
       setHasMore(rows.length === PAGE_SIZE);
     } finally {
