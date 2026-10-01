@@ -941,7 +941,7 @@ export default function MusicAgoraPanel({
 
   return <KeyboardAvoidingView
     enabled={compact && Platform.OS !== 'web'}
-    behavior={compact && Platform.OS !== 'web' ? 'height' : undefined}
+    behavior={compact && Platform.OS === 'ios' ? 'padding' : compact && Platform.OS === 'android' ? 'height' : undefined}
     keyboardVerticalOffset={0}
     style={[
       s.shell,
@@ -1524,7 +1524,13 @@ export default function MusicAgoraPanel({
         </TouchableOpacity>
         <TextInput
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={(value) => {
+            setDraft(value);
+            if (compact) {
+              forceBottomRef.current = true;
+              requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
+            }
+          }}
           placeholder={awaitingDirectReply ? 'Patiente que la personne réponde…' : 'Écris un message…'}
           placeholderTextColor={colors.textMutedGrey}
           multiline
@@ -1721,9 +1727,9 @@ const s=StyleSheet.create({
   conversationAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundElevated},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
-  conversationName:{flex:1,color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
-  conversationTime:{color:colors.textMutedGrey,fontSize:12,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:16,lineHeight:21,marginTop:3},
+  conversationName:{flex:1,color:colors.textPrimary,fontSize:17.5,fontWeight:'900'},
+  conversationTime:{color:colors.textMutedGrey,fontSize:12.5,fontWeight:'700'},
+  conversationPreview:{color:colors.textSecondary,fontSize:16.5,lineHeight:22,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',textAlign:'center'},
@@ -1750,7 +1756,7 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{height:58,minHeight:58,maxHeight:58,flex:1,fontSize:20,lineHeight:27,paddingTop:13,paddingBottom:10,overflow:'scroll'},
+  inputCompact:{height:62,minHeight:62,maxHeight:62,flex:1,fontSize:20,lineHeight:28,paddingTop:14,paddingBottom:10,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
@@ -1814,9 +1820,9 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:15.5,fontWeight:'900'},
-  meta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:15,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:17,lineHeight:24,marginTop:8},
+  username:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
+  meta:{color:colors.textMutedGrey,fontSize:12.5,lineHeight:17,marginTop:2},
+  body:{color:colors.textPrimary,fontSize:18,lineHeight:25,marginTop:8},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
   qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
   qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},
