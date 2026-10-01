@@ -5,7 +5,7 @@ import * as Speech from 'expo-speech';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -72,6 +72,7 @@ export default function GlobalChatDock() {
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
+  const [chatVoiceEnabled, setChatVoiceEnabled] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(ALL_CHAT_SURFACES);
   const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
@@ -113,6 +114,7 @@ export default function GlobalChatDock() {
       loadMusicAgoraSettings().catch(() => ({
         homeEnabled: false,
         notificationsEnabled: true,
+        voiceAnnouncementsEnabled: false,
         surfaces: ALL_CHAT_SURFACES,
         side: 'right' as const,
         bottomOffset: 88,
@@ -122,6 +124,7 @@ export default function GlobalChatDock() {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
+      setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
@@ -143,7 +146,7 @@ export default function GlobalChatDock() {
       setUnreadCount((value) => value + 1);
       setLatestChatSender(sender);
       useGlobalChatStore.getState().prime(chatNotificationTarget(item));
-      if (chatEnabled && chatNotificationsEnabled && !useGlobalChatStore.getState().isOpen) {
+      if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !useGlobalChatStore.getState().isOpen) {
         void Speech.stop().catch(() => {});
         Speech.speak(`Message de ${sender}`, {
           language: 'fr-FR',
@@ -152,7 +155,7 @@ export default function GlobalChatDock() {
         });
       }
     });
-  }, [accountReady, user?.id, chatEnabled, chatNotificationsEnabled]);
+  }, [accountReady, user?.id, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
     if (!accountReady || (!chatEnabled && !open)) {
@@ -182,6 +185,7 @@ export default function GlobalChatDock() {
         if (!live) return;
         setChatEnabled(true);
         setChatNotificationsEnabled(settings.notificationsEnabled);
+        setChatVoiceEnabled(settings.voiceAnnouncementsEnabled);
         setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
         setSide(settings.side);
         setBottomOffset(settings.bottomOffset);
@@ -348,6 +352,22 @@ export default function GlobalChatDock() {
               />
             </View>
 
+            <View style={styles.settingsRow}>
+              <View style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                <Text style={styles.settingsLabel}>Annonce vocale</Text>
+                <Text style={styles.settingsHelp}>Dit seulement « Message de @pseudo », jamais le contenu du message.</Text>
+              </View>
+              <Switch
+                value={chatVoiceEnabled}
+                disabled={chatSaving || !chatEnabled || !chatNotificationsEnabled}
+                onValueChange={(value) => {
+                  setChatVoiceEnabled(value);
+                  void saveMusicAgoraVoiceAnnouncements(value).then(setChatVoiceEnabled).catch(() => setChatVoiceEnabled(!value));
+                }}
+                trackColor={{ false: colors.border, true: colors.keep }}
+              />
+            </View>
+
             <View style={styles.settingsScreens}>
               <Text style={styles.settingsScreenTitle}>OÙ AFFICHER LA MESSAGERIE ?</Text>
               <View style={styles.settingsScreenGrid}>
@@ -479,7 +499,7 @@ const styles = StyleSheet.create({
   settingsClose:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
   settingsCloseText:{color:colors.textPrimary,fontSize:22,lineHeight:24,fontWeight:'900'},
   settingsRow:{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:colors.border},
-  settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  settingsHelp:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   settingsScreens:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:10},
   settingsScreenTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginBottom:7},
   settingsScreenGrid:{flexDirection:'row',flexWrap:'wrap',gap:7},
