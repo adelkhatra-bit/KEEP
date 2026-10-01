@@ -15,12 +15,12 @@ describe('music bubbles permanent placement', () => {
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
   });
 
-  it('keeps one owner card with persistent gauge and collapsed preview bubbles', () => {
+  it('keeps one owner card with persistent gauge and no collapsed style preview', () => {
     expect(owner).toContain('testID="profile-loki-pulse-bubbles-card"');
     expect(owner).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
-    expect(owner).toContain('testID="profile-loki-pulse-preview"');
-    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
     expect(owner).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
+    expect(owner).not.toContain('testID="profile-loki-pulse-preview"');
+    expect(owner).not.toContain('testID="profile-music-style-bubbles-preview"');
   });
 
   it('keeps one visited card with persistent gauge', () => {

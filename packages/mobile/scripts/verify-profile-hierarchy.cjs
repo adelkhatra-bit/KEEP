@@ -47,9 +47,8 @@ assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Own
 
 assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
 assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
-assertIncludes(owner, 'testID="profile-loki-pulse-preview"', 'Owner collapsed Pulse bubble preview');
-assertIncludes(owner, 'testID="profile-music-style-bubbles-preview"', 'Owner collapsed style bubbles');
 assertIncludes(owner, "profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'", 'Owner Loki Pulse single compact toggle');
+if (owner.includes('profile-loki-pulse-preview') || owner.includes('profile-music-style-bubbles-preview')) throw new Error('Owner collapsed Pulse must not render style preview');
 assertIncludes(owner, 'testID="profile-loki-pulse-expanded-styles"', 'Owner styles inside merged Loki Pulse card');
 assertIncludes(owner, 'testID="profile-loki-pulse-expanded-music"', 'Owner profile recommendations inside merged Loki Pulse card');
 if (owner.includes('style={s.lokiPulseSection}')) throw new Error('Owner profile has one merged Loki Pulse block; standalone section must not return');

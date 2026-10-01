@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.01",
+  "version": "2026-10-02.02",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -625,8 +625,8 @@
     "homeVisiblePulseLabel": false,
     "homeVisibleTitle": "Tes bulles musicales",
     "ownerProfileAlwaysVisibleWhenStylesExist": true,
-    "ownerCollapsedPreviewVisible": true,
-    "ownerCollapsedPreviewMax": 4,
+    "ownerCollapsedPreviewVisible": false,
+    "ownerCollapsedPreviewMax": 0,
     "ownerExpandedShowsAllStyles": true,
     "ownerExpansionAlsoShowsRecommendations": true
   },
