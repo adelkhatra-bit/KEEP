@@ -428,48 +428,54 @@ async function recordDecision(req: Request) {
     });
   }
 
-  if (decision === "KEPT") {
-    const current = await existingKeptDecision(userId, trackId);
-    if (current?.id) {
-      // GARDER deux fois le même morceau doit être idempotent. On peut modifier
-      // sa visibilité, mais on ne remplace jamais l'origine historique.
-      let returned = current;
-      if (current.visibility !== visibility) {
-        const { data: updated, error: updateError } = await admin
-          .from("keep_decisions")
-          .update({ visibility })
-          .eq("id", current.id)
-          .select("id,created_at,visibility,source_user_id,source_type,context")
-          .single();
-        if (updateError) throw updateError;
-        returned = updated;
-      }
-      return json(200, {
-        ok: true,
-        trackId,
-        decisionId: returned.id,
-        createdAt: returned.created_at,
-        visibility: returned.visibility,
-        deduplicated: true,
-      });
-    }
-  }
-
   const sourceProfileId = validUuid((context as any)?.sourceProfileId);
   const socialSource = sourceProfileId && sourceProfileId !== userId ? sourceProfileId : null;
-  const originProfileId = decision === "KEPT" ? await resolveSocialOrigin(socialSource, trackId) : null;
 
-  // Règle Loki unique : tout NOUVEAU GARDER manuel coûte le tarif FREE
-  // serveur, y compris lorsqu'il provient du profil d'un autre membre.
-  // La provenance sociale sert uniquement à l'attribution/reprise et ne doit
-  // jamais contourner le débit. Les doublons sont retournés plus haut avant
-  // ce bloc, donc un morceau déjà possédé reste gratuit et idempotent.
   if (decision === "KEPT") {
     const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-    const credit = await consumeKeepCredit(token);
-    if (!credit.allowed) return json(402, { error: "CREDITS_EXHAUSTED" });
+    if (!token) return json(401, { error: "account_required" });
+
+    const scoped = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const sourceKey = typeof (context as any)?.source === "string" && String((context as any).source).trim()
+      ? String((context as any).source).trim().slice(0, 120)
+      : "unknown";
+
+    const { data: committed, error: commitError } = await scoped.rpc("keep_commit_paid_decision", {
+      p_track_id: trackId,
+      p_visibility: visibility,
+      p_context: context,
+      p_source_profile_id: socialSource,
+      p_source_key: sourceKey,
+    });
+
+    if (commitError) {
+      const message = String(commitError.message || "");
+      if (/CREDITS_EXHAUSTED|download_daily_limit_reached/i.test(message)) {
+        return json(402, { error: "CREDITS_EXHAUSTED" });
+      }
+      throw commitError;
+    }
+
+    if (!committed || typeof committed !== "object" || !(committed as any).decisionId) {
+      throw new Error("keep_server_confirmation_required");
+    }
+
+    return json(200, {
+      ok: true,
+      trackId,
+      decisionId: String((committed as any).decisionId),
+      createdAt: (committed as any).createdAt ?? null,
+      visibility: (committed as any).visibility ?? visibility,
+      deduplicated: Boolean((committed as any).deduplicated),
+      charged: Number((committed as any).charged ?? 0),
+      sourceKey: (committed as any).sourceKey ?? sourceKey,
+    });
   }
 
+  // PASSER reste une décision gratuite et ne touche jamais au grand livre FREE.
   const { data, error } = await admin.from("keep_decisions").insert({
     profile_id: userId,
     track_id: trackId,
@@ -479,28 +485,12 @@ async function recordDecision(req: Request) {
     chosen_playlist_id: null,
     was_correction: false,
     context,
-    source_type: socialSource ? "profile" : null,
-    source_user_id: originProfileId,
+    source_type: null,
+    source_user_id: null,
   }).select("id,created_at,visibility").single();
 
   if (!error && data?.id) {
-    return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility, deduplicated: false });
-  }
-
-  // Protection de course côté base : si deux actions GARDER arrivent en même
-  // temps, l'index unique rejette la seconde ; on renvoie alors la première.
-  if (decision === "KEPT" && (error as any)?.code === "23505") {
-    const raced = await existingKeptDecision(userId, trackId);
-    if (raced?.id) {
-      return json(200, {
-        ok: true,
-        trackId,
-        decisionId: raced.id,
-        createdAt: raced.created_at,
-        visibility: raced.visibility,
-        deduplicated: true,
-      });
-    }
+    return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility, deduplicated: false, charged: 0 });
   }
   throw error;
 }
