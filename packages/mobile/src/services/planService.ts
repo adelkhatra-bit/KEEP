@@ -108,6 +108,20 @@ export async function loadDemoListenLimit(): Promise<number> {
   return Math.max(1, Math.min(100, Math.round(limit)));
 }
 
+export async function loadDemoDiscoveryLocked(): Promise<boolean> {
+  if (!supabase) return true;
+  const { data, error } = await supabase
+    .from('remote_config')
+    .select('value')
+    .eq('key', 'demo_discovery_locked')
+    .maybeSingle();
+  if (error) return true;
+  const value = data?.value;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') return value.toLowerCase() !== 'false';
+  return value == null ? true : Boolean(value);
+}
+
 export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {
   if (!supabase) return 15;
   const { data, error } = await supabase
