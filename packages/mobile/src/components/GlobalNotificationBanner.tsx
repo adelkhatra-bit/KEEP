@@ -5,7 +5,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
-import { navigateToBattleArena, navigateToEvent, navigationRef } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { loadCurrentPlanCode } from '../services/planService';
@@ -360,10 +360,7 @@ export default function GlobalNotificationBanner() {
           onPress={() => {
             const id = current.id;
             void markNotificationRead(user.id, id).catch(() => {});
-            animateOut(() => {
-              if (!navigationRef.isReady()) return;
-              (navigationRef.navigate as any)('Offers', { focusPlan: notificationRequiredPlan, sourceFeature: 'NOTIFICATION_ACCESS' });
-            });
+            animateOut();
           }}
           accessibilityRole="button"
           accessibilityLabel={`Notification réservée à la formule ${notificationPlanLabel(notificationRequiredPlan)}`}
@@ -372,7 +369,7 @@ export default function GlobalNotificationBanner() {
           <View style={styles.copy}>
             <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>LOKI MUSIC · ACCÈS</Text></View>
             <Text style={styles.title} numberOfLines={1}>Notification réservée</Text>
-            <Text style={styles.body} numberOfLines={2}>Disponible avec {notificationPlanLabel(notificationRequiredPlan)}. Appuie pour voir la formule.</Text>
+            <Text style={styles.body} numberOfLines={2}>Disponible avec {notificationPlanLabel(notificationRequiredPlan)}. Aucun changement d’écran.</Text>
           </View>
         </TouchableOpacity>
       </Animated.View>
