@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
@@ -261,6 +262,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
   const [saleEditOfferTarget, setSaleEditOfferTarget] = useState<{ offerId: string; playlistName: string } | null>(null);
+  const [saleReturnToPicks, setSaleReturnToPicks] = useState(false);
+  const [saleCartHydrated, setSaleCartHydrated] = useState(false);
+  const saleCartStorageKey = useMemo(() => userId ? `keep:pepites-cart:${userId}` : '', [userId]);
   const [manageMusicMode, setManageMusicMode] = useState(false);
   const [manageHelpVisible, setManageHelpVisible] = useState(false);
   const toggleManageMusicMode = () => {
@@ -285,20 +289,43 @@ export default function MyMusicScreen({ navigation, route }: any) {
     navigation?.setParams?.({ openManageMusic: undefined });
   }, [navigation, route?.params?.openManageMusic]);
 
-  // Point d'entrée unique : Collections/Pépites ouvre Playlists seulement
-  // comme sélecteur de morceaux. Aucun deuxième bouton de vente ici.
+  // Point d'entrée unique : Pépites ouvre Playlists comme sélecteur,
+  // mais le panier reste persistant et le retour vers Pépites est mémorisé.
   useEffect(() => {
     if (!route?.params?.createSaleCollection) return;
+    let live = true;
+    const returnToPicks = Boolean(route?.params?.returnToPicks);
     setWorkspaceTab('LIBRARY');
     setMobileSection('TRACKS');
     setActiveTab('MUSIQUES');
     setOriginFilter('LISTEN');
     setManageMusicMode(true);
-    setSelectedSaleTrackIds(new Set());
     setSaleEditOfferTarget(null);
+    setSaleReturnToPicks(returnToPicks);
     setSaleSelectionMode(true);
-    navigation?.setParams?.({ createSaleCollection: undefined });
-  }, [navigation, route?.params?.createSaleCollection]);
+    setSaleCartHydrated(false);
+    const hydrate = async () => {
+      let ids: string[] = [];
+      if (saleCartStorageKey) {
+        try {
+          const raw = await AsyncStorage.getItem(saleCartStorageKey);
+          const parsed = raw ? JSON.parse(raw) : [];
+          if (Array.isArray(parsed)) ids = parsed.map(String).filter(Boolean);
+        } catch {}
+      }
+      if (!live) return;
+      setSelectedSaleTrackIds(new Set(ids));
+      setSaleCartHydrated(true);
+    };
+    void hydrate();
+    navigation?.setParams?.({ createSaleCollection: undefined, returnToPicks: undefined, source: undefined });
+    return () => { live = false; };
+  }, [navigation, route?.params?.createSaleCollection, route?.params?.returnToPicks, saleCartStorageKey]);
+
+  useEffect(() => {
+    if (!saleSelectionMode || saleEditOfferTarget || !saleCartHydrated || !saleCartStorageKey) return;
+    void AsyncStorage.setItem(saleCartStorageKey, JSON.stringify(Array.from(selectedSaleTrackIds))).catch(() => {});
+  }, [saleSelectionMode, saleEditOfferTarget, saleCartHydrated, saleCartStorageKey, selectedSaleTrackIds]);
 
   useEffect(() => {
     const offerId = String(route?.params?.manageSaleOfferId || '').trim();
@@ -791,35 +818,18 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }));
   };
 
-  const toggleSaleTrack = async (trackId: string) => {
+  const applySaleTrackToggle = async (trackId: string) => {
     const offered = myOfferedTrackIds[trackId];
     const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
-    const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);
-    if (lockedByAnotherOffer) {
-      const title = localKeptTracks.find((item) => item.id === trackId)?.title || 'Ce morceau';
-      Alert.alert(
-        'Déjà dans une collection',
-        '« ' + title + ' » est déjà publié dans « ' + (offered?.playlistName || 'une collection') + ' ». Un morceau ne peut pas être ajouté deux fois.',
-        [
-          { text: 'Fermer', style: 'cancel' },
-          { text: 'Gérer la collection', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered?.offerId, manageSaleOfferName: offered?.playlistName }) },
-        ],
-      );
-      return;
-    }
     if (trackVisibilityBusy === trackId) return;
 
-    // Édition d'un album publié : une case cochée = morceau réellement inclus.
-    // Décocher retire immédiatement le morceau de CET album ; cocher un morceau
-    // disponible l'ajoute immédiatement. L'offre, son prix et son historique
-    // restent intacts grâce aux RPC add/remove existantes.
+    // Édition d'une collection publiée : les changements sont immédiats.
     if (saleEditOfferTarget) {
       setTrackVisibilityBusy(trackId);
       try {
         if (includedInEditedOffer) {
           const result = await removeTrackFromOffer(saleEditOfferTarget.offerId, trackId);
           setSelectedSaleTrackIds((current) => { const next = new Set(current); next.delete(trackId); return next; });
-          setMyOfferedTrackIds((prev) => { const next = { ...prev }; delete next[trackId]; return next; });
           if (result.offerClosed) {
             Alert.alert('Collection', 'Le dernier morceau a été retiré : la collection est maintenant fermée.');
             setSaleSelectionMode(false);
@@ -838,33 +848,64 @@ export default function MyMusicScreen({ navigation, route }: any) {
       return;
     }
 
-    // Création d'une nouvelle collection : sélection locale puis publication.
-    const wasSelected = selectedSaleTrackIds.has(trackId);
-    setTrackVisibilityBusy(trackId);
-    try {
-      await setSaleTrackVisibility(trackId, wasSelected ? 'PUBLIC' : 'PRIVATE');
-      setSelectedSaleTrackIds((current) => {
-        const next = new Set(current);
-        if (wasSelected) next.delete(trackId); else next.add(trackId);
-        return next;
-      });
-      await syncUnsyncedKeeps();
-    } catch (e: any) {
-      Alert.alert('Collection', e?.message ?? 'Impossible de modifier la visibilité de ce morceau.');
-    } finally {
-      setTrackVisibilityBusy(null);
+    // Nouvelle collection : vrai panier local. Aucune visibilité n'est modifiée
+    // et aucune vente n'existe tant que l'utilisateur n'a pas validé.
+    setSelectedSaleTrackIds((current) => {
+      const next = new Set(current);
+      if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
+      return next;
+    });
+  };
+
+  const toggleSaleTrack = async (trackId: string) => {
+    const offered = myOfferedTrackIds[trackId];
+    const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
+    const selected = selectedSaleTrackIds.has(trackId);
+    const alreadySoldElsewhere = Boolean(offered && !includedInEditedOffer);
+
+    // Retirer du panier reste toujours immédiat.
+    if (selected && !saleEditOfferTarget) {
+      await applySaleTrackToggle(trackId);
+      return;
+    }
+
+    if (alreadySoldElsewhere) {
+      const title = localKeptTracks.find((item) => item.id === trackId)?.title || 'Ce morceau';
+      Alert.alert(
+        'Déjà en vente',
+        `« ${title} » est déjà publié dans « ${offered?.playlistName || 'une collection'} ». Souhaites-tu quand même l’ajouter à ce panier ?`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Ajouter quand même', onPress: () => { void applySaleTrackToggle(trackId); } },
+        ],
+      );
+      return;
+    }
+
+    await applySaleTrackToggle(trackId);
+  };
+
+  const leaveSaleCart = async () => {
+    setSaleSelectionMode(false);
+    setSaleEditOfferTarget(null);
+    if (saleReturnToPicks) {
+      navigation.navigate('PlaylistSale', { source: 'PEPITES_CART', resumeCart: true });
     }
   };
 
   const cancelSaleSelection = async () => {
-    // Annuler = aucune vente : les morceaux simplement cochés retrouvent leur
-    // visibilité publique. Une offre déjà publiée n'est jamais touchée ici.
-    const ids = Array.from(selectedSaleTrackIds).filter((id) => !myOfferedTrackIds[id]);
-    await Promise.all(ids.map((id) => setSaleTrackVisibility(id, 'PUBLIC').catch(() => undefined)));
+    if (saleEditOfferTarget) {
+      setSaleSelectionMode(false);
+      setSelectedSaleTrackIds(new Set());
+      setSaleEditOfferTarget(null);
+      return;
+    }
     setSaleSelectionMode(false);
     setSelectedSaleTrackIds(new Set());
     setSaleEditOfferTarget(null);
-    await syncUnsyncedKeeps().catch(() => undefined);
+    setSaleReturnToPicks(false);
+    setSaleCartHydrated(true);
+    if (saleCartStorageKey) await AsyncStorage.removeItem(saleCartStorageKey).catch(() => undefined);
   };
 
   const createSaleSelection = () => {
@@ -1049,13 +1090,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
       await refreshSaleState();
+      const publishedFromPepitesCart = sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:') && saleReturnToPicks;
       if (sellTarget.kind === 'selection' && sellTarget.key.startsWith('selection:')) {
-        // Publication réussie : vider la sélection SANS republier les pépites.
         setSaleSelectionMode(false);
         setSelectedSaleTrackIds(new Set());
         setSaleEditOfferTarget(null);
+        setSaleCartHydrated(true);
+        if (saleCartStorageKey) await AsyncStorage.removeItem(saleCartStorageKey).catch(() => undefined);
       }
       closeSellModal();
+      if (publishedFromPepitesCart) {
+        setSaleReturnToPicks(false);
+        navigation.navigate('PlaylistSale', { source: 'PEPITES_CART', createdOfferId: offer.id });
+      }
     } catch (e: any) {
       const raw = String(e?.message || e || '');
       if (raw.includes('FREE_REQUIRES_MULTI_TRACK_SELECTION')) {
@@ -1189,7 +1236,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const busy = visibilityBusy || deleteBusy;
     const offered = myOfferedTrackIds[track.id];
     const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
-    const lockedByAnotherOffer = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));
+    const offeredElsewhere = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));
     const expanded = expandedTrackKeys.has(key);
     // Adel (21/09/2026) : un morceau reçu d'un autre profil (pas sa propre
     // découverte) ne peut jamais être mis en vente -- cadenas visible dans
@@ -1205,20 +1252,21 @@ export default function MyMusicScreen({ navigation, route }: any) {
     return (
       <View key={key} style={styles.trackRowOuter}>
         {saleSelectionMode && localEntry ? <TouchableOpacity
-          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, lockedByAnotherOffer && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
+          style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, offeredElsewhere && !selectedSaleTrackIds.has(track.id) && styles.selectionCheckAlreadySold, notOwnDiscovery && styles.selectionCheckLocked]}
           onPress={() => notOwnDiscovery
             ? Alert.alert('Non éligible', `« ${track.title} » ne peut pas rejoindre cette collection : elle vient d’un autre utilisateur. Seul son découvreur d’origine peut l’intégrer à une collection exclusive.`)
-            : lockedByAnotherOffer
-              ? Alert.alert('Déjà publiée', `« ${track.title} » est déjà dans « ${offered?.playlistName || 'une collection'} ». Retire-la ou modifie cette collection avant de la réutiliser.`, [
-                  { text: 'Fermer', style: 'cancel' },
-                  { text: 'Gérer', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered?.offerId, manageSaleOfferName: offered?.playlistName }) },
-                ])
-              : toggleSaleTrack(track.id)}
+            : void toggleSaleTrack(track.id)}
           disabled={trackVisibilityBusy === track.id}
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(lockedByAnotherOffer || notOwnDiscovery) }}
-          accessibilityLabel={notOwnDiscovery ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur` : lockedByAnotherOffer ? `${track.title} appartient à une autre collection` : includedInEditedOffer ? `${track.title} est déjà dans cette collection` : `Sélectionner ${track.title}`}
-        ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : lockedByAnotherOffer ? '◆' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
+          accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(notOwnDiscovery) }}
+          accessibilityLabel={notOwnDiscovery
+            ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur`
+            : selectedSaleTrackIds.has(track.id)
+              ? `Retirer ${track.title} du panier`
+              : offeredElsewhere
+                ? `${track.title} est déjà en vente, ajouter quand même au panier`
+                : `Ajouter ${track.title} au panier`}
+        ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓ RETIRER' : '+ PANIER'}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
           <TrackActionRow
             coverUrl={track.artworkUrl}
@@ -1509,7 +1557,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <View style={styles.saleWizardIntro}>
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 3</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
               <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
-              <Text style={styles.saleWizardHint}>2 morceaux minimum. Les titres déjà publiés sont marqués « DÉJÀ PUBLIÉE » et ne peuvent pas être ajoutés deux fois.</Text>
+              <Text style={styles.saleWizardHint}>Ajoute au moins 2 morceaux au panier. Un titre déjà en vente reste sélectionnable : Loki Music te prévient avant de l’ajouter une seconde fois. Rien n’est publié tant que tu ne valides pas.</Text>
             </View>
           ) : <>
             {regularPlaylists.length ? (
@@ -1583,10 +1631,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {activeTab === 'MUSIQUES' && saleSelectionMode ? (
         <View style={styles.stickySelectionFooter}>
           <View style={styles.selectionToolbarCopy}>
-            <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `ÉTAPE 1 · ${selectedSaleTrackIds.size} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
+            <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `PANIER PÉPITES · ${selectedSaleTrackIds.size} morceau${selectedSaleTrackIds.size > 1 ? 'x' : ''}`}</Text>
           </View>
           <View style={styles.stickySelectionActions}>
-            <TouchableOpacity style={styles.selectionCancelButton} onPress={() => void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : 'ANNULER'}</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.selectionCancelButton} onPress={() => saleEditOfferTarget ? void cancelSaleSelection() : saleReturnToPicks ? void leaveSaleCart() : void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : saleReturnToPicks ? '‹ PÉPITES' : 'ANNULER'}</Text></TouchableOpacity>
             {saleEditOfferTarget ? (
               <TouchableOpacity style={styles.selectionAddButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: saleEditOfferTarget.offerId, manageSaleOfferName: saleEditOfferTarget.playlistName })}>
                 <Text style={styles.selectionAddText}>PRIX · € / FREE · STATUT</Text>
@@ -1906,7 +1954,7 @@ const styles = StyleSheet.create({
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
-  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:36,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{width:28,height:28,borderRadius:14,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#FFD166',borderColor:'#FFD166'},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:36,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{minWidth:70,height:34,paddingHorizontal:7,borderRadius:17,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#6F5520',borderColor:'#FFD166'},selectionCheckAlreadySold:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   saleWizardIntro:{marginHorizontal:2,marginBottom:12,padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},saleWizardTopRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},saleWizardStep:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},saleWizardCount:{color:colors.keep,fontSize:10,fontWeight:'900'},saleWizardTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:7},saleWizardHint:{color:colors.textMutedGrey,fontSize:12,lineHeight:18,marginTop:5},
   // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
   // confirmation collée en bas de l'écran pendant la sélection multiple.
