@@ -348,7 +348,11 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const prepareChatNotification = async (item: KeepNotification) => {
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
-    const target = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' ? null : chatTarget(item);
+    const target = type === 'CHAT_ACTIVATION_AVAILABLE'
+      || type === 'AGORA_ACTIVATE'
+      || type.startsWith('AGORA_GROUP_')
+      ? null
+      : chatTarget(item);
     setPreparedChatId(item.id);
     useGlobalChatStore.getState().open(target);
     close();
