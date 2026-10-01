@@ -134,6 +134,16 @@ jobs:
             if (!rootHtml || rootHtml.trim().length < 20) throw new Error('Visual audit failed: #root is empty or effectively blank');
             if (!bodyBox || bodyBox.width < 200 || bodyBox.height < 200) throw new Error(`Visual audit failed: invalid body dimensions ${JSON.stringify(bodyBox)}`);
 
+            // Le nouveau tchat doit être réellement visible sous forme de languette
+            // repliée sur le bord, même dans la preview. Ce repère est stable et
+            // indépendant du texte marketing.
+            const chatDrawer = page.getByTestId('loki-global-chat-drawer');
+            await chatDrawer.waitFor({ state: 'visible', timeout: 15000 });
+            const chatDrawerBox = await chatDrawer.boundingBox();
+            if (!chatDrawerBox || chatDrawerBox.width < 20 || chatDrawerBox.height < 20) {
+              throw new Error(`Chat drawer not visibly rendered: ${JSON.stringify(chatDrawerBox)}`);
+            }
+
             // Samsung/Chrome Android : un swipe vertical ne doit jamais faire sortir
             // la barre des 5 onglets du viewport visible.
             const bottomProfileTab = page.getByText('Profil', { exact: true }).last();
@@ -152,6 +162,21 @@ jobs:
 
             await clickRobust(bottomProfileTab, 'Profile bottom tab');
             await page.waitForTimeout(700);
+
+            // La cloche doit rester inline : ouverture du panneau latéral, onglets
+            // séparés Messages / Activité / Réglages, sans quitter le profil.
+            const profileBell = page.getByLabel(/^Notifications(?:, .* non lues)?$/).last();
+            await profileBell.waitFor({ state: 'visible', timeout: 15000 });
+            const profileUrlBeforeBell = page.url();
+            await clickRobust(profileBell, 'Profile notification bell');
+            await page.getByText('Cloche', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('MESSAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('ACTIVITÉ', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            await page.getByText('RÉGLAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
+            if (page.url() !== profileUrlBeforeBell) throw new Error('Bell navigation changed URL instead of staying inline');
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-bell-390x844.png', fullPage: true });
+            await clickRobust(page.getByLabel('Fermer').last(), 'Close notification bell');
+            await page.getByText('Cloche', { exact: true }).last().waitFor({ state: 'hidden', timeout: 10000 });
 
             // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
             // v3 a volontairement supprimé Albums et renommé KEEP en Musiques :
@@ -202,6 +227,8 @@ jobs:
               `BODY_LENGTH: ${bodyText.length}`,
               `ROOT_HTML_LENGTH: ${rootHtml.length}`,
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
+              'CHAT_DRAWER_VISIBLE: PASS',
+              'BELL_INLINE_TABS_VISIBLE: PASS',
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
               'PLAYLISTS_TAB_RUNTIME: PASS',
