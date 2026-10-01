@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.4**  
+Version : **2026-10-01.5**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -27,7 +27,7 @@ Chaque décision UI verrouillée doit rester cohérente dans quatre couches dans
 - listen = 0
 - recognize = 0
 - PASS = 0
-- KEEP = -1
+- KEEP = -3
 
 Une refonte UI n'a jamais le droit de modifier ces valeurs.
 
@@ -112,12 +112,11 @@ Zone identité :
 1. avatar ;
 2. pseudo + certification ;
 3. type Fan / Créateur / DJ / Artiste / Producteur / Lieu ;
-4. **FREE immédiatement à droite du type de profil**, sur le même axe et à la même hauteur ;
-5. Battle dans la même zone identité, à droite ;
-6. ville / pays dessous.
+4. Battle dans la même zone identité ;
+5. ville / pays dessous.
 
-Barre suivante verrouillée : **PLUS | Abonnés | Reprises**.
-**FREE apparaît une seule fois, dans la zone identité à côté du type de profil, jamais en doublon dans la barre des compteurs.**
+Barre suivante verrouillée : **PLUS | Abonnés | Reprises | FREE**.
+**FREE est immédiatement à droite de Reprises**, dans la même barre et sur le même axe. Il apparaît exactement une fois et jamais à côté du type de profil.
 
 Bas du profil propriétaire :
 - **Mes réseaux** ;
@@ -125,12 +124,13 @@ Bas du profil propriétaire :
 - **Partager mon profil** immédiatement après Loki Pulse.
 
 Interdictions :
-- FREE apparaît exactement une fois à côté du type de profil ;
+- FREE apparaît exactement une fois, immédiatement après Reprises ;
 - une correction UI ne doit jamais écrire ou réinitialiser la certification ou le solde FREE en production ;
 - certification = donnée réelle Supabase `profiles.certification_tier` ;
 - solde FREE = donnée réelle issue des RPC de crédit existantes ;
-- ne pas déplacer FREE dans la barre des compteurs pour corriger un autre module ;
-- le nombre FREE principal reste uniquement dans la zone identité `type de profil | FREE | Battle` ;
+- ne pas remettre FREE à côté du type de profil ;
+- le nombre FREE principal reste uniquement dans la barre `PLUS | Abonnés | Reprises | FREE` ;
+- la zone identité reste `type de profil | Battle` ;
 - quand l’utilisateur ouvre le détail FREE, **ne pas répéter “FREE disponibles”** : la première statistique est **FREE dépensés aujourd’hui** pour les vrais GARDER débités ;
 - cette dépense quotidienne vient du journal serveur `keep_free_spend_events` / RPC `keep_free_spent_today`, avec le montant réellement débité au moment de l’action ; ne jamais la recalculer avec le prix actuel ;
 - une reprise sociale à 0 FREE ne compte jamais comme dépense ;
