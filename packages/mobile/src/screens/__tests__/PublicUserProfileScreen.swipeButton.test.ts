@@ -12,16 +12,17 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
     expect(source).toContain("import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';");
   });
 
-  it('keeps APERÇU (swipe), BATTLE and PARTAGER in one aligned action row, same component as the owner profile', () => {
+  it('keeps SWIPE, TCHAT, BATTLE and PARTAGER in one aligned action row, same component as the owner profile', () => {
     expect(source).toContain('<View style={styles.ownerQuickActions}>');
-    expect(source).toContain('▶ APERÇU');
+    expect(source).toContain('▶ SWIPE');
+    expect(source).toContain('◉ TCHAT');
     expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
     expect(source).toContain('↗ PARTAGER');
   });
 
   it('is placed right after identity/bio, before the collection section, not buried in a small pill next to Follow', () => {
     const bioIdx = source.indexOf('{!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}');
-    const swipeIdx = source.indexOf('▶ APERÇU');
+    const swipeIdx = source.indexOf('▶ SWIPE');
     const collectionIdx = source.indexOf('style={styles.marketplaceSection}');
     expect(bioIdx).toBeGreaterThan(-1);
     expect(swipeIdx).toBeGreaterThan(bioIdx);
@@ -35,5 +36,6 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
     expect(source).toContain('↗ PARTAGER');
     expect(source).toContain('const openProfileChat =');
     expect(source).toContain('useGlobalChatStore.getState().open');
+    expect(source).not.toContain('▶ APERÇU');
   });
 });
