@@ -217,6 +217,30 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (!isDemoMode) await markAllNotificationsRead(profileId).catch(() => {});
   };
 
+  const openNotificationTab = async (tab: 'MESSAGES' | 'ACTIVITY' | 'SETTINGS') => {
+    setActiveTab(tab);
+    setExpandedId(null);
+    if (tab === 'SETTINGS') return;
+
+    const unreadIds = items
+      .filter((item) => !item.readAt)
+      .filter((item) => tab === 'MESSAGES'
+        ? isChatNotificationType(item.type)
+        : !isChatNotificationType(item.type))
+      .map((item) => item.id);
+
+    if (!unreadIds.length) return;
+
+    const readAt = new Date().toISOString();
+    setItems((prev) => prev.map((row) =>
+      unreadIds.includes(row.id) ? { ...row, readAt } : row
+    ));
+
+    if (!isDemoMode) {
+      await Promise.all(unreadIds.map((id) => markNotificationRead(profileId, id).catch(() => {})));
+    }
+  };
+
   const toggleSystemNotifications = async (enabled: boolean) => {
     if (!notificationPrefs || notificationPrefsSaving) return;
     const previous = notificationPrefs;
@@ -256,6 +280,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 
   const messageItems = items.filter((item) => isChatNotificationType(item.type));
   const activityItems = items.filter((item) => !isChatNotificationType(item.type));
+  const unreadMessageCount = messageItems.filter((item) => !item.readAt).length;
+  const unreadActivityCount = activityItems.filter((item) => !item.readAt).length;
   const visibleItems = activeTab === 'MESSAGES' ? messageItems : activityItems;
 
   return (
@@ -273,15 +299,31 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           </View>
 
           <View style={s.tabs}>
-            <TouchableOpacity style={[s.tab, activeTab === 'MESSAGES' && s.tabOn]} onPress={() => setActiveTab('MESSAGES')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'MESSAGES' }}>
-              <Text style={[s.tabText, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
-              <Text style={s.tabHint}>{messageItems.filter((item) => !item.readAt).length} non lu{messageItems.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
+            <TouchableOpacity
+              style={[s.tab, unreadMessageCount > 0 && s.tabUnread, activeTab === 'MESSAGES' && s.tabOn]}
+              onPress={() => { void openNotificationTab('MESSAGES'); }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'MESSAGES' }}
+            >
+              <View style={s.tabTitleRow}>
+                <Text style={[s.tabText, unreadMessageCount > 0 && s.tabTextUnread, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
+                {unreadMessageCount > 0 ? <View style={s.tabBadge}><Text style={s.tabBadgeText}>{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</Text></View> : null}
+              </View>
+              <Text style={[s.tabHint, unreadMessageCount > 0 && s.tabHintUnread]}>{unreadMessageCount > 0 ? 'à voir' : 'tout vu'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.tab, activeTab === 'ACTIVITY' && s.tabOn]} onPress={() => setActiveTab('ACTIVITY')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'ACTIVITY' }}>
-              <Text style={[s.tabText, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
-              <Text style={s.tabHint}>{activityItems.filter((item) => !item.readAt).length} non lue{activityItems.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
+            <TouchableOpacity
+              style={[s.tab, unreadActivityCount > 0 && s.tabUnread, activeTab === 'ACTIVITY' && s.tabOn]}
+              onPress={() => { void openNotificationTab('ACTIVITY'); }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'ACTIVITY' }}
+            >
+              <View style={s.tabTitleRow}>
+                <Text style={[s.tabText, unreadActivityCount > 0 && s.tabTextUnread, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
+                {unreadActivityCount > 0 ? <View style={s.tabBadge}><Text style={s.tabBadgeText}>{unreadActivityCount > 99 ? '99+' : unreadActivityCount}</Text></View> : null}
+              </View>
+              <Text style={[s.tabHint, unreadActivityCount > 0 && s.tabHintUnread]}>{unreadActivityCount > 0 ? 'à voir' : 'tout vu'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => setActiveTab('SETTINGS')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
+            <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => { void openNotificationTab('SETTINGS'); }} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
               <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
               <Text style={s.tabHint}>activer / couper</Text>
             </TouchableOpacity>
@@ -424,9 +466,15 @@ const s = StyleSheet.create({
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:12,paddingTop:14,paddingBottom:10},
   tab:{flex:1,minHeight:52,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
   tabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  tabUnread:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',shadowColor:colors.keep,shadowOpacity:.35,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
+  tabTitleRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:5},
   tabText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.5},
   tabTextOn:{color:colors.primaryLight},
+  tabTextUnread:{color:colors.keep},
+  tabBadge:{minWidth:18,height:18,paddingHorizontal:5,borderRadius:9,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  tabBadgeText:{color:colors.background,fontSize:8,fontWeight:'900'},
   tabHint:{color:colors.textMuted,fontSize:8,fontWeight:'700',marginTop:2},
+  tabHintUnread:{color:colors.keep,fontWeight:'900'},
   settingsList:{paddingHorizontal:16,paddingBottom:36,gap:10},
   notificationMaster:{minHeight:76,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:12},
   notificationMasterCopy:{flex:1,minWidth:0},
