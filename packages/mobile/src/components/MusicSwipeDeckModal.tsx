@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
@@ -101,25 +102,14 @@ export default function MusicSwipeDeckModal({
   const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
-  const fullTrackUrl = current?.externalUrls?.spotify
-    || current?.externalUrls?.appleMusic
-    || current?.externalUrls?.deezer
-    || current?.externalUrls?.youtube
-    || current?.externalUrls?.universal
-    || current?.externalUrls?.youtubeSearch
-    || null;
-  const fullTrackPlatform = current?.externalUrls?.spotify ? 'SPOTIFY'
-    : current?.externalUrls?.appleMusic ? 'APPLE MUSIC'
-    : current?.externalUrls?.deezer ? 'DEEZER'
-    : current?.externalUrls?.youtube ? 'YOUTUBE'
-    : current?.externalUrls?.universal ? 'LA PLATEFORME'
-    : current?.externalUrls?.youtubeSearch ? 'YOUTUBE'
-    : null;
-  const openFullTrack = useCallback(async () => {
-    if (!fullTrackUrl) return;
-    await stopTrackPreview();
-    try { await Linking.openURL(fullTrackUrl); } catch {}
-  }, [fullTrackUrl]);
+  const fullTrackDestination = current ? resolveTrackExternalDestination(current) : null;
+  const openFullTrack = useCallback(() => {
+    if (!fullTrackDestination) return;
+    void stopTrackPreview();
+    void Linking.openURL(fullTrackDestination.url).catch(() => {
+      Alert.alert('Lecture', 'Impossible d’ouvrir cette destination pour le moment.');
+    });
+  }, [fullTrackDestination?.url]);
   // Le Swipe social boucle par défaut et demande Public/Privé. Tous les
   // morceaux publics restent écoutables, même déjà présents chez le visiteur.
   const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
@@ -560,7 +550,7 @@ export default function MusicSwipeDeckModal({
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
-                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
+                    <TouchableOpacity style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
@@ -574,7 +564,7 @@ export default function MusicSwipeDeckModal({
 
 
           {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
-          {fullTrackUrl ? <TouchableOpacity style={s.fullTrackButton} onPress={() => { void openFullTrack(); }} accessibilityLabel={`Écouter le morceau entier sur ${fullTrackPlatform || 'la plateforme'}`}><Text style={s.fullTrackButtonText}>↗ ÉCOUTER EN ENTIER · {fullTrackPlatform}</Text></TouchableOpacity> : null}
+          {fullTrackDestination ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">

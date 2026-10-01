@@ -4,10 +4,11 @@ import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
-import { playTrackPreviewSegment, stopTrackPreview } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
+import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 
 interface Props {
   track: CanonicalTrack;
@@ -37,11 +38,8 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
   const [resolvingPreview, setResolvingPreview] = useState(false);
 
-  const externalPlayUrl = track.externalUrls?.appleMusic
-    || track.externalUrls?.spotify
-    || track.externalUrls?.deezer
-    || track.externalUrls?.universal
-    || track.externalUrls?.youtubeSearch;
+  const externalDestination = resolveTrackExternalDestination(track);
+  const externalPlayUrl = externalDestination?.url;
   // Lecteur officiel intégré (widget Spotify/Deezer, ou IFrame Player API
   // YouTube) : reste dans Loki au lieu d'ouvrir la plateforme dans un nouvel
   // onglet. Web uniquement pour l'instant -- une iframe n'a pas d'équivalent
@@ -112,16 +110,16 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
   const playSnippet = (positionMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
+    unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive) session.pauseListening();
     void playSnippetNow(positionMillis);
   };
 
-  const openExternalNow = async () => {
+  const openExternalNow = () => {
     if (Platform.OS === 'web' && embedUrl) { setEmbeddedPlayerOpen(true); return; }
     if (!externalPlayUrl) return;
-    try { await Linking.openURL(externalPlayUrl); }
-    catch { Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'); }
+    void Linking.openURL(externalPlayUrl).catch(() => Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'));
   };
 
   const openExternal = () => {
@@ -153,7 +151,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
           <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
         </> : null}
-        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : resolvedPreviewUrl ? 'Ouvrir' : '▶ Écouter'}</Text></TouchableOpacity> : null}
+        {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
       </View>
 
       {Platform.OS === 'web' && embedUrl ? (

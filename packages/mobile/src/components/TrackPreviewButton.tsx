@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
-import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview } from '../services/audioPreviewService';
+import { isTrackPreviewActive, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { supabase } from '../services/supabaseClient';
@@ -167,18 +167,12 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
     await cancelAudioCapture().catch(() => {});
   };
 
-  const openFallback = async () => {
+  const openFallback = () => {
     if (!resolvedFallbackUrl || busy) return;
     setBusy(true);
-    try {
-      const canOpen = await Linking.canOpenURL(resolvedFallbackUrl).catch(() => true);
-      if (!canOpen) throw new Error('unavailable');
-      await Linking.openURL(resolvedFallbackUrl);
-    } catch {
-      Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.');
-    } finally {
-      setBusy(false);
-    }
+    void Linking.openURL(resolvedFallbackUrl)
+      .catch(() => Alert.alert('Lecture indisponible', 'Impossible d’ouvrir ce morceau pour le moment.'))
+      .finally(() => setBusy(false));
   };
 
   const stopListeningThenFallback = async () => {
@@ -188,6 +182,7 @@ export default function TrackPreviewButton({ trackKey, previewUrl, fallbackUrl, 
 
   const toggle = () => {
     if (busy || resolving) return;
+    unlockWebAudioForGesture();
 
     if (playing) {
       void playOrStopPreview();
