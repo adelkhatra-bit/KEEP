@@ -28,7 +28,7 @@ export const IAP_PRODUCT_IDS: Record<string, string> = {
 };
 
 export function iapAvailable(): boolean {
-  return Platform.OS === 'ios' && Boolean(KeepIAP?.isAvailable?.());
+  return (Platform.OS === 'ios' || Platform.OS === 'android') && Boolean(KeepIAP?.isAvailable?.());
 }
 
 export async function loadIapProducts(): Promise<Record<string, KeepIAPProduct>> {
@@ -60,9 +60,13 @@ export async function purchasePlan(planCode: string): Promise<PurchasePlanResult
   if (transaction.status === 'CANCELLED') return { ok: false, reason: 'CANCELLED' };
   if (transaction.status === 'PENDING') return { ok: false, reason: 'PENDING' };
   if (transaction.status === 'UNVERIFIED') return { ok: false, reason: 'UNVERIFIED' };
-  if (!transaction.jwsRepresentation) return { ok: false, reason: 'NO_TRANSACTION_SIGNATURE' };
+  const verification = Platform.OS === 'android'
+    ? { platform: 'android' as const, purchaseToken: transaction.purchaseToken, productId: transaction.productId, packageName: transaction.packageName }
+    : { platform: 'ios' as const, jws: transaction.jwsRepresentation };
+  if (verification.platform === 'ios' && !verification.jws) return { ok: false, reason: 'NO_TRANSACTION_SIGNATURE' };
+  if (verification.platform === 'android' && !verification.purchaseToken) return { ok: false, reason: 'NO_PURCHASE_TOKEN' };
 
-  const verified = await verifyAndActivate(transaction.jwsRepresentation);
+  const verified = await verifyAndActivate(verification);
   if (!verified.ok) return verified;
 
   if (transaction.transactionId) {
@@ -71,9 +75,12 @@ export async function purchasePlan(planCode: string): Promise<PurchasePlanResult
   return { ok: true, planCode: verified.planCode };
 }
 
-async function verifyAndActivate(jws: string): Promise<PurchasePlanResult> {
+async function verifyAndActivate(verification: { platform: 'ios'; jws?: string } | { platform: 'android'; purchaseToken?: string; productId?: string; packageName?: string }): Promise<PurchasePlanResult> {
   if (!supabase) return { ok: false, reason: 'SUPABASE_UNAVAILABLE' };
-  const { data, error } = await supabase.functions.invoke('keep-iap-verify', { body: { jws } });
+  const body = verification.platform === 'android'
+    ? { platform: 'android', purchaseToken: verification.purchaseToken, productId: verification.productId, packageName: verification.packageName }
+    : { platform: 'ios', jws: verification.jws };
+  const { data, error } = await supabase.functions.invoke('keep-iap-verify', { body });
   if (error) return { ok: false, reason: String(error.message || 'VERIFY_FAILED') };
   if (!data?.ok) return { ok: false, reason: String(data?.error || 'VERIFY_REJECTED') };
   return { ok: true, planCode: String(data.planCode) };
@@ -89,8 +96,12 @@ export async function restorePurchases(): Promise<{ restored: number }> {
   let restored = 0;
   const transactions = await KeepIAP.restorePurchases().catch(() => []);
   for (const transaction of transactions) {
-    if (!transaction.jwsRepresentation) continue;
-    const result = await verifyAndActivate(transaction.jwsRepresentation);
+    const verification = Platform.OS === 'android'
+      ? { platform: 'android' as const, purchaseToken: transaction.purchaseToken, productId: transaction.productId, packageName: transaction.packageName }
+      : { platform: 'ios' as const, jws: transaction.jwsRepresentation };
+    if (verification.platform === 'ios' && !verification.jws) continue;
+    if (verification.platform === 'android' && !verification.purchaseToken) continue;
+    const result = await verifyAndActivate(verification);
     if (result.ok) restored += 1;
   }
   return { restored };
@@ -107,8 +118,13 @@ export async function syncCurrentEntitlements(): Promise<{ synced: number }> {
   let synced = 0;
   const transactions = await KeepIAP.currentEntitlements().catch(() => []);
   for (const transaction of transactions) {
-    if (transaction.status === 'UNVERIFIED' || !transaction.jwsRepresentation) continue;
-    const result = await verifyAndActivate(transaction.jwsRepresentation);
+    if (transaction.status === 'UNVERIFIED') continue;
+    const verification = Platform.OS === 'android'
+      ? { platform: 'android' as const, purchaseToken: transaction.purchaseToken, productId: transaction.productId, packageName: transaction.packageName }
+      : { platform: 'ios' as const, jws: transaction.jwsRepresentation };
+    if (verification.platform === 'ios' && !verification.jws) continue;
+    if (verification.platform === 'android' && !verification.purchaseToken) continue;
+    const result = await verifyAndActivate(verification);
     if (result.ok) synced += 1;
   }
   return { synced };
