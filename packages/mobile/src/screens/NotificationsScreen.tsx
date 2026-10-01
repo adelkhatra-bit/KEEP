@@ -28,6 +28,7 @@ import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/pla
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { loadMusicAgoraSettings, saveMusicAgoraSettings } from '../services/musicAgoraService';
+import GlobalChatDock from '../components/GlobalChatDock';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -835,7 +836,8 @@ export default function NotificationsScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      <GlobalChatDock />
+</SafeAreaView>
   );
 }
 
