@@ -1485,6 +1485,107 @@ export default function MusicAgoraPanel({
       </View>
     </View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
 
+    <Modal visible={groupCreateOpen} transparent animationType="fade" onRequestClose={() => setGroupCreateOpen(false)}>
+      <View style={s.modalBackdrop}><View style={s.groupSheet}>
+        <View style={s.shareHead}>
+          <View style={{flex:1}}>
+            <Text style={s.shareTitle}>Nouvelle conversation</Text>
+            <Text style={s.shareHint}>Choisis les personnes. Maximum 45 participants avec toi.</Text>
+          </View>
+          <TouchableOpacity onPress={() => setGroupCreateOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity>
+        </View>
+        <TextInput
+          value={groupName}
+          onChangeText={setGroupName}
+          placeholder="Nom de la conversation"
+          placeholderTextColor={colors.textMutedGrey}
+          maxLength={80}
+          style={s.groupInput}
+        />
+        <TextInput
+          value={groupSearch}
+          onChangeText={setGroupSearch}
+          placeholder="Rechercher un utilisateur…"
+          placeholderTextColor={colors.textMutedGrey}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={s.groupInput}
+        />
+        <View style={s.groupSelectionBar}>
+          <Text style={s.groupSelectionText}>{groupSelectedIds.length} sélectionné{groupSelectedIds.length > 1 ? 's' : ''} · {44 - groupSelectedIds.length} place{44 - groupSelectedIds.length > 1 ? 's' : ''} disponible{44 - groupSelectedIds.length > 1 ? 's' : ''}</Text>
+        </View>
+        <ScrollView style={s.groupPeopleList} contentContainerStyle={{gap:7}} keyboardShouldPersistTaps="handled">
+          {groupPeople.map((person) => {
+            const selected = groupSelectedIds.includes(person.profileId);
+            return <TouchableOpacity key={person.profileId} style={[s.groupPersonRow, selected && s.groupPersonRowSelected]} onPress={() => toggleGroupPerson(person.profileId)}>
+              {person.avatarUrl ? <Image source={{uri:person.avatarUrl}} style={s.groupPersonAvatar}/> : <View style={[s.groupPersonAvatar,s.avatarFallback]}><Text style={s.avatarText}>{person.username.slice(0,1).toUpperCase()}</Text></View>}
+              <Text style={s.groupPersonName}>@{person.username}</Text>
+              <View style={[s.groupCheck, selected && s.groupCheckOn]}><Text style={s.groupCheckText}>{selected ? '✓' : '＋'}</Text></View>
+            </TouchableOpacity>;
+          })}
+          {!groupPeople.length ? <Text style={s.empty}>Aucun utilisateur correspondant.</Text> : null}
+        </ScrollView>
+        <TouchableOpacity style={[s.groupCreateCta, (!groupName.trim() || groupBusy) && s.groupCreateCtaOff]} disabled={!groupName.trim() || groupBusy} onPress={() => void createGroup()}>
+          <Text style={s.groupCreateCtaText}>{groupBusy ? 'CRÉATION…' : `CRÉER · ${groupSelectedIds.length + 1} PERSONNE${groupSelectedIds.length ? 'S' : ''}`}</Text>
+        </TouchableOpacity>
+      </View></View>
+    </Modal>
+
+    <Modal visible={groupMembersOpen} transparent animationType="fade" onRequestClose={() => setGroupMembersOpen(false)}>
+      <View style={s.modalBackdrop}><View style={s.groupSheet}>
+        <View style={s.shareHead}>
+          <View style={{flex:1}}>
+            <Text style={s.shareTitle}>{activeGroup?.name || 'Conversation'}</Text>
+            <Text style={s.shareHint}>{groupMembers.filter((member) => member.status === 'ACTIVE').length} actif{groupMembers.filter((member) => member.status === 'ACTIVE').length > 1 ? 's' : ''} · {groupMembers.filter((member) => member.status === 'INVITED').length} invitation{groupMembers.filter((member) => member.status === 'INVITED').length > 1 ? 's' : ''}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setGroupMembersOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity>
+        </View>
+
+        <ScrollView style={s.groupMembersList} contentContainerStyle={{gap:7}}>
+          {groupMembers.map((member) => (
+            <View key={member.profileId} style={s.groupPersonRow}>
+              {member.avatarUrl ? <Image source={{uri:member.avatarUrl}} style={s.groupPersonAvatar}/> : <View style={[s.groupPersonAvatar,s.avatarFallback]}><Text style={s.avatarText}>{member.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={{flex:1,minWidth:0}}>
+                <Text style={s.groupPersonName}>@{member.username}</Text>
+                <Text style={s.groupMemberMeta}>{member.role === 'OWNER' ? 'Créateur' : member.status === 'INVITED' ? 'Invitation envoyée' : 'Membre'}</Text>
+              </View>
+              {member.role !== 'OWNER' && (activeGroup?.myRole === 'OWNER' || member.profileId === currentProfileId) ? (
+                <TouchableOpacity style={s.groupRemoveButton} disabled={groupBusy} onPress={() => void removeFromActiveGroup(member)}>
+                  <Text style={s.groupRemoveText}>{member.profileId === currentProfileId ? 'QUITTER' : 'RETIRER'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ))}
+        </ScrollView>
+
+        {activeGroup?.myRole === 'OWNER' ? (
+          <>
+            <Text style={s.groupSectionTitle}>AJOUTER DES PERSONNES</Text>
+            <TextInput
+              value={groupSearch}
+              onChangeText={setGroupSearch}
+              placeholder="Rechercher un utilisateur…"
+              placeholderTextColor={colors.textMutedGrey}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={s.groupInput}
+            />
+            <ScrollView style={s.groupInviteList} contentContainerStyle={{gap:7}} keyboardShouldPersistTaps="handled">
+              {groupPeople.filter((person) => !groupMembers.some((member) => member.profileId === person.profileId)).map((person) => (
+                <View key={person.profileId} style={s.groupPersonRow}>
+                  {person.avatarUrl ? <Image source={{uri:person.avatarUrl}} style={s.groupPersonAvatar}/> : <View style={[s.groupPersonAvatar,s.avatarFallback]}><Text style={s.avatarText}>{person.username.slice(0,1).toUpperCase()}</Text></View>}
+                  <Text style={s.groupPersonName}>@{person.username}</Text>
+                  <TouchableOpacity style={s.groupInviteButton} disabled={groupBusy} onPress={() => void inviteToActiveGroup(person)}>
+                    <Text style={s.groupInviteText}>INVITER</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+      </View></View>
+    </Modal>
+
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <View style={s.shareHead}><View style={{ flex:1 }}><Text style={s.shareTitle}>Ajouter une pépite</Text><Text style={s.shareHint}>Choisis un morceau. Dans une conversation privée, tu peux l’envoyer gratuitement, demander des FREE ou préparer un paiement conforme au canal disponible.</Text></View><TouchableOpacity onPress={() => setShareOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity></View>
