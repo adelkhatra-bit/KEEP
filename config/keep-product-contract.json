@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.21",
+  "version": "2026-10-01.22",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -430,7 +430,15 @@
     "mobileTextMinimumIntent": "chat-primary-copy-15px-plus-composer-17px",
     "nativeKeyboardUsesReportedKeyboardHeightOnly": true,
     "latestIncomingMessageAlwaysForcesBottom": true,
-    "olderHistoryLoadDoesNotChangeLatestMessageId": true
+    "olderHistoryLoadDoesNotChangeLatestMessageId": true,
+    "publicCommunitySurface": "LA PLACE",
+    "privateRoomVisibility": "invite-only",
+    "privateRoomMaxParticipants": 45,
+    "privateRoomMessagesRealtime": true,
+    "privateRoomMembershipRealtime": true,
+    "privateRoomFiveSecondPollingForbidden": true,
+    "resilienceRefreshSeconds": 60,
+    "groupNotificationMustTargetExactGroup": true
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
