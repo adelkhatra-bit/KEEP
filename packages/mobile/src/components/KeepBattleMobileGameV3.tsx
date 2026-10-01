@@ -1486,7 +1486,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // SOLO doit rester jouable même si un style choisi manque de matière.
         // On retombe automatiquement sur MIX, sans toucher à la disponibilité
         // Battle en ligne ni aux préférences enregistrées de l'utilisateur.
-        pack = await loadKeepBattleSoloPack('MIX', roundCount, null);
+        pack = await loadKeepBattleSoloPack('MIX', roundCount, undefined);
         setThemeCode('MIX');
         Alert.alert(
           'Solo lancé en MIX',
