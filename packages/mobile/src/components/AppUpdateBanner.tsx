@@ -11,7 +11,7 @@ import { useAppUpdateStore } from '../store/useAppUpdateStore';
  *
  * Aucun bouton "Actualiser Loki Music" ne doit encombrer la cloche ou le profil.
  */
-export default function AppUpdateBanner() {
+export default function AppUpdateBanner({ authReady = true }: { authReady?: boolean }) {
   const latestSha = useAppUpdateStore((state) => state.latestSha);
   const checkNow = useAppUpdateStore((state) => state.checkNow);
   const webReloadingRef = useRef(false);
