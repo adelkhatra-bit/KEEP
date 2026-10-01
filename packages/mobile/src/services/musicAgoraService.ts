@@ -61,6 +61,8 @@ export type MusicAgoraSettings = {
   homeEnabled: boolean;
   notificationsEnabled: boolean;
   surfaces: MusicAgoraSurface[];
+  side: 'left' | 'right';
+  bottomOffset: number;
 };
 
 export type MusicAgoraPostOptions = {
@@ -85,13 +87,15 @@ function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
 }
 
 export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
-  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES };
+  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
   const { data, error } = await supabase.rpc('keep_agora_my_settings');
-  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES };
+  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
   return {
     homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
     notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
-    surfaces: parseChatSurfaces((data as any).surfaces),
+    surfaces: parseChatSurfaces((data as any).surfaces ?? (data as any).visibleSurfaces ?? (data as any).visible_surfaces),
+    side: String((data as any).side || '').toLowerCase() === 'left' ? 'left' : 'right',
+    bottomOffset: Math.max(72, Math.min(800, Number((data as any).bottomOffset ?? (data as any).bottom_offset ?? 88) || 88)),
   };
 }
 
