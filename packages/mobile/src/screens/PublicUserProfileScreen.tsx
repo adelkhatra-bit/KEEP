@@ -39,7 +39,7 @@ import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutL
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
-import { loadUpcomingEvents } from '../services/creatorEventService';
+import { loadProfileEventTeaser } from '../services/creatorEventService';
 import { loadFreeCreditBreakdown } from '../services/creditService';
 
 type PublicKeepTrack = {
@@ -173,6 +173,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
   const [visibleSaleCount, setVisibleSaleCount] = useState(SALE_ROWS_INITIAL);
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
+  const [marketBannerPendingEventCount, setMarketBannerPendingEventCount] = useState(0);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
   const [marketBannerOffersLoaded, setMarketBannerOffersLoaded] = useState(false);
   const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
@@ -229,14 +230,26 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     return () => { live = false; };
   }, [profile?.id]);
   useEffect(() => {
-    if (!profile?.id) return undefined;
+    if (!profile?.id) {
+      setMarketBannerEventIds([]);
+      setMarketBannerPendingEventCount(0);
+      setMarketBannerEventsLoaded(true);
+      return undefined;
+    }
     let live = true;
     setMarketBannerEventsLoaded(false);
-    loadUpcomingEvents(profile.id).then((rows) => {
+    loadProfileEventTeaser(profile.id).then((state) => {
       if (!live) return;
-      setMarketBannerEventIds(rows.filter((row) => row.creatorId === profile.id && row.moderationStatus === 'APPROVED').map((row) => row.id).sort());
+      setMarketBannerEventIds(state.approvedEventIds);
+      setMarketBannerPendingEventCount(state.pendingCount);
       setMarketBannerEventsLoaded(true);
-    }).catch(() => { if (live) { setMarketBannerEventIds([]); setMarketBannerEventsLoaded(true); } });
+    }).catch(() => {
+      if (live) {
+        setMarketBannerEventIds([]);
+        setMarketBannerPendingEventCount(0);
+        setMarketBannerEventsLoaded(true);
+      }
+    });
     return () => { live = false; };
   }, [profile?.id]);
 
@@ -245,14 +258,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const viewerKey = viewer?.id || 'guest';
     const key = `keep:profile-market-banner:${viewerKey}:${profile.id}`;
     const playlistSignature = saleOffers.map((row) => row.offerId).sort().join(',');
-    const eventSignature = marketBannerEventIds.join(',');
+    const eventSignature = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     let live = true;
     AsyncStorage.getItem(key).then((raw) => {
       if (!live) return;
       if (!raw) { setMarketBannerVisible(true); setMarketBannerHasNew(false); return; }
       try {
         const saved = JSON.parse(raw);
-        const hasNew = saved.playlists !== playlistSignature;
+        const hasNew = saved.playlists !== playlistSignature || saved.events !== eventSignature;
         const manuallyClosed = Boolean(saved.manuallyClosed);
         setMarketBannerVisible(!manuallyClosed);
         setMarketBannerHasNew(manuallyClosed && hasNew);
@@ -262,13 +275,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       } catch { setMarketBannerVisible(true); setMarketBannerHasNew(false); }
     }).catch(() => { setMarketBannerVisible(true); setMarketBannerHasNew(false); });
     return () => { live = false; };
-  }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, saleOffers, marketBannerEventIds]);
+  }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, saleOffers, marketBannerEventIds, marketBannerPendingEventCount]);
 
   const hideMarketBanner = () => {
     if (!profile?.id) return;
     const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
     const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
-    const events = marketBannerEventIds.join(',');
+    const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     setMarketBannerVisible(false);
     setMarketBannerHasNew(false);
     void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: true, playlists, events }));
@@ -278,7 +291,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!profile?.id) return;
     const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
     const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
-    const events = marketBannerEventIds.join(',');
+    const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     setMarketBannerVisible(true);
     setMarketBannerHasNew(false);
     void AsyncStorage.setItem(key, JSON.stringify({ manuallyClosed: false, playlists, events }));
@@ -1410,19 +1423,40 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
 
-        {marketBannerEventIds.length > 0 ? (
+        {marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0 ? (
           <TouchableOpacity
             style={styles.eventSpotlight}
-            onPress={() => navigation.navigate('Parties')}
-            accessibilityLabel={`Voir les soirées, ${marketBannerEventIds.length} annoncée${marketBannerEventIds.length > 1 ? 's' : ''} par ${profile.username}`}
+            onPress={() => {
+              if (marketBannerEventIds.length > 0) {
+                navigation.navigate('Parties', { openEventId: marketBannerEventIds[0], source: 'public-profile' });
+                return;
+              }
+              Alert.alert(
+                'Soirée en attente de validation',
+                `La soirée annoncée par @${profile.username} n’est pas encore approuvée par le Super Admin. Aucun détail ni inscription n’est ouvert pour le moment. Si tu fais partie de l’audience prévue, Loki Music t’enverra automatiquement l’invitation après validation.`,
+              );
+            }}
+            accessibilityLabel={marketBannerEventIds.length > 0
+              ? `Ouvrir la soirée approuvée de ${profile.username}`
+              : `Soirée de ${profile.username} en attente de validation`}
           >
             <View style={styles.eventSpotlightIcon}><Text style={styles.eventSpotlightIconText}>♫</Text></View>
             <View style={styles.eventSpotlightCopy}>
-              <Text style={styles.eventSpotlightKicker}>À VIVRE</Text>
-              <Text style={styles.eventSpotlightTitle}>@{profile.username} annonce {marketBannerEventIds.length} soirée{marketBannerEventIds.length > 1 ? 's' : ''}</Text>
-              <Text style={styles.eventSpotlightMeta}>Lieu · date · invitations · billets</Text>
+              <Text style={styles.eventSpotlightKicker}>{marketBannerEventIds.length > 0 ? 'À VIVRE' : 'BIENTÔT'}</Text>
+              <Text style={styles.eventSpotlightTitle}>
+                {marketBannerEventIds.length > 0
+                  ? `@${profile.username} · ${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''} disponible${marketBannerEventIds.length > 1 ? 's' : ''}`
+                  : `@${profile.username} prépare une soirée`}
+              </Text>
+              <Text style={styles.eventSpotlightMeta}>
+                {marketBannerEventIds.length > 0
+                  ? (marketBannerPendingEventCount > 0
+                      ? `Lieu · date · invitations · + ${marketBannerPendingEventCount} en validation`
+                      : 'Lieu · date · invitations · billets')
+                  : 'Validation Super Admin en cours · invitation après approbation'}
+              </Text>
             </View>
-            <Text style={styles.eventSpotlightArrow}>›</Text>
+            <Text style={styles.eventSpotlightArrow}>{marketBannerEventIds.length > 0 ? '›' : '…'}</Text>
           </TouchableOpacity>
         ) : null}
 
