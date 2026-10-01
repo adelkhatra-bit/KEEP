@@ -2311,7 +2311,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       visible={notificationPanelOpen}
       profileId={user.id}
       onClose={() => setNotificationPanelOpen(false)}
-      onOpenChat={() => useGlobalChatStore.getState().open()}
+      onOpenChat={(target) => useGlobalChatStore.getState().open(target ?? null)}
       onOpenAll={() => navigation.navigate('Notifications')}
     />
 
