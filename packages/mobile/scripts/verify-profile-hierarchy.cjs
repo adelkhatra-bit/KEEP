@@ -33,7 +33,7 @@ assertOrdered(owner, [
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   'accessibilityLabel="Gérer mes musiques"',
-  '<Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>',
+  '<Text style={s.dnaCompactTitle}>Tes bulles musicales</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
   '<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>',
   'accessibilityLabel="Partager mon profil Loki Music"',
@@ -46,7 +46,8 @@ const ownerActionsEnd = owner.indexOf('</ProfileMotionReveal>', ownerActionsStar
 const ownerActions = owner.slice(ownerActionsStart, ownerActionsEnd);
 assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
 
-assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
+assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
+if (owner.includes('Loki Music DNA')) throw new Error('Owner profile must not restore visible Loki Music DNA');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
 assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
 assertIncludes(owner, 'style={s.profileBattleInline}', 'Owner Battle inline with profile identity');
@@ -90,11 +91,12 @@ assertOrdered(visitor, [
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
-  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
+  '<Text style={styles.dnaTitle}>Ses bulles musicales</Text>',
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
 ], 'Visited profile collective hierarchy');
 
-assertIncludes(visitor, 'dna:{marginHorizontal:18,', 'Visited DNA frame');
+assertIncludes(visitor, 'testID="public-profile-loki-pulse-bubbles-card"', 'Visited Loki Pulse bubbles card');
+if (visitor.includes('Loki Music DNA')) throw new Error('Visited profile must not restore visible Loki Music DNA');
 assertIncludes(visitor, "topMetricsBar:{marginHorizontal:0,", 'Visited compact top counter frame');
 assertIncludes(visitor, "topMetricsSecondary:{marginHorizontal:0,", 'Visited expanded counter frame');
 assertIncludes(visitor, 'const [countersExpanded, setCountersExpanded] = useState(false);', 'Visited PLUS counter expansion state');
@@ -130,6 +132,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; empreinte musicale -> réseaux -> Loki Pulse -> partage');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; bulles Loki Pulse -> réseaux -> sons Loki Pulse -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: owner APERÇU/PÉPITES/BATTLE and visitor SWIPE/TCHAT/BATTLE/PARTAGER equal-width rows preserved');
