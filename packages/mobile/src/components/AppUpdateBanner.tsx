@@ -25,7 +25,7 @@ export default function AppUpdateBanner() {
     <View
       style={s.wrap}
       pointerEvents="box-none"
-      testID="keep-update-available-button"
+      testID="keep-manual-update-control"
     >
       <TouchableOpacity
         accessibilityRole="button"
@@ -33,7 +33,7 @@ export default function AppUpdateBanner() {
         style={[s.button, latestSha && s.buttonReady]}
         onPress={() => { void checkNow().finally(reloadToLatest); }}
       >
-        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'}</Text>
+        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : '↻ Mise à jour'}</Text>
       </TouchableOpacity>
     </View>
   );
