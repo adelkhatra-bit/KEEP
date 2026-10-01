@@ -16,7 +16,7 @@ describe('Profile FREE alignment', () => {
 
   it('aligns FREE immediately after Reprises in the metrics bar', () => {
     const start = source.indexOf('<View style={s.topMetricsBar} accessibilityLabel="Compteurs du profil">');
-    const end = source.indexOf('{freeDetailsOpen ? (', start);
+    const end = source.indexOf('{freeDetailsOpen && !isDemoMode ? (', start);
     const metrics = source.slice(start, end);
     const reprises = metrics.indexOf('>Reprises</Text>');
     const free = metrics.indexOf('>FREE</Text>');
