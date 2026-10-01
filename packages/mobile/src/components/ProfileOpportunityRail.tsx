@@ -15,6 +15,15 @@ function priceLabel(suggestion: ProfileSaleSuggestion): string {
   return `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`;
 }
 
+const DROP_MARKETING_HOOKS = [
+  'Ton prochain coup de cœur peut être dans ce drop.',
+  'Écoute l’aperçu, garde seulement ce qui te ressemble.',
+  'Une sélection pensée pour te faire découvrir autre chose.',
+  'Quelques titres, une ambiance, peut-être ta prochaine pépite.',
+  'Teste le mix avant de décider : l’aperçu reste gratuit.',
+  'Découvre l’univers du créateur avant de débloquer la sélection.',
+];
+
 export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', onSuggestionPress }: Props) {
   const storageKey = `keep:profile-opportunity-rail:${viewerKey}`;
   const [visible, setVisible] = useState(true);
@@ -115,7 +124,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         <View style={s.kickerRow}><Text style={s.kicker}>DROP DU MOMENT</Text><Text style={s.position}>{index + 1}/{suggestions.length}</Text></View>
         <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouveau mix'}</Text>
         <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
-        <Text style={s.hook} numberOfLines={2}>Entre dans le mix. Les titres restent secrets pendant l’aperçu.</Text>
+        <Text style={s.hook} numberOfLines={2}>{DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length]}</Text>
         <View style={s.actions}>
           {suggestion.paymentMode === 'FREE' ? (
             <TouchableOpacity
@@ -124,29 +133,39 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
               accessibilityRole="button"
               accessibilityLabel={`Découvrir ce drop pour ${suggestion.freePrice ?? 3} FREE`}
             >
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  s.freeOrb,
-                  reduceMotion ? undefined : {
-                    transform: [
-                      { perspective: 700 },
-                      { rotateY: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-18deg','18deg'] }) },
-                      { rotateZ: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-3deg','3deg'] }) },
-                      { scale: glow.interpolate({ inputRange:[0,1], outputRange:[.96,1.07] }) },
-                    ],
-                  },
-                ]}
-              >
-                <View style={s.freeOrbInner}>
-                  <Text style={s.freeOrbSpark}>✦</Text>
-                  <Text style={s.freeOrbValue}>{suggestion.freePrice ?? 3}</Text>
-                  <Text style={s.freeOrbLabel}>FREE</Text>
-                </View>
-              </Animated.View>
+              <View style={s.freeOrbStage}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    s.freeOrbAura,
+                    { opacity: reduceMotion ? .34 : glow.interpolate({ inputRange:[0,1], outputRange:[.18,.62] }), transform:[{ scale: reduceMotion ? 1 : glow.interpolate({ inputRange:[0,1], outputRange:[.9,1.18] }) }] },
+                  ]}
+                />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    s.freeOrb,
+                    reduceMotion ? undefined : {
+                      transform: [
+                        { perspective: 700 },
+                        { rotateY: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-20deg','20deg'] }) },
+                        { rotateZ: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-4deg','4deg'] }) },
+                        { scale: glow.interpolate({ inputRange:[0,1], outputRange:[.96,1.08] }) },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={s.freeOrbInner}>
+                    <Text style={s.freeOrbSpark}>✦</Text>
+                    <Text style={s.freeOrbValue}>{suggestion.freePrice ?? 3}</Text>
+                    <Text style={s.freeOrbLabel}>FREE</Text>
+                  </View>
+                </Animated.View>
+              </View>
               <View style={s.freeDropCopy}>
-                <Text style={s.freeDropTop}>SURPRISE À DÉBLOQUER</Text>
-                <Text style={s.freeDropBottom}>TOUCHE POUR L’APERÇU</Text>
+                <Text style={s.freeDropTop}>SEULEMENT {suggestion.freePrice ?? 3} FREE</Text>
+                <Text style={s.freeDropMiddle}>DÉBLOQUE LE DROP</Text>
+                <Text style={s.freeDropBottom}>APERÇU GRATUIT AVANT DE CHOISIR</Text>
               </View>
             </TouchableOpacity>
           ) : (
@@ -184,15 +203,18 @@ const s=StyleSheet.create({
   actions:{flexDirection:'row',alignItems:'center',gap:8,marginTop:12},
   price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center'},
   priceText:{color:colors.keep,fontSize:11,fontWeight:'900'},
-  freeDropButton:{flex:1,minHeight:54,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',flexDirection:'row',alignItems:'center',paddingHorizontal:8,paddingVertical:6,overflow:'hidden'},
-  freeOrb:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.keep,shadowColor:'#2DE1C2',shadowOpacity:.6,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:8},
-  freeOrbInner:{width:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(139,92,246,.30)',borderWidth:1,borderColor:'rgba(255,255,255,.35)'},
+  freeDropButton:{flex:1,minHeight:66,borderRadius:22,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',flexDirection:'row',alignItems:'center',paddingHorizontal:9,paddingVertical:7,overflow:'hidden'},
+  freeOrbStage:{width:62,height:58,alignItems:'center',justifyContent:'center'},
+  freeOrbAura:{position:'absolute',width:58,height:58,borderRadius:29,backgroundColor:colors.keep},
+  freeOrb:{width:52,height:52,borderRadius:26,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.keep,shadowColor:'#2DE1C2',shadowOpacity:.72,shadowRadius:13,shadowOffset:{width:0,height:0},elevation:10},
+  freeOrbInner:{width:41,height:41,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(139,92,246,.34)',borderWidth:1,borderColor:'rgba(255,255,255,.42)'},
   freeOrbSpark:{position:'absolute',right:1,top:-4,color:'#FFF',fontSize:9,fontWeight:'900'},
-  freeOrbValue:{color:'#FFF',fontSize:16,lineHeight:17,fontWeight:'1000'},
-  freeOrbLabel:{color:colors.keep,fontSize:7,lineHeight:8,fontWeight:'1000',letterSpacing:.8},
-  freeDropCopy:{flex:1,minWidth:0,paddingLeft:9},
-  freeDropTop:{color:'#FFF',fontSize:10,fontWeight:'1000',letterSpacing:.45},
-  freeDropBottom:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.55,marginTop:2},
+  freeOrbValue:{color:'#FFF',fontSize:20,lineHeight:21,fontWeight:'1000'},
+  freeOrbLabel:{color:colors.keep,fontSize:8,lineHeight:9,fontWeight:'1000',letterSpacing:.9},
+  freeDropCopy:{flex:1,minWidth:0,paddingLeft:8},
+  freeDropTop:{color:colors.keep,fontSize:12,fontWeight:'1000',letterSpacing:.55},
+  freeDropMiddle:{color:'#FFF',fontSize:9,fontWeight:'1000',letterSpacing:.75,marginTop:1},
+  freeDropBottom:{color:colors.textMuted,fontSize:7.5,fontWeight:'900',letterSpacing:.35,marginTop:3},
   listen:{flex:1,minHeight:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},
   listenText:{color:colors.white,fontSize:11,fontWeight:'900',letterSpacing:.4},
   footer:{minHeight:36,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4},
