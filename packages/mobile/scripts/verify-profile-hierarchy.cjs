@@ -93,11 +93,13 @@ assertOrdered(visitor, [
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
-  '<Text style={styles.dnaTitle}>Ses bulles musicales</Text>',
+  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
   '<Text style={styles.socialTitle}>Ses réseaux</Text>',
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'testID="public-profile-loki-pulse-bubbles-card"', 'Visited Loki Pulse bubbles card');
+assertIncludes(visitor, '<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>', 'Visited Loki Pulse percentage gauge');
+assertIncludes(visitor, "visitorPulseExpanded ? 'MASQUER' : `VOIR SES ${visitorStyleBubbles.length} STYLES`", 'Visited Loki Pulse compact styles toggle');
 if (visitor.includes('Loki Music DNA')) throw new Error('Visited profile must not restore visible Loki Music DNA');
 assertIncludes(visitor, "topMetricsBar:{marginHorizontal:0,", 'Visited compact top counter frame');
 assertIncludes(visitor, "topMetricsSecondary:{marginHorizontal:0,", 'Visited expanded counter frame');

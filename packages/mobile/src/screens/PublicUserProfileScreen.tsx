@@ -696,6 +696,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // Refonte 24/09/2026 : les Styles sont la vue principale. La liste détaillée
   // reste disponible en un tap, sans supprimer aucune action existante.
   const [showAllTracks, setShowAllTracks] = useState(false);
+  const [visitorPulseExpanded, setVisitorPulseExpanded] = useState(false);
   // (21/09/2026) refonte collection -- "PAR ARTISTE" (bouton + modale)
   // retiré : l'onglet Artistes ci-dessous ouvre exactement la même liste,
   // avec la même action (Swipe filtré). Ne pas garder les deux, même
@@ -712,7 +713,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const visitorStyleBubbles = useMemo(() => buildMusicStyleBubbles([
     profile?.favoriteGenres,
     genreOptions.map((row) => row.genre),
-  ], 12), [genreOptions, profile?.favoriteGenres]);
+  ], 40), [genreOptions, profile?.favoriteGenres]);
+
+  const visitorStyleCoveragePercent = useMemo(() => {
+    if (!swipeTracks.length) return 0;
+    const tagged = swipeTracks.filter((track) =>
+      (track.genres ?? []).some((genre) => String(genre || '').trim())
+    ).length;
+    return Math.max(0, Math.min(100, Math.round((tagged / swipeTracks.length) * 100)));
+  }, [swipeTracks]);
 
 
   const genreArtwork = useMemo(() => {
@@ -1875,30 +1884,61 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <View style={styles.dnaHeader}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.dnaEyebrow}>LOKI PULSE</Text>
-              <Text style={styles.dnaTitle}>Ses bulles musicales</Text>
+              <Text style={styles.dnaTitle}>Son empreinte musicale</Text>
+              <Text style={styles.dnaCondensed}>
+                {visitorStyleBubbles.length > 0
+                  ? `${visitorStyleBubbles.length} style${visitorStyleBubbles.length > 1 ? 's' : ''}`
+                  : 'Empreinte en construction'}
+              </Text>
             </View>
           </View>
+
+          <View style={styles.visitorDnaSummary}>
+            <View style={styles.visitorDnaTrack}>
+              <View style={[styles.visitorDnaFill, { width: `${visitorStyleCoveragePercent}%` }]} />
+            </View>
+            <View style={styles.visitorDnaSummaryRow}>
+              <Text style={styles.visitorDnaSummaryText}>Empreinte analysée</Text>
+              <Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>
+            </View>
+          </View>
+
           {visitorStyleBubbles.length > 0 ? (
-            <MusicStyleBubbles
-              testID="public-profile-music-style-bubbles"
-              genres={visitorStyleBubbles}
-              max={8}
-              onPressGenre={(genre) => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
-            />
-          ) : (
-            <Text style={styles.mutedSmall}>Ses bulles apparaîtront ici dès que Loki Pulse connaît au moins un de ses styles.</Text>
-          )}
-          {profile.favoriteArtists.length > 0 ? (
-            <View style={{ marginTop: 10 }}>
-              <Text style={styles.dnaRowLabel}>ARTISTES</Text>
-              <View style={styles.chips}>{profile.favoriteArtists.slice(0, 6).map((item) => {
-                const match = artistGroups.find((g) => g.name === item);
-                return match ? (
-                  <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'artist', value: match.key, label: match.name })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
-                ) : (
-                  <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
-                );
-              })}</View>
+            <TouchableOpacity
+              style={styles.publicPulseToggle}
+              onPress={() => setVisitorPulseExpanded((value) => !value)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: visitorPulseExpanded }}
+              accessibilityLabel={visitorPulseExpanded ? 'Masquer ses styles musicaux' : `Voir ses ${visitorStyleBubbles.length} styles musicaux`}
+            >
+              <Text style={styles.publicPulseToggleText}>
+                {visitorPulseExpanded ? 'MASQUER' : `VOIR SES ${visitorStyleBubbles.length} STYLES`}
+              </Text>
+              <Text style={styles.publicPulseToggleChevron}>{visitorPulseExpanded ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {visitorPulseExpanded && visitorStyleBubbles.length > 0 ? (
+            <View testID="public-profile-loki-pulse-expanded-styles">
+              <MusicStyleBubbles
+                testID="public-profile-music-style-bubbles"
+                genres={visitorStyleBubbles}
+                max={visitorStyleBubbles.length}
+                onPressGenre={(genre) => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
+              />
+              {profile.favoriteArtists.length > 0 ? (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.dnaRowLabel}>ARTISTES</Text>
+                  <View style={styles.chips}>{profile.favoriteArtists.slice(0, 6).map((item) => {
+                    const match = artistGroups.find((g) => g.name === item);
+                    return match ? (
+                      <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'artist', value: match.key, label: match.name })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
+                    ) : (
+                      <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
+                    );
+                  })}</View>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -2137,6 +2177,9 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   visitorDnaSummaryRow:{marginTop:6,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   visitorDnaSummaryText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},
   visitorDnaSummaryScore:{color:colors.keep,fontSize:13,fontWeight:'900'},
+  publicPulseToggle:{minHeight:36,marginTop:9,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
+  publicPulseToggleText:{color:colors.primaryLight,fontSize:9.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+  publicPulseToggleChevron:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
