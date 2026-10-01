@@ -80,10 +80,12 @@ jobs:
           const crypto = require('node:crypto');
           (async () => {
             const privateKey = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+            const keyId = String(process.env.ASC_KEY_ID || '').trim();
+            const issuerId = String(process.env.ASC_ISSUER_ID || '').trim();
             const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
             const now = Math.floor(Date.now() / 1000);
-            const unsigned = encode({ alg: 'ES256', kid: process.env.ASC_KEY_ID, typ: 'JWT' }) + '.' +
-              encode({ iss: process.env.ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
+            const unsigned = encode({ alg: 'ES256', kid: keyId, typ: 'JWT' }) + '.' +
+              encode({ iss: issuerId, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
             const jwt = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
             const headers = { Authorization: 'Bearer ' + jwt };
             const appsUrl = new URL('https://api.appstoreconnect.apple.com/v1/apps');
