@@ -84,9 +84,9 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
     ],
   },
   {
-    title: 'COMMUNAUTÉ',
+    title: 'TCHAT',
     items: [
-      { key: 'community', icon: '◉', label: 'La Place', hint: 'Souvenirs · découvertes · débats musicaux' },
+      { key: 'community', icon: '◉', label: 'Tchat', hint: 'Privé · groupes · musique · notifications' },
     ],
   },
   {
@@ -1489,13 +1489,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'community') return <>
       <View style={s.communityHelpHeader}>
         <View style={s.communityHelpCopy}>
-          <Text style={s.shareTitle}>Communauté musicale</Text>
-          <Text style={s.shareSubtitle}>Retrouve les personnes qui partagent ta musique, te suivent et découvrent les mêmes styles que toi.</Text>
+          <Text style={s.shareTitle}>Tchat musical</Text>
+          <Text style={s.shareSubtitle}>Discute en privé ou en groupe, partage tes musiques et garde tes conversations liées à ton profil.</Text>
         </View>
         <TouchableOpacity
           style={s.communityHelpButton}
           accessibilityRole="button"
-          accessibilityLabel="En savoir plus sur la communauté"
+          accessibilityLabel="En savoir plus sur le Tchat"
           onPress={() => setCommunityHelpOpen(true)}
         >
           <Text style={s.communityHelpButtonText}>?</Text>
@@ -1503,16 +1503,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
       <ContextHelpSheet
         visible={communityHelpOpen}
-        title="À quoi sert la Communauté ?"
-        intro="C’est l’endroit où Loki Music te rapproche des personnes qui aiment la même musique que toi."
+        title="À quoi sert le Tchat ?"
+        intro="Le Tchat relie directement les profils Loki : privé, groupes, musique partagée et notifications."
         steps={[
-          { title: 'Découvrir des profils', text: 'Loki te propose des personnes proches de tes goûts musicaux.' },
-          { title: 'Suivre quelqu’un', text: 'Tu peux t’abonner à un profil pour retrouver plus facilement ses découvertes et ses activités publiques.' },
-          { title: 'Voir qui te suit', text: 'Tes abonnés apparaissent ici. Tu peux ouvrir leur profil ou les suivre à ton tour.' },
-          { title: 'Partager des découvertes', text: 'Quand un membre reprend une musique découverte grâce à toi, Loki garde la provenance pour valoriser la découverte.' },
-          { title: 'Garder le contrôle', text: 'Tu choisis toujours ce qui est public ou privé. La Communauté ne publie rien à ta place.' },
+          { title: 'Parler en privé', text: 'Réponds à un utilisateur et poursuis la conversation sans quitter l’univers Loki.' },
+          { title: 'Discuter en groupe', text: 'Les salons permettent de parler musique à plusieurs sans perdre le fil.' },
+          { title: 'Partager une musique', text: 'Envoie une pépite de ton profil directement dans le Tchat, masquée ou visible selon ton choix.' },
+          { title: 'Garder une pépite', text: 'Le destinataire peut écouter gratuitement puis la garder en public ou privé contre les FREE prévus. Les doublons ne sont jamais refacturés.' },
+          { title: 'Recevoir les notifications', text: 'Les réponses et nouveaux messages peuvent déclencher une notification selon tes réglages.' },
         ]}
-        footer="En bref : Communauté = trouver les bonnes personnes autour de tes goûts musicaux, sans perdre ton profil de vue."
+        footer="En bref : Tchat = parler, partager et garder des musiques sans quitter ton profil."
         onClose={() => setCommunityHelpOpen(false)}
       />
       <MusicAgoraPanel
