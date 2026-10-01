@@ -17,9 +17,11 @@ describe('Public profile inline event contract', () => {
     expect(source).toContain('En attente que le Super Admin approuve l’événement');
   });
 
-  it('supports RSVP inline for approved events', () => {
-    expect(source).toContain('const joinProfileEvent = async () =>');
-    expect(source).toContain("setEventRsvp(viewer.id, profileEvent.id, 'GOING')");
-    expect(source).toContain("profileEventRsvp === 'GOING'");
+  it('supports the three RSVP choices inline for approved events', () => {
+    expect(source).toContain('const chooseProfileEventRsvp = async (status: EventRsvpStatus) =>');
+    expect(source).toContain('setEventRsvp(effectiveViewerId, profileEvent.id, status)');
+    expect(source).toContain("['GOING', 'JE PARTICIPE']");
+    expect(source).toContain("['MAYBE', 'PEUT-ÊTRE']");
+    expect(source).toContain("['NOT_GOING', 'JE NE PARTICIPE PAS']");
   });
 });
