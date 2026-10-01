@@ -44,19 +44,27 @@ function themesFor(genreRaw: unknown, year: number | null): string[] {
   const genre = norm(genreRaw);
   const out = new Set<string>();
   if (/afro|afrobeats|afro beat|amapiano/.test(genre)) out.add("AFRO");
+  if (/amapiano/.test(genre)) out.add("AMAPIANO");
   if (/french pop|chanson francaise/.test(genre)) out.add("CHANSON_FR");
   if (/classical|classique|opera/.test(genre)) out.add("CLASSIQUE");
   if (/disco/.test(genre)) out.add("DISCO");
   if (/dance|electronic|electronica|house|techno|edm|trance/.test(genre)) out.add("ELECTRO");
+  if (/house/.test(genre)) out.add("HOUSE");
   if (/funk/.test(genre)) out.add("FUNK");
   if (/jazz/.test(genre)) out.add("JAZZ");
   if (/latin|latino|reggaeton|salsa|bachata/.test(genre)) out.add("LATINO");
+  if (/reggaeton|urbano latino|urban latin/.test(genre)) out.add("REGGAETON");
   if (/\bpop\b/.test(genre)) out.add("POP");
   if (/rai|maghreb|arabic/.test(genre)) out.add("RAI");
   if (/reggae|dancehall/.test(genre)) out.add("REGGAE");
   if (/r b|rnb|rhythm blues/.test(genre)) out.add("RNB");
   if (/soul/.test(genre)) { out.add("SOUL"); out.add("RNB"); }
   if (/rock|alternative|metal|punk|grunge/.test(genre)) out.add("ROCK");
+  if (/alternative|indie/.test(genre)) out.add("ALTERNATIVE");
+  if (/metal|metalcore/.test(genre)) out.add("METAL");
+  if (/country/.test(genre)) out.add("COUNTRY");
+  if (/blues/.test(genre)) out.add("BLUES");
+  if (/soundtrack|original score|film score|bande originale/.test(genre)) out.add("SOUNDTRACK");
   if (/hip hop|rap/.test(genre)) out.add("RAP_US");
   if (year != null && year >= 1980 && year <= 1989) out.add("ANNEES_80");
   if (year != null && year >= 1990 && year <= 1999) out.add("ANNEES_90");
