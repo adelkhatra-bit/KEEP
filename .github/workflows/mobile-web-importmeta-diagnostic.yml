@@ -261,14 +261,12 @@ jobs:
             const desktopResponse = await desktopPage.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
             if (!desktopResponse || !desktopResponse.ok()) throw new Error(`Desktop runtime failed: ${desktopResponse ? desktopResponse.status() : 'no response'}`);
             const manualUpdate = desktopPage.getByTestId('keep-manual-update-control');
-            await manualUpdate.waitFor({ state: 'visible', timeout: 15000 });
-            const manualUpdateBox = await manualUpdate.boundingBox();
-            if (!manualUpdateBox || manualUpdateBox.width < 80 || manualUpdateBox.height < 25) {
-              throw new Error(`Desktop update control not visibly rendered: ${JSON.stringify(manualUpdateBox)}`);
-            }
-            await desktopPage.getByLabel('Mise à jour du site Loki Music').waitFor({ state: 'visible', timeout: 5000 });
-            await desktopPage.screenshot({ path: 'artifacts/real-browser/keep-desktop-update-1440x900.png', fullPage: true });
-            fs.appendFileSync('artifacts/real-browser/report.txt', '\nDESKTOP_UPDATE_CONTROL_VISIBLE: PASS\n');
+            if (await manualUpdate.count() !== 0) throw new Error('Manual update control must never be user-visible');
+            if (await desktopPage.getByText('Actualiser Loki Music', { exact: true }).count() !== 0) throw new Error('Actualiser Loki Music must never be user-visible');
+            if (await desktopPage.getByText('METTRE À JOUR', { exact: true }).count() !== 0) throw new Error('METTRE À JOUR must never be user-visible');
+            if (await desktopPage.getByText(/Nouvelle version de Loki Music disponible/i).count() !== 0) throw new Error('Version update banner must never be user-visible');
+            await desktopPage.screenshot({ path: 'artifacts/real-browser/keep-desktop-silent-update-1440x900.png', fullPage: true });
+            fs.appendFileSync('artifacts/real-browser/report.txt', '\nSILENT_UPDATE_UI_ABSENT: PASS\n');
             await desktopPage.close();
 
             await browser.close();

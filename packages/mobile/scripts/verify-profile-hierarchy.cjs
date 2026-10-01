@@ -116,8 +116,8 @@ assertIncludes(visitor, 'accessibilityLabel={`Ouvrir le tchat avec ${profile.use
 assertIncludes(visitor, 'accessibilityLabel={`Défier ${profile.username} en Battle`}', 'Visited Battle action');
 assertIncludes(visitor, 'accessibilityLabel={`Partager le profil de ${profile.username}`}', 'Visited PARTAGER action');
 assertCount(visitor, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 4, 'Visited SWIPE / TCHAT / BATTLE / PARTAGER equal-width row');
-assertIncludes(visitor, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Visited quick actions equal-width row');
-assertIncludes(visitor, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Visited quick actions flexible equal-width buttons');
+assertIncludes(visitor, "ownerQuickActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Visited quick actions wrapped two-column row');
+assertIncludes(visitor, "ownerQuickActionFull:{flexGrow:1,flexBasis:'47%',minWidth:0}", 'Visited quick actions equal-width two-column buttons');
 assertIncludes(visitor, 'const online = self || profilePresence.online;', 'Visited live-presence indicator');
 
 const motionButton = read('src/components/MotionActionButton.tsx');

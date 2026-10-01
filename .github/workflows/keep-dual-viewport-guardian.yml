@@ -173,7 +173,7 @@ jobs:
             const menu=page.getByLabel('Menu du profil').last();
             await menu.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,menu,'Open profile menu for public settings');
-            const entry=page.getByText('🌐 Profil public, réseaux & site web',{exact:true}).last();
+            const entry=page.getByLabel('Réseaux & site web').last();
             await entry.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,entry,'Public profile settings');
             await page.getByText('Réseaux sociaux',{exact:true}).last().waitFor({state:'visible',timeout:15000});
