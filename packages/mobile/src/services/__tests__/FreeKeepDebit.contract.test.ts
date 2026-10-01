@@ -34,6 +34,12 @@ describe('Loki FREE debit contract', () => {
     expect(core).toContain('deduplicated: true');
   });
 
+  it('never reports a real KEEP as successful without server-confirmed debit + decision', () => {
+    expect(action).toContain("throw new Error('KEEP_SERVER_NOT_CONFIRMED')");
+    expect(action).toContain('if (consumesCredit) throw e;');
+    expect(action).not.toContain("if (e?.message === 'CREDITS_EXHAUSTED') throw e;\n    profileSyncFailed = true;");
+  });
+
   it('counts daily FREE spend from the authoritative debit ledger with a 02:00 local boundary', () => {
     expect(dailySpend).toContain('from public.keep_free_spend_events e');
     expect(dailySpend).toContain("e.reason='KEEP_PROFILE'");
