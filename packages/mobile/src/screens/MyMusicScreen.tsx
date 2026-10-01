@@ -167,7 +167,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
   const [visibilityIntroOpen, setVisibilityIntroOpen] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
-  const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL');
+  const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
   // Adel (14/09/2026) : "chaque utilisateur ... vendre leur playlist ...
   // pour le debloquer il faut un certain nombre d'abonnes" -- construit
@@ -429,10 +429,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
     () => ownDiscoveryEntries.filter((entry: any) => String(entry.originSource || '').toLowerCase() === 'loki_pulse'),
     [ownDiscoveryEntries],
   );
+  const sessionEntries = useMemo(
+    () => ownDiscoveryEntries.filter((entry: any) => String(entry.originSource || '').toLowerCase() === 'session_history'),
+    [ownDiscoveryEntries],
+  );
   const identifiedEntries = useMemo(
     () => ownDiscoveryEntries.filter((entry: any) => {
       const source = String(entry.originSource || '').toLowerCase();
-      return source !== 'loki_pulse' && source !== 'provider_favorite_import';
+      return source !== 'loki_pulse' && source !== 'provider_favorite_import' && source !== 'session_history';
     }),
     [ownDiscoveryEntries],
   );
@@ -1329,9 +1333,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 ? `${localEntry.sourceUsername ? `REPRIS DE ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'REPRIS D’UN UTILISATEUR'}`
                 : String((localEntry as any).originSource || '').toLowerCase() === 'loki_pulse'
                   ? 'LOKI PULSE'
-                  : String((localEntry as any).originSource || '').toLowerCase() === 'provider_favorite_import'
-                    ? `IMPORT ${String((localEntry as any).importedFrom || 'SERVICE').replace(/_/g, ' ').toUpperCase()}`
-                    : 'IDENTIFIÉ PAR LOKI',
+                  : String((localEntry as any).originSource || '').toLowerCase() === 'session_history'
+                    ? 'SESSION D’ÉCOUTE'
+                    : String((localEntry as any).originSource || '').toLowerCase() === 'listen'
+                      ? 'ÉCOUTE LOKI'
+                      : String((localEntry as any).originSource || '').toLowerCase() === 'provider_favorite_import'
+                        ? `IMPORT ${String((localEntry as any).importedFrom || 'SERVICE').replace(/_/g, ' ').toUpperCase()}`
+                        : 'IDENTIFIÉ PAR LOKI',
               tone: localEntry.sourceProfileId ? 'social' : 'listen',
               onPress: localEntry.sourceProfileId && localEntry.sourceUsername
                 ? () => openSourceProfile(localEntry.sourceUsername)
@@ -1547,6 +1555,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           {([
             ['ALL', `TOUT · ${localKeptEntries.length}`],
             ['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`],
+            ['SESSION', `SESSIONS · ${sessionEntries.length}`],
             ['USERS', `REPRISES · ${socialRepriseEntries.length}`],
             ['IDENTIFIED', `IDENTIFIÉ LOKI · ${identifiedEntries.length}`],
             ['PULSE', `LOKI PULSE · ${lokiPulseEntries.length}`],
@@ -1598,6 +1607,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks
             : originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)
+            : originFilter === 'SESSION' ? sessionEntries.map((entry) => entry.track)
             : originFilter === 'IDENTIFIED' ? identifiedEntries.map((entry) => entry.track)
             : originFilter === 'ALL' ? localKeptTracks
             : saleEditOfferTarget
@@ -1632,11 +1642,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
                       ? "🔒 Reprises d'autres utilisateurs"
                       : originFilter === 'PULSE'
                         ? 'Loki Pulse'
-                        : originFilter === 'IDENTIFIED'
-                          ? 'Identifiées par Loki'
-                          : originFilter === 'ALL'
-                            ? 'Tous mes morceaux'
-                            : 'Mes découvertes'}
+                        : originFilter === 'SESSION'
+                          ? 'Gardées depuis mes sessions'
+                          : originFilter === 'IDENTIFIED'
+                            ? 'Identifiées par Loki'
+                            : originFilter === 'ALL'
+                              ? 'Tous mes morceaux'
+                              : 'Mes découvertes'}
                   </Text>
                 </View>
                 <Text style={[styles.originSectionCount, originFilter === 'USERS' ? styles.originSectionCountSocial : styles.originSectionCountOwn]}>
@@ -1644,11 +1656,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
                     ? socialRepriseEntries.length
                     : originFilter === 'PULSE'
                       ? lokiPulseEntries.length
-                      : originFilter === 'IDENTIFIED'
-                        ? identifiedEntries.length
-                        : originFilter === 'ALL'
-                          ? localKeptEntries.length
-                          : ownDiscoveryEntries.length} titres
+                      : originFilter === 'SESSION'
+                        ? sessionEntries.length
+                        : originFilter === 'IDENTIFIED'
+                          ? identifiedEntries.length
+                          : originFilter === 'ALL'
+                            ? localKeptEntries.length
+                            : ownDiscoveryEntries.length} titres
                 </Text>
               </View>
             </View> : null}
