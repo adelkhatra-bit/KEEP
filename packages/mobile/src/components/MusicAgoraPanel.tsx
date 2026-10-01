@@ -288,6 +288,8 @@ export default function MusicAgoraPanel({
     if (!initialReplyTarget?.profileId) return;
     setReplyTarget(initialReplyTarget);
     setChatMode('MESSAGES');
+    initialScrollDone.current = false;
+    setTimeout(() => followChatBottom(false), 60);
   }, [initialReplyTarget?.profileId, initialReplyTarget?.username]);
 
   useEffect(() => {
@@ -939,7 +941,7 @@ export default function MusicAgoraPanel({
 
   return <KeyboardAvoidingView
     enabled={compact && Platform.OS !== 'web'}
-    behavior={compact && Platform.OS === 'ios' ? 'padding' : compact ? 'height' : undefined}
+    behavior={compact && Platform.OS !== 'web' ? 'height' : undefined}
     keyboardVerticalOffset={0}
     style={[
       s.shell,
@@ -1120,6 +1122,7 @@ export default function MusicAgoraPanel({
       style={compact ? s.chatScrollCompact : s.chatScroll}
       contentContainerStyle={s.list}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
       onScroll={(event) => {
@@ -1702,8 +1705,8 @@ const s=StyleSheet.create({
   newConversationButton:{minHeight:64,borderRadius:18,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
   newConversationPlus:{width:38,height:38,borderRadius:19,textAlign:'center',textAlignVertical:'center',lineHeight:38,color:colors.white,backgroundColor:colors.primary,fontSize:22,fontWeight:'900'},
   newConversationCopy:{flex:1,minWidth:0},
-  newConversationTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  newConversationHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:15,marginTop:2},
+  newConversationTitle:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
+  newConversationHint:{color:colors.textMutedGrey,fontSize:12.5,lineHeight:17,marginTop:2},
   groupRow:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,overflow:'hidden'},
   groupRowInvited:{borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.06)'},
   groupMain:{minHeight:62,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
@@ -1718,9 +1721,9 @@ const s=StyleSheet.create({
   conversationAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundElevated},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
-  conversationName:{flex:1,color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  conversationTime:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:15,lineHeight:20,marginTop:3},
+  conversationName:{flex:1,color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
+  conversationTime:{color:colors.textMutedGrey,fontSize:12,fontWeight:'700'},
+  conversationPreview:{color:colors.textSecondary,fontSize:16,lineHeight:21,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',textAlign:'center'},
@@ -1747,7 +1750,7 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{height:54,minHeight:54,maxHeight:54,flex:1,fontSize:19,lineHeight:25,paddingTop:12,paddingBottom:9,overflow:'scroll'},
+  inputCompact:{height:58,minHeight:58,maxHeight:58,flex:1,fontSize:20,lineHeight:27,paddingTop:13,paddingBottom:10,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
@@ -1860,7 +1863,7 @@ const s=StyleSheet.create({
   shareLockPillText:{color:colors.warning,fontSize:9,fontWeight:'900'},
   validateMusicPinned:{minHeight:46,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:7,marginBottom:7},
   validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
-  validateMusicText:{color:colors.background,fontSize:11,fontWeight:'900',letterSpacing:.6},
+  validateMusicText:{color:colors.background,fontSize:12.5,fontWeight:'900',letterSpacing:.6},
   selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   selectedMusicArtwork:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},
   selectedMusicArtworkFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},
@@ -1889,7 +1892,7 @@ const s=StyleSheet.create({
   paymentLabel:{color:colors.textMutedGrey,fontSize:9.5,fontWeight:'900',letterSpacing:.7},
   paymentChip:{minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   paymentChipOn:{borderColor:colors.info,backgroundColor:colors.infoFaint},
-  paymentChipText:{color:colors.textPrimary,fontSize:10.5,fontWeight:'900'},
+  paymentChipText:{color:colors.textPrimary,fontSize:11.5,fontWeight:'900'},
   priceChoices:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap',marginTop:6},
   priceChip:{minWidth:42,height:36,paddingHorizontal:10,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   priceChipOn:{borderColor:colors.keep,backgroundColor:colors.successSoft},
@@ -1904,8 +1907,8 @@ const s=StyleSheet.create({
   musicMaskIcon:{color:colors.primaryLight,fontSize:36,fontWeight:'900'},
   musicCopy:{flex:1,minWidth:130},
   musicKicker:{color:colors.keep,fontSize:9.5,fontWeight:'900',letterSpacing:.9},
-  musicTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:4,lineHeight:18},
-  musicArtist:{color:colors.textMutedGrey,fontSize:11,marginTop:4},
+  musicTitle:{color:colors.textPrimary,fontSize:15.5,fontWeight:'900',marginTop:4,lineHeight:20},
+  musicArtist:{color:colors.textMutedGrey,fontSize:12.5,marginTop:4},
   keepMusic:{minHeight:32,paddingHorizontal:9,borderRadius:16,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
   keepMusicText:{color:colors.background,fontSize:8,fontWeight:'900'},
   offerStatusOwn:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
@@ -1949,8 +1952,8 @@ const s=StyleSheet.create({
   shareTrackArt:{width:82,height:82,borderRadius:16,backgroundColor:colors.backgroundElevated},
   shareTrackLockBadge:{position:'absolute',right:-4,top:-4,width:28,height:28,borderRadius:14,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
   shareTrackLockBadgeText:{fontSize:14},
-  shareTrackTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  shareTrackArtist:{color:colors.textMutedGrey,fontSize:12,marginTop:4},
+  shareTrackTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},
+  shareTrackArtist:{color:colors.textMutedGrey,fontSize:13,marginTop:4},
   shareTrackLocked:{color:colors.warning,fontSize:10,fontWeight:'900',lineHeight:14,marginTop:4},
   musicShareOnlyText:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
   shareTrackArrow:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
