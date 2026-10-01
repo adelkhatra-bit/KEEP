@@ -44,6 +44,7 @@ function notificationProfileUsername(item: KeepNotification): string | null {
     ?? data.followerUsername ?? data.follower_username
     ?? data.sellerUsername ?? data.seller_username
     ?? data.inviterUsername ?? data.inviter_username
+    ?? data.referrerUsername ?? data.referrer_username
     ?? data.originUsername ?? data.origin_username;
   return typeof candidate === 'string' && candidate.trim() ? candidate.trim().replace(/^@+/, '') : null;
 }
@@ -56,6 +57,7 @@ function notificationProfileId(item: KeepNotification): string | null {
     ?? data.requesterId ?? data.requester_id
     ?? data.followerId ?? data.follower_id
     ?? data.sellerId ?? data.seller_id
+    ?? data.referrerId ?? data.referrer_id
     ?? data.sourceProfileId ?? data.source_profile_id
     ?? data.originProfileId ?? data.origin_profile_id;
   return typeof candidate === 'string' && /^[0-9a-f-]{36}$/i.test(candidate) ? candidate : null;
@@ -80,6 +82,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'MONTHLY_FREE_CREDIT') return 'FREE DU MOIS';
+  if (key === 'REFERRAL_FRIEND_READY') return 'TON CONTACT';
   if (key === 'PLAYLIST_SALE_PAYMENT_READY') return 'PAIEMENT À FAIRE';
   if (key === 'PLAYLIST_SALE_WAITING_SELLER') return 'EN ATTENTE DU VENDEUR';
   if (key === 'PLAYLIST_SALE_BUYER_PAID') return 'PAIEMENT SIGNALÉ';
