@@ -43,7 +43,7 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
   it('recharge aussi la provenance serveur après reconnexion/reload', () => {
     expect(core).toContain('source_user_id');
     expect(core).toContain('context.sourceProfileId');
-    expect(core).toContain("row.source_type === 'profile'");
-    expect(core).toContain("creditPolicy: isSocial ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP'");
+    expect(core).toContain("sourceNames.get(sourceProfileId)");
+    expect(core).toContain("context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP'");
   });
 });
