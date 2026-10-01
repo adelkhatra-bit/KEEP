@@ -500,10 +500,7 @@ export default function NotificationsScreen({ navigation }: any) {
     if (!user) return;
     if (isNotificationAccessLocked(item.type, planCode, notificationAccessRules)) {
       await readOne(item);
-      navigation.navigate('Offers', {
-        focusPlan: notificationAccessRequiredPlan(item.type, notificationAccessRules),
-        sourceFeature: 'NOTIFICATION_ACCESS',
-      });
+      setNotice(`🔒 Disponible avec ${notificationPlanLabel(notificationAccessRequiredPlan(item.type, notificationAccessRules))} · reste dans tes notifications`);
       return;
     }
     await readOne(item);
