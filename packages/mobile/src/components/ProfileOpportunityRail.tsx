@@ -22,6 +22,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const [reduceMotion, setReduceMotion] = useState(false);
   const dance = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
+  const freeFlip = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let live = true;
@@ -54,9 +55,11 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   useEffect(() => {
     dance.stopAnimation();
     glow.stopAnimation();
+    freeFlip.stopAnimation();
     if (!visible || reduceMotion || !suggestions.length) {
       dance.setValue(0);
       glow.setValue(0);
+      freeFlip.setValue(0);
       return undefined;
     }
     const danceLoop = Animated.loop(Animated.sequence([
@@ -68,9 +71,14 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
       Animated.timing(glow, { toValue: 0, duration: 1100, useNativeDriver: true }),
     ]));
     danceLoop.start();
+    const freeFlipLoop = Animated.loop(Animated.sequence([
+      Animated.timing(freeFlip, { toValue: 1, duration: 1600, useNativeDriver: true }),
+      Animated.timing(freeFlip, { toValue: 0, duration: 1600, useNativeDriver: true }),
+    ]));
     glowLoop.start();
-    return () => { danceLoop.stop(); glowLoop.stop(); };
-  }, [dance, glow, reduceMotion, suggestions.length, visible]);
+    freeFlipLoop.start();
+    return () => { danceLoop.stop(); glowLoop.stop(); freeFlipLoop.stop(); };
+  }, [dance, freeFlip, glow, reduceMotion, suggestions.length, visible]);
 
   if (!suggestions.length) return null;
   const suggestion = suggestions[index % suggestions.length];
@@ -109,8 +117,44 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
         <Text style={s.hook} numberOfLines={2}>Entre dans le mix. Les titres restent secrets pendant l’aperçu.</Text>
         <View style={s.actions}>
-          <View style={s.price}><Text style={s.priceText}>{priceLabel(suggestion)}</Text></View>
-          <TouchableOpacity style={s.listen} onPress={() => onSuggestionPress(suggestion)} accessibilityLabel={`Lancer l'aperçu de ${suggestion.playlistName}`}><Text style={s.listenText}>▶ APERÇU</Text></TouchableOpacity>
+          {suggestion.paymentMode === 'FREE' ? (
+            <TouchableOpacity
+              style={s.freeDropButton}
+              onPress={() => onSuggestionPress(suggestion)}
+              accessibilityRole="button"
+              accessibilityLabel={`Découvrir ce drop pour ${suggestion.freePrice ?? 3} FREE`}
+            >
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  s.freeOrb,
+                  reduceMotion ? undefined : {
+                    transform: [
+                      { perspective: 700 },
+                      { rotateY: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-18deg','18deg'] }) },
+                      { rotateZ: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-3deg','3deg'] }) },
+                      { scale: glow.interpolate({ inputRange:[0,1], outputRange:[.96,1.07] }) },
+                    ],
+                  },
+                ]}
+              >
+                <View style={s.freeOrbInner}>
+                  <Text style={s.freeOrbSpark}>✦</Text>
+                  <Text style={s.freeOrbValue}>{suggestion.freePrice ?? 3}</Text>
+                  <Text style={s.freeOrbLabel}>FREE</Text>
+                </View>
+              </Animated.View>
+              <View style={s.freeDropCopy}>
+                <Text style={s.freeDropTop}>SURPRISE À DÉBLOQUER</Text>
+                <Text style={s.freeDropBottom}>TOUCHE POUR L’APERÇU</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={s.price}><Text style={s.priceText}>{priceLabel(suggestion)}</Text></View>
+              <TouchableOpacity style={s.listen} onPress={() => onSuggestionPress(suggestion)} accessibilityLabel={`Lancer l'aperçu de ${suggestion.playlistName}`}><Text style={s.listenText}>▶ APERÇU</Text></TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </View>
@@ -140,6 +184,15 @@ const s=StyleSheet.create({
   actions:{flexDirection:'row',alignItems:'center',gap:8,marginTop:12},
   price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center'},
   priceText:{color:colors.keep,fontSize:11,fontWeight:'900'},
+  freeDropButton:{flex:1,minHeight:54,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',flexDirection:'row',alignItems:'center',paddingHorizontal:8,paddingVertical:6,overflow:'hidden'},
+  freeOrb:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.keep,shadowColor:'#2DE1C2',shadowOpacity:.6,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:8},
+  freeOrbInner:{width:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(139,92,246,.30)',borderWidth:1,borderColor:'rgba(255,255,255,.35)'},
+  freeOrbSpark:{position:'absolute',right:1,top:-4,color:'#FFF',fontSize:9,fontWeight:'900'},
+  freeOrbValue:{color:'#FFF',fontSize:16,lineHeight:17,fontWeight:'1000'},
+  freeOrbLabel:{color:colors.keep,fontSize:7,lineHeight:8,fontWeight:'1000',letterSpacing:.8},
+  freeDropCopy:{flex:1,minWidth:0,paddingLeft:9},
+  freeDropTop:{color:'#FFF',fontSize:10,fontWeight:'1000',letterSpacing:.45},
+  freeDropBottom:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.55,marginTop:2},
   listen:{flex:1,minHeight:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},
   listenText:{color:colors.white,fontSize:11,fontWeight:'900',letterSpacing:.4},
   footer:{minHeight:36,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4},
