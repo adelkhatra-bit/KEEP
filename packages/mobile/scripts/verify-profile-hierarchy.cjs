@@ -33,9 +33,10 @@ assertOrdered(owner, [
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   'accessibilityLabel="Gérer mes musiques"',
-  'accessibilityLabel="Partager mon profil Loki Music"',
   '<Text style={s.dnaTitle}>Tes styles dominants</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
+  '<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>',
+  'accessibilityLabel="Partager mon profil Loki Music"',
 ], 'Owner profile collective hierarchy');
 
 assertCount(owner, /accessibilityLabel="Partager mon profil Loki Music"/g, 1, 'Owner PARTAGER action');
@@ -53,10 +54,11 @@ const ownerMeta = owner.slice(
 );
 assertOrdered(ownerMeta, [
   'style={[s.kindBadge',
-  'style={[s.profileFreeInline',
   '<BattleGlowButton',
-], 'Owner identity order profile type -> FREE -> Battle');
-assertIncludes(ownerMeta, 'accessibilityLabel="Voir le détail de mes Free"', 'Owner FREE detail action beside profile type');
+], 'Owner identity order profile type -> Battle');
+if (ownerMeta.includes('>FREE</Text>') || ownerMeta.includes('profileFreeInline')) {
+  throw new Error('Owner FREE must not appear beside profile type');
+}
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
@@ -66,9 +68,12 @@ assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-], 'Owner metrics order PLUS -> Abonnés -> Reprises');
-if (ownerMetrics.includes('topMetricFreeHero') || ownerMetrics.includes('>FREE</Text>')) {
-  throw new Error('Owner FREE must appear only beside Utilisateur/Créateur');
+  '>FREE</Text>',
+], 'Owner metrics order PLUS -> Abonnés -> Reprises -> FREE');
+assertCount(ownerMetrics, />FREE<\/Text>/g, 1, 'Owner FREE metric count');
+assertIncludes(ownerMetrics, 'topMetricFreeItem', 'Owner FREE metric item after Reprises');
+if (ownerMetrics.includes('topMetricFreeHero')) {
+  throw new Error('Obsolete FREE hero must not return to owner metrics');
 }
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
@@ -124,6 +129,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + FREE + Battle in identity row; PLUS/Abonnés/Reprises aligned below');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE aligned below; DNA -> réseaux -> Loki Pulse -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');
