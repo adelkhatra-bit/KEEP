@@ -121,7 +121,7 @@ begin
     md5(uid::text || ':' || t.id::text || ':' || current_date::text)
   limit v_limit;
 
-  select count(*) into v_new_count from tmp_loki_pulse_candidates where is_new=true;
+  select count(*) into v_new_count from tmp_loki_pulse_candidates c where c.is_new=true;
 
   insert into public.profile_loki_pulse_events(profile_id,track_id,first_shown_at,last_shown_at)
   select uid,c.track_id,now(),now()
