@@ -1971,21 +1971,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
             <Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text>
           </View>
-          {/* Les petites bulles de styles sont le rendu canonique du DNA :
-              compactes, lisibles et cliquables sans prendre une demi-page. */}
-          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,6).map((g)=>{
-            const match = trackGenreOptions.find((row) => row.genre === g.genre);
-            return match ? (
-              <TouchableOpacity
-                key={g.genre}
-                style={s.chip}
-                onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === g.genre)?.entries.map((entry) => entry.track) ?? [] })}
-                accessibilityLabel={`Swiper tes morceaux ${g.genre}`}
-              >
-                <Text style={s.chipText}>{g.genre}{typeof match.count === 'number' ? ` · ${match.count}` : ''}</Text>
-              </TouchableOpacity>
-            ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
-          })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
+          <MusicStyleBubbles
+            testID="profile-music-style-bubbles"
+            genres={profileStyleBubbles}
+            max={8}
+            onPressGenre={(genre) => {
+              const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+              if (folder?.entries.length) {
+                openSelectionSwipe({
+                  title: folder.genre,
+                  subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                  tracks: folder.entries.map((entry) => entry.track),
+                });
+                return;
+              }
+              switchProfileTab('TRACKS');
+              setTracksGrouping('GENRE');
+            }}
+          />
           {genreFolders.length > 4 ? (
             <TouchableOpacity
               style={s.dnaSeeAll}
