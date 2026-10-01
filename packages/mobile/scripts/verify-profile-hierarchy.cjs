@@ -53,11 +53,10 @@ const ownerMeta = owner.slice(
 );
 assertOrdered(ownerMeta, [
   'style={[s.kindBadge',
+  'style={[s.profileFreeInline',
   '<BattleGlowButton',
-], 'Owner identity order profile type -> Battle');
-if (ownerMeta.includes('profileFreeInline') || ownerMeta.includes('Voir le détail de mes Free')) {
-  throw new Error('Owner FREE must not sit beside Utilisateur/Créateur');
-}
+], 'Owner identity order profile type -> FREE -> Battle');
+assertIncludes(ownerMeta, 'accessibilityLabel="Voir le détail de mes Free"', 'Owner FREE detail action beside profile type');
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
@@ -67,9 +66,10 @@ assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-  'accessibilityLabel="Voir le détail de mes Free"',
-  '>FREE</Text>',
-], 'Owner metrics order PLUS -> Abonnés -> Reprises -> FREE');
+], 'Owner metrics order PLUS -> Abonnés -> Reprises');
+if (ownerMetrics.includes('topMetricFreeHero') || ownerMetrics.includes('>FREE</Text>')) {
+  throw new Error('Owner FREE must appear only beside Utilisateur/Créateur');
+}
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
@@ -124,6 +124,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE aligned below');
+console.log('owner: profile type + FREE + Battle in identity row; PLUS/Abonnés/Reprises aligned below');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');
