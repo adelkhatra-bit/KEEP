@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.26",
+  "version": "2026-10-01.27",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -452,7 +452,7 @@
     "compactDrawerMinHeightPx": null,
     "compactDrawerCenteredWhenKeyboardClosed": false,
     "compactDrawerAnchoredAboveKeyboard": false,
-    "nativeKeyboardInsetStrategy": "max-reported-height-and-screenY-cover",
+    "nativeKeyboardInsetStrategy": "KeyboardAvoidingView-native; visualViewport-web; keyboard-events-only-for-scroll-follow",
     "incomingOtherThreadMustNotReplaceOpenConversation": true,
     "groupInvitesRealtime": true,
     "privateRoomRealtimeRls": "active-members-only-plus-own-invite",
@@ -467,7 +467,12 @@
       "LOW"
     ],
     "verticalPlacementDefault": "MIDDLE",
-    "placementPersistsAcrossSelectedSurfaces": true
+    "placementPersistsAcrossSelectedSurfaces": true,
+    "nativeKeyboardAvoidingView": true,
+    "nativeKeyboardManualBottomInset": false,
+    "drawerClampPersistsToSupabase": true,
+    "drawerOpensImmediatelyOnTap": true,
+    "latestIncomingMessageForcesBottomEvenWhenBrowsingHistory": true
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
