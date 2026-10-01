@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.14",
+  "version": "2026-10-01.10",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -370,21 +370,15 @@
     "alreadyOwnedRecipientMustNeverBeCharged": true
   },
   "chatExperience": {
-    "notificationsSurface": true,
-    "directLauncherInNotifications": true,
-    "placementConfigLocation": "Notifications",
-    "allowedSurfaces": [
-      "LISTEN",
-      "DISCOVER",
-      "PLAYLISTS",
-      "PARTIES",
-      "PROFILE",
-      "NOTIFICATIONS"
-    ],
-    "movable": true,
-    "sideChoices": [
-      "left",
-      "right"
-    ]
+    "status": "LEGACY_UI_DECOMMISSIONED_PENDING_NEW_MESSENGER",
+    "legacyGlobalDockMounted": false,
+    "legacySettingsVisible": false,
+    "legacyNotificationOpenAction": false,
+    "notificationsSurface": false,
+    "directLauncherInNotifications": false,
+    "placementConfigLocation": null,
+    "allowedSurfaces": [],
+    "movable": false,
+    "sideChoices": []
   }
 }
