@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import FloatingGlobalChat from '../components/FloatingGlobalChat';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -2039,6 +2040,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.editHint}>Modifiable à tout moment plus tard, morceau par morceau, dans « Mes musiques ».</Text>
         </View></View>
       </Modal>
+      <FloatingGlobalChat />
     </SafeAreaView>
   );
 }
