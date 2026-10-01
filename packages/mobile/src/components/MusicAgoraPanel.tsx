@@ -568,6 +568,10 @@ export default function MusicAgoraPanel({
                 </View>
               ) : message.viewerUnlocked ? (
                 <View style={s.offerUnlocked}><Text style={s.offerUnlockedText}>✓ DÉBLOQUÉE</Text></View>
+              ) : message.paymentMode === 'MONEY' && Platform.OS !== 'web' ? (
+                <View style={[s.keepMusic, s.keepMusicDisabled]} accessibilityLabel="Paiement en euros indisponible dans l’application">
+                  <Text style={s.keepMusicText}>€ INDISPONIBLE SUR L’APP</Text>
+                </View>
               ) : (
                 <TouchableOpacity
                   style={s.keepMusic}
@@ -652,11 +656,11 @@ export default function MusicAgoraPanel({
             disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
             onPress={() => setSharePaymentMode('FREE')}
           ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
-          <TouchableOpacity
+          {Platform.OS === 'web' ? <TouchableOpacity
             style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
             disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
             onPress={() => setSharePaymentMode('MONEY')}
-          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity>
+          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
         </View>
         {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
           <View style={s.priceChoices}>
@@ -679,7 +683,7 @@ export default function MusicAgoraPanel({
             <Text style={s.priceUnit}>FREE</Text>
           </View>
         </View> : null}
-        {sharePaymentMode === 'MONEY' ? <View style={s.priceBlock}>
+        {sharePaymentMode === 'MONEY' && Platform.OS === 'web' ? <View style={s.priceBlock}>
           <View style={s.priceChoices}>
             {[50,100,200,300,500,1000].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareMoneyPriceCents===amount&&s.priceChipOn]} onPress={() => { setShareMoneyPriceCents(amount); setShareMoneyPriceInput(String(amount/100)); }}><Text style={s.priceChipText}>{(amount/100).toFixed(amount % 100 ? 2 : 0)}€</Text></TouchableOpacity>)}
           </View>
@@ -700,7 +704,6 @@ export default function MusicAgoraPanel({
             />
             <Text style={s.priceUnit}>€</Text>
           </View>
-          {Platform.OS !== 'web' ? <Text style={s.paymentStoreNote}>Paiement € à finaliser sur Loki Web tant que l’IAP Store n’est pas validé.</Text> : null}
         </View> : null}
       </View> : null}
       <View style={s.quickReactions}>
