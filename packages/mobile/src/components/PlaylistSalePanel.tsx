@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
+import { createAuthService } from '../services/authService';
+import { createProfileService } from '../services/profileService';
+import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, markPlaylistSalePaid, offerPlaylistSaleRequestSelectionWithFree, PlaylistOfferedTrack, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, updateOfferPaymentMode } from '../services/playlistSaleService';
@@ -83,6 +87,57 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const [realSessionUserId, setRealSessionUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let live = true;
+    const auth = createAuthService(supabase);
+    const profiles = createProfileService(supabase);
+
+    const reconcile = async () => {
+      const session = await auth.getCurrentSession().catch(() => null);
+      if (!live) return;
+      if (!session || session.isAnonymous) {
+        setRealSessionUserId(null);
+        return;
+      }
+      setRealSessionUserId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+        try {
+          const ownProfile = await profiles.loadOrCreateOwnProfile(session);
+          if (live) useUserStore.getState().setUser(ownProfile);
+        } catch {}
+      }
+    };
+
+    void reconcile();
+    const offFocus = navigation?.addListener?.('focus', () => { void reconcile(); });
+    const offAuth = auth.onSessionChange((session) => {
+      if (!live) return;
+      if (!session || session.isAnonymous) {
+        setRealSessionUserId(null);
+        return;
+      }
+      setRealSessionUserId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+      }
+    });
+
+    return () => {
+      live = false;
+      offFocus?.();
+      offAuth();
+    };
+  }, [navigation]);
+
+  const effectiveAuthenticatedUserId = realSessionUserId
+    || (!isLocalGuest && !isDemoMode ? user?.id ?? null : null);
+  const accountRequired = !effectiveAuthenticatedUserId;
   const [access, setAccess] = useState<PlaylistSaleAccess | null>(null);
   const [offers, setOffers] = useState<PlaylistSaleOffer[]>([]);
   const [sales, setSales] = useState<PlaylistSaleTransaction[]>([]);
@@ -318,7 +373,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   };
 
   const loadData = async () => {
-    if (!user || isLocalGuest || isDemoMode) {
+    if (accountRequired) {
       setAccess(null);
       setOffers([]);
       setSales([]);
@@ -385,7 +440,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
 
   useEffect(() => {
     void loadData();
-  }, [user?.id, isLocalGuest, isDemoMode]);
+  }, [accountRequired, user?.id]);
 
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
@@ -510,21 +565,34 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     );
   }
 
-  if (!user) {
+  if (accountRequired || !user) {
     return (
       <SafeAreaView style={s.container}>
-        <View style={s.empty}>
-          <Text style={s.emptyText}>Crée un compte Loki Music pour publier tes collections exclusives.</Text>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour">
+            <Text style={s.back}>‹</Text>
+          </TouchableOpacity>
+          <View style={s.headerText}>
+            <Text style={s.title}>◆ Pépites</Text>
+            <Text style={s.subtitle}>Collections exclusives</Text>
+          </View>
+          <View style={s.headerSpacer} />
         </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (isLocalGuest || isDemoMode) {
-    return (
-      <SafeAreaView style={s.container}>
         <View style={s.empty}>
-          <Text style={s.emptyText}>Mode invité : connecte-toi pour publier une collection exclusive.</Text>
+          <View style={s.guestGateCard}>
+            <Text style={s.guestGateEyebrow}>MODE ESSAI</Text>
+            <Text style={s.guestGateTitle}>Publier une Pépite</Text>
+            <Text style={s.guestGateText}>Tu peux écouter gratuitement. Pour publier une collection exclusive, recevoir des FREE ou un paiement et utiliser les fonctions vendeur, connecte-toi ou crée ton compte.</Text>
+            <TouchableOpacity style={s.guestGatePrimary} onPress={() => useAccountGateStore.getState().requestAccount('login')}>
+              <Text style={s.guestGatePrimaryText}>SE CONNECTER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.guestGateSecondary} onPress={() => useAccountGateStore.getState().requestAccount('create')}>
+              <Text style={s.guestGateSecondaryText}>CRÉER UN COMPTE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.guestGateBack} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}>
+              <Text style={s.guestGateBackText}>‹ RETOUR</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -1137,6 +1205,16 @@ const s = StyleSheet.create({
   emptyBoxText: { color: colors.textMuted, fontSize: 12, fontWeight: '700', marginTop: spacing.sm, textAlign: 'center' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   emptyText: { color: colors.textMuted, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  guestGateCard:{width:'100%',maxWidth:420,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:18,gap:10},
+  guestGateEyebrow:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},
+  guestGateTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
+  guestGateText:{color:colors.textSecondary,fontSize:12,lineHeight:18},
+  guestGatePrimary:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:4},
+  guestGatePrimaryText:{color:'#fff',fontSize:12,fontWeight:'900'},
+  guestGateSecondary:{minHeight:44,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  guestGateSecondaryText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  guestGateBack:{minHeight:42,alignItems:'center',justifyContent:'center'},
+  guestGateBackText:{color:colors.textMuted,fontSize:11,fontWeight:'900'},
   accessCard: { borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
   accessCardUnlocked: { borderColor: colors.success, backgroundColor: colors.successSoft },
   accessEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
