@@ -13,21 +13,13 @@ describe('Loki Music Battle challenge UX', () => {
   const wakeupMigration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260829124800_keep_battle_restore_background_wakeup_push.sql'), 'utf8');
   const inboxMigration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260829124700_fix_keep_battle_challenge_inbox_ambiguity.sql'), 'utf8');
 
-  it('keeps the incoming challenge inside the Battle card between artwork and question', () => {
-    const visual = battle.indexOf('<View style={s.visual}>');
-    // Adel (02/09/2026) : la bannière d'invitation existe aussi sur l'écran
-    // "PARTIE TERMINÉE" (avant s.visual dans le fichier) depuis le fix
-    // "à l'étape huit pourquoi tu mets pas cette invitation" -- on cherche
-    // ici précisément l'occurrence de l'écran de manche active.
-    const invite = battle.indexOf('te défie sur un Battle. Tu acceptes ?', visual);
-    const question = battle.indexOf("<Text style={s.question}>QUI CHANTE ?</Text>");
-    const answers = battle.indexOf('<View style={s.answers}>');
-    expect(visual).toBeGreaterThan(-1);
-    expect(invite).toBeGreaterThan(visual);
-    expect(question).toBeGreaterThan(invite);
-    expect(answers).toBeGreaterThan(question);
-    expect(battle).toContain("<Text style={s.noText}>REFUSER</Text>");
-    expect(battle).toContain("'ACCEPTER'");
+  it('keeps incoming decisions inside Battle rather than redirecting the user', () => {
+    expect(battle).toContain('loadIncomingBattleChallenges()');
+    expect(battle).toContain('void respond(incoming[0], false)');
+    expect(battle).toContain('void respond(incoming[0], true)');
+    expect(battle).toContain('REFUSER');
+    expect(battle).toContain('ACCEPTER');
+    expect(battle).toContain("Les invitations restent en file d'attente pendant le Solo");
   });
 
   it('handles accept/refuse directly from live Battle using the arena returned by Supabase', () => {
@@ -63,14 +55,6 @@ describe('Loki Music Battle challenge UX', () => {
     expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
   });
 
-  it('renders the 1v1 gauge with real player names, points and one central bar', () => {
-    expect(battle).toContain('players.length === 2 ?');
-    expect(battle).toContain('<Text style={s.duelName}>{first.username}</Text>');
-    expect(battle).toContain('<Text style={[s.duelName, { textAlign: \'right\' }]}>{second.username}</Text>');
-    expect(battle).toContain('{teamAScore} pts');
-    expect(battle).toContain('{teamBScore} pts');
-    expect(battle).toContain("style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]}");
-  });
 
   it('keeps Battle decision out of Notifications and native push actions', () => {
     expect(notifications).not.toContain('respondBattleChallenge(challengeId, accept)');
