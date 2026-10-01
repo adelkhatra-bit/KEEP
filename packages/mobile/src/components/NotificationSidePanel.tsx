@@ -79,7 +79,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [chatSaving, setChatSaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotifications, setChatNotifications] = useState(true);
-  const [chatVoice, setChatVoice] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['PROFILE']);
   const [chatSide, setChatSide] = useState<'left' | 'right'>('right');
 
@@ -130,7 +129,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, nextSurfaces);
       setChatEnabled(settings.homeEnabled);
       setChatNotifications(settings.notificationsEnabled);
-      setChatVoice(settings.voiceAnnouncementsEnabled);
+      setChatVoiceAnnouncements(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : nextSurfaces);
       setChatSide(settings.side);
       useGlobalChatStore.getState().setSide(settings.side);
@@ -287,21 +286,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <View style={s.chatSwitchRow}>
                   <Text style={s.chatSwitchLabel}>Alertes nouveaux messages</Text>
                   <Switch value={chatNotifications} disabled={chatSaving || !chatEnabled} onValueChange={(value) => void persistChat(true, value, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
-                </View>
-                <View style={s.chatSwitchRow}>
-                  <View style={{flex:1,minWidth:0,paddingRight:10}}>
-                    <Text style={s.chatSwitchLabel}>Annonce vocale « Message de @pseudo »</Text>
-                    <Text style={s.chatSwitchHint}>Optionnelle. Le contenu privé du message n’est jamais lu.</Text>
-                  </View>
-                  <Switch
-                    value={chatVoice}
-                    disabled={chatSaving || !chatEnabled || !chatNotifications}
-                    onValueChange={(value) => {
-                      setChatVoice(value);
-                      void saveMusicAgoraVoiceAnnouncements(value).then(setChatVoice).catch(() => setChatVoice(!value));
-                    }}
-                    trackColor={{ false: colors.border, true: colors.keep }}
-                  />
                 </View>
                 <Text style={s.chatSectionLabel}>OÙ L’AFFICHER</Text>
                 <View style={s.chatSurfaceGrid}>
