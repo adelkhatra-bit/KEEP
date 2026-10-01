@@ -658,8 +658,8 @@ export default function MusicSwipeDeckModal({
             </View>
             <Text style={s.keepSuccessBody}>
               {keepSuccess?.visibility === 'PUBLIC'
-                ? 'Le morceau est maintenant visible sur ton profil.'
-                : 'Le morceau est gardé en privé, seulement pour toi.'}
+                ? 'Bravo, tu fais grandir ta communauté. Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.'
+                : 'Le morceau est gardé en privé, seulement pour toi. Rien n’est publié et aucune notification de nouveau morceau n’est envoyée à tes abonnés.'}
             </Text>
             <TouchableOpacity style={s.keepSuccessButton} onPress={() => { void continueAfterKeepSuccess(); }} accessibilityLabel="Continuer vers le morceau suivant">
               <Text style={s.keepSuccessButtonText}>CONTINUER</Text>
