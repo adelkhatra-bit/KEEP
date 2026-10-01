@@ -433,6 +433,28 @@ export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void):
   };
 }
 
+export function subscribeMusicAgoraGroup(groupId: string, onChange: () => void): () => void {
+  if (!supabase || !groupId) return () => {};
+  const client = supabase;
+  const channel = client
+    .channel(`keep-agora-group:${groupId}:${Date.now()}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'music_agora_group_messages', filter: `group_id=eq.${groupId}` },
+      () => onChange(),
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'music_agora_group_members', filter: `group_id=eq.${groupId}` },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
 export async function postMusicAgoraMessage(
   roomSlug: string,
   body: string,
