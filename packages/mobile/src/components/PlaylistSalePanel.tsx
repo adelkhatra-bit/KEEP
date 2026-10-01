@@ -13,8 +13,9 @@ import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { splitSaleOffersByStatus } from '../services/saleListPaging';
 import { loadOwnPersistedKeeps } from '../services/keepMusicCoreRecognition';
-import { getPayoutLinkForProfile, setMyPayoutLink } from '../services/payoutLinkService';
+import { getMyPayoutMethods, setMyPayoutLink } from '../services/payoutLinkService';
 import type { CanonicalTrack } from '@keep/music';
+import PayPalQrPayoutControl from './PayPalQrPayoutControl';
 
 type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
@@ -167,6 +168,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [collectionCartFreePrice, setCollectionCartFreePrice] = useState<number | null>(null);
   const [collectionCartCurrencyCode, setCollectionCartCurrencyCode] = useState<string>(() => currencyForCountry((user as any)?.countryCode));
   const [collectionCartPayoutLink, setCollectionCartPayoutLink] = useState('');
+  const [collectionCartPayoutQrUrl, setCollectionCartPayoutQrUrl] = useState('');
   const visibleCollectionCartTracks = useMemo(() => {
     const needle = collectionCartQuery.trim().toLocaleLowerCase('fr-FR');
     const rows = needle
@@ -226,6 +228,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     setCollectionCartPriceCents(null);
     setCollectionCartFreePrice(null);
     setCollectionCartCurrencyCode(currencyForCountry((user as any)?.countryCode));
+    setCollectionCartPayoutQrUrl('');
   };
 
   const openCollectionCart = async () => {
@@ -247,13 +250,14 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       const [keeps, offered, payout] = await Promise.all([
         loadOwnPersistedKeeps(1000),
         loadMyOfferedTrackIds(),
-        user?.id ? getPayoutLinkForProfile(user.id) : Promise.resolve(''),
+        user?.id ? getMyPayoutMethods() : Promise.resolve({ link: '', qrUrl: '' }),
       ]);
       const byTrack = new Map<string, CanonicalTrack>();
       keeps.filter((row) => !row.sourceProfileId).forEach((row) => byTrack.set(row.track.id, row.track));
       setCollectionCartTracks(Array.from(byTrack.values()).reverse());
       setCollectionCartOffered(offered);
-      setCollectionCartPayoutLink(payout || '');
+      setCollectionCartPayoutLink(payout.link || '');
+      setCollectionCartPayoutQrUrl(payout.qrUrl || '');
     } catch (e: any) {
       Alert.alert('Pépites', e?.message || 'Impossible de charger tes morceaux pour le moment.');
       setCollectionCartOpen(false);
@@ -320,30 +324,32 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     }
     if (collectionCartPaymentMode === 'MONEY') {
       const clean = collectionCartPayoutLink.trim();
-      if (!clean) {
-        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.me avant de publier.');
+      if (!clean && !collectionCartPayoutQrUrl.trim()) {
+        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.Me ou ton QR PayPal avant de publier.');
         return;
       }
-      let paypalOk = false;
-      try {
-        const url = new URL(clean);
-        const host = url.hostname.toLowerCase().replace(/^www\./, '');
-        paypalOk = url.protocol === 'https:' && (host === 'paypal.me' || host === 'paypal.com' || host.endsWith('.paypal.com'));
-      } catch {}
-      if (!paypalOk) {
-        Alert.alert('Lien PayPal non reconnu', 'Utilise un lien sécurisé PayPal, par exemple https://paypal.me/tonpseudo.');
-        return;
-      }
-      setBusy(true);
-      try {
-        const saved = await setMyPayoutLink(clean);
-        setCollectionCartPayoutLink(saved || clean);
-      } catch (e: any) {
-        Alert.alert('Paiement', e?.message || 'Impossible d’enregistrer ton lien de paiement.');
+      if (clean) {
+        let paypalOk = false;
+        try {
+          const url = new URL(clean);
+          const host = url.hostname.toLowerCase().replace(/^www\./, '');
+          paypalOk = url.protocol === 'https:' && (host === 'paypal.me' || host === 'paypal.com' || host.endsWith('.paypal.com'));
+        } catch {}
+        if (!paypalOk) {
+          Alert.alert('Lien PayPal non reconnu', 'Utilise un lien sécurisé PayPal, par exemple https://paypal.me/tonpseudo, ou retire le lien et utilise ton QR.');
+          return;
+        }
+        setBusy(true);
+        try {
+          const saved = await setMyPayoutLink(clean);
+          setCollectionCartPayoutLink(saved || clean);
+        } catch (e: any) {
+          Alert.alert('Paiement', e?.message || 'Impossible d’enregistrer ton lien de paiement.');
+          setBusy(false);
+          return;
+        }
         setBusy(false);
-        return;
       }
-      setBusy(false);
     }
     setCollectionCartStep('PUBLISH');
   };
@@ -758,6 +764,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                           <TouchableOpacity style={s.collectionCartSecondary} onPress={() => { void Linking.openURL('https://www.paypal.com/paypalme/'); }}><Text style={s.collectionCartSecondaryText}>OUVRIR PAYPAL.ME</Text></TouchableOpacity>
                           <TouchableOpacity style={s.collectionCartSecondary} disabled={!collectionCartPayoutLink.trim() || busy} onPress={async () => { try { const saved=await setMyPayoutLink(collectionCartPayoutLink.trim()); setCollectionCartPayoutLink(saved || collectionCartPayoutLink.trim()); Alert.alert('Paiement','Lien enregistré. Il sera prérempli la prochaine fois.'); } catch(e:any) { Alert.alert('Paiement',e?.message || 'Impossible d’enregistrer le lien.'); } }}><Text style={s.collectionCartSecondaryText}>ENREGISTRER PAYPAL</Text></TouchableOpacity>
                         </View>
+                        {user?.id ? <PayPalQrPayoutControl profileId={user.id} qrUrl={collectionCartPayoutQrUrl} onChange={setCollectionCartPayoutQrUrl} disabled={busy} /> : null}
+                        <Text style={s.collectionCartPayoutHint}>PayPal.Me est conseillé sur le même téléphone. Le QR reste disponible comme solution de secours.</Text>
                       </View>
                     ) : null}
                     <View style={s.collectionCartFooter}>
@@ -1225,7 +1233,7 @@ const s = StyleSheet.create({
   collectionCartFieldLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,marginTop:3},collectionCartInput:{minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12,fontWeight:'700'},
   collectionCartModeRow:{flexDirection:'row',gap:8},collectionCartMode:{flex:1,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionCartModeOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},collectionCartModeText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
   collectionCartPresetGrid:{flexDirection:'row',flexWrap:'wrap',gap:7},collectionCartPreset:{minWidth:82,minHeight:42,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionCartPresetOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)'},collectionCartPresetText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
-  collectionCartPayout:{gap:7},collectionCartPayoutActions:{flexDirection:'row',gap:7,flexWrap:'wrap'},collectionCartSecondary:{minHeight:42,paddingHorizontal:11,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},collectionCartSecondaryText:{color:colors.textPrimary,fontSize:8,fontWeight:'900'},
+  collectionCartPayout:{gap:7},collectionCartPayoutHint:{color:colors.textMuted,fontSize:9,lineHeight:14,marginTop:8},collectionCartPayoutActions:{flexDirection:'row',gap:7,flexWrap:'wrap'},collectionCartSecondary:{minHeight:42,paddingHorizontal:11,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},collectionCartSecondaryText:{color:colors.textPrimary,fontSize:8,fontWeight:'900'},
   collectionCartBackStep:{minHeight:44,paddingHorizontal:14,borderRadius:22,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},collectionCartBackStepText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},collectionCartReview:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:14,gap:5},collectionCartReviewTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},collectionCartReviewLine:{color:colors.keep,fontSize:12,fontWeight:'900'},collectionCartReviewWarn:{color:'#FFD166',fontSize:10,lineHeight:15,fontWeight:'800',marginTop:4},collectionCartPublish:{minHeight:46,paddingHorizontal:18,borderRadius:23,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},collectionCartPublishText:{color:colors.background,fontSize:10,fontWeight:'900',letterSpacing:.5},
   centerView: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 200 },
   errorBox: { borderRadius: radius.lg, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.pass, padding: spacing.lg, alignItems: 'center' },
