@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Localization from 'expo-localization';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -38,7 +38,6 @@ function localDisplayName(kind: 'region' | 'language', code: string, fallback: s
 
 export default function MusicTasteQuestionnaire({ onDone, onLater, compact = false }: Props) {
   const [tab, setTab] = useState<Tab>('STYLES');
-  const [query, setQuery] = useState('');
   const [genres, setGenres] = useState<MusicGenreOption[]>([]);
   const [countries, setCountries] = useState<MusicCountryOption[]>([]);
   const [languages, setLanguages] = useState<MusicLanguageOption[]>([]);
@@ -47,7 +46,6 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [catalogBusy, setCatalogBusy] = useState(false);
 
   const detectedTag = useMemo(() => detectedDeviceLanguageTag(), []);
   const detectedCountry = useMemo(() => {
@@ -65,11 +63,16 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
           searchMusicCountries('', 260).catch(() => []),
         ]);
         if (!live) return;
-        if (state) {
-          setSelectedGenres(state.favoriteGenres);
-          setSelectedCountries(state.countryCodes);
-          setSelectedLanguages(state.languageCodes);
-        }
+        const shortLang = (detectedTag || '').split('-')[0].toLowerCase();
+        const aliases: Record<string,string> = { fr:'fra', en:'eng', es:'spa', pt:'por', de:'deu', it:'ita', ar:'ara', tr:'tur', ru:'rus', zh:'zho', ja:'jpn', ko:'kor', hi:'hin' };
+        const wanted = aliases[shortLang] || shortLang;
+        const detectedLanguage = languageRows.find((row) => row.code === wanted || row.code === shortLang)?.code || '';
+        const savedGenres = state?.favoriteGenres ?? [];
+        const savedCountries = state?.countryCodes ?? [];
+        const savedLanguages = state?.languageCodes ?? [];
+        setSelectedGenres(savedGenres);
+        setSelectedCountries(savedCountries.length ? savedCountries : (detectedCountry ? [detectedCountry] : []));
+        setSelectedLanguages(savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : []));
         setGenres(genreRows);
         setLanguages(languageRows);
         setCountries(countryRows);
@@ -77,21 +80,6 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
     })();
     return () => { live = false; };
   }, []);
-
-  useEffect(() => {
-    if (!query.trim()) return undefined;
-    let live = true;
-    const timer = setTimeout(() => {
-      setCatalogBusy(true);
-      const task = tab === 'STYLES'
-        ? searchMusicGenres(query, 140).then(setGenres)
-        : tab === 'LANGUAGES'
-          ? searchMusicLanguages(query, 220).then(setLanguages)
-          : searchMusicCountries(query, 260).then(setCountries);
-      task.catch(() => {}).finally(() => { if (live) setCatalogBusy(false); });
-    }, 260);
-    return () => { live = false; clearTimeout(timer); };
-  }, [query, tab]);
 
   const toggle = (value: string, current: string[], setter: React.Dispatch<React.SetStateAction<string[]>>, max: number) => {
     setter((rows) => {
@@ -102,15 +90,6 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       }
       return [...rows, value];
     });
-  };
-
-  const selectDetected = () => {
-    if (detectedCountry && !selectedCountries.includes(detectedCountry)) setSelectedCountries((rows) => [...rows, detectedCountry].slice(0, 20));
-    const shortLang = (detectedTag || '').split('-')[0].toLowerCase();
-    const aliases: Record<string,string> = { fr:'fra', en:'eng', es:'spa', pt:'por', de:'deu', it:'ita', ar:'ara', tr:'tur', ru:'rus', zh:'zho', ja:'jpn', ko:'kor', hi:'hin' };
-    const wanted = aliases[shortLang] || shortLang;
-    const match = languages.find((row) => row.code === wanted || row.code === shortLang);
-    if (match && !selectedLanguages.includes(match.code)) setSelectedLanguages((rows) => [...rows, match.code].slice(0, 20));
   };
 
   const confirm = async () => {
@@ -132,7 +111,7 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   const shortcutRows = FAMILY_SHORTCUTS.map((label) => ({ label, key: label.toLowerCase() }));
 
   const body = tab === 'STYLES' ? <>
-    <Text style={s.helper}>Choisis tes univers. Tu peux aussi rechercher n’importe quel sous-genre : la liste mondiale est synchronisée automatiquement.</Text>
+    <Text style={s.helper}>Tout est déjà prêt : touche les styles qui te ressemblent. Les familles et sous-genres disponibles sont chargés automatiquement.</Text>
     <View style={s.chips}>{shortcutRows.map((row) => {
       const on = selectedGenres.some((g) => g.toLowerCase() === row.key);
       return <TouchableOpacity key={row.key} style={[s.chip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}><Text style={[s.chipText,on&&s.chipTextOn]}>{row.label}</Text></TouchableOpacity>;
@@ -146,14 +125,14 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       </TouchableOpacity>;
     })}</View>
   </> : tab === 'LANGUAGES' ? <>
-    <Text style={s.helper}>Sélectionne les langues dans lesquelles tu veux découvrir de la musique. Aucun choix = toutes les langues.</Text>
+    <Text style={s.helper}>Ta langue d’appareil est déjà pré-sélectionnée. Touche seulement les autres langues que tu veux ajouter.</Text>
     <View style={s.chips}>{languages.map((row) => {
       const on = selectedLanguages.includes(row.code);
       const label = localDisplayName('language',row.code,row.name);
       return <TouchableOpacity key={row.code} style={[s.chip,on&&s.chipOn]} onPress={() => toggle(row.code,selectedLanguages,setSelectedLanguages,20)}><Text style={[s.chipText,on&&s.chipTextOn]}>{label}</Text></TouchableOpacity>;
     })}</View>
   </> : <>
-    <Text style={s.helper}>Choisis un ou plusieurs marchés musicaux. Aucun pays = Monde entier.</Text>
+    <Text style={s.helper}>Ton pays détecté est déjà pré-sélectionné. Ajoute d’autres pays si tu veux élargir les découvertes.</Text>
     <View style={s.chips}>{countries.map((row) => {
       const on = selectedCountries.includes(row.code);
       const label = localDisplayName('region',row.code,row.name);
@@ -168,9 +147,9 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       <View style={s.pulseOrb}><Text style={s.pulseOrbText}>◉</Text></View>
       <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE · POUR TOI</Text><Text style={s.title}>Construis ton univers musical</Text><Text style={s.subtitle}>Styles + langues + pays. Plus tu précises, plus les trouvailles deviennent pertinentes.</Text></View>
     </View>
-    <TouchableOpacity style={s.detected} onPress={selectDetected} accessibilityRole="button"><Text style={s.detectedTitle}>DÉTECTION APPAREIL</Text><Text style={s.detectedText}>{detectedTag || 'Langue inconnue'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · toucher pour ajouter</Text></TouchableOpacity>
-    <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>{setTab(key);setQuery('');}}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
-    <View style={s.searchWrap}><Text style={s.searchIcon}>⌕</Text><TextInput value={query} onChangeText={setQuery} placeholder={tab==='STYLES'?'Rechercher un style / sous-genre':tab==='LANGUAGES'?'Rechercher une langue':'Rechercher un pays'} placeholderTextColor={colors.textMuted} style={s.search} autoCorrect={false}/>{catalogBusy ? <ActivityIndicator size="small" color={colors.keep}/> : null}</View>
+    <View style={s.detected}><Text style={s.detectedTitle}>PRÉREMPLI AUTOMATIQUEMENT</Text><Text style={s.detectedText}>{detectedTag || 'Langue appareil'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · modifie uniquement ce que tu veux</Text></View>
+    <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>setTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
+    <Text style={s.readyHint}>Aucun texte à saisir · tout se choisit en un toucher</Text>
     <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{body}</ScrollView>
     <View style={s.footer}>
       <Text style={s.summary}>{selectedGenres.length + ' style' + (selectedGenres.length>1?'s':'') + ' · ' + (selectedLanguages.length || 'toutes') + ' langue' + (selectedLanguages.length===1?'':'s') + ' · ' + (selectedCountries.length || 'monde')}</Text>
@@ -194,7 +173,7 @@ const s=StyleSheet.create({
   eyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2},title:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:3},subtitle:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:5},
   detected:{marginHorizontal:14,marginTop:12,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:14,paddingTop:12},tab:{flex:1,minHeight:36,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:4},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:colors.textMuted,fontSize:8,fontWeight:'900'},tabTextOn:{color:'#FFF'},
-  searchWrap:{margin:12,marginBottom:4,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',paddingHorizontal:12,gap:8},searchIcon:{color:colors.primaryLight,fontSize:17,fontWeight:'900'},search:{flex:1,color:colors.textPrimary,fontSize:12},
+  readyHint:{marginHorizontal:14,marginTop:12,color:colors.textMutedGrey,fontSize:10,fontWeight:'800',textAlign:'center'},
   scroll:{maxHeight:380},scrollContent:{padding:14,paddingBottom:18},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:7},chip:{minHeight:34,maxWidth:'100%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:5},catalogChip:{maxWidth:210},chipOn:{backgroundColor:colors.keep,borderColor:colors.keep},chipText:{maxWidth:165,color:colors.textPrimary,fontSize:11,fontWeight:'800'},chipTextOn:{color:colors.black,fontWeight:'900'},countMini:{color:colors.textMuted,fontSize:8,fontWeight:'900'},countMiniOn:{color:'rgba(0,0,0,.65)'},
   footer:{padding:14,borderTopWidth:1,borderTopColor:colors.border,gap:8},summary:{color:colors.textMuted,fontSize:10,textAlign:'center'},footerActions:{flexDirection:'row',alignItems:'stretch',gap:8},footerAction:{flex:1,minWidth:0},primary:{minHeight:48,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},disabled:{opacity:.6},primaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.4,textAlign:'center'},cancel:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10},cancelText:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},reminderText:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},later:{minHeight:36,alignItems:'center',justifyContent:'center'},laterText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
