@@ -2214,3 +2214,8 @@ Adel confirme visuellement : le compteur FREE doit être aligné avec la pastill
 
 ## [2026-10-01T00:25:00Z] chatgpt — crédit mensuel + notification
 Premier crédit de fin de mois observé en production à 00:00 UTC. Ajout d'une notification automatique idempotente MONTHLY_FREE_CREDIT, avec montant et formule réels issus du grand livre mensuel. Le push worker existant la distribuera comme notification système. Message : remerciement + slogan « garde ce qui te ressemble ». Aucun changement des règles listen/recognize/PASS/KEEP.
+
+
+## [2026-10-01T00:35:00Z] chatgpt — notifications : doublon supprimé + animation haut unique
+
+Retour Adel : la notification de crédit mensuel est apparue en double. Cause côté présentation trouvée : sur web, pushNotificationService avait son propre abonnement Realtime + toast DOM alors que GlobalNotificationBanner écoute déjà exactement la même table. Les deux couches pouvaient afficher le même INSERT. Correction : GlobalNotificationBanner devient l'unique présentateur in-app sur web et natif foreground. Déduplication renforcée par notificationSemanticKey (paiement/crédit/événement/etc.) pendant 30 min, et le centre Notifications déduplique aussi les INSERT temps réel. Toutes les bannières in-app entrent depuis le haut et repartent vers le haut ; swipe haut conservé. Aucun App.tsx / Navigation.tsx / barre 5 onglets modifié.

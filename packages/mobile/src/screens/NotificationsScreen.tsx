@@ -158,7 +158,9 @@ export default function NotificationsScreen({ navigation }: any) {
     const unsubscribeFocus = navigation?.addListener?.('focus', () => { void refresh(); });
     const unsubscribeRealtime = subscribeToNotifications(user.id, (notification) => {
       if (cancelled) return;
-      setItems((current) => [notification, ...current.filter((item) => item.id !== notification.id)]);
+      // Même règle que la bannière globale : une seule occurrence visuelle
+      // par événement métier, y compris si deux INSERT distincts arrivent.
+      setItems((current) => dedupeNotifications([notification, ...current.filter((item) => item.id !== notification.id)]));
     });
 
     return () => {

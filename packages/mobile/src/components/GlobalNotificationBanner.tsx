@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, AppState, Image, Modal, PanResponder, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { KeepNotification, loadNotificationPreferences, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, loadNotificationPreferences, markNotificationRead, notificationSemanticKey, subscribeToNotifications } from '../services/notificationService';
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
@@ -61,7 +61,7 @@ export default function GlobalNotificationBanner() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
-  const recentContentKeys = useRef(new Map<string, number>());
+  const recentSemanticKeys = useRef(new Map<string, number>());
   // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
   // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
   // remonter vers le haut" -- remplace l'entrée/sortie latérale (translateX)
@@ -156,6 +156,7 @@ export default function GlobalNotificationBanner() {
     if (!user || isDemoMode || isLocalGuest) {
       notificationsEnabled.current = false;
       seenNotificationIds.current.clear();
+      recentSemanticKeys.current.clear();
       setCurrent(null);
       return undefined;
     }
@@ -186,18 +187,18 @@ export default function GlobalNotificationBanner() {
       }
 
 
-      // Realtime reconnects must never replay the same visual notification.
+      // Une notification visuelle = un événement métier. L'id protège les
+      // reconnexions Realtime ; la clé sémantique protège aussi deux lignes DB
+      // différentes produites par erreur pour le même paiement/crédit/événement.
       if (seenNotificationIds.current.has(notification.id)) return;
       seenNotificationIds.current.add(notification.id);
-      // 29/09/2026 : deux lignes différentes au contenu identique (double
-      // déclenchement serveur) ne montrent qu'une bannière en 2 minutes.
-      const contentKey = `${notification.type}|${notification.title}|${notification.body}`;
-      const lastShown = recentContentKeys.current.get(contentKey);
-      if (lastShown && Date.now() - lastShown < 2 * 60 * 1000) return;
-      recentContentKeys.current.set(contentKey, Date.now());
-      if (recentContentKeys.current.size > 60) {
-        const oldestKey = recentContentKeys.current.keys().next().value;
-        if (oldestKey) recentContentKeys.current.delete(oldestKey);
+      const semanticKey = notificationSemanticKey(notification);
+      const lastShown = recentSemanticKeys.current.get(semanticKey);
+      if (lastShown && Date.now() - lastShown < 30 * 60 * 1000) return;
+      recentSemanticKeys.current.set(semanticKey, Date.now());
+      if (recentSemanticKeys.current.size > 120) {
+        const oldestKey = recentSemanticKeys.current.keys().next().value;
+        if (oldestKey) recentSemanticKeys.current.delete(oldestKey);
       }
       if (seenNotificationIds.current.size > 80) {
         const oldest = seenNotificationIds.current.values().next().value;

@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
@@ -21,12 +21,12 @@ function getNativeNotifications(): NotificationsModule {
 }
 
 /**
- * Enregistrement du token push réel + pont temps réel web.
+ * Enregistrement du token push natif.
  *
  * - iOS/Android natifs : token Expo Push, afin qu'une notification Loki puisse
  *   apparaître même lorsque l'utilisateur est dans TikTok, Snapchat, etc.
- * - Web : on écoute `notifications` via Supabase Realtime et on affiche un
- *   petit popup Loki tant que la page est ouverte.
+ * - Web : aucune deuxième écoute temps réel ici. GlobalNotificationBanner est
+ *   l'unique présentateur des notifications in-app, pour empêcher tout doublon.
  * - Détection musicale native : catégorie interactive GARDER / PASSER. Cela
  *   permet au système d'afficher les deux actions dans la notification sans
  *   modifier le design des écrans Loki.
@@ -36,8 +36,6 @@ function getNativeNotifications(): NotificationsModule {
 const TRACK_CATEGORY = 'KEEP_TRACK';
 export const TRACK_KEEP_ACTION = 'KEEP_TRACK_KEEP';
 export const TRACK_PASS_ACTION = 'KEEP_TRACK_PASS';
-let webRealtimeChannel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
-let webToastTimer: ReturnType<typeof setTimeout> | null = null;
 let trackActionSubscription: NotificationEventSubscription | null = null;
 let notificationTapSubscription: NotificationEventSubscription | null = null;
 let lastTapKey = '';
@@ -94,134 +92,10 @@ function installNotificationTapRouter() {
   void Notifications.getLastNotificationResponseAsync().then(routeNotificationTap).catch(() => {});
 }
 
-function showWebKeepToast(title: string, body: string, row?: Record<string, unknown>) {
-  const doc = (globalThis as any)?.document as Document | undefined;
-  if (!doc?.body) return;
-
-  const existing = doc.getElementById('keep-live-notification-toast');
-  existing?.remove();
-  if (webToastTimer) clearTimeout(webToastTimer);
-
-  const toast = doc.createElement('button');
-  toast.id = 'keep-live-notification-toast';
-  toast.type = 'button';
-  toast.setAttribute('aria-label', `${title}. ${body}. Glisser vers le haut pour fermer.`);
-  Object.assign(toast.style, {
-    position: 'fixed',
-    top: '14px',
-    left: '50%',
-    transform: 'translateX(-50%) translateY(0px)',
-    transition: 'transform .2s ease, opacity .18s ease',
-    touchAction: 'none',
-    opacity: '1',
-    width: 'min(92vw, 420px)',
-    zIndex: '2147483647',
-    border: '1px solid rgba(168,132,250,.55)',
-    borderRadius: '16px',
-    padding: '12px 14px',
-    background: 'rgba(20,14,29,.97)',
-    color: '#fff',
-    boxShadow: '0 12px 32px rgba(0,0,0,.38)',
-    textAlign: 'left',
-    fontFamily: 'system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif',
-    cursor: 'pointer',
-  });
-
-  const brand = doc.createElement('div');
-  brand.textContent = `${APP_NAME} · NOUVEAU`;
-  Object.assign(brand.style, { fontSize: '10px', fontWeight: '900', letterSpacing: '1.1px', color: '#B79CFF', marginBottom: '4px' });
-  const titleNode = doc.createElement('div');
-  titleNode.textContent = title;
-  Object.assign(titleNode.style, { fontSize: '14px', fontWeight: '800', lineHeight: '1.25' });
-  const bodyNode = doc.createElement('div');
-  bodyNode.textContent = body;
-  Object.assign(bodyNode.style, { marginTop: '3px', fontSize: '12px', lineHeight: '1.35', color:'#FFFFFF' });
-
-  toast.append(brand, titleNode, bodyNode);
-
-  const dismiss = () => {
-    if (webToastTimer) { clearTimeout(webToastTimer); webToastTimer = null; }
-    toast.style.transform = 'translateX(-50%) translateY(-140px)';
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 200);
-  };
-
-  // Adel (04/09/2026) : "il faut vraiment trouver une solution qu'on puisse
-  // les Swiper et les remonter vers le haut ... pour qu'on puisse les
-  // enlever directement et tu n'as toujours pas réglé le problème" -- ce
-  // toast web (bridge temps réel Platform.OS==='web', distinct de
-  // GlobalNotificationBanner déjà corrigé) n'avait AUCUN geste de
-  // fermeture, seulement une disparition automatique à 6.5s -- c'est lui,
-  // pas l'autre bandeau, que le build web affiche réellement pour ce type
-  // de notification. Glisser le doigt vers le HAUT au-delà d'un seuil
-  // ferme immédiatement, un relâchement en dessous ramène le toast à sa
-  // place -- Pointer Events natifs, aucune dépendance supplémentaire.
-  let dragStartY = 0;
-  let dragging = false;
-  let dragDy = 0;
-  toast.addEventListener('pointerdown', (event) => {
-    const pointer = event as PointerEvent;
-    dragging = true;
-    dragStartY = pointer.clientY;
-    dragDy = 0;
-    toast.style.transition = 'none';
-    try { toast.setPointerCapture(pointer.pointerId); } catch {}
-  });
-  toast.addEventListener('pointermove', (event) => {
-    if (!dragging) return;
-    dragDy = Math.min(0, (event as PointerEvent).clientY - dragStartY);
-    toast.style.transform = `translateX(-50%) translateY(${dragDy}px)`;
-  });
-  const endDrag = () => {
-    if (!dragging) return;
-    dragging = false;
-    toast.style.transition = 'transform .2s ease, opacity .18s ease';
-    if (dragDy < -50) dismiss();
-    else toast.style.transform = 'translateX(-50%) translateY(0px)';
-  };
-  toast.addEventListener('pointerup', endDrag);
-  toast.addEventListener('pointercancel', endDrag);
-
-  toast.onclick = () => {
-    if (Math.abs(dragDy) > 8) return;
-    const base = `${globalThis.location?.origin ?? ''}/KEEP/notifications`;
-    if (base.startsWith('http')) globalThis.location.href = base;
-    else dismiss();
-  };
-  doc.body.appendChild(toast);
-  webToastTimer = setTimeout(dismiss, 6500);
-}
-
-async function startWebRealtimeNotificationBridge(): Promise<boolean> {
-  if (Platform.OS !== 'web' || !supabase) return false;
-  const { data } = await supabase.auth.getSession();
-  const profileId = data.session?.user?.id;
-  if (!profileId) return false;
-
-  if (webRealtimeChannel) {
-    await supabase.removeChannel(webRealtimeChannel);
-    webRealtimeChannel = null;
-  }
-
-  webRealtimeChannel = supabase
-    .channel(`keep-live-notifications-${profileId}`)
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `profile_id=eq.${profileId}` },
-      (payload) => {
-        const row = (payload as any)?.new ?? {};
-        if (String(row?.data?.presentation || '') === 'battle_inline') return;
-        const title = String(row.title || `Nouveau sur ${APP_NAME}`);
-        const body = String(row.body || `Ouvre ${APP_NAME} pour voir la nouveauté.`);
-        showWebKeepToast(title, body, row);
-      },
-    )
-    .subscribe();
-
-  return true;
-}
-
-
+// Le web est volontairement sans second toast DOM : GlobalNotificationBanner
+// possède déjà l'abonnement Supabase Realtime, le dédoublonnage sémantique,
+// l'animation depuis le haut et le swipe vers le haut. Un deuxième bridge ici
+// affichait exactement la même notification deux fois.
 async function ensureDetectedTrackCategory(): Promise<void> {
   if (Platform.OS === 'web') return;
   const Notifications = getNativeNotifications();
@@ -284,8 +158,7 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
 
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
-    const realtime = await startWebRealtimeNotificationBridge().catch(() => false);
-    return { ok: realtime, reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable' };
+    return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
   }
   const Notifications = getNativeNotifications();
   installNotificationTapRouter();
