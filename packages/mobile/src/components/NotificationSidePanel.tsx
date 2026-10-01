@@ -224,6 +224,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     setExpandedId((current) => current === item.id ? null : item.id);
   };
 
+  const messageItems = items.filter((item) => isChatNotificationType(item.type));
+  const activityItems = items.filter((item) => !isChatNotificationType(item.type));
+  const visibleItems = activeTab === 'MESSAGES' ? messageItems : activityItems;
+
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
       <View style={s.root}>
@@ -241,11 +245,11 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           <View style={s.tabs}>
             <TouchableOpacity style={[s.tab, activeTab === 'MESSAGES' && s.tabOn]} onPress={() => setActiveTab('MESSAGES')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'MESSAGES' }}>
               <Text style={[s.tabText, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
-              <Text style={s.tabHint}>{items.filter((item) => isChatNotificationType(item.type) && !item.readAt).length} non lu{items.filter((item) => isChatNotificationType(item.type) && !item.readAt).length > 1 ? 's' : ''}</Text>
+              <Text style={s.tabHint}>{messageItems.filter((item) => !item.readAt).length} non lu{messageItems.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'ACTIVITY' && s.tabOn]} onPress={() => setActiveTab('ACTIVITY')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'ACTIVITY' }}>
               <Text style={[s.tabText, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
-              <Text style={s.tabHint}>{items.filter((item) => !isChatNotificationType(item.type) && !item.readAt).length} non lue{items.filter((item) => !isChatNotificationType(item.type) && !item.readAt).length > 1 ? 's' : ''}</Text>
+              <Text style={s.tabHint}>{activityItems.filter((item) => !item.readAt).length} non lue{activityItems.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => setActiveTab('SETTINGS')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
               <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
@@ -305,8 +309,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <TouchableOpacity style={s.markAllButton} onPress={() => void markAll()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
               </View>
               {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
-              {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>{activeTab === 'MESSAGES' ? '💬' : '🔔'}</Text><Text style={s.emptyTitle}>{activeTab === 'MESSAGES' ? 'Aucun message' : 'Rien de nouveau'}</Text><Text style={s.empty}>{activeTab === 'MESSAGES' ? 'Tes nouveaux messages apparaîtront ici, séparés des autres notifications.' : 'Tes Battles, reprises, visites, événements et gains apparaîtront ici.'}</Text></View> : null}
-              {items.filter((item) => activeTab === 'MESSAGES' ? isChatNotificationType(item.type) : !isChatNotificationType(item.type)).map((item) => {
+              {!loading && !visibleItems.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>{activeTab === 'MESSAGES' ? '💬' : '🔔'}</Text><Text style={s.emptyTitle}>{activeTab === 'MESSAGES' ? 'Aucun message' : 'Rien de nouveau'}</Text><Text style={s.empty}>{activeTab === 'MESSAGES' ? 'Tes nouveaux messages apparaîtront ici, séparés des autres notifications.' : 'Tes Battles, reprises, visites, événements et gains apparaîtront ici.'}</Text></View> : null}
+              {visibleItems.map((item) => {
                 const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
                 const expanded = expandedId === item.id;
                 const type = String(item.type || '').toUpperCase();
