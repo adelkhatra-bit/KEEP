@@ -55,7 +55,7 @@ export type MusicAgoraSharePreflight = {
   targetOwnsTrack: boolean;
 };
 
-export type MusicAgoraSurface = 'LISTEN' | 'DISCOVER' | 'PLAYLISTS' | 'PARTIES' | 'PROFILE';
+export type MusicAgoraSurface = 'LISTEN' | 'DISCOVER' | 'PLAYLISTS' | 'PARTIES' | 'PROFILE' | 'NOTIFICATIONS';
 
 export type MusicAgoraSettings = {
   homeEnabled: boolean;
@@ -77,7 +77,7 @@ export type MusicAgoraPostOptions = {
 
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
 
-const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'];
+const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'];
 
 function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
   if (!Array.isArray(value)) return ALL_CHAT_SURFACES;
