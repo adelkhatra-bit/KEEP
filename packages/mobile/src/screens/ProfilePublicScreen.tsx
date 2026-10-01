@@ -77,8 +77,9 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
     title: 'PROFIL',
     items: [
       { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo · pseudo · bio · ville · pays' },
-      { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
+      { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
+      { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
     ],
   },
   {
@@ -1399,6 +1400,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     // Un seul appui depuis le hamburger : les écrans complets s'ouvrent
     // directement ; les réglages légers restent dans le drawer avec ‹ Menu.
     if (key === 'profile') return openFromMenu('ProfileSettings');
+    if (key === 'musicTaste') {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      setPulseTasteOpen(true);
+      return;
+    }
     if (key === 'music') return openFromMenu('MusicConnections');
     if (key === 'offers') return openFromMenu('Offers');
     if (key === 'sellPlaylists') return openFromMenu('PlaylistSale');
