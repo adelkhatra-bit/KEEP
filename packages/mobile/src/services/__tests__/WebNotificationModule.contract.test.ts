@@ -11,9 +11,10 @@ describe('Web notification module isolation', () => {
     expect(source).toContain("Platform.OS === 'web'");
   });
 
-  it('keeps the web push path on Supabase Realtime without native notification APIs', () => {
+  it('keeps web presentation owned by the single GlobalNotificationBanner realtime path', () => {
     const source = read('pushNotificationService.ts');
-    expect(source).toContain('startWebRealtimeNotificationBridge');
-    expect(source).toContain("reason: realtime ? 'web_realtime_enabled' : 'web_realtime_unavailable'");
+    expect(source).toContain("reason: 'web_in_app_banner_owned_by_global_notification_banner'");
+    expect(source).not.toContain('startWebRealtimeNotificationBridge');
+    expect(source).not.toContain('showWebKeepToast');
   });
 });
