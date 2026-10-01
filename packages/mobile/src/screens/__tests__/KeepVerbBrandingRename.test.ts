@@ -80,3 +80,20 @@ describe('Non-régression : les identifiants techniques internes gardent "KEEP"/
     expect(pushNotificationService).toContain("handler: (action: 'KEEP' | 'PASS', entryId: string) => void | Promise<void>,");
   });
 });
+
+
+describe('Branding produit visible -- Loki Music uniquement', () => {
+  const appJson = JSON.parse(readNormalized(__dirname, '..', '..', '..', 'app.json'));
+  const adminBrand = readNormalized(__dirname, '..', '..', '..', '..', 'admin', 'lib', 'brand.ts');
+
+  it("l'application visible reste Loki Music", () => {
+    expect(appJson.expo.name).toBe('Loki Music');
+    expect(adminBrand).toContain("export const APP_NAME = 'Loki Music'");
+  });
+
+  it('KEEP reste uniquement un identifiant technique historique', () => {
+    expect(appJson.expo.slug).toBe('keep');
+    expect(appJson.expo.ios.bundleIdentifier).toBe('com.adelkhatra.keep');
+    expect(appJson.expo.android.package).toBe('com.adelkhatra.keep');
+  });
+});
