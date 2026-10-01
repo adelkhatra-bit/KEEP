@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.keep_battle_solo_pack_three_choices(p_theme_co
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$;
+AS $function$
 declare
   v_uid uuid := auth.uid();
   v_round_count integer := greatest(5, least(coalesce(p_round_count, 8), 30));
@@ -152,13 +152,12 @@ begin
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION public.keep_battle_solo_pack(p_theme_code text DEFAULT 'MIX'::text, p_round_count integer DEFAULT 8, p_theme_codes text[] DEFAULT NULL::text[])
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
-AS $function$;
+AS $function$
 declare
   v_uid uuid := auth.uid();
   payload jsonb;
