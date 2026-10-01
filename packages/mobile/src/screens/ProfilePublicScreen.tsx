@@ -1606,7 +1606,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </Animated.View>
           {notificationNudgeVisible && unreadCount > 0 ? <Animated.View style={[s.notificationNudge, { opacity: notificationNudgeReveal, width: notificationNudgeReveal.interpolate({ inputRange: [0, 1], outputRange: [54, 222] }) }]}>
             <TouchableOpacity style={s.notificationNudgeTouch} onPress={() => { notificationNudgeReveal.stopAnimation(); setNotificationNudgeVisible(false); setMenuOpen(false); setExpandedMenuItem(null); setNotificationPanelOpen(true); }} accessibilityLabel={`Consulter mes ${unreadCount} notifications`}>
-              <Text style={s.notificationNudgeText} numberOfLines={1}>{unreadCount} message{unreadCount > 1 ? 's' : ''} · ouvre tes actus</Text>
+              <Text style={s.notificationNudgeText} numberOfLines={1}>{unreadCount} notification{unreadCount > 1 ? 's' : ''} · ouvre ta cloche</Text>
             </TouchableOpacity>
           </Animated.View> : null}
         </View>
