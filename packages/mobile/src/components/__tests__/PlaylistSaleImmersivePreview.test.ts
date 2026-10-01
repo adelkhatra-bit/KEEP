@@ -10,7 +10,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
 
   it('loads only masked previews and keeps swipe navigation', () => {
     expect(source).toContain("import SwipeDeck from './SwipeDeck';");
-    expect(source).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
+    expect(source).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId)');
     expect(source).toContain('<SwipeDeck');
     expect(source).toContain('onSwipeLeft={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex - 1); }}');
     expect(source).toContain('onSwipeRight={() => { unlockWebAudioForGesture(); playTrackAt(trackIndex + 1); }}');
@@ -26,8 +26,8 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
 
   it('keeps the seller profile and total price aligned on one compact row', () => {
     expect(source).toContain('style={s.sellerPriceRow}');
-    expect(source).toContain('VOIR @{normalizedUsername}');
-    expect(source).toContain("freeAccess ? 'PRIX' : 'PRIX TOTAL'");
+    expect(source).toContain('<Text style={s.profileLinkText}>@{normalizedUsername}</Text>');
+    expect(source).toContain("freeAccess ? 'PRIX' : 'TOTAL'");
     expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
   });
 
@@ -35,7 +35,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).toContain('FREE INSUFFISANTS');
     expect(source).toContain('RECHARGER MES FREE');
     expect(source).toContain('freeBlocked');
-    expect(source).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
+    expect(source).toContain('disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}');
     expect(source).toContain("backgroundColor: 'rgba(255,92,114,0.10)'");
     expect(profile).toContain("navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' })");
   });
@@ -44,19 +44,19 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
     expect(source).toContain('setWaiverAccepted(false);');
     expect(source).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
-    expect(source).toContain('Utiliser ${priceLabel} pour toute la collection.');
+    expect(source).toContain('Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.');
     expect(source).not.toContain('Aucun débit n’est effectué morceau par morceau.');
   });
 
   it('retains money-payment legal disclosure without cluttering FREE unlocks', () => {
-    expect(source).toContain('Loki Music ne voit ni ne garantit ce paiement');
+    expect(source).toContain('Paiement sur le lien du créateur · accès après sa confirmation.');
     expect(source).toContain('aucun remboursement possible');
     expect(source).toContain('{!freeAccess ? <Text style={s.noRefund}>');
   });
 
   it('uses a concise unlock CTA and never a generic purchase label', () => {
-    expect(source).toContain('DÉBLOQUER · ${priceLabel}');
-    expect(source).toContain('SOLDE FREE INSUFFISANT');
+    expect(source).toContain('RÉVÉLER + AJOUTER · ${priceLabel}');
+    expect(source).toContain('FREE INSUFFISANTS');
     expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
   });
