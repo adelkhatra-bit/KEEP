@@ -34,7 +34,7 @@ describe('global Loki messenger contract', () => {
   });
 
   it('announces and previews the latest sender only after explicit voice opt-in', () => {
-    expect(dock).toContain("import * as Speech from 'expo-speech'");
+    expect(dock).toContain("import('expo-speech')");
     expect(dock).toContain('Message de');
     expect(dock).toContain('latestChatSender');
     expect(dock).toContain('chatNotificationTarget');
@@ -59,15 +59,15 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('visualViewport');
     expect(messenger).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
     expect(messenger).toContain('KeyboardAvoidingView');
-    expect(messenger).toContain("behavior={compact && Platform.OS !== 'web' ? 'height' : undefined}");
+    expect(messenger).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : compact && Platform.OS === 'android' ? 'height' : undefined}");
     expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
     expect(messenger).toContain('setKeyboardInset(Math.max(reportedHeight, coveredByTop))');
     expect(messenger).toContain('top: 0');
     expect(messenger).toContain('bottom: compactBottom');
     expect(messenger).toContain('paddingTop: Math.max(10, safeArea.top + 8)');
     expect(messenger).not.toContain('const compactPanelHeight = Math.min');
-    expect(messenger).toContain('fontSize:17,lineHeight:24');
-    expect(messenger).toContain('inputCompact:{height:58');
+    expect(messenger).toContain('fontSize:18,lineHeight:25');
+    expect(messenger).toContain('inputCompact:{height:62');
     expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
     expect(messenger).toContain("keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
