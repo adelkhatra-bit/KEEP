@@ -5,11 +5,12 @@ import path from 'path';
 const owner = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
 describe('compact owner Loki Pulse contract', () => {
-  it('keeps one compact Loki Pulse card and hides details by default', () => {
+  it('keeps one compact Loki Pulse card with four visible style bubbles and hidden full details by default', () => {
     expect(owner).toContain('const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);');
     expect(owner).toContain('testID="profile-loki-pulse-bubbles-card"');
-    expect(owner).not.toContain('testID="profile-loki-pulse-preview"');
-    expect(owner).not.toContain('testID="profile-music-style-bubbles-preview"');
+    expect(owner).toContain('testID="profile-loki-pulse-preview"');
+    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
+    expect(owner).toContain('max={4}');
     expect(owner).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
     expect(owner).toContain('profilePulseExpanded && visibleLokiPulseItems.length > 0');
   });

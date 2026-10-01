@@ -2344,3 +2344,13 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   - Web public 958a6d23a508c25eda429fff8d183cb46765c12e encore en publication au dernier contrôle.
 - CI rouge 958a : 32 suites / 58 assertions de contrats Jest historiques, tandis que typecheck mobile/admin et runtime navigateur réel passent. Lane Claude Code : nettoyer/mettre à jour ces tests historiques un par un, sans changer le runtime pour satisfaire un ancien texte.
 - E-mails : appliquer le patch Resend seulement si les fichiers patch annoncés sont présents/partagés ; ne pas inventer de clé ni de domaine.
+
+
+## [2026-10-02] USER LOCK — aperçu bulles profil restauré
+- Cette règle est PLUS RÉCENTE et remplace « profil replié = aucune bulle ».
+- Profil propriétaire : jauge/% toujours visible ET aperçu de 4 bulles musicales cliquables juste dessous même quand VOIR PLUS est fermé.
+- Toucher une bulle du profil ouvre les morceaux gardés de ce style dans MusicSwipeDeckModal.
+- VOIR PLUS conserve l’accès à tous les styles + recommandations.
+- Accueil Loki Music : bulles seules, cliquables, sans titre « Tes bulles musicales », sans label Loki Pulse/DNA.
+- Ne pas supprimer à nouveau testID="profile-loki-pulse-preview" ni testID="profile-music-style-bubbles-preview".
+- Aucun changement App.tsx / Navigation.tsx / barre 5 onglets / Super Admin pour cette correction.
