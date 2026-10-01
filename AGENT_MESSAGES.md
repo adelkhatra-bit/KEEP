@@ -2290,3 +2290,10 @@ RÈGLE LA PLUS RÉCENTE D’ADEL, ELLE ANNULE TOUTE DÉCOMMISSION DU TCHAT :
 - les flux FREE/€ et confirmation de paiement restent dans la conversation lorsqu’ils existent ;
 - NE PLUS créer de commit « legacy messenger decommission » et ne plus retirer GlobalChatDock d’App.tsx.
 Exception explicite à la protection App.tsx : le montage unique GlobalChatDock est autorisé et requis ; ne rien modifier d’autre dans App.tsx.
+
+
+## [2026-10-02] USER LOCK — bulles accueil cliquables + profil sans preview
+- Profil propriétaire : jauge/% visibles ; quand replié, aucune bulle dessous. Ne jamais réintroduire un preview replié.
+- Accueil Loki Music : aucun titre visible « Tes bulles musicales » ni label Loki Pulse/DNA au-dessus.
+- Les bulles de styles restent visibles seules sur l’accueil et sont CLIQUABLES : toucher une bulle ouvre les morceaux gardés de ce style dans MusicSwipeDeckModal, sans redirection vers Profil.
+- Ne pas toucher App.tsx, Navigation.tsx, barre 5 onglets, Super Admin ou autres blocs pour cette correction.

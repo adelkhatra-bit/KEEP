@@ -3,7 +3,7 @@ import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, Sty
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
-import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
+import { CanonicalTrack, computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
@@ -24,7 +24,9 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
-import { loadOwnProfileKeeps } from '../services/publicProfileStateService';
+import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
+import { loadOwnProfileKeeps, PublicProfileKeep } from '../services/publicProfileStateService';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
@@ -108,6 +110,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const historySessions = useSessionHistoryStore((s) => s.sessions);
   const [serverHomeStyles, setServerHomeStyles] = useState<string[]>([]);
+  const [homeKeeps, setHomeKeeps] = useState<PublicProfileKeep[]>([]);
+  const [homeStyleSelection, setHomeStyleSelection] = useState<{ genre: string; tracks: CanonicalTrack[] } | null>(null);
   const homeDna = useMemo(() => {
     const decisions: DnaSourceDecision[] = historySessions.flatMap((session) =>
       session.tracks
@@ -131,11 +135,15 @@ export default function HomeScreenCompact({ navigation }: any) {
     let live = true;
     const refreshHomeStyles = async () => {
       if (!user?.id || isDemoMode || musicEngine.isDemoMode) {
-        if (live) setServerHomeStyles([]);
+        if (live) {
+          setServerHomeStyles([]);
+          setHomeKeeps([]);
+        }
         return;
       }
       try {
         const keeps = await loadOwnProfileKeeps();
+        if (live) setHomeKeeps(keeps);
         const counts = new Map<string, number>();
         for (const entry of keeps) {
           for (const rawGenre of entry.track.genres ?? []) {
@@ -156,6 +164,17 @@ export default function HomeScreenCompact({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomeStyles(); });
     return () => { live = false; unsubscribe?.(); };
   }, [isDemoMode, navigation, user?.id]);
+  const openHomeStyle = (genre: string) => {
+    const normalize = (value: string) => String(value || '').normalize('NFKC').trim().toLocaleLowerCase('fr-FR');
+    const wanted = normalize(genre);
+    const selected = homeKeeps
+      .map((entry) => entry.track)
+      .filter((track) => (track.genres ?? []).some((item) => normalize(item) === wanted));
+    if (!selected.length) return;
+    unlockWebAudioForGesture();
+    setHomeStyleSelection({ genre, tracks: selected });
+  };
+
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
@@ -619,27 +638,33 @@ export default function HomeScreenCompact({ navigation }: any) {
           {!isDemoMode && user ? (
             <View
               style={s.homeDnaCard}
-              accessibilityLabel="Tes bulles musicales"
+              accessibilityLabel="Styles musicaux cliquables"
             >
-              <View style={s.homeDnaHeader}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.homeDnaTitle}>Tes bulles musicales</Text>
-                </View>
-              </View>
               {homeStyleBubbles.length ? (
                 <MusicStyleBubbles
                   testID="home-loki-pulse-bubbles"
                   genres={homeStyleBubbles}
                   max={8}
                   compact
+                  onPressGenre={openHomeStyle}
                 />
               ) : (
-                <Text style={s.homeDnaEmpty}>Tes bulles apparaîtront ici à mesure que tes goûts se précisent.</Text>
+                <Text style={s.homeDnaEmpty}>Tes styles apparaîtront ici à mesure que tes goûts se précisent.</Text>
               )}
             </View>
           ) : null}
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
+        <MusicSwipeDeckModal
+          visible={Boolean(homeStyleSelection)}
+          tracks={homeStyleSelection?.tracks ?? []}
+          title={homeStyleSelection?.genre ?? 'Style musical'}
+          subtitle="Tes morceaux gardés dans ce style."
+          emptyTitle="Aucun morceau dans ce style."
+          backLabel="REVENIR À LOKI MUSIC"
+          previewOnly
+          onClose={() => setHomeStyleSelection(null)}
+        />
 </SafeAreaView>
     );
   }

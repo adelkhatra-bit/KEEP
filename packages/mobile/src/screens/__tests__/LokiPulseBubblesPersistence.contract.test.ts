@@ -12,7 +12,9 @@ describe('music bubbles persistence contract', () => {
 
   it('keeps home bubbles directly visible without DNA/Pulse labels', () => {
     expect(home).toContain('testID="home-loki-pulse-bubbles"');
-    expect(home).toContain('Tes bulles musicales');
+    expect(home).toContain('testID="home-loki-pulse-bubbles"');
+    expect(home).toContain('onPressGenre={openHomeStyle}');
+    expect(home).not.toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
   });
