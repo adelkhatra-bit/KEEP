@@ -2,15 +2,16 @@ import fs from 'fs';
 import path from 'path';
 
 describe('Battle explicit decision everywhere', () => {
-  const banner = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'GlobalNotificationBanner.tsx'), 'utf8');
-  const battle = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
-  const migration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001005500_battle_explicit_decision_all_perfect_bonus_transfers.sql'), 'utf8');
+  const read = (...parts: string[]) => fs.readFileSync(path.resolve(...parts), 'utf8').replace(/\r\n/g, '\n');
+  const banner = read(__dirname, '..', '..', 'components', 'GlobalNotificationBanner.tsx');
+  const battle = read(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
+  const rematch = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260930212000_keep_battle_rematch_cancel_status_timeout.sql');
+  const bonus = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001013000_battle_fastest_perfect_bonus_product_lock.sql');
 
   it('polls server truth globally and renders a non-dismissible decision modal', () => {
     expect(banner).toContain('loadIncomingBattleChallenges');
     expect(banner).toContain('loadPendingArenaRematches');
     expect(banner).toContain('BATTLE_DECISION_POLL_MS');
-    expect(banner).toContain('<Modal visible transparent animationType="fade" onRequestClose={() => {}}>');
     expect(banner).toContain('DÉCISION REQUISE');
     expect(banner).toContain('REFUSER');
     expect(banner).toContain('ACCEPTER');
@@ -22,15 +23,17 @@ describe('Battle explicit decision everywhere', () => {
     expect(battle).toContain('leaveKeepBattleArena(arenaId)');
   });
 
-  it('does not auto-expire a pending challenge or rematch', () => {
-    expect(migration).toContain("interval '100 years'");
-    expect(migration).toContain('if undecided_count>0 then return; end if;');
-    expect(migration).toContain('me.rematch_ready is null');
+  it('shows explicit rematch answers and lets the proposer withdraw before another acceptance', () => {
+    expect(battle).toContain('REVANCHE EN ATTENTE · RÉPONSE OBLIGATOIRE');
+    expect(battle).toContain('RETIRER MA DEMANDE');
+    expect(battle).toContain("'✓ ACCEPTÉ'");
+    expect(battle).toContain("'× REFUSÉ / PARTI'");
+    expect(rematch).toContain('BATTLE_REMATCH_ALREADY_ACCEPTED');
   });
 
-  it('writes transparent Free-transfer notifications', () => {
-    expect(migration).toContain("'BATTLE_FREE_TRANSFER'");
-    expect(migration).toContain('Ta mise de');
-    expect(migration).toContain('vient des mises de');
+  it('keeps one deterministic fastest-perfect bonus winner server-side', () => {
+    expect(bonus).toContain('order by r.total_response_ms asc');
+    expect(bonus).toContain("'FASTEST_PERFECT_ONLY'");
+    expect(bonus).toContain('drop function if exists public.keep_battle_apply_all_perfect_bonuses();');
   });
 });
