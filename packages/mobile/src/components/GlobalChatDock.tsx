@@ -4,14 +4,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
-import { navigateToSharedProfile } from '../navigation/navigationRef';
+import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 function isChatNotification(item: KeepNotification): boolean {
   const type = String(item.type || '').toUpperCase();
   return type.startsWith('AGORA') || type.startsWith('CHAT');
+}
+
+const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'];
+
+function chatSurfaceForRoute(routeName?: string | null): MusicAgoraSurface | null {
+  const name = String(routeName || '');
+  if (name === 'Listen' || name === 'SessionRecap' || name === 'SessionHistory') return 'LISTEN';
+  if (name === 'Discover') return 'DISCOVER';
+  if (name === 'MyMusic' || name === 'PlaylistSale' || name === 'PlaylistSaleHistory' || name === 'MusicConnections' || name === 'AppleMusicConnect') return 'PLAYLISTS';
+  if (name === 'Parties') return 'PARTIES';
+  if (name === 'Profile' || name === 'PublicProfile' || name === 'ProfileSettings' || name === 'Offers') return 'PROFILE';
+  if (name === 'Notifications') return 'NOTIFICATIONS';
+  return null;
 }
 
 export default function GlobalChatDock() {
@@ -33,6 +46,8 @@ export default function GlobalChatDock() {
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
+  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(ALL_CHAT_SURFACES);
+  const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -45,6 +60,16 @@ export default function GlobalChatDock() {
   const { height } = useWindowDimensions();
 
   const accountReady = Boolean(user && !isDemoMode && !isLocalGuest);
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const current = navigationRef.isReady() ? navigationRef.getCurrentRoute()?.name : null;
+      setActiveSurface(chatSurfaceForRoute(current));
+    };
+    syncRoute();
+    const timer = setInterval(syncRoute, 750);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!accountReady || !user?.id) {
@@ -60,7 +85,7 @@ export default function GlobalChatDock() {
       loadMusicAgoraSettings().catch(() => ({
         homeEnabled: false,
         notificationsEnabled: true,
-        surfaces: ['PROFILE'] as const,
+        surfaces: ALL_CHAT_SURFACES,
         side: 'right' as const,
         bottomOffset: 88,
       })),
@@ -69,6 +94,7 @@ export default function GlobalChatDock() {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
+      setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
       setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
@@ -108,11 +134,12 @@ export default function GlobalChatDock() {
     if (!accountReady || !open || chatEnabled || chatSaving) return;
     let live = true;
     setChatSaving(true);
-    saveMusicAgoraSettings(true, chatNotificationsEnabled, ['PROFILE'])
+    saveMusicAgoraSettings(true, chatNotificationsEnabled, chatSurfaces.length ? chatSurfaces : ['PROFILE'])
       .then((settings) => {
         if (!live) return;
         setChatEnabled(true);
         setChatNotificationsEnabled(settings.notificationsEnabled);
+        setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
         setSide(settings.side);
         setBottomOffset(settings.bottomOffset);
       })
@@ -121,7 +148,7 @@ export default function GlobalChatDock() {
       })
       .finally(() => { if (live) setChatSaving(false); });
     return () => { live = false; };
-  }, [accountReady, open, chatEnabled, chatNotificationsEnabled, chatSaving, closeChat, setBottomOffset, setSide]);
+  }, [accountReady, open, chatEnabled, chatNotificationsEnabled, chatSurfaces, chatSaving, closeChat, setBottomOffset, setSide]);
 
   useEffect(() => {
     if (!accountReady || open) {
@@ -183,19 +210,32 @@ export default function GlobalChatDock() {
     },
   }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide, side]);
 
-  const saveProfileSettings = async (enabled: boolean, notificationsEnabled = chatNotificationsEnabled) => {
+  const saveProfileSettings = async (
+    enabled: boolean,
+    notificationsEnabled = chatNotificationsEnabled,
+    surfaces: MusicAgoraSurface[] = chatSurfaces,
+  ) => {
     if (!accountReady || chatSaving) return;
     setChatSaving(true);
     try {
-      const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, ['PROFILE']);
+      const nextSurfaces = surfaces.length ? surfaces : ['PROFILE'];
+      const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, nextSurfaces);
       setChatEnabled(settings.homeEnabled);
       setChatNotificationsEnabled(settings.notificationsEnabled);
+      setChatSurfaces(settings.surfaces?.length ? settings.surfaces : nextSurfaces);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
       if (!settings.homeEnabled) closeChat();
     } finally {
       setChatSaving(false);
     }
+  };
+
+  const toggleSurface = (surface: MusicAgoraSurface) => {
+    const next = chatSurfaces.includes(surface)
+      ? chatSurfaces.filter((value) => value !== surface)
+      : [...chatSurfaces, surface];
+    void saveProfileSettings(true, chatNotificationsEnabled, next);
   };
 
   const toggle = async () => {
@@ -214,7 +254,12 @@ export default function GlobalChatDock() {
     void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
   };
 
+  const surfaceVisible = activeSurface === 'PROFILE'
+    ? true
+    : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
+
   if (!accountReady || !user) return null;
+  if (!open && !settingsOpen && !surfaceVisible) return null;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -249,6 +294,32 @@ export default function GlobalChatDock() {
                 onValueChange={(value) => void saveProfileSettings(true, value)}
                 trackColor={{ false: colors.border, true: colors.keep }}
               />
+            </View>
+
+            <View style={styles.settingsScreens}>
+              <Text style={styles.settingsScreenTitle}>OÙ AFFICHER LA MESSAGERIE ?</Text>
+              <View style={styles.settingsScreenGrid}>
+                {([
+                  ['LISTEN','Loki Music'],
+                  ['DISCOVER','Découvertes'],
+                  ['PLAYLISTS','Playlists'],
+                  ['PARTIES','Soirées'],
+                  ['PROFILE','Profil'],
+                  ['NOTIFICATIONS','Notifications'],
+                ] as Array<[MusicAgoraSurface,string]>).map(([surface,label]) => {
+                  const selected = chatSurfaces.includes(surface);
+                  return <TouchableOpacity
+                    key={surface}
+                    style={[styles.screenChip,selected && styles.screenChipOn]}
+                    disabled={chatSaving}
+                    onPress={() => toggleSurface(surface)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked:selected }}
+                  >
+                    <Text style={[styles.screenChipText,selected && styles.screenChipTextOn]}>{selected ? '✓ ' : ''}{label}</Text>
+                  </TouchableOpacity>;
+                })}
+              </View>
             </View>
 
             <View style={styles.sideRow}>
@@ -344,6 +415,13 @@ const styles = StyleSheet.create({
   settingsCloseText:{color:colors.textPrimary,fontSize:22,lineHeight:24,fontWeight:'900'},
   settingsRow:{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:colors.border},
   settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  settingsScreens:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:10},
+  settingsScreenTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginBottom:7},
+  settingsScreenGrid:{flexDirection:'row',flexWrap:'wrap',gap:7},
+  screenChip:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  screenChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  screenChipText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
+  screenChipTextOn:{color:colors.primaryLight},
   sideRow:{flexDirection:'row',gap:8,marginTop:10},
   sideChoice:{flex:1,minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   sideChoiceOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)'},
