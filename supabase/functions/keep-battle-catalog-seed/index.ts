@@ -285,7 +285,7 @@ const CONFIG: Record<string, SearchQuery[]> = {
     { term: "gulf arabic music", country: "AE", limit: 200 },
     { term: "اغاني خليجية", country: "SA", limit: 200 },
   ],
-  EGYPT_POP: [
+  EGYPTIAN_POP: [
     { term: "egyptian pop", country: "EG", limit: 200 },
     { term: "egyptian hits", country: "EG", limit: 200 },
     { term: "arabic egypt pop", country: "EG", limit: 200 },
@@ -430,6 +430,145 @@ const CONFIG: Record<string, SearchQuery[]> = {
     { term: "hindi songs", country: "IN", limit: 200 },
     { term: "punjabi hits", country: "IN", limit: 200 },
   ],
+  DANCE: [
+    { term: "dance hits", country: "US", limit: 200 },
+    { term: "dance music", country: "GB", limit: 200 },
+    { term: "eurodance", country: "DE", limit: 200 },
+    { term: "dance pop", country: "FR", limit: 200 },
+  ],
+  WORLD: [
+    { term: "world music", country: "US", limit: 200 },
+    { term: "worldwide music", country: "GB", limit: 200 },
+    { term: "african world music", country: "ZA", limit: 200 },
+    { term: "mediterranean music", country: "FR", limit: 200 },
+  ],
+  HIPHOP: [
+    { term: "hip hop", country: "US", limit: 200 },
+    { term: "hip hop classics", country: "US", limit: 200 },
+    { term: "hip hop 2000s", country: "US", limit: 200 },
+    { term: "hip hop 2020s", country: "US", limit: 200 },
+  ],
+  SERTANEJO: [
+    { term: "sertanejo", country: "BR", limit: 200 },
+    { term: "sertanejo universitario", country: "BR", limit: 200 },
+    { term: "sertanejo raiz", country: "BR", limit: 200 },
+    { term: "sertanejo hits", country: "BR", limit: 200 },
+  ],
+  ARABIC_POP: [
+    { term: "arabic pop", country: "AE", limit: 200 },
+    { term: "arab pop hits", country: "SA", limit: 200 },
+    { term: "lebanese pop", country: "AE", limit: 200 },
+    { term: "اغاني عربية", country: "AE", limit: 200 },
+  ],
+  AFRO_FUSION: [
+    { term: "afro fusion", country: "NG", limit: 200 },
+    { term: "afrofusion", country: "GB", limit: 200 },
+    { term: "afro fusion hits", country: "NG", limit: 200 },
+    { term: "afrobeats fusion", country: "GB", limit: 200 },
+  ],
+  BAILE_FUNK: [
+    { term: "baile funk", country: "BR", limit: 200 },
+    { term: "funk carioca", country: "BR", limit: 200 },
+    { term: "brazilian funk", country: "BR", limit: 200 },
+    { term: "baile funk hits", country: "BR", limit: 200 },
+  ],
+  PAGODE: [
+    { term: "pagode", country: "BR", limit: 200 },
+    { term: "pagode brasileiro", country: "BR", limit: 200 },
+    { term: "pagode hits", country: "BR", limit: 200 },
+    { term: "samba pagode", country: "BR", limit: 200 },
+  ],
+  HARD_ROCK: [
+    { term: "hard rock", country: "US", limit: 200 },
+    { term: "hard rock classics", country: "US", limit: 200 },
+    { term: "hard rock 80s", country: "US", limit: 200 },
+    { term: "modern hard rock", country: "GB", limit: 200 },
+  ],
+  INDIE: [
+    { term: "indie", country: "GB", limit: 200 },
+    { term: "indie pop", country: "GB", limit: 200 },
+    { term: "indie rock", country: "US", limit: 200 },
+    { term: "indie hits", country: "US", limit: 200 },
+  ],
+  LATIN_POP: [
+    { term: "latin pop", country: "MX", limit: 200 },
+    { term: "pop latino", country: "MX", limit: 200 },
+    { term: "latin pop hits", country: "US", limit: 200 },
+    { term: "pop en español", country: "ES", limit: 200 },
+  ],
+  MEXICAN: [
+    { term: "musica mexicana", country: "MX", limit: 200 },
+    { term: "regional mexicano", country: "MX", limit: 200 },
+    { term: "mariachi", country: "MX", limit: 200 },
+    { term: "corridos", country: "MX", limit: 200 },
+  ],
+  TROPICAL: [
+    { term: "musica tropical", country: "MX", limit: 200 },
+    { term: "tropical latin", country: "US", limit: 200 },
+    { term: "tropical hits", country: "MX", limit: 200 },
+    { term: "caribbean tropical", country: "US", limit: 200 },
+  ],
+  VOCAL: [
+    { term: "vocal pop", country: "US", limit: 200 },
+    { term: "vocal jazz", country: "US", limit: 200 },
+    { term: "vocal classics", country: "GB", limit: 200 },
+    { term: "vocal music", country: "FR", limit: 200 },
+  ],
+  SINGER_SONGWRITER: [
+    { term: "singer songwriter", country: "US", limit: 200 },
+    { term: "singer songwriter classics", country: "GB", limit: 200 },
+    { term: "acoustic singer songwriter", country: "US", limit: 200 },
+    { term: "auteur compositeur interprète", country: "FR", limit: 200 },
+  ],
+  INSTRUMENTAL: [
+    { term: "instrumental music", country: "US", limit: 200 },
+    { term: "instrumental hits", country: "GB", limit: 200 },
+    { term: "instrumental piano", country: "FR", limit: 200 },
+    { term: "instrumental guitar", country: "US", limit: 200 },
+  ],
+  NEW_AGE: [
+    { term: "new age", country: "US", limit: 200 },
+    { term: "new age classics", country: "US", limit: 200 },
+    { term: "meditation new age", country: "GB", limit: 200 },
+    { term: "relaxing new age", country: "FR", limit: 200 },
+  ],
+  CHRISTMAS: [
+    { term: "christmas songs", country: "US", limit: 200 },
+    { term: "christmas classics", country: "GB", limit: 200 },
+    { term: "chansons de noël", country: "FR", limit: 200 },
+    { term: "navidad musica", country: "ES", limit: 200 },
+  ],
+  ANNEES_60: [
+    { term: "60s hits", country: "US", limit: 200 },
+    { term: "années 60 français", country: "FR", limit: 200 },
+    { term: "rock 60s", country: "GB", limit: 200 },
+    { term: "soul 60s", country: "US", limit: 200 },
+  ],
+  ANNEES_70: [
+    { term: "70s hits", country: "US", limit: 200 },
+    { term: "années 70 français", country: "FR", limit: 200 },
+    { term: "rock 70s", country: "GB", limit: 200 },
+    { term: "disco 70s", country: "US", limit: 200 },
+  ],
+  ANNEES_2000: [
+    { term: "2000s hits", country: "US", limit: 200 },
+    { term: "années 2000 français", country: "FR", limit: 200 },
+    { term: "pop 2000s", country: "GB", limit: 200 },
+    { term: "rap 2000s", country: "US", limit: 200 },
+  ],
+  ANNEES_2010: [
+    { term: "2010s hits", country: "US", limit: 200 },
+    { term: "années 2010 français", country: "FR", limit: 200 },
+    { term: "pop 2010s", country: "GB", limit: 200 },
+    { term: "rap 2010s", country: "US", limit: 200 },
+  ],
+  ANNEES_2020: [
+    { term: "2020s hits", country: "US", limit: 200 },
+    { term: "années 2020 français", country: "FR", limit: 200 },
+    { term: "pop 2020s", country: "GB", limit: 200 },
+    { term: "rap 2020s", country: "US", limit: 200 },
+  ],
+
 };
 
 const FRENCH_DEEP_TERMS = [
