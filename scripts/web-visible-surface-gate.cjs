@@ -44,8 +44,8 @@ const routes = [
 ];
 const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
 
-async function measure(page, expectedMarker) {
-  return page.evaluate(({ tabLabels, expectedMarker }) => {
+async function measure(page, expectedTab) {
+  return page.evaluate(({ tabLabels, expectedTab }) => {
     const root = document.getElementById('root');
     const vh = window.innerHeight;
     const vw = window.innerWidth;
@@ -61,15 +61,21 @@ async function measure(page, expectedMarker) {
       .filter((el) => (el.innerText || '').trim() === label)
       .filter((el) => ![...el.children].some((c) => (c.innerText || '').trim() === label));
     const visibleTabs = tabLabels.filter((label) => leafWithText(label).some(visible));
-    const markerVisible = leafWithText(expectedMarker).some(visible);
+    const roleTabs = [...document.querySelectorAll('[role="tab"]')];
+    const expectedRoleTab = roleTabs.find((el) => (el.innerText || '').trim().includes(expectedTab));
+    const activeColor = 'rgb(167, 139, 250)';
+    const activeTabSelected = expectedRoleTab
+      ? expectedRoleTab.getAttribute('aria-selected') === 'true'
+        || [...expectedRoleTab.querySelectorAll('*'), expectedRoleTab].some((el) => getComputedStyle(el).color === activeColor)
+      : leafWithText(expectedTab).some((el) => visible(el) && getComputedStyle(el).color === activeColor);
     return {
       vh,
       rootHeight: rootRect ? Math.round(rootRect.height) : -1,
       visibleTabs,
-      markerVisible,
+      activeTabSelected,
       booting: document.documentElement.classList.contains('keep-booting'),
     };
-  }, { tabLabels: TAB_LABELS, expectedMarker });
+  }, { tabLabels: TAB_LABELS, expectedTab });
 }
 
 (async () => {
@@ -95,10 +101,10 @@ async function measure(page, expectedMarker) {
         const problems = [];
         if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
         if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
-        if (!m.markerVisible) problems.push(`mauvais écran après ${phase}: marqueur attendu « ${route.marker} » absent`);
+        if (!m.activeTabSelected) problems.push(`mauvais onglet actif après ${phase}: « ${route.marker} » n’est pas sélectionné`);
         if (m.booting) problems.push('écran de démarrage jamais levé');
         if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
-        console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5 marker=${m.markerVisible ? 'OK' : 'FAIL'}`);
+        console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5 active=${m.activeTabSelected ? 'OK' : 'FAIL'}`);
       }
     }
     await context.close();
@@ -129,7 +135,7 @@ async function measure(page, expectedMarker) {
       const problems = [];
       if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
       if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
-      if (!m.markerVisible) problems.push('mauvais écran après redimensionnement: Profil absent');
+      if (!m.activeTabSelected) problems.push('mauvais écran après redimensionnement: onglet Profil non sélectionné');
       if (m.booting) problems.push('écran de démarrage jamais levé');
       if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
       console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
