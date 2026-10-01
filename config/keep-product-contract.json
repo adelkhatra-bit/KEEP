@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.10",
+  "version": "2026-10-01.11",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -376,14 +376,27 @@
     "notificationsSurface": true,
     "directLauncherInNotifications": true,
     "placementConfigLocation": "NotificationSidePanel",
-    "allowedSurfaces": ["LISTEN", "DISCOVER", "PLAYLISTS", "PARTIES", "PROFILE", "NOTIFICATIONS"],
+    "allowedSurfaces": [
+      "LISTEN",
+      "DISCOVER",
+      "PLAYLISTS",
+      "PARTIES",
+      "PROFILE",
+      "NOTIFICATIONS"
+    ],
     "movable": true,
-    "sideChoices": ["left", "right"],
+    "sideChoices": [
+      "left",
+      "right"
+    ],
     "directMessagesFirst": true,
     "publicPlaceSecondary": true,
     "musicShareAction": "PEPITE",
     "paymentConversationActions": true,
     "dormantBackendAllowed": false,
-    "latestDecision": "2026-10-01-global-messenger-active-user-lock"
+    "latestDecision": "2026-10-01-global-messenger-active-user-lock",
+    "doNotDecommission": true,
+    "latestUserDecisionAt": "2026-10-01",
+    "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée."
   }
 }
