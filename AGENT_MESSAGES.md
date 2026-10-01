@@ -2231,3 +2231,13 @@ Décision Adel intégrée sans toucher App.tsx/Navigation.tsx/5 onglets : la vis
 - Règle verrouillée dans `config/keep-product-contract.json` + test ownerLayout.
 - Ne pas rétablir `colors.border` seul sur ces choix.
 - Continuer sans toucher App.tsx / Navigation.tsx / barre 5 onglets.
+
+
+## [2026-10-01] AI TEAM COORDINATION — branche unique
+- Source unique: `reconcile/claude-main-20260825`.
+- Tous les agents actifs lisent d’abord `config/keep-product-contract.json` puis la fin de `AGENT_MESSAGES.md`.
+- Lane UI/UX: profil, popup type de profil, Loki Pulse, Drops, Soirées, Playlists. Ne jamais toucher App.tsx / Navigation.tsx / barre 5 onglets.
+- Lane Backend/Supabase: paiements/notifications, catalogue musical, apprentissage des goûts, anti-doublons, reconnaissance, migrations.
+- Lane QA/Release: tests 390x844 + responsive, CI, App Store/Google Play preflight, e-mails, paiements, notifications.
+- Règles utilisateur verrouillées: FREE juste après Reprises; GARDER = 3 FREE; écouter/PASSER/MASQUER = 0; popup « Ton profil Loki » = boutons avec contour bleu visible, jamais noir plein.
+- Chaque agent doit rebaser mentalement sur le HEAD distant avant écriture et ne pas dupliquer une correction déjà poussée.
