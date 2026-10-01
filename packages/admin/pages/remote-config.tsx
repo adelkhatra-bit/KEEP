@@ -14,6 +14,7 @@ type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' |
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
   demo_listen_limit: 'Mode démo · écoutes maximum avant compte',
+  demo_discovery_locked: 'Mode démo · verrouiller Découvertes',
   signup_bonus_successes: 'Morceaux offerts après inscription',
   battle_solo_daily_limit_free: 'Battle SOLO · parties par jour (formule gratuite)',
   battle_solo_daily_limit_premium: 'Battle SOLO · parties par jour (Premium)',
