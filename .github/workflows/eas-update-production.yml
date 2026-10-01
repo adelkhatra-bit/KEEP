@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin reconcile/claude-main-20260825 --depth=200
-          latest="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 --             packages/mobile/App.tsx packages/mobile/src packages/mobile/assets packages/music             packages/mobile/package.json package.json package-lock.json .github/workflows/eas-update-production.yml             ':(exclude)packages/mobile/**/__tests__/**'             ':(exclude)packages/mobile/**/*.test.ts'             ':(exclude)packages/mobile/**/*.test.tsx'             ':(exclude)packages/mobile/**/*.spec.ts'             ':(exclude)packages/mobile/**/*.spec.tsx')"
+          latest="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 --             packages/mobile/.ota-production-trigger packages/mobile/App.tsx packages/mobile/src packages/mobile/assets packages/music             packages/mobile/package.json package.json package-lock.json .github/workflows/eas-update-production.yml             ':(exclude)packages/mobile/**/__tests__/**'             ':(exclude)packages/mobile/**/*.test.ts'             ':(exclude)packages/mobile/**/*.test.tsx'             ':(exclude)packages/mobile/**/*.spec.ts'             ':(exclude)packages/mobile/**/*.spec.tsx')"
           if [ "$GITHUB_SHA" = "$latest" ]; then
             echo "publish=yes" >> "$GITHUB_OUTPUT"
             echo "Latest mobile-impact SHA: $GITHUB_SHA"
