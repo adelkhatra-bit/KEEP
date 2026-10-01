@@ -43,9 +43,9 @@ begin
 
   with scored as (
     select
-      t.id,t.title,t.artist,t.album,t.artwork_url,t.preview_url,
-      coalesce(t.genres,array[]::text[]),coalesce(t.provider_ids,'{}'::jsonb),
-      coalesce(t.external_urls,'{}'::jsonb),coalesce(t.available_on,array[]::text[]),t.release_year,
+      t.id as track_id,t.title,t.artist,t.album,t.artwork_url,t.preview_url,
+      coalesce(t.genres,array[]::text[]) as genres,coalesce(t.provider_ids,'{}'::jsonb) as provider_ids,
+      coalesce(t.external_urls,'{}'::jsonb) as external_urls,coalesce(t.available_on,array[]::text[]) as available_on,t.release_year,
       (
         case when exists(
           select 1 from unnest(coalesce(t.genres,array[]::text[])) tg
