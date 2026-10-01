@@ -7,6 +7,8 @@ export type ProfileSaleSuggestion = {
   sellerAvatarUrl: string | null;
   playlistName: string;
   trackCount: number;
+  ownedCount: number;
+  missingCount: number;
   genres: string[];
   paymentMode: 'FREE' | 'MONEY';
   priceCents: number;
@@ -26,6 +28,8 @@ export async function loadProfileSaleSuggestions(limit = 8): Promise<ProfileSale
     sellerAvatarUrl: row.seller_avatar_url ? String(row.seller_avatar_url) : null,
     playlistName: String(row.playlist_name ?? 'Sélection'),
     trackCount: Number(row.track_count ?? 0),
+    ownedCount: Number(row.owned_count ?? row.ownedCount ?? 0),
+    missingCount: Number(row.missing_count ?? row.missingCount ?? row.track_count ?? 0),
     genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 3) : [],
     paymentMode: String(row.payment_mode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY',
     priceCents: Number(row.price_cents ?? 0),
