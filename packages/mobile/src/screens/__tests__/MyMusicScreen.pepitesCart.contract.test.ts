@@ -14,7 +14,7 @@ describe('Pépites inline cart contract', () => {
   it('does not redirect collection creation to Playlists/MyMusic', () => {
     expect(salePanel).toContain('openCollectionCart');
     expect(salePanel).not.toContain("createSaleCollection: true");
-    expect(contract.pepitesCart.createFlow).toBe('PlaylistSale inline cart');
+    expect(contract.pepitesCart.createFlow).toBe('PlaylistSale inline 4-step cart');
     expect(contract.pepitesCart.returnAfterPublish).toBe('stay-PlaylistSale');
   });
 
