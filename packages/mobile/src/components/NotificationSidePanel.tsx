@@ -324,7 +324,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
             setItems((current) => current.filter((item) => !ids.includes(item.id)));
             setExpandedId(null);
             if (!isDemoMode) {
-              void deleteNotifications(profileId, ids).catch(() => {
+              void Promise.all(ids.map((id) => deleteNotification(profileId, id))).catch(() => {
                 setItems(previous);
                 Alert.alert('Notifications', `Impossible de vider les ${sectionLabel} pour le moment.`);
               });
@@ -606,6 +606,7 @@ const s = StyleSheet.create({
   markAllText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
   clearSectionButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,91,107,.08)'},
   clearSectionText:{color:colors.danger,fontSize:8,fontWeight:'900',letterSpacing:.5},
+  deleteOne:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   deleteOneButton:{alignSelf:'flex-start',minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',marginTop:8},
   deleteOneText:{color:colors.danger,fontSize:8,fontWeight:'900',letterSpacing:.5},
   chatAccordion:{marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
