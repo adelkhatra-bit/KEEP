@@ -22,7 +22,8 @@ describe('suggestions de ventes du profil', () => {
     expect(rail).toContain('DROP DU MOMENT');
     expect(rail).toContain('DROP_MARKETING_HOOKS');
     expect(rail).not.toContain('>POUR TOI<');
-    expect(rail).toContain('<SaleCollectionRow');
+    expect(rail).toContain('freeDropButton');
+    expect(rail).toContain('setInterval(() => setIndex');
     expect(rail).toContain('if (!suggestions.length) return null;');
     expect(rail).not.toContain('onParticipatePress');
     expect(rail).not.toContain('onOffersPress');
