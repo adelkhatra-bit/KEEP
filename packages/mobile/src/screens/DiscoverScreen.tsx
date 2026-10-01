@@ -531,6 +531,53 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const discoveryUnlocked = isDemoMode || discoveryAccess?.allowed === true;
   const freeRemaining = discoveryAccess?.planCode === 'FREE' ? discoveryAccess.remaining : null;
 
+  if (isDemoMode) {
+    return (
+      <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.demoLockedHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>Découvertes</Text>
+              <Text style={styles.demoLockedKicker}>APERÇU DU MODE CONNECTÉ</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.demoHelpButton}
+              onPress={() => Alert.alert(
+                'Découvertes & FREE',
+                'Découvertes te permet de trouver des profils et événements selon tes goûts. En mode démo, cette zone est verrouillée pour éviter de créer de fausses données. Une fois connecté, tu peux suivre des profils, participer aux événements et utiliser tes FREE pour garder certaines trouvailles sur ton profil. Écouter reste gratuit.',
+                [
+                  { text: 'Fermer', style: 'cancel' },
+                  { text: 'Créer / se connecter', onPress: openAccount },
+                ],
+              )}
+              accessibilityRole="button"
+              accessibilityLabel="Comprendre Découvertes et les FREE"
+            >
+              <Text style={styles.demoHelpButtonText}>?</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.demoLockedCard}>
+            <View style={styles.demoLockCircle}><Text style={styles.demoLockIcon}>🔒</Text></View>
+            <Text style={styles.demoLockedTitle}>Connecte ton profil pour ouvrir Découvertes</Text>
+            <Text style={styles.demoLockedBody}>En mode démo, tu vois comment Loki Music fonctionne mais aucun profil réel n’est suivi, aucun événement n’est rejoint et aucun FREE n’est dépensé.</Text>
+            <View style={styles.demoFeatureRow}><Text style={styles.demoFeatureIcon}>◎</Text><Text style={styles.demoFeatureText}>Profils selon proximité + affinités musicales</Text></View>
+            <View style={styles.demoFeatureRow}><Text style={styles.demoFeatureIcon}>♫</Text><Text style={styles.demoFeatureText}>Événements validés et participation depuis l’app</Text></View>
+            <View style={styles.demoFeatureRow}><Text style={styles.demoFeatureIcon}>◆</Text><Text style={styles.demoFeatureText}>FREE = crédits pour garder certaines trouvailles, pas pour écouter</Text></View>
+            <MotionActionButton
+              variant="primary"
+              size="medium"
+              onPress={openAccount}
+              accessibilityLabel="Créer ou connecter mon compte Loki Music"
+            >
+              CRÉER / SE CONNECTER
+            </MotionActionButton>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (discoverMode === 'PEOPLE' && localDiscoveryChecked && !localDiscoveryEnabled) {
     return (
       <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
@@ -705,6 +752,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 110 },
   title: { color: colors.white, fontSize: 22, fontWeight: '900', marginBottom: 10 },
+  demoLockedHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:12},
+  demoLockedKicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.1},
+  demoHelpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.10)',alignItems:'center',justifyContent:'center'},
+  demoHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  demoLockedCard:{padding:20,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'stretch',gap:11},
+  demoLockCircle:{width:70,height:70,borderRadius:35,alignSelf:'center',alignItems:'center',justifyContent:'center',backgroundColor:'rgba(124,92,252,.14)',borderWidth:1,borderColor:colors.primaryLight},
+  demoLockIcon:{fontSize:31},
+  demoLockedTitle:{color:colors.white,fontSize:19,fontWeight:'900',textAlign:'center',marginTop:3},
+  demoLockedBody:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginBottom:3},
+  demoFeatureRow:{minHeight:48,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:11,paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
+  demoFeatureIcon:{width:24,color:colors.primaryLight,fontSize:17,fontWeight:'900',textAlign:'center'},
+  demoFeatureText:{flex:1,color:colors.textPrimary,fontSize:11,lineHeight:16,fontWeight:'700'},
   discoveryModes:{flexDirection:'row',gap:8,marginBottom:12,padding:4,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   discoveryModeButton:{flex:1,minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center'},
   discoveryModeButtonOn:{backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},
