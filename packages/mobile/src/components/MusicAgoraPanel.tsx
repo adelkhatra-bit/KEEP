@@ -99,6 +99,7 @@ export default function MusicAgoraPanel({
   compactSide = 'right',
   initialRoomSlug,
   initialReplyTarget,
+  initialGroupId,
   onCompactClose,
 }: {
   currentProfileId: string;
@@ -109,6 +110,7 @@ export default function MusicAgoraPanel({
   compactSide?: 'left' | 'right';
   initialRoomSlug?: string;
   initialReplyTarget?: { profileId: string; username: string };
+  initialGroupId?: string;
   onCompactClose?: () => void;
 }) {
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
@@ -281,6 +283,21 @@ export default function MusicAgoraPanel({
     setReplyTarget(initialReplyTarget);
     setChatMode('MESSAGES');
   }, [initialReplyTarget?.profileId, initialReplyTarget?.username]);
+
+  useEffect(() => {
+    if (!initialGroupId) return;
+    setChatMode('MESSAGES');
+    setReplyTarget(null);
+    const group = groups.find((item) => item.id === initialGroupId);
+    if (!group) return;
+    if (group.myStatus === 'ACTIVE') {
+      setActiveGroup(group);
+      initialScrollDone.current = false;
+    } else {
+      // An invitation stays in the inbox so ACCEPT / REFUSER remain visible.
+      setActiveGroup(null);
+    }
+  }, [initialGroupId, groups]);
 
   useEffect(() => {
     const loop = Animated.loop(
