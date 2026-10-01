@@ -20,7 +20,7 @@ async function loadBattleCreditStatusIfAuthenticated(): Promise<KeepBattleCredit
   return loadMyKeepBattleCreditStatus().catch(() => null);
 }
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
+import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
@@ -1340,50 +1340,66 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let alive = true;
     setAudioReady(false);
     let confirmed = false;
+
     const run = async () => {
-      const startsAt = round.startedAt ? new Date(round.startedAt).getTime() : Date.now();
+      const clockOffset = await estimateKeepBattleServerClockOffsetMs();
+      if (!alive) return;
+      const serverNow = () => keepBattleServerNowMs(clockOffset);
+      const startsAt = round.startedAt ? new Date(round.startedAt).getTime() : serverNow();
       const closesAt = round.closesAt ? new Date(round.closesAt).getTime() : startsAt + ROUND_MS;
+      const localTargetStart = startsAt - clockOffset;
       const duration = Math.max(1600, closesAt - startsAt + 500);
+
       try {
-        await scheduleTrackPreviewSegment(`arena:${arena.id}:${arena.matchNo}:${round.position}`, previewUrl, 0, duration, startsAt, (playing) => {
-          if (alive && playing) { confirmed = true; setAudioReady(true); }
-        });
+        await scheduleTrackPreviewSegment(
+          `arena:${arena.id}:${arena.matchNo}:${round.position}`,
+          previewUrl,
+          0,
+          duration,
+          localTargetStart,
+          (playing) => {
+            if (alive && playing) {
+              confirmed = true;
+              setAudioReady(true);
+            }
+          },
+        );
       } catch {
         if (!alive) return;
-        const lateByMs = Math.max(0, Date.now() - startsAt);
+        const lateByMs = Math.max(0, serverNow() - startsAt);
         const ok = await playVerified(
           `arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`,
           previewUrl,
-          Math.max(700, closesAt - Date.now() + 500),
+          Math.max(700, closesAt - serverNow() + 500),
           9000 + lateByMs,
         );
-        if (alive && ok) { confirmed = true; setAudioReady(true); }
+        if (alive && ok) {
+          confirmed = true;
+          setAudioReady(true);
+        }
       }
-      // Adel (02/09/2026) : "il y a du son uniquement sur la première dans
-      // les Battle [à plusieurs]" -- scheduleTrackPreviewSegment programme sa
-      // lecture réelle via un setTimeout interne séparé et résout sa propre
-      // promesse dès l'enregistrement, avant même d'avoir tenté de jouer :
-      // si ce setTimeout ne se déclenche jamais proprement (dérive d'horloge,
-      // manche déjà changée, latence de sondage), rien ne le signale --
-      // aucune exception, juste un silence permanent pour cette manche.
-      // Filet de sécurité robuste : si la confirmation de lecture n'est
-      // jamais arrivée un peu après l'instant de départ prévu, on force un
-      // vrai essai vérifié (le même mécanisme fiable que le mode solo)
-      // plutôt que de laisser la manche bloquée sur "SON EN CHARGEMENT".
+
+      // Même si un appareil rate le top départ, il reprend exactement au point
+      // du morceau correspondant à l'horloge serveur. Aucun joueur ne repart
+      // du début avec une fenêtre de réponse différente.
       if (!confirmed && alive) {
-        const safetyDelay = Math.max(0, startsAt - Date.now()) + 1200;
+        const safetyDelay = Math.max(0, startsAt - serverNow()) + 350;
         await wait(safetyDelay);
         if (!alive || confirmed) return;
-        const lateByMs = Math.max(0, Date.now() - startsAt);
+        const lateByMs = Math.max(0, serverNow() - startsAt);
         const ok = await playVerified(
           `arena-safety:${arena.id}:${arena.matchNo}:${round.position}`,
           previewUrl,
-          Math.max(700, closesAt - Date.now() + 500),
+          Math.max(700, closesAt - serverNow() + 500),
           9000 + lateByMs,
         );
-        if (alive && ok) setAudioReady(true);
+        if (alive && ok) {
+          confirmed = true;
+          setAudioReady(true);
+        }
       }
     };
+
     void run();
     return () => { alive = false; void stopTrackPreview(); };
   }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.previewUrl, arena?.round?.startedAt, arena?.round?.closesAt, playVerified]);
@@ -2280,7 +2296,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [arena?.status, arena?.roundCount, closeBattleArenaNow]);
 
   const answerArena = async (choice: string) => {
-    if (!arena || arena.status !== 'ACTIVE' || arena.round?.answered || arena.round?.revealed || pending) return;
+    if (!arena || arena.status !== 'ACTIVE' || !audioReady || arena.round?.answered || arena.round?.revealed || pending) return;
     const startsAt = arena.round?.startedAt ? new Date(arena.round.startedAt).getTime() : 0;
     const closesAt = arena.round?.closesAt ? new Date(arena.round.closesAt).getTime() : 0;
     if ((startsAt && Date.now() < startsAt) || (closesAt && Date.now() >= closesAt)) return;
