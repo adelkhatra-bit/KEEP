@@ -163,6 +163,17 @@ export default function MusicAgoraPanel({
   const [keyboardInset, setKeyboardInset] = useState(0);
   const baseViewportHeightRef = useRef(viewportHeight);
 
+
+  useEffect(() => {
+    if (!groupCreateOpen && !groupMembersOpen) return undefined;
+    const timer = setTimeout(() => {
+      void searchMusicAgoraGroupPeople(groupSearch, 40)
+        .then(setGroupPeople)
+        .catch(() => setGroupPeople([]));
+    }, 220);
+    return () => clearTimeout(timer);
+  }, [groupSearch, groupCreateOpen, groupMembersOpen]);
+
   useEffect(() => {
     if (!compact) {
       setKeyboardInset(0);
@@ -376,8 +387,13 @@ export default function MusicAgoraPanel({
 
   const openGroupMembers = async () => {
     if (!activeGroup?.id) return;
+    setGroupSearch('');
+    setGroupPeople([]);
     setGroupMembersOpen(true);
-    await refreshGroupMembers(activeGroup.id);
+    await Promise.all([
+      refreshGroupMembers(activeGroup.id),
+      searchMusicAgoraGroupPeople('', 40).then(setGroupPeople).catch(() => setGroupPeople([])),
+    ]);
   };
 
   const searchGroupPeople = async (query = groupSearch) => {
