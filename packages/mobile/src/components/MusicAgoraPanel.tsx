@@ -310,7 +310,7 @@ export default function MusicAgoraPanel({
           <Text style={s.title}>Parle, partage et garde tes pépites.</Text>
         </View>
         {enabled ? <TouchableOpacity style={[s.homeToggle, homeEnabled && s.homeToggleOn]} disabled={settingsBusy} onPress={() => void updateHomeChat(!homeEnabled)} accessibilityRole="switch" accessibilityState={{ checked: homeEnabled }}>
-          <Text style={[s.homeToggleText, homeEnabled && s.homeToggleTextOn]}>{homeEnabled ? 'ACCUEIL ON' : 'ACCUEIL OFF'}</Text>
+          <Text style={[s.homeToggleText, homeEnabled && s.homeToggleTextOn]}>{homeEnabled ? 'MINI-CHAT · ACTIVÉ' : 'MINI-CHAT · DÉSACTIVÉ'}</Text>
         </TouchableOpacity> : null}
       </View>
       <Text style={s.subtitle}>Messages publics par salon, réponses ciblées, musique écoutable. Filtre d’insultes, signalement, blocage et anti-spam actifs.</Text>
