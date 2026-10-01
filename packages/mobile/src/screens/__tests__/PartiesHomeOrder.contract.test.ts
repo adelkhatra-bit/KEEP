@@ -18,8 +18,8 @@ describe('Événements home order and help', () => {
 
   it('uses a help question mark instead of a duplicate lock in the header', () => {
     expect(source).toContain('eventHelpButtonText}>?</Text>');
-    expect(source).toContain('Tout faire depuis Soirées');
-    expect(source).toContain('Reçois et réponds aux invitations de ta communauté');
+    expect(source).toContain('Tout faire dans Soirées');
+    expect(source).toContain('Répondre aux invitations');
     expect(source).not.toContain("accessibilityLabel=\"Afficher mes droits de création d'événement\"");
   });
 });
