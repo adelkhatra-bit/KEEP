@@ -28,6 +28,16 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(notificationPanel).toContain('>TCHAT<');
   });
 
+  it('opens the exact chat target from an AGORA notification and keeps the nudge visible longer', () => {
+    expect(notificationPanel).toContain("type.startsWith('AGORA')");
+    expect(notificationPanel).toContain('roomSlug');
+    expect(notificationPanel).toContain('targetProfileId');
+    expect(notificationPanel).toContain('targetUsername');
+    expect(notificationPanel).toContain('messageId');
+    expect(profile).toContain('onOpenChat={(target) => useGlobalChatStore.getState().open(target ?? null)}');
+    expect(profile).toContain('}, 7000);');
+  });
+
   it('keeps the first hamburger click inside the drawer', () => {
     const start = profile.indexOf('const directMenuAction');
     const block = profile.slice(start, start + 1500);
