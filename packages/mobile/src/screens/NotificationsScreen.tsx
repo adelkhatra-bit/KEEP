@@ -81,6 +81,7 @@ const CHAT_SURFACE_OPTIONS: { key: MusicAgoraSurface; label: string }[] = [
   { key: 'PLAYLISTS', label: 'Playlists' },
   { key: 'PARTIES', label: 'Soirées' },
   { key: 'PROFILE', label: 'Profil' },
+  { key: 'NOTIFICATIONS', label: 'Notifications' },
 ];
 
 function notificationTypeLabel(type: string) {
@@ -133,7 +134,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
-  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [chatSaving, setChatSaving] = useState(false);
   const autoReadInFlight = useRef(false);
@@ -683,9 +684,27 @@ export default function NotificationsScreen({ navigation }: any) {
             <Text style={styles.visibilityHint}>{chatEnabled
               ? `Visible sur ${chatSurfaces.length} écran${chatSurfaces.length > 1 ? 's' : ''}. Tu peux le déplacer à gauche, à droite et en hauteur.`
               : 'Active-le puis choisis précisément où le bouton flottant doit apparaître.'}</Text>
-            <TouchableOpacity style={styles.chatChooseButton} onPress={() => setChatSettingsOpen((value) => !value)} accessibilityRole="button">
-              <Text style={styles.chatChooseButtonText}>{chatSettingsOpen ? 'FERMER LES EMPLACEMENTS' : 'CHOISIR OÙ IL APPARAÎT'}</Text>
-            </TouchableOpacity>
+            <View style={styles.chatControlActions}>
+              <TouchableOpacity
+                style={styles.chatOpenButton}
+                onPress={() => {
+                  if (!chatEnabled) {
+                    void persistChatSettings(true, Array.from(new Set([...chatSurfaces, 'NOTIFICATIONS'] as MusicAgoraSurface[]))).then(() => {
+                      useGlobalChatStore.getState().open();
+                    });
+                    return;
+                  }
+                  useGlobalChatStore.getState().open();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={chatEnabled ? 'Ouvrir le Tchat Loki' : 'Activer et ouvrir le Tchat Loki'}
+              >
+                <Text style={styles.chatOpenButtonText}>{chatEnabled ? 'OUVRIR LE TCHAT' : 'ACTIVER LE TCHAT'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.chatChooseButton} onPress={() => setChatSettingsOpen((value) => !value)} accessibilityRole="button">
+                <Text style={styles.chatChooseButtonText}>{chatSettingsOpen ? 'FERMER' : 'PLACEMENT'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {chatSaving ? <ActivityIndicator color={colors.keep} /> : (
             <Switch
@@ -954,7 +973,10 @@ const styles = StyleSheet.create({
   chatControlCard: { marginTop: -8, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.07)' },
   chatStatusIcon: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.12)', alignItems: 'center', justifyContent: 'center' },
   chatStatusIconText: { color: colors.keep, fontSize: 18, fontWeight: '900' },
-  chatChooseButton:{alignSelf:'flex-start',marginTop:8,minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.08)',alignItems:'center',justifyContent:'center'},
+  chatControlActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
+  chatOpenButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)',alignItems:'center',justifyContent:'center'},
+  chatOpenButtonText:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.55},
+  chatChooseButton:{minHeight:32,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.08)',alignItems:'center',justifyContent:'center'},
   chatChooseButtonText:{color:colors.info,fontSize:9,fontWeight:'900',letterSpacing:.5},
   chatSurfacePanel:{marginTop:-14,marginBottom:spacing.xl,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.06)'},
   chatSurfaceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
