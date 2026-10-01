@@ -56,7 +56,6 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -1076,6 +1075,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
     });
   }, [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
 
+  const styleCoveragePercent = useMemo(() => {
+    if (!profileKeptTracks.length) return 0;
+    const tagged = profileKeptTracks.filter((entry) => (entry.track.genres ?? []).some((genre) => String(genre || '').trim())).length;
+    return Math.max(0, Math.min(100, Math.round((tagged / profileKeptTracks.length) * 100)));
+  }, [profileKeptTracks]);
+
+
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- la détection de genre existait déjà mais restait
   // réservée à Creator Pro/Venue Pro (Vibes Auto) et n'était jamais
@@ -1963,75 +1969,41 @@ export default function ProfilePublicScreen({ navigation }: any) {
       ) : null}
 
       {!dnaFeatureEnabled && profileStyleBubbles.length > 0 ? (
-        <View style={s.dna}>
-          <View style={s.dnaHeader}>
-            <View>
-              <Text style={s.dnaEyebrow}>TES STYLES MUSICAUX</Text>
-              <Text style={s.dnaTitle}>Ton identité musicale</Text>
-              <Text style={s.dnaCountHint}>{Math.min(8, profileStyleBubbles.length)} style{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''} affiché{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''}</Text>
-            </View>
+        <TouchableOpacity
+          style={s.dnaCompactMeter}
+          onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
+          accessibilityRole="button"
+          accessibilityLabel={`Voir mes styles musicaux. ${styleCoveragePercent}% de mes morceaux sont classés par style`}
+        >
+          <View style={s.dnaCompactCopy}>
+            <Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>
+            <Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>
           </View>
-          <MusicStyleBubbles
-            testID="profile-music-style-bubbles"
-            genres={profileStyleBubbles}
-            max={8}
-            onPressGenre={(genre) => {
-              const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-              if (folder?.entries.length) {
-                openSelectionSwipe({
-                  title: folder.genre,
-                  subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                  tracks: folder.entries.map((entry) => entry.track),
-                });
-                return;
-              }
-              switchProfileTab('TRACKS');
-              setTracksGrouping('GENRE');
-            }}
-          />
-        </View>
+          <View style={s.dnaCompactGauge}>
+            <View style={s.dnaCompactTrack}><View style={[s.dnaCompactFill, { width: `${styleCoveragePercent}%` }]} /></View>
+            <Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>
+          </View>
+        </TouchableOpacity>
       ) : null}
 
       {/* Le flag keep_dna pilote les métriques avancées, pas la disparition
           des styles musicaux de base du profil. */}
       {dnaFeatureEnabled && (
-        <View style={s.dna}>
-          <View style={s.dnaHeader}>
-            <View>
-              <Text style={s.dnaEyebrow}>Loki Music DNA</Text>
-              <Text style={s.dnaTitle}>Tes styles dominants</Text>
-              <Text style={s.dnaCountHint}>{Math.min(8, profileStyleBubbles.length)} affiché{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''} · {genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} dans tes morceaux</Text>
-            </View>
-            <Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text>
+        <TouchableOpacity
+          style={s.dnaCompactMeter}
+          onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
+          accessibilityRole="button"
+          accessibilityLabel={`Voir mes styles musicaux. Diversité Loki DNA ${Math.round(dna.diversityScore * 100)}%`}
+        >
+          <View style={s.dnaCompactCopy}>
+            <Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>
+            <Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>
           </View>
-          <MusicStyleBubbles
-            testID="profile-music-style-bubbles"
-            genres={profileStyleBubbles}
-            max={8}
-            onPressGenre={(genre) => {
-              const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-              if (folder?.entries.length) {
-                openSelectionSwipe({
-                  title: folder.genre,
-                  subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                  tracks: folder.entries.map((entry) => entry.track),
-                });
-                return;
-              }
-              switchProfileTab('TRACKS');
-              setTracksGrouping('GENRE');
-            }}
-          />
-          {genreFolders.length > 4 ? (
-            <TouchableOpacity
-              style={s.dnaSeeAll}
-              onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
-              accessibilityLabel={`Voir mes ${genreFolders.length} styles musicaux`}
-            >
-              <Text style={s.dnaSeeAllText}>VOIR MES {genreFolders.length} STYLES</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+          <View style={s.dnaCompactGauge}>
+            <View style={s.dnaCompactTrack}><View style={[s.dnaCompactFill, { width: `${Math.round(dna.diversityScore * 100)}%` }]} /></View>
+            <Text style={s.dnaCompactScore}>{Math.round(dna.diversityScore * 100)}%</Text>
+          </View>
+        </TouchableOpacity>
       )}
 
       <View style={s.socialHub}>
@@ -2404,6 +2376,13 @@ ownerBattleMicroTextOn:{color:colors.success},
 ownerQuickActionMotion:{flex:1},ownerSwipeMotion:{marginTop:12},ownerSoloBattleMotion:{marginTop:8},ownerShareButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerSellButton:{flex:1,minHeight:54,borderRadius:14,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center',paddingHorizontal:8},ownerSellButtonText:{color:colors.success,fontSize:11,fontWeight:'900',textAlign:'center'},ownerSellCount:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:2},ownerBattleCard:{marginTop:8},ownerBattleCopy:{flex:1,minWidth:0},ownerBattleSub:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},ownerSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},ownerActionText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},ownerShareTextSecondary:{color:colors.textPrimary,fontSize:13,fontWeight:'800'},
   sectionMargin:{marginHorizontal:18,marginTop:10},
 battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:8,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:2,borderColor:colors.primaryLight,shadowColor:colors.primaryLight,shadowOpacity:.55,shadowRadius:9,shadowOffset:{width:0,height:0},elevation:7},battleAvailabilityRowOn:{backgroundColor:`${colors.success}22`,borderColor:colors.success,shadowColor:colors.success,shadowOpacity:.9,shadowRadius:12,elevation:9},battleAvailabilityMain:{flexDirection:'row',alignItems:'center',gap:6,flex:1},battleAvailabilityDot:{fontSize:13},battleAvailabilityTitle:{color:'#FFF',fontSize:13,fontWeight:'900'},battleAvailabilityInfoIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},ownerSoloBattleButton:{minHeight:56,marginTop:8,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:2,borderColor:colors.primaryLight,flexDirection:'row',alignItems:'center',gap:10,shadowColor:colors.primaryLight,shadowOpacity:.7,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:8},ownerSoloBattleCopy:{flex:1,minWidth:0},ownerSoloBattleTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},ownerSoloBattleSub:{color:colors.textPrimary,fontSize:10,lineHeight:14,marginTop:2},ownerSoloBattleArrow:{color:colors.textPrimary,fontSize:26,fontWeight:'700'},battleAvailabilityHint:{color:colors.textPrimary,fontSize:12,lineHeight:16,marginTop:5,paddingHorizontal:2},battlePresenceLine:{color:colors.textPrimary,fontSize:12,fontWeight:'700',marginTop:6,paddingHorizontal:2},
+  dnaCompactMeter:{marginTop:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
+  dnaCompactCopy:{flex:1,minWidth:0},
+  dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
+  dnaCompactGauge:{width:118,alignItems:'flex-end',gap:5},
+  dnaCompactTrack:{width:'100%',height:7,borderRadius:999,backgroundColor:colors.border,overflow:'hidden'},
+  dnaCompactFill:{height:'100%',borderRadius:999,backgroundColor:colors.keep},
+  dnaCompactScore:{color:colors.keep,fontSize:14,fontWeight:'900'},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaScore:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:8},chip:{paddingHorizontal:10,paddingVertical:5,borderRadius:radius.pill,backgroundColor:colors.smartBadgeBg},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},genreGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:8},genreTile:{width:'48%',minHeight:56,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreTileText:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreTileCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},muted:{color:colors.textPrimary,fontSize:13,lineHeight:18},
   ownerStyleGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',gap:0,marginTop:10},groupingToggle:{flexDirection:'row',gap:8,marginBottom:4},groupingChip:{minHeight:30,paddingHorizontal:14,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},groupingChipOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},groupingChipText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},groupingChipTextOn:{color:'#FFFFFF'},
   genreFolderGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',marginTop:6},genreFolderRowBlock:{marginTop:6},genreFolderRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'stretch'},genreFolderTile:{width:'48%',minHeight:72,marginBottom:10,paddingHorizontal:12,paddingVertical:10,borderRadius:radius.md,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'center'},genreFolderSpacer:{width:'48%'},genreFolderTileOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},genreFolderIcon:{fontSize:18,marginBottom:4},genreFolderName:{color:colors.textPrimary,fontSize:14,fontWeight:'800'},genreFolderCount:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700',marginTop:3},
