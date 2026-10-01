@@ -87,7 +87,9 @@ export default function MusicAgoraPanel({
   const [shareRevealMode, setShareRevealMode] = useState<MusicAgoraRevealMode>('MASKED');
   const [sharePaymentMode, setSharePaymentMode] = useState<MusicAgoraPaymentMode>('NONE');
   const [shareFreePrice, setShareFreePrice] = useState(3);
+  const [shareFreePriceInput, setShareFreePriceInput] = useState('3');
   const [shareMoneyPriceCents, setShareMoneyPriceCents] = useState(100);
+  const [shareMoneyPriceInput, setShareMoneyPriceInput] = useState('1');
   const [sharePreflight, setSharePreflight] = useState<MusicAgoraSharePreflight | null>(null);
   const [sharePreflightBusy, setSharePreflightBusy] = useState(false);
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
@@ -280,7 +282,9 @@ export default function MusicAgoraPanel({
       setShareRevealMode('MASKED');
       setSharePaymentMode('NONE');
       setShareFreePrice(3);
+      setShareFreePriceInput('3');
       setShareMoneyPriceCents(100);
+      setShareMoneyPriceInput('1');
       setSharePreflight(null);
       browsingHistoryRef.current = false;
       await refresh(roomSlug);
@@ -436,21 +440,21 @@ export default function MusicAgoraPanel({
 
   if (compact && (!enabled || !homeEnabled)) return null;
 
-  return <View style={[s.shell, compact && s.shellCompact]}>
+  return <View style={[s.shell, compact && s.shellCompact, compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight)]}>
     {compact ? (
       <View style={s.compactHeader}>
         <View style={s.liveDot} />
         <View style={s.compactHeaderCopy}>
           <Text style={s.compactTitle}>TCHAT LOKI · EN DIRECT</Text>
-          <Text style={s.compactMeta}>{room?.label || 'Discussion musicale'} · nouveaux messages automatiques</Text>
+          <Text style={s.compactMeta}>{room?.label || 'Discussion musicale'}</Text>
         </View>
-        <Text style={s.compactBadge}>EN DIRECT</Text>
+        <Text style={s.compactBadge}>LIVE</Text>
         <TouchableOpacity
           style={s.compactClose}
-          onPress={() => void updateHomeChat(false, true)}
+          onPress={() => { if (onCompactClose) onCompactClose(); else void updateHomeChat(false, true); }}
           disabled={settingsBusy}
           accessibilityRole="button"
-          accessibilityLabel="Fermer le mini-chat du profil"
+          accessibilityLabel="Fermer le mini-chat"
         >
           <Text style={s.compactCloseText}>×</Text>
         </TouchableOpacity>
@@ -667,7 +671,9 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',left:10,right:10,bottom:10,height:360,padding:9,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:18,shadowOffset:{width:0,height:10},elevation:18,zIndex:60},
+  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:390,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompactLeft:{left:10},
+  shellCompactRight:{right:10},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
