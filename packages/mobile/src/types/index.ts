@@ -37,6 +37,10 @@ export interface User {
   kind: ProfileKind;
   city?: string;
   countryCode?: string;
+  /** BCP-47 language tag detected/selected for localized UI and music recommendations. */
+  preferredLanguageTag?: string;
+  /** ISO-3166 alpha-2 countries whose music scenes the member wants in recommendations. */
+  musicCountryCodes?: string[];
   website?: string;
   favoriteGenres: string[];
   favoriteArtists: string[];
