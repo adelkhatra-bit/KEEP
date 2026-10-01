@@ -106,7 +106,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
-  const [creditCostPerKeep, setCreditCostPerKeep] = useState(1);
+  const [creditCostPerKeep, setCreditCostPerKeep] = useState(3);
   const [keepChoiceOpen, setKeepChoiceOpen] = useState(false);
   const [keepPlaylistId, setKeepPlaylistId] = useState<string | undefined>(undefined);
   const [keepBusy, setKeepBusy] = useState(false);
