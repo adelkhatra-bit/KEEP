@@ -17,7 +17,6 @@ type Props = {
   visible: boolean;
   profileId: string;
   onClose: () => void;
-  onOpenAll: () => void;
 };
 
 const CHAT_SURFACE_OPTIONS: Array<{ key: MusicAgoraSurface; label: string }> = [
