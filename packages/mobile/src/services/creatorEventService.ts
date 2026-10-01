@@ -238,6 +238,7 @@ export type EventTicketPurchaseRequest = {
   currencyCode: string;
   sellerUsername: string;
   payoutLink: string;
+  payoutQrUrl: string;
 };
 
 export async function requestEventTicketPurchase(eventId: string): Promise<EventTicketPurchaseRequest> {
@@ -252,6 +253,7 @@ export async function requestEventTicketPurchase(eventId: string): Promise<Event
     currencyCode: String(row?.currencyCode ?? 'EUR'),
     sellerUsername: String(row?.sellerUsername ?? ''),
     payoutLink: String(row?.payoutLink ?? ''),
+    payoutQrUrl: String(row?.payoutQrUrl ?? row?.payout_qr_url ?? ''),
   };
 }
 
