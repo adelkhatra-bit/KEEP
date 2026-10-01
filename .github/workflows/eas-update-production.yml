@@ -51,39 +51,66 @@ jobs:
             echo "Stale OTA run skipped: $GITHUB_SHA; latest mobile-impact SHA is $latest"
           fi
 
+      - name: Guard OTA native compatibility
+        id: compatible
+        if: steps.compatible.outputs.publish == 'yes'
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline="$(git log -1 --format=%H -- packages/mobile/.eas-build-trigger || true)"
+          if [ -z "$baseline" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "No full TestFlight build baseline: OTA blocked."
+            exit 0
+          fi
+          changed="$(git diff --name-only "$baseline"..HEAD)"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(package\.json|package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/)|packages/music/package\.json)'; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Native/dependency-sensitive change detected since the last full TestFlight build: OTA blocked."
+            exit 0
+          fi
+          echo "publish=yes" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install exact dependencies
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         run: npm ci
 
       - name: Setup EAS CLI
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Verify Expo authentication
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         working-directory: packages/mobile
         run: eas whoami
 
       - name: Validate production OTA payload
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         run: |
           set -euo pipefail
           node scripts/verify-source-of-truth.cjs
+          node scripts/verify-profile-data-integrity.cjs
+          node scripts/verify-mobile-text-contrast.cjs
+          node scripts/verify-ui-layout-baseline.cjs
+          node scripts/verify-global-user-regression-guard.cjs
           npm --workspace packages/mobile run type-check
+          npm --workspace packages/music run type-check
           npm --workspace packages/mobile test -- --runInBand
+          npm --workspace packages/music test -- --runInBand
 
       - name: Publish latest JS to production
-        if: steps.fresh.outputs.publish == 'yes'
+        if: steps.compatible.outputs.publish == 'yes'
         working-directory: packages/mobile
         env:
           CI: '1'
@@ -95,10 +122,11 @@ jobs:
           EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
           EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
           EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+          EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           test -n "$EXPO_PUBLIC_SUPABASE_URL" && test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY"
-          eas update --channel production --non-interactive --message "GitHub ${GITHUB_SHA}"
+          eas update --channel production --platform ios --non-interactive --message "GitHub ${GITHUB_SHA}"
 
       - name: Summary
         if: always()
@@ -107,6 +135,7 @@ jobs:
             echo '### Loki Music OTA production'
             echo
             echo "- Commit: ${GITHUB_SHA}"
-            echo '- Channel: production'
-            echo '- This updates JS/assets only. Native module or entitlement changes still require a new TestFlight build.'
+            echo '- Channel: production · iOS'
+            echo "- OTA eligible: ${{ steps.compatible.outputs.publish || 'no' }}"
+            echo '- Native module, dependency or entitlement changes are blocked and still require a new TestFlight build.'
           } >> "$GITHUB_STEP_SUMMARY"
