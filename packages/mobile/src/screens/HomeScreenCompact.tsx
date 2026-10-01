@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
+import { computeMusicDNA, DnaSourceDecision } from '@keep/music';
 import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -101,6 +103,25 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const historySessions = useSessionHistoryStore((s) => s.sessions);
+  const homeDna = useMemo(() => {
+    const decisions: DnaSourceDecision[] = historySessions.flatMap((session) =>
+      session.tracks
+        .filter((entry) => entry.status === 'kept')
+        .map((entry) => ({
+          artist: entry.track.artist,
+          genres: entry.track.genres ?? [],
+          decision: 'KEPT' as const,
+          createdAt: entry.detectedAt,
+        })),
+    );
+    return computeMusicDNA(decisions);
+  }, [historySessions]);
+  const homeStyleBubbles = useMemo(() => {
+    const learned = homeDna.topGenres.map((row) => row.genre).filter(Boolean);
+    const declared = Array.isArray(user?.favoriteGenres) ? user.favoriteGenres.filter(Boolean) : [];
+    return Array.from(new Set([...learned, ...declared])).slice(0, 8);
+  }, [homeDna.topGenres, user?.favoriteGenres]);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
@@ -558,6 +579,35 @@ export default function HomeScreenCompact({ navigation }: any) {
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
               <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {!isDemoMode && user ? (
+            <TouchableOpacity
+              style={s.homeDnaCard}
+              activeOpacity={0.88}
+              onPress={() => navigation.navigate('Profile')}
+              accessibilityRole="button"
+              accessibilityLabel="Voir mes styles musicaux sur mon profil"
+            >
+              <View style={s.homeDnaHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>
+                  <Text style={s.homeDnaTitle}>Tes styles musicaux</Text>
+                </View>
+                <Text style={s.homeDnaArrow}>›</Text>
+              </View>
+              {homeStyleBubbles.length ? (
+                <View style={s.homeDnaBubbles}>
+                  {homeStyleBubbles.map((genre) => (
+                    <View key={genre} style={s.homeDnaBubble}>
+                      <Text style={s.homeDnaBubbleText} numberOfLines={1}>{genre}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={s.homeDnaEmpty}>Tes petites bulles apparaîtront ici à mesure que Loki apprend ce que tu gardes.</Text>
+              )}
             </TouchableOpacity>
           ) : null}
         </ScrollView>
@@ -1033,6 +1083,15 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
+  homeDnaCard:{width:'100%',maxWidth:692,marginTop:16,padding:12,borderRadius:18,borderWidth:1,borderColor:C.line,backgroundColor:'rgba(21,16,32,.88)'},
+  homeDnaHeader:{flexDirection:'row',alignItems:'center',gap:8},
+  homeDnaEyebrow:{color:C.purpleLight,fontSize:10,fontWeight:'900',letterSpacing:1.1},
+  homeDnaTitle:{color:C.text,fontSize:15,fontWeight:'900',marginTop:2},
+  homeDnaArrow:{color:C.purpleLight,fontSize:28,fontWeight:'900',lineHeight:30},
+  homeDnaBubbles:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},
+  homeDnaBubble:{minHeight:32,maxWidth:'100%',paddingHorizontal:12,borderRadius:16,borderWidth:1,borderColor:C.purple,backgroundColor:'rgba(124,92,252,.14)',alignItems:'center',justifyContent:'center'},
+  homeDnaBubbleText:{color:C.text,fontSize:12,fontWeight:'800',maxWidth:148},
+  homeDnaEmpty:{color:C.mutedGrey,fontSize:11,lineHeight:16,marginTop:8},
   livePanel: { marginBottom: 8 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
