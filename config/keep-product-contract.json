@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.34",
+  "version": "2026-10-01.36",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -552,7 +552,18 @@
     "messageReadingAreaPrioritized": true,
     "composerPinnedAtBottom": true,
     "actionsWrapOnNarrowPhones": true,
-    "keepsPublicAndPrivateChatFeatures": true
+    "keepsPublicAndPrivateChatFeatures": true,
+    "searchableInbox": true,
+    "inboxFilters": [
+      "Tous",
+      "Salons",
+      "Privés",
+      "Invitations"
+    ],
+    "singleConversationList": true,
+    "privateRooms": true,
+    "publicRoom": true,
+    "actionsGroupedBehindComposerMenu": true
   },
   "lokiPulseBubbles": {
     "homeAlwaysVisibleWhenStylesExist": true,
@@ -570,9 +581,7 @@
     "alwaysVisibleOutsideDnaAccordion": true,
     "homeReplacesLokiMusicDna": true,
     "usesFavoriteGenresFallback": true,
-    "regressionGuardRequired": true
-  },
-  "lokiPulseStyleBubbles": {
+    "regressionGuardRequired": true,
     "oneBubbleCardPerSurface": true,
     "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts"
   }
