@@ -46,25 +46,25 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(listen).toContain('resolveTrackPreviewUrl(track)');
   });
 
-  it('uses the approved colorful card system for public styles and a separate locked collection carousel', () => {
+  it('uses colorful public style cards and a separate compact Drop list for locked collections', () => {
     expect(profile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(profile).toContain('mode="PUBLIC"');
-    expect(profile).toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(profile).toContain("onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}");
     expect(profile).toContain('artworkUrl={genreArtwork[genre]}');
-    expect(profile).toContain('horizontal');
     expect(profile).toContain('<SaleCollectionRow');
-    expect(profile).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
+    expect(profile).toContain('accessibilityLabel="Collections musicales à débloquer"');
+    expect(profile).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
-    expect(styleCard).toContain('const SALE_GRADIENTS');
   });
 
-  it('never passes real artwork metadata into a locked collection card and keeps sale products out of the public style grid', () => {
-    const saleCardStart = profile.indexOf('key={`sale-carousel:${offer.offerId}`}');
-    const saleCardEnd = profile.indexOf('/>', saleCardStart);
-    const saleCard = profile.slice(saleCardStart, saleCardEnd);
-    expect(saleCard).not.toContain('artworkUrl=');
+  it('keeps sale products out of the public style grid and never reveals their artwork through the locked row', () => {
+    const saleRowStart = profile.indexOf('key={`sale-row:${offer.offerId}`}');
+    const saleRowEnd = profile.indexOf('/>', saleRowStart);
+    const saleRow = profile.slice(saleRowStart, saleRowEnd);
+    expect(saleRowStart).toBeGreaterThan(-1);
+    expect(saleRow).not.toContain('artworkUrl=');
     expect(profile).not.toContain('key={`sale-style:${offer.offerId}`}');
     expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}');
   });
@@ -76,11 +76,12 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(featureFlags).toContain("return isFeatureEnabled('playlist_marketplace');");
   });
 
-  it('makes a seller unmistakable as soon as the visited profile opens', () => {
-    expect(profile).toContain('BOUTIQUE MUSICALE ACTIVE');
-    expect(profile).toContain("collection{saleOffers.length > 1 ? 's' : ''} exclusive");
-    expect(profile).toContain('Extraits anonymes · vrais titres masqués avant déblocage');
-    expect(profile).toContain('SON GOÛT MUSICAL · SES COLLECTIONS');
+  it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
+    expect(profile).toContain('À ÉCOUTER · @{profile.username}');
+    expect(profile).toContain('Drops musicaux');
+    expect(profile).toContain("{saleOffers.length} DROP{saleOffers.length > 1 ? 'S' : ''}");
+    expect(profile).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 
   it('shows already-owned counts directly on public style cards', () => {
@@ -89,12 +90,12 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain("badgeLabel={allOwned ? '✓ DÉJÀ CHEZ TOI'");
   });
 
-  it('uses the same immersive visual system on the owner profile without file-folder UI as the primary styles view', () => {
+  it('uses the same immersive visual system on the owner profile and attributes social discoveries inline', () => {
     expect(ownerProfile).toContain("import ProfileStyleCard from '../components/ProfileStyleCard';");
     expect(ownerProfile).toContain('style={s.ownerStyleGrid}');
-    expect(ownerProfile).toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
-    expect(ownerProfile).toContain('title="JOUER EN SOLO"');
-    expect(ownerProfile).toContain('BOUTIQUE ACTIVE');
+    expect(ownerProfile).toContain('mode="PUBLIC"');
+    expect(ownerProfile).toContain("actionLabel={sourceUsername ? `Découvert par ${sourceUsername.replace(/^@+/, '')}` : undefined}");
+    expect(ownerProfile).not.toContain("actionLabel={marketplaceEnabled ? 'CRÉER' : undefined}");
   });
 
   it('gives a newly registered empty profile a real first action instead of a dead empty state', () => {
@@ -131,19 +132,21 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(styleCard).toContain('onPlayPress?: () => void;');
   });
 
-  it('identifies the listened profile inside Swipe for the whole playback session', () => {
+  it('identifies the listened profile and first discoverer inside Swipe for the whole playback session', () => {
     expect(swipe).toContain('sourceUsername?: string;');
-    expect(swipe).toContain('TU ÉCOUTES L’UNIVERS DE');
-    expect(swipe).toContain('@{sourceUsername.replace(/^@/, \'\')}');
+    expect(swipe).toContain('sourceProfileId?: string;');
+    expect(swipe).toContain("Découvert par @{currentSourceUsername.replace(/^@/, '')}");
+    expect(swipe).toContain('◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, \'\')} · VOIR / SUIVRE');
     expect(profile).toContain('sourceUsername={profile.username}');
     expect(profile).toContain('sourceAvatarUrl={profile.avatar}');
+    expect(profile).toContain('sourceProfileId={profile.id}');
     expect(ownerProfile).toContain('sourceUsername={user.username}');
   });
 
-  it('removes the obsolete three-style Battle cap and allows the profile universe to extend to twelve styles', () => {
-    expect(battle).toContain('real.length >= 12');
-    expect(battle).toContain('12 styles Battle maximum');
-    expect(battle).not.toContain('3 styles Battle maximum');
+  it('keeps Battle match preferences intentionally compact at three mixed styles', () => {
+    expect(battle).toContain('real.length >= 3');
+    expect(battle).toContain('3 styles maximum');
+    expect(battle).toContain('le Solo et les Battles les mélangeront réellement pendant la partie');
   });
 
   it('never calls the authenticated Battle credit RPC for demo or local guests', () => {
