@@ -914,13 +914,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
       Alert.alert('Collection exclusive', 'Choisis au moins 2 morceaux. Une collection représente ton univers musical, jamais un morceau isolé.');
       return;
     }
-    openSellModal({
+    const conflictTracks = tracks.filter((track) => Boolean(myOfferedTrackIds[track.id]));
+    const openComposer = () => openSellModal({
       kind: 'selection',
       key: `selection:${Date.now()}`,
       name: `Ma collection · ${tracks.length} titres`,
       trackIds: tracks.map((track) => track.id),
       coverUrl: null,
     });
+    if (!conflictTracks.length) {
+      openComposer();
+      return;
+    }
+    Alert.alert(
+      'Panier prêt',
+      `${conflictTracks.length} morceau${conflictTracks.length > 1 ? 'x sont' : ' est'} déjà en vente. Si tu publies cette nouvelle Pépite, Loki ${conflictTracks.length > 1 ? 'les déplacera' : 'le déplacera'} automatiquement depuis ${conflictTracks.length > 1 ? 'leurs anciennes collections' : 'son ancienne collection'}, sans doublon ni perte.`,
+      [
+        { text: 'Revoir le panier', style: 'cancel' },
+        { text: 'Continuer', onPress: openComposer },
+      ],
+    );
   };
 
   // (21/09/2026, Partie 4) : "je dois pouvoir ajouter d'autres morceaux à
@@ -1083,8 +1096,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const stableKey = sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key;
     setSellBusy(true);
     try {
+      const moveExisting = sellTarget.kind === 'selection'
+        && sellTarget.trackIds.some((trackId) => Boolean(myOfferedTrackIds[trackId]));
       const offer = sellTarget.kind === 'selection'
-        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR')
+        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR', moveExisting)
         : sellPaymentMode === 'MONEY'
           ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0)
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
@@ -1101,7 +1116,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       closeSellModal();
       if (publishedFromPepitesCart) {
         setSaleReturnToPicks(false);
-        navigation.navigate('PlaylistSale', { source: 'PEPITES_CART', createdOfferId: offer.id });
+        navigation.navigate('PlaylistSale', { source: 'PEPITES_CART', createdOfferId: offer.offerId || offer.playlistId });
       }
     } catch (e: any) {
       const raw = String(e?.message || e || '');
@@ -1557,7 +1572,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <View style={styles.saleWizardIntro}>
               <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 3</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
               <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
-              <Text style={styles.saleWizardHint}>Ajoute au moins 2 morceaux au panier. Un titre déjà en vente reste sélectionnable : Loki Music te prévient avant de l’ajouter une seconde fois. Rien n’est publié tant que tu ne valides pas.</Text>
+              <Text style={styles.saleWizardHint}>Ajoute au moins 2 morceaux au panier. Un titre déjà en vente reste sélectionnable : Loki te prévient, puis le déplacera vers la nouvelle Pépite au moment de publier. Tu peux le retirer du panier à tout moment. Rien n’est publié avant validation.</Text>
             </View>
           ) : <>
             {regularPlaylists.length ? (
