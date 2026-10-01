@@ -18,16 +18,16 @@ describe('Web update cache-busting contract', () => {
 
   it('keeps a permanent manual update control on desktop web', () => {
     expect(banner).toContain('keep-manual-update-control');
-    expect(banner).toContain('Mise à jour du site Loki Music');
-    expect(banner).toContain('↻ Mise à jour');
-    expect(banner).toContain('if (width < 768) return null');
-    expect(banner).toContain('onPress={reloadToLatest}');
+    expect(banner).toContain('ACTUALISER LOKI MUSIC');
+    expect(banner).toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(banner).toContain("if (Platform.OS !== 'web' || width < 768) return null");
+    expect(banner).toContain('checkNow().finally(reloadToLatest)');
   });
 
-  it('still shows the full dismissible banner when a newer deployed SHA exists', () => {
-    expect(banner).toContain('keep-update-available-banner');
-    expect(banner).toContain('Nouvelle version de Loki Music disponible');
-    expect(banner).toContain('Plus tard');
-    expect(banner).toContain('Mettre à jour');
+  it('auto-fetches and reloads compatible production OTAs on native launch', () => {
+    expect(banner).toContain("import * as Updates from 'expo-updates'");
+    expect(banner).toContain('Updates.checkForUpdateAsync()');
+    expect(banner).toContain('Updates.fetchUpdateAsync()');
+    expect(banner).toContain('Updates.reloadAsync()');
   });
 });
