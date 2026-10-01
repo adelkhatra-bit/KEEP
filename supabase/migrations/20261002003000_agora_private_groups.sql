@@ -339,13 +339,12 @@ as $$
     m.shared_track_id,
     m.music_reveal_mode,
     t.title,
-    coalesce(a.name,t.artist),
+    t.artist,
     t.artwork_url,
     t.preview_url
   from public.music_agora_group_messages m
   join public.profiles p on p.id=m.profile_id
   left join public.tracks t on t.id=m.shared_track_id
-  left join public.artists a on a.id=t.artist_id
   where m.group_id=p_group_id
     and (p_before_id is null or m.id<p_before_id)
     and exists (
