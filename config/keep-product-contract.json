@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.18",
+  "version": "2026-10-01.19",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -413,7 +413,20 @@
     "voiceCueReadsMessageBody": false,
     "voiceCueOptIn": true,
     "voiceCueReadsMessageContent": false,
-    "voiceCueSettingPersistence": "Supabase profiles.community_chat_voice_announcements"
+    "voiceCueSettingPersistence": "Supabase profiles.community_chat_voice_announcements",
+    "fixedCompactDrawer": true,
+    "fixedCompactDrawerHeightPx": 470,
+    "longMessagesScrollInsideDrawer": true,
+    "composerFixedHeightPx": 44,
+    "maxMessageCharacters": 2000,
+    "keyboardMeasuredFromEndCoordinates": true,
+    "webKeyboardMeasuredFromVisualViewport": true,
+    "keyboardMovesDrawerAboveInputMethod": true,
+    "sharedTrackOwnershipLockVisibleInPicker": true,
+    "sharedTrackOwnershipLockVisibleWhenSelected": true,
+    "lockedTrackMayStillBeSharedAndPreviewed": true,
+    "lockedTrackMayNotUseFreeOrMoney": true,
+    "lockedTrackReasonExpandsInline": true
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
