@@ -1154,13 +1154,16 @@ export default function PartiesScreen({ navigation, route }: any) {
             un évènement, une porte ouverte, etc." -- l'ancien texte parlait
             de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
             les évènements eux-mêmes, sans présumer du type. */}
-        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Événements'}</Text><Text style={styles.subtitle}>{partiesTab === 'BATTLE' ? 'Classement, solo ou multijoueur.' : 'Tes soirées et invitations, sans doublon avec Découvertes.'}</Text></View>
-        {partiesTab === 'SOIREES' ? <TouchableOpacity style={styles.eventHelpButton} onPress={() => setEventAccessInfoOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={eventAccessInfoOpen ? "Masquer l'aide Événements" : "À quoi sert Événements ?"}><Text style={styles.eventHelpButtonText}>?</Text></TouchableOpacity> : null}
+        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Événements'}</Text></View>
+        {partiesTab === 'SOIREES' ? <TouchableOpacity style={styles.eventHelpButton} onPress={() => setEventAccessInfoOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={eventAccessInfoOpen ? "Masquer l'aide Événements" : "Tout comprendre sur Soirées"}><Text style={styles.eventHelpButtonText}>?</Text></TouchableOpacity> : null}
       </View>
 
       {partiesTab === 'SOIREES' && eventAccessInfoOpen ? <View style={styles.eventHelpCard} accessibilityLabel="Explication Événements">
-        <Text style={styles.eventHelpTitle}>À quoi sert Événements ?</Text>
-        <Text style={styles.eventHelpText}>Publie une soirée, un concert, une porte ouverte ou un rendez-vous. Après validation, Loki Music prévient ta communauté : tes abonnés et les personnes qui ont déjà gardé une musique découverte grâce à toi.</Text>
+        <Text style={styles.eventHelpTitle}>Tout faire depuis Soirées</Text>
+        <Text style={styles.eventHelpText}>1 · Publie une soirée, un concert, une porte ouverte ou un rendez-vous.</Text>
+        <Text style={styles.eventHelpText}>2 · Retrouve ici tes événements publiés et leurs informations.</Text>
+        <Text style={styles.eventHelpText}>3 · Reçois et réponds aux invitations de ta communauté, sans doublon avec Découvertes.</Text>
+        <Text style={styles.eventHelpText}>4 · Après validation, Loki Music prévient tes abonnés et les personnes qui ont déjà gardé une musique découverte grâce à toi.</Text>
         <Text style={styles.eventHelpStatus}>{canCreate ? `Publication disponible · ${eventAccess?.unlimited ? 'illimitée' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}</Text>
       </View> : null}
 
@@ -1246,7 +1249,6 @@ export default function PartiesScreen({ navigation, route }: any) {
 
       {partiesTab === 'SOIREES' ? <>
         {partyHome ? <View style={styles.partyHome}>
-          <Text style={styles.partyHomeHint}>Publie, retrouve tes événements et réponds à tes invitations.</Text>
           <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Publier un événement"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Publier un événement</Text><Text style={styles.partyHomeMeta}>Soirée, concert, porte ouverte ou rendez-vous</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text><Text style={styles.partyHomeMeta}>Lieu, heure, participants et activité</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes invitations</Text><Text style={styles.partyHomeMeta}>Répondre oui, peut-être ou non</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
