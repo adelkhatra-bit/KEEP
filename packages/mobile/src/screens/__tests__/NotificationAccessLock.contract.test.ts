@@ -15,6 +15,8 @@ describe('notification accordion and plan locks contract', () => {
     expect(panel).toContain('setExpandedId');
     expect(panel).toContain('Appuie sur une ligne pour la déplier');
     expect(panel).not.toContain('TOUT VOIR');
+    expect(panel).toContain('Aucune redirection');
+    expect(panel).not.toContain("sourceFeature: 'NOTIFICATION_ACCESS'");
   });
 
   it('lets Super Admin lock every live notification type by plan', () => {
