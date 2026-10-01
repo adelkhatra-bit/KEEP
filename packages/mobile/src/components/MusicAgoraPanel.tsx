@@ -221,14 +221,7 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
-  const compactPanelHeight = Math.min(
-    620,
-    Math.max(300, baseViewportHeightRef.current - (keyboardInset > 0 ? keyboardInset + 84 : 190)),
-  );
-  const compactTop = keyboardInset > 0
-    ? undefined
-    : Math.max(54, Math.round((baseViewportHeightRef.current - compactPanelHeight) / 2));
+  const compactBottom = keyboardInset > 0 ? keyboardInset : 0;
 
   useEffect(() => {
     if (!enabled) {
@@ -934,11 +927,11 @@ export default function MusicAgoraPanel({
       s.shell,
       compact && s.shellCompact,
       compact && {
-        top: compactTop,
-        bottom: keyboardInset > 0 ? compactBottom : undefined,
-        height: compactPanelHeight,
+        top: 0,
+        bottom: compactBottom,
         minHeight: 0,
-        maxHeight: compactPanelHeight,
+        paddingTop: Math.max(10, safeArea.top + 8),
+        paddingBottom: keyboardInset > 0 ? 8 : Math.max(10, safeArea.bottom + 8),
       },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
