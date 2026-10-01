@@ -1066,6 +1066,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
     trackGenreOptions.map((row) => row.genre),
   ], 40), [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
 
+  const styleCoveragePercent = useMemo(() => {
+    if (!profileKeptTracks.length) return 0;
+    const tagged = profileKeptTracks.filter((entry) =>
+      (entry.track.genres ?? []).some((genre) => String(genre || '').trim())
+    ).length;
+    return Math.max(0, Math.min(100, Math.round((tagged / profileKeptTracks.length) * 100)));
+  }, [profileKeptTracks]);
+
 
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- la détection de genre existait déjà mais restait
@@ -1958,27 +1966,35 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.dnaCompactMeter}>
             <View style={s.dnaCompactCopy}>
               <Text style={s.dnaEyebrow}>LOKI PULSE</Text>
-              <Text style={s.dnaCompactTitle}>
+              <Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>
+              <Text style={s.dnaCountHint}>
                 {profileStyleBubbles.length > 0
                   ? `${profileStyleBubbles.length} style${profileStyleBubbles.length > 1 ? 's' : ''}`
-                  : 'Tes styles musicaux'}
+                  : 'Aucun style détecté'}
               </Text>
             </View>
-            {profileStyleBubbles.length > 0 ? (
-              <TouchableOpacity
-                style={s.dnaCompactToggle}
-                onPress={() => setProfileStylesExpanded((value) => !value)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: profileStylesExpanded }}
-                accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
-              >
-                <Text style={s.dnaCompactToggleText}>
-                  {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
-                </Text>
-                <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
-              </TouchableOpacity>
-            ) : null}
+            <View style={s.dnaCompactGauge}>
+              <View style={s.dnaCompactTrack}>
+                <View style={[s.dnaCompactFill, { width: `${styleCoveragePercent}%` }]} />
+              </View>
+              <Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>
+            </View>
           </View>
+
+          {profileStyleBubbles.length > 0 ? (
+            <TouchableOpacity
+              style={s.dnaCompactToggle}
+              onPress={() => setProfileStylesExpanded((value) => !value)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: profileStylesExpanded }}
+              accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
+            >
+              <Text style={s.dnaCompactToggleText}>
+                {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
+              </Text>
+              <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {profileStylesExpanded && profileStyleBubbles.length > 0 ? (
             <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-styles">
@@ -2393,7 +2409,7 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dnaCompactMeter:{borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
   dnaCompactCopy:{flex:1,minWidth:0},
   dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
-  dnaCompactToggle:{minHeight:34,maxWidth:'62%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
+  dnaCompactToggle:{minHeight:36,marginTop:8,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
   dnaCompactToggleText:{color:colors.primaryLight,fontSize:9.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
   dnaCompactToggleChevron:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   dnaCompactGauge:{width:118,alignItems:'flex-end',gap:5},
