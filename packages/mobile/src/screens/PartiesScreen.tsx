@@ -1452,14 +1452,14 @@ export default function PartiesScreen({ navigation, route }: any) {
                     <View style={styles.statsSmallRow}>
                       <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
                       <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>Free gagné</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>Free perdu</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>FREE gagnés aujourd’hui</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>FREE perdus aujourd’hui</Text></View>
                     </View>
-                    <Text style={styles.statsSectionTitle}>DÉTAIL FREE</Text>
+                    <Text style={styles.statsSectionTitle}>FREE DU JOUR · RESET 02:00</Text>
                     <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
                       <View style={{flex: 1}}>
                         <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
-                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Gagné vs Perdu</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Depuis 02:00 aujourd’hui</Text>
                       </View>
                       <View style={{alignItems: 'flex-end'}}>
                         <Text style={{color: colors.keep, fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
@@ -1469,11 +1469,11 @@ export default function PartiesScreen({ navigation, route }: any) {
                     {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
                       <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Free gagné</Text>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE gagnés aujourd’hui</Text>
                           <Text style={{color: colors.keep, fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
                         </View>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Free perdu</Text>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE perdus aujourd’hui</Text>
                           <Text style={{color: colors.pass, fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
                         </View>
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
