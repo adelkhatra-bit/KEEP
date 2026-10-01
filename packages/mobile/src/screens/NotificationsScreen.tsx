@@ -24,6 +24,9 @@ import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
+import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
+import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
+import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -77,6 +80,12 @@ function notificationTypeLabel(type: string) {
   if (key === 'SOCIAL_REQUEST') return 'RÉSEAU SOCIAL';
   if (key === 'PLAN_GIFTED') return 'ABONNEMENT';
   if (key === 'MONTHLY_FREE_CREDIT') return 'FREE DU MOIS';
+  if (key === 'PLAYLIST_SALE_PAYMENT_READY') return 'PAIEMENT À FAIRE';
+  if (key === 'PLAYLIST_SALE_WAITING_SELLER') return 'EN ATTENTE DU VENDEUR';
+  if (key === 'PLAYLIST_SALE_BUYER_PAID') return 'PAIEMENT SIGNALÉ';
+  if (key === 'PLAYLIST_SALE_PAYMENT_REMINDER') return 'PAIEMENT À CONFIRMER';
+  if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
+  if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
@@ -105,6 +114,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const [notice, setNotice] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const autoReadInFlight = useRef(false);
   // Adel (08/09/2026) : "comme tu as fait pour les matchs ... trois petits
@@ -341,6 +351,69 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const closeEventDetail = () => { setDetailItem(null); setDetailEvent(null); };
 
+  const paymentIdOf = (item: KeepNotification) => {
+    const raw = item.data?.paymentId ?? item.data?.payment_id;
+    return typeof raw === 'string' && raw ? raw : null;
+  };
+  const isBuyerPaymentReady = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
+  const isSellerPaymentAction = (item: KeepNotification) => ['PLAYLIST_SALE_BUYER_PAID','PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase()) && Boolean(paymentIdOf(item));
+
+  const openPaymentFromNotification = async (item: KeepNotification) => {
+    const data = item.data as Record<string, unknown> | null;
+    const payoutLink = typeof data?.payoutLink === 'string' ? data.payoutLink.trim() : '';
+    if (!payoutLink) {
+      setError('Le lien de paiement du vendeur n’est plus disponible.');
+      return;
+    }
+    const amountCents = Number(data?.amountCents ?? 0);
+    const currencyCode = String(data?.currencyCode ?? 'EUR');
+    const checkoutUrl = buildPayoutCheckoutUrl(payoutLink, amountCents, currencyCode);
+    try {
+      await readOne(item);
+      await Linking.openURL(checkoutUrl);
+      setNotice(`${payoutProviderLabel(payoutLink)} ouvert · confirme ici après paiement`);
+    } catch {
+      setError('Impossible d’ouvrir le paiement pour le moment.');
+    }
+  };
+
+  const signalPlaylistPaymentSent = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    setPaymentBusyId(paymentId);
+    try {
+      const result = await markPlaylistSaleBuyerPaid(paymentId);
+      await readOne(item);
+      if (result.alreadyDelivered) {
+        setNotice('Cette sélection est déjà débloquée');
+      } else {
+        setNotice('Paiement signalé au vendeur');
+      }
+      await refresh();
+    } catch {
+      setError('Impossible de signaler le paiement pour le moment.');
+    } finally {
+      setPaymentBusyId(null);
+    }
+  };
+
+  const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    setPaymentBusyId(paymentId);
+    try {
+      const delivered = await markPlaylistSalePaid(paymentId);
+      await syncMarketplaceDelivery(paymentId).catch(() => null);
+      await readOne(item);
+      setNotice(`${delivered.trackCount} morceau${delivered.trackCount > 1 ? 'x' : ''} débloqué${delivered.trackCount > 1 ? 's' : ''}`);
+      await refresh();
+    } catch {
+      setError('Impossible de confirmer la réception et de débloquer la sélection.');
+    } finally {
+      setPaymentBusyId(null);
+    }
+  };
+
   const openNotification = async (item: KeepNotification) => {
     if (!user) return;
     await readOne(item);
@@ -569,6 +642,35 @@ export default function NotificationsScreen({ navigation }: any) {
                   </View>
                 );
               })() : null}
+              {isBuyerPaymentReady(item) ? (
+                <View style={styles.paymentActionRow}>
+                  <TouchableOpacity
+                    style={[styles.paymentActionButton, styles.paymentActionSecondary]}
+                    disabled={paymentBusyId === paymentIdOf(item)}
+                    onPress={() => void openPaymentFromNotification(item)}
+                  >
+                    <Text style={styles.paymentActionSecondaryText}>OUVRIR LE PAIEMENT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.paymentActionButton, styles.paymentActionPrimary]}
+                    disabled={paymentBusyId === paymentIdOf(item)}
+                    onPress={() => void signalPlaylistPaymentSent(item)}
+                  >
+                    <Text style={styles.paymentActionPrimaryText}>{paymentBusyId === paymentIdOf(item) ? 'ENVOI…' : 'J’AI PAYÉ'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              {isSellerPaymentAction(item) ? (
+                <View style={styles.paymentActionRow}>
+                  <TouchableOpacity
+                    style={[styles.paymentActionButton, styles.paymentActionConfirm]}
+                    disabled={paymentBusyId === paymentIdOf(item)}
+                    onPress={() => void confirmPlaylistPaymentReceived(item)}
+                  >
+                    <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'PAIEMENT REÇU · DÉBLOQUER'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
                 <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
@@ -731,6 +833,14 @@ const styles = StyleSheet.create({
   battleThemeLabel: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   battleThemeValue: { color: colors.warning, fontSize: 12, fontWeight: '900' },
   battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  paymentActionRow: { flexDirection: 'row', gap: 7, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
+  paymentActionButton: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  paymentActionPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  paymentActionPrimaryText: { color: colors.white, fontSize: 10, fontWeight: '900', textAlign: 'center' },
+  paymentActionSecondary: { backgroundColor: colors.backgroundCard, borderColor: colors.primaryLight },
+  paymentActionSecondaryText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', textAlign: 'center' },
+  paymentActionConfirm: { backgroundColor: 'rgba(45,225,194,.16)', borderColor: colors.keep },
+  paymentActionConfirmText: { color: colors.keep, fontSize: 9, fontWeight: '900', textAlign: 'center' },
   // Adel (08/09/2026) : "trois petits boutons en dessous bien aligné" --
   // même rangée, même hauteur, un seul en surbrillance (celui déjà choisi).
   rsvpRow: { flexDirection: 'row', gap: 6, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: 2 },
