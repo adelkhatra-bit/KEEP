@@ -2297,3 +2297,10 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Accueil Loki Music : aucun titre visible « Tes bulles musicales » ni label Loki Pulse/DNA au-dessus.
 - Les bulles de styles restent visibles seules sur l’accueil et sont CLIQUABLES : toucher une bulle ouvre les morceaux gardés de ce style dans MusicSwipeDeckModal, sans redirection vers Profil.
 - Ne pas toucher App.tsx, Navigation.tsx, barre 5 onglets, Super Admin ou autres blocs pour cette correction.
+
+
+## [2026-10-02] USER LOCK — chat direct sans blocage 3 messages
+- Cause live trouvée : la table `music_agora_messages` était restée à 280 caractères alors que le compositeur/RPC acceptaient 2000, et le client gardait encore un verrou `awaitingDirectReply` après 3 messages sans réponse.
+- Supabase live est aligné à 2000 caractères ; `keep_agora_post_message_v2` n'impose plus 3 messages sans réponse. Les garde-fous anti-spam 4/minute et 30/heure restent actifs.
+- UI : ne jamais réintroduire `awaitingDirectReply`, `unansweredDirectCount` ou `direct_reply_required`. Réactions, morceau, QR PayPal et saisie restent disponibles dans un fil direct normal.
+- Ne pas toucher App.tsx / Navigation.tsx / barre 5 onglets pour ce correctif.

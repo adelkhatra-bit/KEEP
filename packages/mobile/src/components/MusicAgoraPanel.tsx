@@ -78,7 +78,6 @@ function ago(iso: string): string {
 function readableError(error: unknown): string {
   const message = String((error as any)?.message || error || '');
   if (message.includes('message_blocked_language')) return 'Message refusé : garde le débat musical, enlève les insultes.';
-  if (message.includes('direct_reply_required')) return 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.';
   if (message.includes('rate_limited')) return 'Trop de messages d’un coup. Réessaie dans un instant.';
   if (message.includes('authentication_required')) return 'Ta session Loki doit être actualisée avant d’écrire. Rouvre le Tchat ; aucune reconnexion ne devrait être nécessaire.';
   if (message.includes('public_profile_required')) return 'Ton compte est connecté, mais ton profil public doit être actif pour écrire dans le Tchat.';
@@ -684,10 +683,6 @@ export default function MusicAgoraPanel({
       return;
     }
     if (!roomSlug || posting || (!sharedTrack && body.length < 1)) return;
-    if (awaitingDirectReply) {
-      Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
-      return;
-    }
     if (sharedTrack && sharePaymentMode === 'FREE' && (!Number.isInteger(requestedFreePrice) || requestedFreePrice < 1 || requestedFreePrice > 10000)) {
       Alert.alert('Montant FREE', 'Choisis entre 1 et 10 000 FREE.');
       return;
@@ -760,10 +755,6 @@ export default function MusicAgoraPanel({
   };
 
   const insertQuickReaction = (value: string) => {
-    if (awaitingDirectReply) {
-      Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
-      return;
-    }
     setDraft((current) => {
       const separator = current && !/\s$/.test(current) ? ' ' : '';
       return `${current}${separator}${value}`.slice(0, 2000);
@@ -916,21 +907,6 @@ export default function MusicAgoraPanel({
       ],
     );
   };
-
-  const unansweredDirectCount = useMemo(() => {
-    if (!replyTarget?.profileId || chatMode !== 'MESSAGES') return 0;
-    let count = 0;
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message.profileId === currentProfileId) {
-        count += 1;
-        continue;
-      }
-      break;
-    }
-    return count;
-  }, [messages, replyTarget?.profileId, chatMode, currentProfileId]);
-  const awaitingDirectReply = Boolean(replyTarget?.profileId && chatMode === 'MESSAGES' && unansweredDirectCount >= 3);
 
   const paymentLocked = Boolean(
     sharedTrack && (
@@ -1495,10 +1471,6 @@ export default function MusicAgoraPanel({
         </View>
       </View> : null}
 
-      {awaitingDirectReply ? <View style={s.awaitingReplyBanner}>
-        <Text style={s.awaitingReplyTitle}>EN ATTENTE DE RÉPONSE</Text>
-        <Text style={s.awaitingReplyText}>Tu as envoyé 3 messages sans réponse. Loki réactive l’envoi dès que @{replyTarget?.username || 'cette personne'} répond.</Text>
-      </View> : null}
       {reactionPaletteOpen ? (
         <View style={s.reactionPopover}>
           <ScrollView
@@ -1509,8 +1481,7 @@ export default function MusicAgoraPanel({
           >
             {QUICK_REACTIONS.map((reaction) => <TouchableOpacity
               key={reaction.payload}
-              style={[s.quickReaction, reaction.loki && s.quickReactionLoki, awaitingDirectReply && s.quickReactionDisabled]}
-              disabled={awaitingDirectReply}
+              style={[s.quickReaction, reaction.loki && s.quickReactionLoki]}
               activeOpacity={0.7}
               onPress={() => insertQuickReaction(reaction.payload)}
               accessibilityLabel={reaction.loki ? 'Ajouter la réaction Loki au message' : `Ajouter ${reaction.label} au message`}
@@ -1521,8 +1492,7 @@ export default function MusicAgoraPanel({
       {composerActionsOpen ? (
         <View style={s.composerDrawer}>
           <TouchableOpacity
-            style={[s.drawerAction, reactionPaletteOpen && s.drawerActionOn, awaitingDirectReply && s.quickReactionDisabled]}
-            disabled={awaitingDirectReply}
+            style={[s.drawerAction, reactionPaletteOpen && s.drawerActionOn]}
             onPress={() => setReactionPaletteOpen((open) => !open)}
             accessibilityLabel="Réactions"
           >
@@ -1530,8 +1500,8 @@ export default function MusicAgoraPanel({
             <Text style={s.drawerActionText}>RÉACTIONS</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.drawerAction, awaitingDirectReply && s.quickReactionDisabled]}
-            disabled={!shareableTracks.length || awaitingDirectReply}
+            style={[s.drawerAction]}
+            disabled={!shareableTracks.length}
             onPress={() => { setComposerActionsOpen(false); setShareOpen(true); }}
             accessibilityLabel="Ajouter une pépite"
           >
@@ -1539,8 +1509,7 @@ export default function MusicAgoraPanel({
             <Text style={s.drawerActionText}>MORCEAU</Text>
           </TouchableOpacity>
           {replyTarget ? <TouchableOpacity
-            style={[s.drawerAction, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]}
-            disabled={awaitingDirectReply}
+            style={[s.drawerAction, !myPayoutQrUrl && s.shareQrOff]}
             onPress={() => { setComposerActionsOpen(false); void sharePayoutQr(); }}
             accessibilityLabel="Partager mon QR PayPal"
           >
@@ -1551,10 +1520,9 @@ export default function MusicAgoraPanel({
         </View>
       ) : null}
 
-      <View style={[s.composerBar, awaitingDirectReply && s.composerBarLocked]}>
+      <View style={s.composerBar}>
         <TouchableOpacity
-          style={[s.addButton, composerActionsOpen && s.addButtonOn, awaitingDirectReply && s.quickReactionDisabled]}
-          disabled={awaitingDirectReply}
+          style={[s.addButton, composerActionsOpen && s.addButtonOn]}
           onPress={() => {
             Keyboard.dismiss();
             setReactionPaletteOpen(false);
@@ -1573,11 +1541,10 @@ export default function MusicAgoraPanel({
               requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
             }
           }}
-          placeholder={awaitingDirectReply ? 'Patiente que la personne réponde…' : 'Écris un message…'}
+          placeholder="Écris un message…"
           placeholderTextColor={colors.textMutedGrey}
           multiline
           scrollEnabled
-          editable={!awaitingDirectReply}
           maxLength={2000}
           onFocus={() => {
             setComposerActionsOpen(false);
@@ -1589,8 +1556,8 @@ export default function MusicAgoraPanel({
           style={[s.input, compact && s.inputCompact]}
         />
         <TouchableOpacity
-          style={[s.send, ((!sharedTrack && !draft.trim()) || awaitingDirectReply) && s.sendOff]}
-          disabled={(!sharedTrack && !draft.trim()) || posting || awaitingDirectReply}
+          style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]}
+          disabled={(!sharedTrack && !draft.trim()) || posting}
           onPress={() => void publish()}
           accessibilityLabel="Envoyer le message"
         >
