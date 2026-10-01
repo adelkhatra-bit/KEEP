@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
@@ -15,7 +15,7 @@ import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPla
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadDeliveredPlaylistSaleTracks, loadMyOfferedTrackIds, loadMyPlaylistPurchaseLibrary, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistPurchaseLibraryEntry, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
-import { getPayoutLinkForProfile, payoutProviderLabel } from '../services/payoutLinkService';
+import { getPayoutLinkForProfile, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -179,14 +179,44 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
   const [payoutLink, setPayoutLink] = useState('');
+  const [payoutLinkDraft, setPayoutLinkDraft] = useState('');
+  const [payoutSaving, setPayoutSaving] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!userId || isLocalGuest || isDemoMode) { setPayoutLink(''); return undefined; }
-    const loadPayout = () => getPayoutLinkForProfile(userId).then((value) => { if (live) setPayoutLink(value); }).catch(() => { if (live) setPayoutLink(''); });
+    if (!userId || isLocalGuest || isDemoMode) { setPayoutLink(''); setPayoutLinkDraft(''); return undefined; }
+    const loadPayout = () => getPayoutLinkForProfile(userId).then((value) => { if (live) { setPayoutLink(value); setPayoutLinkDraft(value); } }).catch(() => { if (live) { setPayoutLink(''); setPayoutLinkDraft(''); } });
     void loadPayout();
     const unsubscribe = navigation?.addListener?.('focus', loadPayout);
     return () => { live = false; unsubscribe?.(); };
   }, [userId, isLocalGuest, isDemoMode, navigation]);
+
+  const savePayoutDirect = async () => {
+    const clean = payoutLinkDraft.trim();
+    if (!/^https:\/\//i.test(clean)) {
+      Alert.alert('Lien de paiement', 'Colle un lien sécurisé complet commençant par https://, par exemple https://paypal.me/tonpseudo.');
+      return;
+    }
+    setPayoutSaving(true);
+    try {
+      const saved = await setMyPayoutLink(clean);
+      const finalLink = saved || clean;
+      setPayoutLink(finalLink);
+      setPayoutLinkDraft(finalLink);
+      Alert.alert('Paiement prêt', payoutProviderLabel(finalLink) + ' est enregistré. Tu peux maintenant publier en euros.');
+    } catch (e: any) {
+      Alert.alert('Lien de paiement', e?.message || 'Impossible d’enregistrer ce lien pour le moment.');
+    } finally {
+      setPayoutSaving(false);
+    }
+  };
+
+  const openPayPalMe = async () => {
+    try {
+      await Linking.openURL('https://www.paypal.com/paypalme/');
+    } catch {
+      Alert.alert('PayPal.Me', 'Impossible d’ouvrir PayPal pour le moment. Tu peux coller directement ton lien https://paypal.me/... ci-dessous.');
+    }
+  };
   // (21/09/2026) BUG RÉEL corrigé (Adel : "1000 abonnés assignés via Super
   // Admin, la fonction reste verrouillée") : ce check ne tournait qu'une
   // fois au montage (deps vides) -- un changement fait dans Super Admin
@@ -751,7 +781,19 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const offered = myOfferedTrackIds[trackId];
     const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
     const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);
-    if (lockedByAnotherOffer || trackVisibilityBusy === trackId) return;
+    if (lockedByAnotherOffer) {
+      const title = localKeptTracks.find((item) => item.id === trackId)?.title || 'Ce morceau';
+      Alert.alert(
+        'Déjà dans une collection',
+        '« ' + title + ' » est déjà publié dans « ' + (offered?.playlistName || 'une collection') + ' ». Un morceau ne peut pas être ajouté deux fois.',
+        [
+          { text: 'Fermer', style: 'cancel' },
+          { text: 'Gérer la collection', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered?.offerId, manageSaleOfferName: offered?.playlistName }) },
+        ],
+      );
+      return;
+    }
+    if (trackVisibilityBusy === trackId) return;
 
     // Édition d'un album publié : une case cochée = morceau réellement inclus.
     // Décocher retire immédiatement le morceau de CET album ; cocher un morceau
@@ -954,6 +996,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       return;
     }
     setSellTarget(target);
+    setPayoutLinkDraft(payoutLink);
     const existingKey = target?.kind === 'playlist' ? target.playlist.id : target?.key;
     const existing = existingKey ? myOffers[existingKey] : undefined;
     setSellPaymentMode(existing ? (existing.paymentMode === 'FREE' ? 'FREE' : 'MONEY') : null);
@@ -977,8 +1020,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         'Mode de paiement requis',
         'Pour publier en euros, configure d’abord le lien sur lequel tu veux être payé.',
         [
-          { text: 'Annuler', style: 'cancel' },
-          { text: 'Configurer', onPress: () => { closeSellModal(); navigation.navigate('ProfileCreatorTools'); } },
+          { text: 'OK', style: 'cancel' },
         ],
       );
       return;
@@ -1133,7 +1175,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const busy = visibilityBusy || deleteBusy;
     const offered = myOfferedTrackIds[track.id];
     const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
-    const lockedByAnotherOffer = Boolean(saleEditOfferTarget && offered && !includedInEditedOffer);
+    const lockedByAnotherOffer = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));
     const expanded = expandedTrackKeys.has(key);
     // Adel (21/09/2026) : un morceau reçu d'un autre profil (pas sa propre
     // découverte) ne peut jamais être mis en vente -- cadenas visible dans
@@ -1152,18 +1194,23 @@ export default function MyMusicScreen({ navigation, route }: any) {
           style={[styles.selectionCheck, selectedSaleTrackIds.has(track.id) && styles.selectionCheckOn, lockedByAnotherOffer && styles.selectionCheckDisabled, notOwnDiscovery && styles.selectionCheckLocked]}
           onPress={() => notOwnDiscovery
             ? Alert.alert('Non éligible', `« ${track.title} » ne peut pas rejoindre cette collection : elle vient d’un autre utilisateur. Seul son découvreur d’origine peut l’intégrer à une collection exclusive.`)
-            : toggleSaleTrack(track.id)}
-          disabled={lockedByAnotherOffer}
+            : lockedByAnotherOffer
+              ? Alert.alert('Déjà publiée', `« ${track.title} » est déjà dans « ${offered?.playlistName || 'une collection'} ». Retire-la ou modifie cette collection avant de la réutiliser.`, [
+                  { text: 'Fermer', style: 'cancel' },
+                  { text: 'Gérer', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered?.offerId, manageSaleOfferName: offered?.playlistName }) },
+                ])
+              : toggleSaleTrack(track.id)}
+          disabled={trackVisibilityBusy === track.id}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: selectedSaleTrackIds.has(track.id), disabled: Boolean(lockedByAnotherOffer || notOwnDiscovery) }}
           accessibilityLabel={notOwnDiscovery ? `${track.title} non éligible à une collection exclusive, découverte par un autre utilisateur` : lockedByAnotherOffer ? `${track.title} appartient à une autre collection` : includedInEditedOffer ? `${track.title} est déjà dans cette collection` : `Sélectionner ${track.title}`}
-        ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
+        ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : lockedByAnotherOffer ? '◆' : selectedSaleTrackIds.has(track.id) ? '✓' : ''}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
           <TrackActionRow
             coverUrl={track.artworkUrl}
             title={track.title}
             artist={track.artist}
-            badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
+            badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
             originBadge={localEntry ? {
               label: localEntry.sourceProfileId
                 ? `${localEntry.sourceUsername ? `DÉCOUVERT PAR ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'UTILISATEUR'}`
