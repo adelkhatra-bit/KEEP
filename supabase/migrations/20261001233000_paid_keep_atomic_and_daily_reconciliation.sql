@@ -163,7 +163,7 @@ set search_path=public,auth
 as $function$
 declare
   uid uuid := auth.uid();
-  v_tz text := coalesce(nullif(trim(p_timezone,'')),'Europe/Paris');
+  v_tz text := coalesce(nullif(trim(p_timezone),''),'Europe/Paris');
   v_local_start timestamp without time zone;
   v_start timestamptz;
   v_end timestamptz;
