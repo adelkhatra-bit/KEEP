@@ -73,6 +73,17 @@ create role service_role nosuperuser bypassrls;
 drop role if exists app_user;
 create role app_user nosuperuser nobypassrls login;
 
+-- Supabase crée cette publication managée en production. Le PostgreSQL nu
+-- du CI doit la reproduire avant le replay des migrations sans réécrire
+-- l'historique SQL de production.
+do $
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end
+$;
+
 -- Shims des services gérés par Supabase absents de l'image postgres:16
 -- générique du CI. Ils ne simulent pas le réseau/scheduler réel ; ils
 -- permettent simplement d'exécuter le SQL métier qui les entoure.
