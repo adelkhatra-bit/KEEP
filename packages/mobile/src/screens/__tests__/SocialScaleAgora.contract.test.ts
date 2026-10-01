@@ -27,8 +27,13 @@ describe('Social scale and musical agora contracts',()=>{
     expect(panel).toContain("['❤️','🔥','👏','🎵']");
     expect(panel).toContain('PARTAGER UNE MUSIQUE');
     expect(panel).toContain('MINI-CHAT · ACTIVÉ');
+    expect(panel).toContain("shellCompact:{position:'absolute'");
+    expect(panel).toContain('height:360');
+    expect(panel).toContain("chatScrollCompact:{flex:1");
+    expect(panel).toContain('updateHomeChat(false, true)');
+    expect(panel).toContain('browsingHistoryRef.current = false');
     expect(service).toContain("return rows.sort((a, b) => a.id - b.id)");
-    expect(profile).toContain('<MusicAgoraPanel\n          compact');
+    expect(profile).toContain('<MusicAgoraPanel\n        compact');
     expect(notifications).toContain('CONFIDENTIALITÉ DU PROFIL');
     expect(notifications).toContain('TCHAT LOKI');
     expect(notifications).toContain('updateChatEnabled');
@@ -41,6 +46,12 @@ describe('Social scale and musical agora contracts',()=>{
     expect(visitor).toContain('Drops musicaux');
     expect(visitor).toContain('eventSpotlightTitle');
     expect(visitor).not.toContain('Vendu par @{profile.username}');
+  });
+
+  it('keeps chat off the home screen and only on profile',()=>{
+    const home=read('screens','HomeScreenCompact.tsx');
+    expect(home).not.toContain('CommunityChatHomeWidget');
+    expect(home).not.toContain('<MusicAgoraPanel');
   });
 
   it('makes the recognition action immediately understandable',()=>{
