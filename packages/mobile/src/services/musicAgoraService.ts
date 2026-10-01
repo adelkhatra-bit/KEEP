@@ -9,6 +9,7 @@ export type MusicAgoraRoom = {
 };
 
 export type MusicAgoraRevealMode = 'NONE' | 'MASKED' | 'FULL';
+export type MusicAgoraPaymentMode = 'NONE' | 'FREE' | 'MONEY';
 
 export type MusicAgoraMessage = {
   id: number;
@@ -27,6 +28,12 @@ export type MusicAgoraMessage = {
   trackArtist: string | null;
   trackArtworkUrl: string | null;
   trackPreviewUrl: string | null;
+  saleOfferId: string | null;
+  paymentMode: MusicAgoraPaymentMode;
+  freePrice: number | null;
+  priceCents: number;
+  currencyCode: string;
+  offerActive: boolean;
 };
 
 export type MusicAgoraSettings = {
@@ -38,6 +45,10 @@ export type MusicAgoraPostOptions = {
   targetProfileId?: string | null;
   sharedTrackId?: string | null;
   revealMode?: MusicAgoraRevealMode;
+  paymentMode?: MusicAgoraPaymentMode;
+  freePrice?: number | null;
+  priceCents?: number | null;
+  currencyCode?: string | null;
 };
 
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
@@ -106,7 +117,7 @@ export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
 
 export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number, limit = 24): Promise<MusicAgoraMessage[]> {
   if (!supabase || !roomSlug) return [];
-  const { data, error } = await supabase.rpc('keep_agora_messages_v2', {
+  const { data, error } = await supabase.rpc('keep_agora_messages_v3', {
     p_room_slug: roomSlug,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -131,6 +142,14 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     trackArtist: row.track_artist ? String(row.track_artist) : null,
     trackArtworkUrl: row.track_artwork_url ? String(row.track_artwork_url) : null,
     trackPreviewUrl: row.track_preview_url ? String(row.track_preview_url) : null,
+    saleOfferId: row.sale_offer_id ? String(row.sale_offer_id) : null,
+    paymentMode: (['FREE','MONEY'].includes(String(row.payment_mode || '').toUpperCase())
+      ? String(row.payment_mode).toUpperCase()
+      : 'NONE') as MusicAgoraPaymentMode,
+    freePrice: row.free_price == null ? null : Number(row.free_price),
+    priceCents: Number(row.price_cents || 0),
+    currencyCode: String(row.currency_code || 'EUR'),
+    offerActive: Boolean(row.offer_active),
   })).filter((row) => row.id && row.profileId && row.body);
   if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
   return rows.sort((a, b) => a.id - b.id);
@@ -157,15 +176,19 @@ export async function postMusicAgoraMessage(
   options: MusicAgoraPostOptions = {},
 ): Promise<number> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_post_message_v2', {
+  const { data, error } = await supabase.rpc('keep_agora_post_message_v3', {
     p_room_slug: roomSlug,
     p_body: body,
     p_target_profile_id: options.targetProfileId ?? null,
     p_shared_track_id: options.sharedTrackId ?? null,
     p_reveal_mode: options.revealMode ?? 'NONE',
+    p_payment_mode: options.paymentMode ?? 'NONE',
+    p_free_price: options.freePrice ?? null,
+    p_price_cents: options.priceCents ?? null,
+    p_currency_code: options.currencyCode ?? 'EUR',
   });
   if (error) throw error;
-  return Number(data || 0);
+  return Number((data as any)?.messageId ?? (data as any)?.message_id ?? data ?? 0);
 }
 
 export async function loadMusicAgoraSharedTrack(trackId: string): Promise<CanonicalTrack | null> {
