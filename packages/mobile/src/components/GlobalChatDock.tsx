@@ -143,7 +143,7 @@ export default function GlobalChatDock() {
       setUnreadCount((value) => value + 1);
       setLatestChatSender(sender);
       useGlobalChatStore.getState().prime(chatNotificationTarget(item));
-      if (chatNotificationsEnabled && !useGlobalChatStore.getState().isOpen) {
+      if (chatEnabled && chatNotificationsEnabled && !useGlobalChatStore.getState().isOpen) {
         void Speech.stop().catch(() => {});
         Speech.speak(`Message de ${sender}`, {
           language: 'fr-FR',
@@ -152,7 +152,7 @@ export default function GlobalChatDock() {
         });
       }
     });
-  }, [accountReady, user?.id, chatNotificationsEnabled]);
+  }, [accountReady, user?.id, chatEnabled, chatNotificationsEnabled]);
 
   useEffect(() => {
     if (!accountReady || (!chatEnabled && !open)) {
