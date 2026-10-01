@@ -19,7 +19,7 @@ describe('Owner profile identity + metrics product lock', () => {
 
   it('keeps PLUS, Abonnés, Reprises, FREE in the final product order', () => {
     const start = source.indexOf('<View style={s.topMetricsBar}');
-    const end = source.indexOf('{freeDetailsOpen ? (', start);
+    const end = source.indexOf('{freeDetailsOpen && !isDemoMode ? (', start);
     const metrics = source.slice(start, end);
     const plus = metrics.indexOf('>PLUS</Text>');
     const followers = metrics.indexOf('>Abonnés</Text>');
