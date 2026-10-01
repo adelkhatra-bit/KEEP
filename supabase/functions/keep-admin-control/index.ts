@@ -54,7 +54,7 @@ const CATALOG: Record<string, { category: string; label: string; secret?: boolea
   AUDD_API_KEY: { category: "recognition", label: "AudD API key", secret: true },
   ACRCLOUD_ACCESS_KEY: { category: "recognition", label: "ACRCloud Access Key", secret: true },
   ACRCLOUD_ACCESS_SECRET: { category: "recognition", label: "ACRCloud Access Secret", secret: true },
-  ACRCLOUD_HOST: { category: "recognition", label: "ACRCloud Host" },
+  ACRCLOUD_HOST: { category: "recognition", label: "ACRCloud Host" },\n  GOOGLE_TRANSLATE_API_KEY: { category: "localization", label: "Google Cloud Translation API key", secret: true },
   APPLE_IAP_ISSUER_ID: { category: "payments", label: "Apple IAP Issuer ID" },
   APPLE_IAP_KEY_ID: { category: "payments", label: "Apple IAP Key ID" },
   APPLE_IAP_PRIVATE_KEY: { category: "payments", label: "Apple IAP Private Key", secret: true },
