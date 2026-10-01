@@ -39,8 +39,9 @@ describe('compact help and inline profile event contracts', () => {
   });
 
   it('shows RSVP state without leaving the visited profile', () => {
-    expect(publicProfile).toContain('✓ TU PARTICIPES DÉJÀ');
-    expect(publicProfile).toContain('JE PARTICIPE');
+    expect(publicProfile).toContain("['GOING', 'JE PARTICIPE']");
+    expect(publicProfile).toContain("['MAYBE', 'PEUT-ÊTRE']");
+    expect(publicProfile).toContain("['NOT_GOING', 'JE NE PARTICIPE PAS']");
     expect(publicProfile).toContain('profileEventCounts.going');
     expect(publicProfile).toContain('profileEventCounts.maybe');
     expect(publicProfile).toContain('Tu restes sur le profil de @');
