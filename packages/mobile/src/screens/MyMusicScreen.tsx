@@ -1756,29 +1756,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       </Modal>
 
-      <Modal visible={playlistHelpOpen} transparent animationType="fade" onRequestClose={() => setPlaylistHelpOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.editCard, styles.playlistHelpCard]}>
-            <View style={styles.playlistHelpHead}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.editTitle}>Tout faire dans Playlists</Text>
-                <Text style={styles.editHint}>Un seul endroit pour écouter, ranger, modifier et retrouver tes collections.</Text>
-              </View>
-              <TouchableOpacity style={styles.playlistHelpClose} onPress={() => setPlaylistHelpOpen(false)} accessibilityLabel="Fermer l’aide Playlists">
-                <Text style={styles.playlistHelpCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.playlistHelpSteps}>
-              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>1</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Écouter</Text><Text style={styles.playlistHelpText}>Retrouve tous les morceaux gardés, tes achats et lance les extraits.</Text></View></View>
-              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>2</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Choisir la visibilité</Text><Text style={styles.playlistHelpText}>Passe un morceau en public, privé ou retire-le de ton profil.</Text></View></View>
-              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>3</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Trier automatiquement</Text><Text style={styles.playlistHelpText}>Loki range ta musique par styles et artistes pour retrouver plus vite tes sons.</Text></View></View>
-              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>4</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Créer une collection</Text><Text style={styles.playlistHelpText}>Sélectionne plusieurs morceaux, donne un nom à la collection et choisis son mode de déblocage lorsque cette fonction est disponible.</Text></View></View>
-              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>5</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Connecter tes services</Text><Text style={styles.playlistHelpText}>Utilise tes services musicaux pour écouter ou exporter les playlists compatibles.</Text></View></View>
-            </View>
-            <TouchableOpacity style={styles.saveButton} onPress={() => setPlaylistHelpOpen(false)}><Text style={styles.saveText}>J’AI COMPRIS</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ContextHelpSheet
+        visible={playlistHelpOpen}
+        title="Tout faire dans Playlists"
+        intro="Tout ce que tu peux faire avec ta musique, expliqué simplement."
+        steps={[
+          { title: 'Écouter tes morceaux', text: 'Retrouve les morceaux que tu as gardés, achetés ou reçus et lance leur écoute.' },
+          { title: 'Choisir Public ou Privé', text: 'Public apparaît sur ton profil. Privé reste uniquement dans ta bibliothèque.' },
+          { title: 'Trier automatiquement', text: 'Loki range les morceaux par styles et artistes pour que tu les retrouves vite.' },
+          { title: 'Créer une collection', text: 'Sélectionne plusieurs morceaux, vérifie ton panier, choisis FREE ou monnaie quand la fonction est disponible, puis publie.' },
+          { title: 'Gérer tes achats', text: 'Les collections déjà obtenues restent dans Playlists et ne disparaissent pas si la marketplace est masquée.' },
+          { title: 'Connecter tes services', text: 'Utilise tes services musicaux compatibles pour écouter ou exporter tes playlists.' },
+        ]}
+        onClose={() => setPlaylistHelpOpen(false)}
+      />
 
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
