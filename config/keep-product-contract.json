@@ -370,15 +370,18 @@
     "alreadyOwnedRecipientMustNeverBeCharged": true
   },
   "chatExperience": {
-    "status": "LEGACY_UI_DECOMMISSIONED_PENDING_NEW_MESSENGER",
-    "legacyGlobalDockMounted": false,
-    "legacySettingsVisible": false,
-    "legacyNotificationOpenAction": false,
-    "notificationsSurface": false,
-    "directLauncherInNotifications": false,
-    "placementConfigLocation": null,
-    "allowedSurfaces": [],
-    "movable": false,
-    "sideChoices": []
+    "status": "GLOBAL_MESSENGER_FINAL_ACTIVE",
+    "globalDockMountedAtAppRoot": true,
+    "legacyHamburgerEntryVisible": false,
+    "notificationsSurface": true,
+    "directLauncherInNotifications": true,
+    "placementConfigLocation": "NotificationSidePanel",
+    "allowedSurfaces": ["LISTEN", "DISCOVER", "PLAYLISTS", "PARTIES", "PROFILE", "NOTIFICATIONS"],
+    "movable": true,
+    "sideChoices": ["left", "right"],
+    "directMessagesFirst": true,
+    "publicPlaceSecondary": true,
+    "musicShareAction": "PEPITE",
+    "paymentConversationActions": true
   }
 }
