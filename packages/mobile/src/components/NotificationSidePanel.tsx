@@ -8,6 +8,7 @@ type Props = {
   profileId: string;
   onClose: () => void;
   onOpenAll: () => void;
+  onOpenChat: () => void;
 };
 
 function timeLabel(value: string): string {
@@ -21,7 +22,7 @@ function timeLabel(value: string): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
-export default function NotificationSidePanel({ visible, profileId, onClose, onOpenAll }: Props) {
+export default function NotificationSidePanel({ visible, profileId, onClose, onOpenAll, onOpenChat }: Props) {
   const slide = useRef(new Animated.Value(1)).current;
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
           </View>
           <View style={s.actions}>
             <TouchableOpacity style={s.actionGhost} onPress={() => void markAll()}><Text style={s.actionGhostText}>TOUT LIRE</Text></TouchableOpacity>
+            <TouchableOpacity style={s.actionGhost} onPress={() => { close(); setTimeout(onOpenChat, 200); }} accessibilityLabel="Ouvrir le tchat"><Text style={s.actionGhostText}>TCHAT</Text></TouchableOpacity>
             <TouchableOpacity style={s.actionPrimary} onPress={() => { close(); setTimeout(onOpenAll, 200); }}><Text style={s.actionPrimaryText}>TOUT VOIR</Text></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
@@ -100,7 +102,7 @@ const s = StyleSheet.create({
   closeText:{color:colors.textPrimary,fontSize:26,lineHeight:28,fontWeight:'700'},
   actions:{flexDirection:'row',gap:8,paddingHorizontal:16,paddingTop:14,paddingBottom:10},
   actionGhost:{flex:1,minHeight:40,borderRadius:13,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated},
-  actionGhostText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
+  actionGhostText:{color:colors.textPrimary,fontSize:9,fontWeight:'900'},
   actionPrimary:{flex:1,minHeight:40,borderRadius:13,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary},
   actionPrimaryText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   list:{padding:16,paddingTop:6,paddingBottom:36,gap:9},
