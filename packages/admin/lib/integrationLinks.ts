@@ -24,7 +24,7 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: st
   AUDD_API_KEY: { label: 'AudD — recharger / abonnement', url: 'https://dashboard.audd.io/' },
   ACRCLOUD_ACCESS_KEY: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
   ACRCLOUD_ACCESS_SECRET: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
-  ACRCLOUD_HOST: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },
+  ACRCLOUD_HOST: { label: 'ACRCloud — console / facturation', url: 'https://console.acrcloud.com/' },\n  GOOGLE_TRANSLATE_API_KEY: { label: 'Google Cloud Translation — clé API', url: 'https://console.cloud.google.com/apis/credentials' },
   SPOTIFY_CLIENT_ID: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
   SPOTIFY_CLIENT_SECRET: { label: 'Spotify Developer Dashboard', url: 'https://developer.spotify.com/dashboard' },
   DEEZER_APP_ID: { label: 'Deezer Developers', url: 'https://developers.deezer.com/myapps' },
