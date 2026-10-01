@@ -92,6 +92,11 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   if (!suggestions.length) return null;
   const suggestion = suggestions[index % suggestions.length];
   const genre = suggestion.genres?.[0] || 'Mix';
+  const overlapLabel = suggestion.missingCount <= 0
+    ? `Tu as déjà les ${suggestion.trackCount} titres`
+    : suggestion.ownedCount > 0
+      ? `${suggestion.missingCount} nouveau${suggestion.missingCount > 1 ? 'x' : ''} sur ${suggestion.trackCount} · ${suggestion.ownedCount} déjà chez toi`
+      : `${suggestion.trackCount} titre${suggestion.trackCount > 1 ? 's' : ''} nouveau${suggestion.trackCount > 1 ? 'x' : ''} pour toi`;
   const hide = () => { setVisible(false); void AsyncStorage.setItem(storageKey, 'hidden'); };
   const show = () => { setVisible(true); void AsyncStorage.setItem(storageKey, 'visible'); };
 
@@ -124,6 +129,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         <View style={s.kickerRow}><Text style={s.kicker}>DROP DU MOMENT</Text><Text style={s.position}>{index + 1}/{suggestions.length}</Text></View>
         <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouveau mix'}</Text>
         <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
+        <Text style={s.overlap} numberOfLines={1}>{overlapLabel}</Text>
         <Text style={s.hook} numberOfLines={2}>{DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length]}</Text>
         <View style={s.actions}>
           {suggestion.paymentMode === 'FREE' ? (
@@ -199,6 +205,7 @@ const s=StyleSheet.create({
   position:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
   title:{color:colors.textPrimary,fontSize:19,fontWeight:'900',marginTop:5},
   meta:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:4},
+  overlap:{color:colors.keep,fontSize:10,fontWeight:'900',marginTop:4},
   hook:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},
   actions:{flexDirection:'row',alignItems:'center',gap:8,marginTop:12},
   price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center'},
