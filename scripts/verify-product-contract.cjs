@@ -13,6 +13,7 @@ const salePreview = fs.readFileSync(path.join(root, 'packages/mobile/src/compone
 const salePanel = fs.readFileSync(path.join(root, 'packages/mobile/src/components/PlaylistSalePanel.tsx'), 'utf8');
 const myMusic = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/MyMusicScreen.tsx'), 'utf8');
 const notifications = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/NotificationsScreen.tsx'), 'utf8');
+const publicProfilePanel = fs.readFileSync(path.join(root, 'packages/mobile/src/components/PublicProfilePanel.tsx'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const battleCatalogSeed = fs.readFileSync(path.join(root, 'supabase/functions/keep-battle-catalog-seed/index.ts'), 'utf8');
 const battleMemory = fs.readFileSync(path.join(root, 'supabase/migrations/20261001022000_battle_content_memory_anti_repeat.sql'), 'utf8');
@@ -62,6 +63,11 @@ must(!master.includes('FREE reste **juste après Reprises**'), 'stale FREE place
 must(uiBaseline.profileOwner.freePlacement === contract.profileOwner.freePlacement, 'UI baseline disagrees with product contract');
 must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === true, 'UI baseline must require FREE beside profile type');
 must(JSON.stringify(uiBaseline.profileOwner.metricsBarOrder) === JSON.stringify(contract.profileOwner.metricsBarOrder), 'UI baseline metrics order disagrees with product contract');
+must(contract.profileOwner.visibilityControlLocation === 'Notifications top', 'profile visibility location contract changed');
+must(contract.profileOwner.visibilityControlRemovedFromNetworksPanel === true, 'profile visibility must stay out of networks panel');
+must(notifications.includes('CONFIDENTIALITÉ DU PROFIL') && notifications.includes('updateProfileVisibility'), 'profile visibility control missing from Notifications');
+must(!publicProfilePanel.includes('Profil visible') && !publicProfilePanel.includes('updateProfileVisibility'), 'profile visibility reintroduced in networks panel');
+must(profile.includes("label: 'Réseaux & site web'"), 'profile hamburger networks label regressed');
 
 for (const label of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) {
   must(navigation.includes(`tabBarLabel: '${label}'`), `bottom tab missing: ${label}`);
@@ -89,6 +95,11 @@ must(contract.marketplacePurchases?.previewMustExposeSellerProfile === true, 'se
 must(contract.marketplacePurchases?.previewMustUse3DProtectedMysteryVisual === true, '3D mystery preview contract missing');
 must(contract.marketplacePurchases?.partialMissingTrackRequest === true, 'partial missing-track request contract missing');
 must(contract.marketplacePurchases?.partialOfferMustBePrivateToRequester === true, 'private partial offer contract missing');
+must(JSON.stringify(contract.marketplacePurchases?.sellerCollectionFilters) === JSON.stringify(['ALL','FREE','MONEY']), 'seller FREE/euro filters contract changed');
+must(JSON.stringify(contract.marketplacePurchases?.creationWizardSteps) === JSON.stringify(['TRACKS','MODE_PRICE','PAYOUT_PUBLISH']), 'collection creation wizard contract changed');
+must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === true, 'duplicate-track prevention contract missing');
+must(contract.marketplacePurchases?.moneyPayoutConfiguredInline === true, 'inline payout setup contract missing');
+must(contract.marketplacePurchases?.freeModeRequiresExternalPayout === false, 'FREE mode must not require external payout');
 
 must(myMusic.includes('DERNIERS ACHATS'), 'Playlists recent purchases block missing');
 must(myMusic.includes('loadMyPlaylistPurchaseLibrary'), 'purchase library RPC disconnected');
@@ -104,6 +115,11 @@ must(saleService.includes('keep_playlist_sale_my_purchase_library'), 'purchase l
 must(saleService.includes('keep_playlist_sale_request_missing_tracks'), 'partial request service RPC missing');
 must(notifications.includes("'PLAYLIST_SALE_PARTIAL_OFFER'") && notifications.includes('includes(type)'), 'private offer notification routing missing');
 must(notifications.includes('openSaleOfferId: offerId'), 'private offer deep-link missing');
+must(salePanel.includes("offerFilter === 'FREE'") && salePanel.includes("offerFilter === 'MONEY'"), 'Pépites FREE/euro filters disconnected');
+must(myMusic.includes('ÉTAPE 1 SUR 3') && myMusic.includes('ÉTAPE 2 SUR 3') && myMusic.includes('ÉTAPE 3 SUR 3'), 'three-step collection wizard disconnected');
+must(myMusic.includes('DÉJÀ PUBLIÉE') && myMusic.includes('Un morceau ne peut pas être ajouté deux fois'), 'duplicate collection-track guard disconnected');
+must(myMusic.includes('setMyPayoutLink(clean)') && myMusic.includes('TESTER MON LIEN') && myMusic.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup/test disconnected');
+must(!myMusic.includes("navigation.navigate('ProfileCreatorTools')"), 'dead payout route reintroduced');
 
 must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'integration cache-clean contract missing');
 must(packageJson.scripts?.['integration:preflight']?.includes('clean-integration-cache.cjs'), 'integration preflight does not clean generated caches');
@@ -118,5 +134,5 @@ console.log('KEEP product contract: PASS');
 console.log('profile: type -> FREE; metrics: PLUS -> Abonnés -> Reprises');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
-console.log('marketplace: recent purchases + overlap + private missing-track offers locked');
+console.log('marketplace: FREE/€ filters + three-step creation + duplicate guard + payout test locked');
 console.log('integration: clean preflight + product-contract postflight locked');
