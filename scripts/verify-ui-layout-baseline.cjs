@@ -30,25 +30,24 @@ must(metaStart >= 0 && locationStart > metaStart, 'owner identity row not found'
 const meta = profile.slice(metaStart, locationStart);
 
 const kind = meta.indexOf('style={[s.kindBadge');
-const free = meta.indexOf('style={[s.profileFreeInline');
 const battle = meta.indexOf('<BattleGlowButton');
 must(kind >= 0, 'profile type badge missing');
-must(free > kind, 'FREE must remain immediately after profile type');
-must(battle > free, 'Battle must remain after FREE in the identity row');
-must((meta.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear once in identity row');
-must(profile.includes('profileFreeInline:{height:24'), 'FREE/profile type alignment height changed');
+must(battle > kind, 'Battle must remain after profile type in the identity row');
+must((meta.match(/>FREE<\/Text>/g) || []).length === 0, 'FREE must stay out of identity row');
+must(!profile.includes('profileFreeInline'), 'stale FREE identity pill returned');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
 const metricsEnd = profile.indexOf('{freeDetailsOpen', metricsStart);
 must(metricsStart >= 0 && metricsEnd > metricsStart, 'profile metrics bar not found');
 const metrics = profile.slice(metricsStart, metricsEnd);
-for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
+for (const marker of ['>PLUS</Text>', '>Abonnés</Text>', '>Reprises</Text>', '>FREE</Text>']) must(metrics.includes(marker), `metrics marker missing: ${marker}`);
 const plus = metrics.indexOf('>PLUS</Text>');
 const followers = metrics.indexOf('>Abonnés</Text>');
 const reprises = metrics.indexOf('>Reprises</Text>');
-must(plus >= 0 && followers > plus && reprises > followers, 'metrics order must be PLUS -> Abonnés -> Reprises');
-must((metrics.match(/>FREE<\/Text>/g) || []).length === 0, 'FREE must not be duplicated in metrics');
-must(!metrics.includes('topMetricFreeItem'), 'stale FREE metric item returned');
+const free = metrics.indexOf('>FREE</Text>');
+must(plus >= 0 && followers > plus && reprises > followers && free > reprises, 'metrics order must be PLUS -> Abonnés -> Reprises -> FREE');
+must((metrics.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once in metrics');
+must(metrics.includes('topMetricFreeItem'), 'FREE metric item missing');
 
 must(!profile.includes("{ key: 'account'"), 'Compte entry reintroduced in hamburger');
 must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel reintroduced in hamburger');
