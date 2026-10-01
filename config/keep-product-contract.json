@@ -564,5 +564,14 @@
     "homeReplacesLokiMusicDna": true,
     "usesFavoriteGenresFallback": true,
     "regressionGuardRequired": true
+  },
+  "lokiPulseBubbles": {
+    "homeAlwaysVisibleWhenStylesExist": true,
+    "ownProfileAlwaysVisibleWhenStylesExist": true,
+    "publicProfileAlwaysVisibleWhenStylesExist": true,
+    "neverHiddenBehindDnaAccordion": true,
+    "neverGatedByKeepDnaFeatureFlag": true,
+    "sharedMergeRule": "packages/mobile/src/services/musicStyleBubbles.ts",
+    "visibleBranding": "LOKI PULSE"
   }
 }

@@ -24,6 +24,7 @@ import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
+import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import SaleCollectionRow from '../components/SaleCollectionRow';
 import LoginPill from '../components/LoginPill';
 import { nextSaleVisibleCount, SALE_ROWS_INITIAL } from '../services/saleListPaging';
@@ -687,13 +688,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // avec la même action (Swipe filtré). Ne pas garder les deux, même
   // fonction, pour ne pas dupliquer.
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
-  // (21/09/2026, Adel) : "le bloc Loki DNA prend trop de place sur le profil
-  // visité, ça noie le reste" -- replié par défaut avec un résumé condensé
-  // sur une ligne. Le profil PERSONNEL garde le bloc complet, non touché
-  // ici -- demande explicite d'Adel. (Contrairement à "Morceaux publics",
-  // jamais replié -- ce sont deux décisions distinctes, la musique doit
-  // rester visible immédiatement.)
-  const [dnaExpanded, setDnaExpanded] = useState(false);
   const genreOptions = useMemo(() => {
     const counts = new Map<string, number>();
     for (const track of swipeTracks) for (const genre of track.genres ?? []) {
@@ -702,24 +696,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [swipeTracks]);
-  const visitorStyleBubbles = useMemo(() => {
-    const learned = genreOptions.map((row) => row.genre).filter(Boolean);
-    const declared = profile?.favoriteGenres ?? [];
-    const seen = new Set<string>();
-    return [...learned, ...declared].filter((genre) => {
-      const clean = String(genre || '').trim();
-      const key = clean.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
-      if (!clean || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 8);
-  }, [genreOptions, profile?.favoriteGenres]);
-
-  const visitorStyleCoveragePercent = useMemo(() => {
-    if (!swipeTracks.length) return 0;
-    const tagged = swipeTracks.filter((track) => (track.genres ?? []).some((genre) => String(genre || '').trim())).length;
-    return Math.max(0, Math.min(100, Math.round((tagged / swipeTracks.length) * 100)));
-  }, [swipeTracks]);
+  const visitorStyleBubbles = useMemo(() => buildMusicStyleBubbles([
+    profile?.favoriteGenres,
+    genreOptions.map((row) => row.genre),
+  ], 12), [genreOptions, profile?.favoriteGenres]);
 
 
   const genreArtwork = useMemo(() => {
@@ -1899,71 +1879,36 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           )}
         </View>
 
-        <View style={styles.dna}>
-          <TouchableOpacity style={styles.dnaHeader} onPress={() => setDnaExpanded((v) => !v)} accessibilityRole="button" accessibilityLabel={dnaExpanded ? 'Réduire son ADN musical' : 'Voir son ADN musical'}>
-            <View style={{ flex: 1, minWidth: 0 }}><Text style={styles.dnaEyebrow}>Loki Music DNA</Text><Text style={styles.dnaTitle}>Son empreinte musicale</Text></View>
-            <Text style={styles.chevron}>{dnaExpanded ? '⌃' : '⌄'}</Text>
-          </TouchableOpacity>
-          {/* Adel (21/09/2026) : "le bloc ADN prend trop de place sur le
-              profil visité, ça noie le reste" -- replié, résumé condensé sur
-              une ligne (styles puis artistes, texte simple). Déplié, le
-              détail complet reste identique à avant (mêmes puces cliquables,
-              rien de supprimé). */}
-          {!dnaExpanded ? (
-            visitorStyleBubbles.length > 0 ? (
-              <View style={styles.visitorDnaSummary}>
-                <View style={styles.visitorDnaTrack}>
-                  <View style={[styles.visitorDnaFill, { width: `${visitorStyleCoveragePercent}%` }]} />
-                </View>
-                <View style={styles.visitorDnaSummaryRow}>
-                  <Text style={styles.visitorDnaSummaryText}>Empreinte analysée</Text>
-                  <Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.mutedSmall}>Empreinte musicale en construction.</Text>
-            )
+        <View style={styles.dna} testID="public-profile-loki-pulse-bubbles-card">
+          <View style={styles.dnaHeader}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.dnaEyebrow}>LOKI PULSE</Text>
+              <Text style={styles.dnaTitle}>Ses bulles musicales</Text>
+            </View>
+          </View>
+          {visitorStyleBubbles.length > 0 ? (
+            <MusicStyleBubbles
+              testID="public-profile-music-style-bubbles"
+              genres={visitorStyleBubbles}
+              max={8}
+              onPressGenre={(genre) => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}
+            />
           ) : (
-            <>
-              {/* Adel (14/09/2026) : "ça aussi, il faut y ranger correctement"
-                  -- styles et artistes mélangés dans une seule liste plate (ex:
-                  "R&B/Soul, Hip-hop/Rap, Miguel, The Gap Band" sans distinction).
-                  Deux rangées étiquetées séparément ; une puce qui correspond à
-                  un style/artiste réel de la collection ouvre directement le
-                  Swipe filtré, au lieu de rester une simple étiquette
-                  décorative. Le résumé "Albums : <titres bruts concaténés>"
-                  retiré : peu lisible et déjà couvert par la sélection Artiste
-                  (un album, ici, c'est quasi toujours un seul morceau -- audit
-                  du 13/09). */}
-              {profile.favoriteGenres.length > 0 ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.dnaRowLabel}>STYLES</Text>
-                  <View style={styles.chips}>{profile.favoriteGenres.slice(0, 6).map((item) => {
-                    const match = genreOptions.find((g) => g.genre === item);
-                    return match ? (
-                      <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'genre', value: item, label: item })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
-                    ) : (
-                      <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
-                    );
-                  })}</View>
-                </View>
-              ) : null}
-              {profile.favoriteArtists.length > 0 ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.dnaRowLabel}>ARTISTES</Text>
-                  <View style={styles.chips}>{profile.favoriteArtists.slice(0, 6).map((item) => {
-                    const match = artistGroups.find((g) => g.name === item);
-                    return match ? (
-                      <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'artist', value: match.key, label: match.name })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
-                    ) : (
-                      <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
-                    );
-                  })}</View>
-                </View>
-              ) : null}
-              {profile.favoriteGenres.length === 0 && profile.favoriteArtists.length === 0 ? <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text> : null}
-            </>
+            <Text style={styles.mutedSmall}>Ses bulles apparaîtront ici dès que Loki Pulse connaît au moins un de ses styles.</Text>
           )}
+          {profile.favoriteArtists.length > 0 ? (
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.dnaRowLabel}>ARTISTES</Text>
+              <View style={styles.chips}>{profile.favoriteArtists.slice(0, 6).map((item) => {
+                const match = artistGroups.find((g) => g.name === item);
+                return match ? (
+                  <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'artist', value: match.key, label: match.name })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
+                ) : (
+                  <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
+                );
+              })}</View>
+            </View>
+          ) : null}
         </View>
 
         {(() => {

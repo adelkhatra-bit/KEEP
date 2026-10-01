@@ -20,7 +20,7 @@ import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem, markLokiPulseTrackKep
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
-import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
+import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
@@ -57,6 +57,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
+import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -212,7 +213,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
-  const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
   const setBattleAvailable = useBattleAvailabilityStore((s) => s.setAvailable);
@@ -495,8 +495,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // s'affichait pour 100% des utilisateurs quel que soit son état. Décision
   // Adel : brancher le flag pour de vrai plutôt que de laisser un bouton
   // décoratif dans Super Admin.
-  const [dnaFeatureEnabled, setDnaFeatureEnabled] = useState(false);
-  useEffect(() => { let live = true; isFeatureEnabled('keep_dna').then((enabled) => live && setDnaFeatureEnabled(enabled)); return () => { live = false; }; }, []);
   // Adel (20/09/2026) : marketplace playlists (VENDRE/ACHETER) en "coming
   // soon" -- paiement par lien externe, non conforme Apple IAP pour du
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
@@ -1058,31 +1056,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       .map(({ label, entries }) => ({ genre: label, entries }));
   }, [profileKeptTracks]);
 
-  // Les bulles de styles restent visibles même pendant une restauration lente
-  // de la bibliothèque : priorité au DNA appris, puis goûts déclarés persistés,
-  // puis genres réellement présents dans les morceaux.
-  const profileStyleBubbles = useMemo(() => {
-    const values = [
-      ...dna.topGenres.map((row) => row.genre),
-      ...(user?.favoriteGenres ?? []),
-      ...trackGenreOptions.map((row) => row.genre),
-    ];
-    const seen = new Set<string>();
-    return values.filter((raw) => {
-      const value = String(raw || '').trim();
-      if (!value) return false;
-      const key = value.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
-
-  const styleCoveragePercent = useMemo(() => {
-    if (!profileKeptTracks.length) return 0;
-    const tagged = profileKeptTracks.filter((entry) => (entry.track.genres ?? []).some((genre) => String(genre || '').trim())).length;
-    return Math.max(0, Math.min(100, Math.round((tagged / profileKeptTracks.length) * 100)));
-  }, [profileKeptTracks]);
+  // Source unique anti-régression : ces bulles ne dépendent jamais d'un
+  // accordéon DNA ni d'un feature flag. Elles fusionnent goûts persistés,
+  // apprentissage réel et genres présents dans la collection.
+  const profileStyleBubbles = useMemo(() => buildMusicStyleBubbles([
+    user?.favoriteGenres,
+    dna.topGenres.map((row) => row.genre),
+    trackGenreOptions.map((row) => row.genre),
+  ], 12), [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
 
 
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
@@ -2004,66 +1985,47 @@ export default function ProfilePublicScreen({ navigation }: any) {
         )}
       </View>
 
-      {(profileStyleBubbles.length > 0 || dnaFeatureEnabled) ? (
-        <View style={s.dnaCompactWrap}>
-          <TouchableOpacity
-            style={s.dnaCompactMeter}
-            onPress={() => setOwnerDnaExpanded((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: ownerDnaExpanded }}
-            accessibilityLabel={ownerDnaExpanded ? 'Réduire mes styles musicaux' : 'Voir mes styles musicaux'}
-          >
+      {!accountRequired ? (
+        <View style={s.dnaCompactWrap} testID="profile-loki-pulse-bubbles-card">
+          <View style={s.dnaCompactMeter}>
             <View style={s.dnaCompactCopy}>
-              <Text style={s.dnaEyebrow}>LOKI MUSIC DNA</Text>
-              <Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>
+              <Text style={s.dnaEyebrow}>LOKI PULSE</Text>
+              <Text style={s.dnaCompactTitle}>Tes bulles musicales</Text>
             </View>
-            <View style={s.dnaCompactGauge}>
-              <View style={s.dnaCompactTrack}>
-                <View style={[s.dnaCompactFill, { width: `${dnaFeatureEnabled ? Math.round(dna.diversityScore * 100) : styleCoveragePercent}%` }]} />
-              </View>
-              <View style={s.dnaCompactScoreRow}>
-                <Text style={s.dnaCompactScore}>{dnaFeatureEnabled ? Math.round(dna.diversityScore * 100) : styleCoveragePercent}%</Text>
-                <Text style={s.dnaCompactChevron}>{ownerDnaExpanded ? '⌃' : '⌄'}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {ownerDnaExpanded ? (
-            <View style={s.dnaCompactDetails}>
-              <Text style={s.dnaCountHint}>TES STYLES MUSICAUX · {profileStyleBubbles.length}</Text>
-              {profileStyleBubbles.length > 0 ? (
-                <MusicStyleBubbles
-                  testID="profile-music-style-bubbles"
-                  genres={profileStyleBubbles}
-                  max={8}
-                  onPressGenre={(genre) => {
-                    const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-                    if (folder?.entries.length) {
-                      openSelectionSwipe({
-                        title: folder.genre,
-                        subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                        tracks: folder.entries.map((entry) => entry.track),
-                      });
-                      return;
-                    }
-                    switchProfileTab('TRACKS');
-                    setTracksGrouping('GENRE');
-                  }}
-                />
-              ) : (
-                <Text style={s.muted}>Ton empreinte musicale se construit avec tes écoutes et tes morceaux gardés.</Text>
-              )}
-              {genreFolders.length > 8 ? (
-                <TouchableOpacity
-                  style={s.dnaSeeAll}
-                  onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
-                  accessibilityLabel={`Voir mes ${genreFolders.length} styles musicaux`}
-                >
-                  <Text style={s.dnaSeeAllText}>VOIR MES {genreFolders.length} STYLES</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
+          </View>
+          <View style={s.dnaCompactDetails}>
+            {profileStyleBubbles.length > 0 ? (
+              <MusicStyleBubbles
+                testID="profile-music-style-bubbles"
+                genres={profileStyleBubbles}
+                max={8}
+                onPressGenre={(genre) => {
+                  const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+                  if (folder?.entries.length) {
+                    openSelectionSwipe({
+                      title: folder.genre,
+                      subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
+                      tracks: folder.entries.map((entry) => entry.track),
+                    });
+                    return;
+                  }
+                  switchProfileTab('TRACKS');
+                  setTracksGrouping('GENRE');
+                }}
+              />
+            ) : (
+              <Text style={s.muted}>Tes bulles apparaîtront ici dès que Loki Pulse connaît au moins un de tes styles.</Text>
+            )}
+            {genreFolders.length > 8 ? (
+              <TouchableOpacity
+                style={s.dnaSeeAll}
+                onPress={() => { switchProfileTab('TRACKS'); setTracksGrouping('GENRE'); }}
+                accessibilityLabel={`Voir mes ${genreFolders.length} styles musicaux`}
+              >
+                <Text style={s.dnaSeeAllText}>VOIR MES {genreFolders.length} STYLES</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       ) : null}
 

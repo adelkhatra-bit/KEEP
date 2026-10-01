@@ -25,6 +25,7 @@ import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { loadOwnProfileKeeps } from '../services/publicProfileStateService';
+import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -120,11 +121,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     );
     return computeMusicDNA(decisions);
   }, [historySessions]);
-  const homeStyleBubbles = useMemo(() => {
-    const learned = homeDna.topGenres.map((row) => row.genre).filter(Boolean);
-    const declared = Array.isArray(user?.favoriteGenres) ? user.favoriteGenres.filter(Boolean) : [];
-    return Array.from(new Set([...serverHomeStyles, ...learned, ...declared])).slice(0, 8);
-  }, [homeDna.topGenres, serverHomeStyles, user?.favoriteGenres]);
+  const homeStyleBubbles = useMemo(() => buildMusicStyleBubbles([
+    serverHomeStyles,
+    homeDna.topGenres.map((row) => row.genre),
+    user?.favoriteGenres,
+  ], 8), [homeDna.topGenres, serverHomeStyles, user?.favoriteGenres]);
 
   useEffect(() => {
     let live = true;
