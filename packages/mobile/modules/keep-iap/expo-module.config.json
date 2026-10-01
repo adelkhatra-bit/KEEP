@@ -1,10 +1,16 @@
 {
   "platforms": [
-    "ios"
+    "ios",
+    "android"
   ],
   "apple": {
     "modules": [
       "KeepIAPModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.keepiap.KeepIAPModule"
     ]
   }
 }
