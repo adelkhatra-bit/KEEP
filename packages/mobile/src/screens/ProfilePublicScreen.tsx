@@ -56,7 +56,6 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import NotificationSidePanel from '../components/NotificationSidePanel';
-import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -2224,7 +2223,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
       visible={notificationPanelOpen}
       profileId={user.id}
       onClose={() => setNotificationPanelOpen(false)}
-      onOpenChat={(target) => useGlobalChatStore.getState().open(target ?? null)}
       onOpenAll={() => navigation.navigate('Notifications')}
     />
 
