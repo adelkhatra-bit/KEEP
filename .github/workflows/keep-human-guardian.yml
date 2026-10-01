@@ -173,7 +173,10 @@ jobs:
             await page.getByLabel(/Notifications/).last().waitFor({state:'visible',timeout:15000});
             await shot('07-profile');
             await clickRobust(profileMenu,'Profile menu');
-            await t('↗ Inviter / partager mon profil',{exact:true}).waitFor({state:'visible',timeout:15000});
+            const cardShare=page.getByLabel('Carte').last();
+            await cardShare.waitFor({state:'visible',timeout:15000});
+            await clickRobust(cardShare,'Profile card & share');
+            await page.getByLabel('Partager mon profil').last().waitFor({state:'visible',timeout:15000});
             await clickRobust(t('Fermer',{exact:true}),'Close profile menu');
 
             const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
