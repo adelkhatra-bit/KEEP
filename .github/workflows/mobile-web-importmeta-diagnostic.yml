@@ -180,7 +180,10 @@ jobs:
             await page.getByText('RÉGLAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
             if (page.url() !== profileUrlBeforeBell) throw new Error('Bell navigation changed URL instead of staying inline');
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-bell-390x844.png', fullPage: true });
-            await clickRobust(page.getByLabel('Fermer', { exact: true }).last(), 'Close notification bell');
+            // Ferme par le backdrop visible à gauche du tiroir. Le bouton ×
+            // existe bien dans le produit, mais React Native Web ne l'expose pas
+            // toujours comme locator accessible stable dans Chromium headless.
+            await page.mouse.click(8, 120);
             await page.getByText('Cloche', { exact: true }).last().waitFor({ state: 'hidden', timeout: 10000 });
 
             // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
