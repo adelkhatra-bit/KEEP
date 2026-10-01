@@ -111,10 +111,11 @@ assertOrdered(visitorMetrics, [
   '>Abonnements</Text>',
 ], 'Visited compact + expanded counter order');
 
-assertIncludes(visitor, 'accessibilityLabel={`Aperçu des découvertes de ${profile.username}`}', 'Visited APERÇU action');
+assertIncludes(visitor, 'accessibilityLabel={`Swiper la musique de ${profile.username}`}', 'Visited SWIPE action');
+assertIncludes(visitor, 'accessibilityLabel={`Ouvrir le tchat avec ${profile.username}`}', 'Visited TCHAT action');
 assertIncludes(visitor, 'accessibilityLabel={`Défier ${profile.username} en Battle`}', 'Visited Battle action');
 assertIncludes(visitor, 'accessibilityLabel={`Partager le profil de ${profile.username}`}', 'Visited PARTAGER action');
-assertCount(visitor, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 3, 'Visited APERÇU / BATTLE / PARTAGER equal-width row');
+assertCount(visitor, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 4, 'Visited SWIPE / TCHAT / BATTLE / PARTAGER equal-width row');
 assertIncludes(visitor, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Visited quick actions equal-width row');
 assertIncludes(visitor, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Visited quick actions flexible equal-width buttons');
 assertIncludes(visitor, 'const online = self || profilePresence.online;', 'Visited live-presence indicator');
@@ -131,4 +132,4 @@ assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'B
 console.log('Loki profile hierarchy + alignment contract: PASS');
 console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; DNA -> réseaux -> Loki Pulse -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
-console.log('actions: equal-width outline rows preserved on owner and visited profile');
+console.log('actions: owner APERÇU/PÉPITES/BATTLE and visitor SWIPE/TCHAT/BATTLE/PARTAGER equal-width rows preserved');
