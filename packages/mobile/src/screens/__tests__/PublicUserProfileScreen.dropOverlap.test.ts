@@ -4,9 +4,7 @@ import path from 'path';
 const source = fs.readFileSync(
   path.resolve(__dirname, '..', 'PublicUserProfileScreen.tsx'),
   'utf8',
-).replace(/\r
-/g, '
-');
+).replace(/\r\n/g, '\n');
 
 describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un Drop', () => {
   it('charge le chevauchement serveur sans révéler les titres masqués', () => {
