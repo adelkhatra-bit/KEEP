@@ -13,6 +13,14 @@ function isChatNotification(item: KeepNotification): boolean {
   return String(item.type || '').toUpperCase().startsWith('AGORA');
 }
 
+const CHAT_SURFACES: Array<{ key: MusicAgoraSurface; label: string; hint: string }> = [
+  { key: 'LISTEN', label: 'Loki Music', hint: 'Écoute et reconnaissance' },
+  { key: 'DISCOVER', label: 'Découvertes', hint: 'Trouvailles et profils' },
+  { key: 'PLAYLISTS', label: 'Playlists', hint: 'Ta musique et tes collections' },
+  { key: 'PARTIES', label: 'Soirées', hint: 'Événements et Battle' },
+  { key: 'PROFILE', label: 'Profil', hint: 'Ton univers et les profils visités' },
+];
+
 export default function GlobalChatDock() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
