@@ -100,7 +100,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
-  if (key === 'CHAT_ACTIVATION_AVAILABLE') return 'ACTIVE TON CHAT';
+  if (key === 'CHAT_ACTIVATION_AVAILABLE' || key === 'AGORA_ACTIVATE') return 'ACTIVE TON CHAT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
@@ -499,7 +499,8 @@ export default function NotificationsScreen({ navigation }: any) {
     const type = String(item.type || '').toUpperCase();
     const eventId = eventIdOf(item);
 
-    if (type === 'CHAT_ACTIVATION_AVAILABLE') {
+    if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
+      useGlobalChatStore.getState().openSettings();
       setChatSettingsOpen(true);
       return;
     }
