@@ -7,6 +7,10 @@ export type SeedableRecognition = {
   album?: string;
   artworkUrl?: string;
   previewUrl?: string;
+  isrc?: string;
+  genres?: string[];
+  availableOn?: string[];
+  releaseYear?: number;
   externalUrls?: Record<string, string>;
   providerIds?: Record<string, string>;
 };
@@ -22,7 +26,31 @@ export type SeedableRecognition = {
  * recherches manuelles.
  */
 export async function seedFingerprintMemory(admin: any, rec: SeedableRecognition | null) {
-  if (!rec?.previewUrl || !rec.title || !rec.artist) return;
+  if (!rec?.title || !rec.artist) return;
+
+  // Every successful recognition enriches Loki's own canonical catalog first,
+  // even when no preview is available. The RPC deduplicates by ISRC/provider/
+  // normalized title+artist and the tracks trigger classifies its genres into
+  // Solo/Battle themes. Fingerprinting stays a second, optional layer.
+  try {
+    await admin.rpc("service_catalog_track_from_recognition", {
+      p_title: rec.title,
+      p_artist: rec.artist,
+      p_isrc: rec.isrc ?? null,
+      p_album: rec.album ?? null,
+      p_artwork_url: rec.artworkUrl ?? null,
+      p_preview_url: rec.previewUrl ?? null,
+      p_provider_ids: rec.providerIds ?? {},
+      p_external_urls: rec.externalUrls ?? {},
+      p_available_on: rec.availableOn ?? [],
+      p_genres: rec.genres ?? [],
+      p_release_year: Number.isFinite(rec.releaseYear) ? Math.round(Number(rec.releaseYear)) : null,
+    });
+  } catch (error) {
+    console.error("[fingerprintSeed] catalog seed failed", error instanceof Error ? error.message : String(error));
+  }
+
+  if (!rec.previewUrl) return;
   try {
     const { data: existing } = await admin
       .from("keep_fingerprint_tracks")
