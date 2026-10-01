@@ -30,13 +30,13 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
+import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
-import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
@@ -946,6 +946,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // paiement PERSONNEL du vendeur (jamais un compte KEEP), la demande est
   // notée pour que le créateur sache qui débloquer une fois vraiment payé.
   const [purchaseBusyId, setPurchaseBusyId] = useState<string | null>(null);
+  const [payoutCheckout, setPayoutCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const [missingRequestBusyId, setMissingRequestBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
@@ -1057,22 +1058,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
       // playlist (qui peut être "keep-selection:...").
       const request = await requestPlaylistPurchase(offer.offerId);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n'a pas encore ajouté de lien de paiement personnel.`); return; }
-      const checkoutUrl = buildPayoutCheckoutUrl(request.payoutLink, request.amountCents, request.currencyCode);
-      const provider = payoutProviderLabel(request.payoutLink);
-      const amount = (request.amountCents / 100).toFixed(2).replace('.', ',');
-      await Linking.openURL(checkoutUrl);
+      if (!request.payoutLink && !request.payoutQrUrl) {
+        Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n'a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
+        return;
+      }
       setImmersivePreviewOffer(null);
-      Alert.alert(
-        `${provider} ouvert`,
-        provider === 'PayPal'
-          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Après validation, confirme ici ou depuis la notification. La sélection restera bloquée jusqu'à confirmation de réception par ${request.sellerUsername || 'le créateur'}.`
-          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Après paiement, confirme ici ou depuis la notification. La sélection restera bloquée jusqu'à confirmation de réception par ${request.sellerUsername || 'le créateur'}.`,
-        [
-          { text: 'PLUS TARD', style: 'cancel' },
-          { text: 'J’AI PAYÉ', onPress: () => { void markPlaylistSaleBuyerPaid(request.paymentId).catch(() => Alert.alert('Paiement', 'Tu peux aussi confirmer ton paiement depuis la notification reçue.')); } },
-        ],
-      );
+      setPayoutCheckout(request);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
