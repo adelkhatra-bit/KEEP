@@ -57,7 +57,9 @@ describe('global Loki messenger contract', () => {
 
   it('keeps the conversation full-screen, keyboard-safe and readable on mobile', () => {
     expect(messenger).toContain('visualViewport');
-    expect(messenger).toContain('const compactBottom = keyboardInset > 0 ? keyboardInset : 0');
+    expect(messenger).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
+    expect(messenger).toContain('KeyboardAvoidingView');
+    expect(messenger).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : compact ? 'height' : undefined}");
     expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
     expect(messenger).toContain('setKeyboardInset(Math.max(reportedHeight, coveredByTop))');
     expect(messenger).toContain('top: 0');
@@ -83,6 +85,10 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
     expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
+    expect(dock).toContain('const clamped = Math.max(minBottom, Math.min(maxBottom, bottomOffset))');
+    expect(dock).toContain('saveMusicAgoraPosition(side, clamped)');
+    expect(dock).toContain('openChat(target);');
+    expect(dock).toContain('setChatEnabled(true);');
     expect(dock).toContain("chooseVerticalPreset('HIGH')");
     expect(dock).toContain("chooseVerticalPreset('MIDDLE')");
     expect(dock).toContain("chooseVerticalPreset('LOW')");
