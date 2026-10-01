@@ -160,6 +160,8 @@ export default function MusicAgoraPanel({
   const [paymentCheckout, setPaymentCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
   const [composerActionsOpen, setComposerActionsOpen] = useState(false);
+  const [inboxQuery, setInboxQuery] = useState('');
+  const [inboxFilter, setInboxFilter] = useState<'ALL' | 'GROUPS' | 'DIRECT' | 'INVITES'>('ALL');
   const chatScrollRef = useRef<ScrollView | null>(null);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -937,6 +939,18 @@ export default function MusicAgoraPanel({
     )
   );
 
+  const normalizedInboxQuery = inboxQuery.trim().toLocaleLowerCase('fr-FR');
+  const inboxMatches = (value: string) => !normalizedInboxQuery || String(value || '').toLocaleLowerCase('fr-FR').includes(normalizedInboxQuery);
+  const visibleInboxGroups = groups.filter((group) => {
+    if (inboxFilter === 'DIRECT') return false;
+    if (inboxFilter === 'INVITES' && group.myStatus !== 'INVITED') return false;
+    if (inboxFilter === 'GROUPS' && group.myStatus !== 'ACTIVE') return false;
+    return inboxMatches(`${group.name} ${group.ownerUsername} ${group.lastBody}`);
+  });
+  const visibleInboxConversations = conversations.filter((item) => {
+    if (inboxFilter === 'GROUPS' || inboxFilter === 'INVITES') return false;
+    return inboxMatches(`${item.username} ${item.lastBody}`);
+  });
   if (compact && !enabled) return null;
 
   return <KeyboardAvoidingView
@@ -963,13 +977,13 @@ export default function MusicAgoraPanel({
         <View style={s.compactHeader}>
           <View style={s.liveDot} />
           <View style={s.compactHeaderCopy}>
-            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? `@${replyTarget.username}` : 'MESSAGERIE LOKI'}</Text>
+            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? `@${replyTarget.username}` : 'Chat'}</Text>
             <Text style={s.compactMeta}>
               {activeGroup
                 ? `SALON PRIVÉ · ${activeGroup.memberCount} personne${activeGroup.memberCount > 1 ? 's' : ''}`
                 : replyTarget
                   ? 'Conversation privée · musique · FREE · paiement'
-                  : (chatMode === 'MESSAGES' ? 'Conversations choisies · jusqu’à 45 personnes' : 'LA PLACE · PUBLIC · tout le monde peut rejoindre')}
+                  : (chatMode === 'MESSAGES' ? 'Messages · salons · invitations' : 'LA PLACE · PUBLIC · tout le monde peut rejoindre')}
             </Text>
           </View>
           <TouchableOpacity
@@ -1049,16 +1063,40 @@ export default function MusicAgoraPanel({
     {loading ? <View style={s.loading}><ActivityIndicator color={colors.primaryLight}/></View> : null}
 
     {compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup ? (
-      <ScrollView style={s.inbox} contentContainerStyle={s.inboxList} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={s.newConversationButton} onPress={openCreateGroup} accessibilityLabel="Créer une nouvelle conversation de groupe">
+      <ScrollView style={s.inbox} contentContainerStyle={s.inboxList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <View style={s.inboxSearchWrap}>
+          <Text style={s.inboxSearchIcon}>⌕</Text>
+          <TextInput
+            value={inboxQuery}
+            onChangeText={setInboxQuery}
+            placeholder="Rechercher une conversation…"
+            placeholderTextColor={colors.textMutedGrey}
+            style={s.inboxSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.inboxFilters}>
+          {([
+            ['ALL','Tous'],
+            ['GROUPS','Salons'],
+            ['DIRECT','Privés'],
+            ['INVITES','Invitations'],
+          ] as const).map(([key,label]) => (
+            <TouchableOpacity key={key} style={[s.inboxFilterChip, inboxFilter === key && s.inboxFilterChipOn]} onPress={() => setInboxFilter(key)}>
+              <Text style={[s.inboxFilterText, inboxFilter === key && s.inboxFilterTextOn]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {(inboxFilter === 'ALL' || inboxFilter === 'GROUPS') ? <TouchableOpacity style={s.newConversationButton} onPress={openCreateGroup} accessibilityLabel="Créer une nouvelle conversation de groupe">
           <Text style={s.newConversationPlus}>＋</Text>
           <View style={s.newConversationCopy}>
             <Text style={s.newConversationTitle}>Nouveau salon privé</Text>
             <Text style={s.newConversationHint}>Sur invitation uniquement · jusqu’à 45 personnes avec toi</Text>
           </View>
-        </TouchableOpacity>
+        </TouchableOpacity> : null}
 
-        {groups.map((group) => (
+        {visibleInboxGroups.map((group) => (
           <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
             <TouchableOpacity
               style={s.groupMain}
@@ -1093,7 +1131,7 @@ export default function MusicAgoraPanel({
           </View>
         ))}
 
-        {conversations.map((item) => (
+        {visibleInboxConversations.map((item) => (
           <TouchableOpacity
             key={item.profileId}
             style={s.conversationRow}
@@ -1111,7 +1149,7 @@ export default function MusicAgoraPanel({
             <Text style={s.conversationArrow}>›</Text>
           </TouchableOpacity>
         ))}
-        {!conversations.length && !groups.length && !loading ? (
+        {!visibleInboxConversations.length && !visibleInboxGroups.length && !loading ? (
           <View style={s.inboxEmpty}>
             <Text style={s.inboxEmptyTitle}>Aucune conversation pour l’instant</Text>
             <Text style={s.inboxEmptyText}>Réponds à un utilisateur depuis une notification ou depuis La Place. La conversation apparaîtra ici.</Text>
@@ -1709,7 +1747,15 @@ const s=StyleSheet.create({
   membersButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
   membersButtonText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.5},
   inbox:{flex:1,minHeight:0},
-  inboxList:{gap:7,paddingVertical:4},
+  inboxList:{gap:8,paddingHorizontal:14,paddingTop:10,paddingBottom:18},
+  inboxSearchWrap:{minHeight:44,borderRadius:22,borderWidth:1,borderColor:'rgba(167,139,250,.28)',backgroundColor:'rgba(26,21,38,.96)',paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8},
+  inboxSearchIcon:{color:colors.textMutedGrey,fontSize:20,fontWeight:'700'},
+  inboxSearch:{flex:1,minHeight:42,color:colors.textPrimary,fontSize:15,paddingVertical:0},
+  inboxFilters:{gap:7,paddingRight:14},
+  inboxFilterChip:{minHeight:34,paddingHorizontal:13,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  inboxFilterChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primary},
+  inboxFilterText:{color:colors.textMutedGrey,fontSize:11.5,fontWeight:'900'},
+  inboxFilterTextOn:{color:colors.white},
   newConversationButton:{minHeight:64,borderRadius:18,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
   newConversationPlus:{width:38,height:38,borderRadius:19,textAlign:'center',textAlignVertical:'center',lineHeight:38,color:colors.white,backgroundColor:colors.primary,fontSize:22,fontWeight:'900'},
   newConversationCopy:{flex:1,minWidth:0},
