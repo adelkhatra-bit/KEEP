@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.12",
+  "version": "2026-10-01.13",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -123,5 +123,32 @@
     "alreadyPublishedTrackMustBeExplained": true,
     "moneyPayoutConfiguredInline": true,
     "freeModeRequiresExternalPayout": false
+  },
+  "screenHelpRules": {
+    "parties": {
+      "title": "Soirées",
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "helpContains": [
+        "Publier une soirée",
+        "Retrouver ses soirées",
+        "Répondre aux invitations",
+        "Validation et notifications"
+      ],
+      "compactHomeActions": true
+    },
+    "playlists": {
+      "title": "Playlists",
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "helpContains": [
+        "Écouter",
+        "Visibilité public/privé",
+        "Trier automatiquement",
+        "Créer une collection",
+        "Connecter ses services"
+      ],
+      "compactHomeActions": true
+    }
   }
 }
