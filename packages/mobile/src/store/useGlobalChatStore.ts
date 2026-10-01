@@ -12,12 +12,15 @@ type GlobalChatState = {
   side: 'left' | 'right';
   bottomOffset: number;
   target: GlobalChatTarget | null;
+  settingsOpen: boolean;
   open: (target?: GlobalChatTarget | null) => void;
   close: () => void;
   toggle: () => void;
   setSide: (side: 'left' | 'right') => void;
   setBottomOffset: (value: number) => void;
   clearTarget: () => void;
+  openSettings: () => void;
+  closeSettings: () => void;
 };
 
 export const useGlobalChatStore = create<GlobalChatState>((set) => ({
@@ -25,10 +28,13 @@ export const useGlobalChatStore = create<GlobalChatState>((set) => ({
   side: 'right',
   bottomOffset: 88,
   target: null,
-  open: (target = null) => set({ isOpen: true, target }),
+  settingsOpen: false,
+  open: (target = null) => set({ isOpen: true, target, settingsOpen: false }),
   close: () => set({ isOpen: false }),
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
   setSide: (side) => set({ side }),
   setBottomOffset: (bottomOffset) => set({ bottomOffset }),
   clearTarget: () => set({ target: null }),
+  openSettings: () => set({ settingsOpen: true, isOpen: false }),
+  closeSettings: () => set({ settingsOpen: false }),
 }));
