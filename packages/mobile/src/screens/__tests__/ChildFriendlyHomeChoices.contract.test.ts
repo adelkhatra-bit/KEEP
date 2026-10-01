@@ -20,7 +20,7 @@ describe('Child-friendly home choices', () => {
     expect(ranking).toBeGreaterThan(invites);
     expect(home).not.toContain('Jouer au Battle');
     expect(parties).toContain('Tout comprendre sur Soirées');
-    expect(parties).toContain('Tout faire depuis Soirées');
+    expect(parties).toContain('Tout faire dans Soirées');
     expect(parties).not.toContain('Événements · Soirées · Invitations');
   });
 
