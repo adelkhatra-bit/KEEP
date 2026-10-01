@@ -52,6 +52,32 @@ const LIBRARY_TABS: Array<{ key: LibraryTab; label: string }> = [
 const ARTIST_ID_PREFIX = 'keep-artist:';
 const STYLE_ID_PREFIX = 'keep-style:';
 
+const SALE_CURRENCIES = [
+  { code: 'EUR', label: '€ EUR' },
+  { code: 'USD', label: '$ USD' },
+  { code: 'GBP', label: '£ GBP' },
+  { code: 'CHF', label: 'CHF' },
+  { code: 'CAD', label: '$ CAD' },
+  { code: 'AUD', label: '$ AUD' },
+  { code: 'AED', label: 'AED' },
+] as const;
+
+function defaultSaleCurrency(countryCode?: string | null): string {
+  const country = String(countryCode || '').trim().toUpperCase();
+  if (['FR','DE','ES','IT','PT','BE','NL','LU','IE','AT','FI','GR','CY','MT','EE','LV','LT','SI','SK','HR'].includes(country)) return 'EUR';
+  if (country === 'GB') return 'GBP';
+  if (country === 'CH') return 'CHF';
+  if (country === 'CA') return 'CAD';
+  if (country === 'AU') return 'AUD';
+  if (country === 'AE') return 'AED';
+  if (country === 'US') return 'USD';
+  return 'EUR';
+}
+
+function saleCurrencyLabel(code: string): string {
+  return SALE_CURRENCIES.find((item) => item.code === code)?.label ?? code;
+}
+
 function trackIdentity(track: CanonicalTrack) {
   const isrc = track.isrc?.trim().toUpperCase();
   if (isrc) return `isrc:${isrc}`;
@@ -258,6 +284,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [sellPaymentMode, setSellPaymentMode] = useState<PlaylistSalePaymentMode | null>(null);
   const [sellPriceCents, setSellPriceCents] = useState<number | null>(null);
   const [sellFreePrice, setSellFreePrice] = useState<number | null>(null);
+  const [sellCurrencyCode, setSellCurrencyCode] = useState<string>(() => defaultSaleCurrency((user as any)?.countryCode));
+  const [saleCartReviewOpen, setSaleCartReviewOpen] = useState(false);
   const [sellBusy, setSellBusy] = useState(false);
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
@@ -408,6 +436,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
+  const saleCartTracks = useMemo(
+    () => localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id)),
+    [localKeptTracks, selectedSaleTrackIds],
+  );
+  const saleCartConflictCount = useMemo(
+    () => saleCartTracks.filter((track) => Boolean(myOfferedTrackIds[track.id])).length,
+    [saleCartTracks, myOfferedTrackIds],
+  );
   useEffect(() => {
     const genre = String(route?.params?.preselectSaleGenre || '').trim();
     if (!genre) return;
@@ -804,6 +840,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setSellPaymentMode(null);
     setSellPriceCents(null);
     setSellFreePrice(null);
+    setSellCurrencyCode(defaultSaleCurrency((user as any)?.countryCode));
   };
 
   const setSaleTrackVisibility = async (trackId: string, visibility: 'PUBLIC' | 'PRIVATE') => {
@@ -909,31 +946,26 @@ export default function MyMusicScreen({ navigation, route }: any) {
   };
 
   const createSaleSelection = () => {
-    const tracks = localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id));
-    if (tracks.length < 2) {
-      Alert.alert('Collection exclusive', 'Choisis au moins 2 morceaux. Une collection représente ton univers musical, jamais un morceau isolé.');
+    if (saleCartTracks.length < 2) {
+      Alert.alert('Panier Pépites', 'Choisis au moins 2 morceaux. Une Pépite représente une vraie sélection, jamais un morceau isolé.');
       return;
     }
-    const conflictTracks = tracks.filter((track) => Boolean(myOfferedTrackIds[track.id]));
-    const openComposer = () => openSellModal({
+    setSaleCartReviewOpen(true);
+  };
+
+  const confirmSaleCart = () => {
+    if (saleCartTracks.length < 2) {
+      setSaleCartReviewOpen(false);
+      return;
+    }
+    setSaleCartReviewOpen(false);
+    openSellModal({
       kind: 'selection',
       key: `selection:${Date.now()}`,
-      name: `Ma collection · ${tracks.length} titres`,
-      trackIds: tracks.map((track) => track.id),
+      name: `Ma Pépite · ${saleCartTracks.length} titres`,
+      trackIds: saleCartTracks.map((track) => track.id),
       coverUrl: null,
     });
-    if (!conflictTracks.length) {
-      openComposer();
-      return;
-    }
-    Alert.alert(
-      'Panier prêt',
-      `${conflictTracks.length} morceau${conflictTracks.length > 1 ? 'x sont' : ' est'} déjà en vente. Si tu continues, ${conflictTracks.length > 1 ? 'ils resteront' : 'il restera'} dans ${conflictTracks.length > 1 ? 'leurs collections actuelles' : 'sa collection actuelle'} et ${conflictTracks.length > 1 ? 'seront aussi ajoutés' : 'sera aussi ajouté'} à cette nouvelle Pépite.`,
-      [
-        { text: 'Revoir le panier', style: 'cancel' },
-        { text: 'Continuer', onPress: openComposer },
-      ],
-    );
   };
 
   // (21/09/2026, Partie 4) : "je dois pouvoir ajouter d'autres morceaux à
@@ -1070,23 +1102,24 @@ export default function MyMusicScreen({ navigation, route }: any) {
     setSellPaymentMode(existing ? (existing.paymentMode === 'FREE' ? 'FREE' : 'MONEY') : null);
     setSellPriceCents(existing?.priceCents || null);
     setSellFreePrice(existing?.freePrice ?? null);
+    setSellCurrencyCode(existing?.currencyCode || defaultSaleCurrency((user as any)?.countryCode));
   };
 
   const saveSellPrice = async () => {
     if (!sellTarget) return;
     if (!sellPaymentMode) {
-      Alert.alert('Mode de déblocage requis', 'Choisis comment cette collection sera débloquée : € EUROS ou ⚡ FREE.');
+      Alert.alert('Mode de déblocage requis', 'Choisis comment cette collection sera débloquée : ⚡ FREE ou paiement direct.');
       return;
     }
     const amount = sellPaymentMode === 'FREE' ? sellFreePrice : sellPriceCents;
     if (!amount) {
-      Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant en euros.');
+      Alert.alert('Montant requis', sellPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis un montant dans la devise sélectionnée.');
       return;
     }
     if (sellPaymentMode === 'MONEY' && !payoutLink.trim()) {
       Alert.alert(
         'Mode de paiement requis',
-        'Pour publier en euros, configure d’abord le lien sur lequel tu veux être payé.',
+        'Pour publier avec un paiement direct, configure d’abord le lien sur lequel tu veux être payé.',
         [
           { text: 'OK', style: 'cancel' },
         ],
@@ -1099,9 +1132,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
       const allowExisting = sellTarget.kind === 'selection'
         && sellTarget.trackIds.some((trackId) => Boolean(myOfferedTrackIds[trackId]));
       const offer = sellTarget.kind === 'selection'
-        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR', allowExisting)
+        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, sellCurrencyCode, allowExisting)
         : sellPaymentMode === 'MONEY'
-          ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0)
+          ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0, sellCurrencyCode)
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
       setMyOffers((prev) => ({ ...prev, [stableKey]: offer }));
       await refreshSaleState();
@@ -1570,7 +1603,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           onRefresh={() => { void refreshLibrary(); }}
           ListHeaderComponent={saleSelectionMode ? (
             <View style={styles.saleWizardIntro}>
-              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 3</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
+              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 1 SUR 4</Text><Text style={styles.saleWizardCount}>{selectedSaleTrackIds.size} sélectionné{selectedSaleTrackIds.size > 1 ? 's' : ''}</Text></View>
               <Text style={styles.saleWizardTitle}>Choisis les musiques</Text>
               <Text style={styles.saleWizardHint}>Ajoute au moins 2 morceaux au panier. Un titre déjà en vente reste sélectionnable : Loki te prévient, puis le déplacera vers la nouvelle Pépite au moment de publier. Tu peux le retirer du panier à tout moment. Rien n’est publié avant validation.</Text>
             </View>
@@ -1645,19 +1678,25 @@ export default function MyMusicScreen({ navigation, route }: any) {
           au lieu de rester en haut de la liste (ListHeaderComponent). */}
       {activeTab === 'MUSIQUES' && saleSelectionMode ? (
         <View style={styles.stickySelectionFooter}>
-          <View style={styles.selectionToolbarCopy}>
-            <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `PANIER PÉPITES · ${selectedSaleTrackIds.size} morceau${selectedSaleTrackIds.size > 1 ? 'x' : ''}`}</Text>
+          <View style={styles.selectionToolbarTop}>
+            <View style={styles.selectionCartIcon}><Text style={styles.selectionCartIconText}>◆</Text></View>
+            <View style={styles.selectionToolbarCopy}>
+              <Text style={styles.selectionToolbarEyebrow}>{saleEditOfferTarget ? 'COLLECTION EN COURS' : 'TON PANIER PÉPITES'}</Text>
+              <Text style={styles.selectionToolbarTitle} numberOfLines={1}>{saleEditOfferTarget ? `Modifier · ${saleEditOfferTarget.playlistName}` : `${selectedSaleTrackIds.size} morceau${selectedSaleTrackIds.size > 1 ? 'x' : ''} sélectionné${selectedSaleTrackIds.size > 1 ? 's' : ''}`}</Text>
+              {!saleEditOfferTarget ? <Text style={styles.selectionToolbarHint}>{selectedSaleTrackIds.size < 2 ? 'Choisis encore des morceaux.' : 'Panier prêt · vérifie avant de choisir le prix.'}</Text> : null}
+            </View>
           </View>
           <View style={styles.stickySelectionActions}>
             <TouchableOpacity style={styles.selectionCancelButton} onPress={() => saleEditOfferTarget ? void cancelSaleSelection() : saleReturnToPicks ? void leaveSaleCart() : void cancelSaleSelection()}><Text style={styles.selectionCancelText}>{saleEditOfferTarget ? 'TERMINER' : saleReturnToPicks ? '‹ PÉPITES' : 'ANNULER'}</Text></TouchableOpacity>
             {saleEditOfferTarget ? (
               <TouchableOpacity style={styles.selectionAddButton} onPress={() => navigation.navigate('PlaylistSale', { manageSaleOfferId: saleEditOfferTarget.offerId, manageSaleOfferName: saleEditOfferTarget.playlistName })}>
-                <Text style={styles.selectionAddText}>PRIX · € / FREE · STATUT</Text>
+                <Text style={styles.selectionAddText}>PRIX · PAIEMENT · STATUT</Text>
               </TouchableOpacity>
             ) : (
-              <>
-                <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}><Text style={styles.selectionCreateText}>CONTINUER ({selectedSaleTrackIds.size})</Text></TouchableOpacity>
-              </>
+              <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}>
+                <Text style={styles.selectionCreateText}>{selectedSaleTrackIds.size < 2 ? 'PANIER EN COURS' : 'VOIR MON PANIER'}</Text>
+                {selectedSaleTrackIds.size >= 2 ? <Text style={styles.selectionCreateSubtext}>Tout est bon ? →</Text> : null}
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -1705,16 +1744,69 @@ export default function MyMusicScreen({ navigation, route }: any) {
           fois pour une playlist entière, un album (groupe par artiste) et
           un seul morceau -- même popup, sellTarget change juste ce qui est
           vendu. */}
+      <Modal visible={saleCartReviewOpen} transparent animationType="fade" onRequestClose={() => setSaleCartReviewOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <ScrollView contentContainerStyle={styles.saleModalScroll} showsVerticalScrollIndicator={false}>
+            <View style={[styles.editCard, styles.saleCartReviewCard]}>
+              <View style={styles.saleWizardTopRow}>
+                <Text style={styles.saleWizardStep}>ÉTAPE 2 SUR 4</Text>
+                <Text style={styles.saleWizardCount}>{saleCartTracks.length} TITRE{saleCartTracks.length > 1 ? 'S' : ''}</Text>
+              </View>
+              <Text style={styles.saleCartReviewTitle}>Ton panier est prêt</Text>
+              <Text style={styles.saleCartReviewHint}>Vérifie ta sélection maintenant. Rien n’est publié et aucun prix n’est encore demandé.</Text>
+
+              <View style={styles.saleCartSummaryRow}>
+                <View style={styles.saleCartSummaryStat}><Text style={styles.saleCartSummaryValue}>{saleCartTracks.length}</Text><Text style={styles.saleCartSummaryLabel}>MORCEAUX</Text></View>
+                <View style={styles.saleCartSummaryDivider} />
+                <View style={styles.saleCartSummaryStat}><Text style={[styles.saleCartSummaryValue, saleCartConflictCount > 0 && styles.saleCartSummaryWarn]}>{saleCartConflictCount}</Text><Text style={styles.saleCartSummaryLabel}>DÉJÀ EN VENTE</Text></View>
+                <View style={styles.saleCartSummaryDivider} />
+                <View style={styles.saleCartSummaryStat}><Text style={styles.saleCartSummaryValue}>{Math.max(0, saleCartTracks.length - saleCartConflictCount)}</Text><Text style={styles.saleCartSummaryLabel}>NOUVEAUX</Text></View>
+              </View>
+
+              <View style={styles.saleCartTrackList}>
+                {saleCartTracks.slice(0, 8).map((track, index) => (
+                  <View key={track.id} style={styles.saleCartTrackRow}>
+                    <Text style={styles.saleCartTrackNo}>{String(index + 1).padStart(2, '0')}</Text>
+                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.saleCartTrackCover} /> : <View style={[styles.saleCartTrackCover, styles.saleCartTrackCoverFallback]}><Text style={styles.saleCartTrackCoverText}>♪</Text></View>}
+                    <View style={styles.saleCartTrackCopy}>
+                      <Text style={styles.saleCartTrackTitle} numberOfLines={1}>{track.title}</Text>
+                      <Text style={styles.saleCartTrackArtist} numberOfLines={1}>{track.artist}</Text>
+                    </View>
+                    {myOfferedTrackIds[track.id] ? <Text style={styles.saleCartTrackBadge}>DÉJÀ EN VENTE</Text> : <Text style={styles.saleCartTrackBadgeNew}>OK</Text>}
+                  </View>
+                ))}
+                {saleCartTracks.length > 8 ? <Text style={styles.saleCartMore}>+ {saleCartTracks.length - 8} autre{saleCartTracks.length - 8 > 1 ? 's' : ''} morceau{saleCartTracks.length - 8 > 1 ? 'x' : ''}</Text> : null}
+              </View>
+
+              {saleCartConflictCount > 0 ? (
+                <View style={styles.saleCartWarning}>
+                  <Text style={styles.saleCartWarningTitle}>AUCUN DOUBLON CRÉÉ</Text>
+                  <Text style={styles.saleCartWarningText}>{saleCartConflictCount} morceau{saleCartConflictCount > 1 ? 'x sont' : ' est'} déjà proposé ailleurs. Loki garde la musique unique et référence simplement ce{saleCartConflictCount > 1 ? 's' : ''} titre{saleCartConflictCount > 1 ? 's' : ''} dans cette nouvelle Pépite.</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity style={styles.saleCartConfirmButton} onPress={confirmSaleCart}>
+                <Text style={styles.saleCartConfirmTitle}>OUI, TOUT EST BON</Text>
+                <Text style={styles.saleCartConfirmHint}>Choisir ensuite FREE ou une devise</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saleCartEditButton} onPress={() => setSaleCartReviewOpen(false)}>
+                <Text style={styles.saleCartEditText}>MODIFIER MA SÉLECTION</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
       <Modal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
         <View style={styles.modalBackdrop}>
           <ScrollView contentContainerStyle={styles.saleModalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={[styles.editCard, styles.saleWizardCard]}>
               <View style={styles.saleWizardTopRow}>
-                <Text style={styles.saleWizardStep}>ÉTAPE 2 SUR 3</Text>
+                <Text style={styles.saleWizardStep}>ÉTAPE 3 SUR 4</Text>
                 <Text style={styles.saleWizardCount}>{sellTarget?.kind === 'selection' ? String(sellTarget.trackIds.length) + ' titres' : 'Collection'}</Text>
               </View>
-              <Text style={styles.editTitle}>Finaliser la collection</Text>
-              <Text style={styles.editHint}>Un nom, un mode de déblocage, un prix. Rien d’autre.</Text>
+              <Text style={styles.editTitle}>Choisis comment tu veux être payé</Text>
+              <Text style={styles.editHint}>Ta sélection est validée. Maintenant choisis FREE ou une devise, puis ton prix.</Text>
 
               {sellTarget?.kind === 'selection' ? <TextInput
                 style={styles.input}
@@ -1734,13 +1826,25 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   <Text style={styles.saleModeHint}>Dans Loki Music · aucun paiement externe</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.saleModeCard, sellPaymentMode === 'MONEY' && styles.saleModeCardOn]} onPress={() => setSellPaymentMode('MONEY')} accessibilityLabel="Choisir un déblocage en euros">
-                  <Text style={styles.saleModeIcon}>€</Text>
-                  <Text style={styles.saleModeTitle}>EUROS</Text>
-                  <Text style={styles.saleModeHint}>Paiement direct sur ton lien personnel</Text>
+                  <Text style={styles.saleModeIcon}>◎</Text>
+                  <Text style={styles.saleModeTitle}>PAIEMENT DIRECT</Text>
+                  <Text style={styles.saleModeHint}>Devise selon ton pays · PayPal ou lien personnel</Text>
                 </TouchableOpacity>
               </View>
 
               {sellPaymentMode ? <>
+                {sellPaymentMode === 'MONEY' ? (
+                  <>
+                    <Text style={styles.saleStepLabel}>DEVISE</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.saleCurrencyRow}>
+                      {SALE_CURRENCIES.map((currency) => (
+                        <TouchableOpacity key={currency.code} style={[styles.saleCurrencyChip, sellCurrencyCode === currency.code && styles.saleCurrencyChipOn]} onPress={() => setSellCurrencyCode(currency.code)}>
+                          <Text style={[styles.saleCurrencyChipText, sellCurrencyCode === currency.code && styles.saleCurrencyChipTextOn]}>{currency.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                ) : null}
                 <Text style={styles.saleStepLabel}>PRIX DE LA COLLECTION</Text>
                 <View style={styles.priceChipsRow}>
                   {(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map((amount) => {
@@ -1750,20 +1854,20 @@ export default function MyMusicScreen({ navigation, route }: any) {
                       style={[styles.priceChip, selected && styles.priceChipOn]}
                       onPress={() => sellPaymentMode === 'FREE' ? setSellFreePrice(amount) : setSellPriceCents(amount)}
                     >
-                      <Text style={[styles.priceChipText, selected && styles.priceChipTextOn]}>{sellPaymentMode === 'FREE' ? String(amount) + ' FREE' : (amount / 100).toFixed(2).replace('.', ',') + '€'}</Text>
+                      <Text style={[styles.priceChipText, selected && styles.priceChipTextOn]}>{sellPaymentMode === 'FREE' ? String(amount) + ' FREE' : (amount / 100).toFixed(2).replace('.', ',') + ' ' + saleCurrencyLabel(sellCurrencyCode)}</Text>
                     </TouchableOpacity>;
                   })}
                 </View>
-              </> : <Text style={styles.salePriceExplain}>Choisis FREE ou EUROS pour afficher les prix correspondants.</Text>}
+              </> : <Text style={styles.salePriceExplain}>Choisis FREE ou PAIEMENT DIRECT pour afficher les prix correspondants.</Text>}
 
               <View style={styles.saleWizardDivider} />
-              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 3 SUR 3</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
+              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 4 SUR 4</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
 
               {sellPaymentMode === 'MONEY' ? (
                 <View style={[styles.salePaymentSetup, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
-                  <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' prêt' : 'PAIEMENT À CONFIGURER'}</Text>
-                  <Text style={styles.salePaymentGateHint}>Colle ton lien personnel. PayPal.Me est recommandé car le montant peut être prérempli.</Text>
-                  <Text style={styles.payoutChecklist}>1 · Ouvre PayPal.Me si besoin  ·  2 · Colle ton lien  ·  3 · Teste-le  ·  4 · Enregistre-le</Text>
+                  <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' déjà enregistré' : 'PAIEMENT À CONFIGURER'}</Text>
+                  <Text style={styles.salePaymentGateHint}>Ton lien est mémorisé sur ton profil. PayPal.Me est recommandé : le montant et la devise sélectionnée sont préremplis pour l’acheteur.</Text>
+                  <Text style={styles.payoutChecklist}>1 · Lien PayPal une seule fois  ·  2 · Teste-le  ·  3 · Loki le réutilise pour tes prochaines Pépites</Text>
                   <TextInput
                     style={styles.payoutInput}
                     value={payoutLinkDraft}
@@ -1969,13 +2073,18 @@ const styles = StyleSheet.create({
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
   analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
-  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{minHeight:36,paddingHorizontal:10,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:8,fontWeight:'900'},selectionCheck:{minWidth:70,height:34,paddingHorizontal:7,borderRadius:17,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#6F5520',borderColor:'#FFD166'},selectionCheckAlreadySold:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
+  selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionToolbarHint:{color:colors.textMutedGrey,fontSize:8,marginTop:2},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{flex:1,minHeight:54,paddingHorizontal:14,borderRadius:16,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:11,fontWeight:'1000',letterSpacing:.3},selectionCreateSubtext:{color:'#5A420D',fontSize:9,fontWeight:'800',marginTop:2},selectionCheck:{minWidth:70,height:34,paddingHorizontal:7,borderRadius:17,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#6F5520',borderColor:'#FFD166'},selectionCheckAlreadySold:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   saleWizardIntro:{marginHorizontal:2,marginBottom:12,padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},saleWizardTopRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},saleWizardStep:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},saleWizardCount:{color:colors.keep,fontSize:10,fontWeight:'900'},saleWizardTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:7},saleWizardHint:{color:colors.textMutedGrey,fontSize:12,lineHeight:18,marginTop:5},
   // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
   // confirmation collée en bas de l'écran pendant la sélection multiple.
-  listWithStickyFooter:{paddingBottom:68},
-  stickySelectionFooter:{position:'absolute',left:10,right:10,bottom:8,padding:7,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',gap:5,shadowColor:'#000',shadowOpacity:0.3,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:6},
-  stickySelectionActions:{flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},
+  listWithStickyFooter:{paddingBottom:150},
+  stickySelectionFooter:{position:'absolute',left:10,right:10,bottom:8,minHeight:124,padding:12,borderRadius:20,borderWidth:1,borderColor:'#D49A20',backgroundColor:'#211A0C',gap:10,shadowColor:'#000',shadowOpacity:0.38,shadowRadius:14,shadowOffset:{width:0,height:6},elevation:10},
+  selectionToolbarTop:{flexDirection:'row',alignItems:'center',gap:10},
+  selectionCartIcon:{width:38,height:38,borderRadius:19,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},
+  selectionCartIconText:{color:'#1B1405',fontSize:16,fontWeight:'1000'},
+  selectionToolbarEyebrow:{color:'#FFD166',fontSize:8,fontWeight:'1000',letterSpacing:1},
+  selectionToolbarHint:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:2},
+  stickySelectionActions:{flexDirection:'row',alignItems:'stretch',gap:8},
   playlistFoldersIntro:{marginBottom:14},playlistFoldersTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},playlistFoldersHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4,marginBottom:8},
   list:{paddingHorizontal:12,paddingVertical:8,flexGrow:1},playlistBlock:{backgroundColor:colors.backgroundCard,borderRadius:13,marginVertical:5,overflow:'hidden',borderWidth:1,borderColor:colors.border},smartBlock:{borderColor:'#493369'},playlistCard:{flexDirection:'row',minHeight:70,alignItems:'center'},playlistCover:{width:70,height:70,backgroundColor:colors.backgroundElevated},playlistCoverFallback:{alignItems:'center',justifyContent:'center'},playlistCoverText:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},playlistInfo:{flex:1,paddingHorizontal:10},playlistTitleRow:{flexDirection:'row',alignItems:'center',gap:6},playlistName:{flexShrink:1,fontSize:14,fontWeight:'800',color:colors.textPrimary},smartPill:{paddingHorizontal:6,paddingVertical:3,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},smartPillText:{color:'#C9B3FF',fontSize:7,fontWeight:'900'},songCount:{fontSize:9,color:colors.keep,marginTop:4,fontWeight:'700'},chevron:{color:colors.primaryLight,fontSize:18,paddingHorizontal:8},miniEdit:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.border},miniEditText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   tracksPanel:{borderTopWidth:1,borderTopColor:colors.border,padding:8,gap:6,backgroundColor:colors.backgroundElevated},
@@ -1990,5 +2099,20 @@ const styles = StyleSheet.create({
   trackRowOuter:{flexDirection:'row',alignItems:'center',gap:8},trackRowGrid:{flex:1,minWidth:0},
   trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},visibilityTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:44,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:44,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:44,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  saleCartReviewCard:{width:'100%',maxWidth:560,alignSelf:'center',padding:18,gap:12,borderColor:'#D49A20'},
+  saleCartReviewTitle:{color:colors.textPrimary,fontSize:24,fontWeight:'1000',marginTop:2},
+  saleCartReviewHint:{color:colors.textSecondary,fontSize:12,lineHeight:18},
+  saleCartSummaryRow:{minHeight:68,borderRadius:16,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#171107',flexDirection:'row',alignItems:'center',paddingHorizontal:8},
+  saleCartSummaryStat:{flex:1,alignItems:'center',justifyContent:'center'},saleCartSummaryValue:{color:'#FFD166',fontSize:20,fontWeight:'1000'},saleCartSummaryWarn:{color:'#FFB454'},saleCartSummaryLabel:{color:colors.textMutedGrey,fontSize:7.5,fontWeight:'900',marginTop:2,textAlign:'center'},
+  saleCartSummaryDivider:{width:1,height:34,backgroundColor:'#5F4818'},
+  saleCartTrackList:{gap:7},
+  saleCartTrackRow:{minHeight:52,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:8,paddingVertical:6,flexDirection:'row',alignItems:'center',gap:8},
+  saleCartTrackNo:{width:22,color:colors.textMuted,fontSize:9,fontWeight:'900'},saleCartTrackCover:{width:38,height:38,borderRadius:9,backgroundColor:colors.backgroundCard},saleCartTrackCoverFallback:{alignItems:'center',justifyContent:'center'},saleCartTrackCoverText:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},
+  saleCartTrackCopy:{flex:1,minWidth:0},saleCartTrackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},saleCartTrackArtist:{color:colors.textMuted,fontSize:9,marginTop:2},
+  saleCartTrackBadge:{color:'#FFB454',fontSize:7,fontWeight:'1000'},saleCartTrackBadgeNew:{color:colors.success,fontSize:8,fontWeight:'1000'},saleCartMore:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',textAlign:'center',paddingTop:2},
+  saleCartWarning:{borderRadius:14,borderWidth:1,borderColor:'#7B5B18',backgroundColor:'#2A1F09',padding:10},saleCartWarningTitle:{color:'#FFD166',fontSize:9,fontWeight:'1000',letterSpacing:.7},saleCartWarningText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:3},
+  saleCartConfirmButton:{minHeight:58,borderRadius:17,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center',paddingHorizontal:14},saleCartConfirmTitle:{color:'#1B1405',fontSize:12,fontWeight:'1000'},saleCartConfirmHint:{color:'#5A420D',fontSize:9,fontWeight:'800',marginTop:2},
+  saleCartEditButton:{minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},saleCartEditText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  saleCurrencyRow:{gap:7,paddingBottom:2},saleCurrencyChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},saleCurrencyChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primary},saleCurrencyChipText:{color:colors.textSecondary,fontSize:9,fontWeight:'900'},saleCurrencyChipTextOn:{color:'#FFF'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},saleModalScroll:{flexGrow:1,justifyContent:'center',paddingHorizontal:14,paddingVertical:24},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},saleWizardCard:{width:'100%',maxWidth:560,alignSelf:'center',padding:18},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:44,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:44,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},salePriceHeader:{marginTop:12,marginBottom:8,padding:11,borderRadius:14,backgroundColor:'rgba(124,92,252,.10)',borderWidth:1,borderColor:'rgba(167,139,250,.45)'},salePriceLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},salePriceExplain:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:4},salePriceSummary:{color:colors.success,fontSize:12,lineHeight:17,fontWeight:'900',textAlign:'center',marginTop:9},saleStepLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1,marginTop:12,marginBottom:7},salePaymentGate:{minHeight:58,borderRadius:15,borderWidth:1,paddingHorizontal:12,paddingVertical:10,marginBottom:10},salePaymentGateReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},salePaymentGateMissing:{borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)'},salePaymentGateTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},salePaymentGateHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:3},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:44,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:colors.primaryFaint,borderColor:colors.primaryLight},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:colors.primaryLight},saleModeGrid:{flexDirection:'row',gap:10},saleModeCard:{flex:1,minHeight:116,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:12,alignItems:'flex-start',justifyContent:'center'},saleModeCardOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},saleModeIcon:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},saleModeTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:6},saleModeHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:4},saleWizardDivider:{height:1,backgroundColor:colors.border,marginVertical:6},salePaymentSetup:{borderRadius:16,borderWidth:1,padding:13,gap:8},payoutInput:{minHeight:48,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},payoutChecklist:{color:colors.textSecondary,fontSize:10,lineHeight:16,fontWeight:'700'},payoutWizardActions:{gap:8},paypalOpenButton:{minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10},paypalOpenText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},payoutTestButton:{minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.06)',alignItems:'center',justifyContent:'center',paddingHorizontal:10},payoutTestText:{color:colors.keep,fontSize:10,fontWeight:'900'},payoutSaveButton:{minHeight:44,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},payoutSaveText:{color:'#FFFFFF',fontSize:10,fontWeight:'900'},salePaymentFootnote:{color:colors.textMuted,fontSize:9,lineHeight:14},publishButtonDisabled:{opacity:.4},
 });
