@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.13",
+  "version": "2026-10-01.14",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -99,15 +99,26 @@
     "profileEventTapMustStayInline": true,
     "notificationEventTapTarget": "Main.Discover?focus=EVENTS",
     "discoverEventDetailMustStayInline": true,
-    "discoverEventRsvpChoices": ["NOT_GOING", "MAYBE", "GOING"],
+    "discoverEventRsvpChoices": [
+      "NOT_GOING",
+      "MAYBE",
+      "GOING"
+    ],
     "pendingEventsMustSaySuperAdminApprovalRequired": true,
     "eventNotificationMayDeepLinkSpecificEventInsideDiscover": true
   },
   "adsModel": {
     "defaultPlanWithInternalPromotions": "FREE",
-    "adFreePlans": ["PREMIUM", "CREATOR_PRO", "VENUE_PRO"],
+    "adFreePlans": [
+      "PREMIUM",
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
     "thirdPartyAdNetworkEnabled": false,
-    "initialPromotionSources": ["APPROVED_EVENTS", "LOKI_COLLECTIONS"],
+    "initialPromotionSources": [
+      "APPROVED_EVENTS",
+      "LOKI_COLLECTIONS"
+    ],
     "profilePromotionsMustNeverForceNavigation": true
   },
   "marketplacePurchases": {
@@ -165,5 +176,23 @@
       ],
       "compactHomeActions": true
     }
+  },
+  "eventDiscovery": {
+    "profileBehavior": "inline-only-no-tab-redirect",
+    "notificationRoute": "Main.Discover",
+    "notificationParams": {
+      "focus": "EVENTS",
+      "eventId": "notification-event-id",
+      "source": "NOTIFICATION_EVENT"
+    },
+    "discoverBehavior": "event-detail-inline-with-rsvp",
+    "pendingModeration": "show-pending-without-sensitive-details-or-rsvp",
+    "freeEventPromotionDefault": true,
+    "freeMarketingPromotionDefault": true,
+    "optOutPlans": [
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
+    "audienceRule": "targeted-followers-and-prior-keepers-with-dedupe"
   }
 }
