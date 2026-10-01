@@ -48,10 +48,8 @@ assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Own
 assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
 assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
 assertIncludes(owner, "profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'", 'Owner Loki Pulse single compact toggle');
-assertIncludes(owner, 'testID="profile-loki-pulse-preview"', 'Owner compact Loki Pulse preview');
-assertIncludes(owner, 'testID="profile-music-style-bubbles-preview"', 'Owner four clickable style bubbles while Loki Pulse is masked');
-assertIncludes(owner, '!profilePulseExpanded && profileStyleBubbles.length > 0', 'Owner preview only while Loki Pulse is masked');
-assertIncludes(owner, 'profilePulseExpanded && profileStyleBubbles.length > 0', 'Owner full styles only after VOIR PLUS');
+if (owner.includes('profile-loki-pulse-preview') || owner.includes('profile-music-style-bubbles-preview')) throw new Error('Owner collapsed Loki Pulse must not render style bubbles');
+assertIncludes(owner, 'profilePulseExpanded && profileStyleBubbles.length > 0', 'Owner styles only after VOIR PLUS');
 assertIncludes(owner, 'testID="profile-loki-pulse-expanded-styles"', 'Owner styles inside merged Loki Pulse card');
 assertIncludes(owner, 'testID="profile-loki-pulse-expanded-music"', 'Owner profile recommendations inside merged Loki Pulse card');
 if (owner.includes('style={s.lokiPulseSection}')) throw new Error('Owner profile has one merged Loki Pulse block; standalone section must not return');
@@ -142,6 +140,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; jauge + bulles visibles -> réseaux -> recommandations dépliables -> partage');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; jauge masquée compacte -> VOIR PLUS styles + recommandations -> réseaux -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: owner APERÇU/PÉPITES/BATTLE and visitor SWIPE/TCHAT/BATTLE/PARTAGER equal-width rows preserved');

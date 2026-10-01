@@ -16,10 +16,11 @@ describe('music style bubbles', () => {
     expect(bubbles).toContain('Style musical');
   });
 
-  it('keeps owner bubbles visible even while the compact Pulse details are collapsed', () => {
+  it('keeps owner style bubbles masked until VOIR PLUS', () => {
     expect(profile).toContain('testID="profile-music-style-bubbles"');
-    expect(profile).toContain('testID="profile-loki-pulse-preview"');
-    expect(profile).toContain('testID="profile-music-style-bubbles-preview"');
+    expect(profile).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
+    expect(profile).not.toContain('testID="profile-loki-pulse-preview"');
+    expect(profile).not.toContain('testID="profile-music-style-bubbles-preview"');
   });
 
   it('keeps visitor bubbles available behind its compact control', () => {

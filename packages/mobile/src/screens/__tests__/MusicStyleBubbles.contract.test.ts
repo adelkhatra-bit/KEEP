@@ -18,12 +18,12 @@ describe('Loki Music style bubbles contract', () => {
     expect(bubbles).toContain('max = 8');
   });
 
-  it('keeps owner profile bubbles visible even while details are collapsed', () => {
+  it('keeps owner profile bubbles masked until the compact details are opened', () => {
     expect(owner).toContain('profileStyleBubbles');
     expect(owner).toContain('buildMusicStyleBubbles([');
     expect(owner).toContain('user?.favoriteGenres');
-    expect(owner).toContain('!profilePulseExpanded && profileStyleBubbles.length > 0');
-    expect(owner).toContain('testID="profile-music-style-bubbles-preview"');
+    expect(owner).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
+    expect(owner).not.toContain('testID="profile-music-style-bubbles-preview"');
     expect(owner).toContain('testID="profile-music-style-bubbles"');
     expect(owner).toContain('openSelectionSwipe');
   });
