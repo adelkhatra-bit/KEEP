@@ -57,16 +57,23 @@ describe('global Loki messenger contract', () => {
 
   it('keeps the conversation centered, keyboard-safe and readable on mobile', () => {
     expect(messenger).toContain('visualViewport');
-    expect(messenger).toContain('keyboardInset > 0 ? keyboardInset + 8 : 92');
+    expect(messenger).toContain('keyboardInset > 0 ? keyboardInset + 8 : 78');
     expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
-    expect(messenger).toContain('setKeyboardInset(reportedHeight)');
-    expect(messenger).toContain('? { top: 54, bottom: compactBottom, minHeight: 0 }');
-    expect(messenger).toContain(': { top: 54, bottom: 92, minHeight: 0 }');
+    expect(messenger).toContain('setKeyboardInset(Math.max(reportedHeight, coveredByTop))');
+    expect(messenger).toContain('const compactPanelHeight = Math.min');
+    expect(messenger).toContain('620');
+    expect(messenger).toContain('bottom: keyboardInset > 0 ? compactBottom : undefined');
+    expect(messenger).toContain('height: compactPanelHeight');
     expect(messenger).toContain('fontSize:17,lineHeight:23');
     expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
     expect(messenger).toContain('onCompactClose');
     expect(dock).toContain('onCompactClose={closeChat}');
+  });
+
+  it('never replaces the currently open thread when another chat notification arrives', () => {
+    expect(dock).toContain('const chatState = useGlobalChatStore.getState()');
+    expect(dock).toContain('if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item))');
   });
 
   it('keeps the control visible and movable left/right around the middle', () => {
