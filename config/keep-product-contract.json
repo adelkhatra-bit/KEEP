@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.21",
+  "version": "2026-10-01.22",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -27,7 +27,14 @@
     "KEEP": -3,
     "keepMustShowDebitBeforeVisibilityChoice": true,
     "keepSuccessMustConfirmDebitedFree": true,
-    "cancelKeepMustNeverDebit": true
+    "cancelKeepMustNeverDebit": true,
+    "keepAppliesToSources": [
+      "listen",
+      "profile",
+      "public_profile_swipe",
+      "loki_pulse"
+    ],
+    "alreadyOwnedDuplicate": 0
   },
   "profileOwner": {
     "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
@@ -67,12 +74,15 @@
       "availableBalanceMustNotRepeatInExpandedPanel": true,
       "spendSource": "public.keep_free_spend_events via keep_free_spent_today",
       "spendMustUseActualDebitAmountAtActionTime": true,
-      "socialReprisesCostZeroAndMustNotCountAsSpend": true,
       "periodBoundary": "02:00-local-device-time-to-01:59-next-day",
       "secondaryMetrics": [
         "battle-free-won-today",
         "battle-free-lost-today"
-      ]
+      ],
+      "allNewKeepsDebitConfiguredFree": true,
+      "socialProfileKeepsAlsoDebit": true,
+      "alreadyOwnedDuplicateNeverDebits": true,
+      "dailySpendCountsAuthoritativeLedgerEvents": true
     }
   },
   "responsive": {
