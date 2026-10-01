@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.6",
+  "version": "2026-10-01.8",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -36,7 +36,9 @@
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
     "freeBalanceSource": "Supabase RPC credit status",
-    "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true
+    "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true,
+    "visibilityControlLocation": "Notifications top",
+    "visibilityControlRemovedFromNetworksPanel": true
   },
   "responsive": {
     "requiredViewports": [
@@ -84,6 +86,20 @@
     "partialMissingTrackRequest": true,
     "partialRequestSellerMayOfferFreePrice": true,
     "partialOfferMustBePrivateToRequester": true,
-    "sellerCanSelectSubsetOfMissingTracks": true
+    "sellerCanSelectSubsetOfMissingTracks": true,
+    "sellerCollectionFilters": [
+      "ALL",
+      "FREE",
+      "MONEY"
+    ],
+    "creationWizardSteps": [
+      "TRACKS",
+      "MODE_PRICE",
+      "PAYOUT_PUBLISH"
+    ],
+    "preventTrackAcrossActiveOffers": true,
+    "alreadyPublishedTrackMustBeExplained": true,
+    "moneyPayoutConfiguredInline": true,
+    "freeModeRequiresExternalPayout": false
   }
 }
