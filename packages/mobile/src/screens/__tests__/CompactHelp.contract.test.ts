@@ -13,7 +13,7 @@ describe('compact help contract', () => {
   it('keeps Soirées compact and moves explanations behind ?', () => {
     expect(parties).toContain("partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'");
     expect(parties).toContain('eventHelpButton');
-    expect(parties).toContain('Tout faire depuis Soirées');
+    expect(parties).toContain('Tout faire dans Soirées');
     expect(parties).not.toContain('Publie, retrouve tes événements et réponds à tes invitations.');
     expect(parties).not.toContain('<Text style={styles.partyHomeMeta}>Soirée, concert, porte ouverte ou rendez-vous</Text>');
     expect(parties).not.toContain('<Text style={styles.partyHomeMeta}>Lieu, heure, participants et activité</Text>');
