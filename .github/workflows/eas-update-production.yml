@@ -53,7 +53,7 @@ jobs:
 
       - name: Guard OTA native compatibility
         id: compatible
-        if: steps.compatible.outputs.publish == 'yes'
+        if: steps.fresh.outputs.publish == 'yes'
         shell: bash
         run: |
           set -euo pipefail
