@@ -99,3 +99,81 @@ jobs:
 
       - name: Verify iOS export
         run: test -d packages/mobile/dist-ios && test "$(find packages/mobile/dist-ios -type f | wc -l)" -gt 0
+
+
+  publish-ios-ota:
+    name: Publish iOS OTA after green CI
+    needs: verify-mobile
+    if: github.event_name == 'push' && github.ref == 'refs/heads/reconcile/claude-main-20260825'
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+      EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+      EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+      EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+      EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout exact green SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Skip stale or native-incompatible OTA
+        id: ota
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin reconcile/claude-main-20260825 --depth=300
+          latest="$(git rev-parse origin/reconcile/claude-main-20260825)"
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Reason: newer branch HEAD exists ($latest)."
+            exit 0
+          fi
+
+          baseline="$(git log -1 --format=%H -- packages/mobile/.eas-build-trigger || true)"
+          if [ -z "$baseline" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Reason: no full-build baseline found."
+            exit 0
+          fi
+
+          changed="$(git diff --name-only "$baseline"..HEAD)"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(package\.json|package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/)|packages/music/package\.json)'; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Reason: native/dependency-sensitive changes exist since the last full TestFlight build trigger."
+            exit 0
+          fi
+
+          echo "publish=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        if: steps.ota.outputs.publish == 'yes'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ota.outputs.publish == 'yes'
+        run: npm ci
+
+      - name: Verify Expo token
+        if: steps.ota.outputs.publish == 'yes'
+        run: npx eas-cli@24.6.0 whoami
+
+      - name: Publish compatible iOS OTA to production
+        if: steps.ota.outputs.publish == 'yes'
+        working-directory: packages/mobile
+        run: npx eas-cli@24.6.0 update --channel production --platform ios --message "CI ${GITHUB_SHA}" --non-interactive
+
+      - name: OTA summary
+        if: always()
+        shell: bash
+        run: |
+          echo "Exact green SHA: $GITHUB_SHA"
+          echo "OTA eligible: ${{ steps.ota.outputs.publish || 'no' }}"
+          echo "Native/dependency changes are never forced through OTA; they require the full TestFlight build workflow."
