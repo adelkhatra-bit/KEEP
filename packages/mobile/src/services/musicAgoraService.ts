@@ -455,6 +455,23 @@ export function subscribeMusicAgoraGroup(groupId: string, onChange: () => void):
   };
 }
 
+export function subscribeMusicAgoraMembership(profileId: string, onChange: () => void): () => void {
+  if (!supabase || !profileId) return () => {};
+  const client = supabase;
+  const channel = client
+    .channel(`keep-agora-membership:${profileId}:${Date.now()}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'music_agora_group_members', filter: `profile_id=eq.${profileId}` },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
 export async function postMusicAgoraMessage(
   roomSlug: string,
   body: string,
