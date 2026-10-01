@@ -53,7 +53,7 @@ import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLi
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
 const LOKI_REACTION_TEXT = '◉ᴗ◉✦';
-const QUICK_REACTIONS = [
+const QUICK_REACTIONS: ReadonlyArray<{ label: string; payload: string; loki?: boolean }> = [
   { label: '❤️', payload: '❤️' },
   { label: '🔥', payload: '🔥' },
   { label: '👏', payload: '👏' },
@@ -63,7 +63,7 @@ const QUICK_REACTIONS = [
   { label: '🙌', payload: '🙌' },
   { label: '⚡', payload: '⚡' },
   { label: LOKI_REACTION_TEXT, payload: LOKI_REACTION_TEXT, loki: true },
-] as const;
+];
 
 function ago(iso: string): string {
   const t = new Date(iso).getTime();
