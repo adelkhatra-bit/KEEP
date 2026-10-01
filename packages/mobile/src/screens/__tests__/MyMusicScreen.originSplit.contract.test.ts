@@ -14,16 +14,21 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
     expect(screen).toContain("localKeptEntries.filter((entry) => Boolean(entry.sourceProfileId))");
   });
 
-  it('affiche deux sections explicitement nommées et trois filtres immédiats', () => {
+  it('garde des filtres courts sans compteurs dans les boutons', () => {
     expect(screen).toContain('Mes découvertes');
     expect(screen).toContain("🔒 Reprises d'autres utilisateurs");
-    expect(screen).toContain('découverts');
-    expect(screen).toContain('repris');
-    expect(screen).toContain("useState<'ALL' | 'LISTEN' | 'USERS'>('ALL')");
-    expect(screen).toContain("['ALL', `TOUT · ${localKeptEntries.length}`]");
-    expect(screen).toContain("['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`]");
-    expect(screen).toContain("['USERS', `REPRISES · ${socialRepriseEntries.length}`]");
-    expect(screen).toContain("originFilter === 'USERS' ? socialRepriseTracks : ownDiscoveryTracks");
+    expect(screen).toContain("useState<'ALL' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL')");
+    expect(screen).toContain("['ALL', 'TOUT']");
+    expect(screen).toContain("['LISTEN', 'DÉCOUVERTE']");
+    expect(screen).toContain("['SESSION', 'SESSION']");
+    expect(screen).toContain("['USERS', '🔒 REPRISE']");
+    expect(screen).toContain("['IDENTIFIED', 'IDENTIFIÉ']");
+    expect(screen).toContain("['PULSE', 'LOKI']");
+    expect(screen).not.toContain("TOUT · ${localKeptEntries.length}");
+    expect(screen).not.toContain("DÉCOUVERTES · ${ownDiscoveryEntries.length}");
+    expect(screen).not.toContain("REPRISES · ${socialRepriseEntries.length}");
+    expect(screen).toContain("originFilter === 'USERS' ? socialRepriseTracks");
+    expect(screen).toContain("originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)");
   });
 
   it('rend l’origine visible sur chaque ligne sans ouvrir le détail', () => {
