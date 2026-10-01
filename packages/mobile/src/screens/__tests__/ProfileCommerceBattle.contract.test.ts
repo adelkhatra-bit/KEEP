@@ -20,12 +20,12 @@ describe('Profile commerce + Battle contract', () => {
     expect(myMusic).toContain('setSaleEditOfferTarget({ offerId, playlistName });');
     expect(myMusic).toContain('setSaleSelectionMode(true);');
     expect(myMusic).toContain('PRIX · € / FREE · STATUT');
-    expect(myMusic).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`');
+    expect(myMusic).toContain("badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`");
   });
 
   it('keeps access-mode editing separate from track-content editing', () => {
     expect(salePanel).toContain('accessibilityLabel={`Modifier le mode d’accès de ${item.playlistName}`}');
-    expect(salePanel).toContain('<Text style={s.manageTracksBtnText}>♫ Morceaux</Text>');
+    expect(salePanel).toContain('<Text style={s.manageTracksBtnText}>✎ MODIFIER</Text>');
     expect(salePanel).toContain('<Text style={s.editBtnText}>€ / FREE</Text>');
   });
 
