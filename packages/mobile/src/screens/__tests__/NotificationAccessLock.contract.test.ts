@@ -17,6 +17,8 @@ describe('notification accordion and plan locks contract', () => {
     expect(panel).toContain('Appuie sur une notification : elle se déplie ici.');
     expect(panel).not.toContain('TOUT VOIR');
     expect(panel).toContain('Pourquoi cette notification est verrouillée');
+    expect(panel).toContain('Son contenu reste masqué tant qu’elle n’est pas débloquée.');
+    expect(panel).not.toContain('lockedPopup.title');
     expect(panel).toContain('Tu restes exactement dans ta cloche');
     expect(panel).toContain("activeTab === 'MESSAGES'");
     expect(panel).toContain("activeTab === 'ACTIVITY'");
