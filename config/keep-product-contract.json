@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.30",
+  "version": "2026-10-01.31",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -542,5 +542,16 @@
     "tappedTrackMustOpenFirst": true,
     "remainingTracksMayShuffleAfterTappedTrack": true,
     "selectionMustUseCanonicalTrackId": true
+  },
+  "mobileChatDesign": {
+    "fullScreenOnOpen": true,
+    "keyboardAwareIos": true,
+    "keyboardAwareAndroid": true,
+    "visualViewportAwareMobileWeb": true,
+    "safeAreaAware": true,
+    "messageReadingAreaPrioritized": true,
+    "composerPinnedAtBottom": true,
+    "actionsWrapOnNarrowPhones": true,
+    "keepsPublicAndPrivateChatFeatures": true
   }
 }

@@ -943,6 +943,8 @@ export default function MusicAgoraPanel({
     enabled={compact && Platform.OS !== 'web'}
     behavior={compact && Platform.OS === 'ios' ? 'padding' : compact && Platform.OS === 'android' ? 'height' : undefined}
     keyboardVerticalOffset={0}
+    testID={compact ? "loki-chat-fullscreen" : undefined}
+    accessibilityLabel={compact ? "Messagerie Loki" : undefined}
     style={[
       s.shell,
       compact && s.shellCompact,
@@ -1120,7 +1122,7 @@ export default function MusicAgoraPanel({
     <ScrollView
       ref={chatScrollRef}
       style={compact ? s.chatScrollCompact : s.chatScroll}
-      contentContainerStyle={s.list}
+      contentContainerStyle={[s.list, compact && s.listCompact]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
@@ -1683,25 +1685,25 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0,flexGrow:0,flexShrink:0,paddingHorizontal:10,borderRadius:0,borderWidth:0,backgroundColor:'#0B0712',overflow:'hidden',elevation:40,zIndex:100},
+  shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0,flexGrow:0,flexShrink:0,paddingHorizontal:0,borderRadius:0,borderWidth:0,backgroundColor:'#0B0712',overflow:'hidden',elevation:40,zIndex:100},
   shellCompactLeft:{left:0,right:0},
   shellCompactRight:{left:0,right:0},
-  compactHeader:{minHeight:52,flexShrink:0,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:4},
+  compactHeader:{minHeight:62,flexShrink:0,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:14,paddingBottom:8,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.20)',backgroundColor:'rgba(11,7,18,.98)'},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900',letterSpacing:.35},
-  compactMeta:{color:colors.textMutedGrey,fontSize:13.5,lineHeight:18,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',letterSpacing:.25},
+  compactMeta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:16,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   compactHeaderAction:{minWidth:38,height:38,paddingHorizontal:7,borderRadius:19,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,alignItems:'center',justifyContent:'center'},
   compactHeaderActionText:{color:colors.info,fontSize:17,fontWeight:'900'},
   compactClose:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
-  compactModes:{flexDirection:'row',gap:7,paddingHorizontal:2,paddingBottom:3},
-  compactMode:{flex:1,minHeight:32,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.04)',alignItems:'center',justifyContent:'center'},
+  compactModes:{flexDirection:'row',gap:6,marginHorizontal:14,marginTop:9,padding:4,borderRadius:22,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
+  compactMode:{flex:1,minHeight:38,borderRadius:18,borderWidth:0,backgroundColor:'transparent',alignItems:'center',justifyContent:'center'},
   compactModeOn:{backgroundColor:colors.info,borderColor:colors.primaryLight},
-  compactModeText:{color:colors.info,fontSize:13,fontWeight:'900',letterSpacing:.55},
+  compactModeText:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:.35},
   compactModeTextOn:{color:colors.white},
-  threadTools:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+  threadTools:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:14,minHeight:38},
   threadBack:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',paddingHorizontal:5},
   threadBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   membersButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
@@ -1754,9 +1756,9 @@ const s=StyleSheet.create({
   promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
-  composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
+  composerCompact:{paddingHorizontal:10,paddingTop:8,paddingBottom:4,borderRadius:0,borderWidth:0,borderTopWidth:1,borderTopColor:'rgba(124,92,252,.22)',backgroundColor:'rgba(11,7,18,.99)',flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{height:62,minHeight:62,maxHeight:62,flex:1,fontSize:20,lineHeight:28,paddingTop:14,paddingBottom:10,overflow:'scroll'},
+  inputCompact:{height:48,minHeight:48,maxHeight:96,flex:1,fontSize:17,lineHeight:22,paddingTop:12,paddingBottom:10,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
@@ -1770,21 +1772,21 @@ const s=StyleSheet.create({
   quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
   lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
   lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
-  composerDrawer:{flexDirection:'row',alignItems:'center',gap:7,minHeight:48,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6},
-  drawerAction:{minWidth:72,minHeight:38,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  composerDrawer:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:7,minHeight:48,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6},
+  drawerAction:{flexGrow:1,minWidth:88,minHeight:42,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   drawerActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   drawerActionIcon:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},
   drawerActionText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',marginTop:2},
-  composerBar:{flexDirection:'row',alignItems:'flex-end',gap:6,minHeight:58,borderRadius:22,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(7,5,13,.97)',paddingHorizontal:5,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.18,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
+  composerBar:{flexDirection:'row',alignItems:'center',gap:7,minHeight:58,borderRadius:29,borderWidth:1,borderColor:'rgba(167,139,250,.48)',backgroundColor:'rgba(18,13,28,.98)',paddingHorizontal:6,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.14,shadowRadius:6,shadowOffset:{width:0,height:0},elevation:4},
   composerBarLocked:{borderColor:colors.warning,opacity:.72},
-  addButton:{width:46,height:46,borderRadius:23,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
+  addButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
   addButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   addButtonText:{color:colors.textPrimary,fontSize:25,lineHeight:27,fontWeight:'500'},
   emojiButton:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',flexShrink:0},
   emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
   counter:{color:colors.textMutedGrey,fontSize:11,marginLeft:'auto',paddingRight:3},
-  send:{width:46,height:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
+  send:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
   sendOff:{opacity:.45},
   sendText:{color:colors.white,fontSize:18,fontWeight:'900',lineHeight:20},
   shareMusic:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
@@ -1809,9 +1811,10 @@ const s=StyleSheet.create({
   lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
   chatScroll:{maxHeight:410},
-  chatScrollCompact:{flex:1,minHeight:0,overflow:'hidden'},
+  chatScrollCompact:{flex:1,minHeight:0,overflow:'hidden',backgroundColor:'#0B0712'},
   list:{gap:8,paddingVertical:4},
-  message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%',flexGrow:0,flexShrink:0},
+  listCompact:{gap:11,paddingHorizontal:14,paddingTop:12,paddingBottom:14},
+  message:{position:'relative',paddingHorizontal:12,paddingVertical:10,borderRadius:19,borderWidth:1,maxWidth:'88%',flexGrow:0,flexShrink:0},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
   messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
   directMessage:{borderColor:colors.info},
@@ -1820,9 +1823,9 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
-  meta:{color:colors.textMutedGrey,fontSize:12.5,lineHeight:17,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:18,lineHeight:25,marginTop:8},
+  username:{color:colors.textPrimary,fontSize:14.5,fontWeight:'900'},
+  meta:{color:colors.textMutedGrey,fontSize:10.5,lineHeight:14,marginTop:1},
+  body:{color:colors.textPrimary,fontSize:16,lineHeight:22,marginTop:7},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
   qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
   qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},

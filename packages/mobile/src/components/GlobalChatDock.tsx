@@ -510,18 +510,29 @@ export default function GlobalChatDock() {
       </Modal>
 
       {open ? (
-        <MusicAgoraPanel
-          compact
-          compactSide={side}
-          currentProfileId={user.id}
-          enabled={accountReady}
-          shareableTracks={tracks}
-          initialRoomSlug={target?.roomSlug ?? undefined}
-          initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
-          initialGroupId={target?.groupId ?? undefined}
-          onOpenProfile={(username) => { closeChat(); setTimeout(() => navigateToSharedProfile(username), 80); }}
-          onCompactClose={closeChat}
-        />
+        <Modal
+          visible
+          transparent={false}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          statusBarTranslucent
+          onRequestClose={closeChat}
+        >
+          <View testID="loki-chat-fullscreen-modal" style={styles.chatFullscreen} accessibilityLabel="Messagerie Loki plein écran">
+            <MusicAgoraPanel
+              compact
+              compactSide={side}
+              currentProfileId={user.id}
+              enabled={accountReady}
+              shareableTracks={tracks}
+              initialRoomSlug={target?.roomSlug ?? undefined}
+              initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
+              initialGroupId={target?.groupId ?? undefined}
+              onOpenProfile={(username) => { closeChat(); setTimeout(() => navigateToSharedProfile(username), 80); }}
+              onCompactClose={closeChat}
+            />
+          </View>
+        </Modal>
       ) : null}
 
       {!open && unreadCount > 0 ? (
@@ -597,6 +608,7 @@ export default function GlobalChatDock() {
 
 const styles = StyleSheet.create({
   globalOverlay:{zIndex:1000,elevation:100},
+  chatFullscreen:{flex:1,backgroundColor:'#0B0712'},
   settingsBackdrop:{flex:1,backgroundColor:'rgba(5,4,10,.78)',alignItems:'center',justifyContent:'center',paddingHorizontal:18},
   settingsSheet:{width:'100%',maxWidth:360,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
   settingsHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},

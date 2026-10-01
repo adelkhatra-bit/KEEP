@@ -275,3 +275,9 @@ Le dernier cahier des charges validé remplace les anciennes consignes contradic
 - Le blocage n’est jamais seulement visuel : Supabase doit refuser toute tentative de revente non autorisée.
 - Si le destinataire possède déjà le morceau, Loki ne doit créer ni vente ni débit FREE inutile.
 
+
+## Messagerie mobile
+- La messagerie mobile s'ouvre en plein écran, jamais dans un petit panneau flottant.
+- Le clavier iOS/Android/web mobile ne doit jamais recouvrir la zone de saisie ; la safe area haute et basse reste respectée.
+- Les messages utilisent la majorité de la hauteur disponible ; le compositeur reste en bas et les actions secondaires se replient/se répartissent sans écraser le champ texte.
+- MESSAGES, LA PLACE, salons privés, réactions, Pépites, FREE, PayPal/QR et profils restent fonctionnels après la refonte visuelle.
