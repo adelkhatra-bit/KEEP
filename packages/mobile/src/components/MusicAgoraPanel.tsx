@@ -623,12 +623,48 @@ export default function MusicAgoraPanel({
             onPress={() => setSharePaymentMode('MONEY')}
           ><Text style={s.paymentChipText}>€</Text></TouchableOpacity>
         </View>
-        {sharePaymentMode === 'FREE' ? <View style={s.priceChoices}>
-          {[1,3,5,10,20].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareFreePrice===amount&&s.priceChipOn]} onPress={() => setShareFreePrice(amount)}><Text style={s.priceChipText}>{amount}</Text></TouchableOpacity>)}
-          <Text style={s.priceUnit}>FREE</Text>
+        {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
+          <View style={s.priceChoices}>
+            {[1,3,5,10,20].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareFreePrice===amount&&s.priceChipOn]} onPress={() => { setShareFreePrice(amount); setShareFreePriceInput(String(amount)); }}><Text style={s.priceChipText}>{amount}</Text></TouchableOpacity>)}
+          </View>
+          <View style={s.customPriceRow}>
+            <TextInput
+              value={shareFreePriceInput}
+              onChangeText={(value) => {
+                const clean = value.replace(/[^0-9]/g, '').slice(0,5);
+                setShareFreePriceInput(clean);
+                const next = Number(clean || 0);
+                if (next >= 1 && next <= 10000) setShareFreePrice(next);
+              }}
+              keyboardType="number-pad"
+              placeholder="Montant"
+              placeholderTextColor={colors.textMutedGrey}
+              style={s.customPriceInput}
+            />
+            <Text style={s.priceUnit}>FREE</Text>
+          </View>
         </View> : null}
-        {sharePaymentMode === 'MONEY' ? <View style={s.priceChoices}>
-          {[50,100,200,300,500,1000].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareMoneyPriceCents===amount&&s.priceChipOn]} onPress={() => setShareMoneyPriceCents(amount)}><Text style={s.priceChipText}>{(amount/100).toFixed(amount % 100 ? 2 : 0)}€</Text></TouchableOpacity>)}
+        {sharePaymentMode === 'MONEY' ? <View style={s.priceBlock}>
+          <View style={s.priceChoices}>
+            {[50,100,200,300,500,1000].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareMoneyPriceCents===amount&&s.priceChipOn]} onPress={() => { setShareMoneyPriceCents(amount); setShareMoneyPriceInput(String(amount/100)); }}><Text style={s.priceChipText}>{(amount/100).toFixed(amount % 100 ? 2 : 0)}€</Text></TouchableOpacity>)}
+          </View>
+          <View style={s.customPriceRow}>
+            <TextInput
+              value={shareMoneyPriceInput}
+              onChangeText={(value) => {
+                const clean = value.replace(',', '.').replace(/[^0-9.]/g, '').slice(0,8);
+                setShareMoneyPriceInput(clean);
+                const euros = Number(clean || 0);
+                const cents = Math.round(euros * 100);
+                if (cents >= 50 && cents <= 500000) setShareMoneyPriceCents(cents);
+              }}
+              keyboardType="decimal-pad"
+              placeholder="Montant"
+              placeholderTextColor={colors.textMutedGrey}
+              style={s.customPriceInput}
+            />
+            <Text style={s.priceUnit}>€</Text>
+          </View>
           {Platform.OS !== 'web' ? <Text style={s.paymentStoreNote}>Paiement € à finaliser sur Loki Web tant que l’IAP Store n’est pas validé.</Text> : null}
         </View> : null}
       </View> : null}
@@ -721,6 +757,9 @@ const s=StyleSheet.create({
   keepMusicDisabled:{opacity:.55},
   revealChipDisabled:{opacity:.38},
   paymentChipDisabled:{opacity:.34},
+  priceBlock:{gap:6,marginTop:6},
+  customPriceRow:{flexDirection:'row',alignItems:'center',gap:7},
+  customPriceInput:{width:92,minHeight:34,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,color:colors.textPrimary,paddingHorizontal:10,fontSize:12,fontWeight:'900'},
   maskedSaleRule:{color:colors.keep,fontSize:9,lineHeight:13,fontWeight:'900',marginTop:6},
   preflightText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:5},
   preflightOwned:{color:colors.keep,fontSize:9,lineHeight:13,fontWeight:'900',marginTop:5},
