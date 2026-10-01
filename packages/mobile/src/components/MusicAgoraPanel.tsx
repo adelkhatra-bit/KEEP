@@ -90,7 +90,7 @@ export default function MusicAgoraPanel({
   const [hasMore, setHasMore] = useState(false);
   const [homeEnabled, setHomeEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [settingsSurfaces, setSettingsSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+  const [settingsSurfaces, setSettingsSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ profileId: string; username: string } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
