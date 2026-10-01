@@ -212,8 +212,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
-  const [profileStylesExpanded, setProfileStylesExpanded] = useState(false);
-  const [profileMusicExpanded, setProfileMusicExpanded] = useState(false);
+  const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);
   const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
@@ -1984,48 +1983,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
           {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
             <View style={s.pulseCompactActions}>
-              {profileStyleBubbles.length > 0 ? (
-                <TouchableOpacity
-                  style={[s.dnaCompactToggle, profileStylesExpanded && s.dnaCompactToggleOn]}
-                  onPress={() => {
-                    const next = !profileStylesExpanded;
-                    setProfileStylesExpanded(next);
-                    if (next) setProfileMusicExpanded(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: profileStylesExpanded }}
-                  accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
-                >
-                  <Text style={s.dnaCompactToggleText}>
-                    {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
-                  </Text>
-                  <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {visibleLokiPulseItems.length > 0 ? (
-                <TouchableOpacity
-                  style={[s.dnaCompactToggle, profileMusicExpanded && s.dnaCompactToggleOn]}
-                  onPress={() => {
-                    const next = !profileMusicExpanded;
-                    setProfileMusicExpanded(next);
-                    if (next) setProfileStylesExpanded(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: profileMusicExpanded }}
-                  accessibilityLabel={profileMusicExpanded ? 'Masquer mes recommandations Loki Pulse' : 'Voir mes recommandations Loki Pulse'}
-                >
-                  <Text style={s.dnaCompactToggleText}>
-                    {profileMusicExpanded ? 'MASQUER' : 'POUR MOI'}
-                  </Text>
-                  <Text style={s.dnaCompactToggleChevron}>{profileMusicExpanded ? '⌃' : '⌄'}</Text>
-                </TouchableOpacity>
-              ) : null}
+              <TouchableOpacity
+                style={[s.dnaCompactToggle, profilePulseExpanded && s.dnaCompactToggleOn]}
+                onPress={() => setProfilePulseExpanded((value) => !value)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: profilePulseExpanded }}
+                accessibilityLabel={profilePulseExpanded ? 'Masquer les détails Loki Pulse' : 'Voir plus de détails Loki Pulse'}
+              >
+                <Text style={s.dnaCompactToggleText}>
+                  {profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'}
+                </Text>
+                <Text style={s.dnaCompactToggleChevron}>{profilePulseExpanded ? '⌃' : '⌄'}</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
-
-          {profileStylesExpanded && profileStyleBubbles.length > 0 ? (
+          {profilePulseExpanded && profileStyleBubbles.length > 0 ? (
             <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-styles">
+              <Text style={s.dnaCountHint}>MES STYLES · {profileStyleBubbles.length}</Text>
               <MusicStyleBubbles
                 testID="profile-music-style-bubbles"
                 genres={profileStyleBubbles}
@@ -2047,7 +2021,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           ) : null}
 
-          {profileMusicExpanded && visibleLokiPulseItems.length > 0 ? (
+          {profilePulseExpanded && visibleLokiPulseItems.length > 0 ? (
             <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-music">
               <View style={s.lokiPulseHeader}>
                 <View style={s.lokiPulseHeaderCopy}>
