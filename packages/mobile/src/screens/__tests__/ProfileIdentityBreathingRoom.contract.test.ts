@@ -4,28 +4,27 @@ import path from 'path';
 describe('Owner profile identity breathing room', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
 
-  it('aligns certification, profile type and Battle on one airy identity row', () => {
+  it('aligns certification, profile type, FREE and Battle on one airy identity row', () => {
     const identity = source.indexOf('<View style={s.identity}>');
     const username = source.indexOf('<View style={s.usernameLine}>', identity);
     const meta = source.indexOf('<View style={s.profileMetaTopRow}>', username);
     const badgeGroup = source.indexOf('<View style={s.profileMetaBadgeGroup}>', meta);
     const kind = source.indexOf('style={[s.kindBadge', badgeGroup);
     const certification = source.indexOf('<ProfileCertificationBadge tier={certificationTier} compact />', username);
-    const battle = source.indexOf('<BattleGlowButton', kind);
+    const free = source.indexOf('style={[s.profileFreeInline', kind);
+    const battle = source.indexOf('<BattleGlowButton', free);
     const metrics = source.indexOf('<View style={s.topMetricsBar}', battle);
-    const reprises = source.indexOf('>Reprises</Text>', metrics);
-    const free = source.indexOf('topMetricFreeHero', reprises);
     expect(identity).toBeGreaterThan(-1);
     expect(meta).toBeGreaterThan(username);
     expect(badgeGroup).toBeGreaterThan(meta);
     expect(certification).toBeGreaterThan(username);
     expect(certification).toBeLessThan(meta);
     expect(kind).toBeGreaterThan(badgeGroup);
-    expect(battle).toBeGreaterThan(kind);
+    expect(free).toBeGreaterThan(kind);
+    expect(battle).toBeGreaterThan(free);
     expect(metrics).toBeGreaterThan(battle);
-    expect(free).toBeGreaterThan(reprises);
     expect(source.slice(username, meta)).not.toContain('<BattleGlowButton');
-    expect(source.slice(meta, metrics)).not.toContain('profileFreeInline');
+    expect(source.slice(meta, metrics)).toContain('profileFreeInline');
   });
 
   it('keeps the requested airy hierarchy with the identity lowered from the top bar', () => {
