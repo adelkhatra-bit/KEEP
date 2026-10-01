@@ -1441,7 +1441,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }).catch(() => Alert.alert('Solo terminé pour aujourd’hui', 'Ton quota Solo revient automatiquement demain. Le Battle en ligne reste disponible.', [{ text: 'OK' }]));
       return;
     }
-    Alert.alert('Battle indisponible', 'Impossible de démarrer cette partie pour le moment. Réessaie dans quelques instants.');
+    if (compactMessage.includes('BATTLECATALOGTOOSMALL') || compactMessage.includes('BATTLETHEMECATALOGTOOSMALL')) {
+      Alert.alert('Solo indisponible pour ce style', 'Il n’y a pas encore assez de morceaux jouables dans ce style. Choisis un autre style ou MIX.');
+      return;
+    }
+    if (compactMessage.includes('BATTLETHEMEUNAVAILABLE')) {
+      Alert.alert('Style indisponible', 'Ce style n’est pas encore disponible en Solo. Choisis un autre style.');
+      return;
+    }
+    Alert.alert('Solo indisponible', 'Impossible de préparer cette partie Solo pour le moment. Réessaie dans quelques instants.');
   };
 
   const runStartSolo = async (saveSession: boolean) => {
