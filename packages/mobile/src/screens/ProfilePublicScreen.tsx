@@ -145,8 +145,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
       return undefined;
     }
     let live = true;
-    const auth = createAuthService(supabase);
-    const profiles = createProfileService(supabase);
+    const client = supabase;
+    const auth = createAuthService(client);
+    const profiles = createProfileService(client);
 
     const reconcile = async () => {
       let session = await auth.getCurrentSession().catch(() => null);
@@ -156,7 +157,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       // cette récupération avant d'afficher « déconnecté ».
       if (!session) {
         try {
-          await supabase.auth.refreshSession();
+          await client.auth.refreshSession();
           session = await auth.getCurrentSession().catch(() => null);
         } catch {
           // Aucun refresh token exploitable : état réellement déconnecté.
@@ -1188,6 +1189,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
 
     if (!supabase) return;
+    const client = supabase;
     Alert.alert(
       'Se déconnecter ?',
       'Tes données restent enregistrées dans Loki Music. Elles ne seront plus affichées sur cet appareil tant que tu ne te reconnectes pas.',
@@ -1199,7 +1201,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           onPress: () => {
             void (async () => {
               try {
-                await createAuthService(supabase).signOut();
+                await createAuthService(client).signOut();
               } finally {
                 useUserStore.getState().logout();
                 setRealSessionUserId(null);
