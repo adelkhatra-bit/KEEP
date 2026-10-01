@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.14",
+  "version": "2026-10-01.15",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -399,8 +399,11 @@
     "latestUserDecisionAt": "2026-10-01",
     "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée.",
     "closedState": "edge-drawer-tucked",
-    "unreadBehavior": "drawer-peeks-out-with-badge-and-nudge",
-    "closeBehavior": "returns-to-selected-edge"
+    "unreadBehavior": "drawer-peeks-out-with-badge-sender-preview-and-optional-voice-cue",
+    "closeBehavior": "returns-to-selected-edge",
+    "voiceCue": "Message de <username>",
+    "voiceCueRequiresChatAlertsEnabled": true,
+    "openedBehavior": "conversation-overlay-large"
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
@@ -419,13 +422,18 @@
     "newNotificationTypesAutoRegisterUnlocked": true,
     "bellInteraction": "inline-only",
     "bellTapMustNeverNavigateAway": true,
-    "lockedBellNotificationExpandsRequiredPlanInline": true,
+    "lockedBellNotificationExpandsRequiredPlanInline": false,
     "lockedTopBannerMustNeverNavigateAway": true,
     "bellTabs": [
-      "SETTINGS",
-      "INBOX"
+      "MESSAGES",
+      "ACTIVITY",
+      "SETTINGS"
     ],
     "bellInteractionNavigation": "inline-only",
-    "chatNotificationBehavior": "prepare-exact-thread-inline-then-open-from-edge-drawer"
+    "chatNotificationBehavior": "prepare-exact-thread-inline-then-open-from-edge-drawer",
+    "messagesSeparatedFromActivity": true,
+    "settingsSeparatedFromReceivedNotifications": true,
+    "lockedBellBehavior": "popup-explanation-inline-no-navigation",
+    "lockedBellNotificationPopupRequired": true
   }
 }
