@@ -5,57 +5,60 @@ import path from 'path';
 const read = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('global movable chat contract', () => {
+describe('global Loki messenger contract', () => {
+  const app = read(__dirname, '..', '..', '..', 'App.tsx');
+  const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const dock = read(__dirname, '..', '..', 'components', 'GlobalChatDock.tsx');
-  const notifications = read(__dirname, '..', 'NotificationsScreen.tsx');
+  const panel = read(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx');
+  const messenger = read(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx');
   const service = read(__dirname, '..', '..', 'services', 'musicAgoraService.ts');
 
-  it('supports the five user-selectable main surfaces', () => {
-    for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']) {
-      expect(service).toContain(surface);
-      expect(notifications).toContain(surface);
-      expect(dock).toContain(surface);
-    }
-    expect(dock).toContain('chatSurfaces.includes(currentSurface)');
-    expect(dock).toContain("name === 'Listen'");
-    expect(dock).toContain("name === 'Discover'");
-    expect(dock).toContain("['MyMusic','PlaylistSale','PlaylistSaleHistory']");
-    expect(dock).toContain("name === 'Parties'");
-    expect(dock).toContain("['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections']");
-    expect(dock).toContain("name === 'Notifications'");
+  it('mounts the chat once at application root, never only inside Profile', () => {
+    expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
+    expect(app).toContain('{user ? <GlobalChatDock /> : null}');
+    expect(profile).not.toContain("import GlobalChatDock from '../components/GlobalChatDock';");
+    expect(profile).not.toContain('<GlobalChatDock />');
   });
 
-  it('renders a visible movable animated control and persists its position', () => {
+  it('supports all selectable chat surfaces and persists their selection', () => {
+    for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']) {
+      expect(service).toContain(surface);
+      expect(dock).toContain(surface);
+      expect(panel).toContain(surface);
+    }
+    expect(dock).toContain('chatSurfaceForRoute');
+    expect(dock).toContain('chatSurfaces.includes(activeSurface)');
+    expect(dock).toContain('saveMusicAgoraSettings');
+    expect(panel).toContain('toggleChatSurface');
+    expect(panel).toContain('accessibilityRole="checkbox"');
+  });
+
+  it('keeps the control visible and movable left/right near the bottom', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
     expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
+    expect(dock).toContain('fabWrap');
+    expect(dock).toContain('fabLeft');
+    expect(dock).toContain('fabRight');
     expect(dock).toContain('chatNudge');
-    expect(dock).toContain('Tchat Loki · prêt à discuter');
-    expect(dock).toContain("outputRange: [0, 190]");
-    expect(dock).toContain("fab: { width: 54, height: 54");
-    expect(dock).toContain("fabLeft: { left: 12 }");
-    expect(dock).toContain("fabRight: { right: 12 }");
   });
 
-  it('renders the global placement popup instead of only changing hidden state', () => {
-    expect(dock).toContain('<Modal visible={settingsOpen}');
-    expect(dock).toContain('TCHAT FLOTTANT');
-    expect(dock).toContain('Choisis où il apparaît');
-    expect(dock).toContain('Le bouton reste discret, déplaçable à gauche ou à droite');
-    expect(dock).toContain('settingsSurfaceGrid');
-    expect(dock).toContain('accessibilityRole="checkbox"');
-    expect(dock).toContain('if (!accountReady || !user) return null;');
+  it('opens chat settings as an expandable section from the notification bell', () => {
+    expect(panel).toContain('chatSettingsOpen');
+    expect(panel).toContain('MESSAGERIE LOKI');
+    expect(panel).toContain('Afficher la messagerie');
+    expect(panel).toContain('Notifications messages');
+    expect(panel).toContain('OÙ L’AFFICHER');
+    expect(panel).toContain('POSITION');
+    expect(panel).toContain('OUVRIR LA MESSAGERIE');
   });
 
-  it('opens visible chat placement settings from both activation notification versions', () => {
-    expect(notifications).toContain("CHAT_ACTIVATION_AVAILABLE");
-    expect(notifications).toContain("AGORA_ACTIVATE");
-    expect(notifications).toContain('useGlobalChatStore.getState().openSettings()');
-    expect(notifications).toContain("setChatSettingsOpen(true)");
-    expect(notifications).toContain("OUVRIR LE TCHAT");
-    expect(notifications).toContain("PLACEMENT");
-    expect(notifications).toContain("NOTIFICATIONS");
-    expect(service).toContain("keep_agora_set_settings_v2");
-    expect(service).toContain("keep_agora_set_position");
+  it('is direct-message first and keeps the public Place secondary', () => {
+    expect(messenger).toContain("'MESSAGES' | 'PLACE'");
+    expect(messenger).toContain('loadMusicAgoraConversations');
+    expect(messenger).toContain('loadMusicAgoraDirectMessages');
+    expect(messenger).toContain('MESSAGES');
+    expect(messenger).toContain('LA PLACE');
+    expect(messenger).toContain('＋ PÉPITE');
   });
 });
