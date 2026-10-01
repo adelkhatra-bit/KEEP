@@ -22,7 +22,9 @@ declare
   v_marketplace_earned integer := 0;
   v_lost integer := 0;
   v_keep_spent integer := 0;
+  v_keep_count integer := 0;
   v_marketplace_spent integer := 0;
+  v_marketplace_purchase_count integer := 0;
   v_earned integer := 0;
   v_spent integer := 0;
 begin
@@ -74,13 +76,13 @@ begin
     and coalesce(delivered_at,created_at)>=v_start
     and coalesce(delivered_at,created_at)<v_end;
 
-  select coalesce(sum(greatest(amount,0)),0)::integer
-    into v_keep_spent
+  select coalesce(sum(greatest(amount,0)),0)::integer,count(*)::integer
+    into v_keep_spent,v_keep_count
   from public.keep_free_spend_events
   where profile_id=uid and created_at>=v_start and created_at<v_end;
 
-  select coalesce(sum(greatest(amount_free,0)),0)::integer
-    into v_marketplace_spent
+  select coalesce(sum(greatest(amount_free,0)),0)::integer,count(*)::integer
+    into v_marketplace_spent,v_marketplace_purchase_count
   from public.playlist_sale_payments
   where buyer_id=uid
     and provider='FREE_CREDITS'
@@ -103,7 +105,9 @@ begin
     'adminEarnedToday',v_admin_earned,
     'marketplaceEarnedToday',v_marketplace_earned,
     'keepSpentToday',v_keep_spent,
+    'keepCountToday',v_keep_count,
     'marketplaceSpentToday',v_marketplace_spent,
+    'marketplacePurchaseCountToday',v_marketplace_purchase_count,
     'period','TODAY_2AM',
     'timezone',v_tz,
     'startedAt',v_start,
