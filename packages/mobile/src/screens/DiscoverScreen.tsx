@@ -88,6 +88,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [eventRsvp, setEventRsvpState] = useState<EventRsvpStatus | null>(null);
   const [eventRsvpCounts, setEventRsvpCounts] = useState<EventRsvpCounts>({ going: 0, maybe: 0, notGoing: 0 });
   const [eventActionBusy, setEventActionBusy] = useState(false);
+  const [discoverHelpOpen, setDiscoverHelpOpen] = useState(false);
   // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
   // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
   // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
@@ -589,7 +590,12 @@ export default function DiscoverScreen({ navigation, route }: any) {
     return (
       <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>{t('nav.discover')}</Text>
+          <View style={styles.discoverTitleRow}>
+            <Text style={[styles.title, styles.discoverTitle]}>{t('nav.discover')}</Text>
+            <TouchableOpacity style={styles.discoverHelpButton} onPress={() => setDiscoverHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Tout comprendre sur Découvertes">
+              <Text style={styles.discoverHelpButtonText}>?</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.discoveryModes}>
             <TouchableOpacity style={[styles.discoveryModeButton, styles.discoveryModeButtonOn]}><Text style={[styles.discoveryModeText, styles.discoveryModeTextOn]}>PERSONNES</Text></TouchableOpacity>
             {eventsFeatureEnabled ? <TouchableOpacity style={styles.discoveryModeButton} onPress={() => setDiscoverMode('EVENTS')}><Text style={styles.discoveryModeText}>ÉVÉNEMENTS</Text></TouchableOpacity> : null}
@@ -604,7 +610,12 @@ export default function DiscoverScreen({ navigation, route }: any) {
     <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {returnToParties ? <StandardBackButton label="Soirées" onPress={() => { setReturnToParties(false); navigation.navigate('Parties'); }} accessibilityLabel="Retour aux rubriques Soirées" /> : null}
-        <Text style={styles.title}>{t('nav.discover')}</Text>
+        <View style={styles.discoverTitleRow}>
+          <Text style={[styles.title, styles.discoverTitle]}>{t('nav.discover')}</Text>
+          <TouchableOpacity style={styles.discoverHelpButton} onPress={() => setDiscoverHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Tout comprendre sur Découvertes">
+            <Text style={styles.discoverHelpButtonText}>?</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.discoveryModes} accessibilityLabel="Choisir le type de découverte">
           <TouchableOpacity style={[styles.discoveryModeButton, discoverMode === 'PEOPLE' && styles.discoveryModeButtonOn]} onPress={() => setDiscoverMode('PEOPLE')} accessibilityRole="tab" accessibilityState={{ selected: discoverMode === 'PEOPLE' }}>
             <Text style={[styles.discoveryModeText, discoverMode === 'PEOPLE' && styles.discoveryModeTextOn]}>PERSONNES</Text>
@@ -725,6 +736,29 @@ export default function DiscoverScreen({ navigation, route }: any) {
         </>}
       </ScrollView>
 
+      <Modal visible={discoverHelpOpen} transparent animationType="fade" onRequestClose={() => setDiscoverHelpOpen(false)}>
+        <View style={styles.discoverHelpBackdrop}>
+          <View style={styles.discoverHelpCard}>
+            <View style={styles.discoverHelpHead}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.discoverHelpTitle}>Tout faire dans Découvertes</Text>
+                <Text style={styles.discoverHelpHint}>Trouve des personnes et des événements sans quitter ton parcours.</Text>
+              </View>
+              <TouchableOpacity style={styles.discoverHelpClose} onPress={() => setDiscoverHelpOpen(false)} accessibilityLabel="Fermer l’aide Découvertes">
+                <Text style={styles.discoverHelpCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.discoverHelpSteps}>
+              <View style={styles.discoverHelpStep}><Text style={styles.discoverHelpNo}>1</Text><View style={styles.discoverHelpCopy}><Text style={styles.discoverHelpStepTitle}>Personnes</Text><Text style={styles.discoverHelpText}>Découvre des profils selon ta proximité et tes affinités musicales, puis ouvre leur profil sans perdre ta recherche.</Text></View></View>
+              <View style={styles.discoverHelpStep}><Text style={styles.discoverHelpNo}>2</Text><View style={styles.discoverHelpCopy}><Text style={styles.discoverHelpStepTitle}>Recherche</Text><Text style={styles.discoverHelpText}>Tape un pseudo pour retrouver directement une personne, même si elle n’est pas dans les premières suggestions.</Text></View></View>
+              <View style={styles.discoverHelpStep}><Text style={styles.discoverHelpNo}>3</Text><View style={styles.discoverHelpCopy}><Text style={styles.discoverHelpStepTitle}>Événements</Text><Text style={styles.discoverHelpText}>Ouvre un événement validé sur place, consulte les informations et réponds à l’invitation sans redirection inutile.</Text></View></View>
+              <View style={styles.discoverHelpStep}><Text style={styles.discoverHelpNo}>4</Text><View style={styles.discoverHelpCopy}><Text style={styles.discoverHelpStepTitle}>FREE</Text><Text style={styles.discoverHelpText}>Écouter reste gratuit. Les FREE servent aux actions qui ajoutent réellement une musique à ton profil ou aux fonctions qui l’indiquent clairement avant validation.</Text></View></View>
+            </View>
+            <TouchableOpacity style={styles.discoverHelpDone} onPress={() => setDiscoverHelpOpen(false)} accessibilityLabel="Fermer l’aide Découvertes"><Text style={styles.discoverHelpDoneText}>J’AI COMPRIS</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={eventDetailOpen} transparent animationType="fade" onRequestClose={() => setEventDetailOpen(false)}>
         <View style={styles.eventModalBackdrop}>
           <View style={styles.eventModalCard}>
@@ -759,6 +793,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 110 },
   title: { color: colors.white, fontSize: 22, fontWeight: '900', marginBottom: 10 },
+  discoverTitleRow:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},
+  discoverTitle:{flex:1,marginBottom:0},
+  discoverHelpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  discoverHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  discoverHelpBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.78)',alignItems:'center',justifyContent:'center',padding:22},
+  discoverHelpCard:{width:'100%',maxWidth:460,borderRadius:22,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,padding:18,gap:14},
+  discoverHelpHead:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  discoverHelpTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
+  discoverHelpHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},
+  discoverHelpClose:{width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  discoverHelpCloseText:{color:colors.textPrimary,fontSize:20,fontWeight:'900',lineHeight:22},
+  discoverHelpSteps:{gap:9},
+  discoverHelpStep:{minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:10},
+  discoverHelpNo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},
+  discoverHelpCopy:{flex:1,minWidth:0},
+  discoverHelpStepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
+  discoverHelpText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},
+  discoverHelpDone:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
+  discoverHelpDoneText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.7},
   demoLockedHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:12},
   demoLockedKicker:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.1},
   demoHelpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.10)',alignItems:'center',justifyContent:'center'},
