@@ -254,6 +254,18 @@ export async function deleteAllNotifications(profileId: string): Promise<void> {
   await runNotificationAction('delete_all');
 }
 
+export async function deleteNotifications(profileId: string, notificationIds: string[]): Promise<void> {
+  if (!supabase || !profileId || !notificationIds.length) return;
+  const uniqueIds = [...new Set(notificationIds.filter(Boolean))];
+  if (!uniqueIds.length) return;
+  const { error } = await supabase
+    .from('notifications')
+    .delete()
+    .eq('profile_id', profileId)
+    .in('id', uniqueIds);
+  if (error) throw error;
+}
+
 export async function loadNotificationPreferences(profileId: string): Promise<NotificationPreferences> {
   if (!supabase) return DEFAULT_PREFS;
   const { data, error } = await supabase
