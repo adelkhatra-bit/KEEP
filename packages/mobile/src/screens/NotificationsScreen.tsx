@@ -86,6 +86,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_PAYMENT_REMINDER') return 'PAIEMENT À CONFIRMER';
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
+  if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
@@ -427,6 +428,14 @@ export default function NotificationsScreen({ navigation }: any) {
 
     if (type === 'MONTHLY_FREE_CREDIT') {
       navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' });
+      return;
+    }
+    if (type === 'LOKI_PULSE_NEW') {
+      navigation.navigate('Main', { screen: 'Profile' });
+      return;
+    }
+    if (type === 'PLAYLIST_SALE_PAYMENT_READY') {
+      await openPaymentFromNotification(item);
       return;
     }
     if (eventId) {
