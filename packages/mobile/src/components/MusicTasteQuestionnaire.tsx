@@ -68,9 +68,10 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
         const wanted = aliases[shortLang] || shortLang;
         const detectedLanguage = languageRows.find((row) => row.code === wanted || row.code === shortLang)?.code || '';
         const savedGenres = state?.favoriteGenres ?? [];
+        const suggestedGenres = state?.suggestedGenres ?? [];
         const savedCountries = state?.countryCodes ?? [];
         const savedLanguages = state?.languageCodes ?? [];
-        setSelectedGenres(savedGenres);
+        setSelectedGenres(savedGenres.length ? savedGenres : suggestedGenres.slice(0, 12));
         setSelectedCountries(savedCountries.length ? savedCountries : (detectedCountry ? [detectedCountry] : []));
         setSelectedLanguages(savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : []));
         setGenres(genreRows);
