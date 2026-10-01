@@ -9,6 +9,7 @@ import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPo
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 
 function isChatNotification(item: KeepNotification): boolean {
   const type = String(item.type || '').toUpperCase();
@@ -68,6 +69,7 @@ export default function GlobalChatDock() {
   const setSide = useGlobalChatStore((state) => state.setSide);
   const setBottomOffset = useGlobalChatStore((state) => state.setBottomOffset);
   const closeSettings = useGlobalChatStore((state) => state.closeSettings);
+  const requestAccount = useAccountGateStore((state) => state.requestAccount);
 
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
@@ -89,6 +91,8 @@ export default function GlobalChatDock() {
   const { height } = useWindowDimensions();
 
   const accountReady = Boolean(user && !isDemoMode && !isLocalGuest);
+  const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
+  const displayReady = accountReady || previewOnly;
 
   useEffect(() => {
     const syncRoute = () => {
@@ -297,6 +301,10 @@ export default function GlobalChatDock() {
   };
 
   const toggle = async () => {
+    if (previewOnly) {
+      requestAccount('login');
+      return;
+    }
     if (!accountReady || chatSaving) return;
     if (open) {
       closeChat();
@@ -312,9 +320,9 @@ export default function GlobalChatDock() {
     void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
   };
 
-  const surfaceVisible = Boolean(activeSurface && chatSurfaces.includes(activeSurface));
+  const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
 
-  if (!accountReady || !user) return null;
+  if (!displayReady || !user) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
   return (
@@ -462,7 +470,7 @@ export default function GlobalChatDock() {
             style={styles.fab}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
-            accessibilityLabel={chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
+            accessibilityLabel={previewOnly ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
             <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
             <View style={styles.fabDepthBack} />
@@ -476,7 +484,7 @@ export default function GlobalChatDock() {
               </View>
               <View style={styles.drawerCopy}>
                 <Text style={styles.drawerLabel}>TCHAT</Text>
-                <Text style={styles.drawerSub} numberOfLines={1}>{unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
+                <Text style={styles.drawerSub} numberOfLines={1}>{previewOnly ? 'CONNEXION' : unreadCount > 0 && latestChatSender ? `@${latestChatSender}` : 'LOKI'}</Text>
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
