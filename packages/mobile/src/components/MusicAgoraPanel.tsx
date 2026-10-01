@@ -13,6 +13,10 @@ import {
   loadMusicAgoraRooms,
   loadMusicAgoraSettings,
   loadMusicAgoraSharePreflight,
+  loadMarketplacePaymentTermsAccepted,
+  acceptMarketplacePaymentTerms,
+  extractMusicAgoraPayoutQrUrl,
+  shareMyPayoutQrInAgora,
   loadMusicAgoraSharedTrack,
   MusicAgoraConversation,
   MusicAgoraMessage,
@@ -27,7 +31,8 @@ import {
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
 } from '../services/musicAgoraService';
-import { markPlaylistSaleBuyerPaid, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseRequest, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
 
 const PAGE_SIZE = 24;
 
@@ -107,6 +112,9 @@ export default function MusicAgoraPanel({
   const [shareOwnershipOpen, setShareOwnershipOpen] = useState(false);
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
+  const [paymentTermsAccepted, setPaymentTermsAccepted] = useState(false);
+  const [myPayoutQrUrl, setMyPayoutQrUrl] = useState('');
+  const [paymentCheckout, setPaymentCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -163,6 +171,51 @@ export default function MusicAgoraPanel({
   const compactPanelHeight = compact
     ? Math.max(360, Math.min(500, Math.round(baseViewportHeightRef.current * 0.56)))
     : undefined;
+
+  useEffect(() => {
+    if (!enabled) {
+      setPaymentTermsAccepted(false);
+      setMyPayoutQrUrl('');
+      return;
+    }
+    void loadMarketplacePaymentTermsAccepted().then(setPaymentTermsAccepted).catch(() => setPaymentTermsAccepted(false));
+    void getMyPayoutMethods().then((methods) => setMyPayoutQrUrl(methods.qrUrl)).catch(() => setMyPayoutQrUrl(''));
+  }, [enabled]);
+
+  const askPaymentTerms = (onAccepted?: () => void) => {
+    Alert.alert(
+      'Conditions des paiements entre utilisateurs',
+      'Loki Music ne reçoit pas l’argent. Pour un paiement externe, l’acheteur paie directement le vendeur. La musique reste bloquée tant que le vendeur n’a pas confirmé avoir reçu le paiement.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+        {
+          text: 'J’ACCEPTE',
+          onPress: () => {
+            void acceptMarketplacePaymentTerms('chat').then(() => {
+              setPaymentTermsAccepted(true);
+              onAccepted?.();
+            }).catch(() => Alert.alert('Conditions', 'Impossible d’enregistrer ton acceptation pour le moment.'));
+          },
+        },
+      ],
+    );
+  };
+
+  const sharePayoutQr = async () => {
+    if (!replyTarget?.profileId || !roomSlug) return;
+    if (!myPayoutQrUrl) {
+      Alert.alert('QR PayPal', 'Ajoute d’abord ton QR PayPal dans les réglages de paiement de ton profil.');
+      return;
+    }
+    try {
+      await shareMyPayoutQrInAgora(roomSlug, replyTarget.profileId);
+      await refresh(roomSlug, true);
+      followChatBottom(true);
+    } catch (error) {
+      Alert.alert('QR PayPal', readableError(error));
+    }
+  };
 
   const followChatBottom = (animated = true) => {
     browsingHistoryRef.current = false;
@@ -388,6 +441,10 @@ export default function MusicAgoraPanel({
       Alert.alert('Paiement € via Loki Web', 'Le paiement externe pour une musique numérique reste désactivé dans l’app iOS/Android. Utilise FREE ici ou crée l’offre depuis Loki Web.');
       return;
     }
+    if (sharedTrack && sharePaymentMode === 'MONEY' && !paymentTermsAccepted) {
+      askPaymentTerms(() => setSharePaymentMode('MONEY'));
+      return;
+    }
     setPosting(true);
     try {
       await postMusicAgoraMessage(roomSlug, body, {
@@ -480,6 +537,10 @@ export default function MusicAgoraPanel({
 
   const unlockSharedOffer = async (message: MusicAgoraMessage) => {
     if (!message.saleOfferId || offerBusyId) return;
+    if (message.paymentMode === 'MONEY' && !paymentTermsAccepted) {
+      askPaymentTerms(() => void unlockSharedOffer(message));
+      return;
+    }
     setOfferBusyId(message.saleOfferId);
     try {
       if (message.paymentMode === 'FREE') {
@@ -512,15 +573,11 @@ export default function MusicAgoraPanel({
         }
 
         const request = await requestPlaylistPurchase(message.saleOfferId);
-        if (request.payoutLink) {
-          await Linking.openURL(request.payoutLink);
-          Alert.alert(
-            'Paiement ouvert',
-            `Effectue le paiement à @${request.sellerUsername}, puis reviens dans le Tchat et appuie sur « J’AI PAYÉ ».`,
-          );
-        } else {
-          Alert.alert('Lien de paiement indisponible', 'Le vendeur doit d’abord enregistrer son lien de paiement.');
+        if (!request.payoutLink && !request.payoutQrUrl) {
+          Alert.alert('Paiement indisponible', 'Le vendeur doit d’abord enregistrer son PayPal.Me ou son QR PayPal.');
+          return;
         }
+        setPaymentCheckout(request);
         await refresh(roomSlug, true);
       }
     } catch (error: any) {
@@ -531,6 +588,23 @@ export default function MusicAgoraPanel({
       } else {
         Alert.alert('Déblocage', readableError(error));
       }
+    } finally {
+      setOfferBusyId(null);
+    }
+  };
+
+  const confirmSellerReceived = async (message: MusicAgoraMessage) => {
+    if (!message.viewerPaymentId || !message.saleOfferId || offerBusyId) return;
+    setOfferBusyId(message.saleOfferId);
+    try {
+      const delivered = await markPlaylistSalePaid(message.viewerPaymentId);
+      Alert.alert(
+        'Paiement confirmé',
+        `Paiement reçu. ${delivered.trackCount || 1} morceau${(delivered.trackCount || 1) > 1 ? 'x' : ''} vient d’être débloqué pour l’acheteur.`,
+      );
+      await refresh(roomSlug, true);
+    } catch (error) {
+      Alert.alert('Paiement', readableError(error));
     } finally {
       setOfferBusyId(null);
     }
@@ -703,7 +777,13 @@ export default function MusicAgoraPanel({
               <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
             </View>
           </TouchableOpacity>
-          <Text style={s.body}>{message.body}</Text>
+          {extractMusicAgoraPayoutQrUrl(message.body) ? (
+            <View style={s.qrMessage}>
+              <Text style={s.qrMessageTitle}>QR PAYPAL · @{message.username}</Text>
+              <Image source={{ uri: extractMusicAgoraPayoutQrUrl(message.body)! }} style={s.qrMessageImage} resizeMode="contain" />
+              <Text style={s.qrMessageHint}>QR partagé depuis le profil Loki Music du vendeur.</Text>
+            </View>
+          ) : <Text style={s.body}>{message.body}</Text>}
 
           {message.sharedTrackId ? <Animated.View style={[s.musicCard, {
             transform: [{ scale: musicAura.interpolate({ inputRange: [0, 1], outputRange: [1, 1.008] }) }],
@@ -719,13 +799,26 @@ export default function MusicAgoraPanel({
             <TrackPreviewButton trackKey={message.sharedTrackId} previewUrl={message.trackPreviewUrl || undefined} compact small />
             {message.saleOfferId ? (
               message.profileId === currentProfileId ? (
-                <View style={s.offerStatusOwn}>
-                  <Text style={s.offerStatusOwnText}>
-                    {message.paymentMode === 'FREE'
-                      ? `PROPOSÉE · ${message.freePrice ?? 0} FREE`
-                      : `PROPOSÉE · ${(message.priceCents / 100).toFixed(2)} ${message.currencyCode}`}
-                  </Text>
-                </View>
+                message.paymentMode === 'MONEY' && message.viewerPaymentStatus === 'PENDING' && message.viewerMarkedPaid && message.viewerPaymentId ? (
+                  <TouchableOpacity
+                    style={s.sellerConfirm}
+                    disabled={offerBusyId === message.saleOfferId}
+                    onPress={() => void confirmSellerReceived(message)}
+                    accessibilityLabel="Paiement reçu, débloquer la musique"
+                  >
+                    <Text style={s.sellerConfirmText}>{offerBusyId === message.saleOfferId ? '…' : 'PAIEMENT REÇU · DÉBLOQUER'}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={s.offerStatusOwn}>
+                    <Text style={s.offerStatusOwnText}>
+                      {message.paymentMode === 'FREE'
+                        ? `PROPOSÉE · ${message.freePrice ?? 0} FREE`
+                        : message.viewerPaymentStatus === 'COMPLETED'
+                          ? '✓ PAIEMENT CONFIRMÉ'
+                          : `PROPOSÉE · ${(message.priceCents / 100).toFixed(2)} ${message.currencyCode}`}
+                    </Text>
+                  </View>
+                )
               ) : message.viewerUnlocked ? (
                 <View style={s.offerUnlocked}><Text style={s.offerUnlockedText}>✓ DÉBLOQUÉE</Text></View>
               ) : message.paymentMode === 'MONEY' && Platform.OS !== 'web' ? (
@@ -901,6 +994,10 @@ export default function MusicAgoraPanel({
                   setShareOwnershipOpen(true);
                   return;
                 }
+                if (!paymentTermsAccepted) {
+                  askPaymentTerms(() => setSharePaymentMode('MONEY'));
+                  return;
+                }
                 setSharePaymentMode('MONEY');
               }}
               accessibilityLabel={paymentLocked ? 'Paiement euro verrouillé, afficher pourquoi' : 'Utiliser un paiement en euros'}
@@ -961,6 +1058,29 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         </ScrollView> : null}
       </View> : null}
+      {paymentCheckout ? <View style={s.paymentInline}>
+        <View style={s.paymentInlineHead}>
+          <View style={{ flex:1,minWidth:0 }}>
+            <Text style={s.paymentInlineKicker}>PAIEMENT DIRECT</Text>
+            <Text style={s.paymentInlineTitle}>{(paymentCheckout.amountCents / 100).toFixed(2).replace('.', ',')} {paymentCheckout.currencyCode} · @{paymentCheckout.sellerUsername}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setPaymentCheckout(null)} accessibilityLabel="Fermer le paiement"><Text style={s.paymentInlineClose}>×</Text></TouchableOpacity>
+        </View>
+        {paymentCheckout.payoutQrUrl ? <Image source={{ uri: paymentCheckout.payoutQrUrl }} style={s.paymentInlineQr} resizeMode="contain" /> : null}
+        <Text style={s.paymentInlineHint}>Paie directement le vendeur. Loki ne livre rien avant sa confirmation.</Text>
+        <View style={s.paymentInlineActions}>
+          {paymentCheckout.payoutLink ? <TouchableOpacity style={s.paymentInlineOpen} onPress={() => void Linking.openURL(buildPayoutCheckoutUrl(paymentCheckout.payoutLink, paymentCheckout.amountCents, paymentCheckout.currencyCode))}><Text style={s.paymentInlineOpenText}>OUVRIR PAYPAL</Text></TouchableOpacity> : null}
+          <TouchableOpacity style={s.paymentInlinePaid} onPress={() => {
+            const paymentId=paymentCheckout.paymentId;
+            void markPlaylistSaleBuyerPaid(paymentId).then(async () => {
+              setPaymentCheckout(null);
+              Alert.alert('Paiement signalé','Le vendeur doit maintenant confirmer la réception. La musique reste bloquée jusque-là.');
+              await refresh(roomSlug,true);
+            }).catch(() => Alert.alert('Paiement','Impossible de signaler le paiement pour le moment.'));
+          }}><Text style={s.paymentInlinePaidText}>J’AI PAYÉ</Text></TouchableOpacity>
+        </View>
+      </View> : null}
+
       <View style={s.quickReactions}>
         {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity
           key={emoji}
@@ -990,6 +1110,9 @@ export default function MusicAgoraPanel({
         <TouchableOpacity style={s.shareMusic} disabled={!shareableTracks.length} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
           <Text style={s.shareMusicText}>＋ PÉPITE</Text>
         </TouchableOpacity>
+        {replyTarget ? <TouchableOpacity style={[s.shareQr, !myPayoutQrUrl && s.shareQrOff]} onPress={() => void sharePayoutQr()} accessibilityLabel="Partager mon QR PayPal">
+          <Text style={s.shareQrText}>▣ QR PAYPAL</Text>
+        </TouchableOpacity> : null}
         <Text style={s.counter}>{draft.length}/2000</Text>
         <TouchableOpacity style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
@@ -1084,6 +1207,9 @@ const s=StyleSheet.create({
   sendText:{color:colors.white,fontSize:10,fontWeight:'900',letterSpacing:.7},
   shareMusic:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   shareMusicText:{color:colors.keep,fontSize:9.5,fontWeight:'900'},
+  shareQr:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
+  shareQrOff:{opacity:.45},
+  shareQrText:{color:colors.info,fontSize:8.5,fontWeight:'900'},
   musicAttribution:{marginTop:-5,marginHorizontal:5,paddingHorizontal:9,paddingVertical:6,borderBottomLeftRadius:12,borderBottomRightRadius:12,borderWidth:1,borderTopWidth:0,borderColor:colors.border,backgroundColor:'rgba(13,9,20,.82)',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
   musicAttributionText:{flex:1,color:colors.textMutedGrey,fontSize:8.5,fontWeight:'800'},
   musicAlreadyText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
@@ -1114,7 +1240,23 @@ const s=StyleSheet.create({
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
   username:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   meta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:8},
+  body:{color:colors.textPrimary,fontSize:14.5,lineHeight:21,marginTop:8},
+  qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
+  qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
+  qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},
+  qrMessageHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:7},
+  paymentInline:{borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:9,marginBottom:7,maxHeight:230,overflow:'hidden'},
+  paymentInlineHead:{flexDirection:'row',alignItems:'flex-start',gap:8},
+  paymentInlineKicker:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8},
+  paymentInlineTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900',marginTop:3},
+  paymentInlineClose:{color:colors.textMutedGrey,fontSize:20,fontWeight:'900'},
+  paymentInlineQr:{width:110,height:110,borderRadius:10,backgroundColor:'#FFF',alignSelf:'center',marginTop:7},
+  paymentInlineHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:6},
+  paymentInlineActions:{flexDirection:'row',gap:7,marginTop:8},
+  paymentInlineOpen:{flex:1,minHeight:36,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
+  paymentInlineOpenText:{color:colors.info,fontSize:8.5,fontWeight:'900'},
+  paymentInlinePaid:{flex:1,minHeight:36,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  paymentInlinePaidText:{color:colors.background,fontSize:8.5,fontWeight:'900'},
   messageActions:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,marginTop:8},
   reply:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   replyText:{color:colors.info,fontSize:8,fontWeight:'900'},
@@ -1194,6 +1336,8 @@ const s=StyleSheet.create({
   keepMusicText:{color:colors.background,fontSize:8,fontWeight:'900'},
   offerStatusOwn:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   offerStatusOwnText:{color:colors.info,fontSize:8,fontWeight:'900'},
+  sellerConfirm:{minHeight:34,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successSoft,alignItems:'center',justifyContent:'center'},
+  sellerConfirmText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
   offerUnlocked:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successSoft,alignItems:'center',justifyContent:'center'},
   offerUnlockedText:{color:colors.keep,fontSize:8,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:colors.overlay,alignItems:'center',justifyContent:'center',padding:18},
