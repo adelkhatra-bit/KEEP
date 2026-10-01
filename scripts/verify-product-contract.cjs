@@ -101,7 +101,9 @@ must(contract.marketplacePurchases?.previewMustUse3DProtectedMysteryVisual === t
 must(contract.marketplacePurchases?.partialMissingTrackRequest === true, 'partial missing-track request contract missing');
 must(contract.marketplacePurchases?.partialOfferMustBePrivateToRequester === true, 'private partial offer contract missing');
 must(JSON.stringify(contract.marketplacePurchases?.sellerCollectionFilters) === JSON.stringify(['ALL','FREE','MONEY']), 'seller FREE/euro filters contract changed');
-must(JSON.stringify(contract.marketplacePurchases?.creationWizardSteps) === JSON.stringify(['TRACKS','MODE_PRICE','PAYOUT_PUBLISH']), 'collection creation wizard contract changed');
+must(JSON.stringify(contract.marketplacePurchases?.creationWizardSteps) === JSON.stringify(['TRACKS','CART_REVIEW','MODE_PRICE_CURRENCY','PAYOUT_PUBLISH']), 'collection creation wizard contract changed');
+must(contract.marketplacePurchases?.cartReviewMustPrecedePricing === true, 'Pépites cart review must precede pricing');
+must(contract.marketplacePurchases?.savedPayoutLinkMustBeReused === true, 'saved payout link reuse contract missing');
 must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === false, 'confirmed duplicate-track policy changed');
 must(contract.marketplacePurchases?.existingOfferTrackPolicy === 'warn-and-allow-without-removing-existing-offer', 'confirmed duplicate-track policy missing');
 must(contract.marketplacePurchases?.collectionCreationMustRemainInPepites === true, 'Pépites inline creation contract missing');
@@ -128,7 +130,9 @@ must(
   salePanel.includes("collectionCartStep === 'TRACKS'")
     && salePanel.includes("collectionCartStep === 'REVIEW'")
     && salePanel.includes("collectionCartStep === 'PRICE'")
-    && salePanel.includes("collectionCartStep === 'PUBLISH'"),
+    && salePanel.includes("setCollectionCartStep('PUBLISH')")
+    && salePanel.includes('OUI, TOUT EST BON')
+    && salePanel.includes('MARKETPLACE_CURRENCIES'),
   'inline Pépites cart steps disconnected',
 );
 must(salePanel.includes('Cette musique est déjà en vente') && salePanel.includes('AJOUTER QUAND MÊME') && salePanel.includes("selected ? 'RETIRER' : '+ PANIER'"), 'warn-and-allow Pépites cart guard disconnected');
