@@ -83,7 +83,7 @@ const SOCIALS: { platform: SocialPlatform; label: string }[] = [
   { platform: 'facebook', label: 'Facebook' },
 ];
 const PROFILE_KIND_LABELS: Record<ProfileKind, string> = {
-  USER: 'Utilisateur', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Établissement',
+  USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
 };
 
 const QUERY_CHUNK_SIZE = 120;
@@ -1287,7 +1287,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const certificationTier: ProfileCertificationTier = publicSnapshot?.certificationTier ?? 'UNVERIFIED';
   const followingCount = publicSnapshot?.following ?? profile.followingCount;
-  const kindLabel = PROFILE_KIND_LABELS[profile.kind] ?? 'Utilisateur';
+  const kindLabel = PROFILE_KIND_LABELS[profile.kind] ?? 'Fan';
   // Règle (07/09/2026, Adel) : un badge Free ou de type de profil reprend
   // toujours la couleur de la certification correspondante.
   const certificationColors = CERTIFICATION_META[certificationTier] ?? CERTIFICATION_META.UNVERIFIED;
