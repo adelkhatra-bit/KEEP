@@ -47,8 +47,8 @@ assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Own
 
 assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
 assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
-assertIncludes(owner, "profileStylesExpanded ? 'MASQUER'", 'Owner Loki Pulse compact styles toggle');
-assertIncludes(owner, "profileMusicExpanded ? 'MASQUER' : 'POUR MOI'", 'Owner Loki Pulse compact recommendations toggle');
+assertIncludes(owner, "profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'", 'Owner Loki Pulse single compact toggle');
+assertIncludes(owner, 'testID="profile-loki-pulse-expanded-styles"', 'Owner styles inside merged Loki Pulse card');
 assertIncludes(owner, 'testID="profile-loki-pulse-expanded-music"', 'Owner profile recommendations inside merged Loki Pulse card');
 if (owner.includes('style={s.lokiPulseSection}')) throw new Error('Owner profile has one merged Loki Pulse block; standalone section must not return');
 if (owner.includes('Loki Music DNA')) throw new Error('Owner profile must not restore visible Loki Music DNA');
