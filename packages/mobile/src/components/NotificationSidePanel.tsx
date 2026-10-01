@@ -174,7 +174,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : nextSurfaces);
       setChatSide(settings.side);
-      setChatBottomOffset(settings.bottomOffset);
       useGlobalChatStore.getState().setSide(settings.side);
       useGlobalChatStore.getState().setBottomOffset(settings.bottomOffset);
     } finally {
