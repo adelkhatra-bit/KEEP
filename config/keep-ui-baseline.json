@@ -1,26 +1,31 @@
 {
-  "version": "2026-10-01.2",
+  "version": "2026-10-01.3",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
   "profileOwner": {
-    "freePlacement": "beside-profile-kind",
+    "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
     "certificationMustAppearBesideUsername": true,
     "profileKindLabels": [
-      "Utilisateur",
+      "Fan",
       "Créateur",
       "DJ",
       "Artiste",
       "Producteur",
-      "Établissement"
+      "Lieu"
     ],
     "metricsBarOrder": [
       "PLUS",
       "Abonnés",
-      "Reprises"
+      "Reprises",
+      "FREE"
     ],
     "hamburgerAccountEntryAllowed": false,
     "sessionControlsLocation": "ProfileSettingsMobileScreen",
-    "freeMustAppearBesideProfileKind": true
+    "freeMustAppearBesideProfileKind": false,
+    "freeImmediatelyAfterReprises": true,
+    "freeMustAppearExactlyOnce": true,
+    "lokiPulseLocation": "between-social-networks-and-share-profile",
+    "shareProfileLocation": "immediately-after-Loki-Pulse"
   },
   "navigation": {
     "bottomTabsImmutable": [
