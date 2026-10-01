@@ -98,6 +98,7 @@ export default function GlobalChatDock() {
 
   const accountReady = Boolean(user && !isDemoMode && !isLocalGuest);
   const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
+  const visualTestPreview = Boolean(previewOnly && process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1');
   const displayReady = accountReady || previewOnly;
 
   useEffect(() => {
@@ -187,10 +188,14 @@ export default function GlobalChatDock() {
   }, [accountReady, user?.id, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
-    if (!accountReady || (!chatEnabled && !open)) {
+    if (!accountReady) {
       setTracks([]);
       return;
     }
+    // Scale guard: do not fetch up to 160 shareable tracks for every connected
+    // user merely because the global chat button is enabled. Load them only
+    // while the messenger is actually open.
+    if (!open) return;
     let live = true;
     loadMusicAgoraShareableTracks(160)
       .then((rows) => {
@@ -203,7 +208,7 @@ export default function GlobalChatDock() {
       })
       .catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
-  }, [accountReady, chatEnabled, open, user?.id]);
+  }, [accountReady, open, user?.id]);
 
   useEffect(() => {
     if (!accountReady || !open || chatEnabled || chatSaving) return;
@@ -338,6 +343,10 @@ export default function GlobalChatDock() {
   };
 
   const toggle = async () => {
+    if (visualTestPreview) {
+      openChat(target);
+      return;
+    }
     if (previewOnly) {
       requestAccount('login');
       return;
@@ -579,7 +588,7 @@ export default function GlobalChatDock() {
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
-            accessibilityLabel={previewOnly ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
+            accessibilityLabel={previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
             <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
             <View style={styles.fabDepthBack} />
