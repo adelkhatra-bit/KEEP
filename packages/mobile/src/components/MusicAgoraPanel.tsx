@@ -357,6 +357,161 @@ export default function MusicAgoraPanel({
     }
   };
 
+
+  const openGroup = async (group: MusicAgoraGroup) => {
+    setReplyTarget(null);
+    setActiveGroup(group);
+    setSharedTrack(null);
+    setSharePaymentMode('NONE');
+    setDraft('');
+    initialScrollDone.current = false;
+    setMessages([]);
+    if (group.myStatus !== 'ACTIVE') return;
+    setLoading(true);
+    try {
+      const rows = await loadMusicAgoraGroupMessages(group.id, undefined, PAGE_SIZE);
+      setMessages(rows);
+      setHasMore(rows.length === PAGE_SIZE);
+      setTimeout(() => followChatBottom(false), 40);
+    } catch (error) {
+      Alert.alert('Conversation', readableError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshGroupMembers = async (groupId = activeGroup?.id) => {
+    if (!groupId) {
+      setGroupMembers([]);
+      return;
+    }
+    try { setGroupMembers(await loadMusicAgoraGroupMembers(groupId)); }
+    catch { setGroupMembers([]); }
+  };
+
+  const openGroupMembers = async () => {
+    if (!activeGroup?.id) return;
+    setGroupMembersOpen(true);
+    await refreshGroupMembers(activeGroup.id);
+  };
+
+  const searchGroupPeople = async (query = groupSearch) => {
+    try { setGroupPeople(await searchMusicAgoraGroupPeople(query, 40)); }
+    catch { setGroupPeople([]); }
+  };
+
+  const openCreateGroup = () => {
+    setGroupName('');
+    setGroupSearch('');
+    setGroupSelectedIds([]);
+    setGroupPeople([]);
+    setGroupCreateOpen(true);
+    void searchMusicAgoraGroupPeople('', 40).then(setGroupPeople).catch(() => setGroupPeople([]));
+  };
+
+  const toggleGroupPerson = (profileId: string) => {
+    setGroupSelectedIds((current) => {
+      if (current.includes(profileId)) return current.filter((id) => id !== profileId);
+      if (current.length >= 44) {
+        Alert.alert('45 personnes maximum', 'Une conversation peut contenir le créateur et jusqu’à 44 autres personnes.');
+        return current;
+      }
+      return [...current, profileId];
+    });
+  };
+
+  const createGroup = async () => {
+    if (groupBusy) return;
+    const name = groupName.trim();
+    if (!name) {
+      Alert.alert('Nom de la conversation', 'Donne un nom à cette conversation.');
+      return;
+    }
+    setGroupBusy(true);
+    try {
+      const groupId = await createMusicAgoraGroup(name, groupSelectedIds);
+      setGroupCreateOpen(false);
+      setGroupName('');
+      setGroupSearch('');
+      setGroupSelectedIds([]);
+      await refreshInbox();
+      const rows = await loadMusicAgoraGroups();
+      setGroups(rows);
+      const created = rows.find((row) => row.id === groupId);
+      if (created) await openGroup(created);
+    } catch (error: any) {
+      const raw = String(error?.message || error || '');
+      Alert.alert('Conversation', raw.includes('group_member_limit_45') ? '45 personnes maximum dans une conversation.' : 'Impossible de créer cette conversation.');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const acceptGroupInvite = async (group: MusicAgoraGroup) => {
+    if (groupBusy) return;
+    setGroupBusy(true);
+    try {
+      await acceptMusicAgoraGroup(group.id);
+      await refreshInbox();
+      const rows = await loadMusicAgoraGroups();
+      setGroups(rows);
+      const accepted = rows.find((row) => row.id === group.id);
+      if (accepted) await openGroup(accepted);
+    } catch {
+      Alert.alert('Invitation', 'Impossible d’accepter cette invitation pour le moment.');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const declineGroupInvite = async (group: MusicAgoraGroup) => {
+    if (groupBusy) return;
+    setGroupBusy(true);
+    try {
+      await declineMusicAgoraGroup(group.id);
+      setGroups((current) => current.filter((row) => row.id !== group.id));
+    } catch {
+      Alert.alert('Invitation', 'Impossible de refuser cette invitation pour le moment.');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const inviteToActiveGroup = async (person: MusicAgoraGroupPerson) => {
+    if (!activeGroup?.id || activeGroup.myRole !== 'OWNER' || groupBusy) return;
+    setGroupBusy(true);
+    try {
+      await inviteMusicAgoraGroupMember(activeGroup.id, person.profileId);
+      await refreshGroupMembers(activeGroup.id);
+      await refreshInbox();
+    } catch (error: any) {
+      const raw = String(error?.message || error || '');
+      Alert.alert('Ajouter une personne', raw.includes('group_member_limit_45') ? 'Cette conversation contient déjà 45 personnes ou invitations.' : 'Impossible d’envoyer cette invitation.');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
+  const removeFromActiveGroup = async (member: MusicAgoraGroupMember) => {
+    if (!activeGroup?.id || member.role === 'OWNER' || groupBusy) return;
+    if (activeGroup.myRole !== 'OWNER' && member.profileId !== currentProfileId) return;
+    setGroupBusy(true);
+    try {
+      await removeMusicAgoraGroupMember(activeGroup.id, member.profileId);
+      if (member.profileId === currentProfileId) {
+        setActiveGroup(null);
+        setMessages([]);
+      } else {
+        await refreshGroupMembers(activeGroup.id);
+      }
+      await refreshInbox();
+    } catch {
+      Alert.alert('Conversation', 'Impossible de retirer cette personne pour le moment.');
+    } finally {
+      setGroupBusy(false);
+    }
+  };
+
   const refresh = async (slug = roomSlug, quiet = false) => {
     if (!slug && !(chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))) return;
     if (!quiet) setLoading(true);
