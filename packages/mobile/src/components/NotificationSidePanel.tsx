@@ -208,8 +208,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
     const target = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' ? null : chatTarget(item);
-    useGlobalChatStore.getState().prime(target);
     setPreparedChatId(item.id);
+    useGlobalChatStore.getState().open(target);
+    close();
   };
 
   const toggleNotification = async (item: KeepNotification) => {
@@ -349,7 +350,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                               <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
                               {chatAction ? (
                                 <TouchableOpacity style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]} onPress={() => void prepareChatNotification(item)}>
-                                  <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'TCHAT PRÊT SUR LE CÔTÉ' : 'PRÉPARER LA CONVERSATION'}</Text>
+                                  <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : 'OUVRIR LA CONVERSATION'}</Text>
                                 </TouchableOpacity>
                               ) : null}
                             </>
