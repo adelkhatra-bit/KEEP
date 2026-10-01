@@ -195,6 +195,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [followNudgeVisible, setFollowNudgeVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadedUsernameRef = useRef<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
@@ -509,11 +510,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // continuent de recharger normalement.
     let skipNextFocus = true;
     const load = async () => {
-      setLoading(true);
+      const coldLoad = loadedUsernameRef.current !== String(username || '').toLowerCase() || !profile;
+      if (coldLoad) {
+        setLoading(true);
+        setPublicSnapshot(null);
+        setDiscoveryImpacts({});
+        setViewerKeepTrackIds(new Set());
+      }
       setError(null);
-      setPublicSnapshot(null);
-      setDiscoveryImpacts({});
-      setViewerKeepTrackIds(new Set());
       if (!username || !supabase) { setError('Profil indisponible.'); setLoading(false); return; }
       try {
         const result = await createProfileService(supabase).loadPublicProfileByUsername(username);
@@ -527,6 +531,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           if (cancelled) return;
           if (blocked) { setIsBlocked(true); setError('Ce profil est indisponible.'); return; }
         }
+        loadedUsernameRef.current = String(username).toLowerCase();
         setProfile(result);
         setFollowerCount(result.followerCount);
 
