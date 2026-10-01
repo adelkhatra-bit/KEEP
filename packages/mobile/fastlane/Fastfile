@@ -89,13 +89,18 @@ platform :ios do
       force: true,
       automatic_release: true,
       run_precheck_before_submit: true,
-      precheck_include_in_app_purchases: true
+      # Fastlane 2.240 cannot inspect IAPs with App Store Connect API-key auth.
+      # StoreKit products are validated separately by KEEP native CI and Apple during review.
+      precheck_include_in_app_purchases: false
     )
     UI.success("Loki Music #{version} (build #{build}) soumise a la review App Store.")
   end
 
   desc "Controle la conformite de la fiche avant soumission"
   lane :validate do
-    precheck(include_in_app_purchases: true)
+    # API-key authentication is intentionally used in CI. Fastlane currently
+    # cannot query IAPs through this auth path, so exclude only that unsupported
+    # precheck category instead of failing a healthy App Store connection.
+    precheck(include_in_app_purchases: false)
   end
 end
