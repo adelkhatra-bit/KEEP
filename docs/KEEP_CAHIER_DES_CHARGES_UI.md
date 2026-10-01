@@ -2,7 +2,7 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
-Version : **2026-10-01.1**  
+Version : **2026-10-01.3**  
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
 
@@ -20,16 +20,18 @@ Dans l'en-tête du profil propriétaire :
 - Pseudo + certification au-dessus.
 - Le badge de type **Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement** reste dans la zone identité.
 - La certification reste toujours visible à côté du pseudo.
-- FREE ne doit pas être à côté du badge de type.
+- **FREE est immédiatement à droite du badge de type**, une seule fois.
 - Battle reste dans la même zone d'identité, à droite.
 - Ville / pays restent sous cette ligne.
-- La barre suivante reste : **PLUS | Abonnés | Reprises | FREE**.
-- FREE est immédiatement après Reprises, une seule fois.
+- La barre suivante reste : **PLUS | Abonnés | Reprises**.
+- Aucun FREE ne doit être dupliqué dans cette barre.
 - Aucun autre correctif ne doit déplacer ces éléments sans une nouvelle demande explicite de l'utilisateur.
 
 ## 3. Hamburger profil — pas de doublon de session
 
 Le hamburger contient les fonctions de profil, communauté, musique et aide.  
+La rubrique **Réseaux & site web** ne contient plus le switch global « Profil visible ».
+Le switch global **Profil visible / privé** est placé tout en haut du centre Notifications.
 Il **ne doit pas contenir d'entrée Compte / connexion / déconnexion**.
 
 La connexion/déconnexion reste gérée dans **Réglages du profil** (`ProfileSettingsMobileScreen.tsx`). Il ne doit pas y avoir deux chemins concurrents qui donnent l'impression que l'utilisateur doit se reconnecter ou se déconnecter pour naviguer.
@@ -74,5 +76,14 @@ Avant chaque push qui modifie l'UI :
 
 - `config/keep-ui-baseline.json` : version machine-readable de ce cahier des charges.
 - `scripts/verify-ui-layout-baseline.cjs` : garde CI.
-- `packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts` : garde FREE après Reprises + absence de doublon.
-- `packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts` : certification/type/Battle + ordre FREE dans les métriques.
+- `packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts` : garde FREE à côté du type + absence de doublon dans les métriques.
+- `packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts` : certification/type/FREE/Battle + ordre PLUS/Abonnés/Reprises.
+
+## 8. Pépites / Collections
+
+- L'écran Pépites sépare visuellement **TOUTES / ⚡ FREE / € EUROS**.
+- Créer une collection suit trois étapes lisibles : **1. morceaux · 2. mode + prix · 3. paiement/publication**.
+- Les morceaux déjà présents dans une collection publiée portent le repère **DÉJÀ PUBLIÉE** ; un appui explique le doublon et propose de gérer la collection existante.
+- Le formulaire de publication est scrollable et suffisamment large sur téléphone comme sur desktop.
+- En euros, le lien PayPal.Me ou autre lien HTTPS se configure directement dans le parcours ; aucun bouton ne doit pointer vers une route inexistante.
+- En FREE, aucun lien bancaire n'est demandé.
