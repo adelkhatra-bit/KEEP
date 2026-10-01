@@ -34,6 +34,10 @@ export type MusicAgoraMessage = {
   priceCents: number;
   currencyCode: string;
   offerActive: boolean;
+  viewerUnlocked: boolean;
+  viewerPaymentId: string | null;
+  viewerPaymentStatus: 'PENDING' | 'COMPLETED' | null;
+  viewerMarkedPaid: boolean;
 };
 
 export type MusicAgoraSettings = {
@@ -117,7 +121,7 @@ export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
 
 export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number, limit = 24): Promise<MusicAgoraMessage[]> {
   if (!supabase || !roomSlug) return [];
-  const { data, error } = await supabase.rpc('keep_agora_messages_v3', {
+  const { data, error } = await supabase.rpc('keep_agora_messages_v4', {
     p_room_slug: roomSlug,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -150,6 +154,12 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     priceCents: Number(row.price_cents || 0),
     currencyCode: String(row.currency_code || 'EUR'),
     offerActive: Boolean(row.offer_active),
+    viewerUnlocked: Boolean(row.viewer_unlocked),
+    viewerPaymentId: row.viewer_payment_id ? String(row.viewer_payment_id) : null,
+    viewerPaymentStatus: ['PENDING','COMPLETED'].includes(String(row.viewer_payment_status || '').toUpperCase())
+      ? String(row.viewer_payment_status).toUpperCase() as 'PENDING' | 'COMPLETED'
+      : null,
+    viewerMarkedPaid: Boolean(row.viewer_marked_paid),
   })).filter((row) => row.id && row.profileId && row.body);
   if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
   return rows.sort((a, b) => a.id - b.id);
