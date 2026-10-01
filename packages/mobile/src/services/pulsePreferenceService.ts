@@ -5,6 +5,7 @@ export type PulsePreferenceState = {
   completed: boolean;
   shouldPrompt: boolean;
   favoriteGenres: string[];
+  suggestedGenres: string[];
   languageCodes: string[];
   countryCodes: string[];
   preferredLanguageTag: string | null;
@@ -21,6 +22,7 @@ const fallbackState: PulsePreferenceState = {
   completed: false,
   shouldPrompt: false,
   favoriteGenres: [],
+  suggestedGenres: [],
   languageCodes: [],
   countryCodes: [],
   preferredLanguageTag: null,
@@ -54,6 +56,7 @@ function normalizeState(row: any): PulsePreferenceState {
     completed: Boolean(value.completed),
     shouldPrompt: Boolean(value.shouldPrompt ?? value.should_prompt),
     favoriteGenres: asArray(value.favoriteGenres ?? value.favorite_genres),
+    suggestedGenres: asArray(value.suggestedGenres ?? value.suggested_genres ?? value.favoriteGenres ?? value.favorite_genres),
     languageCodes: asArray(value.languageCodes ?? value.language_codes),
     countryCodes: asArray(value.countryCodes ?? value.country_codes).map((x) => x.toUpperCase()),
     preferredLanguageTag: value.preferredLanguageTag ?? value.preferred_language_tag ?? null,
