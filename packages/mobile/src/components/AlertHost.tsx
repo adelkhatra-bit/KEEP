@@ -3,13 +3,14 @@ import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 import { useAlertStore } from '../store/useAlertStore';
+import GlobalChatDock from './GlobalChatDock';
 
 /** Popup Loki Music global : web + iOS + Android. */
 export default function AlertHost() {
   const current = useAlertStore((s) => s.current);
   const hide = useAlertStore((s) => s.hide);
 
-  if (!current) return null;
+  if (!current) return <GlobalChatDock />;
 
   const press = (onPress?: () => void) => {
     hide();
@@ -17,27 +18,30 @@ export default function AlertHost() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={() => press(current.buttons.find((b) => b.style === 'cancel')?.onPress)}>
-      <View style={s.backdrop}>
-        <View style={s.card}>
-          <View style={s.brandLine} />
-          <Text style={s.title}>{current.title}</Text>
-          {current.message ? <Text style={s.message}>{current.message}</Text> : null}
-          <View style={s.buttons}>
-            {current.buttons.map((button, index) => (
-              <TouchableOpacity
-                key={`${button.text ?? 'OK'}-${index}`}
-                style={[s.button, button.style === 'destructive' ? s.buttonDestructive : button.style === 'cancel' ? s.buttonCancel : s.buttonDefault]}
-                onPress={() => press(button.onPress)}
-                accessibilityRole="button"
-              >
-                <Text style={[s.buttonText, button.style === 'cancel' ? s.buttonTextCancel : s.buttonTextSolid]}>{button.text || 'OK'}</Text>
-              </TouchableOpacity>
-            ))}
+    <>
+      <GlobalChatDock />
+      <Modal visible transparent animationType="fade" onRequestClose={() => press(current.buttons.find((b) => b.style === 'cancel')?.onPress)}>
+        <View style={s.backdrop}>
+          <View style={s.card}>
+            <View style={s.brandLine} />
+            <Text style={s.title}>{current.title}</Text>
+            {current.message ? <Text style={s.message}>{current.message}</Text> : null}
+            <View style={s.buttons}>
+              {current.buttons.map((button, index) => (
+                <TouchableOpacity
+                  key={`${button.text ?? 'OK'}-${index}`}
+                  style={[s.button, button.style === 'destructive' ? s.buttonDestructive : button.style === 'cancel' ? s.buttonCancel : s.buttonDefault]}
+                  onPress={() => press(button.onPress)}
+                  accessibilityRole="button"
+                >
+                  <Text style={[s.buttonText, button.style === 'cancel' ? s.buttonTextCancel : s.buttonTextSolid]}>{button.text || 'OK'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+    </>
   );
 }
 
