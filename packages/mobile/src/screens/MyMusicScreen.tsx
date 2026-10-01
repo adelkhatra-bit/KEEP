@@ -928,7 +928,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     }
     Alert.alert(
       'Panier prêt',
-      `${conflictTracks.length} morceau${conflictTracks.length > 1 ? 'x sont' : ' est'} déjà en vente. Si tu publies cette nouvelle Pépite, Loki ${conflictTracks.length > 1 ? 'les déplacera' : 'le déplacera'} automatiquement depuis ${conflictTracks.length > 1 ? 'leurs anciennes collections' : 'son ancienne collection'}, sans doublon ni perte.`,
+      `${conflictTracks.length} morceau${conflictTracks.length > 1 ? 'x sont' : ' est'} déjà en vente. Si tu continues, ${conflictTracks.length > 1 ? 'ils resteront' : 'il restera'} dans ${conflictTracks.length > 1 ? 'leurs collections actuelles' : 'sa collection actuelle'} et ${conflictTracks.length > 1 ? 'seront aussi ajoutés' : 'sera aussi ajouté'} à cette nouvelle Pépite.`,
       [
         { text: 'Revoir le panier', style: 'cancel' },
         { text: 'Continuer', onPress: openComposer },
@@ -1096,10 +1096,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const stableKey = sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key;
     setSellBusy(true);
     try {
-      const moveExisting = sellTarget.kind === 'selection'
+      const allowExisting = sellTarget.kind === 'selection'
         && sellTarget.trackIds.some((trackId) => Boolean(myOfferedTrackIds[trackId]));
       const offer = sellTarget.kind === 'selection'
-        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR', moveExisting)
+        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR', allowExisting)
         : sellPaymentMode === 'MONEY'
           ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0)
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();

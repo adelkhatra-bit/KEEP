@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.15",
+  "version": "2026-10-01.16",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -145,10 +145,16 @@
       "MODE_PRICE",
       "PAYOUT_PUBLISH"
     ],
-    "preventTrackAcrossActiveOffers": true,
+    "preventTrackAcrossActiveOffers": false,
     "alreadyPublishedTrackMustBeExplained": true,
     "moneyPayoutConfiguredInline": true,
-    "freeModeRequiresExternalPayout": false
+    "freeModeRequiresExternalPayout": false,
+    "existingOfferTrackPolicy": "warn-and-allow-without-removing-existing-offer",
+    "collectionCreationSurface": "PlaylistSale/Pépites-inline-cart",
+    "collectionCreationMustRemainInPepites": true,
+    "cartSelectionReversible": true,
+    "cartSelectionMustNotMutateVisibilityBeforePublish": true,
+    "cartRemoveAlwaysAvailableBeforePublish": true
   },
   "screenHelpRules": {
     "parties": {
@@ -197,18 +203,18 @@
   },
   "pepitesCart": {
     "entry": "PlaylistSale",
-    "createFlow": "Main.MyMusic with returnToPicks",
-    "persistent": true,
-    "storageScope": "per-user",
+    "createFlow": "PlaylistSale inline cart",
+    "persistent": false,
+    "storageScope": "screen-session",
     "selectionSideEffects": "none-until-publish",
-    "alreadyForSale": "warn-and-allow",
+    "alreadyForSale": "warn-and-allow-without-removing-existing-offer",
     "actions": [
       "ADD_TO_CART",
       "REMOVE_FROM_CART",
       "CONTINUE",
-      "BACK_TO_PEPITES"
+      "PUBLISH_WITHOUT_LEAVING_PEPITES"
     ],
-    "returnAfterPublish": "PlaylistSale",
+    "returnAfterPublish": "stay-PlaylistSale",
     "socialReprises": "never-sellable-by-non-origin-discoverer"
   }
 }

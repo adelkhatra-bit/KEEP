@@ -5,43 +5,35 @@ import path from 'path';
 const read = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('Pépites persistent cart contract', () => {
-  const myMusic = read(__dirname, '..', 'MyMusicScreen.tsx');
+describe('Pépites inline cart contract', () => {
   const salePanel = read(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
   const service = read(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
-  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001210000_playlist_sale_atomic_move_selection.sql');
+  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001220000_playlist_sale_confirmed_duplicate_tracks.sql');
   const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
-  it('returns to Pépites and keeps the cart per user', () => {
-    expect(salePanel).toContain('returnToPicks: true');
-    expect(myMusic).toContain('keep:pepites-cart:');
-    expect(myMusic).toContain('AsyncStorage.getItem(saleCartStorageKey)');
-    expect(myMusic).toContain('AsyncStorage.setItem(saleCartStorageKey');
-    expect(myMusic).toContain("navigation.navigate('PlaylistSale', { source: 'PEPITES_CART'");
-    expect(myMusic).toContain('PANIER PÉPITES');
+  it('does not redirect collection creation to Playlists/MyMusic', () => {
+    expect(salePanel).toContain('openCollectionCart');
+    expect(salePanel).not.toContain("createSaleCollection: true");
+    expect(contract.pepitesCart.createFlow).toBe('PlaylistSale inline cart');
+    expect(contract.pepitesCart.returnAfterPublish).toBe('stay-PlaylistSale');
   });
 
-  it('lets the user add or remove a track already on sale after warning', () => {
-    expect(myMusic).toContain("'Déjà en vente'");
-    expect(myMusic).toContain("'Ajouter quand même'");
-    expect(myMusic).toContain("'✓ RETIRER'");
-    expect(myMusic).toContain("'+ PANIER'");
-    expect(myMusic).toContain('alreadySoldElsewhere');
+  it('warns and requires explicit confirmation for an already-selling track', () => {
+    expect(salePanel).toContain('Cette musique est déjà en vente');
+    expect(salePanel).toContain('AJOUTER QUAND MÊME');
+    expect(salePanel).toContain('collectionCartDuplicateCount > 0');
   });
 
-  it('moves conflicting active-sale tracks atomically at publish time', () => {
-    expect(service).toContain("keep_playlist_sale_set_offer_for_selection_v4");
-    expect(service).toContain('p_move_existing: moveExisting');
-    expect(myMusic).toContain('sellTarget.trackIds.some((trackId) => Boolean(myOfferedTrackIds[trackId]))');
-    expect(myMusic).toContain("setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, 'EUR', moveExisting)");
-    expect(migration).toContain("raise exception 'TRACK_ALREADY_IN_ACTIVE_OFFER:%'");
-    expect(migration).toContain('delete from public.playlist_sale_offer_tracks');
-    expect(migration).toContain('set is_active=false,updated_at=now()');
+  it('server keeps the old offer intact when the confirmed duplicate is published', () => {
+    expect(service).toContain("keep_playlist_sale_set_offer_for_selection_v5");
+    expect(service).toContain('p_allow_existing: allowExisting');
+    expect(migration).toContain('and not p_allow_existing');
+    expect(migration).not.toContain('delete from public.playlist_sale_offer_tracks');
+    expect(migration).toContain("'reusedTrackCount',cardinality(conflict_track_ids)");
   });
 
-  it('locks the user-approved Pépites behavior in the canonical contract', () => {
-    expect(contract.pepitesCart.persistent).toBe(true);
-    expect(contract.pepitesCart.alreadyForSale).toBe('warn-and-allow');
-    expect(contract.pepitesCart.returnAfterPublish).toBe('PlaylistSale');
+  it('cart selection is local until publish', () => {
+    expect(contract.pepitesCart.selectionSideEffects).toBe('none-until-publish');
+    expect(contract.marketplacePurchases.cartSelectionMustNotMutateVisibilityBeforePublish).toBe(true);
   });
 });
