@@ -35,7 +35,8 @@ describe('Conflit micro/audio -- audioPreviewService ne coupe plus une capture m
   });
 
   it('le mode interruption iOS est aligné avec micCapture.ts (MixWithOthers) pour ne jamais couper l\'autre flux audio', () => {
-    expect(preview).toContain("import { Audio, AVPlaybackStatus, InterruptionModeIOS } from 'expo-av';");
+    expect(preview).toContain("type ExpoAVModule = typeof import('expo-av');");
+    expect(preview).toContain("const { Audio, InterruptionModeIOS } = getNativeExpoAV();");
     expect(preview).toContain('interruptionModeIOS: InterruptionModeIOS.MixWithOthers,');
     expect(mic).toContain('interruptionModeIOS: InterruptionModeIOS.MixWithOthers,');
   });
