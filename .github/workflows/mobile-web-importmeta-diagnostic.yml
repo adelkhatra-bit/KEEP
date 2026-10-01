@@ -143,6 +143,11 @@ jobs:
             if (!chatDrawerBox || chatDrawerBox.width < 20 || chatDrawerBox.height < 20) {
               throw new Error(`Chat drawer not visibly rendered: ${JSON.stringify(chatDrawerBox)}`);
             }
+            const chatVisibleWidth = Math.max(0, Math.min(390, chatDrawerBox.x + chatDrawerBox.width) - Math.max(0, chatDrawerBox.x));
+            const chatVisibleHeight = Math.max(0, Math.min(844, chatDrawerBox.y + chatDrawerBox.height) - Math.max(0, chatDrawerBox.y));
+            if (chatVisibleWidth < 24 || chatVisibleHeight < 40) {
+              throw new Error(`Chat drawer exists but is effectively outside viewport: ${JSON.stringify({ chatDrawerBox, chatVisibleWidth, chatVisibleHeight })}`);
+            }
 
             // Samsung/Chrome Android : un swipe vertical ne doit jamais faire sortir
             // la barre des 5 onglets du viewport visible.
@@ -175,7 +180,7 @@ jobs:
             await page.getByText('RÉGLAGES', { exact: true }).last().waitFor({ state: 'visible', timeout: 15000 });
             if (page.url() !== profileUrlBeforeBell) throw new Error('Bell navigation changed URL instead of staying inline');
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-bell-390x844.png', fullPage: true });
-            await clickRobust(page.getByLabel('Fermer').last(), 'Close notification bell');
+            await clickRobust(page.getByLabel('Fermer', { exact: true }).last(), 'Close notification bell');
             await page.getByText('Cloche', { exact: true }).last().waitFor({ state: 'hidden', timeout: 10000 });
 
             // Cible les vrais onglets ACTUELS du profil propriétaire. La refonte
