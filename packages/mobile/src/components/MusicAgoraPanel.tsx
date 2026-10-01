@@ -691,7 +691,9 @@ export default function MusicAgoraPanel({
     style={[
       s.shell,
       compact && s.shellCompact,
-      compact && { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: compactBottom },
+      compact && (keyboardInset > 0
+        ? { top: 8, bottom: compactBottom, minHeight: 0 }
+        : { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: compactBottom }),
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
