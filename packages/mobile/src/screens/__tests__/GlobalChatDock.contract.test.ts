@@ -55,22 +55,25 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("previewOnly ? 'CONNEXION'");
   });
 
-  it('keeps the conversation drawer fixed-height and lifts it by the measured keyboard', () => {
-    expect(messenger).toContain('baseViewportHeightRef');
+  it('keeps the conversation centered, keyboard-safe and readable on mobile', () => {
     expect(messenger).toContain('visualViewport');
-    expect(messenger).toContain('keyboardInset > 0 ? keyboardInset + 8 : 78');
-    expect(messenger).toContain('minHeight:compactPanelHeight');
-    expect(messenger).toContain('maxHeight:compactPanelHeight');
-    expect(messenger).toContain('height:52,minHeight:52,maxHeight:52');
+    expect(messenger).toContain('keyboardInset > 0 ? keyboardInset + 8 : 92');
+    expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
+    expect(messenger).toContain('setKeyboardInset(reportedHeight)');
+    expect(messenger).toContain('? { top: 54, bottom: compactBottom, minHeight: 0 }');
+    expect(messenger).toContain(': { top: 54, bottom: 92, minHeight: 0 }');
+    expect(messenger).toContain('fontSize:17,lineHeight:23');
     expect(messenger).toContain('maxLength={2000}');
+    expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
     expect(messenger).toContain('onCompactClose');
     expect(dock).toContain('onCompactClose={closeChat}');
   });
 
-  it('keeps the control visible and movable left/right near the bottom', () => {
+  it('keeps the control visible and movable left/right around the middle', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
     expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
+    expect(dock).toContain('Math.round(height * 0.38)');
     expect(dock).toContain('fabWrap');
     expect(dock).toContain('fabLeft');
     expect(dock).toContain('fabRight');
