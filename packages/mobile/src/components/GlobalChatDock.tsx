@@ -262,9 +262,12 @@ export default function GlobalChatDock() {
       : 'LOW';
 
   useEffect(() => {
-    if (bottomOffset < minBottom) setBottomOffset(minBottom);
-    if (bottomOffset > maxBottom) setBottomOffset(maxBottom);
-  }, [bottomOffset, minBottom, maxBottom, setBottomOffset]);
+    if (!accountReady) return;
+    const clamped = Math.max(minBottom, Math.min(maxBottom, bottomOffset));
+    if (clamped === bottomOffset) return;
+    setBottomOffset(clamped);
+    void saveMusicAgoraPosition(side, clamped).catch(() => {});
+  }, [accountReady, bottomOffset, minBottom, maxBottom, setBottomOffset, side]);
 
   const responder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
@@ -318,14 +321,24 @@ export default function GlobalChatDock() {
       requestAccount('login');
       return;
     }
-    if (!accountReady || chatSaving) return;
+    if (!accountReady) return;
     if (open) {
       closeChat();
       return;
     }
-    if (!chatEnabled) await saveProfileSettings(true);
+
     setUnreadCount(0);
     openChat(target);
+
+    if (!chatEnabled && !chatSaving) {
+      setChatEnabled(true);
+      try {
+        await saveProfileSettings(true);
+      } catch {
+        setChatEnabled(false);
+        closeChat();
+      }
+    }
   };
 
   const chooseSide = (nextSide: 'left' | 'right') => {
@@ -505,6 +518,7 @@ export default function GlobalChatDock() {
           <TouchableOpacity
             testID="loki-global-chat-drawer"
             style={styles.fab}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
             accessibilityLabel={previewOnly ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
