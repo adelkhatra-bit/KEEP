@@ -15,8 +15,12 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("shellCompact:{position:'absolute'");
     expect(panel).toContain('minHeight:0');
     expect(panel).toContain('compactPanelHeight');
-    expect(panel).toContain('selectedMusicPreview');
-    expect(panel).toContain('height:210');
+    expect(panel).toContain("shellCompact:{position:'absolute'");
+    expect(panel).toContain('height:470');
+    expect(panel).toContain('minHeight:470');
+    expect(panel).toContain('maxHeight:470');
+    expect(panel).toContain("selectedMusic:{padding:8");
+    expect(panel).toContain('maxHeight:250');
   });
 
   it('always follows the sender to the newest message after send/reaction', () => {
@@ -32,15 +36,38 @@ describe('global compact chat UX contract', () => {
   });
 
   it('keeps music selection readable and previewable', () => {
-    expect(panel).toContain('APERÇU AVANT ENVOI');
+    expect(panel).toContain('PÉPITE SÉLECTIONNÉE');
     expect(panel).toContain('TrackPreviewButton trackKey={sharedTrack.id}');
-    expect(panel).toContain('selectedMusicArtwork');
-    expect(panel).toContain("fontSize:20");
+    expect(panel).toContain('shareOptionsOpen');
+    expect(panel).toContain('shareAccordionBody');
+    expect(panel).toContain('selectedMusicLockBadge');
   });
 
   it('keeps reaction buttons fixed-size inside the chat', () => {
-    expect(panel).toContain("quickReaction:{width:42,height:38,flexGrow:0,flexShrink:0");
+    expect(panel).toContain("quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0");
     expect(panel).toContain("['❤️','🔥','👏','🎵']");
+  });
+
+  it('supports long messages without growing the drawer', () => {
+    expect(panel).toContain('maxLength={2000}');
+    expect(panel).toContain('{draft.length}/2000');
+    expect(panel).toContain('scrollEnabled');
+    expect(panel).toContain("inputCompact:{height:44,minHeight:44,maxHeight:44");
+  });
+
+  it('shows ownership locks before payment choices', () => {
+    expect(panel).toContain('🔒 PARTAGE UNIQUEMENT');
+    expect(panel).toContain('(sharedTrack as any).canSell === false');
+    expect(panel).toContain('selectedMusicLockBadge');
+    expect(panel).toContain('shareTrackLockBadge');
+  });
+
+  it('measures the keyboard and moves the fixed drawer above it', () => {
+    expect(panel).toContain("keyboardWillShow");
+    expect(panel).toContain("keyboardDidShow");
+    expect(panel).toContain('event.endCoordinates?.height');
+    expect(panel).toContain('event.endCoordinates?.screenY');
+    expect(panel).toContain('bottom: keyboardInset > 0 ? keyboardInset + 8 : 78');
   });
 
   it('keeps the desktop update control mounted globally', () => {
