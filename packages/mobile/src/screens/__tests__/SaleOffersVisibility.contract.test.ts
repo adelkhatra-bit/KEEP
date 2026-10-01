@@ -17,7 +17,9 @@ describe('ventes : toutes les collections visibles, prix juste', () => {
   it('la gestion Pépites sépare publiées et retirées (plus de faux « PUBLIÉE »)', () => {
     const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
     expect(panel).toContain('splitSaleOffersByStatus(offers, focusOfferId)');
-    expect(panel).toContain('data={published}');
+    expect(panel).toContain('data={filteredPublished}');
+    expect(panel).toContain("offerFilter === 'FREE'");
+    expect(panel).toContain("offerFilter === 'MONEY'");
     expect(panel).toContain('RETIRÉES ({retired.length})');
     expect(panel).toContain('Non visibles sur ton profil ni par les visiteurs.');
     expect(panel).toContain('route?.params?.manageSaleOfferId');
