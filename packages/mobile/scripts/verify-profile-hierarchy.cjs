@@ -46,7 +46,6 @@ assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQui
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
 assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
-assertIncludes(owner, 'profileFreeInline:{height:24', 'Owner FREE pill shares profile type height');
 assertIncludes(owner, 'style={s.profileBattleInline}', 'Owner Battle inline with profile identity');
 
 const ownerMeta = owner.slice(
@@ -55,11 +54,9 @@ const ownerMeta = owner.slice(
 );
 assertOrdered(ownerMeta, [
   'style={[s.kindBadge',
-  'style={[s.profileFreeInline',
-  '>FREE</Text>',
   '<BattleGlowButton',
-], 'Owner identity order profile type -> FREE -> Battle');
-assertCount(ownerMeta, />FREE<\/Text>/g, 1, 'Owner FREE inline count');
+], 'Owner identity order profile type -> Battle');
+assertCount(ownerMeta, />FREE<\/Text>/g, 0, 'Owner FREE must not appear beside profile type');
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
@@ -69,11 +66,10 @@ assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
   '>Abonnés</Text>',
   '>Reprises</Text>',
-], 'Owner metrics order PLUS -> Abonnés -> Reprises');
-assertCount(ownerMetrics, />FREE<\/Text>/g, 0, 'Owner FREE must not be duplicated in metrics');
-if (ownerMetrics.includes('topMetricFreeItem')) {
-  throw new Error('Owner FREE must stay beside profile type, not inside metrics');
-}
+  '>FREE</Text>',
+], 'Owner metrics order PLUS -> Abonnés -> Reprises -> FREE');
+assertCount(ownerMetrics, />FREE<\/Text>/g, 1, 'Owner FREE appears exactly once in metrics');
+assertIncludes(ownerMetrics, 'topMetricFreeItem', 'Owner FREE styling stays attached to metrics');
 
 assertIncludes(owner, "const [battleInProgress, setBattleInProgress] = useState(false);", 'Owner Battle presence state');
 assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}", 'Owner Battle availability control');
@@ -128,6 +124,6 @@ assertIncludes(battleGlow, "backgroundColor: pressedState ? 'rgba(124,92,252,0.2
 assertIncludes(battleGlow, "const accent = active ? colors.keep : '#7C5CFC'", 'Battle animated state color');
 
 console.log('Loki profile hierarchy + alignment contract: PASS');
-console.log('owner: profile type + FREE + Battle in identity row; PLUS/Abonnés/Reprises below; DNA -> réseaux -> Loki Pulse -> partage');
+console.log('owner: profile type + Battle in identity row; PLUS/Abonnés/Reprises/FREE below; DNA -> réseaux -> Loki Pulse -> partage');
 console.log('visitor: compact PLUS + Abonnés/Morceaux, Reprises/Abonnements on expansion');
 console.log('actions: equal-width outline rows preserved on owner and visited profile');
