@@ -15,6 +15,7 @@ import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/pu
 import { isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import FloatingGlobalChat from '../components/FloatingGlobalChat';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
 
@@ -582,7 +583,8 @@ export default function DiscoverScreen({ navigation, route }: any) {
             </MotionActionButton>
           </View>
         </ScrollView>
-      </SafeAreaView>
+        <FloatingGlobalChat />
+    </SafeAreaView>
     );
   }
 
@@ -602,7 +604,8 @@ export default function DiscoverScreen({ navigation, route }: any) {
           </View>
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>La découverte de personnes est temporairement indisponible. Les événements restent accessibles ci-dessus.</Text></View>
         </ScrollView>
-      </SafeAreaView>
+        <FloatingGlobalChat />
+    </SafeAreaView>
     );
   }
 
@@ -787,6 +790,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
           </View>
         </View>
       </Modal>
+      <FloatingGlobalChat />
     </SafeAreaView>
   );
 }
