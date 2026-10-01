@@ -49,6 +49,7 @@ function ago(iso: string): string {
 function readableError(error: unknown): string {
   const message = String((error as any)?.message || error || '');
   if (message.includes('message_blocked_language')) return 'Message refusé : garde le débat musical, enlève les insultes.';
+  if (message.includes('direct_reply_required')) return 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.';
   if (message.includes('rate_limited')) return 'Trop de messages d’un coup. Réessaie dans un instant.';
   if (message.includes('authentication_required')) return 'Connecte ton compte pour participer.';
   if (message.includes('message_length')) return 'Ton message peut aller jusqu’à 2 000 caractères.';
