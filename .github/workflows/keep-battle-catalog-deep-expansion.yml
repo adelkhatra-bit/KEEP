@@ -1,0 +1,59 @@
+name: KEEP — Battle catalog deep expansion
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - '.github/workflows/keep-battle-catalog-deep-expansion.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-battle-catalog-deep-expansion
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Expand Battle catalog
+        env:
+          KEEP_BATTLE_CATALOG_WORKER_KEY: ${{ secrets.KEEP_BATTLE_CATALOG_WORKER_KEY }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${KEEP_BATTLE_CATALOG_WORKER_KEY:-}" ]; then
+            echo "::error::KEEP_BATTLE_CATALOG_WORKER_KEY is missing"
+            exit 1
+          fi
+
+          base='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-battle-catalog-seed'
+          themes=(
+            CHANSON_FR RAP_FR
+            RUSSE TURC ARABE RAI BRESIL INDE KPOP
+            FUNK DISCO AFRO RAP_US ELECTRO POP RNB ROCK LATINO
+            SOUL REGGAE JAZZ CLASSIQUE ANNEES_80 ANNEES_90
+          )
+          failed=0
+
+          for theme in "${themes[@]}"; do
+            echo "=== $theme ==="
+            if ! body="$(curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 145               --fail-with-body -sS               -H "x-keep-worker-key: ${KEEP_BATTLE_CATALOG_WORKER_KEY}"               "$base?theme=$theme")"; then
+              echo "::error::Seed failed for $theme"
+              failed=1
+              continue
+            fi
+
+            echo "$body" | jq -c '{ok,theme,queries,found,considered,distinctArtists,inserted,updated,linked,budget}'
+            if [ "$(echo "$body" | jq -r '.ok // false')" != "true" ]; then
+              echo "::error::Worker returned ok=false for $theme"
+              failed=1
+            fi
+          done
+
+          exit "$failed"

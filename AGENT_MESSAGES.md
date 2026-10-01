@@ -2196,3 +2196,8 @@ Audit Shazam officiel + code KEEP : l'iOS utilisait déjà ShazamKit réel mais 
 ## [2026-10-01] chatgpt — catalogue Battle profond, priorité musique française
 
 Audit production demandé par Adel : CHANSON_FR n'avait réellement que 96 morceaux / 67 artistes, et Gilbert Montagné était absent. Le worker n'utilisait que deux requêtes génériques. Nouveau moteur de seed : budget CHANSON_FR jusqu'à 4 000 titres par passe, 20 recherches françaises par décennies + plus de 130 artistes ciblés anciens/récents (Gilbert Montagné inclus), RAP_FR approfondi, autres cultures élargies à 4 recherches de 200 résultats. Fetch concurrent borné (10), ingestion DB par lots (400) via RPC service_role-only. Le catalogue reste serveur : aucun poids ajouté au téléphone. Aucun App.tsx/Navigation/5 onglets touché.
+
+
+## [2026-10-01] chatgpt — alimentation catalogue profonde automatisée
+
+Worker Supabase keep-battle-catalog-seed v7 déployé avec auth worker hachée propre (verify_jwt désactivé uniquement parce que x-keep-worker-key est vérifié dans la fonction). Workflow GitHub dédié : CHANSON_FR puis RAP_FR en priorité, cultures internationales ensuite, styles généraux enfin ; relance manuelle + hebdomadaire. Les réponses ne journalisent jamais la clé. Cette alimentation peut grandir côté serveur sans nouvelle version mobile.
