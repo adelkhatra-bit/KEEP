@@ -222,7 +222,7 @@ grant execute on function public.keep_loki_pulse_hide(uuid) to authenticated;
 insert into public.profile_music_taste_scores(
   profile_id,taste_type,taste_key,display_label,score,positive_signals,negative_signals,last_signal_at
 )
-select profile_id,taste_type,taste_key,display_label,
+select profile_id,taste_type,taste_key,max(display_label) as display_label,
        sum(score) as score,
        sum(positive_signals) as positive_signals,
        sum(negative_signals) as negative_signals,
@@ -278,7 +278,7 @@ from (
   cross join lateral unnest(coalesce(t.genres,array[]::text[])) g
   where e.hidden_at is not null and nullif(trim(g),'') is not null
 ) x
-group by profile_id,taste_type,taste_key,display_label
+group by profile_id,taste_type,taste_key
 on conflict(profile_id,taste_type,taste_key) do update
 set score=excluded.score,
     display_label=excluded.display_label,
