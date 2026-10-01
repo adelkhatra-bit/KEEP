@@ -1864,7 +1864,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               rien de supprimé). */}
           {!dnaExpanded ? (
             profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0 ? (
-              <Text style={styles.dnaCondensed} numberOfLines={1}>{[...profile.favoriteGenres.slice(0, 3), ...profile.favoriteArtists.slice(0, 2)].join(' · ')}</Text>
+              <View style={styles.chips}>
+                {profile.favoriteGenres.slice(0, 4).map((item) => {
+                  const match = genreOptions.find((g) => g.genre === item);
+                  return match ? (
+                    <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'genre', value: item, label: item })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
+                  ) : (
+                    <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
+                  );
+                })}
+              </View>
             ) : (
               <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>
             )
