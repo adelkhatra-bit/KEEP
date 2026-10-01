@@ -3,7 +3,7 @@ const path = require('path');
 
 function read(...parts: string[]) { return fs.readFileSync(path.join(...parts), 'utf8'); }
 
-describe('Loki Pulse style bubbles', () => {
+describe('music style bubbles', () => {
   const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const visitor = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
   const home = read(__dirname, '..', 'HomeScreenCompact.tsx');
@@ -16,18 +16,22 @@ describe('Loki Pulse style bubbles', () => {
     expect(bubbles).toContain('Style musical');
   });
 
-  it('keeps profile bubbles inside compact Pulse expansions', () => {
+  it('keeps owner bubbles visible even while the compact Pulse details are collapsed', () => {
+    expect(profile).toContain('testID="profile-loki-pulse-preview"');
+    expect(profile).toContain('testID="profile-music-style-bubbles-preview"');
+    expect(profile).toContain('!profilePulseExpanded && profileStyleBubbles.length > 0');
     expect(profile).toContain('testID="profile-music-style-bubbles"');
-    expect(profile).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
+  });
+
+  it('keeps visitor bubbles available behind its compact control', () => {
     expect(visitor).toContain('testID="public-profile-music-style-bubbles"');
     expect(visitor).toContain('visitorPulseExpanded && visitorStyleBubbles.length > 0');
   });
 
-  it('shows the bubbles directly on Loki Music home', () => {
-    expect(home).toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
+  it('shows bubbles directly on Loki Music home without a Pulse label', () => {
     expect(home).toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
     expect(home).toContain('testID="home-loki-pulse-bubbles"');
-    expect(home).toContain('<MusicStyleBubbles');
+    expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
     expect(home).not.toContain("onPress={() => navigation.navigate('Profile')}");
   });
 });
