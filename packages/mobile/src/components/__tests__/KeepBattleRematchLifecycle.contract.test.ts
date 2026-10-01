@@ -19,7 +19,8 @@ describe('KEEP Battle rematch lifecycle', () => {
     expect(game).toContain('REVANCHE EN ATTENTE · RÉPONSE OBLIGATOIRE');
     expect(game).toContain('participant.username');
     expect(game).toContain("'… EN ATTENTE'");
-    expect(game).toContain("'✓ ACCEPTÉ'");\n    expect(game).toContain('Le Battle attend les décisions explicites. Personne n’est sorti automatiquement par un compteur.');
+    expect(game).toContain("'✓ ACCEPTÉ'");
+    expect(game).toContain('Le Battle attend les décisions explicites. Personne n’est sorti automatiquement par un compteur.');
     expect(game).toContain('loadKeepBattleArenaRematchStatus(arena.id)');
   });
 
