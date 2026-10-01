@@ -2191,3 +2191,8 @@ Retour utilisateurs Adel : mêmes morceaux et mêmes faux artistes trop souvent.
 ## [2026-10-01] chatgpt — reconnaissance plus rapide, mémoire profil -> empreintes
 
 Audit Shazam officiel + code KEEP : l'iOS utilisait déjà ShazamKit réel mais attendait 4,5 s de capture puis essayait Shazam, puis mémoire KEEP, donc latence inutile. Nouveau chemin : première fenêtre iOS 3,0 s (5 s puis 8 s seulement après échecs), ShazamKit + mémoire collective + source partagée partent en parallèle et le premier match fiable gagne ; AudD/ACRCloud démarrent seulement si les trois fast paths échouent. Les morceaux gardés avec preview seedent maintenant la mémoire d'empreintes côté serveur, y compris les matchs venant de ShazamKit qui contournaient auparavant les moteurs serveur. Aucun seuil ACRCloud fiable abaissé, aucun App.tsx/Navigation/5 onglets touché.
+
+
+## [2026-10-01] chatgpt — catalogue Battle profond, priorité musique française
+
+Audit production demandé par Adel : CHANSON_FR n'avait réellement que 96 morceaux / 67 artistes, et Gilbert Montagné était absent. Le worker n'utilisait que deux requêtes génériques. Nouveau moteur de seed : budget CHANSON_FR jusqu'à 4 000 titres par passe, 20 recherches françaises par décennies + plus de 130 artistes ciblés anciens/récents (Gilbert Montagné inclus), RAP_FR approfondi, autres cultures élargies à 4 recherches de 200 résultats. Fetch concurrent borné (10), ingestion DB par lots (400) via RPC service_role-only. Le catalogue reste serveur : aucun poids ajouté au téléphone. Aucun App.tsx/Navigation/5 onglets touché.
