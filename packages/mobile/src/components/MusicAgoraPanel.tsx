@@ -77,7 +77,8 @@ function readableError(error: unknown): string {
   if (message.includes('message_blocked_language')) return 'Message refusé : garde le débat musical, enlève les insultes.';
   if (message.includes('direct_reply_required')) return 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.';
   if (message.includes('rate_limited')) return 'Trop de messages d’un coup. Réessaie dans un instant.';
-  if (message.includes('authentication_required')) return 'Connecte ton compte pour participer.';
+  if (message.includes('authentication_required')) return 'Ta session Loki doit être actualisée avant d’écrire. Rouvre le Tchat ; aucune reconnexion ne devrait être nécessaire.';
+  if (message.includes('public_profile_required')) return 'Ton compte est connecté, mais ton profil public doit être actif pour écrire dans le Tchat.';
   if (message.includes('message_length')) return 'Ton message peut aller jusqu’à 2 000 caractères.';
   if (message.includes('blocked_relationship')) return 'Cette conversation n’est pas disponible.';
   if (message.includes('paid_share_requires_recipient')) return 'Pour faire payer une pépite, réponds directement à un utilisateur.';
