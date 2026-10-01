@@ -109,8 +109,9 @@ export default function DiscoverScreen({ navigation, route }: any) {
     if (source.startsWith('PARTIES_')) setReturnToParties(true);
     if (focus === 'EVENTS') setDiscoverMode('EVENTS');
     if (focus === 'PEOPLE') setDiscoverMode('PEOPLE');
-    if (focus || source) navigation.setParams?.({ focus: undefined, source: undefined, eventId: route?.params?.eventId });
-  }, [navigation, route?.params?.focus, route?.params?.source, route?.params?.eventId]);
+    const requestedEventId = route?.params?.openEventId ?? route?.params?.eventId;
+    if (focus || source) navigation.setParams?.({ focus: undefined, source: undefined, openEventId: requestedEventId, eventId: undefined });
+  }, [navigation, route?.params?.focus, route?.params?.source, route?.params?.openEventId, route?.params?.eventId]);
 
   useEffect(() => {
     if (!eventsFeatureEnabled) { setUpcomingEvents([]); return undefined; }
@@ -422,7 +423,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const openEventInline = async (event: CreatorEvent) => {
     setEventDetail(event);
     setEventDetailOpen(true);
-    setEventRsvp(null);
+    setEventRsvpState(null);
     setEventRsvpCounts({ going: 0, maybe: 0, notGoing: 0 });
     setEventActionBusy(true);
     try {
@@ -431,7 +432,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
         user?.id && !isLocalGuest && !isDemoMode ? loadMyRsvps(user.id) : Promise.resolve({} as Record<string, EventRsvpStatus>),
       ]);
       setEventRsvpCounts(counts);
-      setEventRsvp(myRsvps[event.id] ?? null);
+      setEventRsvpState(myRsvps[event.id] ?? null);
     } catch {
       // Le détail reste visible même si les compteurs sont momentanément indisponibles.
     } finally {
@@ -464,13 +465,13 @@ export default function DiscoverScreen({ navigation, route }: any) {
   };
 
   useEffect(() => {
-    const requestedId = String(route?.params?.eventId ?? '').trim();
+    const requestedId = String(route?.params?.openEventId ?? route?.params?.eventId ?? '').trim();
     if (!requestedId || discoverMode !== 'EVENTS' || !upcomingEvents.length) return;
     const event = upcomingEvents.find((row) => row.id === requestedId);
     if (!event) return;
     void openEventInline(event);
-    navigation.setParams?.({ eventId: undefined });
-  }, [discoverMode, upcomingEvents, route?.params?.eventId, navigation]);
+    navigation.setParams?.({ openEventId: undefined, eventId: undefined });
+  }, [discoverMode, upcomingEvents, route?.params?.openEventId, route?.params?.eventId, navigation]);
 
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
