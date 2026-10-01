@@ -20,13 +20,13 @@ describe('Playlist FREE shortfall UX', () => {
     expect(preview).toContain('FREE INSUFFISANTS');
     expect(preview).toContain('RECHARGER MES FREE');
     expect(preview).toContain("backgroundColor: 'rgba(255,92,114,0.10)'");
-    expect(preview).toContain('disabled={!waiverAccepted || busy || freeBlocked}');
+    expect(preview).toContain('disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}');
     expect(profile).toContain("navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' })");
   });
 
   it('aligns the profile link and price on one clean row', () => {
     expect(preview).toContain('sellerPriceRow');
-    expect(preview).toContain('VOIR @{normalizedUsername}');
+    expect(preview).toContain('<Text style={s.profileLinkText}>@{normalizedUsername}</Text>');
     expect(preview).toContain('totalPricePill');
     expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
   });
