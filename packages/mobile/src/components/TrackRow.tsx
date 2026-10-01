@@ -161,7 +161,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
             <Text style={styles.keepSuccessTitle}>Merci pour ta découverte</Text>
             <Text style={styles.keepSuccessTrack} numberOfLines={2}>{track.title} · {track.artist}</Text>
             <Text style={styles.keepSuccessDebit}>{keepCost} FREE débités</Text>
-            <Text style={styles.keepSuccessBody}>{keepSuccessVisibility === 'PUBLIC' ? 'Le morceau est maintenant visible sur ton profil.' : 'Le morceau est gardé en privé dans ta bibliothèque.'}</Text>
+            <Text style={styles.keepSuccessBody}>{keepSuccessVisibility === 'PUBLIC' ? 'Bravo, tu fais grandir ta communauté. Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.' : 'Le morceau est gardé en privé dans ta bibliothèque. Rien n’est publié et aucune notification de nouveau morceau n’est envoyée à tes abonnés.'}</Text>
             <TouchableOpacity style={styles.keepSuccessButton} onPress={() => setKeepSuccessOpen(false)} accessibilityLabel="Fermer la confirmation"><Text style={styles.keepSuccessButtonText}>PARFAIT</Text></TouchableOpacity>
           </View>
         </View>
