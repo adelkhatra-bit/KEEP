@@ -186,6 +186,7 @@ export interface PersistedKeepDecision {
   sourceProfileId?: string;
   sourceUsername?: string;
   originSource?: string;
+  importedFrom?: 'spotify' | 'deezer' | 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal';
   creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT';
   track: CanonicalTrack;
 }
@@ -244,6 +245,9 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       : row?.source_type
         ? String(row.source_type)
         : undefined;
+    const importedFrom = ['spotify','deezer','apple_music','youtube_music','soundcloud','tidal'].includes(String(context.importedFrom || ''))
+      ? String(context.importedFrom) as PersistedKeepDecision['importedFrom']
+      : undefined;
     return [{
       decisionId: String(row.id),
       visibility,
@@ -253,6 +257,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       sourceProfileId,
       sourceUsername,
       originSource,
+      importedFrom,
       creditPolicy,
       track: {
         id: String(track.id),
