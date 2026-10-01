@@ -126,7 +126,7 @@ begin
   insert into public.profile_loki_pulse_events(profile_id,track_id,first_shown_at,last_shown_at)
   select uid,c.track_id,now(),now()
   from tmp_loki_pulse_candidates c
-  on conflict(profile_id,track_id)
+  on conflict on constraint profile_loki_pulse_events_pkey
   do update set last_shown_at=excluded.last_shown_at;
 
   if v_new_count > 0 and not exists (
