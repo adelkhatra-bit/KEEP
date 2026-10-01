@@ -13,7 +13,7 @@ import { buildAffiliatedPublicProfileLink, buildPublicProfileLink, copyProfileSh
 import { loadCurrentPlanCode } from '../services/planService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
-import { getDownloadCreditStatus } from '../services/creditService';
+import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditService';
 import { commitKeep } from '../services/keepTrackAction';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem, markLokiPulseTrackKept } from '../services/lokiPulseService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
@@ -226,6 +226,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Offres utilise déjà pour un compte connecté, donc les deux endroits
   // affichent enfin le même chiffre.
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
+  const [freeSpentToday, setFreeSpentToday] = useState(0);
+  const [freeSpentKeepCount, setFreeSpentKeepCount] = useState(0);
   const [freeWon, setFreeWon] = useState(0);
   const [freeLost, setFreeLost] = useState(0);
   // Adel (04/09/2026) : le coût réel d'un Garder (free_cost_per_keep, Super
@@ -553,12 +555,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
       }
       if (!isLocalGuest && !isDemoMode) {
         try {
-          const [battleStatus, dailyBattleStats] = await Promise.all([
+          const [battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
             loadMyKeepBattleCreditStatus(),
             loadKeepBattlePlayerStats(user.id),
+            loadFreeSpentToday(),
           ]);
           if (!live) return;
           setFreeBalance(battleStatus.remainingFree);
+          setFreeSpentToday(dailySpend?.spent ?? 0);
+          setFreeSpentKeepCount(dailySpend?.keeps ?? 0);
           setFreeWon(dailyBattleStats.freeWon);
           setFreeLost(dailyBattleStats.freeLost);
         } catch {
@@ -569,6 +574,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         // La démo n'a aucun portefeuille serveur. Ne jamais inventer un solde
         // (l'ancien "3 FREE" donnait l'impression que ces crédits existaient).
         setFreeBalance(null);
+        setFreeSpentToday(0);
+        setFreeSpentKeepCount(0);
         setFreeWon(0);
         setFreeLost(0);
       } else if (live) {
@@ -576,6 +583,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         const guestStatus = await getDownloadCreditStatus().catch(() => null);
         if (!live) return;
         setFreeBalance(guestStatus?.remaining ?? null);
+        setFreeSpentToday(0);
+        setFreeSpentKeepCount(0);
         setFreeWon(0);
         setFreeLost(0);
       }
@@ -825,11 +834,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setCreditRemaining(credit.remaining);
       setCreditUnlimited(credit.unlimited);
     }
-    const [battleStatus, dailyBattleStats] = await Promise.all([
+    const [battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
       loadMyKeepBattleCreditStatus().catch(() => null),
       user?.id ? loadKeepBattlePlayerStats(user.id).catch(() => null) : Promise.resolve(null),
+      loadFreeSpentToday().catch(() => null),
     ]);
     if (battleStatus) setFreeBalance(battleStatus.remainingFree);
+    if (dailySpend) {
+      setFreeSpentToday(dailySpend.spent);
+      setFreeSpentKeepCount(dailySpend.keeps);
+    }
     if (dailyBattleStats) {
       setFreeWon(dailyBattleStats.freeWon);
       setFreeLost(dailyBattleStats.freeLost);
@@ -1623,11 +1637,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <View style={s.metricInlinePanel}>
           <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Tes Free</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
           <View style={s.freeInlineStats}>
-            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeBalance ?? '…'}</Text><Text style={s.freeInlineLabel}>disponibles</Text></View>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeSpentToday}</Text><Text style={s.freeInlineLabel}>dépensés aujourd’hui</Text></View>
             <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés aujourd’hui</Text></View>
             <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeLost}</Text><Text style={s.freeInlineLabel}>perdus aujourd’hui</Text></View>
           </View>
-          <Text style={s.freeInlineHint}>Compteurs Battle du jour : 02:00 → 01:59 · Garder un morceau coûte actuellement {freeCostPerKeep} Free.</Text>
+          <Text style={s.freeInlineHint}>{freeSpentKeepCount} morceau{freeSpentKeepCount > 1 ? 'x' : ''} ajouté{freeSpentKeepCount > 1 ? 's' : ''} avec des FREE aujourd’hui · journée 02:00 → 01:59 · coût actuel : {freeCostPerKeep} FREE.</Text>
           <TouchableOpacity style={s.freeInlineCta} onPress={() => navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' })}><Text style={s.freeInlineCtaText}>COMMENT GAGNER PLUS DE FREE ›</Text></TouchableOpacity>
         </View>
       ) : null}
