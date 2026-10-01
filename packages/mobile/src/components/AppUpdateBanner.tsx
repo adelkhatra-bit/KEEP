@@ -12,7 +12,7 @@ export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
   const { width } = useWindowDimensions();
 
-  if (Platform.OS !== 'web' || !latestSha) return null;
+  if (Platform.OS !== 'web') return null;
 
   return (
     <View
@@ -23,10 +23,10 @@ export default function AppUpdateBanner() {
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="Appliquer la nouvelle version de Loki Music"
-        style={s.button}
+        style={[s.button, latestSha && s.buttonHot]}
         onPress={reloadToLatest}
       >
-        <Text style={s.text}>↻ Mise à jour</Text>
+        <Text style={s.text}>{latestSha ? '↻ Nouvelle version' : '↻ Mise à jour'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -61,6 +61,10 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+  buttonHot: {
+    borderWidth: 2,
+    shadowOpacity: 0.38,
   },
   text: {
     color: colors.textPrimary,
