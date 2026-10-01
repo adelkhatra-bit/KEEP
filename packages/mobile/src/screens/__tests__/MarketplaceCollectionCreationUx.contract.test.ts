@@ -44,7 +44,8 @@ describe('Pépites collection creation UX', () => {
     expect(panel).toContain('collectionCartCurrencyCode');
     expect(panel).toContain('OUVRIR PAYPAL.ME');
     expect(panel).toContain('ENREGISTRER LE LIEN');
-    expect(panel).toContain('getPayoutLinkForProfile(user.id)');
+    expect(panel).toContain('getMyPayoutMethods()');
+    expect(panel).toContain('PayPalQrPayoutControl');
     expect(contract.marketplacePurchases.savedPayoutLinkMustBeReused).toBe(true);
   });
 });
