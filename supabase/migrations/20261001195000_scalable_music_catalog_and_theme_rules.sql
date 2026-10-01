@@ -48,7 +48,7 @@ create table if not exists public.keep_battle_theme_rules (
 
 create unique index if not exists keep_battle_theme_rules_unique_genre
 on public.keep_battle_theme_rules(theme_code,lower(coalesce(genre_pattern,'')),match_mode,
-  coalesce(release_year_min,-32768::smallint),coalesce(release_year_max,32767::smallint));
+  coalesce(release_year_min::integer,-32768),coalesce(release_year_max::integer,32767));
 
 alter table public.keep_battle_theme_rules enable row level security;
 drop policy if exists keep_battle_theme_rules_read on public.keep_battle_theme_rules;
