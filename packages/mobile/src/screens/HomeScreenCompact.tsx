@@ -7,6 +7,7 @@ import { KeepVisibility } from '../types';
 import { SILENCE_PROMPT_GRACE_MS, useSessionStore } from '../store/useSessionStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
@@ -14,7 +15,7 @@ import ListenEnergyAura from '../components/ListenEnergyAura';
 import MicPermissionPrimerScreen from '../components/MicPermissionPrimerScreen';
 import CoachMarks from '../components/CoachMarks';
 import MotionActionButton from '../components/MotionActionButton';
-import { loadSessionScreenCopy, loadCurrentPlanCode } from '../services/planService';
+import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from '../services/planService';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
@@ -23,6 +24,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
+const DEMO_LISTEN_COUNT_KEY = '@keep/demo-listen-count-v1';
 
 // Palette locale desormais derivee du Design System (packages/mobile/src/theme/colors.ts).
 // Les cles conservent leur nom pour ne rien casser dans les styles ci-dessous ; seules
@@ -98,6 +100,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
+  const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
@@ -116,6 +119,77 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const [demoListenLimit, setDemoListenLimit] = useState(8);
+  const [demoListenUsed, setDemoListenUsed] = useState(0);
+  const demoListenUsedRef = useRef(0);
+  const demoSeenTrackIdsRef = useRef<Set<string>>(new Set());
+  const demoListenReadyRef = useRef(false);
+  const demoLimitAlertedRef = useRef(false);
+
+  const explainDemo = () => Alert.alert(
+    'Mode démo',
+    `Tu peux tester l’identification musicale gratuitement jusqu’à ${demoListenLimit} morceaux sur cet appareil. Les FREE servent ensuite à garder certaines trouvailles sur ton profil ; ils ne sont pas dépensés pour simplement écouter. Crée ou connecte ton compte pour enregistrer ton profil, tes goûts, tes morceaux et continuer sans la limite démo.`,
+    [
+      { text: 'Plus tard', style: 'cancel' },
+      { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+    ],
+  );
+
+  const startListening = () => {
+    if (isDemoMode && demoListenUsedRef.current >= demoListenLimit) {
+      explainDemo();
+      return;
+    }
+    startSession();
+  };
+
+  useEffect(() => {
+    if (!isDemoMode) {
+      demoListenReadyRef.current = false;
+      demoLimitAlertedRef.current = false;
+      return undefined;
+    }
+    let live = true;
+    Promise.all([
+      loadDemoListenLimit().catch(() => 8),
+      AsyncStorage.getItem(DEMO_LISTEN_COUNT_KEY).catch(() => null),
+    ]).then(([limit, stored]) => {
+      if (!live) return;
+      const safeLimit = Math.max(1, Number(limit) || 8);
+      const used = Math.max(0, Number(stored || 0) || 0);
+      setDemoListenLimit(safeLimit);
+      setDemoListenUsed(Math.min(used, safeLimit));
+      demoListenUsedRef.current = Math.min(used, safeLimit);
+      demoSeenTrackIdsRef.current = new Set(useSessionStore.getState().tracks.map((entry) => entry.id));
+      demoListenReadyRef.current = true;
+      demoLimitAlertedRef.current = used >= safeLimit;
+    });
+    return () => { live = false; };
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    if (!isDemoMode || !demoListenReadyRef.current) return;
+    const freshIds = tracks.map((entry) => entry.id).filter((id) => !demoSeenTrackIdsRef.current.has(id));
+    if (!freshIds.length) return;
+    freshIds.forEach((id) => demoSeenTrackIdsRef.current.add(id));
+    const next = Math.min(demoListenLimit, demoListenUsedRef.current + freshIds.length);
+    demoListenUsedRef.current = next;
+    setDemoListenUsed(next);
+    void AsyncStorage.setItem(DEMO_LISTEN_COUNT_KEY, String(next)).catch(() => {});
+    if (next >= demoListenLimit && !demoLimitAlertedRef.current) {
+      demoLimitAlertedRef.current = true;
+      requestEndSession();
+      Alert.alert(
+        'Démo terminée',
+        `Tu as testé ${demoListenLimit} morceaux. Crée ou connecte ton compte pour continuer à identifier de la musique et retrouver tes goûts sur Loki Music.`,
+        [
+          { text: 'Plus tard', style: 'cancel' },
+          { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+        ],
+      );
+    }
+  }, [demoListenLimit, isDemoMode, requestEndSession, tracks]);
+
   // Adel (02/09/2026) : "neutralise le problème sans impacter le reste du
   // code" -- ne change rien à la demande de micro elle-même (déjà correcte,
   // synchrone dans le geste de clic, vérifié). Ajoute seulement une
@@ -472,7 +546,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               <MotionActionButton
                 variant="primary"
                 size="large"
-                onPress={startSession}
+                onPress={startListening}
                 accessibilityLabel="Identifier un morceau"
                 accessibilityHint="Loki Music capte avec le micro du téléphone la musique jouée autour de toi"
               >
@@ -480,7 +554,14 @@ export default function HomeScreenCompact({ navigation }: any) {
               </MotionActionButton>
             </View>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
-            {musicEngine.isDemoMode ? <Text style={s.demo}>MODE DÉMO</Text> : null}
+            {isDemoMode || musicEngine.isDemoMode ? (
+              <View style={s.demoRow}>
+                <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} ÉCOUTES` : ''}</Text>
+                <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
+                  <Text style={s.demoHelpText}>?</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
           {Platform.OS === 'web' && !musicEngine.isDemoMode ? (
             <TouchableOpacity style={s.tabTest} onPress={testTabCapture} disabled={tabTestBusy} accessibilityLabel="Tester avec le son d'un onglet">
@@ -929,9 +1010,9 @@ const s = StyleSheet.create({
   blob2: { width: 280, height: 280, backgroundColor: C.green, top: 170, right: -90, opacity: 0.12 },
   blob3: { width: 260, height: 260, backgroundColor: colors.primaryDark, bottom: 120, left: -50, opacity: 0.16 },
   liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6, marginBottom: 4 },
-  micPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
+  micPill: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
   micPillIdle: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.4)' },
-  autoStopChip: { flexShrink: 1, marginLeft: 8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
+  autoStopChip: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
   autoStopText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
   autoStopChipCounting: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.45)' },
   autoStopTextCounting: { color: C.pink },
@@ -964,7 +1045,10 @@ const s = StyleSheet.create({
   idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10 },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
-  demo: { marginTop: 14, color: C.purpleLight, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  demoRow:{marginTop:14,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
+  demo: { color: C.purpleLight, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  demoHelp:{width:24,height:24,borderRadius:12,borderWidth:1,borderColor:C.purpleLight,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(124,92,252,.10)'},
+  demoHelpText:{color:C.purpleLight,fontSize:12,fontWeight:'900'},
   tabTest: { marginTop: 14, paddingVertical: 6, paddingHorizontal: 12, minHeight: 44, justifyContent: 'center' },
   tabTestText: { color: C.mutedGrey, fontSize: 13, fontWeight: '700', textDecorationLine: 'underline' },
   error: { color: C.pink, fontSize: 12, textAlign: 'center', marginBottom: 10 },
