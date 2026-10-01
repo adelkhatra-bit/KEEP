@@ -1145,23 +1145,27 @@ export default function MusicAgoraPanel({
           </ScrollView>
         </View>
       ) : null}
-      <TextInput
-        value={draft}
-        onChangeText={setDraft}
-        placeholder="Écris ici…"
-        placeholderTextColor={colors.textMutedGrey}
-        multiline
-        scrollEnabled
-        maxLength={2000}
-        onFocus={() => {
-          setReactionPaletteOpen(false);
-          forceBottomRef.current = true;
-          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
-          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
-        }}
-        style={[s.input, compact && s.inputCompact]}
-      />
-      <View style={s.composerBottom}>
+      <View style={s.composerTools}>
+        <TouchableOpacity
+          style={[s.shareMusic, awaitingDirectReply && s.quickReactionDisabled]}
+          disabled={!shareableTracks.length || awaitingDirectReply}
+          onPress={() => setShareOpen(true)}
+          accessibilityLabel="Ajouter une pépite à ce message"
+        >
+          <Text style={s.shareMusicText}>＋ PÉPITE</Text>
+        </TouchableOpacity>
+        {replyTarget ? <TouchableOpacity
+          style={[s.shareQr, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]}
+          disabled={awaitingDirectReply}
+          onPress={() => void sharePayoutQr()}
+          accessibilityLabel="Partager mon QR PayPal"
+        >
+          <Text style={s.shareQrText}>▣ QR PAYPAL</Text>
+        </TouchableOpacity> : null}
+        <Text style={s.counter}>{draft.length}/2000</Text>
+      </View>
+
+      <View style={[s.composerBar, awaitingDirectReply && s.composerBarLocked]}>
         <TouchableOpacity
           style={[s.emojiButton, reactionPaletteOpen && s.emojiButtonOn, awaitingDirectReply && s.quickReactionDisabled]}
           disabled={awaitingDirectReply}
@@ -1170,14 +1174,31 @@ export default function MusicAgoraPanel({
         >
           <Text style={s.emojiButtonText}>☺</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[s.shareMusic, awaitingDirectReply && s.quickReactionDisabled]} disabled={!shareableTracks.length || awaitingDirectReply} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
-          <Text style={s.shareMusicText}>＋ PÉPITE</Text>
+        <TextInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder={awaitingDirectReply ? 'Patiente que la personne réponde…' : 'Écris un message…'}
+          placeholderTextColor={colors.textMutedGrey}
+          multiline
+          scrollEnabled
+          editable={!awaitingDirectReply}
+          maxLength={2000}
+          onFocus={() => {
+            setReactionPaletteOpen(false);
+            forceBottomRef.current = true;
+            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
+            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
+          }}
+          style={[s.input, compact && s.inputCompact]}
+        />
+        <TouchableOpacity
+          style={[s.send, ((!sharedTrack && !draft.trim()) || awaitingDirectReply) && s.sendOff]}
+          disabled={(!sharedTrack && !draft.trim()) || posting || awaitingDirectReply}
+          onPress={() => void publish()}
+          accessibilityLabel="Envoyer le message"
+        >
+          <Text style={s.sendText}>{posting ? '…' : '➤'}</Text>
         </TouchableOpacity>
-        {replyTarget ? <TouchableOpacity style={[s.shareQr, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]} disabled={awaitingDirectReply} onPress={() => void sharePayoutQr()} accessibilityLabel="Partager mon QR PayPal">
-          <Text style={s.shareQrText}>▣ QR PAYPAL</Text>
-        </TouchableOpacity> : null}
-        <Text style={s.counter}>{draft.length}/2000</Text>
-        <TouchableOpacity style={[s.send, ((!sharedTrack && !draft.trim()) || awaitingDirectReply) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting || awaitingDirectReply} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
     </View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
 
@@ -1256,10 +1277,10 @@ const s=StyleSheet.create({
   prompt:{padding:12,borderRadius:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
-  composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
-  composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
-  input:{height:82,minHeight:82,maxHeight:112,color:colors.textPrimary,fontSize:16,lineHeight:22,textAlignVertical:'top',overflow:'scroll',borderWidth:1.5,borderColor:colors.primaryLight,borderRadius:14,backgroundColor:'rgba(7,5,13,.96)',paddingHorizontal:12,paddingTop:10,paddingBottom:9},
-  inputCompact:{height:66,minHeight:66,maxHeight:92,fontSize:16,lineHeight:22,paddingTop:10,paddingBottom:9,flexGrow:0,flexShrink:0,overflow:'scroll'},
+  composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
+  composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
+  input:{flex:1,minHeight:42,maxHeight:104,color:colors.textPrimary,fontSize:16,lineHeight:22,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
+  inputCompact:{flex:1,minHeight:44,maxHeight:88,fontSize:16,lineHeight:22,paddingTop:10,paddingBottom:9,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
@@ -1273,17 +1294,19 @@ const s=StyleSheet.create({
   quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
   lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
   lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
-  composerBottom:{flexDirection:'row',alignItems:'center',gap:6,marginTop:8},
-  emojiButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  composerTools:{flexDirection:'row',alignItems:'center',gap:6,minHeight:32},
+  composerBar:{flexDirection:'row',alignItems:'flex-end',gap:5,minHeight:54,borderRadius:22,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(7,5,13,.97)',paddingHorizontal:5,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.18,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
+  composerBarLocked:{borderColor:colors.warning,opacity:.72},
+  emojiButton:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',flexShrink:0},
   emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
-  counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
-  send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
+  counter:{color:colors.textMutedGrey,fontSize:9.5,marginLeft:'auto',paddingRight:3},
+  send:{width:42,height:42,borderRadius:21,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
   sendOff:{opacity:.45},
-  sendText:{color:colors.white,fontSize:10,fontWeight:'900',letterSpacing:.7},
-  shareMusic:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  sendText:{color:colors.white,fontSize:18,fontWeight:'900',lineHeight:20},
+  shareMusic:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
   shareMusicText:{color:colors.keep,fontSize:9.5,fontWeight:'900'},
-  shareQr:{minHeight:34,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
+  shareQr:{minHeight:30,paddingHorizontal:8,borderRadius:15,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   shareQrOff:{opacity:.45},
   shareQrText:{color:colors.info,fontSize:8.5,fontWeight:'900'},
   musicAttribution:{marginTop:-5,marginHorizontal:5,paddingHorizontal:9,paddingVertical:6,borderBottomLeftRadius:12,borderBottomRightRadius:12,borderWidth:1,borderTopWidth:0,borderColor:colors.border,backgroundColor:'rgba(13,9,20,.82)',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
