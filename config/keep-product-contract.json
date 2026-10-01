@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.25",
+  "version": "2026-10-01.26",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -401,9 +401,9 @@
     "doNotDecommission": true,
     "latestUserDecisionAt": "2026-10-01",
     "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée.",
-    "closedState": "edge-drawer-mostly-hidden-around-mid-screen",
+    "closedState": "edge-drawer-position-selected-by-user",
     "unreadBehavior": "drawer-peeks-out-with-badge-sender-preview-and-optional-voice-cue",
-    "closeBehavior": "returns-to-selected-edge-around-mid-screen",
+    "closeBehavior": "returns-to-selected-edge-and-height",
     "voiceCue": "Message de <username>",
     "voiceCueRequiresChatAlertsEnabled": true,
     "openedBehavior": "full-screen-mobile-messenger",
@@ -460,7 +460,14 @@
     "mobileKeyboardBehavior": "full-screen-messenger-resizes-above-keyboard",
     "allLoadedMessagesRendered": true,
     "composerStaysVisibleWithKeyboard": true,
-    "canonicalProfileOpenClosesChatFirst": true
+    "canonicalProfileOpenClosesChatFirst": true,
+    "verticalPlacementChoices": [
+      "HIGH",
+      "MIDDLE",
+      "LOW"
+    ],
+    "verticalPlacementDefault": "MIDDLE",
+    "placementPersistsAcrossSelectedSurfaces": true
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
@@ -501,5 +508,17 @@
     "desktopManualUpdateControlMinWidth": 768,
     "manualUpdateUsesCacheBustedCanonicalReload": true,
     "visualGuardViewport": "1440x900"
+  },
+  "battleAudioFairness": {
+    "serverClockSource": "round.startedAt",
+    "allPlayersUseSamePreviewPosition": true,
+    "lateClientMustCatchUpToServerElapsedMs": true,
+    "fallbackPlaybackMustKeepServerPosition": true,
+    "acceptAndRematchMustUnlockBrowserAudioFromUserGesture": true
+  },
+  "authExperience": {
+    "welcomePopupAfterExplicitLogin": true,
+    "welcomePopupCopy": "Bienvenue sur Loki Music !",
+    "welcomePopupMustNotNavigateAway": true
   }
 }
