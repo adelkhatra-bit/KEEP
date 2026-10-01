@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { KeepNotification, NotificationPreferences, loadNotificationPreferences, loadNotifications, markAllNotificationsRead, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
-import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, type MusicAgoraSurface } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
 import { loadCurrentPlanCode } from '../services/planService';
 import {
@@ -79,6 +79,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [chatSaving, setChatSaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotifications, setChatNotifications] = useState(true);
+  const [chatVoiceAnnouncements, setChatVoiceAnnouncements] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['PROFILE']);
   const [chatSide, setChatSide] = useState<'left' | 'right'>('right');
 
@@ -107,6 +108,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       const settings = await loadMusicAgoraSettings();
       setChatEnabled(settings.homeEnabled);
       setChatNotifications(settings.notificationsEnabled);
+      setChatVoiceAnnouncements(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ['PROFILE']);
       setChatSide(settings.side);
       useGlobalChatStore.getState().setSide(settings.side);
@@ -132,6 +134,17 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       setChatSide(settings.side);
       useGlobalChatStore.getState().setSide(settings.side);
       useGlobalChatStore.getState().setBottomOffset(settings.bottomOffset);
+    } finally {
+      setChatSaving(false);
+    }
+  };
+
+  const persistChatVoiceAnnouncements = async (enabled: boolean) => {
+    if (chatSaving) return;
+    setChatSaving(true);
+    try {
+      const saved = await saveMusicAgoraVoiceAnnouncements(enabled);
+      setChatVoiceAnnouncements(saved);
     } finally {
       setChatSaving(false);
     }
@@ -285,6 +298,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                   <Text style={s.chatSwitchLabel}>Alertes nouveaux messages</Text>
                   <Switch value={chatNotifications} disabled={chatSaving || !chatEnabled} onValueChange={(value) => void persistChat(true, value, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
                 </View>
+                <View style={s.chatSwitchRow}>
+                  <View style={s.chatSwitchCopy}>
+                    <Text style={s.chatSwitchLabel}>Annonce vocale</Text>
+                    <Text style={s.chatSwitchHint}>Dit seulement « Message de @pseudo ». Le contenu du message n’est jamais lu.</Text>
+                  </View>
+                  <Switch value={chatVoiceAnnouncements} disabled={chatSaving || !chatEnabled || !chatNotifications} onValueChange={(value) => void persistChatVoiceAnnouncements(value)} trackColor={{ false: colors.border, true: colors.keep }} />
+                </View>
                 <Text style={s.chatSectionLabel}>OÙ L’AFFICHER</Text>
                 <View style={s.chatSurfaceGrid}>
                   {CHAT_SURFACE_OPTIONS.map((option) => {
@@ -395,7 +415,9 @@ const s = StyleSheet.create({
   chatTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
   chatHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:4},
   chatSwitchRow:{minHeight:46,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:colors.border,marginTop:8},
+  chatSwitchCopy:{flex:1,minWidth:0,paddingRight:10},
   chatSwitchLabel:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},
+  chatSwitchHint:{color:colors.textMutedGrey,fontSize:8.5,lineHeight:12,marginTop:2},
   chatSectionLabel:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.8,marginTop:8,marginBottom:6},
   chatSurfaceGrid:{flexDirection:'row',flexWrap:'wrap',gap:6},
   chatSurfaceChip:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
