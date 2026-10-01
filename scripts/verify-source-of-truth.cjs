@@ -103,16 +103,17 @@ for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
 }
 
 const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
-if (productContract.profileOwner?.freePlacement !== 'beside-profile-kind') failures.push('PRODUCT CONTRACT FREE PLACEMENT MISMATCH');
-if (productContract.profileOwner?.freeBesideProfileKind !== true) failures.push('PRODUCT CONTRACT FREE BESIDE PROFILE KIND MISMATCH');
-if (JSON.stringify(productContract.profileOwner?.metricsBarOrder) !== JSON.stringify(['PLUS','Abonnés','Reprises'])) failures.push('PRODUCT CONTRACT METRICS ORDER MISMATCH');
+if (productContract.profileOwner?.freePlacement !== 'immediately-after-Reprises-in-owner-metrics-bar') failures.push('PRODUCT CONTRACT FREE PLACEMENT MISMATCH');
+if (productContract.profileOwner?.freeBesideProfileKind !== false) failures.push('PRODUCT CONTRACT FREE BESIDE PROFILE KIND MISMATCH');
+if (productContract.profileOwner?.freeImmediatelyAfterReprises !== true) failures.push('PRODUCT CONTRACT FREE AFTER REPRISES MISMATCH');
+if (JSON.stringify(productContract.profileOwner?.metricsBarOrder) !== JSON.stringify(['PLUS','Abonnés','Reprises','FREE'])) failures.push('PRODUCT CONTRACT METRICS ORDER MISMATCH');
 
 const masterSpec = fs.readFileSync(path.join(root, 'docs/KEEP_MASTER_SPEC.md'), 'utf8');
 for (const expected of [
   expectedRepository,
   expectedBranch,
-  'Barre suivante : **PLUS | Abonnés | Reprises**.',
-  'FREE immédiatement à droite du badge de type',
+  '**PLUS | Abonnés | Reprises | FREE**',
+  'FREE est immédiatement à droite de Reprises',
   'listen = 0',
   'recognize = 0',
   'PASS = 0',
