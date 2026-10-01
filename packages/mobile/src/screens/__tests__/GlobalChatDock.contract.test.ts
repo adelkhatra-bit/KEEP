@@ -14,6 +14,7 @@ describe('global movable chat contract', () => {
     for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']) {
       expect(service).toContain(surface);
       expect(notifications).toContain(surface);
+      expect(dock).toContain(surface);
     }
     expect(dock).toContain('chatSurfaces.includes(currentSurface)');
     expect(dock).toContain("name === 'Listen'");
@@ -23,18 +24,35 @@ describe('global movable chat contract', () => {
     expect(dock).toContain("['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections']");
   });
 
-  it('keeps the floating chat movable and animated', () => {
+  it('renders a visible movable animated control and persists its position', () => {
     expect(dock).toContain('PanResponder.create');
-    expect(dock).toContain("setSide('left')");
-    expect(dock).toContain("setSide('right')");
+    expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
+    expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
     expect(dock).toContain('chatNudge');
     expect(dock).toContain('Tchat Loki · prêt à discuter');
+    expect(dock).toContain("outputRange: [0, 190]");
+    expect(dock).toContain("fab: { width: 54, height: 54");
+    expect(dock).toContain("fabLeft: { left: 12 }");
+    expect(dock).toContain("fabRight: { right: 12 }");
   });
 
-  it('opens chat placement settings from the activation notification', () => {
+  it('renders the global placement popup instead of only changing hidden state', () => {
+    expect(dock).toContain('<Modal visible={settingsOpen}');
+    expect(dock).toContain('TCHAT FLOTTANT');
+    expect(dock).toContain('Choisis où il apparaît');
+    expect(dock).toContain('Le bouton reste discret, déplaçable à gauche ou à droite');
+    expect(dock).toContain('settingsSurfaceGrid');
+    expect(dock).toContain('accessibilityRole="checkbox"');
+    expect(dock).toContain('if (!accountReady || !user) return null;');
+  });
+
+  it('opens visible chat placement settings from both activation notification versions', () => {
     expect(notifications).toContain("CHAT_ACTIVATION_AVAILABLE");
+    expect(notifications).toContain("AGORA_ACTIVATE");
+    expect(notifications).toContain('useGlobalChatStore.getState().openSettings()');
     expect(notifications).toContain("setChatSettingsOpen(true)");
     expect(notifications).toContain("CHOISIR OÙ IL APPARAÎT");
     expect(service).toContain("keep_agora_set_settings_v2");
+    expect(service).toContain("keep_agora_set_position");
   });
 });
