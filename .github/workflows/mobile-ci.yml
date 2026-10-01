@@ -14,6 +14,7 @@ on:
       - 'docs/KEEP_MASTER_SPEC.md'
       - 'config/keep-ui-baseline.json'
       - 'scripts/verify-ui-layout-baseline.cjs'
+      - 'scripts/verify-global-user-regression-guard.cjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/mobile-ci.yml'
@@ -69,6 +70,9 @@ jobs:
 
       - name: KEEP UI baseline contract
         run: node scripts/verify-ui-layout-baseline.cjs
+
+      - name: KEEP global user regression guard
+        run: node scripts/verify-global-user-regression-guard.cjs
 
       - name: Typecheck mobile
         run: npm --workspace packages/mobile run type-check
