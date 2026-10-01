@@ -307,7 +307,22 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async getCurrentSession() {
-      const { data } = await client.auth.getSession();
+      let { data } = await client.auth.getSession();
+
+      // Supabase peut conserver un refresh token local alors que l'access
+      // token courant n'est plus exposé par getSession(). Avant de conclure
+      // « déconnecté », on tente une restauration silencieuse. Cela évite le
+      // cas où le profil et la musique sont encore hydratés localement alors
+      // que l'UI affiche à tort « Se connecter ».
+      if (!data.session?.user && typeof (client.auth as any).refreshSession === 'function') {
+        try {
+          const refreshed = await (client.auth as any).refreshSession();
+          if (refreshed?.data?.session?.user) data = refreshed.data;
+        } catch {
+          // Pas de refresh token exploitable : session réellement absente.
+        }
+      }
+
       const user = data.session?.user;
       return user ? {
         userId: user.id,
