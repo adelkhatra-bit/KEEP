@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
@@ -39,7 +39,7 @@ import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutL
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
-import { loadProfileEventTeaser } from '../services/creatorEventService';
+import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventById, loadEventRsvpCounts, loadMyRsvps, loadProfileEventTeaser, setEventRsvp } from '../services/creatorEventService';
 import { loadFreeCreditBreakdown } from '../services/creditService';
 
 type PublicKeepTrack = {
@@ -176,6 +176,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [marketBannerPendingEventCount, setMarketBannerPendingEventCount] = useState(0);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
   const [marketBannerOffersLoaded, setMarketBannerOffersLoaded] = useState(false);
+  const [profileEventOpen, setProfileEventOpen] = useState(false);
+  const [profileEvent, setProfileEvent] = useState<CreatorEvent | null>(null);
+  const [profileEventRsvp, setProfileEventRsvp] = useState<EventRsvpStatus | null>(null);
+  const [profileEventCounts, setProfileEventCounts] = useState<EventRsvpCounts>({ going: 0, maybe: 0, notGoing: 0 });
+  const [profileEventBusy, setProfileEventBusy] = useState(false);
+  const eventSpotlightPulse = useRef(new Animated.Value(0)).current;
   const [publicVibes, setPublicVibes] = useState<SmartAlbumRecord[]>([]);
   const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
   const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
@@ -252,6 +258,65 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     });
     return () => { live = false; };
   }, [profile?.id]);
+
+  useEffect(() => {
+    if (!(marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0)) return undefined;
+    eventSpotlightPulse.setValue(0);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(eventSpotlightPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(eventSpotlightPulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [eventSpotlightPulse, marketBannerEventIds.length, marketBannerPendingEventCount]);
+
+  const openProfileEventInline = async () => {
+    setProfileEventOpen(true);
+    setProfileEvent(null);
+    setProfileEventRsvp(null);
+    setProfileEventCounts({ going: 0, maybe: 0, notGoing: 0 });
+    if (!marketBannerEventIds.length) return;
+    const eventId = marketBannerEventIds[0];
+    setProfileEventBusy(true);
+    try {
+      const [event, counts, myRsvps] = await Promise.all([
+        loadEventById(eventId),
+        loadEventRsvpCounts(eventId),
+        viewer?.id && !isLocalGuest && !isDemoMode ? loadMyRsvps(viewer.id) : Promise.resolve({} as Record<string, EventRsvpStatus>),
+      ]);
+      setProfileEvent(event);
+      setProfileEventCounts(counts);
+      setProfileEventRsvp(myRsvps[eventId] ?? null);
+    } catch {
+      Alert.alert('Événement', 'Impossible de charger cet événement pour le moment.');
+      setProfileEventOpen(false);
+    } finally {
+      setProfileEventBusy(false);
+    }
+  };
+
+  const joinProfileEvent = async () => {
+    if (!profileEvent || profileEventRsvp === 'GOING' || profileEventBusy) return;
+    if (!viewer?.id || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour participer à cet événement.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      ]);
+      return;
+    }
+    setProfileEventBusy(true);
+    try {
+      await setEventRsvp(viewer.id, profileEvent.id, 'GOING');
+      setProfileEventRsvp('GOING');
+      setProfileEventCounts((current) => ({ ...current, going: current.going + 1 }));
+    } catch {
+      Alert.alert('Participation', 'Impossible d’enregistrer ta participation pour le moment.');
+    } finally {
+      setProfileEventBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!profile?.id || !marketBannerOffersLoaded || !marketBannerEventsLoaded) return;
@@ -1424,40 +1489,38 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         ) : null}
 
         {marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0 ? (
-          <TouchableOpacity
-            style={styles.eventSpotlight}
-            onPress={() => {
-              if (marketBannerEventIds.length > 0) {
-                navigation.navigate('Parties', { openEventId: marketBannerEventIds[0], source: 'public-profile' });
-                return;
-              }
-              Alert.alert(
-                'Soirée en attente de validation',
-                `La soirée annoncée par @${profile.username} n’est pas encore approuvée par le Super Admin. Aucun détail ni inscription n’est ouvert pour le moment. Si tu fais partie de l’audience prévue, Loki Music t’enverra automatiquement l’invitation après validation.`,
-              );
+          <Animated.View
+            style={{
+              opacity: eventSpotlightPulse.interpolate({ inputRange: [0, 1], outputRange: [.94, 1] }),
+              transform: [{ scale: eventSpotlightPulse.interpolate({ inputRange: [0, 1], outputRange: [.995, 1.012] }) }],
             }}
-            accessibilityLabel={marketBannerEventIds.length > 0
-              ? `Ouvrir la soirée approuvée de ${profile.username}`
-              : `Soirée de ${profile.username} en attente de validation`}
           >
-            <View style={styles.eventSpotlightIcon}><Text style={styles.eventSpotlightIconText}>♫</Text></View>
-            <View style={styles.eventSpotlightCopy}>
-              <Text style={styles.eventSpotlightKicker}>{marketBannerEventIds.length > 0 ? 'À VIVRE' : 'BIENTÔT'}</Text>
-              <Text style={styles.eventSpotlightTitle}>
-                {marketBannerEventIds.length > 0
-                  ? `@${profile.username} · ${marketBannerEventIds.length} soirée${marketBannerEventIds.length > 1 ? 's' : ''} disponible${marketBannerEventIds.length > 1 ? 's' : ''}`
-                  : `@${profile.username} prépare une soirée`}
-              </Text>
-              <Text style={styles.eventSpotlightMeta}>
-                {marketBannerEventIds.length > 0
-                  ? (marketBannerPendingEventCount > 0
-                      ? `Lieu · date · invitations · + ${marketBannerPendingEventCount} en validation`
-                      : 'Lieu · date · invitations · billets')
-                  : 'Validation Super Admin en cours · invitation après approbation'}
-              </Text>
-            </View>
-            <Text style={styles.eventSpotlightArrow}>{marketBannerEventIds.length > 0 ? '›' : '…'}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.eventSpotlight}
+              onPress={() => { void openProfileEventInline(); }}
+              accessibilityLabel={marketBannerEventIds.length > 0
+                ? `Voir l’événement de ${profile.username} sans quitter son profil`
+                : `Événement de ${profile.username} en attente de validation Super Admin`}
+            >
+              <View style={styles.eventSpotlightIcon}><Text style={styles.eventSpotlightIconText}>✦</Text></View>
+              <View style={styles.eventSpotlightCopy}>
+                <Text style={styles.eventSpotlightKicker}>{marketBannerEventIds.length > 0 ? 'ÇA BOUGE ICI' : 'EN ATTENTE'}</Text>
+                <Text style={styles.eventSpotlightTitle}>
+                  {marketBannerEventIds.length > 0
+                    ? `Le prochain rendez-vous de @${profile.username}`
+                    : `@${profile.username} prépare quelque chose`}
+                </Text>
+                <Text style={styles.eventSpotlightMeta}>
+                  {marketBannerEventIds.length > 0
+                    ? (marketBannerPendingEventCount > 0
+                        ? `Voir · participer · ${marketBannerPendingEventCount} autre événement en validation`
+                        : 'Voir · participer · retrouver sur ton profil')
+                    : 'En attente que le Super Admin approuve l’événement'}
+                </Text>
+              </View>
+              <Text style={styles.eventSpotlightArrow}>{marketBannerEventIds.length > 0 ? '＋' : '…'}</Text>
+            </TouchableOpacity>
+          </Animated.View>
         ) : null}
 
         <View style={styles.collectionHeader}>
@@ -1859,6 +1922,51 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </View>
       </Modal>
 
+      <Modal visible={profileEventOpen} transparent animationType="fade" onRequestClose={() => setProfileEventOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.shareSheet, styles.profileEventSheet]}>
+            <View style={styles.sheetHandle} />
+            {marketBannerEventIds.length === 0 ? (
+              <>
+                <View style={styles.profileEventPendingIcon}><Text style={styles.profileEventPendingIconText}>⏳</Text></View>
+                <Text style={styles.shareTitle}>Événement en attente</Text>
+                <Text style={styles.profileEventPendingText}>Le Super Admin doit encore approuver cet événement avant qu’il soit visible et ouvert aux participations.</Text>
+                <View style={styles.profileEventPendingPill}><Text style={styles.profileEventPendingPillText}>EN ATTENTE D’APPROBATION</Text></View>
+              </>
+            ) : profileEventBusy && !profileEvent ? (
+              <View style={styles.profileEventLoading}><ActivityIndicator color={colors.keep} /><Text style={styles.muted}>Chargement de l’événement…</Text></View>
+            ) : profileEvent ? (
+              <>
+                <Text style={styles.profileEventKicker}>RENDEZ-VOUS LOKI</Text>
+                <Text style={styles.shareTitle}>{profileEvent.name}</Text>
+                <Text style={styles.profileEventMeta}>
+                  {new Date(profileEvent.startsAt).toLocaleString()} {profileEvent.venueName ? `· ${profileEvent.venueName}` : ''}
+                </Text>
+                {profileEvent.description ? <Text style={styles.profileEventDescription}>{profileEvent.description}</Text> : null}
+                <View style={styles.profileEventStats}>
+                  <View style={styles.profileEventStat}><Text style={styles.profileEventStatValue}>{profileEventCounts.going}</Text><Text style={styles.profileEventStatLabel}>participent</Text></View>
+                  <View style={styles.profileEventStat}><Text style={styles.profileEventStatValue}>{profileEventCounts.maybe}</Text><Text style={styles.profileEventStatLabel}>intéressés</Text></View>
+                </View>
+                <TouchableOpacity
+                  disabled={profileEventBusy || profileEventRsvp === 'GOING'}
+                  style={[styles.profileEventJoin, profileEventRsvp === 'GOING' && styles.profileEventJoinOn]}
+                  onPress={() => { void joinProfileEvent(); }}
+                  accessibilityLabel={profileEventRsvp === 'GOING' ? 'Tu participes déjà à cet événement' : 'Participer à cet événement'}
+                >
+                  <Text style={[styles.profileEventJoinText, profileEventRsvp === 'GOING' && styles.profileEventJoinTextOn]}>
+                    {profileEventBusy ? 'ENREGISTREMENT…' : profileEventRsvp === 'GOING' ? '✓ TU PARTICIPES DÉJÀ' : 'JE PARTICIPE'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.profileEventStayHint}>Tu restes sur le profil de @{profile.username}. Ta participation sera aussi disponible depuis ton propre profil.</Text>
+              </>
+            ) : (
+              <Text style={styles.profileEventPendingText}>Cet événement n’est plus disponible.</Text>
+            )}
+            <TouchableOpacity style={styles.cancelShare} onPress={() => setProfileEventOpen(false)}><Text style={styles.cancelShareText}>Fermer</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={!!keepPromptTrack} transparent animationType="fade" onRequestClose={() => setKeepPromptTrack(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.shareSheet}>
@@ -1919,6 +2027,25 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   eventSpotlightTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
   eventSpotlightMeta:{color:colors.textMuted,fontSize:10,marginTop:3},
   eventSpotlightArrow:{color:colors.keep,fontSize:24,fontWeight:'900'},
+  profileEventSheet:{maxWidth:430},
+  profileEventKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2,textAlign:'center',marginBottom:5},
+  profileEventMeta:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:5},
+  profileEventDescription:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
+  profileEventStats:{flexDirection:'row',gap:8,marginTop:14},
+  profileEventStat:{flex:1,minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  profileEventStatValue:{color:colors.keep,fontSize:18,fontWeight:'900'},
+  profileEventStatLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:2},
+  profileEventJoin:{minHeight:50,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:14},
+  profileEventJoinOn:{backgroundColor:'rgba(45,225,194,.10)',borderColor:colors.keep},
+  profileEventJoinText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.7},
+  profileEventJoinTextOn:{color:colors.keep},
+  profileEventStayHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:9},
+  profileEventPendingIcon:{width:52,height:52,borderRadius:26,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.12)',alignItems:'center',justifyContent:'center',alignSelf:'center'},
+  profileEventPendingIconText:{fontSize:22},
+  profileEventPendingText:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
+  profileEventPendingPill:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.10)',alignItems:'center',justifyContent:'center',marginTop:13,paddingHorizontal:14},
+  profileEventPendingPillText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},
+  profileEventLoading:{minHeight:120,alignItems:'center',justifyContent:'center',gap:10},
   marketplaceReopenButton:{marginHorizontal:18,marginTop:10,minHeight:48,paddingHorizontal:13,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',gap:10},
   marketplaceReopenIcon:{color:colors.primaryLight,fontSize:15,fontWeight:'900'},
   marketplaceReopenCopy:{flex:1,minWidth:0},
