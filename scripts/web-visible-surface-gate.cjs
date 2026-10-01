@@ -34,11 +34,18 @@ const scenarios = [
   { name: 'tablet-1024', context: { viewport: { width: 1024, height: 768 } } },
   { name: 'android-pixel7', context: { ...devices['Pixel 7'] } },
 ];
-const routes = ['/', '/Main/Listen/', '/Main/Profile/'];
+const routes = [
+  { path: '/', marker: 'Loki Music' },
+  { path: '/Main/Listen/', marker: 'Loki Music' },
+  { path: '/Main/Discover/', marker: 'Découvertes' },
+  { path: '/Main/MyMusic/', marker: 'Playlists' },
+  { path: '/Main/Parties/', marker: 'Soirées' },
+  { path: '/Main/Profile/', marker: 'Profil' },
+];
 const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
 
-async function measure(page) {
-  return page.evaluate((tabLabels) => {
+async function measure(page, expectedMarker) {
+  return page.evaluate(({ tabLabels, expectedMarker }) => {
     const root = document.getElementById('root');
     const vh = window.innerHeight;
     const vw = window.innerWidth;
@@ -54,13 +61,15 @@ async function measure(page) {
       .filter((el) => (el.innerText || '').trim() === label)
       .filter((el) => ![...el.children].some((c) => (c.innerText || '').trim() === label));
     const visibleTabs = tabLabels.filter((label) => leafWithText(label).some(visible));
+    const markerVisible = leafWithText(expectedMarker).some(visible);
     return {
       vh,
       rootHeight: rootRect ? Math.round(rootRect.height) : -1,
       visibleTabs,
+      markerVisible,
       booting: document.documentElement.classList.contains('keep-booting'),
     };
-  }, TAB_LABELS);
+  }, { tabLabels: TAB_LABELS, expectedMarker });
 }
 
 (async () => {
@@ -70,19 +79,27 @@ async function measure(page) {
     const context = await browser.newContext({ ...scenario.context, locale: 'fr-FR' });
     const page = await context.newPage();
     for (const route of routes) {
-      const url = BASE + route;
+      const url = BASE + route.path;
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
       // Le boot-shield se lève au plus tard après 8 s ; on laisse l'app monter.
       await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
       await page.waitForTimeout(2500);
-      const m = await measure(page);
-      const label = `${scenario.name} ${route}`;
-      const problems = [];
-      if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
-      if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
-      if (m.booting) problems.push('écran de démarrage jamais levé');
-      if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
-      console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
+      for (const phase of ['open', 'reload']) {
+        if (phase === 'reload') {
+          await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
+          await page.waitForTimeout(1800);
+        }
+        const m = await measure(page, route.marker);
+        const label = `${scenario.name} ${route.path} ${phase}`;
+        const problems = [];
+        if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
+        if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
+        if (!m.markerVisible) problems.push(`mauvais écran après ${phase}: marqueur attendu « ${route.marker} » absent`);
+        if (m.booting) problems.push('écran de démarrage jamais levé');
+        if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
+        console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5 marker=${m.markerVisible ? 'OK' : 'FAIL'}`);
+      }
     }
     await context.close();
   }
@@ -107,11 +124,12 @@ async function measure(page) {
     for (const step of transitions) {
       await page.setViewportSize({ width: step.width, height: step.height });
       await page.waitForTimeout(900);
-      const m = await measure(page);
+      const m = await measure(page, 'Profil');
       const label = `resize-roundtrip ${step.name} /Main/Profile/`;
       const problems = [];
       if (m.rootHeight < m.vh * 0.9) problems.push(`#root = ${m.rootHeight}px pour une fenêtre de ${m.vh}px (page noire)`);
       if (m.visibleTabs.length < 5) problems.push(`barre des 5 onglets non visible (visibles: ${m.visibleTabs.join(', ') || 'aucun'})`);
+      if (!m.markerVisible) problems.push('mauvais écran après redimensionnement: Profil absent');
       if (m.booting) problems.push('écran de démarrage jamais levé');
       if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
       console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
