@@ -30,4 +30,11 @@ describe('Loki Pulse bubbles permanent placement', () => {
     expect(visitor).toContain('<Text style={styles.dnaEyebrow}>LOKI PULSE</Text>');
     expect(visitor).not.toContain('dnaExpanded');
   });
+
+  it('never renders duplicate Pulse cards on owner or visited profiles', () => {
+    expect(owner).not.toContain('testID="profile-loki-pulse-card"');
+    expect(visitor).not.toContain('testID="visitor-loki-pulse-card"');
+    expect((owner.match(/testID="profile-loki-pulse-bubbles-card"/g) || []).length).toBe(1);
+    expect((visitor.match(/testID="public-profile-loki-pulse-bubbles-card"/g) || []).length).toBe(1);
+  });
 });

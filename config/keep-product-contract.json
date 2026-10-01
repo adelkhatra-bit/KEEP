@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.33",
+  "version": "2026-10-01.34",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -571,5 +571,9 @@
     "homeReplacesLokiMusicDna": true,
     "usesFavoriteGenresFallback": true,
     "regressionGuardRequired": true
+  },
+  "lokiPulseStyleBubbles": {
+    "oneBubbleCardPerSurface": true,
+    "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts"
   }
 }
