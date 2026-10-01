@@ -4,9 +4,9 @@ import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
 
-// Sur ordinateur, le contrôle n'apparaît que lorsqu'une nouvelle version
-// réellement déployée est détectée. Il reste volontairement absent sur mobile
-// pour ne jamais gêner les tests ni le design.
+// Sur ordinateur, le contrôle reste toujours visible pour permettre un
+// rechargement cache-busté manuel. Quand un nouveau SHA est détecté, le même
+// bouton devient explicitement « nouvelle version ». Il reste absent sur mobile.
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
   const checkNow = useAppUpdateStore((s) => s.checkNow);
@@ -19,7 +19,7 @@ export default function AppUpdateBanner() {
     return () => clearInterval(timer);
   }, [checkNow]);
 
-  if (Platform.OS !== 'web' || width < 768 || !latestSha) return null;
+  if (Platform.OS !== 'web' || width < 768) return null;
 
   return (
     <View
@@ -29,11 +29,11 @@ export default function AppUpdateBanner() {
     >
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel="Appliquer la nouvelle version de Loki Music"
-        style={[s.button, s.buttonReady]}
-        onPress={reloadToLatest}
+        accessibilityLabel={latestSha ? 'Appliquer la nouvelle version de Loki Music' : 'Vérifier et recharger Loki Music'}
+        style={[s.button, latestSha && s.buttonReady]}
+        onPress={() => { void checkNow().finally(reloadToLatest); }}
       >
-        <Text style={s.text}>MISE À JOUR</Text>
+        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'}</Text>
       </TouchableOpacity>
     </View>
   );
