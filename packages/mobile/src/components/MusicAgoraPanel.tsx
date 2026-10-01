@@ -1,6 +1,7 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Keyboard, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { blockUser } from '../services/moderationService';
@@ -164,6 +165,7 @@ export default function MusicAgoraPanel({
   const browsingHistoryRef = useRef(false);
   const forceBottomRef = useRef(false);
   const { height: viewportHeight } = useWindowDimensions();
+  const safeArea = useSafeAreaInsets();
   const [keyboardInset, setKeyboardInset] = useState(0);
   const baseViewportHeightRef = useRef(viewportHeight);
 
@@ -1121,7 +1123,7 @@ export default function MusicAgoraPanel({
       }}
     >
       {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : '↑ PLUS ANCIENS'}</Text></TouchableOpacity> : null}
-      {(compact ? messages.slice(-6) : messages).map((message) => (
+      {messages.map((message) => (
         <View key={message.id} style={[s.message, message.profileId === currentProfileId ? s.messageOwn : s.messageOther, message.targetProfileId && s.directMessage]}>
           <TouchableOpacity style={s.author} onPress={() => onOpenProfile(message.username)}>
             {message.avatarUrl ? <Image source={{ uri: message.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{message.username.slice(0,1).toUpperCase()}</Text></View>}
@@ -1661,14 +1663,14 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,left:6,right:6,height:470,minHeight:470,maxHeight:470,flexGrow:0,flexShrink:0,padding:10,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
-  shellCompactLeft:{left:6,right:6},
-  shellCompactRight:{left:6,right:6},
-  compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
+  shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0,flexGrow:0,flexShrink:0,paddingHorizontal:10,borderRadius:0,borderWidth:0,backgroundColor:'#0B0712',overflow:'hidden',elevation:40,zIndex:100},
+  shellCompactLeft:{left:0,right:0},
+  shellCompactRight:{left:0,right:0},
+  compactHeader:{minHeight:52,flexShrink:0,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:17,fontWeight:'900',letterSpacing:.6},
-  compactMeta:{color:colors.textMutedGrey,fontSize:13,lineHeight:17,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900',letterSpacing:.35},
+  compactMeta:{color:colors.textMutedGrey,fontSize:13.5,lineHeight:18,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   compactHeaderAction:{minWidth:38,height:38,paddingHorizontal:7,borderRadius:19,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,alignItems:'center',justifyContent:'center'},
   compactHeaderActionText:{color:colors.info,fontSize:17,fontWeight:'900'},
@@ -1677,7 +1679,7 @@ const s=StyleSheet.create({
   compactModes:{flexDirection:'row',gap:7,paddingHorizontal:2,paddingBottom:3},
   compactMode:{flex:1,minHeight:32,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.04)',alignItems:'center',justifyContent:'center'},
   compactModeOn:{backgroundColor:colors.info,borderColor:colors.primaryLight},
-  compactModeText:{color:colors.info,fontSize:12,fontWeight:'900',letterSpacing:.75},
+  compactModeText:{color:colors.info,fontSize:13,fontWeight:'900',letterSpacing:.55},
   compactModeTextOn:{color:colors.white},
   threadTools:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
   threadBack:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',paddingHorizontal:5},
@@ -1707,7 +1709,7 @@ const s=StyleSheet.create({
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
   conversationName:{flex:1,color:colors.textPrimary,fontSize:15,fontWeight:'900'},
   conversationTime:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:14,lineHeight:18,marginTop:3},
+  conversationPreview:{color:colors.textSecondary,fontSize:15,lineHeight:20,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',textAlign:'center'},
@@ -1734,7 +1736,7 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{height:52,minHeight:52,maxHeight:52,flex:1,fontSize:18,lineHeight:24,paddingTop:11,paddingBottom:9,overflow:'scroll'},
+  inputCompact:{height:54,minHeight:54,maxHeight:54,flex:1,fontSize:19,lineHeight:25,paddingTop:12,paddingBottom:9,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
@@ -1753,16 +1755,16 @@ const s=StyleSheet.create({
   drawerActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   drawerActionIcon:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},
   drawerActionText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',marginTop:2},
-  composerBar:{flexDirection:'row',alignItems:'flex-end',gap:5,minHeight:54,borderRadius:22,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(7,5,13,.97)',paddingHorizontal:5,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.18,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
+  composerBar:{flexDirection:'row',alignItems:'flex-end',gap:6,minHeight:58,borderRadius:22,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(7,5,13,.97)',paddingHorizontal:5,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.18,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   composerBarLocked:{borderColor:colors.warning,opacity:.72},
-  addButton:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
+  addButton:{width:46,height:46,borderRadius:23,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
   addButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   addButtonText:{color:colors.textPrimary,fontSize:25,lineHeight:27,fontWeight:'500'},
   emojiButton:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',flexShrink:0},
   emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
   counter:{color:colors.textMutedGrey,fontSize:9.5,marginLeft:'auto',paddingRight:3},
-  send:{width:42,height:42,borderRadius:21,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
+  send:{width:46,height:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
   sendOff:{opacity:.45},
   sendText:{color:colors.white,fontSize:18,fontWeight:'900',lineHeight:20},
   shareMusic:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
@@ -1798,9 +1800,9 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:14.5,fontWeight:'900'},
+  username:{color:colors.textPrimary,fontSize:15.5,fontWeight:'900'},
   meta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:15,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:16,lineHeight:23,marginTop:8},
+  body:{color:colors.textPrimary,fontSize:17,lineHeight:24,marginTop:8},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
   qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
   qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},
