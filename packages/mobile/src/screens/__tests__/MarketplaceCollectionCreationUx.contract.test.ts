@@ -29,11 +29,22 @@ describe('Pépites collection creation UX', () => {
     expect(contract.marketplacePurchases.preventTrackAcrossActiveOffers).toBe(false);
   });
 
-  it('keeps FREE, euro and PayPal setup in the same Pépites flow', () => {
+  it('reviews the basket before price and payment', () => {
+    expect(panel).toContain("collectionCartStep === 'REVIEW'");
+    expect(panel).toContain('OUI, TOUT EST BON');
+    expect(panel).toContain('Aucun prix n’est demandé tant que tu n’as pas confirmé cette sélection.');
+    expect(contract.marketplacePurchases.creationWizardSteps).toEqual(['TRACKS','CART_REVIEW','MODE_PRICE_CURRENCY','PAYOUT_PUBLISH']);
+    expect(contract.marketplacePurchases.cartReviewMustPrecedePricing).toBe(true);
+  });
+
+  it('keeps FREE, currencies and reusable PayPal setup in the same Pépites flow', () => {
     expect(panel).toContain('⚡ FREE');
-    expect(panel).toContain('€ EUROS');
+    expect(panel).toContain('◎ PAIEMENT DIRECT');
+    expect(panel).toContain('MARKETPLACE_CURRENCIES');
+    expect(panel).toContain('collectionCartCurrencyCode');
     expect(panel).toContain('OUVRIR PAYPAL.ME');
     expect(panel).toContain('ENREGISTRER LE LIEN');
     expect(panel).toContain('getPayoutLinkForProfile(user.id)');
+    expect(contract.marketplacePurchases.savedPayoutLinkMustBeReused).toBe(true);
   });
 });
