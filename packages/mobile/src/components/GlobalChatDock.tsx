@@ -63,12 +63,14 @@ export default function GlobalChatDock() {
     }
     let live = true;
     Promise.all([
-      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] })),
+      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[], side: 'right' as const, bottomOffset: 88 })),
       loadNotifications(user.id).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatSurfaces(settings.surfaces);
+      setSide(settings.side);
+      setBottomOffset(settings.bottomOffset);
       setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
       if (!settings.homeEnabled) closeChat();
     });
@@ -103,6 +105,8 @@ export default function GlobalChatDock() {
           if (!live) return;
           setChatEnabled(Boolean(settings.homeEnabled));
           setChatSurfaces(settings.surfaces);
+          setSide(settings.side);
+          setBottomOffset(settings.bottomOffset);
         }).catch(() => {});
       }
     };
@@ -179,13 +183,14 @@ export default function GlobalChatDock() {
       drag.setValue({ x: gesture.dx, y: gesture.dy });
     },
     onPanResponderRelease: (_event, gesture) => {
-      if (gesture.dx < -24) setSide('left');
-      else if (gesture.dx > 24) setSide('right');
+      const nextSide = gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side;
       const nextBottom = Math.max(minBottom, Math.min(maxBottom, dragStartBottom.current - gesture.dy));
+      setSide(nextSide);
       setBottomOffset(nextBottom);
+      void saveMusicAgoraPosition(nextSide, nextBottom).catch(() => {});
       Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
     },
-  }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide]);
+  }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide, side]);
 
   const toggle = () => {
     if (!accountReady || !chatEnabled) return;
@@ -197,11 +202,82 @@ export default function GlobalChatDock() {
     openChat(target);
   };
 
-  if (!accountReady || !chatEnabled || !surfaceVisible || !user) return null;
+  const saveGlobalSettings = async (enabled: boolean, surfaces = chatSurfaces) => {
+    if (!accountReady || chatSaving) return;
+    setChatSaving(true);
+    try {
+      const settings = await saveMusicAgoraSettings(enabled, chatNotificationsEnabled, surfaces);
+      setChatEnabled(settings.homeEnabled);
+      setChatNotificationsEnabled(settings.notificationsEnabled);
+      setChatSurfaces(settings.surfaces);
+      setSide(settings.side);
+      setBottomOffset(settings.bottomOffset);
+    } finally {
+      setChatSaving(false);
+    }
+  };
+
+  const toggleSurface = (surface: MusicAgoraSurface) => {
+    const next = chatSurfaces.includes(surface)
+      ? chatSurfaces.filter((item) => item !== surface)
+      : [...chatSurfaces, surface];
+    void saveGlobalSettings(true, next.length ? next : ['PROFILE']);
+  };
+
+  if (!accountReady || !user) return null;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-      {open ? (
+      <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
+        <View style={styles.settingsBackdrop}>
+          <View style={styles.settingsSheet}>
+            <View style={styles.settingsHeader}>
+              <View style={styles.settingsHeaderCopy}>
+                <Text style={styles.settingsKicker}>TCHAT FLOTTANT</Text>
+                <Text style={styles.settingsTitle}>Choisis où il apparaît</Text>
+                <Text style={styles.settingsHint}>Le bouton reste discret, déplaçable à gauche ou à droite et mémorise sa position.</Text>
+              </View>
+              <TouchableOpacity style={styles.settingsClose} onPress={closeSettings} accessibilityLabel="Fermer les réglages du Tchat Loki">
+                <Text style={styles.settingsCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.settingsEnableRow}>
+              <View style={styles.settingsEnableCopy}>
+                <Text style={styles.settingsEnableTitle}>{chatEnabled ? 'Tchat actif' : 'Tchat désactivé'}</Text>
+                <Text style={styles.settingsEnableHint}>{chatEnabled ? 'Visible uniquement sur les écrans cochés.' : 'Active-le pour afficher le bouton flottant.'}</Text>
+              </View>
+              <Switch
+                value={chatEnabled}
+                disabled={chatSaving}
+                onValueChange={(value) => void saveGlobalSettings(value)}
+                trackColor={{ false: colors.border, true: colors.keep }}
+              />
+            </View>
+            <View style={styles.settingsSurfaceGrid}>
+              {CHAT_SURFACES.map((item) => {
+                const active = chatSurfaces.includes(item.key);
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.settingsSurfaceCard, active && styles.settingsSurfaceCardOn]}
+                    disabled={chatSaving}
+                    onPress={() => toggleSurface(item.key)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: active }}
+                    accessibilityLabel={`Afficher le Tchat sur ${item.label}`}
+                  >
+                    <Text style={[styles.settingsSurfaceTitle, active && styles.settingsSurfaceTitleOn]}>{active ? '✓ ' : ''}{item.label}</Text>
+                    <Text style={styles.settingsSurfaceHint}>{item.hint}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.settingsFoot}>Tu peux modifier ce choix à tout moment depuis Notifications.</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {chatEnabled && surfaceVisible && open ? (
         <MusicAgoraPanel
           compact
           compactSide={side}
@@ -215,7 +291,7 @@ export default function GlobalChatDock() {
         />
       ) : null}
 
-      {!open ? (
+      {chatEnabled && surfaceVisible && !open ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -236,7 +312,7 @@ export default function GlobalChatDock() {
         </Animated.View>
       ) : null}
 
-      <Animated.View
+      {chatEnabled && surfaceVisible ? <Animated.View
         {...responder.panHandlers}
         style={[
           styles.fabWrap,
@@ -262,12 +338,32 @@ export default function GlobalChatDock() {
             {unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
           </View>
         </TouchableOpacity>
-      </Animated.View>
+      </Animated.View> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  settingsBackdrop:{flex:1,backgroundColor:'rgba(5,4,10,.78)',alignItems:'center',justifyContent:'center',paddingHorizontal:18},
+  settingsSheet:{width:'100%',maxWidth:420,borderRadius:24,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
+  settingsHeader:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  settingsHeaderCopy:{flex:1,minWidth:0},
+  settingsKicker:{color:colors.info,fontSize:9,fontWeight:'900',letterSpacing:1.2},
+  settingsTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:3},
+  settingsHint:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:5},
+  settingsClose:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(41,194,255,.08)'},
+  settingsCloseText:{color:colors.primaryLight,fontSize:22,lineHeight:24,fontWeight:'900'},
+  settingsEnableRow:{flexDirection:'row',alignItems:'center',gap:12,marginTop:14,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.07)'},
+  settingsEnableCopy:{flex:1,minWidth:0},
+  settingsEnableTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  settingsEnableHint:{color:colors.textSecondary,fontSize:10,lineHeight:14,marginTop:2},
+  settingsSurfaceGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:12},
+  settingsSurfaceCard:{width:'48%',minHeight:64,borderRadius:15,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundCard,paddingHorizontal:10,paddingVertical:9},
+  settingsSurfaceCardOn:{backgroundColor:'rgba(41,194,255,.15)',borderColor:colors.primaryLight},
+  settingsSurfaceTitle:{color:colors.textSecondary,fontSize:11,fontWeight:'900'},
+  settingsSurfaceTitleOn:{color:colors.primaryLight},
+  settingsSurfaceHint:{color:colors.textMutedGrey,fontSize:8,lineHeight:11,marginTop:3},
+  settingsFoot:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:12},
   chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   chatNudgeLeft:{left:70},chatNudgeRight:{right:70},chatNudgeDepth:{position:'absolute',left:5,right:5,bottom:3,height:5,borderRadius:3,backgroundColor:'rgba(90,61,196,.28)'},chatNudgeText:{minWidth:190,paddingHorizontal:13,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
   fabWrap: { position: 'absolute', zIndex: 90, elevation: 30 },
