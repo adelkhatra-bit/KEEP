@@ -1,14 +1,6 @@
-# EAS build trigger — Loki Music
-#
-# Marqueur inerte servant uniquement à déclencher le workflow GitHub Actions
-# `auto-eas-build.yml` (déclencheur push sur packages/mobile/**) quand le HEAD
-# à compiler ne contient pas de modification mobile (ex : commit admin-only).
-# Ce fichier n'est jamais importé par l'application et n'entre pas dans le bundle iOS.
-#
-# Build demandé pour : 0162529 (feat(admin): add genres visibility toggle + taxonomy editor)
-# MISSION C Phase 2 — dossiers par genre.
-build-request: 2026-09-23T-mission-c-phase2
-target-commit: 0162529
-# 29/09/2026 — connexion TestFlight : build avec adresse Supabase + écran Écouter/profils du jour.
-build-request: 2026-09-29-supabase-env
-target-commit: 0028adf
+# Trigger EAS iOS production/TestFlight after validated product changes.
+# Requested by Adel: push the latest KEEP/Loki branch state to TestFlight.
+triggered-at: 2026-10-01T12:05:00+02:00
+target-branch: reconcile/claude-main-20260825
+target-commit: 0e26cdacd305b4bc05c2902fa3bd4dc5adbeb4b6
+reason: final-audit-ui-pulse-payments-events-admin-security
