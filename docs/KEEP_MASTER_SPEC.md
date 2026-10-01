@@ -64,6 +64,8 @@ Source : `HomeScreenCompact.tsx`.
 - ressource micro libérée ;
 - retour état inactif ;
 - PASSER, GARDER, ARRÊTER et morceau courant accessibles sans swipe obligatoire.
+- L'accueil Écouter affiche Loki Pulse directement avec les bulles musicales de l'utilisateur ; le bloc « Loki Music DNA » n'y apparaît plus.
+- Le bloc Loki Pulse d'accueil ne redirige pas vers le profil : les bulles sont visibles directement sur place, tout en conservant Loki Pulse sur le profil.
 
 ## 6. Découvertes
 

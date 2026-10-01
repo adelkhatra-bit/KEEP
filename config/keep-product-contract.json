@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.28",
+  "version": "2026-10-01.29",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -526,5 +526,12 @@
     "welcomePopupAfterExplicitLogin": true,
     "welcomePopupCopy": "Bienvenue sur Loki Music !",
     "welcomePopupMustNotNavigateAway": true
+  },
+  "homeLokiPulse": {
+    "visibleOnListenHome": true,
+    "replacesHomeLokiMusicDnaCard": true,
+    "noRedirectToProfile": true,
+    "usesMusicStyleBubbles": true,
+    "profileLokiPulseRemainsVisible": true
   }
 }

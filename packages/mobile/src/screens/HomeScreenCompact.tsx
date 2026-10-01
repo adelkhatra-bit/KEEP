@@ -616,31 +616,27 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
 
           {!isDemoMode && user ? (
-            <TouchableOpacity
+            <View
               style={s.homeDnaCard}
-              activeOpacity={0.88}
-              onPress={() => navigation.navigate('Profile')}
-              accessibilityRole="button"
-              accessibilityLabel="Voir mes styles musicaux sur mon profil"
+              accessibilityLabel="Loki Pulse, tes bulles musicales"
             >
               <View style={s.homeDnaHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>
-                  <Text style={s.homeDnaTitle}>Tes styles musicaux</Text>
+                  <Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>
+                  <Text style={s.homeDnaTitle}>Tes bulles musicales</Text>
                 </View>
-                <Text style={s.homeDnaArrow}>›</Text>
               </View>
               {homeStyleBubbles.length ? (
                 <MusicStyleBubbles
-                  testID="home-music-style-bubbles"
+                  testID="home-loki-pulse-bubbles"
                   genres={homeStyleBubbles}
                   max={8}
                   compact
                 />
               ) : (
-                <Text style={s.homeDnaEmpty}>Tes petites bulles apparaîtront ici à mesure que Loki apprend ce que tu gardes.</Text>
+                <Text style={s.homeDnaEmpty}>Tes bulles apparaîtront ici à mesure que Loki Pulse apprend ce que tu gardes.</Text>
               )}
-            </TouchableOpacity>
+            </View>
           ) : null}
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
