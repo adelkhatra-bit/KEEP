@@ -11,9 +11,9 @@ const fail = (message) => { throw new Error(`KEEP UI BASELINE: ${message}`); };
 const must = (condition, message) => { if (!condition) fail(message); };
 
 must(baseline.canonicalBranch === 'reconcile/claude-main-20260825', 'wrong canonical branch');
-must(baseline.profileOwner?.freePlacement === 'immediately-after-profile-kind-in-owner-identity-row', 'machine baseline must keep FREE beside profile type');
-must(baseline.profileOwner?.freeMustAppearBesideProfileKind === true, 'machine baseline must lock FREE beside profile type');
-must(baseline.profileOwner?.freeImmediatelyAfterReprises === false, 'machine baseline must keep FREE out of metrics');
+must(baseline.profileOwner?.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'machine baseline must keep FREE after Reprises');
+must(baseline.profileOwner?.freeMustAppearBesideProfileKind === false, 'machine baseline must keep FREE out of profile type row');
+must(baseline.profileOwner?.freeImmediatelyAfterReprises === true, 'machine baseline must lock FREE after Reprises');
 must(baseline.profileOwner?.freeMustAppearExactlyOnce === true, 'machine baseline must lock one FREE instance');
 must(baseline.profileOwner?.certificationMustAppearBesideUsername === true, 'machine baseline must keep certification beside username');
 must(baseline.profileOwner.freePlacement === productContract.profileOwner.freePlacement, 'UI baseline disagrees with canonical product contract');
@@ -55,5 +55,5 @@ must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel 
 must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout control missing from profile settings');
 
 console.log('KEEP UI baseline: PASS');
-console.log('profile: type -> FREE -> Battle; metrics: PLUS -> Abonnés -> Reprises');
+console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
