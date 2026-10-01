@@ -116,6 +116,11 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("if (!previewOnly && !settingsOpen && !accountReady) return null;");
     expect(dock).not.toContain("(!accountReady || !chatEnabled)) return null");
     expect(dock).toContain("chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'");
+    expect(dock).toContain('{open ? (');
+    expect(dock).not.toContain('{chatEnabled && open ? (');
+    expect(dock).toContain('styles.globalOverlay');
+    expect(dock).toContain('if (nextSurface) setActiveSurface(nextSurface)');
+    expect(dock).toContain('Math.abs(gesture.dx) > 24 || Math.abs(gesture.dy) > 24');
   });
 
   it('keeps bell messages, activity and settings separated and inline', () => {
