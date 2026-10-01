@@ -69,9 +69,10 @@ forbidText(
   'l’ancien écran bloquant Pépites ne doit jamais revenir',
 );
 
-// 5) Tchat : le bug d'auth est global, mais l'activation reste un réglage
-//    INDIVIDUEL. Une correction technique ne doit jamais forcer le Tchat
-//    pour tous les profils ni écraser community_chat_home_enabled.
+// 5) Tchat : l'activation reste un réglage INDIVIDUEL, mais la languette
+//    de découverte reste visible pour un compte réel afin que l'utilisateur
+//    puisse activer/ouvrir le Tchat d'un tap. OFF = pas de conversation active,
+//    pas disparition du contrôle.
 requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
   'const [chatEnabled, setChatEnabled] = useState(false);',
@@ -84,8 +85,18 @@ requireText(
 );
 requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
-  'if (!previewOnly && !settingsOpen && (!accountReady || !chatEnabled)) return null;',
-  'un compte réel ne suffit pas à forcer un réglage Tchat désactivé, hors aperçu visuel et panneau de réglages',
+  'if (!previewOnly && !settingsOpen && !accountReady) return null;',
+  'la languette Tchat doit rester disponible pour un compte réel, même si le Tchat est OFF',
+);
+forbidText(
+  'packages/mobile/src/components/GlobalChatDock.tsx',
+  '(!accountReady || !chatEnabled)) return null',
+  'un Tchat OFF ne doit plus faire disparaître la languette latérale',
+);
+requireText(
+  'packages/mobile/src/components/GlobalChatDock.tsx',
+  "chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'",
+  'la languette doit expliquer qu’un tap active puis ouvre le Tchat quand il est OFF',
 );
 
 // 6) Soirées / Playlists : explications derrière un ? compact, pas de mur de texte.
@@ -136,4 +147,4 @@ if (failures.length) {
 }
 
 console.log('GLOBAL USER REGRESSION GUARD — PASS');
-console.log('Auth réelle globale, réglages individuels préservés, Pépites, événements inline, aides compactes et picker profil verrouillés.');
+console.log('Auth réelle globale, languette Tchat persistante, réglages individuels préservés, Pépites, événements inline, aides compactes et picker profil verrouillés.');
