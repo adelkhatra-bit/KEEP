@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.43",
+  "version": "2026-10-02.01",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -589,7 +589,7 @@
     "neverHiddenBehindDnaAccordion": true,
     "neverGatedByKeepDnaFeatureFlag": true,
     "sharedMergeRule": "packages/mobile/src/services/musicStyleBubbles.ts",
-    "visibleBranding": "LOKI PULSE",
+    "visibleBranding": "PROFILE_ONLY_LOKI_PULSE",
     "canonicalSurfaces": [
       "LISTEN_HOME",
       "OWNER_PROFILE",
@@ -621,7 +621,14 @@
       "STYLES",
       "POUR_MOI"
     ],
-    "ownerProfilePanelsMutuallyExclusive": true
+    "ownerProfilePanelsMutuallyExclusive": true,
+    "homeVisiblePulseLabel": false,
+    "homeVisibleTitle": "Tes bulles musicales",
+    "ownerProfileAlwaysVisibleWhenStylesExist": true,
+    "ownerCollapsedPreviewVisible": true,
+    "ownerCollapsedPreviewMax": 4,
+    "ownerExpandedShowsAllStyles": true,
+    "ownerExpansionAlsoShowsRecommendations": true
   },
   "publicProfilePerformance": {
     "firstPaintAfterIdentityAndBlockCheck": true,
