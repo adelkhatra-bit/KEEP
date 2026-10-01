@@ -3,11 +3,7 @@ import { Animated, PanResponder, StyleSheet, Text, TouchableOpacity, View } from
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import {
-  loadMusicAgoraSettings,
-  loadMusicAgoraShareableTracks,
-  saveMusicAgoraSettings,
-} from '../services/musicAgoraService';
+import { loadMusicAgoraShareableTracks } from '../services/musicAgoraService';
 import { navigateToSharedProfile } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
@@ -22,7 +18,6 @@ export default function GlobalChatDock() {
   const closeChat = useGlobalChatStore((state) => state.close);
   const setSide = useGlobalChatStore((state) => state.setSide);
   const [tracks, setTracks] = useState<any[]>([]);
-  const [unreadPulse, setUnreadPulse] = useState(false);
   const pulse = useRef(new Animated.Value(1)).current;
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
@@ -35,16 +30,12 @@ export default function GlobalChatDock() {
       return;
     }
     let live = true;
-    Promise.all([
-      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true })),
-      loadMusicAgoraShareableTracks(120).catch(() => []),
-    ]).then(([settings, rows]) => {
+    loadMusicAgoraShareableTracks(120).then((rows) => {
       if (!live) return;
-      if (settings.homeEnabled) openChat();
       setTracks(rows.map((row) => row.track));
-    });
+    }).catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
-  }, [enabled, user?.id, closeChat, openChat]);
+  }, [enabled, user?.id, closeChat]);
 
   useEffect(() => {
     if (!enabled || open) {
@@ -52,7 +43,6 @@ export default function GlobalChatDock() {
       pulse.setValue(1);
       return;
     }
-    setUnreadPulse(true);
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1.08, duration: 700, useNativeDriver: true }),
@@ -78,9 +68,7 @@ export default function GlobalChatDock() {
     if (!enabled) return;
     const next = !open;
     if (next) openChat(target); else closeChat();
-    setUnreadPulse(false);
     if (next) {
-      await saveMusicAgoraSettings(true, true).catch(() => null);
       void loadMusicAgoraShareableTracks(120).then((rows) => setTracks(rows.map((row) => row.track))).catch(() => {});
     }
   };
@@ -121,7 +109,6 @@ export default function GlobalChatDock() {
           <View style={styles.fabDepthMid} />
           <View style={styles.fabFace}>
             <Text style={styles.fabIcon}>◉</Text>
-            {unreadPulse ? <View style={styles.badge} /> : null}
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -146,5 +133,4 @@ const styles = StyleSheet.create({
     elevation: 18,
   },
   fabIcon: { color: colors.keep, fontSize: 24, fontWeight: '900' },
-  badge: { position: 'absolute', right: 2, top: 2, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.background },
 });
