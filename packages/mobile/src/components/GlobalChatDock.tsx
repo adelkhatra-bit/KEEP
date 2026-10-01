@@ -19,6 +19,7 @@ const CHAT_SURFACES: Array<{ key: MusicAgoraSurface; label: string; hint: string
   { key: 'PLAYLISTS', label: 'Playlists', hint: 'Ta musique et tes collections' },
   { key: 'PARTIES', label: 'Soirées', hint: 'Événements et Battle' },
   { key: 'PROFILE', label: 'Profil', hint: 'Ton univers et les profils visités' },
+  { key: 'NOTIFICATIONS', label: 'Notifications', hint: 'Messages, paiements et confirmations' },
 ];
 
 export default function GlobalChatDock() {
@@ -39,7 +40,7 @@ export default function GlobalChatDock() {
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
   const [chatSaving, setChatSaving] = useState(false);
-  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
   const [currentSurface, setCurrentSurface] = useState<MusicAgoraSurface | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -57,13 +58,13 @@ export default function GlobalChatDock() {
       closeChat();
       setTracks([]);
       setChatEnabled(false);
-      setChatSurfaces(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
+      setChatSurfaces(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
       setUnreadCount(0);
       return;
     }
     let live = true;
     Promise.all([
-      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[], side: 'right' as const, bottomOffset: 88 })),
+      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'] as MusicAgoraSurface[], side: 'right' as const, bottomOffset: 88 })),
       loadNotifications(user.id).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
@@ -93,6 +94,7 @@ export default function GlobalChatDock() {
       if (['MyMusic','PlaylistSale','PlaylistSaleHistory'].includes(name)) return 'PLAYLISTS';
       if (name === 'Parties') return 'PARTIES';
       if (['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections'].includes(name)) return 'PROFILE';
+      if (name === 'Notifications') return 'NOTIFICATIONS';
       return null;
     };
     let live = true;
