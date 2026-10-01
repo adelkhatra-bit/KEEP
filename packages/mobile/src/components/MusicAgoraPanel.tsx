@@ -104,6 +104,9 @@ export default function MusicAgoraPanel({
   const [shareMoneyPriceInput, setShareMoneyPriceInput] = useState('1');
   const [sharePreflight, setSharePreflight] = useState<MusicAgoraSharePreflight | null>(null);
   const [sharePreflightBusy, setSharePreflightBusy] = useState(false);
+  const [shareVisibilityOpen, setShareVisibilityOpen] = useState(false);
+  const [shareAccessOpen, setShareAccessOpen] = useState(false);
+  const [shareOwnershipOpen, setShareOwnershipOpen] = useState(false);
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
@@ -933,11 +936,14 @@ export default function MusicAgoraPanel({
         <View style={s.shareHead}><View style={{ flex:1 }}><Text style={s.shareTitle}>Ajouter une pépite</Text><Text style={s.shareHint}>Choisis un morceau. Dans une conversation privée, tu peux l’envoyer gratuitement, demander des FREE ou préparer un paiement conforme au canal disponible.</Text></View><TouchableOpacity onPress={() => setShareOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity></View>
         <ScrollView style={s.shareList} contentContainerStyle={{ gap:7 }}>
           {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOptionsOpen(true); setShareOpen(false); }}>
-            {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.shareTrackArt}/> : <View style={[s.shareTrackArt,s.musicArtMasked]}><Text style={s.musicMaskIcon}>♫</Text></View>}
+            <View style={s.shareTrackArtWrap}>
+              {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.shareTrackArt}/> : <View style={[s.shareTrackArt,s.musicArtMasked]}><Text style={s.musicMaskIcon}>♫</Text></View>}
+              {track.canSell === false ? <View style={s.shareTrackLockBadge}><Text style={s.shareTrackLockBadgeText}>🔒</Text></View> : null}
+            </View>
             <View style={{ flex:1,minWidth:0 }}>
               <Text style={s.shareTrackTitle} numberOfLines={1}>{track.title}</Text>
               <Text style={s.shareTrackArtist} numberOfLines={1}>{track.artist}</Text>
-              {track.canSell === false ? <Text style={s.shareTrackLocked} numberOfLines={1}>🔒 partage uniquement{track.sourceUsername ? ` · source @${track.sourceUsername}` : ''}</Text> : null}
+              {track.canSell === false ? <Text style={s.shareTrackLocked} numberOfLines={2}>🔒 PARTAGE UNIQUEMENT{track.sourceUsername ? ` · appartient à @${track.sourceUsername}` : ' · FREE / € verrouillés'}</Text> : null}
             </View>
             <Text style={s.shareTrackArrow}>›</Text>
           </TouchableOpacity>)}
@@ -1081,6 +1087,16 @@ const s=StyleSheet.create({
   selectedMusicArtist:{color:'#F0EAF7',fontSize:13,fontWeight:'800',marginTop:3},
   selectedMusicPlayRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
   removeMusicLarge:{marginLeft:'auto',width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(10,8,15,.82)',alignItems:'center',justifyContent:'center'},
+  ownershipLock:{marginTop:8,borderRadius:14,borderWidth:1,borderColor:'#F5A623',backgroundColor:'rgba(245,166,35,.09)',overflow:'hidden'},
+  ownershipLockHead:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:10,paddingVertical:7},
+  ownershipLockIcon:{fontSize:17},
+  ownershipLockTitle:{color:'#FFD28A',fontSize:10.5,fontWeight:'900',letterSpacing:.6},
+  ownershipLockSub:{color:colors.textMutedGrey,fontSize:9.5,marginTop:2},
+  ownershipLockBody:{color:colors.textPrimary,fontSize:10,lineHeight:15,paddingHorizontal:10,paddingBottom:10},
+  shareAccordionHead:{minHeight:46,marginTop:7,paddingHorizontal:10,paddingVertical:7,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  shareAccordionLabel:{color:colors.textMutedGrey,fontSize:8.5,fontWeight:'900',letterSpacing:.8},
+  shareAccordionValue:{color:colors.textPrimary,fontSize:11.5,fontWeight:'900',marginTop:2},
+  accordionArrow:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   revealChoices:{flexDirection:'row',alignItems:'center',gap:6,marginTop:7},
   revealChip:{minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   revealChipOn:{borderColor:colors.keep,backgroundColor:colors.successSoft},
@@ -1120,10 +1136,13 @@ const s=StyleSheet.create({
   shareClose:{color:colors.textMutedGrey,fontSize:24,fontWeight:'900'},
   shareList:{marginTop:12},
   shareTrackRow:{minHeight:104,flexDirection:'row',alignItems:'center',gap:12,padding:10,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
+  shareTrackArtWrap:{width:82,height:82,position:'relative',flexGrow:0,flexShrink:0},
   shareTrackArt:{width:82,height:82,borderRadius:16,backgroundColor:colors.backgroundElevated},
+  shareTrackLockBadge:{position:'absolute',right:-4,top:-4,width:28,height:28,borderRadius:14,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
+  shareTrackLockBadgeText:{fontSize:14},
   shareTrackTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
   shareTrackArtist:{color:colors.textMutedGrey,fontSize:12,marginTop:4},
-  shareTrackLocked:{color:colors.warning,fontSize:9.5,fontWeight:'900',marginTop:4},
+  shareTrackLocked:{color:colors.warning,fontSize:10,fontWeight:'900',lineHeight:14,marginTop:4},
   musicShareOnlyText:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
   shareTrackArrow:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
 });
