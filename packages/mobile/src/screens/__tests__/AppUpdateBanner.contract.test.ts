@@ -5,29 +5,28 @@ import path from 'path';
 const read = (...segments: string[]) =>
   fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('web update control contract', () => {
+describe('silent deployment update contract', () => {
   const banner = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('keeps the update control always available on desktop and off mobile', () => {
-    expect(banner).toContain("Platform.OS !== 'web' || width < 768");
-    expect(banner).not.toContain("width < 768 || !latestSha");
-    expect(banner).toContain('keep-manual-update-control');
-    expect(banner).toContain("latestSha ? 'NOUVELLE VERSION DISPONIBLE' : 'ACTUALISER LOKI MUSIC'");
-    expect(banner).toContain('checkNow().finally(reloadToLatest)');
-    expect(banner).toContain('width: 340');
-    expect(banner).toContain('minHeight: 68');
-    expect(banner).toContain('setInterval');
+  it('never exposes deployment/version management to end users', () => {
+    expect(banner).toContain('return null;');
+    expect(banner).not.toContain('keep-manual-update-control');
+    expect(banner).not.toContain('ACTUALISER LOKI MUSIC');
+    expect(banner).not.toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(banner).not.toContain('METTRE À JOUR');
   });
 
-  it('forces a cache-busting reload to the public KEEP root', () => {
+  it('keeps automatic cache-busted web refresh available', () => {
+    expect(banner).toContain('latestSha');
+    expect(banner).toContain('reloadToLatest()');
     expect(service).toContain("params.set('__keep_update'");
     expect(service).toContain('window.location.replace');
   });
 
   it('auto-applies a compatible production OTA on native TestFlight launch', () => {
-    expect(banner).toContain("import * as Updates from 'expo-updates'");
+    expect(banner).toContain("await import('expo-updates')");
     expect(banner).toContain('Updates.checkForUpdateAsync()');
     expect(banner).toContain('Updates.fetchUpdateAsync()');
     expect(banner).toContain('Updates.reloadAsync()');
