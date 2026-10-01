@@ -16,13 +16,14 @@ describe('MyMusicScreen collection membership — single collection flow', () =>
   });
 
   it('never lets an already-offered track be silently re-bundled into a new selection', () => {
-    expect(source).toContain('const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);');
-    expect(source).toContain('disabled={lockedByAnotherOffer}');
+    expect(source).toContain('const lockedByAnotherOffer = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));');
+    expect(source).toContain("Alert.alert('Déjà publiée'");
+    expect(source).toContain('disabled={trackVisibilityBusy === track.id}');
     expect(source).toContain('selectionCheckDisabled');
   });
 
   it('shows a clear collection-membership state on the track row instead of hiding the offer', () => {
-    expect(source).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}');
+    expect(source).toContain("badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`");
     expect(source).not.toContain('styles.sellTrackButtonOffered');
   });
 
