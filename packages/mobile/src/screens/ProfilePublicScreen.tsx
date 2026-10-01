@@ -990,9 +990,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return true;
   };
   const dna = useMemo(() => {
-    const decisions: DnaSourceDecision[] = publicKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
+    // Le DNA personnel doit refléter toute la musique gardée par son propriétaire,
+    // y compris les morceaux privés. La visibilité sert au partage public, pas à
+    // effacer les goûts de l'utilisateur de son propre profil.
+    const decisions: DnaSourceDecision[] = profileKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
     return computeMusicDNA(decisions);
-  }, [publicKeptTracks]);
+  }, [profileKeptTracks]);
   // Adel (01/09/2026) : les onglets Artistes/Albums listaient dans l'ordre
   // d'ajout des morceaux gardés (arbitraire côté utilisateur) -- tri
   // alphabétique pour que ce soit vraiment rangé, sans toucher au design.
