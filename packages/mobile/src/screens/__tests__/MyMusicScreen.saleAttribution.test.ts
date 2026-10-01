@@ -15,11 +15,12 @@ describe('MyMusicScreen collection membership — single collection flow', () =>
     expect(source).toContain('loadMyOfferedTrackIds()');
   });
 
-  it('never lets an already-offered track be silently re-bundled into a new selection', () => {
-    expect(source).toContain('const lockedByAnotherOffer = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));');
-    expect(source).toContain("Alert.alert('Déjà publiée'");
-    expect(source).toContain('disabled={trackVisibilityBusy === track.id}');
-    expect(source).toContain('selectionCheckDisabled');
+  it('warns before reusing an already-offered track but lets the user add it to the Pépites cart', () => {
+    expect(source).toContain('const alreadySoldElsewhere = Boolean(offered && !includedInEditedOffer);');
+    expect(source).toContain("Alert.alert(\n        'Déjà en vente'");
+    expect(source).toContain("{ text: 'Ajouter quand même', onPress: () => { void applySaleTrackToggle(trackId); } }");
+    expect(source).toContain("selectedSaleTrackIds.has(track.id) ? '✓ RETIRER' : '+ PANIER'");
+    expect(source).not.toContain('const lockedByAnotherOffer = Boolean(');
   });
 
   it('shows a clear collection-membership state on the track row instead of hiding the offer', () => {
