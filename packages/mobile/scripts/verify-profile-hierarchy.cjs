@@ -79,7 +79,9 @@ assertIncludes(owner, "accessibilityLabel={battleAvailable ? 'Ne plus recevoir d
 assertIncludes(owner, '<BattleGlowButton', 'Owner animated Battle contour');
 assertIncludes(owner, "ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Owner quick actions equal-width row');
 assertIncludes(owner, "ownerQuickActionFull:{flex:1,minWidth:0}", 'Owner quick actions flexible equal-width buttons');
-assertIncludes(owner, "setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications');", 'Notification bell direct action');
+assertIncludes(owner, 'setNotificationPanelOpen(true)', 'Notification bell opens inline side panel');
+if (owner.includes("navigation.navigate('Notifications')")) throw new Error('Notification bell must stay inline and never navigate to the legacy Notifications screen');
+assertIncludes(owner, '<NotificationSidePanel', 'Notification inline side panel mounted on owner profile');
 
 const visitor = read('src/screens/PublicUserProfileScreen.tsx');
 assertOrdered(visitor, [
