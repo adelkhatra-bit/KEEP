@@ -11,7 +11,7 @@ describe('web update control contract', () => {
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
   it('keeps the update control off mobile and free of stray arrow icons', () => {
-    expect(banner).toContain("Platform.OS !== 'web' || width < 768");
+    expect(banner).toContain("Platform.OS !== 'web' || width < 768 || !latestSha");
     expect(banner).toContain('keep-update-available-button');
     expect(banner).toContain('MISE À JOUR');
     expect(banner).not.toContain('↻');
