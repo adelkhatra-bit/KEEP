@@ -11,14 +11,12 @@ describe('global compact chat UX contract', () => {
   const update = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
   const app = read(__dirname, '..', '..', '..', 'App.tsx');
 
-  it('keeps the compact chat drawer adaptive instead of content-sized', () => {
-    expect(panel).toContain("shellCompact:{position:'absolute'");
+  it('keeps compact chat truly full-screen instead of restoring the old content-sized drawer', () => {
+    expect(panel).toContain("shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0");
     expect(panel).toContain('minHeight:0');
-    expect(panel).toContain('compactPanelHeight');
-    expect(panel).toContain("shellCompact:{position:'absolute'");
-    expect(panel).toContain('Math.min(\n    620');
-    expect(panel).toContain('Math.max(300');
-    expect(panel).toContain('minHeight:300,maxHeight:620');
+    expect(panel).not.toContain('compactPanelHeight');
+    expect(dock).toContain('presentationStyle="fullScreen"');
+    expect(dock).toContain('testID="loki-chat-fullscreen-modal"');
     expect(panel).toContain("selectedMusic:{padding:8");
     expect(panel).toContain('maxHeight:250');
   });
@@ -56,7 +54,7 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain('maxLength={2000}');
     expect(panel).toContain('{draft.length}/2000');
     expect(panel).toContain('scrollEnabled');
-    expect(panel).toContain("inputCompact:{height:52,minHeight:52,maxHeight:52");
+    expect(panel).toContain("inputCompact:{height:48,minHeight:48,maxHeight:96");
   });
 
   it('shows ownership locks before payment choices and explains them inline', () => {
@@ -77,25 +75,25 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("keyboardDidShow");
     expect(panel).toContain('event.endCoordinates?.height');
     expect(panel).toContain('event.endCoordinates?.screenY');
-    expect(panel).toContain('const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78');
-    expect(panel).toContain('const compactTop = keyboardInset > 0');
-    expect(panel).toContain('height: compactPanelHeight');
+    expect(panel).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
+    expect(panel).toContain('top: 0');
+    expect(panel).toContain('bottom: compactBottom');
     expect(panel).toContain('forceBottomRef.current = true');
     expect(panel).toContain('scrollToEnd({ animated: false })');
   });
 
-  it('keeps the desktop update control mounted globally', () => {
+  it('keeps updates mounted globally but completely silent', () => {
     expect(app).toContain("import AppUpdateBanner from './src/components/AppUpdateBanner'");
-    expect(app).toContain('<AppUpdateBanner />');
-    expect(update).toContain('keep-manual-update-control');
-    expect(update).toContain('↻ Mise à jour');
-    expect(update).toContain("if (width < 768) return null");
+    expect(app).toContain('<AppUpdateBanner authReady={authReady} />');
+    expect(update).toContain('return null;');
+    expect(update).not.toContain('keep-manual-update-control');
+    expect(update).not.toContain('NOUVELLE VERSION DISPONIBLE');
   });
 
   it('keeps public/private room controls reachable without scrolling', () => {
-    expect(panel).toContain("'LA PLACE · PUBLIC · tout le monde peut rejoindre'");
-    expect(panel).toContain("accessibilityLabel={activeGroup ? 'Gérer les membres du salon' : 'Créer un salon privé'}");
-    expect(panel).toContain('Nouveau salon privé');
+    expect(panel).toContain('LA PLACE · PUBLIC');
+    expect(panel).toContain("accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer une conversation'}");
+    expect(panel).toContain('Nouvelle conversation');
     expect(panel).toContain('MEMBRES · {activeGroup.memberCount}');
   });
 
