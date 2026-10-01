@@ -10,7 +10,7 @@ describe('Playlist marketplace scale limits', () => {
     expect(service).toContain('activeOffers: number');
     expect(service).toContain('maxActiveOffers: number');
     expect(panel).toContain('Collections actives : {access.activeOffers} / {access.maxActiveOffers}');
-    expect(panel).toContain('200 morceaux maximum par collection');
+    expect(service).toContain('TRACK_SELECTION_TOO_LARGE');
   });
 
   it('enforces both collection and per-collection track limits in PostgreSQL', () => {
