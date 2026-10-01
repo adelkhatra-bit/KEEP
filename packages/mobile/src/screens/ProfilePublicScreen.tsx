@@ -1772,16 +1772,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.collectionTitle}>Ma musique</Text>
         <Text style={s.collectionCount}>{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau{profileTotalKeepCount > 1 ? 'x' : ''}</Text>
       </View>
-      {!accountRequired ? (
-        <MusicAgoraPanel
-          compact
-          currentProfileId={user.id}
-          enabled
-          shareableTracks={publicKeptTracks.map((entry) => entry.track)}
-          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
-        />
-      ) : null}
-
       <View style={s.tabsRow}>
         <View style={s.tabs}>{TABS.map((tab)=><TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityLabel={`Profil ${tab.label}`} accessibilityState={{ selected: activeTab === tab.key }} style={s.tab} onPress={()=>switchProfileTab(tab.key)}><Text style={[s.tabText,activeTab===tab.key&&s.tabTextOn]}>{tab.label}</Text>{activeTab===tab.key ? <View style={s.indicator}/> : null}</TouchableOpacity>)}</View>
         {activeTab === 'TRACKS' && trackGenreOptions.length > 0 ? (
@@ -1944,6 +1934,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </TouchableOpacity>
       ) : null}
     </ScrollView>
+
+    {!accountRequired ? (
+      <MusicAgoraPanel
+        compact
+        currentProfileId={user.id}
+        enabled
+        shareableTracks={publicKeptTracks.map((entry) => entry.track)}
+        onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
+      />
+    ) : null}
 
     <MusicSwipeDeckModal
       visible={profileSwipeOpen}
