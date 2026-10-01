@@ -192,12 +192,7 @@ export default function MusicAgoraPanel({
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const show = Keyboard.addListener(showEvent, (event) => {
       const reportedHeight = Math.max(0, Number(event.endCoordinates?.height || 0));
-      const screenY = Number(event.endCoordinates?.screenY);
-      const measuredFromViewport = Number.isFinite(screenY) && screenY > 0
-        ? Math.max(0, viewportHeight - screenY)
-        : 0;
-      const measuredKeyboard = Math.max(reportedHeight, measuredFromViewport);
-      setKeyboardInset(measuredKeyboard);
+      setKeyboardInset(reportedHeight);
       setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
     });
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
@@ -568,9 +563,7 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!messages.length) return;
     const timer = setTimeout(() => {
-      if (!initialScrollDone.current || !browsingHistoryRef.current) {
-        followChatBottom(initialScrollDone.current);
-      }
+      followChatBottom(initialScrollDone.current);
       initialScrollDone.current = true;
     }, 40);
     return () => clearTimeout(timer);
@@ -899,8 +892,8 @@ export default function MusicAgoraPanel({
       s.shell,
       compact && s.shellCompact,
       compact && (keyboardInset > 0
-        ? { top: 8, bottom: compactBottom, minHeight: 0 }
-        : { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: compactBottom }),
+        ? { top: 54, bottom: compactBottom, minHeight: 0 }
+        : { top: 54, bottom: 92, minHeight: 0 }),
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
@@ -1461,27 +1454,27 @@ const s=StyleSheet.create({
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.6},
-  compactMeta:{color:colors.textMutedGrey,fontSize:11,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',letterSpacing:.6},
+  compactMeta:{color:colors.textMutedGrey,fontSize:12,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   compactClose:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
   compactModes:{flexDirection:'row',gap:7,paddingHorizontal:2,paddingBottom:3},
   compactMode:{flex:1,minHeight:32,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.04)',alignItems:'center',justifyContent:'center'},
   compactModeOn:{backgroundColor:colors.info,borderColor:colors.primaryLight},
-  compactModeText:{color:colors.info,fontSize:10.5,fontWeight:'900',letterSpacing:.75},
+  compactModeText:{color:colors.info,fontSize:12,fontWeight:'900',letterSpacing:.75},
   compactModeTextOn:{color:colors.white},
   threadBack:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',paddingHorizontal:5},
-  threadBackText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  threadBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   inbox:{flex:1,minHeight:0},
   inboxList:{gap:7,paddingVertical:4},
   conversationRow:{minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
   conversationAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundElevated},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
-  conversationName:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'900'},
-  conversationTime:{color:colors.textMutedGrey,fontSize:9.5,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:12,lineHeight:15,marginTop:3},
+  conversationName:{flex:1,color:colors.textPrimary,fontSize:15,fontWeight:'900'},
+  conversationTime:{color:colors.textMutedGrey,fontSize:11,fontWeight:'700'},
+  conversationPreview:{color:colors.textSecondary,fontSize:14,lineHeight:18,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',textAlign:'center'},
@@ -1507,8 +1500,8 @@ const s=StyleSheet.create({
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
-  input:{flex:1,minHeight:42,maxHeight:104,color:colors.textPrimary,fontSize:16,lineHeight:22,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{flex:1,minHeight:44,maxHeight:88,fontSize:16,lineHeight:22,paddingTop:10,paddingBottom:9,overflow:'scroll'},
+  input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
+  inputCompact:{flex:1,minHeight:46,maxHeight:88,fontSize:17,lineHeight:23,paddingTop:10,paddingBottom:9,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
