@@ -4,28 +4,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, MusicAgoraSurface, saveMusicAgoraPosition, saveMusicAgoraSettings } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
-import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
+import { navigateToSharedProfile } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 function isChatNotification(item: KeepNotification): boolean {
-  return String(item.type || '').toUpperCase().startsWith('AGORA');
+  const type = String(item.type || '').toUpperCase();
+  return type.startsWith('AGORA') || type.startsWith('CHAT');
 }
-
-const CHAT_SURFACES: Array<{ key: MusicAgoraSurface; label: string; hint: string }> = [
-  { key: 'LISTEN', label: 'Loki Music', hint: 'Écoute et reconnaissance' },
-  { key: 'DISCOVER', label: 'Découvertes', hint: 'Trouvailles et profils' },
-  { key: 'PLAYLISTS', label: 'Playlists', hint: 'Ta musique et tes collections' },
-  { key: 'PARTIES', label: 'Soirées', hint: 'Événements et Battle' },
-  { key: 'PROFILE', label: 'Profil', hint: 'Ton univers et les profils visités' },
-  { key: 'NOTIFICATIONS', label: 'Notifications', hint: 'Messages, paiements et confirmations' },
-];
 
 export default function GlobalChatDock() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+
   const open = useGlobalChatStore((state) => state.isOpen);
   const side = useGlobalChatStore((state) => state.side);
   const bottomOffset = useGlobalChatStore((state) => state.bottomOffset);
@@ -36,13 +29,13 @@ export default function GlobalChatDock() {
   const setSide = useGlobalChatStore((state) => state.setSide);
   const setBottomOffset = useGlobalChatStore((state) => state.setBottomOffset);
   const closeSettings = useGlobalChatStore((state) => state.closeSettings);
+
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
   const [chatSaving, setChatSaving] = useState(false);
-  const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
-  const [currentSurface, setCurrentSurface] = useState<MusicAgoraSurface | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+
   const pulse = useRef(new Animated.Value(1)).current;
   const nudge = useRef(new Animated.Value(0)).current;
   const lastNudgeUnread = useRef(0);
@@ -58,25 +51,31 @@ export default function GlobalChatDock() {
       closeChat();
       setTracks([]);
       setChatEnabled(false);
-      setChatSurfaces(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
       setUnreadCount(0);
       return;
     }
+
     let live = true;
     Promise.all([
-      loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'] as MusicAgoraSurface[], side: 'right' as const, bottomOffset: 88 })),
+      loadMusicAgoraSettings().catch(() => ({
+        homeEnabled: false,
+        notificationsEnabled: true,
+        surfaces: ['PROFILE'] as const,
+        side: 'right' as const,
+        bottomOffset: 88,
+      })),
       loadNotifications(user.id).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
-      setChatSurfaces(settings.surfaces);
+      setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
       setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
-      if (!settings.homeEnabled) closeChat();
     });
+
     return () => { live = false; };
-  }, [accountReady, user?.id, closeChat]);
+  }, [accountReady, user?.id, closeChat, setBottomOffset, setSide]);
 
   useEffect(() => {
     if (!accountReady || !user?.id) return;
@@ -87,89 +86,75 @@ export default function GlobalChatDock() {
   }, [accountReady, user?.id]);
 
   useEffect(() => {
-    const routeToSurface = (name?: string): MusicAgoraSurface | null => {
-      if (!name) return null;
-      if (name === 'Listen') return 'LISTEN';
-      if (name === 'Discover') return 'DISCOVER';
-      if (['MyMusic','PlaylistSale','PlaylistSaleHistory'].includes(name)) return 'PLAYLISTS';
-      if (name === 'Parties') return 'PARTIES';
-      if (['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections'].includes(name)) return 'PROFILE';
-      if (name === 'Notifications') return 'NOTIFICATIONS';
-      return null;
-    };
+    if (!accountReady || (!chatEnabled && !open)) {
+      setTracks([]);
+      return;
+    }
     let live = true;
-    const sync = () => {
-      if (!live) return;
-      const next = routeToSurface(navigationRef.getCurrentRoute()?.name);
-      setCurrentSurface(next);
-      if (accountReady && user?.id) {
-        loadMusicAgoraSettings().then((settings) => {
-          if (!live) return;
-          setChatEnabled(Boolean(settings.homeEnabled));
-          setChatSurfaces(settings.surfaces);
-          setSide(settings.side);
-          setBottomOffset(settings.bottomOffset);
-        }).catch(() => {});
-      }
-    };
-    const timer = setTimeout(sync, 0);
-    const unsubscribe = navigationRef.addListener('state', sync);
-    return () => { live = false; clearTimeout(timer); unsubscribe(); };
-  }, [accountReady, user?.id]);
-
-  const surfaceVisible = Boolean(currentSurface && chatSurfaces.includes(currentSurface));
-
-  useEffect(() => {
-    if (!surfaceVisible && open) closeChat();
-  }, [surfaceVisible, open, closeChat]);
-
-  useEffect(() => {
-    if (!chatEnabled || !accountReady) return;
-    let live = true;
-    loadMusicAgoraShareableTracks(160).then((rows) => {
-      if (!live) return;
-      setTracks(rows.map((row) => ({
-        ...row.track,
-        canSell: row.canSell,
-        sourceUsername: row.sourceUsername,
-      })));
-    }).catch(() => { if (live) setTracks([]); });
+    loadMusicAgoraShareableTracks(160)
+      .then((rows) => {
+        if (!live) return;
+        setTracks(rows.map((row) => ({
+          ...row.track,
+          canSell: row.canSell,
+          sourceUsername: row.sourceUsername,
+        })));
+      })
+      .catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
-  }, [chatEnabled, accountReady, user?.id, open]);
+  }, [accountReady, chatEnabled, open, user?.id]);
 
   useEffect(() => {
-    if (!accountReady || !chatEnabled || !surfaceVisible || open) {
+    if (!accountReady || !open || chatEnabled || chatSaving) return;
+    let live = true;
+    setChatSaving(true);
+    saveMusicAgoraSettings(true, chatNotificationsEnabled, ['PROFILE'])
+      .then((settings) => {
+        if (!live) return;
+        setChatEnabled(true);
+        setChatNotificationsEnabled(settings.notificationsEnabled);
+        setSide(settings.side);
+        setBottomOffset(settings.bottomOffset);
+      })
+      .catch(() => {
+        if (live) closeChat();
+      })
+      .finally(() => { if (live) setChatSaving(false); });
+    return () => { live = false; };
+  }, [accountReady, open, chatEnabled, chatNotificationsEnabled, chatSaving, closeChat, setBottomOffset, setSide]);
+
+  useEffect(() => {
+    if (!accountReady || open) {
       pulse.stopAnimation();
       pulse.setValue(1);
       return;
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.08, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.065, duration: 850, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [accountReady, chatEnabled, surfaceVisible, open, pulse]);
+  }, [accountReady, open, pulse]);
 
   useEffect(() => {
-    if (!accountReady || !chatEnabled || !surfaceVisible || open) {
+    if (!accountReady || open || unreadCount <= 0) {
       nudge.stopAnimation();
       nudge.setValue(0);
       return;
     }
-    const shouldShow = unreadCount > lastNudgeUnread.current || (lastNudgeUnread.current === 0 && unreadCount === 0);
+    if (unreadCount <= lastNudgeUnread.current) return;
     lastNudgeUnread.current = unreadCount;
-    if (!shouldShow) return;
     nudge.stopAnimation();
     nudge.setValue(0);
     Animated.sequence([
-      Animated.timing(nudge, { toValue: 1, duration: 360, useNativeDriver: false }),
-      Animated.delay(unreadCount > 0 ? 3000 : 1600),
-      Animated.timing(nudge, { toValue: 0, duration: 420, useNativeDriver: false }),
+      Animated.timing(nudge, { toValue: 1, duration: 280, useNativeDriver: false }),
+      Animated.delay(2600),
+      Animated.timing(nudge, { toValue: 0, duration: 320, useNativeDriver: false }),
     ]).start();
-  }, [accountReady, chatEnabled, surfaceVisible, open, unreadCount, nudge]);
+  }, [accountReady, open, unreadCount, nudge]);
 
   const minBottom = 82 + insets.bottom;
   const maxBottom = Math.max(minBottom, height - 150);
@@ -198,36 +183,35 @@ export default function GlobalChatDock() {
     },
   }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide, side]);
 
-  const toggle = () => {
-    if (!accountReady || !chatEnabled) return;
-    if (open) {
-      closeChat();
-      return;
-    }
-    setUnreadCount(0);
-    openChat(target);
-  };
-
-  const saveGlobalSettings = async (enabled: boolean, surfaces = chatSurfaces) => {
+  const saveProfileSettings = async (enabled: boolean, notificationsEnabled = chatNotificationsEnabled) => {
     if (!accountReady || chatSaving) return;
     setChatSaving(true);
     try {
-      const settings = await saveMusicAgoraSettings(enabled, chatNotificationsEnabled, surfaces);
+      const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, ['PROFILE']);
       setChatEnabled(settings.homeEnabled);
       setChatNotificationsEnabled(settings.notificationsEnabled);
-      setChatSurfaces(settings.surfaces);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
+      if (!settings.homeEnabled) closeChat();
     } finally {
       setChatSaving(false);
     }
   };
 
-  const toggleSurface = (surface: MusicAgoraSurface) => {
-    const next = chatSurfaces.includes(surface)
-      ? chatSurfaces.filter((item) => item !== surface)
-      : [...chatSurfaces, surface];
-    void saveGlobalSettings(true, next.length ? next : ['PROFILE']);
+  const toggle = async () => {
+    if (!accountReady || chatSaving) return;
+    if (open) {
+      closeChat();
+      return;
+    }
+    if (!chatEnabled) await saveProfileSettings(true);
+    setUnreadCount(0);
+    openChat(target);
+  };
+
+  const chooseSide = (nextSide: 'left' | 'right') => {
+    setSide(nextSide);
+    void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
   };
 
   if (!accountReady || !user) return null;
@@ -239,51 +223,47 @@ export default function GlobalChatDock() {
           <View style={styles.settingsSheet}>
             <View style={styles.settingsHeader}>
               <View style={styles.settingsHeaderCopy}>
-                <Text style={styles.settingsKicker}>TCHAT FLOTTANT</Text>
-                <Text style={styles.settingsTitle}>Choisis où il apparaît</Text>
-                <Text style={styles.settingsHint}>Le bouton reste discret, déplaçable à gauche ou à droite et mémorise sa position.</Text>
+                <Text style={styles.settingsKicker}>TCHAT</Text>
+                <Text style={styles.settingsTitle}>Sur ton profil</Text>
               </View>
-              <TouchableOpacity style={styles.settingsClose} onPress={closeSettings} accessibilityLabel="Fermer les réglages du Tchat Loki">
+              <TouchableOpacity style={styles.settingsClose} onPress={closeSettings} accessibilityLabel="Fermer les réglages du Tchat">
                 <Text style={styles.settingsCloseText}>×</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.settingsEnableRow}>
-              <View style={styles.settingsEnableCopy}>
-                <Text style={styles.settingsEnableTitle}>{chatEnabled ? 'Tchat actif' : 'Tchat désactivé'}</Text>
-                <Text style={styles.settingsEnableHint}>{chatEnabled ? 'Visible uniquement sur les écrans cochés.' : 'Active-le pour afficher le bouton flottant.'}</Text>
-              </View>
+
+            <View style={styles.settingsRow}>
+              <Text style={styles.settingsLabel}>Actif</Text>
               <Switch
                 value={chatEnabled}
                 disabled={chatSaving}
-                onValueChange={(value) => void saveGlobalSettings(value)}
+                onValueChange={(value) => void saveProfileSettings(value)}
                 trackColor={{ false: colors.border, true: colors.keep }}
               />
             </View>
-            <View style={styles.settingsSurfaceGrid}>
-              {CHAT_SURFACES.map((item) => {
-                const active = chatSurfaces.includes(item.key);
-                return (
-                  <TouchableOpacity
-                    key={item.key}
-                    style={[styles.settingsSurfaceCard, active && styles.settingsSurfaceCardOn]}
-                    disabled={chatSaving}
-                    onPress={() => toggleSurface(item.key)}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: active }}
-                    accessibilityLabel={`Afficher le Tchat sur ${item.label}`}
-                  >
-                    <Text style={[styles.settingsSurfaceTitle, active && styles.settingsSurfaceTitleOn]}>{active ? '✓ ' : ''}{item.label}</Text>
-                    <Text style={styles.settingsSurfaceHint}>{item.hint}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+
+            <View style={styles.settingsRow}>
+              <Text style={styles.settingsLabel}>Notifications</Text>
+              <Switch
+                value={chatNotificationsEnabled}
+                disabled={chatSaving || !chatEnabled}
+                onValueChange={(value) => void saveProfileSettings(true, value)}
+                trackColor={{ false: colors.border, true: colors.keep }}
+              />
             </View>
-            <Text style={styles.settingsFoot}>Tu peux modifier ce choix à tout moment depuis Notifications.</Text>
+
+            <View style={styles.sideRow}>
+              <TouchableOpacity style={[styles.sideChoice, side === 'left' && styles.sideChoiceOn]} onPress={() => chooseSide('left')} accessibilityLabel="Placer le Tchat à gauche">
+                <Text style={[styles.sideChoiceText, side === 'left' && styles.sideChoiceTextOn]}>GAUCHE</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sideChoice, side === 'right' && styles.sideChoiceOn]} onPress={() => chooseSide('right')} accessibilityLabel="Placer le Tchat à droite">
+                <Text style={[styles.sideChoiceText, side === 'right' && styles.sideChoiceTextOn]}>DROITE</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {chatEnabled && surfaceVisible && open ? (
+      {chatEnabled && open ? (
         <MusicAgoraPanel
           compact
           compactSide={side}
@@ -297,7 +277,7 @@ export default function GlobalChatDock() {
         />
       ) : null}
 
-      {chatEnabled && surfaceVisible && !open ? (
+      {!open && unreadCount > 0 ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -306,93 +286,92 @@ export default function GlobalChatDock() {
             {
               bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)) + 7,
               opacity: nudge,
-              width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 190] }),
-              transform: [{ scaleX: nudge.interpolate({ inputRange: [0, 1], outputRange: [.72, 1] }) }],
+              width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 168] }),
             },
           ]}
         >
-          <View style={styles.chatNudgeDepth} />
           <Text style={styles.chatNudgeText} numberOfLines={1}>
-            {unreadCount > 0 ? `${unreadCount} message${unreadCount > 1 ? 's' : ''} · ouvre le chat` : 'Tchat Loki · prêt à discuter'}
+            {unreadCount} nouveau{unreadCount > 1 ? 'x' : ''} message{unreadCount > 1 ? 's' : ''}
           </Text>
         </Animated.View>
       ) : null}
 
-      {chatEnabled && surfaceVisible ? <Animated.View
-        {...responder.panHandlers}
-        style={[
-          styles.fabWrap,
-          side === 'left' ? styles.fabLeft : styles.fabRight,
-          { bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)), transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale: pulse }] },
-        ]}
-      >
-        <View style={styles.halo} />
-        <TouchableOpacity
-          style={[styles.fab, open && styles.fabOpen]}
-          onPress={toggle}
-          accessibilityRole="button"
-          accessibilityLabel={open ? 'Réduire le Tchat Loki' : 'Ouvrir le Tchat Loki'}
+      {!open ? (
+        <Animated.View
+          {...responder.panHandlers}
+          style={[
+            styles.fabWrap,
+            side === 'left' ? styles.fabLeft : styles.fabRight,
+            {
+              bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)),
+              transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale: pulse }],
+            },
+          ]}
         >
-          <View style={styles.fabDepthBack} />
-          <View style={styles.fabDepthMid} />
-          <View style={styles.fabFace}>
-            <View style={styles.robotHead}>
-              <View style={styles.robotAntenna} />
-              <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
-              <View style={styles.robotMouth}/>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => { void toggle(); }}
+            accessibilityRole="button"
+            accessibilityLabel={chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
+          >
+            <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
+            <View style={styles.fabDepthBack} />
+            <View style={styles.fabDepthMid} />
+            <View style={styles.fabFace}>
+              <View style={styles.robotHead}>
+                <View style={styles.robotAntenna} />
+                <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
+                <View style={styles.robotMouth}/>
+              </View>
+              <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
+              {unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
             </View>
-            {unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
-          </View>
-        </TouchableOpacity>
-      </Animated.View> : null}
+          </TouchableOpacity>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   settingsBackdrop:{flex:1,backgroundColor:'rgba(5,4,10,.78)',alignItems:'center',justifyContent:'center',paddingHorizontal:18},
-  settingsSheet:{width:'100%',maxWidth:420,borderRadius:24,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
-  settingsHeader:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  settingsSheet:{width:'100%',maxWidth:360,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
+  settingsHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},
   settingsHeaderCopy:{flex:1,minWidth:0},
-  settingsKicker:{color:colors.info,fontSize:9,fontWeight:'900',letterSpacing:1.2},
-  settingsTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:3},
-  settingsHint:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:5},
-  settingsClose:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(41,194,255,.08)'},
-  settingsCloseText:{color:colors.primaryLight,fontSize:22,lineHeight:24,fontWeight:'900'},
-  settingsEnableRow:{flexDirection:'row',alignItems:'center',gap:12,marginTop:14,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.07)'},
-  settingsEnableCopy:{flex:1,minWidth:0},
-  settingsEnableTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
-  settingsEnableHint:{color:colors.textSecondary,fontSize:10,lineHeight:14,marginTop:2},
-  settingsSurfaceGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:12},
-  settingsSurfaceCard:{width:'48%',minHeight:64,borderRadius:15,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundCard,paddingHorizontal:10,paddingVertical:9},
-  settingsSurfaceCardOn:{backgroundColor:'rgba(41,194,255,.15)',borderColor:colors.primaryLight},
-  settingsSurfaceTitle:{color:colors.textSecondary,fontSize:11,fontWeight:'900'},
-  settingsSurfaceTitleOn:{color:colors.primaryLight},
-  settingsSurfaceHint:{color:colors.textMutedGrey,fontSize:8,lineHeight:11,marginTop:3},
-  settingsFoot:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:12},
-  chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
-  chatNudgeLeft:{left:70},chatNudgeRight:{right:70},chatNudgeDepth:{position:'absolute',left:5,right:5,bottom:3,height:5,borderRadius:3,backgroundColor:'rgba(90,61,196,.28)'},chatNudgeText:{minWidth:190,paddingHorizontal:13,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
-  fabWrap: { position: 'absolute', zIndex: 90, elevation: 30 },
-  fabLeft: { left: 12 },
-  fabRight: { right: 12 },
-  halo:{position:'absolute',left:-5,top:-5,width:64,height:64,borderRadius:32,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.05)',opacity:.65},
-  fab: { width: 54, height: 54, position: 'relative' },
-  fabOpen: { opacity: .96 },
-  fabDepthBack: { position: 'absolute', left: 7, top: 8, width: 47, height: 47, borderRadius: 24, backgroundColor: 'rgba(90,61,196,.34)' },
-  fabDepthMid: { position: 'absolute', left: 3, top: 4, width: 49, height: 49, borderRadius: 25, backgroundColor: 'rgba(41,194,255,.28)' },
-  fabFace: {
-    width: 49, height: 49, borderRadius: 25,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: colors.primaryLight,
-    backgroundColor: 'rgba(20,14,31,.98)',
-    shadowColor: '#000', shadowOpacity: .42, shadowRadius: 12, shadowOffset: { width: 0, height: 8 },
-    elevation: 18,
-  },
-  robotHead:{width:27,height:23,borderRadius:8,borderWidth:1.4,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
-  robotAntenna:{position:'absolute',top:-6,width:2,height:6,borderRadius:1,backgroundColor:colors.primaryLight},
+  settingsKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2},
+  settingsTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:2},
+  settingsClose:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
+  settingsCloseText:{color:colors.textPrimary,fontSize:22,lineHeight:24,fontWeight:'900'},
+  settingsRow:{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:colors.border},
+  settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  sideRow:{flexDirection:'row',gap:8,marginTop:10},
+  sideChoice:{flex:1,minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  sideChoiceOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)'},
+  sideChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.7},
+  sideChoiceTextOn:{color:colors.keep},
+
+  chatNudge:{position:'absolute',zIndex:88,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
+  chatNudgeLeft:{left:70},
+  chatNudgeRight:{right:70},
+  chatNudgeText:{minWidth:168,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
+
+  fabWrap:{position:'absolute',zIndex:90,elevation:30},
+  fabLeft:{left:12},
+  fabRight:{right:12},
+  halo:{position:'absolute',left:-5,top:-5,width:64,height:64,borderRadius:32,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.05)',opacity:.72},
+  haloOff:{borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.05)',opacity:.5},
+  fab:{width:54,height:54,position:'relative'},
+  fabDepthBack:{position:'absolute',left:7,top:8,width:47,height:47,borderRadius:24,backgroundColor:'rgba(90,61,196,.34)'},
+  fabDepthMid:{position:'absolute',left:3,top:4,width:49,height:49,borderRadius:25,backgroundColor:'rgba(41,194,255,.28)'},
+  fabFace:{width:49,height:49,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#000',shadowOpacity:.42,shadowRadius:12,shadowOffset:{width:0,height:8},elevation:18},
+  robotHead:{width:27,height:22,borderRadius:8,borderWidth:1.5,borderColor:colors.keep,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.08)'},
+  robotAntenna:{position:'absolute',top:-7,width:2,height:7,borderRadius:1,backgroundColor:colors.keep},
   robotEyes:{flexDirection:'row',gap:6},
-  robotEye:{width:4,height:4,borderRadius:2,backgroundColor:colors.keep},
-  robotMouth:{width:10,height:2,borderRadius:1,backgroundColor:colors.primaryLight,marginTop:4},
-  badge:{position:'absolute',right:-4,top:-4,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},
-  badgeText:{color:'#FFF',fontSize:8,fontWeight:'900'},
+  robotEye:{width:4,height:4,borderRadius:2,backgroundColor:colors.primaryLight},
+  robotMouth:{width:10,height:2,borderRadius:1,backgroundColor:colors.keep,marginTop:4},
+  presenceDot:{position:'absolute',left:2,bottom:2,width:9,height:9,borderRadius:5,borderWidth:2,borderColor:colors.background},
+  presenceOn:{backgroundColor:colors.keep},
+  presenceOff:{backgroundColor:colors.textMutedGrey},
+  badge:{position:'absolute',right:-5,top:-7,minWidth:20,height:20,borderRadius:10,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},
+  badgeText:{color:'#FFF',fontSize:9,fontWeight:'900'},
 });
