@@ -21,6 +21,7 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import FloatingGlobalChat from '../components/FloatingGlobalChat';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -562,7 +563,8 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
-      </SafeAreaView>
+        <FloatingGlobalChat />
+    </SafeAreaView>
     );
   }
 
@@ -819,6 +821,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         </View></View>
       </Modal>
       <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
+      <FloatingGlobalChat />
     </SafeAreaView>
   );
 }
