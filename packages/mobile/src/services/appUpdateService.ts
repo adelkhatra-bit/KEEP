@@ -47,3 +47,40 @@ export function reloadToLatest(): void {
   if (route && route !== '/') params.set('__keep_route', route);
   window.location.replace(`${basePath}/?${params.toString()}`);
 }
+
+
+export type AppUpdateApplyResult = 'RELOADING' | 'CURRENT' | 'UNSUPPORTED' | 'FAILED';
+
+/**
+ * Action unique derrière tous les boutons « mettre à jour ».
+ *
+ * Web : recharge cache-bustée du site officiel.
+ * iOS/Android production : demande à EAS Update la dernière OTA compatible,
+ * la télécharge si nécessaire puis relance réellement le bundle. Un bouton
+ * de mise à jour ne doit jamais être décoratif.
+ */
+export async function applyLatestAppUpdate(): Promise<AppUpdateApplyResult> {
+  if (Platform.OS === 'web') {
+    reloadToLatest();
+    return 'RELOADING';
+  }
+
+  try {
+    const Updates = await import('expo-updates');
+    if (!Updates.isEnabled) return 'UNSUPPORTED';
+
+    const check = await Updates.checkForUpdateAsync();
+    if (check.isAvailable) {
+      const fetched = await Updates.fetchUpdateAsync();
+      if ('isNew' in fetched && fetched.isNew === false) {
+        // Une update peut déjà être téléchargée localement : reloadAsync()
+        // choisit quand même le bundle OTA le plus récent disponible.
+      }
+    }
+
+    await Updates.reloadAsync();
+    return check.isAvailable ? 'RELOADING' : 'CURRENT';
+  } catch {
+    return 'FAILED';
+  }
+}
