@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.42",
+  "version": "2026-10-01.43",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -614,7 +614,14 @@
     "publicProfileCollapsedByDefault": true,
     "publicProfileSingleToggle": true,
     "publicProfileToggleLabels": "VOIR SES N STYLES / MASQUER",
-    "ownerAndVisitorShareCompactPulsePattern": true
+    "ownerAndVisitorShareCompactPulsePattern": true,
+    "ownerProfileSinglePulseCard": true,
+    "ownerProfileStandaloneRecommendationsSection": false,
+    "ownerProfileCompactPanels": [
+      "STYLES",
+      "POUR_MOI"
+    ],
+    "ownerProfilePanelsMutuallyExclusive": true
   },
   "publicProfilePerformance": {
     "firstPaintAfterIdentityAndBlockCheck": true,

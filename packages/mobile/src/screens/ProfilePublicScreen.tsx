@@ -213,6 +213,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [profileStylesExpanded, setProfileStylesExpanded] = useState(false);
+  const [profileMusicExpanded, setProfileMusicExpanded] = useState(false);
   const [freeDetailsOpen, setFreeDetailsOpen] = useState(false);
   const battleAvailable = useBattleAvailabilityStore((s) => s.available);
   const battleAvailabilityBusy = useBattleAvailabilityStore((s) => s.busy);
@@ -1981,19 +1982,46 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
 
-          {profileStyleBubbles.length > 0 ? (
-            <TouchableOpacity
-              style={s.dnaCompactToggle}
-              onPress={() => setProfileStylesExpanded((value) => !value)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: profileStylesExpanded }}
-              accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
-            >
-              <Text style={s.dnaCompactToggleText}>
-                {profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`}
-              </Text>
-              <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
-            </TouchableOpacity>
+          {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
+            <View style={s.pulseCompactActions}>
+              {profileStyleBubbles.length > 0 ? (
+                <TouchableOpacity
+                  style={[s.dnaCompactToggle, profileStylesExpanded && s.dnaCompactToggleOn]}
+                  onPress={() => {
+                    const next = !profileStylesExpanded;
+                    setProfileStylesExpanded(next);
+                    if (next) setProfileMusicExpanded(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: profileStylesExpanded }}
+                  accessibilityLabel={profileStylesExpanded ? 'Masquer mes styles musicaux' : `Voir mes ${profileStyleBubbles.length} styles musicaux`}
+                >
+                  <Text style={s.dnaCompactToggleText}>
+                    {profileStylesExpanded ? 'MASQUER' : `MES ${profileStyleBubbles.length} STYLES`}
+                  </Text>
+                  <Text style={s.dnaCompactToggleChevron}>{profileStylesExpanded ? '⌃' : '⌄'}</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {visibleLokiPulseItems.length > 0 ? (
+                <TouchableOpacity
+                  style={[s.dnaCompactToggle, profileMusicExpanded && s.dnaCompactToggleOn]}
+                  onPress={() => {
+                    const next = !profileMusicExpanded;
+                    setProfileMusicExpanded(next);
+                    if (next) setProfileStylesExpanded(false);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: profileMusicExpanded }}
+                  accessibilityLabel={profileMusicExpanded ? 'Masquer mes recommandations Loki Pulse' : 'Voir mes recommandations Loki Pulse'}
+                >
+                  <Text style={s.dnaCompactToggleText}>
+                    {profileMusicExpanded ? 'MASQUER' : 'POUR MOI'}
+                  </Text>
+                  <Text style={s.dnaCompactToggleChevron}>{profileMusicExpanded ? '⌃' : '⌄'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           ) : null}
 
           {profileStylesExpanded && profileStyleBubbles.length > 0 ? (
@@ -2019,6 +2047,46 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           ) : null}
 
+          {profileMusicExpanded && visibleLokiPulseItems.length > 0 ? (
+            <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-music">
+              <View style={s.lokiPulseHeader}>
+                <View style={s.lokiPulseHeaderCopy}>
+                  <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
+                </View>
+                <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
+              </View>
+              <Text style={s.lokiPulseHint}>Adapté à tes styles. PASSER masque le son ; GARDER te laisse choisir Public ou Privé.</Text>
+              <ScrollView
+                ref={lokiPulseScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.lokiPulseRail}
+              >
+                {visibleLokiPulseItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.track.id}
+                    style={s.lokiPulseCard}
+                    onPress={() => {
+                      unlockWebAudioForGesture();
+                      setLokiPulseSelectedTrackId(item.track.id);
+                      setLokiPulseSwipeOpen(true);
+                    }}
+                    accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
+                  >
+                    <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
+                      {item.track.artworkUrl
+                        ? <Image source={{ uri: item.track.artworkUrl }} style={s.lokiPulseArtwork} />
+                        : <View style={[s.lokiPulseArtwork, s.avatarFallback]}><Text style={s.lokiPulseFallback}>♫</Text></View>}
+                      {item.isNew ? <View style={s.lokiPulseNewDot}><Text style={s.lokiPulseNewText}>NEW</Text></View> : null}
+                    </Animated.View>
+                    <Text style={s.lokiPulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
+                    <Text style={s.lokiPulseArtist} numberOfLines={1}>{item.track.artist}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
           {!profileStyleBubbles.length ? (
             <View style={s.dnaCompactDetails}>
               <Text style={s.muted}>Tes bulles apparaîtront ici dès que Loki Pulse connaît au moins un de tes styles.</Text>
@@ -2035,46 +2103,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         })}</View>
       </View>
 
-      {!accountRequired && visibleLokiPulseItems.length ? (
-        <View style={s.lokiPulseSection}>
-          <View style={s.lokiPulseHeader}>
-            <View style={s.lokiPulseHeaderCopy}>
-              <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
-              <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
-            </View>
-            <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
-          </View>
-          <Text style={s.lokiPulseHint}>Appris par Loki à partir des écoutes de la communauté et adapté à tes styles. PASSER masque le son ; GARDER te laisse choisir Public ou Privé.</Text>
-          <ScrollView
-            ref={lokiPulseScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.lokiPulseRail}
-          >
-            {visibleLokiPulseItems.map((item) => (
-              <TouchableOpacity
-                key={item.track.id}
-                style={s.lokiPulseCard}
-                onPress={() => {
-                  unlockWebAudioForGesture();
-                  setLokiPulseSelectedTrackId(item.track.id);
-                  setLokiPulseSwipeOpen(true);
-                }}
-                accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
-              >
-                <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
-                  {item.track.artworkUrl
-                    ? <Image source={{ uri: item.track.artworkUrl }} style={s.lokiPulseArtwork} />
-                    : <View style={[s.lokiPulseArtwork, s.avatarFallback]}><Text style={s.lokiPulseFallback}>♫</Text></View>}
-                  {item.isNew ? <View style={s.lokiPulseNewDot}><Text style={s.lokiPulseNewText}>NEW</Text></View> : null}
-                </Animated.View>
-                <Text style={s.lokiPulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
-                <Text style={s.lokiPulseArtist} numberOfLines={1}>{item.track.artist}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      ) : null}
 
       {!accountRequired ? (
         <View>
@@ -2409,7 +2437,9 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   dnaCompactMeter:{borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},
   dnaCompactCopy:{flex:1,minWidth:0},
   dnaCompactTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},
-  dnaCompactToggle:{minHeight:36,marginTop:8,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
+  pulseCompactActions:{marginTop:8,flexDirection:'row',gap:8},
+  dnaCompactToggle:{flex:1,minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6},
+  dnaCompactToggleOn:{borderColor:colors.keep,backgroundColor:'rgba(82,255,185,.10)'},
   dnaCompactToggleText:{color:colors.primaryLight,fontSize:9.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
   dnaCompactToggleChevron:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   dnaCompactGauge:{width:118,alignItems:'flex-end',gap:5},

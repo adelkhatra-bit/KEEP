@@ -35,7 +35,6 @@ assertOrdered(owner, [
   'accessibilityLabel="Gérer mes musiques"',
   '<Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
-  '<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>',
   'accessibilityLabel="Partager mon profil Loki Music"',
 ], 'Owner profile collective hierarchy');
 
@@ -48,7 +47,10 @@ assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Own
 
 assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
 assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
-assertIncludes(owner, "profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`", 'Owner Loki Pulse compact styles toggle');
+assertIncludes(owner, "profileStylesExpanded ? 'MASQUER'", 'Owner Loki Pulse compact styles toggle');
+assertIncludes(owner, "profileMusicExpanded ? 'MASQUER' : 'POUR MOI'", 'Owner Loki Pulse compact recommendations toggle');
+assertIncludes(owner, 'testID="profile-loki-pulse-expanded-music"', 'Owner profile recommendations inside merged Loki Pulse card');
+if (owner.includes('style={s.lokiPulseSection}')) throw new Error('Owner profile has one merged Loki Pulse block; standalone section must not return');
 if (owner.includes('Loki Music DNA')) throw new Error('Owner profile must not restore visible Loki Music DNA');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
 assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
