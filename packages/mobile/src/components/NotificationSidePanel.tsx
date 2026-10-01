@@ -10,7 +10,6 @@ type Props = {
   profileId: string;
   onClose: () => void;
   onOpenAll: () => void;
-  onOpenChat: (target?: GlobalChatTarget | null) => void;
 };
 
 const CHAT_SURFACE_OPTIONS: Array<{ key: MusicAgoraSurface; label: string }> = [
@@ -33,7 +32,7 @@ function timeLabel(value: string): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }
 
-export default function NotificationSidePanel({ visible, profileId, onClose, onOpenAll, onOpenChat }: Props) {
+export default function NotificationSidePanel({ visible, profileId, onClose, onOpenAll }: Props) {
   const slide = useRef(new Animated.Value(1)).current;
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,7 +133,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
     const type = String(item.type || '').toUpperCase();
     if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
       close();
-      setTimeout(() => onOpenChat(null), 200);
+      setTimeout(() => useGlobalChatStore.getState().open(null), 200);
       return;
     }
     if (!type.startsWith('AGORA')) return;
@@ -154,7 +153,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
           : null,
     };
     close();
-    setTimeout(() => onOpenChat(target), 200);
+    setTimeout(() => useGlobalChatStore.getState().open(target), 200);
   };
 
   return (
@@ -233,7 +232,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
                 onPress={() => {
                   if (!chatEnabled) void persistChat(true, chatNotifications, chatSurfaces);
                   close();
-                  setTimeout(() => onOpenChat(null), 200);
+                  setTimeout(() => useGlobalChatStore.getState().open(null), 200);
                 }}
                 accessibilityLabel="Ouvrir la messagerie Loki"
               >
