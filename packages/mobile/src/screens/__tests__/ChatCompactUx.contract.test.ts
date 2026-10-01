@@ -35,12 +35,14 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain('browsingHistoryRef.current = distanceFromBottom > 56');
   });
 
-  it('keeps music selection readable and previewable', () => {
+  it('keeps music selection readable, previewable and immediately validatable', () => {
     expect(panel).toContain('PÉPITE SÉLECTIONNÉE');
     expect(panel).toContain('TrackPreviewButton trackKey={sharedTrack.id}');
     expect(panel).toContain('shareOptionsOpen');
     expect(panel).toContain('shareAccordionBody');
     expect(panel).toContain('selectedMusicLockBadge');
+    expect(panel).toContain('style={s.validateMusicPinned}');
+    expect(panel).toContain('VALIDER LA PÉPITE');
     expect(panel).toContain("selectedMusicThumbWrap:{width:80,height:80");
     expect(panel).toContain("selectedMusicThumb:{width:80,height:80");
   });
@@ -75,7 +77,9 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("keyboardDidShow");
     expect(panel).toContain('event.endCoordinates?.height');
     expect(panel).toContain('event.endCoordinates?.screenY');
-    expect(panel).toContain('bottom: keyboardInset > 0 ? keyboardInset + 8 : 78');
+    expect(panel).toContain('const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78');
+    expect(panel).toContain('const compactTop = keyboardInset > 0');
+    expect(panel).toContain('height: compactPanelHeight');
     expect(panel).toContain('forceBottomRef.current = true');
     expect(panel).toContain('scrollToEnd({ animated: false })');
   });
@@ -86,6 +90,13 @@ describe('global compact chat UX contract', () => {
     expect(update).toContain('keep-manual-update-control');
     expect(update).toContain('↻ Mise à jour');
     expect(update).toContain("if (width < 768) return null");
+  });
+
+  it('keeps public/private room controls reachable without scrolling', () => {
+    expect(panel).toContain("'LA PLACE · PUBLIC · tout le monde peut rejoindre'");
+    expect(panel).toContain("accessibilityLabel={activeGroup ? 'Gérer les membres du salon' : 'Créer un salon privé'}");
+    expect(panel).toContain('Nouveau salon privé');
+    expect(panel).toContain('MEMBRES · {activeGroup.memberCount}');
   });
 
   it('keeps a visible collapsed chat affordance', () => {
