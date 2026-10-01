@@ -11,7 +11,7 @@ describe('global movable chat contract', () => {
   const service = read(__dirname, '..', '..', 'services', 'musicAgoraService.ts');
 
   it('supports the five user-selectable main surfaces', () => {
-    for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']) {
+    for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']) {
       expect(service).toContain(surface);
       expect(notifications).toContain(surface);
       expect(dock).toContain(surface);
@@ -22,6 +22,7 @@ describe('global movable chat contract', () => {
     expect(dock).toContain("['MyMusic','PlaylistSale','PlaylistSaleHistory']");
     expect(dock).toContain("name === 'Parties'");
     expect(dock).toContain("['Profile','PublicProfile','ProfileSettings','Offers','MusicConnections']");
+    expect(dock).toContain("name === 'Notifications'");
   });
 
   it('renders a visible movable animated control and persists its position', () => {
@@ -51,7 +52,9 @@ describe('global movable chat contract', () => {
     expect(notifications).toContain("AGORA_ACTIVATE");
     expect(notifications).toContain('useGlobalChatStore.getState().openSettings()');
     expect(notifications).toContain("setChatSettingsOpen(true)");
-    expect(notifications).toContain("CHOISIR OÙ IL APPARAÎT");
+    expect(notifications).toContain("OUVRIR LE TCHAT");
+    expect(notifications).toContain("PLACEMENT");
+    expect(notifications).toContain("NOTIFICATIONS");
     expect(service).toContain("keep_agora_set_settings_v2");
     expect(service).toContain("keep_agora_set_position");
   });
