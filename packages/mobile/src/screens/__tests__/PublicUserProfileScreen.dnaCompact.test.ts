@@ -13,10 +13,11 @@ describe('PublicUserProfileScreen Loki Music DNA compaction (Adel, 21/09/2026 : 
     expect(visited).toContain("onPress={() => setDnaExpanded((v) => !v)}");
   });
 
-  it('shows a one-line condensed summary when collapsed, and the full chip detail when expanded (nothing removed)', () => {
-    expect(visited).toContain('styles.dnaCondensed');
-    expect(visited).toContain("[...profile.favoriteGenres.slice(0, 3), ...profile.favoriteArtists.slice(0, 2)].join(' · ')");
-    // Le détail complet (puces cliquables Styles + Artistes) reste présent, juste derrière le chevron.
+  it('keeps compact music-style pills visible even while DNA is collapsed, with full detail behind the chevron', () => {
+    expect(visited).toContain('<View style={styles.chips}>');
+    expect(visited).toContain('profile.favoriteGenres.slice(0, 4).map');
+    expect(visited).toContain("openBrowseSwipe({ type: 'genre'");
+    // Le détail complet (puces cliquables Styles + Artistes) reste présent derrière le chevron.
     expect(visited).toContain('<Text style={styles.dnaRowLabel}>STYLES</Text>');
     expect(visited).toContain('<Text style={styles.dnaRowLabel}>ARTISTES</Text>');
   });
