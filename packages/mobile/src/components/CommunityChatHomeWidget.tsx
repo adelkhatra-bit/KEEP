@@ -17,7 +17,7 @@ export default function CommunityChatHomeWidget({ onOpenProfile }: { onOpenProfi
   const [loading, setLoading] = useState(false);
 
   const refresh = async () => {
-    const settings = await loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true }));
+    const settings = await loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as const }));
     setHomeEnabled(settings.homeEnabled);
     if (!settings.homeEnabled) {
       setMessages([]);
@@ -59,8 +59,8 @@ export default function CommunityChatHomeWidget({ onOpenProfile }: { onOpenProfi
   };
 
   const hide = async () => {
-    const settings = await loadMusicAgoraSettings().catch(() => ({ homeEnabled: true, notificationsEnabled: true }));
-    await saveMusicAgoraSettings(false, settings.notificationsEnabled).catch(() => null);
+    const settings = await loadMusicAgoraSettings().catch(() => ({ homeEnabled: true, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as const }));
+    await saveMusicAgoraSettings(false, settings.notificationsEnabled, [...settings.surfaces]).catch(() => null);
     setHomeEnabled(false);
   };
 
