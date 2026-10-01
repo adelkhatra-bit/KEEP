@@ -29,6 +29,7 @@ import {
 } from '../services/smartAlbumService';
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
+import ContextHelpSheet from '../components/ContextHelpSheet';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
