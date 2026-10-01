@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.12",
+  "version": "2026-10-01.13",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -37,15 +37,14 @@
     "alreadyOwnedDuplicate": 0
   },
   "profileOwner": {
-    "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
+    "freePlacement": "immediately-after-profile-kind-in-owner-identity-row",
     "metricsBarOrder": [
       "PLUS",
       "Abonnés",
-      "Reprises",
-      "FREE"
+      "Reprises"
     ],
-    "freeBesideProfileKind": false,
-    "freeImmediatelyAfterReprises": true,
+    "freeBesideProfileKind": true,
+    "freeImmediatelyAfterReprises": false,
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
     "freeBalanceSource": "Supabase RPC credit status",
@@ -69,7 +68,7 @@
       "activeChoiceMustStayVisiblyColored": true
     },
     "freeDetailsPanel": {
-      "primaryBalanceRemainsInMetricsBar": true,
+      "primaryBalanceRemainsInMetricsBar": false,
       "firstExpandedMetric": "free-spent-today-on-profile-keeps",
       "availableBalanceMustNotRepeatInExpandedPanel": true,
       "spendSource": "public.keep_free_spend_events via keep_free_spent_today",
@@ -82,7 +81,8 @@
       "allNewKeepsDebitConfiguredFree": true,
       "socialProfileKeepsAlsoDebit": true,
       "alreadyOwnedDuplicateNeverDebits": true,
-      "dailySpendCountsAuthoritativeLedgerEvents": true
+      "dailySpendCountsAuthoritativeLedgerEvents": true,
+      "primaryBalanceRemainsBesideProfileKind": true
     },
     "musicTasteSettings": {
       "menuLabel": "Mes goûts musicaux",
@@ -358,5 +358,14 @@
       "keepAndBattleMayUseOrEarnFree": true
     },
     "superAdminGroup": "Écouter & compte"
+  },
+  "chatMusicSharing": {
+    "thirdPartyTrackMayBeShared": true,
+    "thirdPartyTrackMayBeSoldForFree": false,
+    "thirdPartyTrackMayBeSoldForMoney": false,
+    "paidChoicesMustShowLockWhenNotSellable": true,
+    "sourceAttributionMustPersist": true,
+    "serverResaleGuardRequired": true,
+    "alreadyOwnedRecipientMustNeverBeCharged": true
   }
 }
