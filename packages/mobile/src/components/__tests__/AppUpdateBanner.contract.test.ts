@@ -1,33 +1,31 @@
 const fs = require('fs');
 const path = require('path');
 
-describe('web update control contract', () => {
+describe('silent app update contract', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'AppUpdateBanner.tsx'), 'utf8');
 
-  it('never renders the desktop update control on mobile-width screens', () => {
-    expect(source).toContain("width < 768");
-    expect(source).toContain("if (Platform.OS !== 'web' || width < 768) return null;");
+  it('never renders a user-facing version banner or manual refresh control', () => {
+    expect(source).toContain('return null;');
+    expect(source).not.toContain('keep-manual-update-control');
+    expect(source).not.toContain('ACTUALISER LOKI MUSIC');
+    expect(source).not.toContain('NOUVELLE VERSION DISPONIBLE');
+    expect(source).not.toContain('METTRE À JOUR');
+    expect(source).not.toContain('<TouchableOpacity');
   });
 
-  it('keeps a large manual refresh control permanently visible on desktop web', () => {
-    expect(source).toContain('testID="keep-manual-update-control"');
-    expect(source).toContain('ACTUALISER LOKI MUSIC');
-    expect(source).toContain('NOUVELLE VERSION DISPONIBLE');
-    expect(source).toContain('width: 340');
-    expect(source).toContain('minHeight: 68');
-    expect(source).toContain('fontSize: 14.5');
-  });
-
-  it('checks for a newer SHA and always performs a cache-busted reload on click', () => {
-    expect(source).toContain('checkNow().finally(reloadToLatest)');
+  it('checks web deployment state and applies a newer bundle automatically', () => {
+    expect(source).toContain('useAppUpdateStore');
+    expect(source).toContain('latestSha');
+    expect(source).toContain('void checkNow()');
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
+    expect(source).toContain('reloadToLatest()');
   });
 
-  it('auto-applies the latest production OTA on native TestFlight launches', () => {
-    expect(source).toContain("import * as Updates from 'expo-updates'");
+  it('auto-applies a compatible production OTA on native TestFlight launches', () => {
+    expect(source).toContain("await import('expo-updates')");
     expect(source).toContain('Updates.checkForUpdateAsync()');
     expect(source).toContain('Updates.fetchUpdateAsync()');
     expect(source).toContain('Updates.reloadAsync()');
-    expect(source).toContain("Platform.OS === 'web' || __DEV__ || !Updates.isEnabled");
+    expect(source).toContain("Platform.OS === 'web' || __DEV__");
   });
 });
