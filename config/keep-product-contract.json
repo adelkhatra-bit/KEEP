@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.17",
+  "version": "2026-10-01.18",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -164,10 +164,34 @@
       "CHF",
       "CAD",
       "AUD",
-      "AED"
+      "AED",
+      "JPY",
+      "CNY",
+      "INR",
+      "BRL",
+      "MXN",
+      "KRW",
+      "SGD",
+      "HKD",
+      "NZD",
+      "SEK",
+      "NOK",
+      "DKK",
+      "PLN",
+      "CZK"
     ],
     "moneyCurrencyDefaultsFromProfileCountry": true,
-    "savedPayoutLinkMustBeReused": true
+    "savedPayoutLinkMustBeReused": true,
+    "moneyModePayoutProvider": "PayPal",
+    "moneyModeRequiresHttpsPayPalLink": true,
+    "cartReadyCta": {
+      "appearsAfterMinimumSelection": 2,
+      "position": "above-track-list",
+      "label": "J’AI FINI MA SÉLECTION · OUVRIR MON PANIER",
+      "color": "primary-blue",
+      "minimumHeight": 76,
+      "yellowPrimaryCtaForbidden": true
+    }
   },
   "screenHelpRules": {
     "parties": {
@@ -231,6 +255,10 @@
     "returnAfterPublish": "stay-PlaylistSale",
     "socialReprises": "never-sellable-by-non-origin-discoverer",
     "reviewBeforePrice": true,
-    "currencyAwareMoneyMode": true
+    "currencyAwareMoneyMode": true,
+    "primaryValidationColor": "primary-blue",
+    "reviewCtaMustBeLarge": true,
+    "reviewCtaBeforePricing": true,
+    "moneyModeUsesSavedPayPal": true
   }
 }
