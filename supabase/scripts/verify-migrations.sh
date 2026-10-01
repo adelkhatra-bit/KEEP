@@ -56,16 +56,14 @@ create table auth.users (
   created_at timestamptz not null default now()
 );
 create or replace function auth.uid() returns uuid
-language sql stable as $
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
-$;
+language sql stable
+as 'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
 -- Supabase expose aussi auth.jwt(). Plusieurs policies récentes lisent
 -- is_anonymous depuis les claims ; le CI PostgreSQL doit reproduire ce
 -- contrat au lieu de faire échouer une migration valide en production.
 create or replace function auth.jwt() returns jsonb
-language sql stable as $
-  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb)
-$;
+language sql stable
+as 'select coalesce(nullif(current_setting(''request.jwt.claims'', true), '''')::jsonb, ''{}''::jsonb)';
 drop role if exists anon;
 create role anon nosuperuser nobypassrls;
 drop role if exists authenticated;
