@@ -13,6 +13,7 @@ describe('MusicTasteQuestionnaire tap-only contract', () => {
   });
 
   it('prefills device language and country when no saved choice exists', () => {
+    expect(source).toContain("savedGenres.length ? savedGenres : suggestedGenres.slice(0, 12)");
     expect(source).toContain("savedCountries.length ? savedCountries : (detectedCountry ? [detectedCountry] : [])");
     expect(source).toContain("savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : [])");
   });
