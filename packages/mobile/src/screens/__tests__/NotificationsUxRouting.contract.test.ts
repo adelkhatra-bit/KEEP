@@ -13,10 +13,12 @@ describe('Notifications UX and routing contract', () => {
     expect(publicPanel).not.toContain('Profil visible');
   });
 
-  it('animates the bell gently and shows a temporary count nudge', () => {
+  it('animates the bell gently and shows an elongated temporary count nudge', () => {
     expect(profile).toContain('notificationBellShake');
     expect(profile).toContain('notificationNudgeVisible');
-    expect(profile).toContain('pense à regarder');
+    expect(profile).toContain('notificationNudgeReveal');
+    expect(profile).toContain('ouvre tes actus');
+    expect(profile).toContain('outputRange: [54, 222]');
   });
 
   it('marks notifications read after the user opens the center', () => {
