@@ -206,7 +206,9 @@ export default function MusicAgoraPanel({
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const show = Keyboard.addListener(showEvent, (event) => {
       const reportedHeight = Math.max(0, Number(event.endCoordinates?.height || 0));
-      setKeyboardInset(reportedHeight);
+      const reportedTop = Math.max(0, Number(event.endCoordinates?.screenY || 0));
+      const coveredFromTop = reportedTop > 0 ? Math.max(0, baseViewportHeightRef.current - reportedTop) : 0;
+      setKeyboardInset(Math.max(reportedHeight, coveredFromTop));
       setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
     });
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
@@ -216,7 +218,14 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 92;
+  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
+  const compactPanelHeight = Math.min(
+    470,
+    Math.max(320, baseViewportHeightRef.current - (keyboardInset > 0 ? keyboardInset + 72 : 170)),
+  );
+  const compactTop = keyboardInset > 0
+    ? undefined
+    : Math.max(54, Math.round((baseViewportHeightRef.current - compactPanelHeight) / 2));
 
   useEffect(() => {
     if (!enabled) {
@@ -915,9 +924,13 @@ export default function MusicAgoraPanel({
     style={[
       s.shell,
       compact && s.shellCompact,
-      compact && (keyboardInset > 0
-        ? { top: 54, bottom: compactBottom, minHeight: 0 }
-        : { top: 54, bottom: 92, minHeight: 0 }),
+      compact && {
+        top: compactTop,
+        bottom: keyboardInset > 0 ? compactBottom : undefined,
+        height: compactPanelHeight,
+        minHeight: compactPanelHeight,
+        maxHeight: compactPanelHeight,
+      },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
@@ -935,6 +948,17 @@ export default function MusicAgoraPanel({
                   : (chatMode === 'MESSAGES' ? 'Conversations choisies · jusqu’à 45 personnes' : 'LA PLACE · PUBLIC · tout le monde peut rejoindre')}
             </Text>
           </View>
+          <TouchableOpacity
+            style={s.compactHeaderAction}
+            onPress={() => {
+              if (activeGroup?.myStatus === 'ACTIVE') void openGroupMembers();
+              else openCreateGroup();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={activeGroup ? 'Gérer les membres du salon' : 'Créer un salon privé'}
+          >
+            <Text style={s.compactHeaderActionText}>{activeGroup ? '＋👥' : '＋'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={s.compactClose}
             onPress={() => { if (onCompactClose) onCompactClose(); else void updateHomeChat(false, true); }}
@@ -1280,6 +1304,16 @@ export default function MusicAgoraPanel({
           </View>
         ) : null}
 
+        <TouchableOpacity
+          style={s.validateMusicPinned}
+          disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && paymentLocked)}
+          onPress={() => void publish()}
+          accessibilityRole="button"
+          accessibilityLabel="Valider la pépite dans le chat"
+        >
+          <Text style={s.validateMusicText}>{posting ? 'VALIDATION…' : 'VALIDER LA PÉPITE'}</Text>
+        </TouchableOpacity>
+
         {shareOptionsOpen ? <ScrollView style={s.shareAccordionBody} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <View style={s.revealChoices}>
             <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
@@ -1371,15 +1405,6 @@ export default function MusicAgoraPanel({
             </View>
           </View> : null}
 
-          <TouchableOpacity
-            style={s.validateMusic}
-            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && paymentLocked)}
-            onPress={() => void publish()}
-            accessibilityRole="button"
-            accessibilityLabel="Valider la pépite dans le chat"
-          >
-            <Text style={s.validateMusicText}>{posting ? 'VALIDATION…' : 'VALIDER LA PÉPITE'}</Text>
-          </TouchableOpacity>
         </ScrollView> : null}
       </View> : null}
       {paymentCheckout ? <View style={s.paymentInline}>
@@ -1629,16 +1654,18 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,left:6,right:6,flexGrow:0,flexShrink:0,padding:10,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompact:{position:'absolute',bottom:78,left:6,right:6,height:470,minHeight:470,maxHeight:470,flexGrow:0,flexShrink:0,padding:10,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
   shellCompactLeft:{left:6,right:6},
   shellCompactRight:{left:6,right:6},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900',letterSpacing:.6},
-  compactMeta:{color:colors.textMutedGrey,fontSize:12,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:17,fontWeight:'900',letterSpacing:.6},
+  compactMeta:{color:colors.textMutedGrey,fontSize:13,lineHeight:17,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
-  compactClose:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  compactHeaderAction:{minWidth:38,height:38,paddingHorizontal:7,borderRadius:19,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,alignItems:'center',justifyContent:'center'},
+  compactHeaderActionText:{color:colors.info,fontSize:17,fontWeight:'900'},
+  compactClose:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
   compactModes:{flexDirection:'row',gap:7,paddingHorizontal:2,paddingBottom:3},
   compactMode:{flex:1,minHeight:32,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.04)',alignItems:'center',justifyContent:'center'},
@@ -1700,14 +1727,14 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
-  inputCompact:{flex:1,minHeight:46,maxHeight:88,fontSize:17,lineHeight:23,paddingTop:10,paddingBottom:9,overflow:'scroll'},
+  inputCompact:{height:52,minHeight:52,maxHeight:52,flex:1,fontSize:18,lineHeight:24,paddingTop:11,paddingBottom:9,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
   quickReactions:{height:46,minHeight:46,maxHeight:46,flexGrow:0,flexShrink:0},
   reactionPopover:{minHeight:50,maxHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:7,paddingVertical:5,marginBottom:7},
   quickReactionsContent:{alignItems:'center',gap:7,paddingRight:8},
-  quickReaction:{width:44,height:40,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionDisabled:{opacity:.38},
   quickReactionLoki:{width:72,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   quickReactionText:{fontSize:20},
@@ -1764,9 +1791,9 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
-  meta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:14.5,lineHeight:21,marginTop:8},
+  username:{color:colors.textPrimary,fontSize:14.5,fontWeight:'900'},
+  meta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:15,marginTop:2},
+  body:{color:colors.textPrimary,fontSize:16,lineHeight:23,marginTop:8},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
   qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
   qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},
@@ -1811,6 +1838,7 @@ const s=StyleSheet.create({
   shareAccordionContent:{paddingTop:7,paddingBottom:4},
   shareLockPill:{alignSelf:'flex-start',marginTop:4,borderRadius:10,borderWidth:1,borderColor:colors.warning,paddingHorizontal:6,paddingVertical:3,backgroundColor:'rgba(255,184,107,.08)'},
   shareLockPillText:{color:colors.warning,fontSize:9,fontWeight:'900'},
+  validateMusicPinned:{minHeight:46,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:7,marginBottom:7},
   validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
   validateMusicText:{color:colors.background,fontSize:11,fontWeight:'900',letterSpacing:.6},
   selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
