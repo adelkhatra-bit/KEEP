@@ -655,23 +655,25 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setCreditUnlimited(false);
       }
       if (!isLocalGuest && !isDemoMode) {
-        try {
-          const [battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
-            loadMyKeepBattleCreditStatus(),
-            loadKeepBattlePlayerStats(user.id),
-            loadFreeSpentToday(),
-          ]);
-          if (!live) return;
-          setFreeBalance(battleStatus.remainingFree);
-          setFreeSpentToday(dailySpend?.spent ?? 0);
-          setFreeSpentKeepCount(dailySpend?.keeps ?? 0);
-          setFreeMarketplaceSpentToday(dailySpend?.marketplaceSpent ?? 0);
-          setFreeMarketplacePurchaseCount(dailySpend?.marketplacePurchases ?? 0);
-          setFreeWon(dailyBattleStats.freeWon);
-          setFreeLost(dailyBattleStats.freeLost);
-        } catch {
-          if (!live) return;
-          setFreeBalance(null);
+        // Le solde FREE principal ne doit jamais disparaître parce qu'une
+        // statistique secondaire (Battle du jour / dépenses du jour) échoue.
+        // Chaque source se dégrade indépendamment.
+        const [battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
+          loadMyKeepBattleCreditStatus().catch(() => null),
+          loadKeepBattlePlayerStats(user.id).catch(() => null),
+          loadFreeSpentToday().catch(() => null),
+        ]);
+        if (!live) return;
+        if (battleStatus) setFreeBalance(battleStatus.remainingFree);
+        if (dailySpend) {
+          setFreeSpentToday(dailySpend.spent ?? 0);
+          setFreeSpentKeepCount(dailySpend.keeps ?? 0);
+          setFreeMarketplaceSpentToday(dailySpend.marketplaceSpent ?? 0);
+          setFreeMarketplacePurchaseCount(dailySpend.marketplacePurchases ?? 0);
+        }
+        if (dailyBattleStats) {
+          setFreeWon(dailyBattleStats.freeWon ?? 0);
+          setFreeLost(dailyBattleStats.freeLost ?? 0);
         }
       } else if (live && isDemoMode) {
         // La démo n'a aucun portefeuille serveur. Ne jamais inventer un solde
