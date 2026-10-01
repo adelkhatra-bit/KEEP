@@ -62,7 +62,7 @@ if (ownerMeta.includes('>FREE</Text>') || ownerMeta.includes('profileFreeInline'
 
 const ownerMetrics = owner.slice(
   owner.indexOf('<View style={s.topMetricsBar}'),
-  owner.indexOf('{freeDetailsOpen ? ('),
+  owner.indexOf('{freeDetailsOpen && !isDemoMode ? ('),
 );
 assertOrdered(ownerMetrics, [
   '>PLUS</Text>',
