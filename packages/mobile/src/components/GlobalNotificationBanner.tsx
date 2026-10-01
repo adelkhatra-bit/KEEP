@@ -7,6 +7,7 @@ import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattl
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
 import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
 import { setEventRsvp } from '../services/creatorEventService';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -42,6 +43,12 @@ function isBattleRematch(notification: KeepNotification): boolean {
 
 function isEventInvite(notification: KeepNotification): boolean {
   return String(notification.type || '').toUpperCase() === 'EVENT_INVITE';
+}
+
+function isAgoraNotification(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  const event = String(notification.data?.event || '').toUpperCase();
+  return type.startsWith('AGORA_') || event.startsWith('AGORA_');
 }
 
 export default function GlobalNotificationBanner() {
@@ -309,11 +316,32 @@ export default function GlobalNotificationBanner() {
     animateOut();
   };
 
+  const openChatFromNotification = () => {
+    if (!current) return;
+    const roomSlug = dataText(current, 'roomSlug') || dataText(current, 'room_slug');
+    const targetProfileId = dataText(current, 'senderId') || dataText(current, 'sender_id') || dataText(current, 'profileId');
+    const targetUsername = dataText(current, 'senderUsername') || dataText(current, 'sender_username') || dataText(current, 'username');
+    const messageIdRaw = dataText(current, 'messageId') || dataText(current, 'message_id');
+    const messageId = Number(messageIdRaw || 0) || undefined;
+    const id = current.id;
+    setCurrent((item) => item ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item);
+    void markNotificationRead(user.id, id).catch(() => {});
+    animateOut(() => {
+      useGlobalChatStore.getState().open({
+        roomSlug: roomSlug || undefined,
+        targetProfileId: targetProfileId || undefined,
+        targetUsername: targetUsername || undefined,
+        messageId,
+      });
+    });
+  };
+
   const battleChallenge = isBattleChallenge(current);
   const battleRematch = isBattleRematch(current);
   const challengeId = dataText(current, 'challengeId');
   const rematchArenaId = dataText(current, 'arenaId');
   const eventInvite = isEventInvite(current);
+  const agoraNotification = isAgoraNotification(current);
   const eventId = dataText(current, 'event_id') || dataText(current, 'eventId');
   const eventAudience = dataText(current, 'audience_mode');
 
@@ -461,9 +489,9 @@ export default function GlobalNotificationBanner() {
       <TouchableOpacity
         activeOpacity={0.94}
         style={styles.banner}
-        onPress={() => { void markReadAndHide(); }}
+        onPress={() => { if (agoraNotification) openChatFromNotification(); else void markReadAndHide(); }}
         accessibilityRole="button"
-        accessibilityLabel={`${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
+        accessibilityLabel={agoraNotification ? `${current.title}. Ouvrir le Tchat.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
       >
         <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
         {artworkUrl ? (
@@ -474,7 +502,7 @@ export default function GlobalNotificationBanner() {
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
             <Text style={styles.eyebrow}>{isMusic ? 'Loki Music LIVE' : 'Loki Music'}</Text>
-            <Text style={styles.closeHint}>toucher = lu</Text>
+            <Text style={styles.closeHint}>{agoraNotification ? 'ouvrir le tchat' : 'toucher = lu'}</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
           <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
