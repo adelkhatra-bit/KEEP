@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Modal, PanResponder, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
@@ -165,11 +164,15 @@ export default function GlobalChatDock() {
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
       if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
-        void Speech.stop().catch(() => {});
-        Speech.speak(`Message de ${sender}`, {
-          language: 'fr-FR',
-          rate: 0.95,
-          pitch: 1,
+        void import('expo-speech').then((Speech) => {
+          void Speech.stop().catch(() => {});
+          Speech.speak(`Message de ${sender}`, {
+            language: 'fr-FR',
+            rate: 0.95,
+            pitch: 1,
+          });
+        }).catch(() => {
+          // Optional native capability: never block the messenger or an OTA.
         });
       }
     });
