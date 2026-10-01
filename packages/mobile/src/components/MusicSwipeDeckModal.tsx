@@ -43,6 +43,8 @@ type Props = {
   requiresAccount?: boolean;
   /** Message explicite de coût affiché avant de confirmer GARDER. */
   keepCostNotice?: string;
+  /** Montant réellement débité après un GARDER réussi. Active la confirmation post-débit. */
+  keepDebitAmount?: number;
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
@@ -65,6 +67,7 @@ export default function MusicSwipeDeckModal({
   previewOnly = false,
   requiresAccount = false,
   keepCostNotice,
+  keepDebitAmount,
   onClose,
   onKeep,
   onPass,
@@ -78,6 +81,7 @@ export default function MusicSwipeDeckModal({
   const [prefilterRemovedCount, setPrefilterRemovedCount] = useState(0);
   const [prefilterVerified, setPrefilterVerified] = useState(false);
   const [keepPromptOpen, setKeepPromptOpen] = useState(false);
+  const [keepSuccess, setKeepSuccess] = useState<{ title: string; artist: string; visibility: KeepVisibilityChoice } | null>(null);
   const [previewInfoOpen, setPreviewInfoOpen] = useState(false);
   const [alreadyKeepInfoOpen, setAlreadyKeepInfoOpen] = useState(false);
   const [alreadyKeptState, setAlreadyKeptState] = useState<AlreadyKeptState>('checking');
@@ -148,6 +152,7 @@ export default function MusicSwipeDeckModal({
     setPreparingDeck(true);
     actionInFlight.current = false;
     setKeepPromptOpen(false);
+    setKeepSuccess(null);
     setPreviewInfoOpen(false);
     setAlreadyKeepInfoOpen(false);
     setIndex(0);
@@ -373,16 +378,31 @@ export default function MusicSwipeDeckModal({
 
   const confirmKeep = async (visibility: KeepVisibilityChoice) => {
     if (!current || processing) return;
+    const keptTrack = current;
     setKeepPromptOpen(false);
     setProcessing(true);
     actionInFlight.current = true;
     try {
-      const result = await onKeep?.(current, visibility);
-      if (result !== false) await advance();
+      const result = await onKeep?.(keptTrack, visibility);
+      if (result !== false) {
+        if (keepDebitAmount != null && keepDebitAmount > 0) {
+          setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });
+          return;
+        }
+        await advance();
+      }
     } finally {
       actionInFlight.current = false;
       setProcessing(false);
     }
+  };
+
+  const continueAfterKeepSuccess = async () => {
+    if (!keepSuccess) return;
+    setKeepSuccess(null);
+    actionInFlight.current = true;
+    try { await advance(); }
+    finally { actionInFlight.current = false; }
   };
 
   const showAlreadyKept = () => {
@@ -515,7 +535,7 @@ export default function MusicSwipeDeckModal({
         ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
         : 'Glisse ← pour passer · → pour ajouter à ta collection';
 
-  const controlsLocked = processing || preparingDeck || keepPromptOpen || previewInfoOpen || alreadyKeepInfoOpen;
+  const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
     : subtitle;
@@ -625,6 +645,29 @@ export default function MusicSwipeDeckModal({
         </View>
       </Modal> : null}
 
+      {!previewOnly ? <Modal visible={!!keepSuccess} transparent animationType="fade" onRequestClose={() => { void continueAfterKeepSuccess(); }}>
+        <View style={s.keepOverlay}>
+          <View style={s.keepSuccessCard}>
+            <View style={s.keepSuccessBadge}><Text style={s.keepSuccessBadgeText}>✓</Text></View>
+            <Text style={s.keepSuccessEyebrow}>MERCI · C’EST ENREGISTRÉ</Text>
+            <Text style={s.keepSuccessTitle}>Ta pépite rejoint ton univers</Text>
+            <Text style={s.keepSuccessTrack} numberOfLines={2}>{keepSuccess?.title} · {keepSuccess?.artist}</Text>
+            <View style={s.keepSuccessDebit}>
+              <Text style={s.keepSuccessDebitAmount}>−{keepDebitAmount ?? 0} FREE</Text>
+              <Text style={s.keepSuccessDebitText}>débités avec succès</Text>
+            </View>
+            <Text style={s.keepSuccessBody}>
+              {keepSuccess?.visibility === 'PUBLIC'
+                ? 'Le morceau est maintenant visible sur ton profil.'
+                : 'Le morceau est gardé en privé, seulement pour toi.'}
+            </Text>
+            <TouchableOpacity style={s.keepSuccessButton} onPress={() => { void continueAfterKeepSuccess(); }} accessibilityLabel="Continuer vers le morceau suivant">
+              <Text style={s.keepSuccessButtonText}>CONTINUER</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal> : null}
+
       {!previewOnly ? <Modal visible={alreadyKeepInfoOpen} transparent animationType="fade" onRequestClose={closeAlreadyKeepInfo}>
         <View style={s.keepOverlay}>
           <View style={s.ownerPreviewCard}>
@@ -681,6 +724,7 @@ const s = StyleSheet.create({
   keepPromptCard:{width:'100%',maxWidth:390,borderRadius:26,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:20,shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:10},elevation:16},
   keepPromptEyebrow:{color:'#B79CFF',fontSize:11,fontWeight:'900',letterSpacing:1.3,textAlign:'center'},keepPromptTitle:{color:'#FFF',fontSize:22,fontWeight:'900',textAlign:'center',marginTop:6},keepPromptTrack:{color:'#D8CFE3',fontSize:12,fontWeight:'800',textAlign:'center',marginTop:5},keepPromptBody:{color:'#FFFFFF',fontSize:13,lineHeight:18,textAlign:'center',marginTop:10,marginBottom:14},
   keepCostNotice:{minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',paddingHorizontal:12,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:10,marginBottom:6},keepCostNoticeIcon:{color:colors.keep,fontSize:20,fontWeight:'900'},keepCostNoticeCopy:{flex:1,minWidth:0},keepCostNoticeTitle:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:.9},keepCostNoticeText:{color:'#FFF',fontSize:11,lineHeight:15,fontWeight:'800',marginTop:2},
+  keepSuccessCard:{width:'100%',maxWidth:356,borderRadius:26,borderWidth:1,borderColor:colors.keep,backgroundColor:'#151020',paddingHorizontal:20,paddingVertical:22,alignItems:'center',shadowColor:colors.keep,shadowOpacity:.24,shadowRadius:18,shadowOffset:{width:0,height:7},elevation:14},keepSuccessBadge:{width:50,height:50,borderRadius:25,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)',alignItems:'center',justifyContent:'center'},keepSuccessBadgeText:{color:colors.keep,fontSize:24,fontWeight:'900'},keepSuccessEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.1,marginTop:12},keepSuccessTitle:{color:'#FFF',fontSize:20,fontWeight:'900',textAlign:'center',marginTop:5},keepSuccessTrack:{color:'#D8CFE3',fontSize:12,fontWeight:'800',textAlign:'center',marginTop:6},keepSuccessDebit:{minWidth:150,minHeight:58,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center',marginTop:16,paddingHorizontal:18},keepSuccessDebitAmount:{color:colors.keep,fontSize:22,fontWeight:'1000'},keepSuccessDebitText:{color:'#FFF',fontSize:9,fontWeight:'800',letterSpacing:.5,marginTop:1},keepSuccessBody:{color:'#C9C1D2',fontSize:11,lineHeight:16,textAlign:'center',marginTop:12},keepSuccessButton:{width:'100%',minHeight:48,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:16},keepSuccessButtonText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.8},
   keepChoice:{minHeight:70,borderRadius:17,paddingHorizontal:15,paddingVertical:12,justifyContent:'center',marginTop:9,borderWidth:1},keepChoicePublic:{backgroundColor:'rgba(104,242,177,.12)',borderColor:'#68F2B1'},keepChoicePrivate:{backgroundColor:'#21182F',borderColor:'#5B3F8C'},keepChoicePublicTitle:{color:'#68F2B1',fontSize:13,fontWeight:'900'},keepChoicePrivateTitle:{color:'#D6C2FA',fontSize:13,fontWeight:'900'},keepChoiceText:{color:'#FFFFFF',fontSize:12,lineHeight:16,marginTop:3},
   keepCancel:{minHeight:44,alignItems:'center',justifyContent:'center',marginTop:12,borderRadius:14,borderWidth:1,borderColor:'#57313C',backgroundColor:'#1C1117'},keepCancelText:{color:'#FF8AA3',fontSize:12,fontWeight:'900'},keepCancelHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,textAlign:'center',marginTop:7},
   ownerPreviewCard:{width:'100%',maxWidth:350,borderRadius:22,backgroundColor:'#151020',borderWidth:1,borderColor:'#6E4BA3',padding:18,shadowColor:'#000',shadowOpacity:.42,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:14},
