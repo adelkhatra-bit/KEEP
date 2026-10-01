@@ -10,10 +10,12 @@ describe('web update control contract', () => {
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('keeps the update control off mobile and free of stray arrow icons', () => {
-    expect(banner).toContain("Platform.OS !== 'web' || width < 768 || !latestSha");
+  it('keeps the update control always available on desktop and off mobile', () => {
+    expect(banner).toContain("Platform.OS !== 'web' || width < 768");
+    expect(banner).not.toContain("width < 768 || !latestSha");
     expect(banner).toContain('keep-update-available-button');
-    expect(banner).toContain('MISE À JOUR');
+    expect(banner).toContain("latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'");
+    expect(banner).toContain('checkNow().finally(reloadToLatest)');
     expect(banner).not.toContain('↻');
     expect(banner).toContain('setInterval');
   });
