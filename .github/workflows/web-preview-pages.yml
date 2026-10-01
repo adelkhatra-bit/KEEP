@@ -47,6 +47,8 @@ jobs:
       EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
       EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
       EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+      EXPO_PUBLIC_DEMO_MODE: 'true'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
       EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
       NEXT_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
