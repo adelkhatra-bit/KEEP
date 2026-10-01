@@ -17,7 +17,6 @@ import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
-import GlobalChatDock from '../components/GlobalChatDock';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -788,7 +787,6 @@ export default function DiscoverScreen({ navigation, route }: any) {
           </View>
         </View>
       </Modal>
-  <GlobalChatDock />
 </SafeAreaView>
   );
 }
