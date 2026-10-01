@@ -41,7 +41,9 @@ describe('compact help + inline profile event UI contract', () => {
     expect(block).toContain('ÇA BOUGE ICI');
     expect(block).toContain('En attente que le Super Admin approuve l’événement');
     expect(publicProfile).toContain('<Modal visible={profileEventOpen}');
-    expect(publicProfile).toContain('✓ TU PARTICIPES DÉJÀ');
+    expect(publicProfile).toContain("['GOING', 'JE PARTICIPE']");
+    expect(publicProfile).toContain("['MAYBE', 'PEUT-ÊTRE']");
+    expect(publicProfile).toContain("['NOT_GOING', 'JE NE PARTICIPE PAS']");
     expect(publicProfile).toContain('Tu restes sur le profil de @{profile.username}');
   });
 
