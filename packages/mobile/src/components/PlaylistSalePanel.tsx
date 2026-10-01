@@ -152,6 +152,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
   const [retiredOpen, setRetiredOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [offerFilter, setOfferFilter] = useState<'ALL' | 'FREE' | 'MONEY'>('ALL');
   const [collectionCartOpen, setCollectionCartOpen] = useState(false);
   const [collectionCartStep, setCollectionCartStep] = useState<'TRACKS' | 'REVIEW' | 'PRICE' | 'PUBLISH'>('TRACKS');
@@ -1061,30 +1062,65 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
-            {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'COMPLETED').length > 0 && (
+            {marketplaceTransactionEnabled && (sales.length + purchases.length > 0) && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>COLLECTIONS DÉBLOQUÉES ({sales.filter((s2) => s2.status === 'COMPLETED').length})</Text>
-                {sales.filter((s2) => s2.status === 'COMPLETED').map((sale) => (
-                  <View key={sale.id} style={s.offerCard}>
-                    <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
-                    <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'RECEIVED')}</Text>
-                    {transactionFreeBalanceLabel(sale) ? <Text style={s.offerDate}>{transactionFreeBalanceLabel(sale)}</Text> : null}
+                <TouchableOpacity
+                  style={s.historyToggle}
+                  onPress={() => setHistoryOpen((value) => !value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: historyOpen }}
+                  accessibilityLabel={historyOpen ? 'Masquer l’historique Pépites' : 'Voir l’historique Pépites'}
+                >
+                  <View style={s.historyToggleCopy}>
+                    <Text style={s.historyToggleKicker}>PÉPITES</Text>
+                    <Text style={s.historyToggleTitle}>Voir l’historique</Text>
+                    <Text style={s.historyToggleMeta}>{sales.length} vente{sales.length > 1 ? 's' : ''} · {purchases.length} achat{purchases.length > 1 ? 's' : ''}</Text>
                   </View>
-                ))}
-              </View>
-            )}
+                  <Text style={s.historyToggleIcon}>{historyOpen ? '˄' : '˅'}</Text>
+                </TouchableOpacity>
 
-            {marketplaceTransactionEnabled && purchases.length > 0 && (
-              <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>MES ACHATS ({purchases.length})</Text>
-                {purchases.map((purchase) => (
-                  <View key={purchase.id} style={s.offerCard}>
-                    <Text style={s.offerName}>@{purchase.counterpartUsername} · {purchase.playlistName}</Text>
-                    <Text style={s.offerPrice}>{transactionAmountLabel(purchase, 'SPENT')}</Text>
-                    {transactionFreeBalanceLabel(purchase) ? <Text style={s.offerDate}>{transactionFreeBalanceLabel(purchase)}</Text> : null}
-                    <Text style={s.offerDate}>{purchase.status === 'COMPLETED' ? '✓ Débloqué -- va sur son profil pour voir les morceaux' : '⏳ En attente que le créateur confirme ton paiement'}</Text>
+                {historyOpen ? (
+                  <View style={s.historyList}>
+                    {sales.map((sale) => (
+                      <View key={`sale:${sale.id}`} style={[s.offerCard, s.historyCard]}>
+                        <View style={s.historyTop}>
+                          <View style={s.offerInfo}>
+                            <Text style={s.historyDirection}>VENTE · @{sale.counterpartUsername}</Text>
+                            <Text style={s.offerName}>{sale.playlistName}</Text>
+                          </View>
+                          <View style={[s.offerBadge, sale.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
+                            <Text style={s.offerBadgeText}>{sale.paymentMode === 'FREE' ? '⚡ FREE' : '€'}</Text>
+                          </View>
+                        </View>
+                        <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'RECEIVED')}</Text>
+                        <Text style={s.historyDate}>{new Date(sale.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
+                        {transactionFreeBalanceLabel(sale) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(sale)}</Text> : null}
+                        <Text style={[s.historyStatus, sale.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
+                          {sale.status === 'COMPLETED' ? '✓ Vente terminée · musique débloquée' : '⏳ Paiement à confirmer'}
+                        </Text>
+                      </View>
+                    ))}
+                    {purchases.map((purchase) => (
+                      <View key={`purchase:${purchase.id}`} style={[s.offerCard, s.historyCard]}>
+                        <View style={s.historyTop}>
+                          <View style={s.offerInfo}>
+                            <Text style={s.historyDirection}>ACHAT · @{purchase.counterpartUsername}</Text>
+                            <Text style={s.offerName}>{purchase.playlistName}</Text>
+                          </View>
+                          <View style={[s.offerBadge, purchase.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
+                            <Text style={s.offerBadgeText}>{purchase.paymentMode === 'FREE' ? '⚡ FREE' : '€'}</Text>
+                          </View>
+                        </View>
+                        <Text style={s.offerPrice}>{transactionAmountLabel(purchase, 'SPENT')}</Text>
+                        <Text style={s.historyDate}>{new Date(purchase.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
+                        {transactionFreeBalanceLabel(purchase) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(purchase)}</Text> : null}
+                        <Text style={[s.historyStatus, purchase.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
+                          {purchase.status === 'COMPLETED' ? '✓ Achat débloqué dans Loki Music' : '⏳ En attente de confirmation du vendeur'}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
+                ) : null}
               </View>
             )}
           </>
@@ -1270,6 +1306,21 @@ const s = StyleSheet.create({
   offerCardFocus: { borderColor: colors.primary, borderWidth: 2 },
   retiredToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
   retiredToggleIcon: { color: colors.primaryLight, fontSize: 18, fontWeight: '900', marginBottom: spacing.md },
+  historyToggle:{minHeight:64,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:13,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  historyToggleCopy:{flex:1,minWidth:0},
+  historyToggleKicker:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:1.1},
+  historyToggleTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
+  historyToggleMeta:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:3},
+  historyToggleIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
+  historyList:{marginTop:10},
+  historyCard:{padding:12},
+  historyTop:{flexDirection:'row',alignItems:'flex-start',gap:8},
+  historyDirection:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8,marginBottom:3},
+  historyDate:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:4},
+  historyDetail:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},
+  historyStatus:{fontSize:9,fontWeight:'900',marginTop:7},
+  historyStatusDone:{color:colors.keep},
+  historyStatusPending:{color:colors.primaryLight},
   offerDate: { color: colors.textMuted, fontSize: 10, fontWeight: '700', marginBottom: spacing.md },
   offerActions: { flexDirection: 'row', gap: spacing.sm },
   manageTracksBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' },
