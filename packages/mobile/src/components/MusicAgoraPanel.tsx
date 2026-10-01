@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Keyboard, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { blockUser } from '../services/moderationService';
@@ -109,6 +109,30 @@ export default function MusicAgoraPanel({
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
   const browsingHistoryRef = useRef(false);
+  const { height: viewportHeight } = useWindowDimensions();
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    if (!compact || Platform.OS !== 'ios') {
+      setKeyboardInset(0);
+      return undefined;
+    }
+    const show = Keyboard.addListener('keyboardWillShow', (event) => {
+      setKeyboardInset(Math.max(0, Number(event.endCoordinates?.height || 0)));
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardInset(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [compact]);
+
+  const compactPanelHeight = compact
+    ? keyboardInset > 0
+      ? Math.max(230, Math.min(400, viewportHeight - keyboardInset - 110))
+      : Math.max(300, Math.min(620, Math.round(viewportHeight * 0.68)))
+    : undefined;
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
 
@@ -498,7 +522,14 @@ export default function MusicAgoraPanel({
 
   if (compact && (!enabled || !homeEnabled)) return null;
 
-  return <View style={[s.shell, compact && s.shellCompact, compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight)]}>
+  return <View
+    style={[
+      s.shell,
+      compact && s.shellCompact,
+      compact && { height: compactPanelHeight, minHeight: 0, bottom: keyboardInset > 0 ? keyboardInset + 10 : 78 },
+      compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
+    ]}
+  >
     {compact ? (
       <>
         <View style={s.compactHeader}>
@@ -793,6 +824,7 @@ export default function MusicAgoraPanel({
         placeholderTextColor={colors.textMutedGrey}
         multiline
         maxLength={280}
+        onFocus={() => setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80)}
         style={[s.input, compact && s.inputCompact]}
       />
       <View style={s.composerBottom}>
@@ -826,21 +858,21 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:'68%',minHeight:390,maxHeight:620,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:'68%',minHeight:0,maxHeight:620,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
   shellCompactLeft:{left:10},
   shellCompactRight:{right:10},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},
-  compactMeta:{color:colors.textMutedGrey,fontSize:8.5,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},
+  compactMeta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   compactClose:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
   compactModes:{flexDirection:'row',gap:7,paddingHorizontal:2,paddingBottom:3},
   compactMode:{flex:1,minHeight:32,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.04)',alignItems:'center',justifyContent:'center'},
   compactModeOn:{backgroundColor:colors.info,borderColor:colors.primaryLight},
-  compactModeText:{color:colors.info,fontSize:9,fontWeight:'900',letterSpacing:.75},
+  compactModeText:{color:colors.info,fontSize:10.5,fontWeight:'900',letterSpacing:.75},
   compactModeTextOn:{color:colors.white},
   threadBack:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',paddingHorizontal:5},
   threadBackText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
@@ -850,9 +882,9 @@ const s=StyleSheet.create({
   conversationAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundElevated},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
-  conversationName:{flex:1,color:colors.textPrimary,fontSize:11,fontWeight:'900'},
-  conversationTime:{color:colors.textMutedGrey,fontSize:8,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:9,lineHeight:13,marginTop:3},
+  conversationName:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  conversationTime:{color:colors.textMutedGrey,fontSize:9.5,fontWeight:'700'},
+  conversationPreview:{color:colors.textSecondary,fontSize:11,lineHeight:15,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',textAlign:'center'},
@@ -879,17 +911,17 @@ const s=StyleSheet.create({
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
   composerCompact:{padding:7,borderRadius:14,flexShrink:0},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
-  inputCompact:{height:40,minHeight:40,maxHeight:40,fontSize:12,lineHeight:17,paddingTop:8,paddingBottom:7},
+  inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7},
   quickReactions:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:6},
   quickReaction:{width:34,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionText:{fontSize:16},
   composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
-  counter:{color:colors.textMutedGrey,fontSize:9,marginLeft:'auto'},
+  counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   sendOff:{opacity:.45},
-  sendText:{color:colors.white,fontSize:9,fontWeight:'900',letterSpacing:.7},
+  sendText:{color:colors.white,fontSize:10,fontWeight:'900',letterSpacing:.7},
   shareMusic:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
-  shareMusicText:{color:colors.keep,fontSize:8,fontWeight:'900'},
+  shareMusicText:{color:colors.keep,fontSize:9.5,fontWeight:'900'},
   musicAttribution:{marginTop:-5,marginHorizontal:5,paddingHorizontal:9,paddingVertical:6,borderBottomLeftRadius:12,borderBottomRightRadius:12,borderWidth:1,borderTopWidth:0,borderColor:colors.border,backgroundColor:'rgba(13,9,20,.82)',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
   musicAttributionText:{flex:1,color:colors.textMutedGrey,fontSize:8.5,fontWeight:'800'},
   musicAlreadyText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
@@ -918,9 +950,9 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
-  meta:{color:colors.textMutedGrey,fontSize:9,marginTop:2},
-  body:{color:colors.textPrimary,fontSize:13,lineHeight:19,marginTop:8},
+  username:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  meta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
+  body:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:8},
   messageActions:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,marginTop:8},
   reply:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   replyText:{color:colors.info,fontSize:8,fontWeight:'900'},
