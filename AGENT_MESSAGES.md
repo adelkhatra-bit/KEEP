@@ -2206,3 +2206,7 @@ Worker Supabase keep-battle-catalog-seed v7 déployé avec auth worker hachée p
 ## [2026-10-01] chatgpt — expansion catalogue autonome sans secret GitHub
 
 Le run GitHub 36794367825 a échoué car KEEP_BATTLE_CATALOG_WORKER_KEY est absent d'Actions. Pour ne laisser aucun blocage manuel : l'alimentation passe côté Supabase Cron + pg_net + Vault. Le worker accepte désormais une clé cron distincte et des batches de 5 recherches. CHANSON_FR passe en premier, RAP_FR ensuite, puis les autres thèmes. Le workflow GitHub reste optionnel et ne met plus la CI en rouge quand son secret n'est pas configuré.
+
+
+## [2026-10-01T00:20:00Z] chatgpt — décision explicite profil FREE
+Adel confirme visuellement : le compteur FREE doit être aligné avec la pastille Utilisateur/Créateur, pas rejeté après Reprises. Correction ciblée uniquement sur ProfilePublicScreen + contrats de garde. Ne pas déplacer les autres éléments du profil.

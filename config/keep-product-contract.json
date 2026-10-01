@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.5",
+  "version": "2026-10-01.6",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -26,16 +26,26 @@
     "KEEP": -1
   },
   "profileOwner": {
-    "freePlacement": "metrics-after-reprises",
-    "metricsBarOrder": ["PLUS", "Abonnés", "Reprises", "FREE"],
-    "freeBesideProfileKind": false,
+    "freePlacement": "beside-profile-kind",
+    "metricsBarOrder": [
+      "PLUS",
+      "Abonnés",
+      "Reprises"
+    ],
+    "freeBesideProfileKind": true,
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
     "freeBalanceSource": "Supabase RPC credit status",
     "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true
   },
   "responsive": {
-    "requiredViewports": ["390x844", "430x932", "768x700", "900x700", "1440x900"],
+    "requiredViewports": [
+      "390x844",
+      "430x932",
+      "768x700",
+      "900x700",
+      "1440x900"
+    ],
     "desktopRootMustFillViewport": true,
     "resizeMustNotBlankApplication": true,
     "fiveTabsMustRemainVisible": true

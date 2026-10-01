@@ -1,10 +1,9 @@
 {
-  "version": "2026-10-01.1",
+  "version": "2026-10-01.2",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
   "profileOwner": {
-    "freePlacement": "metrics-after-reprises",
-    "freeMustNotAppearBesideProfileKind": true,
+    "freePlacement": "beside-profile-kind",
     "certificationMustAppearBesideUsername": true,
     "profileKindLabels": [
       "Utilisateur",
@@ -17,11 +16,11 @@
     "metricsBarOrder": [
       "PLUS",
       "Abonnés",
-      "Reprises",
-      "FREE"
+      "Reprises"
     ],
     "hamburgerAccountEntryAllowed": false,
-    "sessionControlsLocation": "ProfileSettingsMobileScreen"
+    "sessionControlsLocation": "ProfileSettingsMobileScreen",
+    "freeMustAppearBesideProfileKind": true
   },
   "navigation": {
     "bottomTabsImmutable": [
