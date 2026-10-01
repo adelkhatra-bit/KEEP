@@ -106,7 +106,7 @@ export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
   return {
     homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
     notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
-    voiceAnnouncementsEnabled: Boolean((data as any).voiceAnnouncementsEnabled ?? (data as any).voice_announcements_enabled ?? false),
+    voiceAnnouncementsEnabled: Boolean((data as any).voiceAnnouncementsEnabled ?? (data as any).voice_announcements_enabled ?? (data as any).voiceAnnouncements ?? (data as any).voice_announcements ?? false),
     surfaces: parseChatSurfaces((data as any).surfaces ?? (data as any).visibleSurfaces ?? (data as any).visible_surfaces),
     side: String((data as any).side || '').toLowerCase() === 'left' ? 'left' : 'right',
     bottomOffset: Math.max(72, Math.min(800, Number((data as any).bottomOffset ?? (data as any).bottom_offset ?? 88) || 88)),
@@ -128,7 +128,7 @@ export async function saveMusicAgoraSettings(
   return {
     homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled),
     notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
-    voiceAnnouncementsEnabled: Boolean((data as any)?.voiceAnnouncementsEnabled ?? (data as any)?.voice_announcements_enabled ?? false),
+    voiceAnnouncementsEnabled: Boolean((data as any)?.voiceAnnouncementsEnabled ?? (data as any)?.voice_announcements_enabled ?? (data as any)?.voiceAnnouncements ?? (data as any)?.voice_announcements ?? false),
     surfaces: parseChatSurfaces((data as any)?.surfaces ?? (data as any)?.visibleSurfaces ?? (data as any)?.visible_surfaces),
     side: String((data as any)?.side || '').toLowerCase() === 'left' ? 'left' : 'right',
     bottomOffset: Math.max(72, Math.min(800, Number((data as any)?.bottomOffset ?? (data as any)?.bottom_offset ?? 88) || 88)),
@@ -145,6 +145,7 @@ export async function saveMusicAgoraPosition(side: 'left' | 'right', bottomOffse
   return {
     homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled ?? (data as any)?.enabled),
     notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
+    voiceAnnouncementsEnabled: Boolean((data as any)?.voiceAnnouncementsEnabled ?? (data as any)?.voice_announcements_enabled ?? (data as any)?.voiceAnnouncements ?? (data as any)?.voice_announcements ?? false),
     surfaces: parseChatSurfaces((data as any)?.surfaces ?? (data as any)?.visibleSurfaces ?? (data as any)?.visible_surfaces),
     side: String((data as any)?.side || '').toLowerCase() === 'left' ? 'left' : 'right',
     bottomOffset: Math.max(72, Math.min(800, Number((data as any)?.bottomOffset ?? (data as any)?.bottom_offset ?? bottomOffset) || bottomOffset)),
@@ -482,5 +483,12 @@ export async function saveMusicAgoraVoiceAnnouncements(enabled: boolean): Promis
     p_enabled: Boolean(enabled),
   });
   if (error) throw error;
-  return Boolean(data);
+  const row = data as any;
+  return Boolean(
+    row?.voiceAnnouncementsEnabled
+    ?? row?.voice_announcements_enabled
+    ?? row?.voiceAnnouncements
+    ?? row?.voice_announcements
+    ?? false
+  );
 }
