@@ -29,7 +29,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -169,6 +169,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  const [saleOfferOverlaps, setSaleOfferOverlaps] = useState<Record<string, PlaylistSaleOverlap>>({});
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
   const [visibleSaleCount, setVisibleSaleCount] = useState(SALE_ROWS_INITIAL);
@@ -235,6 +236,31 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } }).catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
     return () => { live = false; };
   }, [profile?.id]);
+
+  // Affiche AVANT d'ouvrir un Drop combien de titres sont réellement
+  // nouveaux pour le visiteur. Le calcul reste côté serveur afin de ne jamais
+  // révéler les titres masqués de la collection.
+  useEffect(() => {
+    if (!viewer?.id || isLocalGuest || isDemoMode || saleOffers.length === 0) {
+      setSaleOfferOverlaps({});
+      return undefined;
+    }
+    let live = true;
+    Promise.all(saleOffers.map(async (offer) => {
+      try {
+        const overlap = await loadPlaylistSaleOfferOverlap(offer.offerId);
+        return [offer.offerId, overlap] as const;
+      } catch {
+        return null;
+      }
+    })).then((entries) => {
+      if (!live) return;
+      const next: Record<string, PlaylistSaleOverlap> = {};
+      entries.forEach((entry) => { if (entry) next[entry[0]] = entry[1]; });
+      setSaleOfferOverlaps(next);
+    });
+    return () => { live = false; };
+  }, [viewer?.id, isLocalGuest, isDemoMode, saleOffers]);
   useEffect(() => {
     if (!profile?.id) {
       setMarketBannerEventIds([]);
@@ -1452,18 +1478,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
                     // Une ligne courte, jamais coupée : 1 style suffit ici.
                     const styleLabel = offer.genres?.[0] || 'Mix secret';
+                    const overlap = saleOfferOverlaps[offer.offerId];
+                    const missingLabel = overlap
+                      ? (overlap.missingCount === 0
+                          ? '✓ tout est déjà chez toi'
+                          : `${overlap.missingCount} titre${overlap.missingCount > 1 ? 's' : ''} que tu n’as pas encore`)
+                      : null;
                     return (
                       <SaleCollectionRow
                         key={`sale-row:${offer.offerId}`}
                         index={index}
                         title={offer.playlistName || `Collection #${index + 1}`}
-                        meta={unlocked ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}` : `✦ ${offer.trackCount} à révéler · ${styleLabel}`}
+                        meta={unlocked
+                          ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
+                          : missingLabel
+                            ? `${missingLabel} · ${styleLabel}`
+                            : `✦ ${offer.trackCount} à révéler · ${styleLabel}`}
                         tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}
                         tagTone={unlocked ? 'unlocked' : 'price'}
                         onPress={() => openSaleFolder(offer)}
                         accessibilityLabel={unlocked
                           ? `Ouvrir la collection ${offer.playlistName}`
-                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}, ${offer.trackCount} morceaux, ${priceLabel}`}
+                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}, ${missingLabel || `${offer.trackCount} titres à révéler`}, ${priceLabel}`}
                         onPlayPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
                         playAccessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
                       />
