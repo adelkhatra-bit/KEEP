@@ -86,8 +86,13 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("chooseVerticalPreset('HIGH')");
     expect(dock).toContain("chooseVerticalPreset('MIDDLE')");
     expect(dock).toContain("chooseVerticalPreset('LOW')");
-    expect(panel).toContain("chooseChatVertical('HIGH')");
+    expect(panel).toContain("chooseChatVerticalPreset('HIGH')");
+    expect(panel).toContain("chooseChatVerticalPreset('MIDDLE')");
+    expect(panel).toContain("chooseChatVerticalPreset('LOW')");
     expect(panel).toContain('HAUTEUR DU TIROIR');
+    expect(profile).toContain("key: 'chatSettings'");
+    expect(profile).toContain('RÉGLER LA MESSAGERIE');
+    expect(profile).toContain('useGlobalChatStore.getState().openSettings()');
     expect(dock).toContain('Math.round(height * 0.44)');
     expect(dock).toContain('fabWrap');
     expect(dock).toContain('fabLeft');
