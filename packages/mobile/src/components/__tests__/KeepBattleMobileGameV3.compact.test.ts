@@ -54,6 +54,13 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain('arena-safety:');
   });
 
+  it('calibrates multiplayer timing against PostgreSQL instead of trusting each phone clock', () => {
+    expect(source).toContain('estimateKeepBattleServerClockOffsetMs');
+    expect(source).toContain('keepBattleServerNowMs');
+    expect(source).toContain('const localTargetStart = startsAt - clockOffset');
+    expect(source).toContain('const serverNow = () => keepBattleServerNowMs(clockOffset)');
+  });
+
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {
     expect(source).toContain('FREE gagnés aujourd’hui');
     expect(source).toContain('FREE perdus aujourd’hui');
