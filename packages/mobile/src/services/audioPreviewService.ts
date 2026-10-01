@@ -623,7 +623,14 @@ export async function scheduleTrackPreviewSegment(
       activeStartTimer = setTimeout(() => {
         activeStartTimer = null;
         void serialize(async () => {
-          await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange);
+          const lateByMs = Math.min(
+            Math.max(0, Date.now() - startAtEpochMs),
+            Math.max(0, durationMillis - 700),
+          );
+          const basePosition = positionMillis > 0 ? positionMillis : 9000;
+          const syncedPosition = basePosition + lateByMs;
+          const remainingDuration = Math.max(700, durationMillis - lateByMs);
+          await playWebSegment(key, previewUrl, syncedPosition, remainingDuration, onStateChange);
         });
       }, delay);
       return;
@@ -650,16 +657,28 @@ export async function scheduleTrackPreviewSegment(
     activeStartTimer = setTimeout(() => {
       activeStartTimer = null;
       if (activeSound !== createdSound) return;
-      void createdSound.playAsync().then(() => {
-        if (activeSound !== createdSound) return;
-        onStateChange?.(true);
-        activeTimer = setTimeout(() => {
+      void (async () => {
+        try {
+          const lateByMs = Math.min(
+            Math.max(0, Date.now() - startAtEpochMs),
+            Math.max(0, durationMillis - 700),
+          );
+          const syncedPosition = effectivePosition + lateByMs;
+          const remainingDuration = Math.max(700, durationMillis - lateByMs);
+          if (lateByMs > 0) {
+            try { await createdSound.setPositionAsync(syncedPosition); } catch {}
+          }
+          await createdSound.playAsync();
           if (activeSound !== createdSound) return;
-          void serialize(async () => { await unloadActive(); });
-        }, Math.max(1000, Math.round(durationMillis)));
-      }).catch(() => {
-        if (activeSound === createdSound) void serialize(async () => { await unloadActive(); });
-      });
+          onStateChange?.(true);
+          activeTimer = setTimeout(() => {
+            if (activeSound !== createdSound) return;
+            void serialize(async () => { await unloadActive(); });
+          }, Math.max(700, Math.round(remainingDuration)));
+        } catch {
+          if (activeSound === createdSound) void serialize(async () => { await unloadActive(); });
+        }
+      })();
     }, delay);
   });
 }
