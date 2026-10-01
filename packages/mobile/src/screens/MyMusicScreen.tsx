@@ -554,7 +554,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const refreshLibrary = async () => {
     await syncUnsyncedKeeps().catch(() => {});
-    if (userId && !isLocalGuest && !isDemoMode) {
+    if (!isLocalGuest && !isDemoMode) {
+      // La session Supabase est la source d'identité réelle. Après un OTA ou
+      // une reconnexion, le store profil peut arriver quelques millisecondes
+      // plus tard : ne jamais vider Mes musiques uniquement parce que userId
+      // n'est pas encore hydraté localement.
       const persisted = await loadOwnPersistedKeeps().catch(() => null);
       if (persisted) setServerKeeps(persisted);
     } else {
