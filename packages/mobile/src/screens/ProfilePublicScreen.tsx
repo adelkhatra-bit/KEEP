@@ -1880,6 +1880,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       loop
       askVisibilityOnKeep
       keepCostNotice={`GARDER ce morceau débitera ${freeCostPerKeep} FREE après ton choix Public ou Privé. PASSER / MASQUER reste gratuit.`}
+      keepDebitAmount={freeCostPerKeep}
       onKeep={keepFromLokiPulse}
       onPass={hideFromLokiPulse}
       onClose={() => setLokiPulseSwipeOpen(false)}
