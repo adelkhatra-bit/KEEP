@@ -16,7 +16,7 @@ import { loadPlaylistPreferences, preferenceFor, savePlaylistPreference, KeepPla
 import { getSmartSortAccess, QuotaAccess } from '../services/growthAccessService';
 import { addTracksToOffer, choosePurchaseVisibility, clearPlaylistSalePrice, getPlaylistSaleAccess, loadDeliveredPlaylistSaleTracks, loadMyOfferedTrackIds, loadMyPlaylistPurchaseLibrary, loadMyPlaylistSaleOffers, loadPendingVisibilityChoice, PendingVisibilityChoice, PlaylistOfferedTrack, PlaylistPurchaseLibraryEntry, PlaylistSaleAccess, PlaylistSaleOffer, PlaylistSalePaymentMode, removeTrackFromOffer, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, setPlaylistSalePrice, updateOfferPaymentMode, updateOfferPrice } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
-import { getMyPayoutMethods, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
+import { getMyPayoutMethods, normalizePayoutLinkInput, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
 import { persistOwnTrackVisibility, removeOwnTrackFromKeep } from '../services/keepVisibilityService';
 import { loadOwnPersistedKeeps, PersistedKeepDecision } from '../services/keepMusicCoreRecognition';
 import {
@@ -222,9 +222,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
   }, [userId, isLocalGuest, isDemoMode, navigation]);
 
   const savePayoutDirect = async () => {
-    const clean = payoutLinkDraft.trim();
+    const clean = normalizePayoutLinkInput(payoutLinkDraft);
     if (!/^https:\/\//i.test(clean)) {
-      Alert.alert('Lien de paiement', 'Colle un lien sécurisé complet commençant par https://, par exemple https://paypal.me/tonpseudo.');
+      Alert.alert('Lien de paiement', 'Entre ton pseudo PayPal.Me (ex. tonpseudo) ou un lien https:// sécurisé.');
       return;
     }
     setPayoutSaving(true);
@@ -250,9 +250,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
   };
 
   const testPayoutDirect = () => {
-    const clean = payoutLinkDraft.trim();
+    const clean = normalizePayoutLinkInput(payoutLinkDraft);
     if (!/^https:\/\//i.test(clean)) {
-      Alert.alert('Tester le paiement', 'Colle d’abord ton lien complet, par exemple https://paypal.me/tonpseudo.');
+      Alert.alert('Tester le paiement', 'Entre ton pseudo PayPal.Me ou un lien https:// valide.');
       return;
     }
     // Pas de canOpenURL/await avant : l'ouverture doit partir directement du
@@ -1938,12 +1938,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 <View style={[styles.salePaymentSetup, (payoutLink.trim() || payoutQrUrl.trim()) ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
                   <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' déjà enregistré' : payoutQrUrl.trim() ? '✓ QR PayPal enregistré' : 'PAIEMENT À CONFIGURER'}</Text>
                   <Text style={styles.salePaymentGateHint}>Ton lien est mémorisé sur ton profil. PayPal.Me est recommandé : le montant et la devise sélectionnée sont préremplis pour l’acheteur.</Text>
-                  <Text style={styles.payoutChecklist}>1 · PayPal.Me recommandé sur le même téléphone  ·  2 · QR PayPal en secours  ·  3 · Loki mémorise les deux</Text>
+                  <Text style={styles.payoutChecklist}>1 · Ton pseudo PayPal.Me suffit  ·  2 · QR PayPal en secours  ·  3 · Loki mémorise les deux</Text>
                   <TextInput
                     style={styles.payoutInput}
                     value={payoutLinkDraft}
                     onChangeText={setPayoutLinkDraft}
-                    placeholder="https://paypal.me/tonpseudo"
+                    placeholder="Pseudo PayPal.Me ou https://paypal.me/tonpseudo"
                     placeholderTextColor={colors.textMuted}
                     autoCapitalize="none"
                     autoCorrect={false}
