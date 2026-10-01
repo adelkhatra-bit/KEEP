@@ -1,6 +1,1 @@
-# Trigger EAS iOS production/TestFlight after validated product changes.
-# Requested by Adel: push the latest KEEP/Loki branch state to TestFlight.
-triggered-at: 2026-10-01T12:05:00+02:00
-target-branch: reconcile/claude-main-20260825
-target-commit: 0e26cdacd305b4bc05c2902fa3bd4dc5adbeb4b6
-reason: final-audit-ui-pulse-payments-events-admin-security
+2026-10-01T10:53:46.865Z 9e9e623829df38b0a0753f740c1a5d51fc88609b
