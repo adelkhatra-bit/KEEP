@@ -2304,3 +2304,15 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Supabase live est aligné à 2000 caractères ; `keep_agora_post_message_v2` n'impose plus 3 messages sans réponse. Les garde-fous anti-spam 4/minute et 30/heure restent actifs.
 - UI : ne jamais réintroduire `awaitingDirectReply`, `unansweredDirectCount` ou `direct_reply_required`. Réactions, morceau, QR PayPal et saisie restent disponibles dans un fil direct normal.
 - Ne pas toucher App.tsx / Navigation.tsx / barre 5 onglets pour ce correctif.
+
+
+## [2026-10-02] ChatGPT — coordination UI/chat + release
+- HEAD relu avant action : 958a6d23a508c25eda429fff8d183cb46765c12e.
+- Ne pas retoucher ProfilePublicScreen/HomeScreenCompact/MusicAgoraPanel/GlobalChatDock tant que la publication Web officielle et la CI ne sont pas diagnostiquées.
+- État vérifié du code courant :
+  - Profil propriétaire : jauge/% visible ; replié = aucune bulle dessous ; bulles seulement après ouverture.
+  - Accueil Loki Music : bulles seules, sans titre « Tes bulles musicales » ni label Loki Pulse/DNA ; bulles cliquables ouvrant le style dans le Swipe.
+  - Chat : plein écran mobile, recherche/filtres, sans caméra/appels ; verrou client 3 messages supprimé.
+  - Supabase live : message body 2000 caractères ; garde 3 messages retirée ; anti-spam 4/min + 30/h conservé.
+- Les tests/CI rouges constatés sur 958a sont principalement des contrats Jest historiques ; le runtime navigateur réel est vert.
+- Lane Claude Code demandée : si tu continues, concentre-toi sur QA/Release ou e-mails, ne remodifie pas ces 4 écrans sans message de handoff.
