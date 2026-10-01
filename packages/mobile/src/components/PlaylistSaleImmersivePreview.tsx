@@ -244,9 +244,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           </View>
 
           {overlap && overlap.totalCount > 0 ? (
-            <View style={[s.overlapBar, allAlreadyOwned && s.overlapBarAll]}>
-              <Text style={s.overlapMain}>{allAlreadyOwned ? '✓ TU AS DÉJÀ TOUT' : `${overlap.ownedCount} DÉJÀ · ${overlap.missingCount} NOUVEAU${overlap.missingCount > 1 ? 'X' : ''}`}</Text>
-              <Text style={s.overlapCount}>{overlap.totalCount} au total</Text>
+            <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
+              <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
+              <View style={s.overlapDivider} />
+              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ</Text></View>
+              <View style={s.overlapDivider} />
+              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
+              {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ déjà dans ta musique</Text> : null}
             </View>
           ) : null}
 
@@ -402,10 +406,15 @@ const s = StyleSheet.create({
   totalPricePill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
   totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
-  overlapBar:{marginTop:7,minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:11,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+  overlapSummary:{marginTop:7,minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:8,paddingVertical:6,flexDirection:'row',alignItems:'center',position:'relative'},
   overlapBarAll:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
-  overlapMain:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.45},
-  overlapCount:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
+  overlapStat:{flex:1,alignItems:'center',justifyContent:'center'},
+  overlapStatValue:{color:colors.textPrimary,fontSize:13,fontWeight:'900',lineHeight:16},
+  overlapStatLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',letterSpacing:.75,marginTop:1},
+  overlapOwned:{color:colors.success},
+  overlapNew:{color:colors.primaryLight},
+  overlapDivider:{width:1,height:24,backgroundColor:colors.border},
+  overlapAllText:{position:'absolute',right:7,top:3,color:colors.success,fontSize:6,fontWeight:'900'},
   trackOwnershipPill:{marginTop:7,minHeight:24,borderRadius:12,borderWidth:1,paddingHorizontal:9,alignItems:'center',justifyContent:'center'},
   trackOwnershipOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
   trackOwnershipNew:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},
