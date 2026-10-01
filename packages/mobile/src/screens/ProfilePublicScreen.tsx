@@ -54,7 +54,6 @@ import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
-import AccountActionsPanel from '../components/AccountActionsPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -99,7 +98,6 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
     title: 'AIDE',
     items: [
       { key: 'help', icon: '🆘', label: 'Aide', hint: 'Support · légal · comptes bloqués' },
-      { key: 'account', icon: '◉', label: 'Compte', hint: 'Connexion · session · déconnexion' },
     ],
   },
 ]
@@ -1177,45 +1175,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
     useAccountGateStore.getState().requestAccount(mode, followUsername);
   };
 
-  const handleAccountSessionAction = async () => {
-    if (accountRequired) {
-      setMenuOpen(false);
-      setExpandedMenuItem(null);
-      openAccount('login');
-      return;
-    }
-
-    if (!supabase) return;
-    const client = supabase;
-    Alert.alert(
-      'Se déconnecter ?',
-      'Tes données restent enregistrées dans Loki Music. Elles ne seront plus affichées sur cet appareil tant que tu ne te reconnectes pas.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Se déconnecter',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                await createAuthService(client).signOut();
-              } finally {
-                useUserStore.getState().logout();
-                setRealSessionUserId(null);
-                setServerOwnKeeps([]);
-                setPublicSnapshot(null);
-                setOwnSnapshot(null);
-                setDiscoveryImpacts({});
-                setMenuOpen(false);
-                setExpandedMenuItem(null);
-              }
-            })();
-          },
-        },
-      ],
-    );
-  };
-
   const openShare = () => {
     if (accountRequired) return openAccount('create');
     setShareOpen(true);
@@ -1553,12 +1512,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setPulseTasteOpen(true);
       return;
     }
-    if (key === 'account' && accountRequired) {
-      setMenuOpen(false);
-      setExpandedMenuItem(null);
-      useAccountGateStore.getState().requestAccount('login');
-      return;
-    }
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
@@ -1637,16 +1590,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'help') return <>
       <Text style={s.shareTitle}>Aide, légal &amp; comptes bloqués</Text>
       <HelpLegalPanel profileId={user.id} username={user.username} enabled={!accountRequired} />
-    </>;
-
-    if (key === 'account') return <>
-      <Text style={s.shareTitle}>{accountRequired ? 'Se connecter' : 'Compte connecté'}</Text>
-      <Text style={s.shareSubtitle}>
-        {accountRequired
-          ? 'Aucune session Supabase active sur cet appareil. Tes musiques privées restent masquées jusqu’à la reconnexion.'
-          : `Session active pour @${user.username}. Tu peux gérer la déconnexion ou la suppression du compte ici.`}
-      </Text>
-      {accountRequired ? <LoginPill /> : <AccountActionsPanel />}
     </>;
 
     return null;
@@ -2138,49 +2081,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 return <View key={group.title} style={s.menuGroup}>
                   <Text style={s.menuGroupTitle}>{group.title}</Text>
                   <View style={s.menuGroupCard}>
-                    {visibleItems.map((item, index) => {
-                      const accountItem = item.key === 'account';
-                      const label = accountItem ? (accountRequired ? 'Se connecter' : 'Compte connecté') : item.label;
-                      const hint = accountItem
-                        ? (accountRequired ? 'Session absente · reconnecter ce compte' : `@${user.username} · gérer ou se déconnecter`)
-                        : item.hint;
-                      return (
-                        <TouchableOpacity key={item.key} style={[s.menuItemRow, index < visibleItems.length - 1 && s.menuItemDivider]} onPress={() => directMenuAction(item.key)} accessibilityRole="button" accessibilityLabel={label}>
-                          <View style={s.menuItemIcon}><Text style={s.menuItemIconText}>{accountItem ? (accountRequired ? '↪' : '✓') : item.icon}</Text></View>
-                          <View style={s.menuItemCopy}>
-                            <Text style={s.menuItemLabel}>{label}</Text>
-                            <Text style={s.menuItemHint}>{hint}</Text>
-                          </View>
-                          <Text style={s.menuChevron}>›</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                    {visibleItems.map((item, index) => (
+                      <TouchableOpacity key={item.key} style={[s.menuItemRow, index < visibleItems.length - 1 && s.menuItemDivider]} onPress={() => directMenuAction(item.key)} accessibilityRole="button" accessibilityLabel={item.label}>
+                        <View style={s.menuItemIcon}><Text style={s.menuItemIconText}>{item.icon}</Text></View>
+                        <View style={s.menuItemCopy}>
+                          <Text style={s.menuItemLabel}>{item.label}</Text>
+                          <Text style={s.menuItemHint}>{item.hint}</Text>
+                        </View>
+                        <Text style={s.menuChevron}>›</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
                 </View>;
               })}
-              <View style={s.menuGroup}>
-                <View style={s.menuGroupCard}>
-                  <TouchableOpacity
-                    style={s.menuItemRow}
-                    onPress={() => { void handleAccountSessionAction(); }}
-                    accessibilityRole="button"
-                    accessibilityLabel={accountRequired ? 'Se connecter' : 'Se déconnecter'}
-                  >
-                    <View style={[s.menuItemIcon, accountRequired ? s.accountIconOffline : s.accountIconOnline]}>
-                      <Text style={s.menuItemIconText}>{accountRequired ? '↪' : '✓'}</Text>
-                    </View>
-                    <View style={s.menuItemCopy}>
-                      <Text style={s.menuItemLabel}>{accountRequired ? 'Se connecter' : 'Se déconnecter'}</Text>
-                      <Text style={s.menuItemHint}>
-                        {accountRequired
-                          ? 'Aucune session active · ouvre la connexion sans quitter le profil'
-                          : `Session active${user?.username ? ` · @${user.username}` : ''}`}
-                      </Text>
-                    </View>
-                    <Text style={s.menuChevron}>›</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
             </ScrollView>
           </>
         )}
