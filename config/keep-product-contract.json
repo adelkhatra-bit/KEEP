@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.14",
+  "version": "2026-10-01.15",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -194,5 +194,21 @@
       "VENUE_PRO"
     ],
     "audienceRule": "targeted-followers-and-prior-keepers-with-dedupe"
+  },
+  "pepitesCart": {
+    "entry": "PlaylistSale",
+    "createFlow": "Main.MyMusic with returnToPicks",
+    "persistent": true,
+    "storageScope": "per-user",
+    "selectionSideEffects": "none-until-publish",
+    "alreadyForSale": "warn-and-allow",
+    "actions": [
+      "ADD_TO_CART",
+      "REMOVE_FROM_CART",
+      "CONTINUE",
+      "BACK_TO_PEPITES"
+    ],
+    "returnAfterPublish": "PlaylistSale",
+    "socialReprises": "never-sellable-by-non-origin-discoverer"
   }
 }
