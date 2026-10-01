@@ -269,6 +269,16 @@ export type MusicAgoraShareableTrack = {
   canSell: boolean;
 };
 
+export async function profileAlreadyOwnsAgoraTrack(profileId: string, trackId: string): Promise<boolean> {
+  if (!supabase || !profileId || !trackId) return false;
+  const { data, error } = await supabase.rpc('keep_profile_has_track', {
+    p_profile_id: profileId,
+    p_track_id: trackId,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function loadMusicAgoraTrackSaleEligibility(trackId: string): Promise<MusicAgoraTrackSaleEligibility> {
   if (!supabase || !trackId) return { hasTrack: false, canSell: false, sourceProfileId: null, sourceUsername: null, reason: 'UNKNOWN' };
   const { data, error } = await supabase.rpc('keep_agora_my_track_sale_eligibility', { p_track_id: trackId });
