@@ -124,8 +124,10 @@ export default function App() {
     const profileService = createProfileService(supabase);
     let profileLoadedFor: string | null = null;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    let inFlightSessionKey: string | null = null;
+    let inFlightSessionPromise: Promise<boolean> | null = null;
 
-    const handleSession = async (session: KeepAuthSession | null) => {
+    const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
       if (!session) {
         profileLoadedFor = null;
         useBattleAvailabilityStore.getState().reset();
@@ -135,10 +137,12 @@ export default function App() {
           return;
         }
         useUserStore.getState().syncFromAuthSession(null);
-        return;
+        return true;
       }
 
-      useUserStore.getState().syncFromAuthSession(session);
+      if (profileLoadedFor === session.userId && useUserStore.getState().user?.id === session.userId) {
+        return true;
+      }
 
       try {
         let profile = await profileService.loadOrCreateOwnProfile(session);
@@ -169,13 +173,20 @@ export default function App() {
           // = 20 crédits restants, et les cadenas des morceaux en attente sont
           // retirés automatiquement sans les valider à la place de l'utilisateur.
           await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-          await useSessionHistoryStore.getState().syncUnsyncedKeeps();
-          await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
-          await clearLocalGuestMarker();
         }
 
         profileLoadedFor = session.userId;
         useUserStore.getState().setUser(profile);
+
+        if (!session.isAnonymous) {
+          void (async () => {
+            await useSessionHistoryStore.getState().syncUnsyncedKeeps();
+            await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+            await clearLocalGuestMarker();
+          })().catch((error) => {
+            if (__DEV__) console.warn('[KEEP] post-auth sync unavailable', error);
+          });
+        }
         if (!session.isAnonymous) {
           void syncCurrentEntitlements().catch((error) => {
             if (__DEV__) console.warn('[KEEP] StoreKit entitlement sync unavailable', error);
@@ -185,21 +196,49 @@ export default function App() {
         if (!session.isAnonymous) {
           registerForPushNotifications().catch(() => {});
         }
+        return true;
       } catch (error) {
         if (__DEV__) console.error('[KEEP] profile load failed', error);
+        return false;
       }
+    };
+
+    const handleSessionOnce = (session: KeepAuthSession | null): Promise<boolean> => {
+      const key = session ? `${session.userId}:${session.isAnonymous ? 'anonymous' : 'account'}` : 'signed-out';
+      if (inFlightSessionPromise && inFlightSessionKey === key) return inFlightSessionPromise;
+      const promise = handleSession(session).finally(() => {
+        if (inFlightSessionPromise === promise) {
+          inFlightSessionPromise = null;
+          inFlightSessionKey = null;
+        }
+      });
+      inFlightSessionKey = key;
+      inFlightSessionPromise = promise;
+      return promise;
+    };
+
+    const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
+      const hydrated = await handleSessionOnce(session);
+      if (active && hydrated) setAuthReady(true);
+      return hydrated;
     };
 
     void authService.getCurrentSession()
       .then(async (session) => {
-        await handleSession(session);
-        if (active) setAuthReady(true);
+        const hydrated = await finishInitialBootstrap(session);
+        if (hydrated || !active) return;
+        setTimeout(() => {
+          if (!active) return;
+          void authService.getCurrentSession()
+            .then((retrySession) => finishInitialBootstrap(retrySession))
+            .catch(() => {});
+        }, 800);
       })
-      .catch(() => {
-        if (active) setAuthReady(true);
-      });
+      .catch(() => {});
     const unsubscribeAuth = authService.onSessionChange((session) => {
-      void handleSession(session);
+      void handleSessionOnce(session).then((hydrated) => {
+        if (active && hydrated) setAuthReady(true);
+      });
     });
 
     const unsubscribeStore = useUserStore.subscribe((state, previousState) => {

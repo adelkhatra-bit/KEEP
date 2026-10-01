@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.29",
+  "version": "2026-10-01.30",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -525,7 +525,11 @@
   "authExperience": {
     "welcomePopupAfterExplicitLogin": true,
     "welcomePopupCopy": "Bienvenue sur Loki Music !",
-    "welcomePopupMustNotNavigateAway": true
+    "welcomePopupMustNotNavigateAway": true,
+    "waitForSupabaseProfileBeforeAuthenticatedScreens": true,
+    "deduplicateConcurrentSessionHydration": true,
+    "secondaryPostAuthSyncMustNotBlockFirstAuthenticatedRender": true,
+    "retryInitialProfileHydrationOnceOnFailure": true
   },
   "homeLokiPulse": {
     "visibleOnListenHome": true,

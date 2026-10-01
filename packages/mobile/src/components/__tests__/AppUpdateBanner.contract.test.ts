@@ -3,6 +3,7 @@ const path = require('path');
 
 describe('silent app update contract', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'AppUpdateBanner.tsx'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'App.tsx'), 'utf8');
 
   it('never renders a user-facing version banner or manual refresh control', () => {
     expect(source).toContain('return null;');
@@ -22,6 +23,13 @@ describe('silent app update contract', () => {
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
     expect(source).toContain('reloadToLatest()');
     expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
+  });
+
+  it('deduplicates concurrent auth restoration and does not block on secondary syncs', () => {
+    expect(app).toContain('inFlightSessionPromise');
+    expect(app).toContain('handleSessionOnce');
+    expect(app).toContain('post-auth sync unavailable');
+    expect(app.indexOf('useUserStore.getState().setUser(profile)')).toBeLessThan(app.indexOf('syncUnsyncedKeeps()'));
   });
 
   it('auto-applies a compatible production OTA on native TestFlight launches', () => {

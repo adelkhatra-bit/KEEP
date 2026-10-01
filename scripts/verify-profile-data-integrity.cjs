@@ -14,9 +14,10 @@ const protectedShell = {
   // détecter un VRAI changement non revu, pas juste tout changement.
   // App.tsx (01/10/2026) : modification explicitement demandée pour attendre
   // la restauration Supabase avant de monter les écrans authentifiés et avant
-  // toute mise à jour silencieuse. Navigation.tsx et la barre des 5 onglets
-  // restent inchangées ; ce hash verrouille ce nouveau shell auth validé.
-  'packages/mobile/App.tsx': '2a0e007c61022b819b80b8cdce414c83436ed4da',
+  // toute mise à jour silencieuse. La restauration est dédupliquée et les
+  // synchronisations secondaires ne bloquent plus le premier rendu réel.
+  // Navigation.tsx et la barre des 5 onglets restent inchangées.
+  'packages/mobile/App.tsx': '5d83861a0c499112eae09b6c73e4166e1acdc321',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.

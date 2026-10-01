@@ -53,6 +53,8 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 - Aucun débordement horizontal critique.
 - Les mises à jour Web/OTA sont automatiques et silencieuses : aucun bandeau, bouton « Actualiser / Mettre à jour » ou carte de version n'est montré à l'utilisateur.
 - Un reload automatique attend obligatoirement la fin du bootstrap Auth Supabase ; il ne peut jamais partir pendant la restauration de session.
+- La restauration de session concurrente est dédupliquée : `getCurrentSession()` et `onAuthStateChange()` ne doivent pas hydrater deux fois le même compte en parallèle.
+- Le premier écran authentifié apparaît dès que le vrai profil Supabase est hydraté ; synchronisation historique, verrous de crédits, push et autres tâches secondaires ne bloquent pas ce premier rendu.
 
 ## 5. Écouter
 
