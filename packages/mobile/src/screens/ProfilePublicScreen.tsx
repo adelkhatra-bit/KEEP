@@ -1949,16 +1949,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
             <Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text>
           </View>
-          {/* Mission C (23/09/2026) : grille 2 colonnes des styles dominants
-              (remplace l'affichage en chips en ligne — même données
-              dna.topGenres, même action openSelectionSwipe ; rien ne
-              disparaît, les styles chips restent définis et utilisés
-              ailleurs). */}
-          {dna.topGenres.length ? <View style={s.genreGrid}>{dna.topGenres.slice(0,4).map((g)=>{
+          {/* Les petites bulles de styles sont le rendu canonique du DNA :
+              compactes, lisibles et cliquables sans prendre une demi-page. */}
+          {dna.topGenres.length ? <View style={s.chips}>{dna.topGenres.slice(0,6).map((g)=>{
             const match = trackGenreOptions.find((row) => row.genre === g.genre);
             return match ? (
-              <TouchableOpacity key={g.genre} style={s.genreTile} onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === g.genre)?.entries.map((entry) => entry.track) ?? [] })} accessibilityLabel={`Swiper tes morceaux ${g.genre}`}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text>{typeof match.count === 'number' ? <Text style={s.genreTileCount}>{match.count} morceau{match.count > 1 ? 'x' : ''}</Text> : null}</TouchableOpacity>
-            ) : <View key={g.genre} style={s.genreTile}><Text style={s.genreTileText} numberOfLines={1}>{g.genre}</Text></View>;
+              <TouchableOpacity
+                key={g.genre}
+                style={s.chip}
+                onPress={() => openSelectionSwipe({ title: g.genre, subtitle: `Tes morceaux ${g.genre} dans ta collection.`, tracks: genreFolders.find((folder) => folder.genre === g.genre)?.entries.map((entry) => entry.track) ?? [] })}
+                accessibilityLabel={`Swiper tes morceaux ${g.genre}`}
+              >
+                <Text style={s.chipText}>{g.genre}{typeof match.count === 'number' ? ` · ${match.count}` : ''}</Text>
+              </TouchableOpacity>
+            ) : <View key={g.genre} style={s.chip}><Text style={s.chipText}>{g.genre}</Text></View>;
           })}</View> : <Text style={s.muted}>Commence une session Loki Music pour construire ton ADN musical.</Text>}
           {genreFolders.length > 4 ? (
             <TouchableOpacity
