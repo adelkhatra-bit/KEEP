@@ -111,6 +111,54 @@ const CONFIG: Record<string, SearchQuery[]> = {
     { term: "salsa latina", country: "MX", limit: 200 },
     { term: "bachata", country: "MX", limit: 200 },
   ],
+  HOUSE: [
+    { term: "house music", country: "US", limit: 200 },
+    { term: "deep house", country: "GB", limit: 200 },
+    { term: "tech house", country: "GB", limit: 200 },
+    { term: "french house", country: "FR", limit: 200 },
+  ],
+  REGGAETON: [
+    { term: "reggaeton", country: "MX", limit: 200 },
+    { term: "urbano latino", country: "MX", limit: 200 },
+    { term: "latin urban", country: "US", limit: 200 },
+    { term: "perreo", country: "MX", limit: 200 },
+  ],
+  AMAPIANO: [
+    { term: "amapiano", country: "ZA", limit: 200 },
+    { term: "south african amapiano", country: "ZA", limit: 200 },
+    { term: "amapiano hits", country: "ZA", limit: 200 },
+    { term: "piano dance south africa", country: "ZA", limit: 200 },
+  ],
+  ALTERNATIVE: [
+    { term: "alternative", country: "US", limit: 200 },
+    { term: "indie rock", country: "US", limit: 200 },
+    { term: "indie pop", country: "GB", limit: 200 },
+    { term: "alternative rock", country: "US", limit: 200 },
+  ],
+  COUNTRY: [
+    { term: "country", country: "US", limit: 200 },
+    { term: "country hits", country: "US", limit: 200 },
+    { term: "country classics", country: "US", limit: 200 },
+    { term: "modern country", country: "US", limit: 200 },
+  ],
+  METAL: [
+    { term: "heavy metal", country: "US", limit: 200 },
+    { term: "metal classics", country: "US", limit: 200 },
+    { term: "alternative metal", country: "US", limit: 200 },
+    { term: "metalcore", country: "US", limit: 200 },
+  ],
+  SOUNDTRACK: [
+    { term: "movie soundtrack", country: "US", limit: 200 },
+    { term: "film score", country: "US", limit: 200 },
+    { term: "soundtrack hits", country: "US", limit: 200 },
+    { term: "bandes originales films", country: "FR", limit: 200 },
+  ],
+  BLUES: [
+    { term: "blues", country: "US", limit: 200 },
+    { term: "blues classics", country: "US", limit: 200 },
+    { term: "electric blues", country: "US", limit: 200 },
+    { term: "blues rock", country: "US", limit: 200 },
+  ],
   RAI: [
     { term: "rai algerien", country: "FR", limit: 200 },
     { term: "rai marocain", country: "FR", limit: 200 },
@@ -249,6 +297,14 @@ const FRENCH_RAP_ARTISTS = [
 const GENRE_ALLOW: Record<string, RegExp> = {
   FUNK: /funk|r&b|soul/i,
   REGGAE: /reggae|dancehall|ska|dub/i,
+  HOUSE: /house|dance|electronic|electronica/i,
+  REGGAETON: /reggaeton|latin|latino|urban|urbano/i,
+  AMAPIANO: /amapiano|afro|dance/i,
+  ALTERNATIVE: /alternative|indie|rock/i,
+  COUNTRY: /country/i,
+  METAL: /metal|rock/i,
+  SOUNDTRACK: /soundtrack|original|film|score|bande/i,
+  BLUES: /blues/i,
 };
 
 const THEME_BUDGET: Record<string, number> = {
