@@ -104,9 +104,6 @@ export default function MusicAgoraPanel({
   const [shareMoneyPriceInput, setShareMoneyPriceInput] = useState('1');
   const [sharePreflight, setSharePreflight] = useState<MusicAgoraSharePreflight | null>(null);
   const [sharePreflightBusy, setSharePreflightBusy] = useState(false);
-  const [shareVisibilityOpen, setShareVisibilityOpen] = useState(false);
-  const [shareAccessOpen, setShareAccessOpen] = useState(false);
-  const [shareOwnershipOpen, setShareOwnershipOpen] = useState(false);
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const chatScrollRef = useRef<ScrollView | null>(null);
@@ -146,15 +143,21 @@ export default function MusicAgoraPanel({
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const show = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardInset(Math.max(0, Number(event.endCoordinates?.height || 0)));
-      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80);
+      const reportedHeight = Math.max(0, Number(event.endCoordinates?.height || 0));
+      const screenY = Number(event.endCoordinates?.screenY);
+      const measuredFromViewport = Number.isFinite(screenY) && screenY > 0
+        ? Math.max(0, viewportHeight - screenY)
+        : 0;
+      const measuredKeyboard = Math.max(reportedHeight, measuredFromViewport);
+      setKeyboardInset(measuredKeyboard);
+      setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
     });
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
     return () => {
       show.remove();
       hide.remove();
     };
-  }, [compact]);
+  }, [compact, viewportHeight]);
 
   const compactPanelHeight = compact
     ? Math.max(360, Math.min(500, Math.round(baseViewportHeightRef.current * 0.56)))
@@ -781,22 +784,30 @@ export default function MusicAgoraPanel({
       {replyTarget ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
         <View style={s.selectedMusicCompactRow}>
-          {sharedTrack.artworkUrl
-            ? <Image source={{ uri: sharedTrack.artworkUrl }} style={s.selectedMusicThumb} resizeMode="cover" />
-            : <View style={[s.selectedMusicThumb, s.selectedMusicArtworkFallback]}><Text style={s.selectedMusicThumbFallback}>♫</Text></View>}
+          <View style={s.selectedMusicThumbWrap}>
+            {sharedTrack.artworkUrl
+              ? <Image source={{ uri: sharedTrack.artworkUrl }} style={s.selectedMusicThumb} resizeMode="cover" />
+              : <View style={[s.selectedMusicThumb, s.selectedMusicArtworkFallback]}><Text style={s.selectedMusicThumbFallback}>♫</Text></View>}
+            {((sharePreflight && !sharePreflight.canSell) || (sharedTrack as any).canSell === false)
+              ? <View style={s.selectedMusicLockBadge}><Text style={s.selectedMusicLockBadgeText}>🔒</Text></View>
+              : null}
+          </View>
           <View style={s.selectedMusicCompactCopy}>
             <Text style={s.selectedMusicEyebrow}>PÉPITE SÉLECTIONNÉE</Text>
             <Text style={s.selectedMusicCompactTitle} numberOfLines={1}>{sharedTrack.title}</Text>
             <Text style={s.selectedMusicCompactArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
-            {sharePreflight && !sharePreflight.canSell ? (
+            {(sharePreflight && !sharePreflight.canSell) || (sharedTrack as any).canSell === false ? (
               <TouchableOpacity
                 style={s.shareLockPill}
-                onPress={() => Alert.alert(
-                  '🔒 Partage uniquement',
-                  sharePreflight.sourceUsername
-                    ? `Cette musique vient de @${sharePreflight.sourceUsername}. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.`
-                    : 'Cette musique vient d’un autre utilisateur. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.',
-                )}
+                onPress={() => {
+                  const source = sharePreflight?.sourceUsername || (sharedTrack as any).sourceUsername;
+                  Alert.alert(
+                    '🔒 Partage uniquement',
+                    source
+                      ? `Cette musique vient de @${source}. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.`
+                      : 'Cette musique vient d’un autre utilisateur. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.',
+                  );
+                }}
               >
                 <Text style={s.shareLockPillText}>🔒 PARTAGE UNIQUEMENT</Text>
               </TouchableOpacity>
@@ -836,13 +847,13 @@ export default function MusicAgoraPanel({
             <Text style={s.paymentLabel}>ACCÈS</Text>
             <TouchableOpacity style={[s.paymentChip,sharePaymentMode==='NONE'&&s.paymentChipOn]} onPress={() => setSharePaymentMode('NONE')}><Text style={s.paymentChipText}>STANDARD</Text></TouchableOpacity>
             <TouchableOpacity
-              style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
-              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
+              style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack||(sharedTrack as any).canSell===false)&&s.paymentChipDisabled]}
+              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)||(sharedTrack as any).canSell===false}
               onPress={() => setSharePaymentMode('FREE')}
             ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
             {Platform.OS === 'web' ? <TouchableOpacity
-              style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
-              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
+              style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack||(sharedTrack as any).canSell===false)&&s.paymentChipDisabled]}
+              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)||(sharedTrack as any).canSell===false}
               onPress={() => setSharePaymentMode('MONEY')}
             ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
           </View>
@@ -892,7 +903,7 @@ export default function MusicAgoraPanel({
 
           <TouchableOpacity
             style={s.validateMusic}
-            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && (!sharePreflight?.canSell || Boolean(sharePreflight?.targetOwnsTrack)))}
+            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && (!sharePreflight?.canSell || Boolean(sharePreflight?.targetOwnsTrack) || (sharedTrack as any).canSell===false))}
             onPress={() => void publish()}
             accessibilityRole="button"
             accessibilityLabel="Valider la pépite dans le chat"
@@ -1064,7 +1075,10 @@ const s=StyleSheet.create({
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7,maxHeight:250,overflow:'hidden'},
   selectedMusicCompactRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:8},
+  selectedMusicThumbWrap:{width:48,height:48,position:'relative',flexGrow:0,flexShrink:0},
   selectedMusicThumb:{width:48,height:48,borderRadius:12,backgroundColor:colors.backgroundElevated},
+  selectedMusicLockBadge:{position:'absolute',right:-5,top:-5,width:22,height:22,borderRadius:11,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
+  selectedMusicLockBadgeText:{fontSize:11},
   selectedMusicThumbFallback:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   selectedMusicCompactCopy:{flex:1,minWidth:0},
   selectedMusicCompactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
