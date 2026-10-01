@@ -54,7 +54,7 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import MusicAgoraPanel from '../components/MusicAgoraPanel';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -377,7 +377,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const notificationNudgeReveal = useRef(new Animated.Value(0)).current;
   const lastNotificationNudgeCount = useRef(0);
   const [shareOpen, setShareOpen] = useState(false);
-  const [communityHelpOpen, setCommunityHelpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [affiliatedProfileLink, setAffiliatedProfileLink] = useState('');
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
@@ -1439,6 +1438,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'music') return openFromMenu('MusicConnections');
     if (key === 'offers') return openFromMenu('Offers');
     if (key === 'sellPlaylists') return openFromMenu('PlaylistSale');
+    if (key === 'community') {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      useGlobalChatStore.getState().open();
+      return;
+    }
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
@@ -1512,47 +1517,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'creator') return <>
       <Text style={s.shareTitle}>Type de profil &amp; outils créateur</Text>
       <CreatorToolsPanel navigation={navigation} />
-    </>;
-
-    if (key === 'community') return <>
-      <View style={s.communityHelpHeader}>
-        <View style={s.communityHelpCopy}>
-          <Text style={s.shareTitle}>Tchat musical</Text>
-          <Text style={s.shareSubtitle}>Discute en privé ou en groupe, partage tes musiques et garde tes conversations liées à ton profil.</Text>
-        </View>
-        <TouchableOpacity
-          style={s.communityHelpButton}
-          accessibilityRole="button"
-          accessibilityLabel="En savoir plus sur le Tchat"
-          onPress={() => setCommunityHelpOpen(true)}
-        >
-          <Text style={s.communityHelpButtonText}>?</Text>
-        </TouchableOpacity>
-      </View>
-      <ContextHelpSheet
-        visible={communityHelpOpen}
-        title="À quoi sert le Tchat ?"
-        intro="Le Tchat relie directement les profils Loki : privé, groupes, musique partagée et notifications."
-        steps={[
-          { title: 'Parler en privé', text: 'Réponds à un utilisateur et poursuis la conversation sans quitter l’univers Loki.' },
-          { title: 'Discuter en groupe', text: 'Les salons permettent de parler musique à plusieurs sans perdre le fil.' },
-          { title: 'Partager une musique', text: 'Envoie une pépite de ton profil directement dans le Tchat, masquée ou visible selon ton choix.' },
-          { title: 'Garder une pépite', text: 'Le destinataire peut écouter gratuitement puis la garder en public ou privé contre les FREE prévus. Les doublons ne sont jamais refacturés.' },
-          { title: 'Recevoir les notifications', text: 'Les réponses et nouveaux messages peuvent déclencher une notification selon tes réglages.' },
-        ]}
-        footer="En bref : Tchat = parler, partager et garder des musiques sans quitter ton profil."
-        onClose={() => setCommunityHelpOpen(false)}
-      />
-      <MusicAgoraPanel
-        currentProfileId={user.id}
-        enabled={!accountRequired}
-        shareableTracks={publicKeptTracks.map((entry) => entry.track)}
-        onOpenProfile={(username) => {
-          setMenuOpen(false);
-          setExpandedMenuItem(null);
-          navigation.navigate('PublicProfile', { username });
-        }}
-      />
     </>;
 
     if (key === 'help') return <>
