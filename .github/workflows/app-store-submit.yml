@@ -85,12 +85,21 @@ jobs:
             const unsigned = encode({ alg: 'ES256', kid: process.env.ASC_KEY_ID, typ: 'JWT' }) + '.' +
               encode({ iss: process.env.ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
             const jwt = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
-            const url = new URL('https://api.appstoreconnect.apple.com/v1/apps/' + encodeURIComponent(process.env.ASC_APP_ID) + '/subscriptionGroups');
+            const headers = { Authorization: 'Bearer ' + jwt };
+            const appsUrl = new URL('https://api.appstoreconnect.apple.com/v1/apps');
+            appsUrl.searchParams.set('filter[bundleId]', 'com.adelkhatra.keep');
+            appsUrl.searchParams.set('fields[apps]', 'bundleId,name');
+            const appsResponse = await fetch(appsUrl, { headers, signal: AbortSignal.timeout(30000) });
+            if (!appsResponse.ok) throw new Error('App Store apps API HTTP ' + appsResponse.status + ': ' + (await appsResponse.text()).slice(0, 300));
+            const appsPayload = await appsResponse.json();
+            const app = (appsPayload.data || []).find(item => item.attributes?.bundleId === 'com.adelkhatra.keep');
+            if (!app?.id) throw new Error('App com.adelkhatra.keep introuvable dans App Store Connect');
+            const url = new URL('https://api.appstoreconnect.apple.com/v1/apps/' + encodeURIComponent(app.id) + '/subscriptionGroups');
             url.searchParams.set('include', 'subscriptions');
             url.searchParams.set('fields[subscriptions]', 'productId,state');
             url.searchParams.set('limit', '200');
             url.searchParams.set('limit[subscriptions]', '50');
-            const response = await fetch(url, { headers: { Authorization: 'Bearer ' + jwt }, signal: AbortSignal.timeout(30000) });
+            const response = await fetch(url, { headers, signal: AbortSignal.timeout(30000) });
             if (!response.ok) throw new Error('App Store subscriptions API HTTP ' + response.status + ': ' + (await response.text()).slice(0, 300));
             const payload = await response.json();
             const subs = (payload.included || []).filter(item => item.type === 'subscriptions');
