@@ -148,9 +148,11 @@ describe('global Loki messenger contract', () => {
 
   it('scales private rooms with Realtime instead of 5-second polling', () => {
     expect(service).toContain('subscribeMusicAgoraGroup');
+    expect(service).toContain('subscribeMusicAgoraMembership');
     expect(service).toContain("table: 'music_agora_group_messages'");
     expect(service).toContain("table: 'music_agora_group_members'");
     expect(messenger).toContain('subscribeMusicAgoraGroup(activeGroup.id');
+    expect(messenger).toContain('subscribeMusicAgoraMembership(currentProfileId');
     expect(messenger).toContain('}, 60000)');
     expect(messenger).not.toContain('}, 5000)');
   });
