@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.13",
+  "version": "2026-10-01.14",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -37,14 +37,15 @@
     "alreadyOwnedDuplicate": 0
   },
   "profileOwner": {
-    "freePlacement": "immediately-after-profile-kind-in-owner-identity-row",
+    "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
     "metricsBarOrder": [
       "PLUS",
       "Abonnés",
-      "Reprises"
+      "Reprises",
+      "FREE"
     ],
-    "freeBesideProfileKind": true,
-    "freeImmediatelyAfterReprises": false,
+    "freeBesideProfileKind": false,
+    "freeImmediatelyAfterReprises": true,
     "freeMustAppearExactlyOnce": true,
     "certificationSource": "public.profiles.certification_tier",
     "freeBalanceSource": "Supabase RPC credit status",
@@ -68,7 +69,7 @@
       "activeChoiceMustStayVisiblyColored": true
     },
     "freeDetailsPanel": {
-      "primaryBalanceRemainsInMetricsBar": false,
+      "primaryBalanceRemainsInMetricsBar": true,
       "firstExpandedMetric": "free-spent-today-on-profile-keeps",
       "availableBalanceMustNotRepeatInExpandedPanel": true,
       "spendSource": "public.keep_free_spend_events via keep_free_spent_today",
@@ -82,7 +83,7 @@
       "socialProfileKeepsAlsoDebit": true,
       "alreadyOwnedDuplicateNeverDebits": true,
       "dailySpendCountsAuthoritativeLedgerEvents": true,
-      "primaryBalanceRemainsBesideProfileKind": true
+      "primaryBalanceRemainsBesideProfileKind": false
     },
     "musicTasteSettings": {
       "menuLabel": "Mes goûts musicaux",
@@ -367,5 +368,23 @@
     "sourceAttributionMustPersist": true,
     "serverResaleGuardRequired": true,
     "alreadyOwnedRecipientMustNeverBeCharged": true
+  },
+  "chatExperience": {
+    "notificationsSurface": true,
+    "directLauncherInNotifications": true,
+    "placementConfigLocation": "Notifications",
+    "allowedSurfaces": [
+      "LISTEN",
+      "DISCOVER",
+      "PLAYLISTS",
+      "PARTIES",
+      "PROFILE",
+      "NOTIFICATIONS"
+    ],
+    "movable": true,
+    "sideChoices": [
+      "left",
+      "right"
+    ]
   }
 }
