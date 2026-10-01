@@ -130,6 +130,7 @@ export default function MusicAgoraPanel({
   const [myPayoutQrUrl, setMyPayoutQrUrl] = useState('');
   const [paymentCheckout, setPaymentCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
+  const [composerActionsOpen, setComposerActionsOpen] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -1145,34 +1146,51 @@ export default function MusicAgoraPanel({
           </ScrollView>
         </View>
       ) : null}
-      <View style={s.composerTools}>
-        <TouchableOpacity
-          style={[s.shareMusic, awaitingDirectReply && s.quickReactionDisabled]}
-          disabled={!shareableTracks.length || awaitingDirectReply}
-          onPress={() => setShareOpen(true)}
-          accessibilityLabel="Ajouter une pépite à ce message"
-        >
-          <Text style={s.shareMusicText}>＋ PÉPITE</Text>
-        </TouchableOpacity>
-        {replyTarget ? <TouchableOpacity
-          style={[s.shareQr, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]}
-          disabled={awaitingDirectReply}
-          onPress={() => void sharePayoutQr()}
-          accessibilityLabel="Partager mon QR PayPal"
-        >
-          <Text style={s.shareQrText}>▣ QR PAYPAL</Text>
-        </TouchableOpacity> : null}
-        <Text style={s.counter}>{draft.length}/2000</Text>
-      </View>
+      {composerActionsOpen ? (
+        <View style={s.composerDrawer}>
+          <TouchableOpacity
+            style={[s.drawerAction, reactionPaletteOpen && s.drawerActionOn, awaitingDirectReply && s.quickReactionDisabled]}
+            disabled={awaitingDirectReply}
+            onPress={() => setReactionPaletteOpen((open) => !open)}
+            accessibilityLabel="Réactions"
+          >
+            <Text style={s.drawerActionIcon}>☺</Text>
+            <Text style={s.drawerActionText}>RÉACTIONS</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.drawerAction, awaitingDirectReply && s.quickReactionDisabled]}
+            disabled={!shareableTracks.length || awaitingDirectReply}
+            onPress={() => { setComposerActionsOpen(false); setShareOpen(true); }}
+            accessibilityLabel="Ajouter une pépite"
+          >
+            <Text style={s.drawerActionIcon}>♫</Text>
+            <Text style={s.drawerActionText}>PÉPITE</Text>
+          </TouchableOpacity>
+          {replyTarget ? <TouchableOpacity
+            style={[s.drawerAction, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]}
+            disabled={awaitingDirectReply}
+            onPress={() => { setComposerActionsOpen(false); void sharePayoutQr(); }}
+            accessibilityLabel="Partager mon QR PayPal"
+          >
+            <Text style={s.drawerActionIcon}>▣</Text>
+            <Text style={s.drawerActionText}>QR PAYPAL</Text>
+          </TouchableOpacity> : null}
+          {draft.length >= 1800 ? <Text style={s.counter}>{draft.length}/2000</Text> : null}
+        </View>
+      ) : null}
 
       <View style={[s.composerBar, awaitingDirectReply && s.composerBarLocked]}>
         <TouchableOpacity
-          style={[s.emojiButton, reactionPaletteOpen && s.emojiButtonOn, awaitingDirectReply && s.quickReactionDisabled]}
+          style={[s.addButton, composerActionsOpen && s.addButtonOn, awaitingDirectReply && s.quickReactionDisabled]}
           disabled={awaitingDirectReply}
-          onPress={() => setReactionPaletteOpen((open) => !open)}
-          accessibilityLabel="Ouvrir les émoticônes"
+          onPress={() => {
+            Keyboard.dismiss();
+            setReactionPaletteOpen(false);
+            setComposerActionsOpen((open) => !open);
+          }}
+          accessibilityLabel={composerActionsOpen ? 'Fermer les actions du message' : 'Ouvrir les actions du message'}
         >
-          <Text style={s.emojiButtonText}>☺</Text>
+          <Text style={s.addButtonText}>{composerActionsOpen ? '×' : '+'}</Text>
         </TouchableOpacity>
         <TextInput
           value={draft}
@@ -1184,6 +1202,7 @@ export default function MusicAgoraPanel({
           editable={!awaitingDirectReply}
           maxLength={2000}
           onFocus={() => {
+            setComposerActionsOpen(false);
             setReactionPaletteOpen(false);
             forceBottomRef.current = true;
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
@@ -1294,9 +1313,16 @@ const s=StyleSheet.create({
   quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
   lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
   lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
-  composerTools:{flexDirection:'row',alignItems:'center',gap:6,minHeight:32},
+  composerDrawer:{flexDirection:'row',alignItems:'center',gap:7,minHeight:48,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6},
+  drawerAction:{minWidth:72,minHeight:38,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  drawerActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  drawerActionIcon:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},
+  drawerActionText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',marginTop:2},
   composerBar:{flexDirection:'row',alignItems:'flex-end',gap:5,minHeight:54,borderRadius:22,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(7,5,13,.97)',paddingHorizontal:5,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.18,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   composerBarLocked:{borderColor:colors.warning,opacity:.72},
+  addButton:{width:42,height:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
+  addButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  addButtonText:{color:colors.textPrimary,fontSize:25,lineHeight:27,fontWeight:'500'},
   emojiButton:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',flexShrink:0},
   emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
