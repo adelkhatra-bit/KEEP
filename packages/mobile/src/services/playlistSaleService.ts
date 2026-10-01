@@ -459,9 +459,10 @@ export async function setPlaylistSaleOfferForSelection(
   paymentMode: PlaylistSalePaymentMode,
   amount: number,
   currencyCode = 'EUR',
+  moveExisting = false,
 ): Promise<PlaylistSaleOffer> {
   const mode: PlaylistSalePaymentMode = paymentMode === 'FREE' ? 'FREE' : 'MONEY';
-  const { data, error } = await client().rpc('keep_playlist_sale_set_offer_for_selection_v3', {
+  const { data, error } = await client().rpc('keep_playlist_sale_set_offer_for_selection_v4', {
     p_track_ids: trackIds,
     p_name: name,
     p_payment_mode: mode,
@@ -469,6 +470,7 @@ export async function setPlaylistSaleOfferForSelection(
     p_free_price: mode === 'FREE' ? Math.round(amount) : null,
     p_currency_code: currencyCode,
     p_cover_url: null,
+    p_move_existing: moveExisting,
   });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_SELECTION_FAILED'));
   const row = data as any;
