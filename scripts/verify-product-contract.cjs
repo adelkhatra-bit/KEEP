@@ -21,6 +21,8 @@ const battleCatalogSeed = fs.readFileSync(path.join(root, 'supabase/functions/ke
 const battleMemory = fs.readFileSync(path.join(root, 'supabase/migrations/20261001022000_battle_content_memory_anti_repeat.sql'), 'utf8');
 const battleCron = fs.readFileSync(path.join(root, 'supabase/migrations/20261001024000_battle_catalog_supabase_cron.sql'), 'utf8');
 const confirmedDuplicateSale = fs.readFileSync(path.join(root, 'supabase/migrations/20261001220000_playlist_sale_confirmed_duplicate_tracks.sql'), 'utf8');
+const chatPanel = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicAgoraPanel.tsx'), 'utf8');
+const chatOwnership = fs.readFileSync(path.join(root, 'supabase/migrations/20261001214500_chat_music_ownership_and_resale_guard.sql'), 'utf8');
 
 const failures = [];
 const must = (condition, message) => { if (!condition) failures.push(message); };
@@ -33,18 +35,22 @@ must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
 
-must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
-must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must not sit beside profile type');
-must(contract.profileOwner.freeImmediatelyAfterReprises === true, 'FREE must stay immediately after Reprises');
+must(contract.profileOwner.freePlacement === 'immediately-after-profile-kind-in-owner-identity-row', 'FREE placement contract changed');
+must(contract.profileOwner.freeBesideProfileKind === true, 'FREE must stay beside profile type');
+must(contract.profileOwner.freeImmediatelyAfterReprises === false, 'FREE must not return after Reprises');
 must(contract.profileOwner.freeMustAppearExactlyOnce === true, 'FREE must appear exactly once');
-must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises','FREE']), 'profile metrics order changed');
+must(JSON.stringify(contract.profileOwner.metricsBarOrder) === JSON.stringify(['PLUS','Abonnés','Reprises']), 'profile metrics order changed');
 
 const metaStart = profile.indexOf('<View style={s.profileMetaTopRow}>');
 const locationStart = profile.indexOf('{(user.city || user.countryCode)', metaStart);
 must(metaStart >= 0 && locationStart > metaStart, 'owner identity row missing');
 const meta = profile.slice(metaStart, locationStart);
-must(!meta.includes('>FREE</Text>') && !meta.includes('profileFreeInline'), 'FREE reintroduced beside profile type');
-must(meta.includes('<BattleGlowButton'), 'Battle missing from identity row');
+const kindInMeta = meta.indexOf('style={[s.kindBadge');
+const freeInMeta = meta.indexOf('style={[s.profileFreeInline');
+const battleInMeta = meta.indexOf('<BattleGlowButton');
+must(kindInMeta >= 0 && freeInMeta > kindInMeta && battleInMeta > freeInMeta, 'identity row must remain profile type -> FREE -> Battle');
+must((meta.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once beside profile type');
+must(profile.includes('profileFreeInline:{height:24'), 'FREE inline pill must keep 24px alignment height');
 
 const metricsStart = profile.indexOf('<View style={s.topMetricsBar}');
 const metricsEnd = profile.indexOf('{freeDetailsOpen', metricsStart);
@@ -53,22 +59,21 @@ const metrics = profile.slice(metricsStart, metricsEnd);
 const plus = metrics.indexOf('>PLUS</Text>');
 const followers = metrics.indexOf('>Abonnés</Text>');
 const reprises = metrics.indexOf('>Reprises</Text>');
-const free = metrics.indexOf('topMetricFreeItemLabel');
-must(plus >= 0 && followers > plus && reprises > followers && free > reprises, 'metrics must remain PLUS -> Abonnés -> Reprises -> FREE');
-must((metrics.match(/>FREE<\/Text>/g) || []).length === 1, 'FREE must appear exactly once in metrics');
-must(metrics.includes('topMetricFreeItem'), 'FREE metric item missing');
+must(plus >= 0 && followers > plus && reprises > followers, 'metrics must remain PLUS -> Abonnés -> Reprises');
+must((metrics.match(/>FREE<\/Text>/g) || []).length === 0, 'FREE must not be duplicated in metrics');
+must(!metrics.includes('topMetricFreeItem'), 'stale FREE metric item returned');
 
 must(profile.includes('<ProfileCertificationBadge tier={certificationTier} compact />'), 'profile certification badge disconnected');
 must(profile.includes('loadMyKeepBattleCreditStatus'), 'real FREE balance source disconnected');
 must(profile.includes('setFreeBalance(battleStatus.remainingFree)'), 'real FREE balance no longer applied');
 
-must(master.includes('**PLUS | Abonnés | Reprises | FREE**'), 'master spec profile metrics rule stale');
-must(master.includes('FREE est immédiatement à droite de Reprises'), 'master spec FREE placement missing');
-must(!master.includes('FREE immédiatement à droite du badge de type'), 'stale FREE beside profile type rule still present');
+must(master.includes('**PLUS | Abonnés | Reprises**'), 'master spec profile metrics rule stale');
+must(master.includes('**FREE immédiatement à droite du type de profil**'), 'master spec FREE placement missing');
+must(master.includes('type de profil | FREE | Battle'), 'master spec identity order missing');
 
 must(uiBaseline.profileOwner.freePlacement === contract.profileOwner.freePlacement, 'UI baseline disagrees with product contract');
-must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === false, 'UI baseline must forbid FREE beside profile type');
-must(uiBaseline.profileOwner.freeImmediatelyAfterReprises === true, 'UI baseline must lock FREE after Reprises');
+must(uiBaseline.profileOwner.freeMustAppearBesideProfileKind === true, 'UI baseline must lock FREE beside profile type');
+must(uiBaseline.profileOwner.freeImmediatelyAfterReprises === false, 'UI baseline must keep FREE out of metrics');
 must(JSON.stringify(uiBaseline.profileOwner.metricsBarOrder) === JSON.stringify(contract.profileOwner.metricsBarOrder), 'UI baseline metrics order disagrees with product contract');
 must(contract.profileOwner.visibilityControlLocation === 'Notifications top', 'profile visibility location contract changed');
 must(contract.profileOwner.visibilityControlRemovedFromNetworksPanel === true, 'profile visibility must stay out of networks panel');
@@ -157,6 +162,16 @@ must(contract.screenHelpRules?.playlists?.helpTrigger === '?', 'Playlists help t
 must(myMusic.includes('headerHelpButton') && myMusic.includes('Tout faire dans Playlists'), 'Playlists compact ? help disconnected');
 must(!myMusic.includes('Écouter · Trier · Organiser'), 'Playlists permanent subtitle reintroduced');
 
+must(contract.chatMusicSharing?.thirdPartyTrackMayBeShared === true, 'chat third-party sharing must stay allowed');
+must(contract.chatMusicSharing?.thirdPartyTrackMayBeSoldForFree === false, 'chat third-party FREE resale must stay blocked');
+must(contract.chatMusicSharing?.thirdPartyTrackMayBeSoldForMoney === false, 'chat third-party money resale must stay blocked');
+must(contract.chatMusicSharing?.paidChoicesMustShowLockWhenNotSellable === true, 'chat paid ownership locks missing from contract');
+must(contract.chatMusicSharing?.serverResaleGuardRequired === true, 'chat server resale guard contract missing');
+must(chatPanel.includes("'🔒 FREE'") && chatPanel.includes("'🔒 €'"), 'chat FREE/euro visual locks missing');
+must(chatPanel.includes('🔒 partage uniquement') && chatPanel.includes('🔒 PARTAGE UNIQUEMENT'), 'chat share-only locks missing');
+must(chatOwnership.includes('keep_profile_can_resell_track') && chatOwnership.includes('CHAT_TRACK_RESALE_FORBIDDEN'), 'chat server ownership guard missing');
+must(master.includes('## 18. Tchat — propriété musicale et revente'), 'master chat ownership rule missing');
+
 must(contract.eventExperience?.profileEventTapMustStayInline === true, 'profile event inline rule changed');
 must(contract.eventDiscovery?.profileBehavior === 'inline-only-no-tab-redirect', 'profile event no-redirect contract changed');
 const eventSpotlightStart = visitorProfile.indexOf('{marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0 ? (');
@@ -177,7 +192,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('KEEP product contract: PASS');
-console.log('profile: identity type separate; metrics: PLUS -> Abonnés -> Reprises -> FREE');
+console.log('profile: identity type -> FREE -> Battle; metrics: PLUS -> Abonnés -> Reprises');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: FREE/€ filters + inline Pépites cart + confirmed duplicate reuse + payout locked');
