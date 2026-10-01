@@ -104,6 +104,17 @@ describe('global Loki messenger contract', () => {
     expect(panel).not.toContain("navigation.navigate");
   });
 
+  it('routes group notifications to the exact private room, never to the sender DM', () => {
+    expect(dock).toContain('const groupIdRaw = data.groupId ?? data.group_id');
+    expect(dock).toContain('targetProfileId: groupId ? null');
+    expect(dock).toContain('initialGroupId={target?.groupId ?? undefined}');
+    expect(panel).toContain('const groupIdRaw = data.groupId ?? data.group_id');
+    expect(messenger).toContain('initialGroupId?: string');
+    expect(messenger).toContain("if (group.myStatus === 'ACTIVE')");
+    expect(messenger).toContain('setActiveGroup(group)');
+    expect(messenger).toContain('setActiveGroup(null)');
+  });
+
   it('is direct-message first and keeps the public Place secondary', () => {
     expect(messenger).toContain("'MESSAGES' | 'PLACE'");
     expect(messenger).toContain('loadMusicAgoraConversations');
