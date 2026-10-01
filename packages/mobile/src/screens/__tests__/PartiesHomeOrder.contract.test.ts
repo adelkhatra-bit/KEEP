@@ -6,9 +6,9 @@ describe('Événements home order and help', () => {
 
   it('orders publish, my events, invitations, then Battle ranking', () => {
     const start = source.indexOf("{partyHome ? <View style={styles.partyHome}>");
-    const publish = source.indexOf('Publier un événement', start);
+    const publish = source.indexOf('accessibilityLabel="Créer une soirée"', start);
     const mine = source.indexOf('Mes soirées', start);
-    const invites = source.indexOf('Mes invitations', start);
+    const invites = source.indexOf('accessibilityLabel="Voir mes invitations"', start);
     const ranking = source.indexOf('Classement Battle', start);
     expect(publish).toBeGreaterThan(start);
     expect(mine).toBeGreaterThan(publish);
