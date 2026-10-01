@@ -40,6 +40,7 @@ import CommunityConnectionsPanel, { CommunityMode } from '../components/Communit
 import ContextHelpSheet from '../components/ContextHelpSheet';
 import ProfileCounterRow from '../components/ProfileCounterRow';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
@@ -82,6 +83,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
       { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
       { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
+      { key: 'chatSettings', icon: '💬', label: 'Messagerie', hint: 'Pages · côté · hauteur · alertes' },
     ],
   },
   {
@@ -1579,6 +1581,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (key === 'publicProfile') return <>
       <Text style={s.shareTitle}>Profil public, réseaux &amp; site web</Text>
       <PublicProfilePanel navigation={navigation} />
+    </>;
+
+    if (key === 'chatSettings') return <>
+      <Text style={s.shareTitle}>Messagerie Loki</Text>
+      <Text style={s.shareSubtitle}>Choisis les pages où la languette apparaît, son côté, sa hauteur HAUT / MILIEU / BAS et les alertes. Le même réglage s’applique partout.</Text>
+      <MotionActionButton
+        variant="primary"
+        size="medium"
+        onPress={() => {
+          setMenuOpen(false);
+          setExpandedMenuItem(null);
+          useGlobalChatStore.getState().openSettings();
+        }}
+        accessibilityLabel="Régler la messagerie"
+      >
+        <Text style={s.shareActionPrimaryText}>RÉGLER LA MESSAGERIE</Text>
+      </MotionActionButton>
     </>;
 
     if (key === 'creator') return <>
