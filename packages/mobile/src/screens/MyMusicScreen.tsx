@@ -1602,101 +1602,100 @@ export default function MyMusicScreen({ navigation, route }: any) {
           un seul morceau -- même popup, sellTarget change juste ce qui est
           vendu. */}
       <Modal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
-        <View style={styles.modalBackdrop}><View style={styles.editCard}>
-          <Text style={styles.editTitle}>Créer la collection · {sellTarget?.kind === 'playlist' ? sellTarget.playlist.name : sellTarget?.name}</Text>
-          <Text style={styles.editHint}>L'acheteur paiera directement sur ton lien de paiement personnel (Réglages &gt; Type de profil &amp; outils créateur). Loki Music ne touche jamais cet argent.</Text>
-          {sellTarget?.kind === 'selection' ? <TextInput
-            style={styles.input}
-            value={sellTarget.name}
-            maxLength={100}
-            onChangeText={(name) => setSellTarget((current) => current?.kind === 'selection' ? { ...current, name } : current)}
-            placeholder="Nom de la collection"
-            placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Nom de la collection exclusive"
-          /> : null}
-          <Text style={styles.saleStepLabel}>ÉTAPE 1 · MODE DE DÉBLOCAGE OBLIGATOIRE</Text>
-          <View style={styles.priceChipsRow}>
-            <TouchableOpacity
-              style={[styles.priceChip, sellPaymentMode === 'MONEY' && styles.priceChipOn]}
-              onPress={() => setSellPaymentMode('MONEY')}
-              accessibilityLabel="Choisir un déblocage en euros"
-            >
-              <Text style={[styles.priceChipText, sellPaymentMode === 'MONEY' && styles.priceChipTextOn]}>€ EUROS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.priceChip, sellPaymentMode === 'FREE' && styles.priceChipOn]}
-              onPress={() => setSellPaymentMode('FREE')}
-              accessibilityLabel="Choisir un déblocage en FREE"
-            >
-              <Text style={[styles.priceChipText, sellPaymentMode === 'FREE' && styles.priceChipTextOn]}>⚡ FREE</Text>
-            </TouchableOpacity>
-          </View>
-          {!sellPaymentMode ? <Text style={styles.salePriceExplain}>Choisis d’abord € ou FREE. Rien n’est publié tant que ce choix n’est pas fait.</Text> : null}
-          <Text style={styles.saleStepLabel}>ÉTAPE 2 · PRIX</Text>
-          <View style={styles.salePriceHeader}>
-            <Text style={styles.salePriceLabel}>ACCÈS À TOUTE LA COLLECTION</Text>
-            <Text style={styles.salePriceExplain}>
-              {sellTarget?.kind === 'selection'
-                ? `Ce montant débloque les ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''} ensemble — jamais morceau par morceau.`
-                : 'Ce montant débloque toute la collection — jamais chaque morceau séparément.'}
-            </Text>
-          </View>
-          {sellPaymentMode === 'MONEY' ? (
-            <View style={styles.priceChipsRow}>
-              {SALE_PRESET_PRICES_CENTS.map((cents) => (
-                <TouchableOpacity key={cents} style={[styles.priceChip, sellPriceCents === cents && styles.priceChipOn]} onPress={() => setSellPriceCents(cents)}>
-                  <Text style={[styles.priceChipText, sellPriceCents === cents && styles.priceChipTextOn]}>{(cents / 100).toFixed(2).replace('.', ',')}€</Text>
+        <View style={styles.modalBackdrop}>
+          <ScrollView contentContainerStyle={styles.saleModalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <View style={[styles.editCard, styles.saleWizardCard]}>
+              <View style={styles.saleWizardTopRow}>
+                <Text style={styles.saleWizardStep}>ÉTAPE 2 SUR 3</Text>
+                <Text style={styles.saleWizardCount}>{sellTarget?.kind === 'selection' ? String(sellTarget.trackIds.length) + ' titres' : 'Collection'}</Text>
+              </View>
+              <Text style={styles.editTitle}>Finaliser la collection</Text>
+              <Text style={styles.editHint}>Un nom, un mode de déblocage, un prix. Rien d’autre.</Text>
+
+              {sellTarget?.kind === 'selection' ? <TextInput
+                style={styles.input}
+                value={sellTarget.name}
+                maxLength={100}
+                onChangeText={(name) => setSellTarget((current) => current?.kind === 'selection' ? { ...current, name } : current)}
+                placeholder="Nom de la collection"
+                placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Nom de la collection exclusive"
+              /> : null}
+
+              <Text style={styles.saleStepLabel}>MODE DE DÉBLOCAGE</Text>
+              <View style={styles.saleModeGrid}>
+                <TouchableOpacity style={[styles.saleModeCard, sellPaymentMode === 'FREE' && styles.saleModeCardOn]} onPress={() => setSellPaymentMode('FREE')} accessibilityLabel="Choisir un déblocage en FREE">
+                  <Text style={styles.saleModeIcon}>⚡</Text>
+                  <Text style={styles.saleModeTitle}>FREE</Text>
+                  <Text style={styles.saleModeHint}>Dans Loki Music · aucun paiement externe</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          ) : sellPaymentMode === 'FREE' ? (
-            <View style={styles.priceChipsRow}>
-              {SALE_PRESET_FREE.map((free) => (
-                <TouchableOpacity key={free} style={[styles.priceChip, sellFreePrice === free && styles.priceChipOn]} onPress={() => setSellFreePrice(free)}>
-                  <Text style={[styles.priceChipText, sellFreePrice === free && styles.priceChipTextOn]}>{free} FREE</Text>
+                <TouchableOpacity style={[styles.saleModeCard, sellPaymentMode === 'MONEY' && styles.saleModeCardOn]} onPress={() => setSellPaymentMode('MONEY')} accessibilityLabel="Choisir un déblocage en euros">
+                  <Text style={styles.saleModeIcon}>€</Text>
+                  <Text style={styles.saleModeTitle}>EUROS</Text>
+                  <Text style={styles.saleModeHint}>Paiement direct sur ton lien personnel</Text>
                 </TouchableOpacity>
-              ))}
+              </View>
+
+              {sellPaymentMode ? <>
+                <Text style={styles.saleStepLabel}>PRIX DE LA COLLECTION</Text>
+                <View style={styles.priceChipsRow}>
+                  {(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map((amount) => {
+                    const selected = sellPaymentMode === 'FREE' ? sellFreePrice === amount : sellPriceCents === amount;
+                    return <TouchableOpacity
+                      key={sellPaymentMode + ':' + String(amount)}
+                      style={[styles.priceChip, selected && styles.priceChipOn]}
+                      onPress={() => sellPaymentMode === 'FREE' ? setSellFreePrice(amount) : setSellPriceCents(amount)}
+                    >
+                      <Text style={[styles.priceChipText, selected && styles.priceChipTextOn]}>{sellPaymentMode === 'FREE' ? String(amount) + ' FREE' : (amount / 100).toFixed(2).replace('.', ',') + '€'}</Text>
+                    </TouchableOpacity>;
+                  })}
+                </View>
+              </> : <Text style={styles.salePriceExplain}>Choisis FREE ou EUROS pour afficher les prix correspondants.</Text>}
+
+              <View style={styles.saleWizardDivider} />
+              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 3 SUR 3</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
+
+              {sellPaymentMode === 'MONEY' ? (
+                <View style={[styles.salePaymentSetup, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
+                  <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? '✓ ' + payoutProviderLabel(payoutLink) + ' prêt' : 'PAIEMENT À CONFIGURER'}</Text>
+                  <Text style={styles.salePaymentGateHint}>Colle ton lien personnel. PayPal.Me est recommandé car le montant peut être prérempli.</Text>
+                  <TextInput
+                    style={styles.payoutInput}
+                    value={payoutLinkDraft}
+                    onChangeText={setPayoutLinkDraft}
+                    placeholder="https://paypal.me/tonpseudo"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    accessibilityLabel="Lien de paiement personnel"
+                  />
+                  <View style={styles.payoutWizardActions}>
+                    <TouchableOpacity style={styles.paypalOpenButton} onPress={() => void openPayPalMe()} accessibilityLabel="Ouvrir PayPal.Me"><Text style={styles.paypalOpenText}>OUVRIR PAYPAL.ME</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.payoutSaveButton, (!payoutLinkDraft.trim() || payoutSaving) && styles.selectionCreateDisabled]} disabled={!payoutLinkDraft.trim() || payoutSaving} onPress={() => void savePayoutDirect()}>
+                      {payoutSaving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.payoutSaveText}>ENREGISTRER LE LIEN</Text>}
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.salePaymentFootnote}>Loki Music n’encaisse pas l’argent. Tu confirmes ensuite la réception avant le déblocage.</Text>
+                </View>
+              ) : sellPaymentMode === 'FREE' ? (
+                <View style={[styles.salePaymentSetup, styles.salePaymentGateReady]}>
+                  <Text style={styles.salePaymentGateTitle}>⚡ FREE LOKI MUSIC</Text>
+                  <Text style={styles.salePaymentGateHint}>Aucun PayPal ni carte bancaire. Le prix est payé en FREE dans Loki Music.</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.saveButton, (!sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)) && styles.publishButtonDisabled]}
+                onPress={() => void saveSellPrice()}
+                disabled={sellBusy || !sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
+              >
+                {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={closeSellModal}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
             </View>
-          ) : null}
-          {sellPaymentMode === 'MONEY' && sellPriceCents ? <Text style={styles.salePriceSummary}>
-            DÉBLOCAGE COMPLET · {(sellPriceCents / 100).toFixed(2).replace('.', ',')}€ {sellTarget?.kind === 'selection' ? `pour ${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'pour toute la collection'}
-          </Text> : null}
-          {sellPaymentMode === 'FREE' && sellFreePrice ? <Text style={styles.salePriceSummary}>
-            DÉBLOCAGE COMPLET · {sellFreePrice} FREE pour {sellTarget?.kind === 'selection' ? `${sellTarget.trackIds.length} titre${sellTarget.trackIds.length > 1 ? 's' : ''}` : 'toute la collection'}
-          </Text> : null}
-          <Text style={styles.saleStepLabel}>ÉTAPE 3 · PAIEMENT</Text>
-          {sellPaymentMode === 'MONEY' ? (
-            <TouchableOpacity
-              style={[styles.salePaymentGate, payoutLink.trim() ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}
-              onPress={() => { closeSellModal(); navigation.navigate('ProfileCreatorTools'); }}
-              accessibilityLabel={payoutLink.trim() ? 'Modifier mon mode de paiement' : 'Configurer mon mode de paiement'}
-            >
-              <Text style={styles.salePaymentGateTitle}>{payoutLink.trim() ? `✓ ${payoutProviderLabel(payoutLink)} connecté` : 'MODE DE PAIEMENT REQUIS'}</Text>
-              <Text style={styles.salePaymentGateHint}>{payoutLink.trim() ? 'Paiement direct sur ton lien personnel.' : 'Ajoute ton lien de paiement avant de publier en euros.'}</Text>
-            </TouchableOpacity>
-          ) : sellPaymentMode === 'FREE' ? (
-            <View style={[styles.salePaymentGate, styles.salePaymentGateReady]}>
-              <Text style={styles.salePaymentGateTitle}>⚡ FREE LOKI MUSIC</Text>
-              <Text style={styles.salePaymentGateHint}>Pas de lien bancaire : les FREE favorisent le déblocage, les écoutes et la circulation de ta collection dans la communauté.</Text>
-            </View>
-          ) : (
-            <View style={styles.salePaymentGate}>
-              <Text style={styles.salePaymentGateTitle}>CHOISIS € OU FREE</Text>
-              <Text style={styles.salePaymentGateHint}>Le mode de déblocage est obligatoire avant publication.</Text>
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={() => void saveSellPrice()}
-            disabled={sellBusy || !sellPaymentMode || (sellPaymentMode === 'MONEY' ? (!sellPriceCents || !payoutLink.trim()) : !sellFreePrice)}
-          >
-            {sellBusy ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>PUBLIER LA COLLECTION</Text>}
-          </TouchableOpacity>
-          {sellTarget && myOffers[sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key] ? (
-            <TouchableOpacity style={styles.cancelButton} onPress={() => void removeSellPrice()} disabled={sellBusy}><Text style={[styles.cancelText, { color: colors.danger }]}>RETIRER DU PROFIL</Text></TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.cancelButton} onPress={closeSellModal}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
-        </View></View>
+          </ScrollView>
+        </View>
       </Modal>
 
       <Modal visible={Boolean(purchaseOpen)} transparent animationType="fade" onRequestClose={() => setPurchaseOpen(null)}>
@@ -1875,5 +1874,5 @@ const styles = StyleSheet.create({
   trackRowOuter:{flexDirection:'row',alignItems:'center',gap:8},trackRowGrid:{flex:1,minWidth:0},
   trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},visibilityTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:44,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:44,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:44,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:44,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:44,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},salePriceHeader:{marginTop:12,marginBottom:8,padding:11,borderRadius:14,backgroundColor:'rgba(124,92,252,.10)',borderWidth:1,borderColor:'rgba(167,139,250,.45)'},salePriceLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},salePriceExplain:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:4},salePriceSummary:{color:colors.success,fontSize:12,lineHeight:17,fontWeight:'900',textAlign:'center',marginTop:9},saleStepLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1,marginTop:12,marginBottom:7},salePaymentGate:{minHeight:58,borderRadius:15,borderWidth:1,paddingHorizontal:12,paddingVertical:10,marginBottom:10},salePaymentGateReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},salePaymentGateMissing:{borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)'},salePaymentGateTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},salePaymentGateHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:3},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:44,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:'#3D2F10',borderColor:'#FFD166'},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:'#FFD166'},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.76)',justifyContent:'center'},modalScroll:{flexGrow:1,justifyContent:'center',padding:18},saleModalScroll:{flexGrow:1,justifyContent:'center',paddingHorizontal:14,paddingVertical:24},editCard:{backgroundColor:colors.backgroundCard,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:16,gap:9},saleWizardCard:{width:'100%',maxWidth:560,alignSelf:'center',padding:18},editTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'900'},editHint:{color:colors.textMuted,fontSize:10,lineHeight:15},input:{minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},multiline:{minHeight:76,paddingTop:10,textAlignVertical:'top'},visibilityButton:{minHeight:44,borderRadius:12,borderWidth:1,justifyContent:'center',alignItems:'center'},visibilityButtonPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityButtonPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityText:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},saveButton:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},saveText:{color:'#FFF',fontSize:11,fontWeight:'900'},cancelButton:{minHeight:44,alignItems:'center',justifyContent:'center'},cancelText:{color:colors.textMuted,fontSize:10,fontWeight:'700'},salePriceHeader:{marginTop:12,marginBottom:8,padding:11,borderRadius:14,backgroundColor:'rgba(124,92,252,.10)',borderWidth:1,borderColor:'rgba(167,139,250,.45)'},salePriceLabel:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.8},salePriceExplain:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:4},salePriceSummary:{color:colors.success,fontSize:12,lineHeight:17,fontWeight:'900',textAlign:'center',marginTop:9},saleStepLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1,marginTop:12,marginBottom:7},salePaymentGate:{minHeight:58,borderRadius:15,borderWidth:1,paddingHorizontal:12,paddingVertical:10,marginBottom:10},salePaymentGateReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},salePaymentGateMissing:{borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)'},salePaymentGateTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},salePaymentGateHint:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:3},priceChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginTop:4},priceChip:{minHeight:44,paddingHorizontal:14,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},priceChipOn:{backgroundColor:colors.primaryFaint,borderColor:colors.primaryLight},priceChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},priceChipTextOn:{color:colors.primaryLight},saleModeGrid:{flexDirection:'row',gap:10},saleModeCard:{flex:1,minHeight:116,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:12,alignItems:'flex-start',justifyContent:'center'},saleModeCardOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},saleModeIcon:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},saleModeTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:6},saleModeHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:4},saleWizardDivider:{height:1,backgroundColor:colors.border,marginVertical:6},salePaymentSetup:{borderRadius:16,borderWidth:1,padding:13,gap:8},payoutInput:{minHeight:48,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:12,color:colors.textPrimary,fontSize:13},payoutWizardActions:{flexDirection:'row',gap:8},paypalOpenButton:{flex:1,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:8},paypalOpenText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},payoutSaveButton:{flex:1,minHeight:44,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:8},payoutSaveText:{color:'#FFFFFF',fontSize:9,fontWeight:'900'},salePaymentFootnote:{color:colors.textMuted,fontSize:9,lineHeight:14},publishButtonDisabled:{opacity:.4},
 });
