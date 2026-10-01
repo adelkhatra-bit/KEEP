@@ -53,9 +53,3 @@ export async function confirmAccountEmailVerification(email: string, code: strin
   await invoke({ action: 'confirm', email: email.trim().toLowerCase(), code: code.trim() });
   return getAccountEmailStatus();
 }
-
-
-export async function sendAccountEmailTest(): Promise<{ emailHint: string }> {
-  const data = await invoke({ action: 'test' });
-  return { emailHint: String(data.email_hint || '') };
-}
