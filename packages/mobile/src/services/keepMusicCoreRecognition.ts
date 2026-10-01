@@ -201,84 +201,47 @@ export interface PersistedKeepDecision {
  * store local après une mise à jour, une reconnexion ou un nouvel appareil.
  */
 export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepDecision[]> {
-  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY) || !supabase) return [];
+  if (!supabase) return [];
   const { data: sessionData } = await supabase.auth.getSession();
   const userId = sessionData.session?.user?.id;
   if (!userId) return [];
 
-  const boundedLimit = Math.max(1, Math.min(limit, 1000));
-  const trackFields = 'id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on';
-
-  // Keep the owner library resilient: an optional relationship/enrichment must
-  // never be able to turn a real Supabase library into an empty screen.
-  const rich = await supabase
-    .from('keep_decisions')
-    .select(`id,profile_id,track_id,visibility,created_at,context,source_user_id,source_type,track:tracks!keep_decisions_track_id_fkey(${trackFields})`)
-    .eq('profile_id', userId)
-    .eq('decision', 'KEPT')
-    .order('created_at', { ascending: true })
-    .limit(boundedLimit);
-
-  let rows: any[] = Array.isArray(rich.data) && !rich.error ? rich.data : [];
-
-  // Fallback deliberately avoids every embedded relationship. This protects
-  // all users if PostgREST relationship metadata is temporarily stale after a
-  // migration: decisions + tracks are still loaded in two simple RLS-safe reads.
-  if (rich.error) {
-    const base = await supabase
-      .from('keep_decisions')
-      .select('id,profile_id,track_id,visibility,created_at,context,source_user_id,source_type')
-      .eq('profile_id', userId)
-      .eq('decision', 'KEPT')
-      .order('created_at', { ascending: true })
-      .limit(boundedLimit);
-    if (base.error) throw base.error;
-
-    const decisionRows = Array.isArray(base.data) ? base.data : [];
-    const trackIds = Array.from(new Set(decisionRows.map((row: any) => String(row?.track_id || '')).filter(Boolean)));
-    const trackMap = new Map<string, any>();
-
-    for (let index = 0; index < trackIds.length; index += 200) {
-      const batch = trackIds.slice(index, index + 200);
-      const trackResult = await supabase.from('tracks').select(trackFields).in('id', batch);
-      if (trackResult.error) throw trackResult.error;
-      for (const track of trackResult.data ?? []) {
-        if (track?.id) trackMap.set(String(track.id), track);
-      }
-    }
-
-    rows = decisionRows.map((row: any) => ({
-      ...row,
-      track: trackMap.get(String(row?.track_id || '')) ?? null,
-    }));
-  }
-
-  const sourceIds = Array.from(new Set(rows.map((row: any) => String(row?.source_user_id || '')).filter(Boolean)));
-  const sourceNames = new Map<string, string>();
-  for (let index = 0; index < sourceIds.length; index += 200) {
-    const batch = sourceIds.slice(index, index + 200);
-    const sourceResult = await supabase.from('profiles').select('id,username').in('id', batch);
-    if (sourceResult.error) continue;
-    for (const profile of sourceResult.data ?? []) {
-      if (profile?.id && profile?.username) sourceNames.set(String(profile.id), String(profile.username));
-    }
+  // Source canonique propriétaire : ce RPC est SECURITY DEFINER, filtré sur
+  // auth.uid(), et renvoie PUBLIC + PRIVATE avec la dernière décision KEPT de
+  // chaque piste. Utiliser cette même source que le Profil évite qu'une erreur
+  // de jointure PostgREST fasse apparaître une bibliothèque vide alors que les
+  // KEEPs existent toujours en base.
+  const wanted = Math.max(1, Math.min(limit, 1000));
+  const pageSize = Math.min(250, wanted);
+  const rows: any[] = [];
+  for (let offset = 0; rows.length < wanted; offset += pageSize) {
+    const { data, error } = await supabase.rpc('keep_own_profile_tracks', {
+      p_limit: Math.min(pageSize, wanted - rows.length),
+      p_offset: offset,
+    });
+    if (error) throw error;
+    const page = Array.isArray(data) ? data : [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
   }
 
   return rows.flatMap((row: any): PersistedKeepDecision[] => {
-    if (String(row?.profile_id || '') !== userId) return [];
-    const track = Array.isArray(row?.track) ? row.track[0] : row?.track;
-    if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
     const context = row?.context && typeof row.context === 'object' ? row.context : {};
-    const createdAt = String(row.created_at || new Date().toISOString());
+    const decisionId = String(row?.decision_id || '');
+    const trackId = String(row?.track_id || '');
+    if (!decisionId || !trackId || !row?.title || !row?.artist) return [];
+
+    const createdAt = String(row?.kept_at || new Date().toISOString());
     const detectedAt = typeof context.detectedAt === 'string' && context.detectedAt ? context.detectedAt : createdAt;
     const sessionId = typeof context.sessionId === 'string' && context.sessionId ? context.sessionId : undefined;
-    const visibility: KeepVisibility = row.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+    const visibility: KeepVisibility = row?.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
     const contextSourceProfileId = typeof context.sourceProfileId === 'string' && context.sourceProfileId.trim()
       ? context.sourceProfileId.trim()
       : undefined;
-    const sourceProfileId = row.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
-    const sourceUsername = (sourceProfileId && sourceNames.get(sourceProfileId))
-      || (typeof context.sourceUsername === 'string' && context.sourceUsername.trim() ? context.sourceUsername.trim() : undefined);
+    const sourceProfileId = row?.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
+    const sourceUsername = typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
+      ? context.sourceUsername.trim()
+      : undefined;
     const creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT' =
       context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP';
     const originSource = typeof context.source === 'string' && context.source.trim()
@@ -289,8 +252,9 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
     const importedFrom = ['spotify','deezer','apple_music','youtube_music','soundcloud','tidal'].includes(String(context.importedFrom || ''))
       ? String(context.importedFrom) as PersistedKeepDecision['importedFrom']
       : undefined;
+
     return [{
-      decisionId: String(row.id),
+      decisionId,
       visibility,
       createdAt,
       detectedAt,
@@ -301,18 +265,18 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       importedFrom,
       creditPolicy,
       track: {
-        id: String(track.id),
-        isrc: track.isrc || undefined,
-        title: String(track.title),
-        artist: String(track.artist),
-        album: track.album || undefined,
-        durationSec: typeof track.duration_sec === 'number' ? track.duration_sec : undefined,
-        artworkUrl: track.artwork_url || undefined,
-        genres: Array.isArray(track.genres) ? track.genres : [],
-        providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
-        previewUrl: track.preview_url || undefined,
-        externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
-        availableOn: Array.isArray(track.available_on) ? track.available_on : [],
+        id: trackId,
+        isrc: row?.isrc || undefined,
+        title: String(row.title),
+        artist: String(row.artist),
+        album: row?.album || undefined,
+        durationSec: typeof row?.duration_sec === 'number' ? row.duration_sec : undefined,
+        artworkUrl: row?.artwork_url || undefined,
+        genres: Array.isArray(row?.genres) ? row.genres : [],
+        providerIds: row?.provider_ids && typeof row.provider_ids === 'object' ? row.provider_ids : {},
+        previewUrl: row?.preview_url || undefined,
+        externalUrls: row?.external_urls && typeof row.external_urls === 'object' ? row.external_urls : {},
+        availableOn: Array.isArray(row?.available_on) ? row.available_on : [],
       },
     }];
   });
