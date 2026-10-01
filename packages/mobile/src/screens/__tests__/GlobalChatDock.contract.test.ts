@@ -59,7 +59,7 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('visualViewport');
     expect(messenger).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
     expect(messenger).toContain('KeyboardAvoidingView');
-    expect(messenger).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : compact ? 'height' : undefined}");
+    expect(messenger).toContain("behavior={compact && Platform.OS !== 'web' ? 'height' : undefined}");
     expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
     expect(messenger).toContain('setKeyboardInset(Math.max(reportedHeight, coveredByTop))');
     expect(messenger).toContain('top: 0');
@@ -67,9 +67,11 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('paddingTop: Math.max(10, safeArea.top + 8)');
     expect(messenger).not.toContain('const compactPanelHeight = Math.min');
     expect(messenger).toContain('fontSize:17,lineHeight:24');
-    expect(messenger).toContain('inputCompact:{height:54');
+    expect(messenger).toContain('inputCompact:{height:58');
     expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
+    expect(messenger).toContain("keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
+    expect(messenger).toContain('setTimeout(() => followChatBottom(false), 60)');
     expect(messenger).toContain('{messages.map((message)');
     expect(messenger).toContain('onCompactClose');
     expect(dock).toContain('onCompactClose={closeChat}');
@@ -160,6 +162,9 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('🔒 PARTAGE UNIQUEMENT');
     expect(messenger).toContain('FREE et € restent verrouillés');
     expect(messenger).toContain('paymentLocked');
+    expect(messenger).toContain('insertQuickReaction(reaction.payload)');
+    expect(messenger).toContain('setDraft((current) =>');
+    expect(messenger).toContain('VALIDER LA PÉPITE');
   });
 
   it('scales private rooms with Realtime instead of 5-second polling', () => {
