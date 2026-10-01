@@ -609,11 +609,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           <Text style={s.title}>◆ Pépites</Text>
           <Text style={s.subtitle}>Collections · FREE ou €</Text>
         </View>
-        {/* Adel (21/09/2026, mission 3/3) : "Écran historique des déblocages"
-            -- lecture seule, séparé de ce panneau de gestion. */}
-        <TouchableOpacity style={s.historyLink} onPress={() => navigation.navigate('PlaylistSaleHistory')} accessibilityLabel="Voir l'historique complet des collections débloquées">
-          <Text style={s.historyLinkText}>Historique</Text>
-        </TouchableOpacity>
+        <View style={s.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -1062,7 +1058,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
-            {marketplaceTransactionEnabled && (sales.length + purchases.length > 0) && (
+            {(sales.length + purchases.length > 0) && (
               <View style={s.offersSection}>
                 <TouchableOpacity
                   style={s.historyToggle}
