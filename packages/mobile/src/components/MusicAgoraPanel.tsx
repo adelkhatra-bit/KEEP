@@ -152,19 +152,21 @@ export default function MusicAgoraPanel({
     }
   };
 
-  const updateHomeChat = async (next: boolean) => {
+  const updateHomeChat = async (next: boolean, quiet = false) => {
     if (!enabled || settingsBusy) return;
     setSettingsBusy(true);
     try {
       const settings = await saveMusicAgoraSettings(next, notificationsEnabled);
       setHomeEnabled(settings.homeEnabled);
       setNotificationsEnabled(settings.notificationsEnabled);
-      Alert.alert(
-        settings.homeEnabled ? 'Tchat activé' : 'Tchat désactivé sur le profil',
-        settings.homeEnabled
-          ? 'Le mini-Tchat reste maintenant visible sur ton profil et se met à jour automatiquement.'
-          : 'La petite fenêtre disparaît du profil. Tu peux la réactiver à tout moment dans Notifications ou dans le Tchat.',
-      );
+      if (!quiet) {
+        Alert.alert(
+          settings.homeEnabled ? 'Tchat activé' : 'Tchat désactivé sur le profil',
+          settings.homeEnabled
+            ? 'Le mini-Tchat reste maintenant visible sur ton profil et se met à jour automatiquement.'
+            : 'La petite fenêtre disparaît du profil. Tu peux la réactiver à tout moment dans Notifications ou dans le Tchat.',
+        );
+      }
     } catch {
       Alert.alert('Tchat', 'Impossible de modifier ce réglage pour le moment.');
     } finally {
@@ -202,6 +204,7 @@ export default function MusicAgoraPanel({
       setReplyTarget(null);
       setSharedTrack(null);
       setShareRevealMode('MASKED');
+      browsingHistoryRef.current = false;
       await refresh(roomSlug);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
@@ -216,6 +219,7 @@ export default function MusicAgoraPanel({
     try {
       await postMusicAgoraMessage(roomSlug, emoji, { targetProfileId: replyTarget?.profileId ?? null });
       setReplyTarget(null);
+      browsingHistoryRef.current = false;
       await refresh(roomSlug, true);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
@@ -307,7 +311,8 @@ export default function MusicAgoraPanel({
         <Text style={s.compactBadge}>EN DIRECT</Text>
         <TouchableOpacity
           style={s.compactClose}
-          onPress={() => void updateHomeChat(false)}
+          onPress={() => void updateHomeChat(false, true)}
+          disabled={settingsBusy}
           accessibilityRole="button"
           accessibilityLabel="Fermer le mini-chat du profil"
         >
@@ -344,7 +349,7 @@ export default function MusicAgoraPanel({
 
     <ScrollView
       ref={chatScrollRef}
-      style={[s.chatScroll, compact && s.chatScrollCompact]}
+      style={compact ? s.chatScrollCompact : s.chatScroll}
       contentContainerStyle={s.list}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -443,8 +448,8 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{height:390,marginHorizontal:18,marginVertical:10,padding:10,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.96)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.28,shadowRadius:16,shadowOffset:{width:0,height:8},elevation:12},
-  compactHeader:{minHeight:42,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
+  shellCompact:{position:'absolute',left:10,right:10,bottom:10,height:360,padding:9,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:18,shadowOffset:{width:0,height:10},elevation:18,zIndex:60},
+  compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
   compactTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},
@@ -472,9 +477,9 @@ const s=StyleSheet.create({
   promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
-  composerCompact:{padding:8,borderRadius:14},
+  composerCompact:{padding:7,borderRadius:14,flexShrink:0},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
-  inputCompact:{height:46,minHeight:46,maxHeight:46,fontSize:12,lineHeight:17},
+  inputCompact:{height:40,minHeight:40,maxHeight:40,fontSize:12,lineHeight:17,paddingTop:8,paddingBottom:7},
   quickReactions:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:6},
   quickReaction:{width:34,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionText:{fontSize:16},
@@ -489,7 +494,7 @@ const s=StyleSheet.create({
   lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
   chatScroll:{maxHeight:410},
-  chatScrollCompact:{height:178,maxHeight:178,minHeight:178},
+  chatScrollCompact:{flex:1,minHeight:82},
   list:{gap:8,paddingVertical:4},
   message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%'},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
