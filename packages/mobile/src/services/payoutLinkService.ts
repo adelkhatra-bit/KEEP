@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 
 /**
@@ -98,6 +97,7 @@ export async function setMyPayoutQrUrl(url: string): Promise<string> {
 
 export async function pickAndUploadPayoutQr(profileId: string): Promise<string | null> {
   if (!supabase) throw new Error('Supabase indisponible.');
+  const ImagePicker = await import('expo-image-picker');
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) throw new Error('Autorise l’accès aux photos pour choisir ton QR PayPal.');
 
