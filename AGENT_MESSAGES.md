@@ -2255,3 +2255,19 @@ Décision utilisateur verrouillée :
 - Cycle quotidien : 02:00 → 01:59 selon le fuseau local.
 - Mode démo : Découvertes verrouillé par défaut, aide “?”, aucun faux solde FREE ; Écouter limité par `demo_listen_limit` (8 par défaut) et pilotable dans Super Admin.
 - Ne pas déplacer FREE, ne pas retoucher navigation/design validés pour ces corrections.
+
+
+## [2026-10-01T18:00:00+02:00] USER LOCK — messagerie Loki globale finale
+
+RÈGLE LA PLUS RÉCENTE D’ADEL, ELLE ANNULE TOUTE DÉCOMMISSION DU TCHAT :
+- la messagerie Loki DOIT être montée globalement à la racine de l’app pour rester disponible sur les écrans sélectionnés ;
+- elle ne doit PAS être une entrée du hamburger ;
+- bouton flottant permanent près du bas, déplaçable gauche/droite, repliable ;
+- réglages accessibles depuis la cloche via un dépliant : activer, notifications, écrans d’affichage, gauche/droite, ouvrir ;
+- surfaces : Loki Music, Découvertes, Playlists, Soirées, Profil, Notifications ;
+- écran principal = Messages directs ; « La Place » reste secondaire ;
+- partage musical = action « + PÉPITE » dans la conversation ;
+- les notifications de conversation doivent ouvrir le fil concerné ;
+- les flux FREE/€ et confirmation de paiement restent dans la conversation lorsqu’ils existent ;
+- NE PLUS créer de commit « legacy messenger decommission » et ne plus retirer GlobalChatDock d’App.tsx.
+Exception explicite à la protection App.tsx : le montage unique GlobalChatDock est autorisé et requis ; ne rien modifier d’autre dans App.tsx.
