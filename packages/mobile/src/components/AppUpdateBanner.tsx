@@ -2,19 +2,18 @@ import React, { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { reloadToLatest } from '../services/appUpdateService';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
-import { useUserStore } from '../store/useUserStore';
 
 /**
- * Mises à jour Loki Music entièrement silencieuses :
- * - aucun bouton "Actualiser" / "Mettre à jour" visible ;
- * - web : contrôle toutes les 30 s et au retour sur l'onglet, puis recharge
- *   automatiquement uniquement une fois l'authentification restaurée ;
- * - iOS/Android : applique silencieusement une OTA compatible après bootstrap.
+ * Mise à jour Loki Music sans UI visible :
+ * - web : vérifie régulièrement version.json et recharge automatiquement
+ *   avec cache-busting dès qu'un bundle plus récent est réellement publié ;
+ * - iOS/Android production : récupère silencieusement l'OTA compatible au lancement.
+ *
+ * Aucun bouton "Actualiser Loki Music" ne doit encombrer la cloche ou le profil.
  */
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((state) => state.latestSha);
   const checkNow = useAppUpdateStore((state) => state.checkNow);
-  const authReady = useUserStore((state) => state.authReady);
   const webReloadingRef = useRef(false);
 
   useEffect(() => {
@@ -22,7 +21,9 @@ export default function AppUpdateBanner() {
     void checkNow();
     const interval = setInterval(() => { void checkNow(); }, 30_000);
     const onVisible = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') void checkNow();
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void checkNow();
+      }
     };
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
     return () => {
@@ -32,15 +33,15 @@ export default function AppUpdateBanner() {
   }, [checkNow]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !authReady || !latestSha || webReloadingRef.current) return;
+    if (Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;
     webReloadingRef.current = true;
     reloadToLatest();
-  }, [authReady, latestSha]);
+  }, [latestSha]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || __DEV__ || !authReady) return undefined;
-
+    if (Platform.OS === 'web' || __DEV__) return undefined;
     let active = true;
+
     const applySilently = async () => {
       try {
         const Updates = await import('expo-updates');
@@ -57,7 +58,7 @@ export default function AppUpdateBanner() {
 
     void applySilently();
     return () => { active = false; };
-  }, [authReady]);
+  }, []);
 
   return null;
 }
