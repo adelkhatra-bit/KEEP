@@ -32,6 +32,7 @@ import TrackActionRow from '../components/TrackActionRow';
 import ContextHelpSheet from '../components/ContextHelpSheet';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
+import GlobalChatDock from '../components/GlobalChatDock';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
@@ -2039,6 +2040,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.editHint}>Modifiable à tout moment plus tard, morceau par morceau, dans « Mes musiques ».</Text>
         </View></View>
       </Modal>
+  <GlobalChatDock />
 </SafeAreaView>
   );
 }
