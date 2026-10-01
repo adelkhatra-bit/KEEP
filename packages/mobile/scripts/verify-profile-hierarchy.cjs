@@ -41,7 +41,10 @@ assertOrdered(owner, [
 
 assertCount(owner, /accessibilityLabel="Partager mon profil Loki Music"/g, 1, 'Owner PARTAGER action');
 assertCount(owner, /accessibilityLabel="Voir aperçu"/g, 1, 'Owner APERÇU action');
-assertCount(owner, /variant="outline" size="medium" containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
+const ownerActionsStart = owner.indexOf('<View style={s.ownerQuickActions}>');
+const ownerActionsEnd = owner.indexOf('</ProfileMotionReveal>', ownerActionsStart);
+const ownerActions = owner.slice(ownerActionsStart, ownerActionsEnd);
+assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
 
 assertIncludes(owner, 'dna:{marginHorizontal:18,', 'Owner DNA frame');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
