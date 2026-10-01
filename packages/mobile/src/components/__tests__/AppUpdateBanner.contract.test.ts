@@ -6,12 +6,14 @@ describe('web update control contract', () => {
 
   it('never renders the update control on mobile-width web screens', () => {
     expect(source).toContain("width < 768");
-    expect(source).toContain("if (Platform.OS !== 'web' || width < 768 || !latestSha) return null;");
+    expect(source).toContain("if (Platform.OS !== 'web' || width < 768) return null;");
   });
 
-  it('keeps the update action available only on desktop web when a newer build exists', () => {
+  it('keeps a large manual update action always visible on desktop web', () => {
     expect(source).toContain("testID=\"keep-update-available-button\"");
     expect(source).toContain("MISE À JOUR");
-    expect(source).not.toContain('wrapCompact');
+    expect(source).toContain("minHeight: 52");
+    expect(source).toContain("minWidth: 220");
+    expect(source).not.toContain('↻');
   });
 });
