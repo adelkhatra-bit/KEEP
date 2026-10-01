@@ -1981,12 +1981,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
 
-          {!profilePulseExpanded && profileStyleBubbles.length > 0 ? (
-            <View style={s.dnaCompactPreview} testID="profile-loki-pulse-preview">
+          {profileStyleBubbles.length > 0 ? (
+            <View style={s.dnaCompactPreview} testID="profile-loki-pulse-visible-styles">
               <MusicStyleBubbles
-                testID="profile-music-style-bubbles-preview"
+                testID="profile-music-style-bubbles"
                 genres={profileStyleBubbles}
-                max={4}
+                max={profileStyleBubbles.length}
                 compact
                 onPressGenre={(genre) => {
                   const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
@@ -2005,7 +2005,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           ) : null}
 
-          {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
+          {visibleLokiPulseItems.length > 0 ? (
             <View style={s.pulseCompactActions}>
               <TouchableOpacity
                 style={[s.dnaCompactToggle, profilePulseExpanded && s.dnaCompactToggleOn]}
@@ -2021,30 +2021,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
           ) : null}
-          {profilePulseExpanded && profileStyleBubbles.length > 0 ? (
-            <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-styles">
-              <Text style={s.dnaCountHint}>MES STYLES · {profileStyleBubbles.length}</Text>
-              <MusicStyleBubbles
-                testID="profile-music-style-bubbles"
-                genres={profileStyleBubbles}
-                max={profileStyleBubbles.length}
-                onPressGenre={(genre) => {
-                  const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-                  if (folder?.entries.length) {
-                    openSelectionSwipe({
-                      title: folder.genre,
-                      subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                      tracks: folder.entries.map((entry) => entry.track),
-                    });
-                    return;
-                  }
-                  switchProfileTab('TRACKS');
-                  setTracksGrouping('GENRE');
-                }}
-              />
-            </View>
-          ) : null}
-
           {profilePulseExpanded && visibleLokiPulseItems.length > 0 ? (
             <View style={s.dnaCompactDetails} testID="profile-loki-pulse-expanded-music">
               <View style={s.lokiPulseHeader}>

@@ -2365,3 +2365,12 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Chat : design plein écran validé = composant production réel ; recherche conversations, Messages/La Place, compositeur +, réactions, morceau, QR PayPal ; aucun appel/caméra.
 - Ne pas retirer ces bulles ni rétablir l'ancien verrou contradictoire dans les tests.
 - Ne pas toucher Navigation.tsx, barre 5 onglets, Super Admin ou autres blocs pour ce correctif.
+
+
+## [2026-10-02] USER LOCK — PROFIL BULLES TOUJOURS VISIBLES (DERNIÈRE CONSIGNE)
+- Cette règle remplace le verrou précédent « profil sans preview ».
+- Profil propriétaire : jauge/% + TOUTES les bulles de styles visibles en permanence juste dessous.
+- Les bulles utilisent `MusicStyleBubbles`, restent horizontales/cliquables et ouvrent les morceaux gardés du style dans le Swipe.
+- `VOIR PLUS` ne doit plus commander l'affichage des styles ; il ne déplie que les recommandations Loki Pulse.
+- Accueil Loki Music : même logique de bulles cliquables, sans titre « Tes bulles musicales » ni label Loki Pulse/DNA.
+- Ne jamais réintroduire un masquage des bulles profil derrière un accordéon.

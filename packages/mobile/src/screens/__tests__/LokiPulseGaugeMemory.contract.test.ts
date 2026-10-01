@@ -12,10 +12,11 @@ describe('Loki Pulse gauge memory contract', () => {
     expect(owner).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
   });
 
-  it('keeps all Pulse details behind one global toggle', () => {
+  it('keeps styles visible while recommendations stay behind one toggle', () => {
     expect(owner).toContain('const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);');
     expect(owner).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
-    expect(owner).toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
+    expect(owner).toContain('testID="profile-loki-pulse-visible-styles"');
+    expect(owner).not.toContain('profilePulseExpanded && profileStyleBubbles.length > 0');
     expect(owner).toContain('profilePulseExpanded && visibleLokiPulseItems.length > 0');
   });
 
