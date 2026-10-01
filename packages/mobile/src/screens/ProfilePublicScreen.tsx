@@ -232,7 +232,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // Admin > Remote Config) était encore écrit en dur ("-1 Free") dans cette
   // même fenêtre -- devenu faux dès que l'admin change la valeur. Chargé
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
-  const [freeCostPerKeep, setFreeCostPerKeep] = useState(1);
+  const [freeCostPerKeep, setFreeCostPerKeep] = useState(3);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [opportunityPreviewOffer, setOpportunityPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
