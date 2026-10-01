@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { KeepNotification, loadNotifications, markAllNotificationsRead, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
+import type { GlobalChatTarget } from '../store/useGlobalChatStore';
 
 type Props = {
   visible: boolean;
   profileId: string;
   onClose: () => void;
   onOpenAll: () => void;
-  onOpenChat: () => void;
+  onOpenChat: (target?: GlobalChatTarget | null) => void;
 };
 
 function timeLabel(value: string): string {
@@ -58,6 +59,34 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
     await markAllNotificationsRead(profileId).catch(() => {});
   };
 
+  const openNotification = async (item: KeepNotification) => {
+    await markRead(item);
+    const type = String(item.type || '').toUpperCase();
+    if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
+      close();
+      setTimeout(() => onOpenChat(null), 200);
+      return;
+    }
+    if (!type.startsWith('AGORA')) return;
+    const data = item.data ?? {};
+    const roomSlugRaw = data.roomSlug ?? data.room_slug;
+    const senderIdRaw = data.senderId ?? data.sender_id ?? data.actorId ?? data.actor_id ?? data.profileId ?? data.profile_id;
+    const senderUsernameRaw = data.senderUsername ?? data.sender_username ?? data.actorUsername ?? data.actor_username ?? data.username;
+    const messageIdRaw = data.messageId ?? data.message_id;
+    const target: GlobalChatTarget = {
+      roomSlug: typeof roomSlugRaw === 'string' && roomSlugRaw.trim() ? roomSlugRaw.trim() : null,
+      targetProfileId: typeof senderIdRaw === 'string' && senderIdRaw.trim() ? senderIdRaw.trim() : null,
+      targetUsername: typeof senderUsernameRaw === 'string' && senderUsernameRaw.trim() ? senderUsernameRaw.trim() : null,
+      messageId: typeof messageIdRaw === 'number'
+        ? messageIdRaw
+        : typeof messageIdRaw === 'string' && messageIdRaw.trim()
+          ? Number(messageIdRaw) || null
+          : null,
+    };
+    close();
+    setTimeout(() => onOpenChat(target), 200);
+  };
+
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
       <View style={s.root}>
@@ -79,7 +108,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose, onO
             {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
             {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>🔔</Text><Text style={s.emptyTitle}>Rien de nouveau</Text><Text style={s.empty}>Tes Battles, reprises, visites, événements et gains apparaîtront ici.</Text></View> : null}
             {items.map((item) => (
-              <TouchableOpacity key={item.id} style={[s.card, !item.readAt && s.cardUnread]} onPress={() => void markRead(item)} activeOpacity={0.84}>
+              <TouchableOpacity key={item.id} style={[s.card, !item.readAt && s.cardUnread]} onPress={() => void openNotification(item)} activeOpacity={0.84}>
                 <View style={s.cardTop}><View style={[s.dot, item.readAt && s.dotRead]} /><Text style={s.cardTitle} numberOfLines={1}>{item.title || 'Loki Music'}</Text><Text style={s.time}>{timeLabel(item.createdAt)}</Text></View>
                 <Text style={s.body} numberOfLines={3}>{item.body}</Text>
               </TouchableOpacity>
