@@ -388,22 +388,33 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
   };
 
-  const joinProfileEvent = async () => {
-    if (!profileEvent || profileEventRsvp === 'GOING' || profileEventBusy) return;
+  const chooseProfileEventRsvp = async (status: EventRsvpStatus) => {
+    if (!profileEvent || profileEventBusy || profileEventRsvp === status) return;
     if (!effectiveViewerId) {
-      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour participer à cet événement.', [
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour répondre à cet événement.', [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Créer / se connecter', onPress: goToOwnProfile },
       ]);
       return;
     }
+    const previous = profileEventRsvp;
     setProfileEventBusy(true);
     try {
-      await setEventRsvp(effectiveViewerId, profileEvent.id, 'GOING');
-      setProfileEventRsvp('GOING');
-      setProfileEventCounts((current) => ({ ...current, going: current.going + 1 }));
+      await setEventRsvp(effectiveViewerId, profileEvent.id, status);
+      setProfileEventRsvp(status);
+      setProfileEventCounts((current) => {
+        const next = { ...current };
+        const keyFor = (value: EventRsvpStatus) => value === 'GOING' ? 'going' : value === 'MAYBE' ? 'maybe' : 'notGoing';
+        if (previous) {
+          const previousKey = keyFor(previous);
+          next[previousKey] = Math.max(0, next[previousKey] - 1);
+        }
+        const nextKey = keyFor(status);
+        next[nextKey] += 1;
+        return next;
+      });
     } catch {
-      Alert.alert('Participation', 'Impossible d’enregistrer ta participation pour le moment.');
+      Alert.alert('Participation', 'Impossible d’enregistrer ta réponse pour le moment.');
     } finally {
       setProfileEventBusy(false);
     }
@@ -2039,16 +2050,30 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                   <View style={styles.profileEventStat}><Text style={styles.profileEventStatValue}>{profileEventCounts.going}</Text><Text style={styles.profileEventStatLabel}>participent</Text></View>
                   <View style={styles.profileEventStat}><Text style={styles.profileEventStatValue}>{profileEventCounts.maybe}</Text><Text style={styles.profileEventStatLabel}>intéressés</Text></View>
                 </View>
-                <TouchableOpacity
-                  disabled={profileEventBusy || profileEventRsvp === 'GOING'}
-                  style={[styles.profileEventJoin, profileEventRsvp === 'GOING' && styles.profileEventJoinOn]}
-                  onPress={() => { void joinProfileEvent(); }}
-                  accessibilityLabel={profileEventRsvp === 'GOING' ? 'Tu participes déjà à cet événement' : 'Participer à cet événement'}
-                >
-                  <Text style={[styles.profileEventJoinText, profileEventRsvp === 'GOING' && styles.profileEventJoinTextOn]}>
-                    {profileEventBusy ? 'ENREGISTREMENT…' : profileEventRsvp === 'GOING' ? '✓ TU PARTICIPES DÉJÀ' : 'JE PARTICIPE'}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.profileEventRsvpRow}>
+                  {([
+                    ['GOING', 'JE PARTICIPE'],
+                    ['MAYBE', 'PEUT-ÊTRE'],
+                    ['NOT_GOING', 'JE NE PARTICIPE PAS'],
+                  ] as Array<[EventRsvpStatus, string]>).map(([status, label]) => {
+                    const selected = profileEventRsvp === status;
+                    return (
+                      <TouchableOpacity
+                        key={status}
+                        disabled={profileEventBusy}
+                        style={[styles.profileEventRsvpButton, selected && styles.profileEventRsvpButtonOn]}
+                        onPress={() => { void chooseProfileEventRsvp(status); }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected, disabled: profileEventBusy }}
+                        accessibilityLabel={selected ? `${label}, réponse actuelle` : label}
+                      >
+                        <Text style={[styles.profileEventRsvpText, selected && styles.profileEventRsvpTextOn]}>
+                          {selected ? '✓ ' : ''}{label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
                 <Text style={styles.profileEventStayHint}>Tu restes sur le profil de @{profile.username}. Ta participation sera aussi disponible depuis ton propre profil.</Text>
               </>
             ) : (
@@ -2127,10 +2152,11 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   profileEventStat:{flex:1,minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   profileEventStatValue:{color:colors.keep,fontSize:18,fontWeight:'900'},
   profileEventStatLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:2},
-  profileEventJoin:{minHeight:50,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:14},
-  profileEventJoinOn:{backgroundColor:'rgba(45,225,194,.10)',borderColor:colors.keep},
-  profileEventJoinText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.7},
-  profileEventJoinTextOn:{color:colors.keep},
+  profileEventRsvpRow:{flexDirection:'row',gap:6,marginTop:14},
+  profileEventRsvpButton:{flex:1,minHeight:48,borderRadius:14,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:6},
+  profileEventRsvpButtonOn:{backgroundColor:'rgba(45,225,194,.10)',borderColor:colors.keep},
+  profileEventRsvpText:{color:colors.textPrimary,fontSize:8.5,lineHeight:12,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
+  profileEventRsvpTextOn:{color:colors.keep},
   profileEventStayHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:9},
   profileEventPendingIcon:{width:52,height:52,borderRadius:26,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(139,92,246,.12)',alignItems:'center',justifyContent:'center',alignSelf:'center'},
   profileEventPendingIconText:{fontSize:22},
