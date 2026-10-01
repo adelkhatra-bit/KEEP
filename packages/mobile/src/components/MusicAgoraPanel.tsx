@@ -196,6 +196,7 @@ export default function MusicAgoraPanel({
           setHomeEnabled(settings.homeEnabled);
           setNotificationsEnabled(settings.notificationsEnabled);
           setSettingsSurfaces(settings.surfaces);
+          setSettingsSurfaces(settings.surfaces);
         }).catch(() => {});
       }
     }, 5000);
