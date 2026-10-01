@@ -126,7 +126,11 @@ export default function GlobalChatDock() {
     let live = true;
     loadMusicAgoraShareableTracks(160).then((rows) => {
       if (!live) return;
-      setTracks(rows.map((row) => row.track));
+      setTracks(rows.map((row) => ({
+        ...row.track,
+        canSell: row.canSell,
+        sourceUsername: row.sourceUsername,
+      })));
     }).catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
   }, [chatEnabled, accountReady, user?.id, open]);
