@@ -2386,3 +2386,11 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Compositeur et fonctions conservés : réactions, morceau, QR PayPal, FREE/€, confirmation vendeur, participants.
 - Caméra/appels audio/vidéo restent absents conformément à la décision utilisateur.
 - Aucun App.tsx / Navigation.tsx / barre 5 onglets / Super Admin modifié.
+
+
+## [2026-10-02] PENDING USER VALIDATION — PROFIL PULSE SANS BULLES REPLIÉES
+- Ceci est une consigne de coordination, PAS une entrée de cahier des charges.
+- Profil propriétaire : jauge/% + résumé visibles quand fermé ; AUCUNE bulle ni recommandation visible sous la jauge.
+- VOIR PLUS affiche les styles cliquables + recommandations ; MASQUER replie tout.
+- Ne pas remettre d'aperçu 4 bulles tant qu'Adel n'a pas validé visuellement.
+- Ne pas toucher HomeScreenCompact, chat, Super Admin, App.tsx, Navigation.tsx ou barre 5 onglets pour cette correction.
