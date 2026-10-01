@@ -142,12 +142,17 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await admin.rpc("service_world_catalog_finish", {
-      p_id: targetId,
-      p_ok: false,
-      p_result_count: 0,
-      p_error: message,
-    }).catch(() => null);
+    try {
+      await admin.rpc("service_world_catalog_finish", {
+        p_id: targetId,
+        p_ok: false,
+        p_result_count: 0,
+        p_error: message,
+      });
+    } catch {
+      // The original provider/ingest error is the useful result; queue recovery
+      // also reclaims stale PROCESSING rows after twenty minutes.
+    }
     return out(502, { ok: false, target: targetId, error: message });
   }
 });
