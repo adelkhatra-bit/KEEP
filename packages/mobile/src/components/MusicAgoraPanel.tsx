@@ -223,8 +223,8 @@ export default function MusicAgoraPanel({
 
   const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
   const compactPanelHeight = Math.min(
-    470,
-    Math.max(280, baseViewportHeightRef.current - (keyboardInset > 0 ? keyboardInset + 84 : 190)),
+    620,
+    Math.max(300, baseViewportHeightRef.current - (keyboardInset > 0 ? keyboardInset + 84 : 190)),
   );
   const compactTop = keyboardInset > 0
     ? undefined
