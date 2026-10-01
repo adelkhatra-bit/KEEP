@@ -69,16 +69,23 @@ forbidText(
   'l’ancien écran bloquant Pépites ne doit jamais revenir',
 );
 
-// 5) Tchat : masquer le widget d’accueil ne coupe jamais le dock global.
+// 5) Tchat : le bug d'auth est global, mais l'activation reste un réglage
+//    INDIVIDUEL. Une correction technique ne doit jamais forcer le Tchat
+//    pour tous les profils ni écraser community_chat_home_enabled.
 requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
-  'if (!accountReady || !user) return null;',
-  'le dock Tchat dépend uniquement du compte réel',
+  'const [chatEnabled, setChatEnabled] = useState(false);',
+  'le Tchat global doit conserver son état d’activation individuel',
 );
-forbidText(
+requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
-  'chatEnabled',
-  'le réglage homeEnabled ne doit pas désactiver le Tchat global',
+  'setChatEnabled(Boolean(settings.homeEnabled));',
+  'le dock doit respecter le réglage utilisateur enregistré',
+);
+requireText(
+  'packages/mobile/src/components/GlobalChatDock.tsx',
+  'if (!accountReady || !chatEnabled || !user) return null;',
+  'un compte réel ne suffit pas à forcer un réglage Tchat désactivé',
 );
 
 // 6) Soirées / Playlists : explications derrière un ? compact, pas de mur de texte.
@@ -129,4 +136,4 @@ if (failures.length) {
 }
 
 console.log('GLOBAL USER REGRESSION GUARD — PASS');
-console.log('Auth réelle, Pépites, Tchat, événements inline, aides compactes et picker profil verrouillés.');
+console.log('Auth réelle globale, réglages individuels préservés, Pépites, événements inline, aides compactes et picker profil verrouillés.');
