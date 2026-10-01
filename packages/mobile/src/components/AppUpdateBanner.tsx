@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
@@ -15,11 +15,28 @@ import { spacing, radius } from '../theme/spacing';
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
   const dismiss = useAppUpdateStore((s) => s.dismiss);
+  const { width } = useWindowDimensions();
 
-  if (Platform.OS !== 'web' || !latestSha) return null;
+  if (Platform.OS !== 'web') return null;
+
+  if (!latestSha) {
+    if (width < 768) return null;
+    return (
+      <View style={s.manualWrap} pointerEvents="box-none" testID="keep-manual-update-control">
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Mise à jour du site Loki Music"
+          style={s.manualButton}
+          onPress={reloadToLatest}
+        >
+          <Text style={s.manualText}>↻ Mise à jour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <View style={s.wrap} pointerEvents="box-none">
+    <View style={s.wrap} pointerEvents="box-none" testID="keep-update-available-banner">
       <View style={s.card}>
         <Text style={s.title}>🔄 Nouvelle version de Loki Music disponible</Text>
         <Text style={s.body}>Recharge pour profiter des dernières fonctions.</Text>
@@ -38,6 +55,9 @@ export default function AppUpdateBanner() {
 
 const s = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 78, alignItems: 'center', paddingHorizontal: spacing.lg, zIndex: 200 },
+  manualWrap: { position: 'absolute', left: 0, right: 0, bottom: 82, alignItems: 'center', zIndex: 190 },
+  manualButton: { minHeight: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  manualText: { color: colors.textPrimary, fontSize: 11, fontWeight: '900' },
   card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
   title: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   body: { color: colors.textSecondary, fontSize: 12, lineHeight: 16 },
