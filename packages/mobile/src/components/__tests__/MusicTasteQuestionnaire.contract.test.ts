@@ -25,4 +25,14 @@ describe('MusicTasteQuestionnaire tap-only contract', () => {
     expect(source).toContain("footerActions:{flexDirection:'row'");
     expect(source).toContain('footerAction:{flex:1,minWidth:0}');
   });
+
+  it('always shows existing selections and lets web/mobile users edit them', () => {
+    expect(source).toContain('DÉJÀ SÉLECTIONNÉ · TOUCHE × POUR RETIRER');
+    expect(source).toContain('removeSelected');
+    expect(source).toContain('nestedScrollEnabled');
+    expect(source).toContain('showsVerticalScrollIndicator');
+    expect(source).toContain('selectedGenres.map');
+    expect(source).toContain('selectedLanguages.map');
+    expect(source).toContain('selectedCountries.map');
+  });
 });
