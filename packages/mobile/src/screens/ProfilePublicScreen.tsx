@@ -565,10 +565,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
           if (!live) return;
           setFreeBalance(null);
         }
+      } else if (live && isDemoMode) {
+        // La démo n'a aucun portefeuille serveur. Ne jamais inventer un solde
+        // (l'ancien "3 FREE" donnait l'impression que ces crédits existaient).
+        setFreeBalance(null);
+        setFreeWon(0);
+        setFreeLost(0);
       } else if (live) {
-        // Mode démo ou invité: afficher solde de test (3 Free pour essai gratuit)
-        // permettre au user de tester les interactions même sans session réelle.
-        setFreeBalance(3);
+        // L'invité local possède, lui, un vrai quota d'essai suivi par appareil.
+        const guestStatus = await getDownloadCreditStatus().catch(() => null);
+        if (!live) return;
+        setFreeBalance(guestStatus?.remaining ?? null);
         setFreeWon(0);
         setFreeLost(0);
       }
@@ -968,7 +975,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // sur le profil" -- affiché quel que soit le plan désormais (avant : les
   // plans payants masquaient le compteur derrière leur nom commercial,
   // laissé "illimité" côté crédits de téléchargement uniquement).
-  const planLabel = freeBalance != null ? `${freeBalance} FREE` : planCode;
+  const planLabel = isDemoMode ? 'DÉMO · ?' : freeBalance != null ? `${freeBalance} FREE` : planCode;
   // Adel (07/09/2026) : "mettre le nombre de jours restants pour savoir dans
   // combien de jours il sera recrédité" -- le Free du mois est versé le 1er
   // de chaque mois pour le mois qui vient de se terminer (jamais en cours de
@@ -1587,17 +1594,32 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.topMetricSocialItem, s.topMetricSocialLast, s.topMetricFreeItem, freeDetailsOpen && s.topMetricFreeItemOn]}
-            onPress={() => { setCommunityMode(null); setRepriseListOpen(false); setFreeDetailsOpen((v) => !v); }}
+            onPress={() => {
+              setCommunityMode(null);
+              setRepriseListOpen(false);
+              if (isDemoMode) {
+                Alert.alert(
+                  'FREE · mode démo',
+                  'Le mode démo n’a aucun vrai solde FREE. Après connexion, ton solde réel apparaît ici. Écouter, reconnaître et PASSER ne dépensent pas de FREE ; GARDER et certaines actions Battle peuvent en utiliser ou en faire gagner selon les règles affichées dans Loki Music.',
+                  [
+                    { text: 'Plus tard', style: 'cancel' },
+                    { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+                  ],
+                );
+                return;
+              }
+              setFreeDetailsOpen((v) => !v);
+            }}
             accessibilityRole="button"
             accessibilityState={{ expanded: freeDetailsOpen }}
-            accessibilityLabel="Voir le détail de mes Free"
+            accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
           >
-            <Text style={s.topMetricFreeItemValue}>{freeBalance ?? '…'}</Text>
-            <Text style={s.topMetricFreeItemLabel}>FREE</Text>
+            <Text style={s.topMetricFreeItemValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
+            <Text style={s.topMetricFreeItemLabel}>{isDemoMode ? 'FREE ?' : 'FREE'}</Text>
           </TouchableOpacity>
         </View>
       </View>
-      {freeDetailsOpen ? (
+      {freeDetailsOpen && !isDemoMode ? (
         <View style={s.metricInlinePanel}>
           <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Tes Free</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
           <View style={s.freeInlineStats}>
