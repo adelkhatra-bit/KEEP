@@ -41,6 +41,8 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain('shareOptionsOpen');
     expect(panel).toContain('shareAccordionBody');
     expect(panel).toContain('selectedMusicLockBadge');
+    expect(panel).toContain("selectedMusicThumbWrap:{width:80,height:80");
+    expect(panel).toContain("selectedMusicThumb:{width:80,height:80");
   });
 
   it('keeps reaction buttons fixed-size inside the chat', () => {
@@ -55,11 +57,17 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("inputCompact:{height:44,minHeight:44,maxHeight:44");
   });
 
-  it('shows ownership locks before payment choices', () => {
+  it('shows ownership locks before payment choices and explains them inline', () => {
     expect(panel).toContain('🔒 PARTAGE UNIQUEMENT');
     expect(panel).toContain('(sharedTrack as any).canSell === false');
     expect(panel).toContain('selectedMusicLockBadge');
     expect(panel).toContain('shareTrackLockBadge');
+    expect(panel).toContain('shareOwnershipOpen');
+    expect(panel).toContain('PARTAGE AUTORISÉ · REVENTE BLOQUÉE');
+    expect(panel).toContain('FREE verrouillé, afficher pourquoi');
+    expect(panel).toContain('Paiement euro verrouillé, afficher pourquoi');
+    expect(panel).toContain("paymentLocked ? '🔒 FREE' : 'FREE'");
+    expect(panel).toContain("paymentLocked ? '🔒 €' : '€'");
   });
 
   it('measures the keyboard and moves the fixed drawer above it', () => {
@@ -68,6 +76,8 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain('event.endCoordinates?.height');
     expect(panel).toContain('event.endCoordinates?.screenY');
     expect(panel).toContain('bottom: keyboardInset > 0 ? keyboardInset + 8 : 78');
+    expect(panel).toContain('forceBottomRef.current = true');
+    expect(panel).toContain('scrollToEnd({ animated: false })');
   });
 
   it('keeps the desktop update control mounted globally', () => {
