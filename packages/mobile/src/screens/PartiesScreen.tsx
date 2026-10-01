@@ -29,6 +29,7 @@ import { searchAddress, reverseGeocodeAddress, getCurrentKeepLocation, KeepLocat
 import WheelPicker from '../components/WheelPicker';
 import StandardBackButton from '../components/StandardBackButton';
 import ContextHelpSheet from '../components/ContextHelpSheet';
+import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -427,6 +428,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // manuelle qui débloque la participation).
   const [ticketSales, setTicketSales] = useState<EventTicketTransaction[]>([]);
   const [ticketConfirmBusyId, setTicketConfirmBusyId] = useState<string | null>(null);
+  const [ticketCheckout, setTicketCheckout] = useState<EventTicketPurchaseRequest | null>(null);
   // Adel (08/09/2026) : "il puisse effacer les evenements ... tous les
   // modifier ... voir tous les participants" -- edition en place (meme
   // formulaire que la creation), suppression = debit definitif (soft
@@ -689,9 +691,11 @@ export default function PartiesScreen({ navigation, route }: any) {
     setBusyId(event.id);
     try {
       const request = await requestEventTicketPurchase(event.id);
-      if (!request.payoutLink) { Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de lien de paiement personnel.`); return; }
-      await Linking.openURL(request.payoutLink);
-      Alert.alert('Paie directement sur le lien de l’organisateur', `Paie ${(request.amountCents / 100).toFixed(2)} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Loki Music ne touche jamais cet argent -- ta participation se débloquera dès que ${request.sellerUsername || 'l’organisateur'} confirme.`);
+      if (!request.payoutLink && !request.payoutQrUrl) {
+        Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'L’organisateur'} n’a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
+        return;
+      }
+      setTicketCheckout(request);
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('CANNOT_BUY_OWN_TICKET')) Alert.alert('Impossible', 'Tu ne peux pas acheter un billet pour ta propre soirée.');
@@ -1163,6 +1167,16 @@ export default function PartiesScreen({ navigation, route }: any) {
           Battle et un côté les soirées ... par défaut ça revient toujours à
           soirée" -- deux onglets au lieu de mélanger les deux dans le même
           flux ; Soirées reste l'onglet par défaut. */}
+      <PayoutCheckoutSheet
+        visible={Boolean(ticketCheckout)}
+        sellerUsername={ticketCheckout?.sellerUsername}
+        amountCents={ticketCheckout?.amountCents ?? 0}
+        currencyCode={ticketCheckout?.currencyCode ?? 'EUR'}
+        payoutLink={ticketCheckout?.payoutLink}
+        payoutQrUrl={ticketCheckout?.payoutQrUrl}
+        onClose={() => setTicketCheckout(null)}
+      />
+
       <ContextHelpSheet
         visible={partiesTab === 'SOIREES' && eventAccessInfoOpen}
         title="Tout faire dans Soirées"
