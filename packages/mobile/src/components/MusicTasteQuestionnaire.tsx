@@ -110,6 +110,22 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
 
   const later = async () => { await snoozePulsePreferences(24).catch(() => null); onLater(); };
   const shortcutRows = FAMILY_SHORTCUTS.map((label) => ({ label, key: label.toLowerCase() }));
+  const selectedLabels = tab === 'STYLES'
+    ? selectedGenres.map((value) => ({ key: value, label: value }))
+    : tab === 'LANGUAGES'
+      ? selectedLanguages.map((code) => {
+          const row = languages.find((item) => item.code === code);
+          return { key: code, label: localDisplayName('language', code, row?.name || code) };
+        })
+      : selectedCountries.map((code) => {
+          const row = countries.find((item) => item.code === code);
+          return { key: code, label: localDisplayName('region', code, row?.name || code) };
+        });
+  const removeSelected = (value: string) => {
+    if (tab === 'STYLES') setSelectedGenres((rows) => rows.filter((item) => item !== value));
+    else if (tab === 'LANGUAGES') setSelectedLanguages((rows) => rows.filter((item) => item !== value));
+    else setSelectedCountries((rows) => rows.filter((item) => item !== value));
+  };
 
   const body = tab === 'STYLES' ? <>
     <Text style={s.helper}>Tout est déjà prêt : touche les styles qui te ressemblent. Les familles et sous-genres disponibles sont chargés automatiquement.</Text>
@@ -151,7 +167,26 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
     <View style={s.detected}><Text style={s.detectedTitle}>PRÉREMPLI AUTOMATIQUEMENT</Text><Text style={s.detectedText}>{detectedTag || 'Langue appareil'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · modifie uniquement ce que tu veux</Text></View>
     <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>setTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
     <Text style={s.readyHint}>Aucun texte à saisir · tout se choisit en un toucher</Text>
-    <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{body}</ScrollView>
+    <View style={s.selectedBox}>
+      <Text style={s.selectedTitle}>DÉJÀ SÉLECTIONNÉ · TOUCHE × POUR RETIRER</Text>
+      {selectedLabels.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.selectedRail}>
+          {selectedLabels.map((item) => (
+            <TouchableOpacity key={item.key} style={s.selectedChip} onPress={() => removeSelected(item.key)} accessibilityLabel={`Retirer ${item.label}`}>
+              <Text style={s.selectedChipText} numberOfLines={1}>{item.label}</Text>
+              <Text style={s.selectedChipClose}>×</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : <Text style={s.selectedEmpty}>Aucun choix dans cette rubrique pour le moment.</Text>}
+    </View>
+    <ScrollView
+      style={s.scroll}
+      contentContainerStyle={s.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
+      nestedScrollEnabled
+    >{body}</ScrollView>
     <View style={s.footer}>
       <Text style={s.summary}>{selectedGenres.length + ' style' + (selectedGenres.length>1?'s':'') + ' · ' + (selectedLanguages.length || 'toutes') + ' langue' + (selectedLanguages.length===1?'':'s') + ' · ' + (selectedCountries.length || 'monde')}</Text>
       <View style={s.footerActions}>
@@ -175,7 +210,14 @@ const s=StyleSheet.create({
   detected:{marginHorizontal:14,marginTop:12,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:14,paddingTop:12},tab:{flex:1,minHeight:36,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:4},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:colors.textMuted,fontSize:8,fontWeight:'900'},tabTextOn:{color:'#FFF'},
   readyHint:{marginHorizontal:14,marginTop:12,color:colors.textMutedGrey,fontSize:10,fontWeight:'800',textAlign:'center'},
-  scroll:{maxHeight:330},scrollContent:{padding:14,paddingBottom:18},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
+  selectedBox:{marginHorizontal:14,marginTop:10,paddingVertical:9,borderTopWidth:1,borderBottomWidth:1,borderColor:colors.border},
+  selectedTitle:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8,marginBottom:7},
+  selectedRail:{gap:7,paddingRight:8},
+  selectedChip:{maxWidth:190,minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',flexDirection:'row',alignItems:'center',gap:6},
+  selectedChipText:{maxWidth:150,color:colors.textPrimary,fontSize:10,fontWeight:'900'},
+  selectedChipClose:{color:colors.keep,fontSize:15,fontWeight:'900'},
+  selectedEmpty:{color:colors.textMutedGrey,fontSize:10},
+  scroll:{height:330,maxHeight:330},scrollContent:{padding:14,paddingBottom:22},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:7},chip:{minHeight:34,maxWidth:'100%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:5},catalogChip:{maxWidth:210},chipOn:{backgroundColor:colors.keep,borderColor:colors.keep},chipText:{maxWidth:165,color:colors.textPrimary,fontSize:11,fontWeight:'800'},chipTextOn:{color:colors.black,fontWeight:'900'},countMini:{color:colors.textMuted,fontSize:8,fontWeight:'900'},countMiniOn:{color:'rgba(0,0,0,.65)'},
   footer:{padding:14,borderTopWidth:1,borderTopColor:colors.border,gap:8},summary:{color:colors.textMuted,fontSize:10,textAlign:'center'},footerActions:{flexDirection:'row',alignItems:'stretch',gap:8},footerAction:{flex:1,minWidth:0},primary:{minHeight:48,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},disabled:{opacity:.6},primaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.4,textAlign:'center'},cancel:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10},cancelText:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},reminderText:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},later:{minHeight:36,alignItems:'center',justifyContent:'center'},laterText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
 });
