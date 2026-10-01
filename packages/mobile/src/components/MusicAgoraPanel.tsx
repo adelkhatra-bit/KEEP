@@ -36,6 +36,7 @@ import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLi
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
+const LOKI_REACTION_TEXT = '◉ᴗ◉✦';
 const QUICK_REACTIONS = [
   { label: '❤️', payload: '❤️' },
   { label: '🔥', payload: '🔥' },
@@ -45,7 +46,7 @@ const QUICK_REACTIONS = [
   { label: '🤯', payload: '🤯' },
   { label: '🙌', payload: '🙌' },
   { label: '⚡', payload: '⚡' },
-  { label: 'LOKI ✦', payload: LOKI_REACTION_TOKEN, loki: true },
+  { label: LOKI_REACTION_TEXT, payload: LOKI_REACTION_TEXT, loki: true },
 ] as const;
 
 function ago(iso: string): string {
@@ -128,6 +129,7 @@ export default function MusicAgoraPanel({
   const [paymentTermsAccepted, setPaymentTermsAccepted] = useState(false);
   const [myPayoutQrUrl, setMyPayoutQrUrl] = useState('');
   const [paymentCheckout, setPaymentCheckout] = useState<PlaylistPurchaseRequest | null>(null);
+  const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -181,8 +183,16 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
+  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
+  const compactTopGap = 54;
   const compactPanelHeight = compact
-    ? Math.max(360, Math.min(500, Math.round(baseViewportHeightRef.current * 0.56)))
+    ? Math.max(
+        340,
+        Math.min(
+          Math.max(340, baseViewportHeightRef.current - compactTopGap - compactBottom),
+          Math.max(340, viewportHeight - compactTopGap - compactBottom),
+        ),
+      )
     : undefined;
 
   useEffect(() => {
@@ -429,7 +439,7 @@ export default function MusicAgoraPanel({
       Alert.alert('Compte requis', 'Connecte ton compte Loki Music pour participer au Tchat.');
       return;
     }
-    if (!roomSlug || posting || (!sharedTrack && body.length < 2)) return;
+    if (!roomSlug || posting || (!sharedTrack && body.length < 1)) return;
     if (awaitingDirectReply) {
       Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
       return;
@@ -494,24 +504,17 @@ export default function MusicAgoraPanel({
     }
   };
 
-  const sendQuickReaction = async (emoji: string) => {
-    if (!enabled || !roomSlug || posting) return;
+  const insertQuickReaction = (value: string) => {
     if (awaitingDirectReply) {
       Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
       return;
     }
-    setPosting(true);
-    try {
-      await postMusicAgoraMessage(roomSlug, emoji, { targetProfileId: replyTarget?.profileId ?? null });
-      if (!(compact && chatMode === 'MESSAGES')) setReplyTarget(null);
-      browsingHistoryRef.current = false;
-      await refresh(roomSlug, true);
-      followChatBottom(true);
-    } catch (error) {
-      Alert.alert('Tchat', readableError(error));
-    } finally {
-      setPosting(false);
-    }
+    setDraft((current) => {
+      const separator = current && !/\s$/.test(current) ? ' ' : '';
+      return `${current}${separator}${value}`.slice(0, 2000);
+    });
+    setReactionPaletteOpen(false);
+    setTimeout(() => followChatBottom(false), 50);
   };
 
   const keepSharedTrack = async (message: MusicAgoraMessage, visibility: 'PUBLIC' | 'PRIVATE') => {
@@ -687,7 +690,7 @@ export default function MusicAgoraPanel({
     style={[
       s.shell,
       compact && s.shellCompact,
-      compact && { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: keyboardInset > 0 ? keyboardInset + 8 : 78 },
+      compact && { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: compactBottom },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
@@ -813,8 +816,8 @@ export default function MusicAgoraPanel({
               <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
             </View>
           </TouchableOpacity>
-          {message.body === LOKI_REACTION_TOKEN ? (
-            <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>LOKI ✦</Text></View>
+          {(message.body === LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
+            <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>{LOKI_REACTION_TEXT} · LOKI</Text></View>
           ) : extractMusicAgoraPayoutQrUrl(message.body) ? (
             <View style={s.qrMessage}>
               <Text style={s.qrMessageTitle}>QR PAYPAL · @{message.username}</Text>
@@ -1123,22 +1126,25 @@ export default function MusicAgoraPanel({
         <Text style={s.awaitingReplyTitle}>EN ATTENTE DE RÉPONSE</Text>
         <Text style={s.awaitingReplyText}>Tu as envoyé 3 messages sans réponse. Loki réactive l’envoi dès que @{replyTarget?.username || 'cette personne'} répond.</Text>
       </View> : null}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={s.quickReactions}
-        contentContainerStyle={s.quickReactionsContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {QUICK_REACTIONS.map((reaction) => <TouchableOpacity
-          key={reaction.payload}
-          style={[s.quickReaction, reaction.loki && s.quickReactionLoki, awaitingDirectReply && s.quickReactionDisabled]}
-          disabled={posting || awaitingDirectReply}
-          activeOpacity={0.7}
-          onPress={() => void sendQuickReaction(reaction.payload)}
-          accessibilityLabel={reaction.loki ? 'Envoyer la réaction Loki' : `Envoyer ${reaction.label}`}
-        ><Text style={[s.quickReactionText, reaction.loki && s.quickReactionLokiText]}>{reaction.label}</Text></TouchableOpacity>)}
-      </ScrollView>
+      {reactionPaletteOpen ? (
+        <View style={s.reactionPopover}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.quickReactionsContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {QUICK_REACTIONS.map((reaction) => <TouchableOpacity
+              key={reaction.payload}
+              style={[s.quickReaction, reaction.loki && s.quickReactionLoki, awaitingDirectReply && s.quickReactionDisabled]}
+              disabled={awaitingDirectReply}
+              activeOpacity={0.7}
+              onPress={() => insertQuickReaction(reaction.payload)}
+              accessibilityLabel={reaction.loki ? 'Ajouter la réaction Loki au message' : `Ajouter ${reaction.label} au message`}
+            ><Text style={[s.quickReactionText, reaction.loki && s.quickReactionLokiText]}>{reaction.label}</Text></TouchableOpacity>)}
+          </ScrollView>
+        </View>
+      ) : null}
       <TextInput
         value={draft}
         onChangeText={setDraft}
@@ -1148,6 +1154,7 @@ export default function MusicAgoraPanel({
         scrollEnabled
         maxLength={2000}
         onFocus={() => {
+          setReactionPaletteOpen(false);
           forceBottomRef.current = true;
           setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
           setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
@@ -1155,6 +1162,14 @@ export default function MusicAgoraPanel({
         style={[s.input, compact && s.inputCompact]}
       />
       <View style={s.composerBottom}>
+        <TouchableOpacity
+          style={[s.emojiButton, reactionPaletteOpen && s.emojiButtonOn, awaitingDirectReply && s.quickReactionDisabled]}
+          disabled={awaitingDirectReply}
+          onPress={() => setReactionPaletteOpen((open) => !open)}
+          accessibilityLabel="Ouvrir les émoticônes"
+        >
+          <Text style={s.emojiButtonText}>☺</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={[s.shareMusic, awaitingDirectReply && s.quickReactionDisabled]} disabled={!shareableTracks.length || awaitingDirectReply} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
           <Text style={s.shareMusicText}>＋ PÉPITE</Text>
         </TouchableOpacity>
@@ -1164,7 +1179,7 @@ export default function MusicAgoraPanel({
         <Text style={s.counter}>{draft.length}/2000</Text>
         <TouchableOpacity style={[s.send, ((!sharedTrack && !draft.trim()) || awaitingDirectReply) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting || awaitingDirectReply} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
-    </View> : <View style={s.locked}><Text style={s.lockedText}>Connecte-toi pour écrire. La lecture reste ouverte.</Text></View>}
+    </View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
 
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
@@ -1191,9 +1206,9 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:470,minHeight:470,maxHeight:470,flexGrow:0,flexShrink:0,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
-  shellCompactLeft:{left:10},
-  shellCompactRight:{right:10},
+  shellCompact:{position:'absolute',bottom:78,left:6,right:6,flexGrow:0,flexShrink:0,padding:10,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompactLeft:{left:6,right:6},
+  shellCompactRight:{left:6,right:6},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
@@ -1243,12 +1258,13 @@ const s=StyleSheet.create({
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
-  input:{height:72,minHeight:72,maxHeight:72,color:colors.textPrimary,fontSize:15.5,lineHeight:21,textAlignVertical:'top',overflow:'scroll'},
-  inputCompact:{height:52,minHeight:52,maxHeight:52,fontSize:15.5,lineHeight:21,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0,overflow:'scroll'},
+  input:{height:82,minHeight:82,maxHeight:112,color:colors.textPrimary,fontSize:16,lineHeight:22,textAlignVertical:'top',overflow:'scroll',borderWidth:1.5,borderColor:colors.primaryLight,borderRadius:14,backgroundColor:'rgba(7,5,13,.96)',paddingHorizontal:12,paddingTop:10,paddingBottom:9},
+  inputCompact:{height:66,minHeight:66,maxHeight:92,fontSize:16,lineHeight:22,paddingTop:10,paddingBottom:9,flexGrow:0,flexShrink:0,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
   awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
   awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
-  quickReactions:{height:46,minHeight:46,maxHeight:46,marginBottom:6,flexGrow:0,flexShrink:0},
+  quickReactions:{height:46,minHeight:46,maxHeight:46,flexGrow:0,flexShrink:0},
+  reactionPopover:{minHeight:50,maxHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:7,paddingVertical:5,marginBottom:7},
   quickReactionsContent:{alignItems:'center',gap:7,paddingRight:8},
   quickReaction:{width:44,height:40,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionDisabled:{opacity:.38},
@@ -1257,7 +1273,10 @@ const s=StyleSheet.create({
   quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
   lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
   lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
-  composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
+  composerBottom:{flexDirection:'row',alignItems:'center',gap:6,marginTop:8},
+  emojiButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
   counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   sendOff:{opacity:.45},
