@@ -498,7 +498,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         return;
       }
       try {
-        const items = await loadLokiPulse(36);
+        const items = await loadLokiPulse(60);
         if (live) setLokiPulseItems(items);
       } catch {
         if (live) setLokiPulseItems([]);
@@ -1890,7 +1890,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <MusicTasteQuestionnaire
           onDone={() => {
             setPulseTasteOpen(false);
-            void loadLokiPulse(36).then(setLokiPulseItems).catch(() => {});
+            void loadLokiPulse(60).then(setLokiPulseItems).catch(() => {});
           }}
           onLater={() => setPulseTasteOpen(false)}
         />
