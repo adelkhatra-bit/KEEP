@@ -11,14 +11,14 @@ describe('global compact chat UX contract', () => {
   const update = read(__dirname, '..', '..', 'components', 'AppUpdateBanner.tsx');
   const app = read(__dirname, '..', '..', '..', 'App.tsx');
 
-  it('keeps the compact chat drawer fixed instead of content-sized', () => {
+  it('keeps the compact chat drawer adaptive instead of content-sized', () => {
     expect(panel).toContain("shellCompact:{position:'absolute'");
     expect(panel).toContain('minHeight:0');
     expect(panel).toContain('compactPanelHeight');
     expect(panel).toContain("shellCompact:{position:'absolute'");
-    expect(panel).toContain('height:470');
-    expect(panel).toContain('minHeight:470');
-    expect(panel).toContain('maxHeight:470');
+    expect(panel).toContain('Math.min(\n    620');
+    expect(panel).toContain('Math.max(300');
+    expect(panel).toContain('minHeight:300,maxHeight:620');
     expect(panel).toContain("selectedMusic:{padding:8");
     expect(panel).toContain('maxHeight:250');
   });
@@ -72,7 +72,7 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("paymentLocked ? '🔒 €' : '€'");
   });
 
-  it('measures the keyboard and moves the fixed drawer above it', () => {
+  it('measures the keyboard and keeps the adaptive drawer above it', () => {
     expect(panel).toContain("keyboardWillShow");
     expect(panel).toContain("keyboardDidShow");
     expect(panel).toContain('event.endCoordinates?.height');
