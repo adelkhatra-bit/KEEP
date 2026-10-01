@@ -33,7 +33,7 @@ assertOrdered(owner, [
   '<View style={s.collectionHeader}>',
   '<View style={s.tabsRow}>',
   'accessibilityLabel="Gérer mes musiques"',
-  '<Text style={s.dnaCompactTitle}>Tes bulles musicales</Text>',
+  '<Text style={s.dnaCompactTitle}>Ton empreinte musicale</Text>',
   '<Text style={s.socialTitle}>Mes réseaux</Text>',
   '<Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>',
   'accessibilityLabel="Partager mon profil Loki Music"',
@@ -47,6 +47,8 @@ const ownerActions = owner.slice(ownerActionsStart, ownerActionsEnd);
 assertCount(ownerActions, /containerStyle=\{s\.ownerQuickActionFull\}/g, 3, 'Owner APERÇU / PÉPITES / BATTLE equal-width row');
 
 assertIncludes(owner, 'testID="profile-loki-pulse-bubbles-card"', 'Owner Loki Pulse bubbles card');
+assertIncludes(owner, '<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>', 'Owner Loki Pulse percentage gauge');
+assertIncludes(owner, "profileStylesExpanded ? 'MASQUER' : `VOIR MES ${profileStyleBubbles.length} STYLES`", 'Owner Loki Pulse compact styles toggle');
 if (owner.includes('Loki Music DNA')) throw new Error('Owner profile must not restore visible Loki Music DNA');
 assertIncludes(owner, "topMetricsBar:{marginHorizontal:0,", 'Owner compact counter frame');
 assertIncludes(owner, 'profileMetaBadgeGroup:{flexDirection:\'row\'', 'Owner profile type inline group');
