@@ -49,7 +49,7 @@ function readableError(error: unknown): string {
   if (message.includes('CHAT_TRACK_OFFER_ALREADY_PENDING')) return 'Une demande de paiement est déjà en cours pour cette pépite et cet utilisateur.';
   if (message.includes('PLAYLIST_SALE_LOCKED')) return 'Ton accès aux ventes de pépites n’est pas encore débloqué.';
   if (message.includes('CHAT_TRACK_RESALE_FORBIDDEN') || message.includes('TRACK_NOT_OWNED_FOR_SALE')) return 'Cette musique ne t’appartient pas : tu peux la partager et l’écouter, mais pas la remettre en vente.';
-  if (message.includes('TARGET_ALREADY_OWNS_TRACK')) return 'Cet utilisateur a déjà cette musique. Aucune vente ni débit FREE n’est nécessaire.';
+  if (message.includes('TARGET_ALREADY_OWNS_TRACK') || message.includes('CHAT_TARGET_ALREADY_OWNS_TRACK')) return 'Cet utilisateur a déjà cette musique. Aucune vente ni débit FREE n’est nécessaire.';
   return 'Impossible de publier pour le moment.';
 }
 
@@ -60,6 +60,8 @@ export default function MusicAgoraPanel({
   shareableTracks = [],
   compact = false,
   compactSide = 'right',
+  initialRoomSlug,
+  initialReplyTarget,
   onCompactClose,
 }: {
   currentProfileId: string;
@@ -68,6 +70,8 @@ export default function MusicAgoraPanel({
   shareableTracks?: CanonicalTrack[];
   compact?: boolean;
   compactSide?: 'left' | 'right';
+  initialRoomSlug?: string;
+  initialReplyTarget?: { profileId: string; username: string };
   onCompactClose?: () => void;
 }) {
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
@@ -100,6 +104,14 @@ export default function MusicAgoraPanel({
   const browsingHistoryRef = useRef(false);
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
+
+  useEffect(() => {
+    if (initialRoomSlug && rooms.some((item) => item.slug === initialRoomSlug)) setRoomSlug(initialRoomSlug);
+  }, [initialRoomSlug, rooms]);
+
+  useEffect(() => {
+    if (initialReplyTarget?.profileId) setReplyTarget(initialReplyTarget);
+  }, [initialReplyTarget?.profileId, initialReplyTarget?.username]);
 
   useEffect(() => {
     const loop = Animated.loop(
