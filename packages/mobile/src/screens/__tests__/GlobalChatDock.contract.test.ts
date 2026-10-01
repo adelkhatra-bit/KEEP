@@ -136,6 +136,15 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('paymentLocked');
   });
 
+  it('scales private rooms with Realtime instead of 5-second polling', () => {
+    expect(service).toContain('subscribeMusicAgoraGroup');
+    expect(service).toContain("table: 'music_agora_group_messages'");
+    expect(service).toContain("table: 'music_agora_group_members'");
+    expect(messenger).toContain('subscribeMusicAgoraGroup(activeGroup.id');
+    expect(messenger).toContain('}, 60000)');
+    expect(messenger).not.toContain('}, 5000)');
+  });
+
   it('keeps PayPal QR and payment confirmation inside the chat flow', () => {
     expect(service).toContain('keep_agora_share_my_payout_qr');
     expect(service).toContain('keep_marketplace_terms_status');
