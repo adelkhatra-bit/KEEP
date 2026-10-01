@@ -236,9 +236,8 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       : typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
         ? context.sourceUsername.trim()
         : undefined;
-    const isSocial = context.creditPolicy === 'SOCIAL_ZERO_CREDIT'
-      || Boolean(sourceProfileId)
-      || row.source_type === 'profile';
+    const creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT' =
+      context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP';
     return [{
       decisionId: String(row.id),
       visibility,
@@ -247,7 +246,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       sessionId,
       sourceProfileId,
       sourceUsername,
-      creditPolicy: isSocial ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP',
+      creditPolicy,
       track: {
         id: String(track.id),
         isrc: track.isrc || undefined,
