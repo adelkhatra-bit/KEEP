@@ -21,7 +21,6 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import CommunityChatHomeWidget from '../components/CommunityChatHomeWidget';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -547,7 +546,6 @@ export default function HomeScreenCompact({ navigation }: any) {
               </MotionActionButton>
             </View>
             <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
-            {!isDemoMode && user?.id ? <CommunityChatHomeWidget onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })} /> : null}
             {isDemoMode || musicEngine.isDemoMode ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} ÉCOUTES` : ''}</Text>
