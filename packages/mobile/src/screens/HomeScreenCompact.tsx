@@ -23,6 +23,7 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { loadOwnProfileKeeps } from '../services/publicProfileStateService';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
@@ -630,13 +631,12 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <Text style={s.homeDnaArrow}>›</Text>
               </View>
               {homeStyleBubbles.length ? (
-                <View style={s.homeDnaBubbles}>
-                  {homeStyleBubbles.map((genre) => (
-                    <View key={genre} style={s.homeDnaBubble}>
-                      <Text style={s.homeDnaBubbleText} numberOfLines={1}>{genre}</Text>
-                    </View>
-                  ))}
-                </View>
+                <MusicStyleBubbles
+                  testID="home-music-style-bubbles"
+                  genres={homeStyleBubbles}
+                  max={8}
+                  compact
+                />
               ) : (
                 <Text style={s.homeDnaEmpty}>Tes petites bulles apparaîtront ici à mesure que Loki apprend ce que tu gardes.</Text>
               )}
