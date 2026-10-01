@@ -459,12 +459,12 @@ async function recordDecision(req: Request) {
   const socialSource = sourceProfileId && sourceProfileId !== userId ? sourceProfileId : null;
   const originProfileId = decision === "KEPT" ? await resolveSocialOrigin(socialSource, trackId) : null;
 
-  // Un GARDER direct (pas une reprise sociale, pas un doublon deja gere plus
-  // haut) coute un credit Free reel -- verifie ET debite ICI, cote serveur,
-  // avant toute ecriture. Sans ce controle, n'importe qui pouvait appeler
-  // cette fonction directement (ex: console navigateur sur la version web) et
-  // enregistrer des GARDER illimites sans jamais toucher au solde Free.
-  if (decision === "KEPT" && !socialSource) {
+  // Règle Loki unique : tout NOUVEAU GARDER manuel coûte le tarif FREE
+  // serveur, y compris lorsqu'il provient du profil d'un autre membre.
+  // La provenance sociale sert uniquement à l'attribution/reprise et ne doit
+  // jamais contourner le débit. Les doublons sont retournés plus haut avant
+  // ce bloc, donc un morceau déjà possédé reste gratuit et idempotent.
+  if (decision === "KEPT") {
     const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
     const credit = await consumeKeepCredit(token);
     if (!credit.allowed) return json(402, { error: "CREDITS_EXHAUSTED" });
