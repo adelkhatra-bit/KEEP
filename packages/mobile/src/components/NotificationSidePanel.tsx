@@ -468,8 +468,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <View style={s.chatAccordionHead}>
                   <View style={{flex:1,minWidth:0}}>
                     <Text style={s.chatEyebrow}>MESSAGERIE LOKI</Text>
-                    <Text style={s.chatTitle}>Tiroir latéral</Text>
-                    <Text style={s.chatHint}>Il se range sur le bord choisi. Un nouveau message le fait ressortir avec son badge.</Text>
+                    <Text style={s.chatTitle}>Bouton flottant + plein écran</Text>
+                    <Text style={s.chatHint}>Le bouton reste sur le bord choisi. Appuie dessus pour ouvrir la messagerie en plein écran ; les nouveaux messages affichent un badge.</Text>
                   </View>
                   {chatSettingsLoading || chatSaving ? <ActivityIndicator color={colors.primaryLight} /> : null}
                 </View>
@@ -516,7 +516,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                     <Text style={s.chatAnchorText}>CLOCHE · HAUT DROITE</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={s.chatSectionLabel}>HAUTEUR DU TIROIR</Text>
+                <Text style={s.chatSectionLabel}>HAUTEUR DU BOUTON</Text>
                 <View style={s.chatPositionRow}>
                   <TouchableOpacity style={[s.chatPositionButton, chatVerticalPreset === 'HIGH' && s.chatPositionButtonOn]} onPress={() => chooseChatVertical('HIGH')} accessibilityLabel="Placer le Tchat en haut">
                     <Text style={[s.chatPositionText, chatVerticalPreset === 'HIGH' && s.chatPositionTextOn]}>HAUT</Text>
@@ -531,12 +531,12 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                     <Text style={s.chatPositionHint}>au-dessus des onglets</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={s.chatSectionLabel}>CÔTÉ DU TIROIR</Text>
+                <Text style={s.chatSectionLabel}>CÔTÉ DU BOUTON</Text>
                 <View style={s.chatSideRow}>
                   <TouchableOpacity style={[s.chatSideButton, chatSide === 'left' && s.chatSideButtonOn]} onPress={() => chooseChatSide('left')}><Text style={[s.chatSideText, chatSide === 'left' && s.chatSideTextOn]}>GAUCHE</Text></TouchableOpacity>
                   <TouchableOpacity style={[s.chatSideButton, chatSide === 'right' && s.chatSideButtonOn]} onPress={() => chooseChatSide('right')}><Text style={[s.chatSideText, chatSide === 'right' && s.chatSideTextOn]}>DROITE</Text></TouchableOpacity>
                 </View>
-                <Text style={s.drawerHint}>Fermer le Tchat le remet automatiquement dans son tiroir sur le bord.</Text>
+                <Text style={s.drawerHint}>Fermer la messagerie remet simplement le bouton sur le bord choisi.</Text>
               </View>
             </ScrollView>
           ) : (

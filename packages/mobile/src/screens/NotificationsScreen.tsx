@@ -690,10 +690,10 @@ export default function NotificationsScreen({ navigation }: any) {
         <View style={[styles.visibilityCard, styles.chatControlCard]}>
           <View style={styles.chatStatusIcon}><Text style={styles.chatStatusIconText}>◉</Text></View>
           <View style={styles.visibilityCopy}>
-            <Text style={styles.visibilityEyebrow}>TCHAT LOKI</Text>
-            <Text style={styles.visibilityTitle}>{chatEnabled ? 'Mini-chat actif' : 'Mini-chat désactivé'}</Text>
+            <Text style={styles.visibilityEyebrow}>MESSAGERIE LOKI</Text>
+            <Text style={styles.visibilityTitle}>{chatEnabled ? 'Messagerie active' : 'Messagerie désactivée'}</Text>
             <Text style={styles.visibilityHint}>{chatEnabled
-              ? `Visible sur ${chatSurfaces.length} écran${chatSurfaces.length > 1 ? 's' : ''}. Tu peux le déplacer à gauche, à droite et en hauteur.`
+              ? `Visible sur ${chatSurfaces.length} écran${chatSurfaces.length > 1 ? 's' : ''}. Le bouton d’accès peut être placé à gauche, à droite et en hauteur.`
               : 'Active-le puis choisis précisément où le bouton flottant doit apparaître.'}</Text>
             <View style={styles.chatControlActions}>
               <TouchableOpacity

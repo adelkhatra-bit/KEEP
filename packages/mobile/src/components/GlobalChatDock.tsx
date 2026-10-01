@@ -482,7 +482,7 @@ export default function GlobalChatDock() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.settingsScreenTitle}>POSITION DU TIROIR</Text>
+            <Text style={styles.settingsScreenTitle}>POSITION DU BOUTON</Text>
             <View style={styles.positionRow}>
               <TouchableOpacity style={[styles.positionChoice, verticalPreset === 'HIGH' && styles.positionChoiceOn]} onPress={() => chooseVerticalPreset('HIGH')} accessibilityLabel="Placer le Tchat en haut">
                 <Text style={[styles.positionChoiceText, verticalPreset === 'HIGH' && styles.positionChoiceTextOn]}>HAUT</Text>
