@@ -97,18 +97,50 @@ export async function commitKeep(
 
   const targetPlaylistId = target.id;
   const playlistName = target.name;
+  let keepDecisionId: string | undefined;
+  let recordedTrackId: string | undefined;
+  let profileSyncFailed = false;
+
+  const decisionContext = {
+    ...(options?.context ?? {}),
+    creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
+    playback: {
+      previewUrl: track.previewUrl ?? null,
+      availableOn: track.availableOn ?? [],
+      externalUrls: track.externalUrls ?? {},
+    },
+    playlist: {
+      provider: session.provider || 'KEEP',
+      providerPlaylistId: targetPlaylistId,
+      name: playlistName,
+    },
+  };
+
+  // Pour un compte réel, la décision serveur est la source de vérité.
+  // Elle exécute désormais atomiquement : anti-doublon + débit FREE + KEEP.
+  // Tant que cette transaction n'est pas confirmée, Session/Loki Pulse ne
+  // doivent jamais considérer le morceau comme gardé.
+  if (!userState.isDemoMode && !userState.isLocalGuest) {
+    const recorded = await recordKeepDecision(track, visibility, decisionContext);
+    if (!recorded?.decisionId || !recorded?.trackId) {
+      throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    }
+    keepDecisionId = recorded.decisionId;
+    recordedTrackId = recorded.trackId;
+  }
+
   const alreadyThere = await withRetry(() => musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId, track));
   let downloaded = false;
-
   if (!alreadyThere) {
-    await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
-    downloaded = consumesCredit;
-    // Audit Adel (11/09/2026) : le debit reel du credit se fait desormais dans
-    // recordKeepDecision -> keep-music-core (verifie ET debite cote serveur,
-    // via keep_consume_download_credit()) -- plus jamais ici cote client
-    // seul, qui etait contournable directement (voir commentaire serveur).
-    // ensureDownloadCreditAvailable() ci-dessus reste un pre-check local pour
-    // eviter un aller-retour inutile ; il n'est plus la seule barriere.
+    try {
+      await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
+      downloaded = consumesCredit;
+    } catch {
+      // Le KEEP Loki + débit sont déjà confirmés côté serveur. Une panne du
+      // fournisseur ne doit pas annuler l'acquisition dans Loki ; la synchro
+      // fournisseur pourra être rejouée plus tard.
+      profileSyncFailed = true;
+    }
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
@@ -125,58 +157,20 @@ export async function commitKeep(
     });
   }
 
-  let keepDecisionId: string | undefined;
-  let profileSyncFailed = false;
-  try {
-    // Loki ne stocke jamais l'audio. Pour permettre la réécoute sur un profil
-    // public, on conserve uniquement les petits liens catalogue déjà renvoyés
-    // par la reconnaissance (extrait promotionnel + deep links fournisseurs).
-    const decisionContext = {
-      ...(options?.context ?? {}),
-      creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
-      playback: {
-        previewUrl: track.previewUrl ?? null,
-        availableOn: track.availableOn ?? [],
-        externalUrls: track.externalUrls ?? {},
-      },
-      playlist: {
-        provider: session.provider || 'KEEP',
-        providerPlaylistId: targetPlaylistId,
-        name: playlistName,
-      },
-    };
-    const recorded = await recordKeepDecision(track, visibility, decisionContext);
-
-    // Pour tout compte réel, un GARDER n'est JAMAIS considéré comme réussi
-    // tant que le serveur n'a pas confirmé la décision. Cela garantit que le
-    // débit FREE et le ledger "dépensés aujourd'hui" sont bien passés avant
-    // que Session/Loki Pulse n'affichent le morceau comme gardé.
-    if (consumesCredit && (!recorded?.decisionId || !recorded?.trackId)) {
-      throw new Error('KEEP_SERVER_NOT_CONFIRMED');
-    }
-
-    keepDecisionId = recorded?.decisionId;
-
-    // L'Edge Function enregistre elle-même l'origine sociale uniquement lors
-    // de la création du morceau gardé. Si le morceau existait déjà sur ce compte, son
-    // origine historique doit rester intacte : on ne la réécrit jamais ici.
-    if (recorded?.trackId) {
+  if (recordedTrackId) {
+    try {
       await syncPlaylistTrack({
         provider: session.provider || 'KEEP',
         providerPlaylistId: targetPlaylistId,
         playlistName,
         playlistDescription: target.description,
         coverUrl: target.coverUrl,
-        trackId: recorded.trackId,
+        trackId: recordedTrackId,
         addedVia: isSocialCopy ? 'SOCIAL' : 'KEEP',
       });
+    } catch {
+      profileSyncFailed = true;
     }
-  } catch (e: any) {
-    // Compte réel : ne jamais masquer une panne serveur derrière un succès
-    // local. Le morceau peut déjà avoir été ajouté au fournisseur ; au nouvel
-    // essai, l'opération est idempotente et le serveur finalise décision + FREE.
-    if (consumesCredit) throw e;
-    profileSyncFailed = true;
   }
 
   await usePlaylistStore.getState().refresh();
