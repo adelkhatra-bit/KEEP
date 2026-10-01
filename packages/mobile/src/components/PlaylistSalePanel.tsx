@@ -14,6 +14,28 @@ import type { CanonicalTrack } from '@keep/music';
 
 type PriceEditState = { offerId: string; playlistId: string; playlistName: string; paymentMode: PlaylistSalePaymentMode; priceCents: number; freePrice: number | null } | null;
 
+const MARKETPLACE_CURRENCIES = [
+  { code: 'EUR', label: '€ EUR' },
+  { code: 'USD', label: '$ USD' },
+  { code: 'GBP', label: '£ GBP' },
+  { code: 'CHF', label: 'CHF' },
+  { code: 'CAD', label: '$ CAD' },
+  { code: 'AUD', label: '$ AUD' },
+  { code: 'AED', label: 'AED' },
+] as const;
+
+function currencyForCountry(countryCode?: string | null): string {
+  const country = String(countryCode || '').trim().toUpperCase();
+  if (['FR','DE','ES','IT','PT','BE','NL','LU','IE','AT','FI','GR','CY','MT','EE','LV','LT','SI','SK','HR'].includes(country)) return 'EUR';
+  if (country === 'GB') return 'GBP';
+  if (country === 'CH') return 'CHF';
+  if (country === 'CA') return 'CAD';
+  if (country === 'AU') return 'AUD';
+  if (country === 'AE') return 'AED';
+  if (country === 'US') return 'USD';
+  return 'EUR';
+}
+
 function transactionAmountLabel(transaction: PlaylistSaleTransaction, direction: 'RECEIVED' | 'SPENT' | 'NEUTRAL' = 'NEUTRAL'): string {
   if (transaction.paymentMode === 'FREE' || transaction.amountFree > 0) {
     const sign = direction === 'RECEIVED' ? '+ ' : direction === 'SPENT' ? '− ' : '';
@@ -49,7 +71,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [retiredOpen, setRetiredOpen] = useState(false);
   const [offerFilter, setOfferFilter] = useState<'ALL' | 'FREE' | 'MONEY'>('ALL');
   const [collectionCartOpen, setCollectionCartOpen] = useState(false);
-  const [collectionCartStep, setCollectionCartStep] = useState<'TRACKS' | 'PRICE' | 'REVIEW'>('TRACKS');
+  const [collectionCartStep, setCollectionCartStep] = useState<'TRACKS' | 'REVIEW' | 'PRICE' | 'PUBLISH'>('TRACKS');
   const [collectionCartLoading, setCollectionCartLoading] = useState(false);
   const [collectionCartTracks, setCollectionCartTracks] = useState<CanonicalTrack[]>([]);
   const [collectionCartIds, setCollectionCartIds] = useState<Set<string>>(new Set());
@@ -59,6 +81,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [collectionCartPaymentMode, setCollectionCartPaymentMode] = useState<PlaylistSalePaymentMode>('FREE');
   const [collectionCartPriceCents, setCollectionCartPriceCents] = useState<number | null>(null);
   const [collectionCartFreePrice, setCollectionCartFreePrice] = useState<number | null>(null);
+  const [collectionCartCurrencyCode, setCollectionCartCurrencyCode] = useState<string>(() => currencyForCountry((user as any)?.countryCode));
   const [collectionCartPayoutLink, setCollectionCartPayoutLink] = useState('');
   const visibleCollectionCartTracks = useMemo(() => {
     const needle = collectionCartQuery.trim().toLocaleLowerCase('fr-FR');
@@ -70,6 +93,10 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const collectionCartDuplicateCount = useMemo(
     () => Array.from(collectionCartIds).filter((trackId) => Boolean(collectionCartOffered[trackId])).length,
     [collectionCartIds, collectionCartOffered],
+  );
+  const selectedCollectionCartTracks = useMemo(
+    () => collectionCartTracks.filter((track) => collectionCartIds.has(track.id)),
+    [collectionCartTracks, collectionCartIds],
   );
   const { published, retired } = useMemo(() => splitSaleOffersByStatus(offers, focusOfferId), [offers, focusOfferId]);
   const freePublished = useMemo(() => published.filter((item) => item.paymentMode === 'FREE'), [published]);
@@ -114,6 +141,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     setCollectionCartPaymentMode('FREE');
     setCollectionCartPriceCents(null);
     setCollectionCartFreePrice(null);
+    setCollectionCartCurrencyCode(currencyForCountry((user as any)?.countryCode));
   };
 
   const openCollectionCart = async () => {
@@ -129,6 +157,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     setCollectionCartPaymentMode('FREE');
     setCollectionCartPriceCents(null);
     setCollectionCartFreePrice(null);
+    setCollectionCartCurrencyCode(currencyForCountry((user as any)?.countryCode));
     setCollectionCartLoading(true);
     try {
       const [keeps, offered, payout] = await Promise.all([
@@ -188,19 +217,27 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       return;
     }
     if (!collectionCartName.trim()) setCollectionCartName(`Ma collection · ${collectionCartIds.size} titres`);
+    setCollectionCartStep('REVIEW');
+  };
+
+  const confirmCollectionCartReview = () => {
+    if (collectionCartIds.size < 2) {
+      setCollectionCartStep('TRACKS');
+      return;
+    }
     setCollectionCartStep('PRICE');
   };
 
   const continueCollectionCartPrice = async () => {
     const amount = collectionCartPaymentMode === 'FREE' ? collectionCartFreePrice : collectionCartPriceCents;
     if (!amount) {
-      Alert.alert('Prix', collectionCartPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis le prix en euros.');
+      Alert.alert('Prix', collectionCartPaymentMode === 'FREE' ? 'Choisis le nombre de FREE demandé.' : 'Choisis le prix dans la devise sélectionnée.');
       return;
     }
     if (collectionCartPaymentMode === 'MONEY') {
       const clean = collectionCartPayoutLink.trim();
       if (!clean) {
-        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.me ou ton lien de paiement avant de publier en euros.');
+        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.me ou ton lien de paiement avant de publier.');
         return;
       }
       setBusy(true);
@@ -214,7 +251,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       }
       setBusy(false);
     }
-    setCollectionCartStep('REVIEW');
+    setCollectionCartStep('PUBLISH');
   };
 
   const publishCollectionCart = async () => {
@@ -228,7 +265,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
         collectionCartName.trim() || `Ma collection · ${collectionCartIds.size} titres`,
         collectionCartPaymentMode,
         amount,
-        'EUR',
+        collectionCartCurrencyCode,
         collectionCartDuplicateCount > 0,
       );
       await loadData();
@@ -494,8 +531,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               <View style={s.collectionCartCard}>
                 <View style={s.collectionCartHead}>
                   <View style={{flex:1,minWidth:0}}>
-                    <Text style={s.collectionCartEyebrow}>PANIER PÉPITES · ÉTAPE {collectionCartStep === 'TRACKS' ? '1' : collectionCartStep === 'PRICE' ? '2' : '3'} SUR 3</Text>
-                    <Text style={s.collectionCartTitle}>{collectionCartStep === 'TRACKS' ? 'Ajoute tes morceaux' : collectionCartStep === 'PRICE' ? 'Prix & paiement' : 'Vérifie puis publie'}</Text>
+                    <Text style={s.collectionCartEyebrow}>PANIER PÉPITES · ÉTAPE {collectionCartStep === 'TRACKS' ? '1' : collectionCartStep === 'REVIEW' ? '2' : collectionCartStep === 'PRICE' ? '3' : '4'} SUR 4</Text>
+                    <Text style={s.collectionCartTitle}>{collectionCartStep === 'TRACKS' ? 'Choisis tes morceaux' : collectionCartStep === 'REVIEW' ? 'Ton panier est prêt' : collectionCartStep === 'PRICE' ? 'Prix & paiement' : 'Dernière vérification'}</Text>
                     <Text style={s.collectionCartHint}>{collectionCartIds.size} morceau{collectionCartIds.size > 1 ? 'x' : ''} dans le panier · tu peux en retirer à tout moment.</Text>
                   </View>
                   <TouchableOpacity style={s.collectionCartClose} onPress={resetCollectionCart} accessibilityLabel="Fermer le panier sans publier"><Text style={s.collectionCartCloseText}>×</Text></TouchableOpacity>
@@ -527,8 +564,47 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     ) : <Text style={s.collectionCartEmpty}>Aucun morceau éligible trouvé.</Text>}
                     <View style={s.collectionCartFooter}>
                       <Text style={s.collectionCartCount}>{collectionCartIds.size} / 200</Text>
-                      <TouchableOpacity style={[s.collectionCartContinue, collectionCartIds.size < 2 && s.collectionCartContinueDisabled]} disabled={collectionCartIds.size < 2} onPress={continueCollectionCart}><Text style={s.collectionCartContinueText}>CONTINUER</Text></TouchableOpacity>
+                      <TouchableOpacity style={[s.collectionCartContinue, s.collectionCartContinueHero, collectionCartIds.size < 2 && s.collectionCartContinueDisabled]} disabled={collectionCartIds.size < 2} onPress={continueCollectionCart}><Text style={s.collectionCartContinueText}>{collectionCartIds.size < 2 ? 'CHOISIS AU MOINS 2 MORCEAUX' : 'VOIR MON PANIER'}</Text><Text style={s.collectionCartContinueSubtext}>{collectionCartIds.size >= 2 ? 'Tout est bon ? →' : ''}</Text></TouchableOpacity>
                     </View>
+                  </>
+                ) : collectionCartStep === 'REVIEW' ? (
+                  <>
+                    <View style={s.collectionCartReviewHero}>
+                      <Text style={s.collectionCartReviewHeroEyebrow}>TA SÉLECTION</Text>
+                      <Text style={s.collectionCartReviewHeroTitle}>{collectionCartIds.size} morceau{collectionCartIds.size > 1 ? 'x' : ''} dans ton panier</Text>
+                      <Text style={s.collectionCartReviewHeroHint}>Aucun prix n’est demandé tant que tu n’as pas confirmé cette sélection.</Text>
+                    </View>
+
+                    <View style={s.collectionCartReviewStats}>
+                      <View style={s.collectionCartReviewStat}><Text style={s.collectionCartReviewStatValue}>{collectionCartIds.size}</Text><Text style={s.collectionCartReviewStatLabel}>TOTAL</Text></View>
+                      <View style={s.collectionCartReviewDivider} />
+                      <View style={s.collectionCartReviewStat}><Text style={[s.collectionCartReviewStatValue, collectionCartDuplicateCount > 0 && s.collectionCartReviewStatWarn]}>{collectionCartDuplicateCount}</Text><Text style={s.collectionCartReviewStatLabel}>DÉJÀ EN VENTE</Text></View>
+                      <View style={s.collectionCartReviewDivider} />
+                      <View style={s.collectionCartReviewStat}><Text style={s.collectionCartReviewStatValue}>{Math.max(0, collectionCartIds.size - collectionCartDuplicateCount)}</Text><Text style={s.collectionCartReviewStatLabel}>NOUVEAUX</Text></View>
+                    </View>
+
+                    <View style={s.collectionCartReviewList}>
+                      {selectedCollectionCartTracks.slice(0, 8).map((track, index) => (
+                        <View key={track.id} style={s.collectionCartReviewTrack}>
+                          <Text style={s.collectionCartReviewTrackNo}>{String(index + 1).padStart(2, '0')}</Text>
+                          {track.artworkUrl ? <Image source={{uri:track.artworkUrl}} style={s.collectionCartReviewCover} /> : <View style={[s.collectionCartReviewCover,s.collectionCartCoverEmpty]}><Text style={s.collectionCartCoverText}>♪</Text></View>}
+                          <View style={s.collectionCartReviewTrackCopy}>
+                            <Text style={s.collectionCartReviewTrackTitle} numberOfLines={1}>{track.title}</Text>
+                            <Text style={s.collectionCartReviewTrackArtist} numberOfLines={1}>{track.artist}</Text>
+                          </View>
+                          {collectionCartOffered[track.id] ? <Text style={s.collectionCartReviewExisting}>DÉJÀ EN VENTE</Text> : <Text style={s.collectionCartReviewOk}>OK</Text>}
+                        </View>
+                      ))}
+                      {selectedCollectionCartTracks.length > 8 ? <Text style={s.collectionCartReviewMore}>+ {selectedCollectionCartTracks.length - 8} autre{selectedCollectionCartTracks.length - 8 > 1 ? 's' : ''}</Text> : null}
+                    </View>
+
+                    {collectionCartDuplicateCount > 0 ? <View style={s.collectionCartReviewNotice}><Text style={s.collectionCartReviewNoticeTitle}>AUCUN DOUBLON CRÉÉ</Text><Text style={s.collectionCartReviewNoticeText}>Les morceaux déjà proposés ailleurs restent référencés une seule fois dans Loki. Ils peuvent appartenir à plusieurs Pépites sans dupliquer la musique.</Text></View> : null}
+
+                    <TouchableOpacity style={s.collectionCartReviewConfirm} onPress={confirmCollectionCartReview}>
+                      <Text style={s.collectionCartReviewConfirmTitle}>OUI, TOUT EST BON</Text>
+                      <Text style={s.collectionCartReviewConfirmHint}>Choisir maintenant FREE ou une devise</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.collectionCartReviewEdit} onPress={() => setCollectionCartStep('TRACKS')}><Text style={s.collectionCartReviewEditText}>MODIFIER MON PANIER</Text></TouchableOpacity>
                   </>
                 ) : collectionCartStep === 'PRICE' ? (
                   <>
@@ -537,17 +613,29 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <Text style={s.collectionCartFieldLabel}>MODE DE PAIEMENT</Text>
                     <View style={s.collectionCartModeRow}>
                       <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'FREE' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('FREE')}><Text style={s.collectionCartModeText}>⚡ FREE</Text></TouchableOpacity>
-                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('MONEY')}><Text style={s.collectionCartModeText}>€ EUROS</Text></TouchableOpacity>
+                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('MONEY')}><Text style={s.collectionCartModeText}>◎ PAIEMENT DIRECT</Text></TouchableOpacity>
                     </View>
+                    {collectionCartPaymentMode === 'MONEY' ? (
+                      <>
+                        <Text style={s.collectionCartFieldLabel}>DEVISE</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.collectionCartCurrencyRow}>
+                          {MARKETPLACE_CURRENCIES.map((currency) => (
+                            <TouchableOpacity key={currency.code} style={[s.collectionCartCurrencyChip, collectionCartCurrencyCode === currency.code && s.collectionCartCurrencyChipOn]} onPress={() => setCollectionCartCurrencyCode(currency.code)}>
+                              <Text style={[s.collectionCartCurrencyText, collectionCartCurrencyCode === currency.code && s.collectionCartCurrencyTextOn]}>{currency.label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </>
+                    ) : null}
                     <View style={s.collectionCartPresetGrid}>
                       {(collectionCartPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map((amount) => {
                         const selected = collectionCartPaymentMode === 'FREE' ? collectionCartFreePrice === amount : collectionCartPriceCents === amount;
-                        return <TouchableOpacity key={`${collectionCartPaymentMode}:${amount}`} style={[s.collectionCartPreset, selected && s.collectionCartPresetOn]} onPress={() => collectionCartPaymentMode === 'FREE' ? setCollectionCartFreePrice(amount) : setCollectionCartPriceCents(amount)}><Text style={s.collectionCartPresetText}>{collectionCartPaymentMode === 'FREE' ? `${amount} FREE` : `${(amount/100).toFixed(2).replace('.',',')} €`}</Text></TouchableOpacity>;
+                        return <TouchableOpacity key={`${collectionCartPaymentMode}:${amount}`} style={[s.collectionCartPreset, selected && s.collectionCartPresetOn]} onPress={() => collectionCartPaymentMode === 'FREE' ? setCollectionCartFreePrice(amount) : setCollectionCartPriceCents(amount)}><Text style={s.collectionCartPresetText}>{collectionCartPaymentMode === 'FREE' ? `${amount} FREE` : `${(amount/100).toFixed(2).replace('.',',')} ${collectionCartCurrencyCode}`}</Text></TouchableOpacity>;
                       })}
                     </View>
                     {collectionCartPaymentMode === 'MONEY' ? (
                       <View style={s.collectionCartPayout}>
-                        <Text style={s.collectionCartFieldLabel}>TON PAYPAL / LIEN DE PAIEMENT</Text>
+                        <Text style={s.collectionCartFieldLabel}>{collectionCartPayoutLink.trim() ? 'PAYPAL / LIEN DÉJÀ ENREGISTRÉ' : 'TON PAYPAL / LIEN DE PAIEMENT'}</Text>
                         <TextInput value={collectionCartPayoutLink} onChangeText={setCollectionCartPayoutLink} autoCapitalize="none" autoCorrect={false} placeholder="https://paypal.me/tonpseudo" placeholderTextColor={colors.textMuted} style={s.collectionCartInput} />
                         <View style={s.collectionCartPayoutActions}>
                           <TouchableOpacity style={s.collectionCartSecondary} onPress={() => { void Linking.openURL('https://www.paypal.com/paypalme/'); }}><Text style={s.collectionCartSecondaryText}>OUVRIR PAYPAL.ME</Text></TouchableOpacity>
@@ -556,8 +644,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       </View>
                     ) : null}
                     <View style={s.collectionCartFooter}>
-                      <TouchableOpacity style={s.collectionCartBackStep} onPress={() => setCollectionCartStep('TRACKS')}><Text style={s.collectionCartBackStepText}>RETOUR AU PANIER</Text></TouchableOpacity>
-                      <TouchableOpacity style={s.collectionCartContinue} onPress={() => { void continueCollectionCartPrice(); }}><Text style={s.collectionCartContinueText}>CONTINUER</Text></TouchableOpacity>
+                      <TouchableOpacity style={s.collectionCartBackStep} onPress={() => setCollectionCartStep('REVIEW')}><Text style={s.collectionCartBackStepText}>REVOIR LE PANIER</Text></TouchableOpacity>
+                      <TouchableOpacity style={s.collectionCartContinue} onPress={() => { void continueCollectionCartPrice(); }}><Text style={s.collectionCartContinueText}>VALIDER LE PRIX</Text></TouchableOpacity>
                     </View>
                   </>
                 ) : (
@@ -565,7 +653,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <View style={s.collectionCartReview}>
                       <Text style={s.collectionCartReviewTitle}>{collectionCartName.trim() || `Ma collection · ${collectionCartIds.size} titres`}</Text>
                       <Text style={s.collectionCartReviewLine}>{collectionCartIds.size} morceaux</Text>
-                      <Text style={s.collectionCartReviewLine}>{collectionCartPaymentMode === 'FREE' ? `${collectionCartFreePrice} FREE` : `${((collectionCartPriceCents || 0)/100).toFixed(2).replace('.',',')} €`}</Text>
+                      <Text style={s.collectionCartReviewLine}>{collectionCartPaymentMode === 'FREE' ? `${collectionCartFreePrice} FREE` : `${((collectionCartPriceCents || 0)/100).toFixed(2).replace('.',',')} ${collectionCartCurrencyCode}`}</Text>
                       {collectionCartDuplicateCount ? <Text style={s.collectionCartReviewWarn}>{collectionCartDuplicateCount} morceau{collectionCartDuplicateCount > 1 ? 'x' : ''} déjà en vente resteront aussi dans leurs collections actuelles.</Text> : null}
                     </View>
                     <View style={s.collectionCartFooter}>
@@ -612,7 +700,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 </>
               ) : (
                 <>
-                  <Text style={s.accessBenefit}>Parcours simple : 1. choisis tes morceaux · 2. choisis FREE ou € · 3. publie.</Text>
+                  <Text style={s.accessBenefit}>Parcours simple : 1. choisis tes morceaux · 2. vérifie ton panier · 3. choisis FREE ou une devise · 4. publie.</Text>
                   <Text style={s.collectionLimitText}>Collections actives : {access.activeOffers} / {access.maxActiveOffers} · 200 morceaux maximum</Text>
                   <TouchableOpacity
                     style={[s.createCollectionBtn, activeLimitReached && s.createCollectionBtnLocked]}
@@ -969,7 +1057,13 @@ const s = StyleSheet.create({
   collectionCartCover:{width:48,height:48,borderRadius:12,backgroundColor:colors.background},collectionCartCoverEmpty:{alignItems:'center',justifyContent:'center'},collectionCartCoverText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
   collectionCartTrackCopy:{flex:1,minWidth:0},collectionCartTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},collectionCartTrackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},collectionCartAlready:{color:'#FFD166',fontSize:8,fontWeight:'900',marginTop:4},
   collectionCartAction:{minHeight:38,minWidth:74,paddingHorizontal:9,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartRemove:{borderColor:'#FF7885',backgroundColor:'#4A171B'},collectionCartActionText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},collectionCartEmpty:{color:colors.textMuted,fontSize:11,textAlign:'center',paddingVertical:18},
-  collectionCartFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:44,paddingHorizontal:18,borderRadius:22,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:10,fontWeight:'900',letterSpacing:.5},
+  collectionCartFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:48,paddingHorizontal:18,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueHero:{flex:1,minHeight:62,backgroundColor:'#FFD166'},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:10,fontWeight:'900',letterSpacing:.5},collectionCartContinueSubtext:{color:'#5A420D',fontSize:8,fontWeight:'900',marginTop:2},
+  collectionCartReviewHero:{borderRadius:18,borderWidth:1,borderColor:'#D49A20',backgroundColor:'#211A0C',padding:16},collectionCartReviewHeroEyebrow:{color:'#FFD166',fontSize:9,fontWeight:'1000',letterSpacing:1},collectionCartReviewHeroTitle:{color:colors.textPrimary,fontSize:22,fontWeight:'1000',marginTop:5},collectionCartReviewHeroHint:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:5},
+  collectionCartReviewStats:{minHeight:70,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8},collectionCartReviewStat:{flex:1,alignItems:'center'},collectionCartReviewStatValue:{color:colors.keep,fontSize:20,fontWeight:'1000'},collectionCartReviewStatWarn:{color:'#FFD166'},collectionCartReviewStatLabel:{color:colors.textMuted,fontSize:7.5,fontWeight:'900',textAlign:'center',marginTop:2},collectionCartReviewDivider:{width:1,height:34,backgroundColor:colors.border},
+  collectionCartReviewList:{gap:7},collectionCartReviewTrack:{minHeight:52,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:8,paddingVertical:6,flexDirection:'row',alignItems:'center',gap:8},collectionCartReviewTrackNo:{width:22,color:colors.textMuted,fontSize:9,fontWeight:'900'},collectionCartReviewCover:{width:38,height:38,borderRadius:9,backgroundColor:colors.background},collectionCartReviewTrackCopy:{flex:1,minWidth:0},collectionCartReviewTrackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},collectionCartReviewTrackArtist:{color:colors.textMuted,fontSize:9,marginTop:2},collectionCartReviewExisting:{color:'#FFD166',fontSize:7,fontWeight:'1000'},collectionCartReviewOk:{color:colors.success,fontSize:8,fontWeight:'1000'},collectionCartReviewMore:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'},
+  collectionCartReviewNotice:{borderRadius:14,borderWidth:1,borderColor:'#7B5B18',backgroundColor:'#2A1F09',padding:10},collectionCartReviewNoticeTitle:{color:'#FFD166',fontSize:9,fontWeight:'1000',letterSpacing:.7},collectionCartReviewNoticeText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:3},
+  collectionCartReviewConfirm:{minHeight:60,borderRadius:18,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center',paddingHorizontal:14},collectionCartReviewConfirmTitle:{color:'#1B1405',fontSize:12,fontWeight:'1000'},collectionCartReviewConfirmHint:{color:'#5A420D',fontSize:9,fontWeight:'800',marginTop:2},collectionCartReviewEdit:{minHeight:44,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},collectionCartReviewEditText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  collectionCartCurrencyRow:{gap:7,paddingVertical:2},collectionCartCurrencyChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},collectionCartCurrencyChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primary},collectionCartCurrencyText:{color:colors.textSecondary,fontSize:9,fontWeight:'900'},collectionCartCurrencyTextOn:{color:'#FFF'},
   collectionCartFieldLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,marginTop:3},collectionCartInput:{minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12,fontWeight:'700'},
   collectionCartModeRow:{flexDirection:'row',gap:8},collectionCartMode:{flex:1,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionCartModeOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},collectionCartModeText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
   collectionCartPresetGrid:{flexDirection:'row',flexWrap:'wrap',gap:7},collectionCartPreset:{minWidth:82,minHeight:42,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionCartPresetOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)'},collectionCartPresetText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
