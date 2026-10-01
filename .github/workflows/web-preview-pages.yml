@@ -27,12 +27,13 @@ permissions:
   pages: write
   id-token: write
 
-# Toujours publier le dernier état de la branche canonique. Plusieurs agents peuvent
-# pousser à quelques secondes d'intervalle : annuler le build web devenu obsolète évite
-# une file d'attente qui laisse l'utilisateur plusieurs dizaines de minutes sur une ancienne interface.
+# Plusieurs agents peuvent pousser à quelques secondes d'intervalle.
+# Ne JAMAIS annuler un build web déjà commencé : sinon une rafale de commits peut
+# empêcher toute publication pendant longtemps et laisser l'utilisateur sur un ancien visuel.
+# Les runs obsolètes sont déjà filtrés au démarrage par "Ignore stale queued deploys".
 concurrency:
   group: keep-pages-reconcile-claude-main-20260825
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -286,7 +287,7 @@ jobs:
           sleep 2
           node scripts/web-visible-surface-gate.cjs http://127.0.0.1:8765/KEEP
 
-      - name: Recheck branch head before publish
+      - name: Record branch head before publish
         id: publish_fresh
         if: steps.fresh.outputs.build == 'yes'
         shell: bash
@@ -295,12 +296,11 @@ jobs:
           git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
           latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" --             packages/mobile packages/music packages/admin             scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs             package.json package-lock.json .github/workflows/web-preview-pages.yml)"
           test -n "$latest"
+          echo "publish=yes" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_SHA" = "$latest" ]; then
-            echo "publish=yes" >> "$GITHUB_OUTPUT"
-            echo "Publish gate OK: $GITHUB_SHA"
+            echo "Publish current web-impact head: $GITHUB_SHA"
           else
-            echo "publish=no" >> "$GITHUB_OUTPUT"
-            echo "Newer web-impact commit arrived during build; skip stale publish $GITHUB_SHA (latest web-impact SHA: $latest)"
+            echo "A newer web-impact SHA is queued ($latest); publish the already validated $GITHUB_SHA now so the public UI cannot starve, then the newer queued run will follow."
           fi
 
       - name: Upload Pages artifact
