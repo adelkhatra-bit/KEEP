@@ -155,8 +155,9 @@ export default function GlobalChatDock() {
       const sender = chatNotificationSender(item);
       setUnreadCount((value) => value + 1);
       setLatestChatSender(sender);
-      useGlobalChatStore.getState().prime(chatNotificationTarget(item));
-      if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !useGlobalChatStore.getState().isOpen) {
+      const chatState = useGlobalChatStore.getState();
+      if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
+      if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
         void Speech.stop().catch(() => {});
         Speech.speak(`Message de ${sender}`, {
           language: 'fr-FR',
