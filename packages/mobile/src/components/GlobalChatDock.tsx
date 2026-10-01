@@ -218,7 +218,7 @@ export default function GlobalChatDock() {
     if (!accountReady || chatSaving) return;
     setChatSaving(true);
     try {
-      const nextSurfaces = surfaces.length ? surfaces : ['PROFILE'];
+      const nextSurfaces: MusicAgoraSurface[] = surfaces.length ? surfaces : ['PROFILE'];
       const settings = await saveMusicAgoraSettings(enabled, notificationsEnabled, nextSurfaces);
       setChatEnabled(settings.homeEnabled);
       setChatNotificationsEnabled(settings.notificationsEnabled);
