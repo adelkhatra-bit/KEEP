@@ -36,7 +36,7 @@ async function processEmailQueue() {
   const secretUpdatedAt = brevoSecret?.updated_at ? Date.parse(String(brevoSecret.updated_at)) : 0;
   const runtimeUpdatedAt = runtime?.updated_at ? Date.parse(String(runtime.updated_at)) : 0;
   if (
-    runtime?.status === "BLOCKED"
+    runtime?.status === "ERROR"
     && /brevo_ip_allowlist_blocked/i.test(String(runtime?.last_error || ""))
     && runtimeUpdatedAt >= secretUpdatedAt
   ) {
@@ -105,7 +105,7 @@ async function processEmailQueue() {
         }).eq("id", email.id);
         await admin.from("integration_runtime_status").upsert({
           key: "BREVO_EMAIL_DELIVERY",
-          status: "BLOCKED",
+          status: "ERROR",
           last_checked_at: new Date().toISOString(),
           last_error: /unrecognised IP address/i.test(detail)
             ? "brevo_ip_allowlist_blocked: authorize Supabase egress or disable Brevo IP allowlist"
