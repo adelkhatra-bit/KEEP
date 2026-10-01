@@ -526,16 +526,8 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         <ScrollView style={s.main} contentContainerStyle={s.idle} showsVerticalScrollIndicator={false} bounces={false}>
           <View style={s.idleHero}>
-            <View style={s.idlePills}>
-              <View style={[s.micPill, s.micPillReady, micPreflightDenied && s.micPillIdle]}>
-                <View style={[s.liveDot, s.liveDotReady, micPreflightDenied && s.liveDotError]} />
-                <Text style={[s.liveText, s.liveTextReady, micPreflightDenied && s.liveTextError]}>{micPreflightDenied ? 'MICRO · BLOQUÉ' : 'MICRO · PRÊT'}</Text>
-              </View>
-              <View style={s.autoStopChip}>
-                <Text style={s.autoStopText}>⏱ Arrêt si {silenceTimeoutMin} min sans musique</Text>
-              </View>
-            </View>
             <LokiIdleOrb />
+            <LokiMusic3DTitle />
             <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
@@ -926,6 +918,41 @@ function LokiIdleOrb() {
   );
 }
 
+// Signature Loki Music de l'accueil au repos : légère rotation 3D et profondeur
+// visuelle, sans modifier la logique micro ni le layout principal.
+function LokiMusic3DTitle() {
+  const motion = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(motion, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(motion, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.ease), useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [motion]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        s.loki3dWrap,
+        {
+          opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }),
+          transform: [
+            { perspective: 700 },
+            { rotateY: motion.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '5deg'] }) },
+            { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [1, -2] }) },
+            { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1.015] }) },
+          ],
+        },
+      ]}
+    >
+      <Text style={s.loki3dDepth}>LOKI MUSIC</Text>
+      <Text style={s.loki3dFace}>LOKI MUSIC</Text>
+    </Animated.View>
+  );
+}
+
 const IDLE_WAVE = [14, 26, 18, 38, 22, 44];
 function IdleWaveSide({ mirrored }: { mirrored?: boolean }) {
   const heights = mirrored ? [...IDLE_WAVE].reverse() : IDLE_WAVE;
@@ -999,6 +1026,9 @@ const s = StyleSheet.create({
   idleWave: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   idleWaveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight, opacity: 0.55 },
   idleCta: { marginTop: 22, alignItems: 'center' },
+  loki3dWrap: { position: 'relative', minHeight: 38, minWidth: 220, alignItems: 'center', justifyContent: 'center', marginTop: -2, marginBottom: 5 },
+  loki3dDepth: { position: 'absolute', color: 'rgba(45,225,194,0.28)', fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, transform: [{ translateX: 2 }, { translateY: 3 }] },
+  loki3dFace: { color: C.text, fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, textShadowColor: 'rgba(124,92,252,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 10 },
   idleKicker: { color: C.purpleLight, fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 2, textAlign: 'center' },
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
