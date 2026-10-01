@@ -251,7 +251,67 @@ async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_
   const result: PublicProfileKeep[] = [];
   for (let offset = 0; ; offset += KEEP_PAGE_SIZE) {
     const { data, error } = await supabase.rpc(rpcName, { ...args, p_limit: KEEP_PAGE_SIZE, p_offset: offset });
-    if (error) throw error;
+    if (error) {
+      if (rpcName !== 'keep_own_profile_tracks') throw error;
+
+      // Protection globale : le profil propriétaire ne doit jamais devenir
+      // vide parce qu'un RPC enrichi est momentanément indisponible. Les
+      // keep_decisions + tracks du propriétaire restent la source minimale
+      // RLS-safe et permettent de reconstruire toute sa musique sans écrire
+      // ni modifier aucune donnée utilisateur.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const profileId = sessionData.session?.user?.id;
+      if (!profileId) throw error;
+
+      const base = await supabase
+        .from('keep_decisions')
+        .select('id,track_id,visibility,created_at,context,source_user_id,source_type')
+        .eq('profile_id', profileId)
+        .eq('decision', 'KEPT')
+        .order('created_at', { ascending: true })
+        .range(offset, offset + KEEP_PAGE_SIZE - 1);
+      if (base.error) throw error;
+
+      const decisions = Array.isArray(base.data) ? base.data : [];
+      const trackIds = Array.from(new Set(decisions.map((row: any) => String(row?.track_id || '')).filter(Boolean)));
+      const trackMap = new Map<string, any>();
+      for (let start = 0; start < trackIds.length; start += 100) {
+        const trackResult = await supabase
+          .from('tracks')
+          .select('id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,available_on,external_urls')
+          .in('id', trackIds.slice(start, start + 100));
+        if (trackResult.error) throw error;
+        for (const track of trackResult.data ?? []) if (track?.id) trackMap.set(String(track.id), track);
+      }
+
+      for (const row of decisions as any[]) {
+        const track = trackMap.get(String(row?.track_id || ''));
+        if (!track) continue;
+        result.push(normalizeKeepRow({
+          decision_id: row.id,
+          kept_at: row.created_at,
+          visibility: row.visibility,
+          context: row.context,
+          source_user_id: row.source_user_id,
+          source_type: row.source_type,
+          track_id: track.id,
+          isrc: track.isrc,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          duration_sec: track.duration_sec,
+          artwork_url: track.artwork_url,
+          genres: track.genres,
+          provider_ids: track.provider_ids,
+          preview_url: track.preview_url,
+          available_on: track.available_on,
+          external_urls: track.external_urls,
+        }, row.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC'));
+      }
+      if (decisions.length < KEEP_PAGE_SIZE) break;
+      continue;
+    }
+
     const rows = Array.isArray(data) ? data : [];
     for (const row of rows as any[]) result.push(normalizeKeepRow(row));
     if (rows.length < KEEP_PAGE_SIZE) break;
