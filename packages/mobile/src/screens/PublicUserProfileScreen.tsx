@@ -22,6 +22,7 @@ import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
+import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import SaleCollectionRow from '../components/SaleCollectionRow';
 import LoginPill from '../components/LoginPill';
@@ -696,6 +697,19 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12).map(([genre, count]) => ({ genre, count }));
   }, [swipeTracks]);
+  const visitorStyleBubbles = useMemo(() => {
+    const learned = genreOptions.map((row) => row.genre).filter(Boolean);
+    const declared = profile?.favoriteGenres ?? [];
+    const seen = new Set<string>();
+    return [...learned, ...declared].filter((genre) => {
+      const clean = String(genre || '').trim();
+      const key = clean.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+      if (!clean || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 8);
+  }, [genreOptions, profile?.favoriteGenres]);
+
   const genreArtwork = useMemo(() => {
     const map: Record<string, string | undefined> = {};
     for (const track of swipeTracks) {
@@ -1863,17 +1877,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               détail complet reste identique à avant (mêmes puces cliquables,
               rien de supprimé). */}
           {!dnaExpanded ? (
-            profile.favoriteGenres.length > 0 || profile.favoriteArtists.length > 0 ? (
-              <View style={styles.chips}>
-                {profile.favoriteGenres.slice(0, 4).map((item) => {
-                  const match = genreOptions.find((g) => g.genre === item);
-                  return match ? (
-                    <TouchableOpacity key={item} style={styles.chip} onPress={() => openBrowseSwipe({ type: 'genre', value: item, label: item })}><Text style={styles.chipText}>{item}</Text></TouchableOpacity>
-                  ) : (
-                    <View key={item} style={styles.chip}><Text style={styles.chipText}>{item}</Text></View>
-                  );
-                })}
-              </View>
+            visitorStyleBubbles.length > 0 ? (
+              <MusicStyleBubbles
+                testID="visitor-music-style-bubbles"
+                genres={visitorStyleBubbles}
+                max={8}
+                compact
+                onPressGenre={(genre) => {
+                  const match = genreOptions.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
+                  if (match) openBrowseSwipe({ type: 'genre', value: match.genre, label: match.genre });
+                }}
+              />
             ) : (
               <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>
             )
