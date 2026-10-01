@@ -246,7 +246,7 @@ export default function GlobalChatDock() {
     ]).start();
   }, [accountReady, open, unreadCount, nudge, drawerPeek]);
 
-  const minBottom = 82 + insets.bottom;
+  const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.38));
   const maxBottom = Math.max(minBottom, height - 150);
 
   useEffect(() => {
