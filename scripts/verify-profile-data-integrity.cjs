@@ -12,11 +12,11 @@ const protectedShell = {
   // Adel (20/09/2026) : hash mis à jour après vérification -- chaque
   // changement reste tracé en commentaire pour que ce garde-fou continue à
   // détecter un VRAI changement non revu, pas juste tout changement.
-  // App.tsx (31c0390, 08/09/2026) : ajout d'AccountGateModal au montage
-  // racine (popup de compte "reste au même endroit", même patron que les
-  // autres overlays globaux déjà montés ici) -- pas un changement de
-  // responsive/layout, vérifié via git show avant mise à jour du hash.
-  'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
+  // App.tsx (01/10/2026) : GlobalChatDock monte à la racine pour que le
+  // tiroir chat reste disponible sur les surfaces choisies sans toucher à
+  // Navigation.tsx ni à la barre des 5 onglets. Le diff a été revu : seul
+  // l'overlay global chat s'ajoute au shell déjà validé.
+  'packages/mobile/App.tsx': '76ef7d58faeb26ad0a8ae385df7dfdc4ac132da0',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
