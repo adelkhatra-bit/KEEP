@@ -10,28 +10,31 @@ describe('Child-friendly home choices', () => {
   it('keeps Soirées as a clean four-choice hub in the requested order', () => {
     const homeStart = parties.indexOf("{partyHome ? <View");
     const home = parties.slice(homeStart, homeStart + 7000);
-    const publish = home.indexOf('Publier un événement');
-    const mine = home.indexOf('Mes soirées');
-    const invites = home.indexOf('Mes invitations');
-    const ranking = home.indexOf('Classement Battle');
-    expect(publish).toBeGreaterThan(-1);
-    expect(mine).toBeGreaterThan(publish);
+    const create = home.indexOf('>Créer</Text>');
+    const mine = home.indexOf('>Mes soirées</Text>');
+    const invites = home.indexOf('>Invitations</Text>');
+    const ranking = home.indexOf('>Classement Battle</Text>');
+    expect(create).toBeGreaterThan(-1);
+    expect(mine).toBeGreaterThan(create);
     expect(invites).toBeGreaterThan(mine);
     expect(ranking).toBeGreaterThan(invites);
     expect(home).not.toContain('Jouer au Battle');
-    expect(parties).toContain('À quoi sert Événements ?');
+    expect(parties).toContain('Tout comprendre sur Soirées');
+    expect(parties).toContain('Tout faire depuis Soirées');
+    expect(parties).not.toContain('Événements · Soirées · Invitations');
   });
 
-  it('uses simple action verbs on Mes musiques', () => {
+  it('uses simple actions on Playlists and moves explanations behind the help button', () => {
     for (const label of ['Écouter mes morceaux', 'Choisir ce qui est visible', 'Trier ma musique', 'Connecter mes applis musique']) {
       expect(music).toContain(label);
     }
-    expect(music).toContain('Écouter · Trier · Organiser');
-    expect(music).not.toContain("setWorkspaceTab('COLLECTIONS')");
-    expect(music).toContain("mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique'");
+    expect(music).toContain('accessibilityLabel="Tout comprendre sur Playlists"');
+    expect(music).toContain('Tout faire dans Playlists');
+    expect(music).not.toContain('Écouter · Trier · Organiser');
+    expect(music).not.toContain('Choisis une action. Tu peux revenir ici quand tu veux.');
   });
 
-  it('keeps every choice as a large one-tap row', () => {
+  it('keeps every primary choice as a large one-tap row', () => {
     expect(parties).toContain('partyHomeChoice:{minHeight:74');
     expect(music).toContain('focusActionRow:{minHeight:70');
     expect(music).toContain('focusPrimary:{minHeight:80');
