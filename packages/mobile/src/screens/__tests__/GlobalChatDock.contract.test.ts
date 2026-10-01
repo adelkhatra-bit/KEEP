@@ -109,7 +109,10 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('loadMusicAgoraConversations');
     expect(messenger).toContain('loadMusicAgoraDirectMessages');
     expect(messenger).toContain('MESSAGES');
-    expect(messenger).toContain('LA PLACE');
+    expect(messenger).toContain('LA PLACE · PUBLIC');
+    expect(messenger).toContain('Nouveau salon privé');
+    expect(messenger).toContain('Sur invitation uniquement');
+    expect(messenger).toContain('MEMBRES ·');
     expect(messenger).toContain('＋ PÉPITE');
   });
 
