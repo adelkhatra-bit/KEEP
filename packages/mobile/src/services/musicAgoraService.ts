@@ -204,16 +204,41 @@ function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
 }
 
 export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
-  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, voiceAnnouncementsEnabled: false, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
+  const fallbackDefault: MusicAgoraSettings = { homeEnabled: false, notificationsEnabled: true, voiceAnnouncementsEnabled: false, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
+  if (!supabase) return fallbackDefault;
+
   const { data, error } = await supabase.rpc('keep_agora_my_settings');
-  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, voiceAnnouncementsEnabled: false, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
+  if (!error && data) {
+    return {
+      homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled ?? (data as any).enabled),
+      notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
+      voiceAnnouncementsEnabled: Boolean((data as any).voiceAnnouncementsEnabled ?? (data as any).voice_announcements_enabled ?? (data as any).voiceAnnouncements ?? (data as any).voice_announcements ?? false),
+      surfaces: parseChatSurfaces((data as any).surfaces ?? (data as any).visibleSurfaces ?? (data as any).visible_surfaces),
+      side: String((data as any).side || '').toLowerCase() === 'left' ? 'left' : 'right',
+      bottomOffset: Math.max(72, Math.min(800, Number((data as any).bottomOffset ?? (data as any).bottom_offset ?? 88) || 88)),
+    };
+  }
+
+  // Ne jamais masquer le Tchat à tout le monde parce qu'un RPC de réglages
+  // a eu une erreur transitoire. Le profil authentifié contient les mêmes
+  // préférences et reste lisible par son propriétaire via RLS.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const profileId = sessionData.session?.user?.id;
+  if (!profileId) return fallbackDefault;
+  const direct = await supabase
+    .from('profiles')
+    .select('community_chat_enabled,community_chat_home_enabled,community_chat_notifications,community_chat_voice_announcements,community_chat_surfaces,community_chat_side,community_chat_bottom_offset')
+    .eq('id', profileId)
+    .maybeSingle();
+  if (direct.error || !direct.data) return fallbackDefault;
+  const row = direct.data as any;
   return {
-    homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
-    notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
-    voiceAnnouncementsEnabled: Boolean((data as any).voiceAnnouncementsEnabled ?? (data as any).voice_announcements_enabled ?? (data as any).voiceAnnouncements ?? (data as any).voice_announcements ?? false),
-    surfaces: parseChatSurfaces((data as any).surfaces ?? (data as any).visibleSurfaces ?? (data as any).visible_surfaces),
-    side: String((data as any).side || '').toLowerCase() === 'left' ? 'left' : 'right',
-    bottomOffset: Math.max(72, Math.min(800, Number((data as any).bottomOffset ?? (data as any).bottom_offset ?? 88) || 88)),
+    homeEnabled: Boolean(row.community_chat_enabled ?? row.community_chat_home_enabled),
+    notificationsEnabled: Boolean(row.community_chat_notifications ?? true),
+    voiceAnnouncementsEnabled: Boolean(row.community_chat_voice_announcements ?? false),
+    surfaces: parseChatSurfaces(row.community_chat_surfaces),
+    side: String(row.community_chat_side || '').toLowerCase() === 'left' ? 'left' : 'right',
+    bottomOffset: Math.max(72, Math.min(800, Number(row.community_chat_bottom_offset ?? 88) || 88)),
   };
 }
 
