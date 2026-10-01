@@ -109,6 +109,7 @@ export default function MusicAgoraPanel({
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
   const browsingHistoryRef = useRef(false);
+  const forceBottomRef = useRef(false);
   const { height: viewportHeight } = useWindowDimensions();
   const [keyboardInset, setKeyboardInset] = useState(0);
 
@@ -136,9 +137,11 @@ export default function MusicAgoraPanel({
 
   const followChatBottom = (animated = true) => {
     browsingHistoryRef.current = false;
+    forceBottomRef.current = true;
     requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated }));
     setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated }), 80);
     setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 220);
+    setTimeout(() => { forceBottomRef.current = false; }, 520);
   };
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
@@ -646,7 +649,9 @@ export default function MusicAgoraPanel({
         browsingHistoryRef.current = distanceFromBottom > 56;
       }}
       onContentSizeChange={() => {
-        if (!initialScrollDone.current) chatScrollRef.current?.scrollToEnd({ animated: false });
+        if (!initialScrollDone.current || forceBottomRef.current || !browsingHistoryRef.current) {
+          requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
+        }
       }}
     >
       {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : '↑ PLUS ANCIENS'}</Text></TouchableOpacity> : null}
@@ -941,9 +946,9 @@ const s=StyleSheet.create({
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
   inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0},
-  quickReactions:{minHeight:40,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexShrink:0},
-  quickReaction:{width:42,height:38,flexGrow:0,flexShrink:0,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
-  quickReactionText:{fontSize:19},
+  quickReactions:{height:46,minHeight:46,maxHeight:46,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexGrow:0,flexShrink:0},
+  quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  quickReactionText:{fontSize:21},
   composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
   counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
@@ -1021,14 +1026,14 @@ const s=StyleSheet.create({
   paymentStoreNote:{width:'100%',color:colors.textMutedGrey,fontSize:10,lineHeight:15,fontWeight:'700'},
   removeMusic:{marginLeft:'auto',width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   removeMusicText:{color:colors.textMutedGrey,fontSize:16,fontWeight:'900'},
-  musicCard:{marginTop:9,padding:9,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,flexDirection:'row',alignItems:'center',gap:8,flexWrap:'wrap'},
-  musicArt:{width:42,height:42,borderRadius:10,backgroundColor:colors.backgroundElevated},
+  musicCard:{marginTop:10,padding:10,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap',width:'100%',minHeight:132,overflow:'hidden'},
+  musicArt:{width:104,height:104,borderRadius:18,backgroundColor:colors.backgroundElevated},
   musicArtMasked:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.primary},
-  musicMaskIcon:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},
-  musicCopy:{flex:1,minWidth:120},
-  musicKicker:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
-  musicTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',marginTop:2},
-  musicArtist:{color:colors.textMutedGrey,fontSize:9,marginTop:2},
+  musicMaskIcon:{color:colors.primaryLight,fontSize:36,fontWeight:'900'},
+  musicCopy:{flex:1,minWidth:130},
+  musicKicker:{color:colors.keep,fontSize:9.5,fontWeight:'900',letterSpacing:.9},
+  musicTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:4,lineHeight:18},
+  musicArtist:{color:colors.textMutedGrey,fontSize:11,marginTop:4},
   keepMusic:{minHeight:32,paddingHorizontal:9,borderRadius:16,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
   keepMusicText:{color:colors.background,fontSize:8,fontWeight:'900'},
   offerStatusOwn:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
@@ -1042,10 +1047,10 @@ const s=StyleSheet.create({
   shareHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:3},
   shareClose:{color:colors.textMutedGrey,fontSize:24,fontWeight:'900'},
   shareList:{marginTop:12},
-  shareTrackRow:{minHeight:68,flexDirection:'row',alignItems:'center',gap:9,padding:8,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
-  shareTrackArt:{width:52,height:52,borderRadius:12,backgroundColor:colors.backgroundElevated},
-  shareTrackTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
-  shareTrackArtist:{color:colors.textMutedGrey,fontSize:11,marginTop:3},
+  shareTrackRow:{minHeight:104,flexDirection:'row',alignItems:'center',gap:12,padding:10,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
+  shareTrackArt:{width:82,height:82,borderRadius:16,backgroundColor:colors.backgroundElevated},
+  shareTrackTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
+  shareTrackArtist:{color:colors.textMutedGrey,fontSize:12,marginTop:4},
   shareTrackLocked:{color:colors.warning,fontSize:9.5,fontWeight:'900',marginTop:4},
   musicShareOnlyText:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
   shareTrackArrow:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
