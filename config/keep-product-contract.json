@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.11",
+  "version": "2026-10-01.12",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -370,17 +370,49 @@
     "alreadyOwnedRecipientMustNeverBeCharged": true
   },
   "chatExperience": {
-    "status": "LEGACY_UI_DECOMMISSIONED_PENDING_NEW_MESSENGER",
-    "legacyGlobalDockMounted": false,
-    "legacySettingsVisible": false,
-    "legacyNotificationOpenAction": false,
-    "notificationsSurface": false,
-    "directLauncherInNotifications": false,
-    "placementConfigLocation": null,
-    "allowedSurfaces": [],
-    "movable": false,
-    "sideChoices": [],
-    "dormantBackendAllowed": true,
-    "latestDecision": "2026-10-01-remove-old-chat-until-new-system"
+    "status": "GLOBAL_MESSENGER_FINAL_ACTIVE",
+    "globalDockMountedAtAppRoot": true,
+    "legacyHamburgerEntryVisible": false,
+    "notificationsSurface": true,
+    "directLauncherInNotifications": true,
+    "placementConfigLocation": "NotificationSidePanel",
+    "allowedSurfaces": [
+      "LISTEN",
+      "DISCOVER",
+      "PLAYLISTS",
+      "PARTIES",
+      "PROFILE",
+      "NOTIFICATIONS"
+    ],
+    "movable": true,
+    "sideChoices": [
+      "left",
+      "right"
+    ],
+    "directMessagesFirst": true,
+    "publicPlaceSecondary": true,
+    "musicShareAction": "PEPITE",
+    "paymentConversationActions": true,
+    "dormantBackendAllowed": false,
+    "latestDecision": "2026-10-01-global-messenger-active-user-lock",
+    "doNotDecommission": true,
+    "latestUserDecisionAt": "2026-10-01",
+    "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée."
+  },
+  "notificationExperience": {
+    "presentation": "side-panel-accordion",
+    "bellMustNotRequireFullScreen": true,
+    "eachNotificationExpandsInline": true,
+    "chatNotificationOpensExactConversation": true,
+    "superAdminPlanLocks": true,
+    "lockRuleTable": "public.notification_access_rules",
+    "planOrder": [
+      "FREE",
+      "PREMIUM",
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
+    "lockedNotificationShowsRequiredPlanWithoutSensitiveBody": true,
+    "newNotificationTypesAutoRegisterUnlocked": true
   }
 }
