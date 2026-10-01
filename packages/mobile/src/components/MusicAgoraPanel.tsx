@@ -851,6 +851,7 @@ export default function MusicAgoraPanel({
         placeholder="Écris ici…"
         placeholderTextColor={colors.textMutedGrey}
         multiline
+        scrollEnabled
         maxLength={280}
         onFocus={() => setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80)}
         style={[s.input, compact && s.inputCompact]}
@@ -886,7 +887,7 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:'68%',minHeight:0,maxHeight:620,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:'68%',minHeight:0,maxHeight:620,flexGrow:0,flexShrink:0,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
   shellCompactLeft:{left:10},
   shellCompactRight:{right:10},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
@@ -937,9 +938,9 @@ const s=StyleSheet.create({
   promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
-  composerCompact:{padding:7,borderRadius:14,flexShrink:0},
+  composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
-  inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7},
+  inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0},
   quickReactions:{minHeight:40,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexShrink:0},
   quickReaction:{width:42,height:38,flexGrow:0,flexShrink:0,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionText:{fontSize:19},
@@ -967,9 +968,9 @@ const s=StyleSheet.create({
   lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
   chatScroll:{maxHeight:410},
-  chatScrollCompact:{flex:1,minHeight:82},
+  chatScrollCompact:{flex:1,minHeight:0,overflow:'hidden'},
   list:{gap:8,paddingVertical:4},
-  message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%'},
+  message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%',flexGrow:0,flexShrink:0},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
   messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
   directMessage:{borderColor:colors.info},
