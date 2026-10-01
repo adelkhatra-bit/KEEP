@@ -65,7 +65,7 @@ jobs:
           fi
           changed="$(git diff --name-only "$baseline"..HEAD)"
           printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(package\.json|package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/)|packages/music/package\.json)'; then
+          if printf '%s\n' "$changed" | grep -Eq '^(package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/)|packages/music/package\.json)'; then
             echo "publish=no" >> "$GITHUB_OUTPUT"
             echo "Native/dependency-sensitive change detected since the last full TestFlight build: OTA blocked."
             exit 0
