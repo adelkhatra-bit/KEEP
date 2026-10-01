@@ -29,6 +29,7 @@ import { searchAddress, reverseGeocodeAddress, getCurrentKeepLocation, KeepLocat
 import WheelPicker from '../components/WheelPicker';
 import StandardBackButton from '../components/StandardBackButton';
 import ContextHelpSheet from '../components/ContextHelpSheet';
+import GlobalChatDock from '../components/GlobalChatDock';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -1812,6 +1813,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.publishSecondary} onPress={() => setReviewTarget(null)}><Text style={styles.publishSecondaryText}>Plus tard</Text></TouchableOpacity>
       </View></View>
     </Modal>
+  <GlobalChatDock />
 </SafeAreaView>;
 }
 
