@@ -619,11 +619,10 @@ export default function HomeScreenCompact({ navigation }: any) {
           {!isDemoMode && user ? (
             <View
               style={s.homeDnaCard}
-              accessibilityLabel="Loki Pulse, tes bulles musicales"
+              accessibilityLabel="Tes bulles musicales"
             >
               <View style={s.homeDnaHeader}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>
                   <Text style={s.homeDnaTitle}>Tes bulles musicales</Text>
                 </View>
               </View>
@@ -635,7 +634,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   compact
                 />
               ) : (
-                <Text style={s.homeDnaEmpty}>Tes bulles apparaîtront ici à mesure que Loki Pulse apprend ce que tu gardes.</Text>
+                <Text style={s.homeDnaEmpty}>Tes bulles apparaîtront ici à mesure que tes goûts se précisent.</Text>
               )}
             </View>
           ) : null}
