@@ -5,13 +5,14 @@ import { getEventCreationAccess, QuotaAccess } from '../services/growthAccessSer
 import { hasFeature, requiredPlan } from '../services/entitlementService';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { loadCurrentPlanCode } from '../services/planService';
-import { getPayoutLinkForProfile, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
+import { getMyPayoutMethods, payoutProviderLabel, setMyPayoutLink } from '../services/payoutLinkService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 import { ProfileKind } from '../types';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import PayPalQrPayoutControl from './PayPalQrPayoutControl';
 
 const CREATOR_KINDS: { key: ProfileKind; label: string }[] = [
   { key: 'CREATOR', label: 'Créateur' },
@@ -38,11 +39,12 @@ export default function CreatorToolsPanel({ navigation }: any) {
   useEffect(() => { let live = true; isFeatureEnabled('events').then((enabled) => live && setEventsFeatureEnabled(enabled)); return () => { live = false; }; }, []);
 
   const [payoutLinkInput, setPayoutLinkInput] = useState('');
+  const [payoutQrUrl, setPayoutQrUrl] = useState('');
   const [savingPayoutLink, setSavingPayoutLink] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!user || isLocalGuest || isDemoMode) { setPayoutLinkInput(''); return undefined; }
-    getPayoutLinkForProfile(user.id).then((v) => live && setPayoutLinkInput(v)).catch(() => {});
+    if (!user || isLocalGuest || isDemoMode) { setPayoutLinkInput(''); setPayoutQrUrl(''); return undefined; }
+    getMyPayoutMethods().then((v) => { if (live) { setPayoutLinkInput(v.link); setPayoutQrUrl(v.qrUrl); } }).catch(() => {});
     return () => { live = false; };
   }, [user?.id, isLocalGuest, isDemoMode]);
   const savePayoutLink = async () => {
@@ -182,10 +184,10 @@ export default function CreatorToolsPanel({ navigation }: any) {
         <View style={s.paymentLogo}><Text style={s.paymentLogoText}>P</Text></View>
         <View style={s.paymentHeaderCopy}>
           <Text style={s.paymentTeaserTitle}>Paiements directs</Text>
-          <Text style={s.paymentStatus}>{payoutLinkInput.trim() ? `✓ ${payoutProviderLabel(payoutLinkInput)} configuré` : 'PayPal.Me recommandé'}</Text>
+          <Text style={s.paymentStatus}>{payoutLinkInput.trim() ? `✓ ${payoutProviderLabel(payoutLinkInput)} configuré` : payoutQrUrl.trim() ? '✓ QR PayPal configuré' : 'PayPal.Me recommandé'}</Text>
         </View>
       </View>
-      <Text style={s.paymentTeaserText}>Ajoute ton lien une seule fois. Avec PayPal.Me, Loki Music ouvre directement la page de paiement avec le prix total déjà prérempli : l’acheteur n’a plus qu’à valider.</Text>
+      <Text style={s.paymentTeaserText}>PayPal.Me reste le plus fluide sur le même téléphone. Si tu ne retrouves pas ton lien, ajoute aussi ton QR PayPal : Loki Music le mémorise comme solution de secours.</Text>
       <TextInput
         style={s.payoutLinkInput}
         value={payoutLinkInput}
@@ -204,6 +206,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
           {savingPayoutLink ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.payoutLinkSaveButtonText}>ENREGISTRER</Text>}
         </TouchableOpacity>
       </View>
+      <PayPalQrPayoutControl profileId={user.id} qrUrl={payoutQrUrl} onChange={setPayoutQrUrl} disabled={savingPayoutLink} />
       <Text style={s.paymentFootnote}>Loki Music n’encaisse jamais l’argent. Le vendeur confirme la réception avant le déverrouillage.</Text>
     </View>
 
