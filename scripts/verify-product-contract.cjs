@@ -12,6 +12,8 @@ const saleService = fs.readFileSync(path.join(root, 'packages/mobile/src/service
 const salePreview = fs.readFileSync(path.join(root, 'packages/mobile/src/components/PlaylistSaleImmersivePreview.tsx'), 'utf8');
 const salePanel = fs.readFileSync(path.join(root, 'packages/mobile/src/components/PlaylistSalePanel.tsx'), 'utf8');
 const myMusic = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/MyMusicScreen.tsx'), 'utf8');
+const parties = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/PartiesScreen.tsx'), 'utf8');
+const visitorProfile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/PublicUserProfileScreen.tsx'), 'utf8');
 const notifications = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/NotificationsScreen.tsx'), 'utf8');
 const publicProfilePanel = fs.readFileSync(path.join(root, 'packages/mobile/src/components/PublicProfilePanel.tsx'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
@@ -143,6 +145,27 @@ must(confirmedDuplicateSale.includes('and not p_allow_existing') && !confirmedDu
 must(!salePanel.includes("createSaleCollection: true"), 'Pépites creation redirects to Playlists again');
 must(salePanel.includes('setMyPayoutLink(clean)') && salePanel.includes('ENREGISTRER PAYPAL') && salePanel.includes("host === 'paypal.me'") && salePanel.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup disconnected from Pépites');
 must(!myMusic.includes("navigation.navigate('ProfileCreatorTools')"), 'dead payout route reintroduced');
+
+must(contract.screenHelpRules?.parties?.permanentIntro === false, 'Soirées permanent intro must stay removed');
+must(contract.screenHelpRules?.parties?.helpTrigger === '?', 'Soirées help trigger changed');
+must(parties.includes('eventHelpButton') && parties.includes('Tout faire depuis Soirées'), 'Soirées compact ? help disconnected');
+must(!parties.includes('Tes soirées et invitations, sans doublon avec Découvertes.'), 'Soirées permanent explanatory subtitle reintroduced');
+must(!parties.includes('Publie, retrouve tes événements et réponds à tes invitations.'), 'Soirées permanent home hint reintroduced');
+
+must(contract.screenHelpRules?.playlists?.permanentIntro === false, 'Playlists permanent intro must stay removed');
+must(contract.screenHelpRules?.playlists?.helpTrigger === '?', 'Playlists help trigger changed');
+must(myMusic.includes('headerHelpButton') && myMusic.includes('Tout faire dans Playlists'), 'Playlists compact ? help disconnected');
+must(!myMusic.includes('Écouter · Trier · Organiser'), 'Playlists permanent subtitle reintroduced');
+
+must(contract.eventExperience?.profileEventTapMustStayInline === true, 'profile event inline rule changed');
+must(contract.eventDiscovery?.profileBehavior === 'inline-only-no-tab-redirect', 'profile event no-redirect contract changed');
+const eventSpotlightStart = visitorProfile.indexOf('{marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0 ? (');
+const eventSpotlightEnd = visitorProfile.indexOf('<View style={styles.collectionHeader}>', eventSpotlightStart);
+must(eventSpotlightStart >= 0 && eventSpotlightEnd > eventSpotlightStart, 'visitor profile event spotlight missing');
+const eventSpotlightSlice = visitorProfile.slice(eventSpotlightStart, eventSpotlightEnd);
+must(eventSpotlightSlice.includes('openProfileEventInline'), 'visitor event no longer opens inline');
+must(!eventSpotlightSlice.includes("navigation.navigate('Parties'"), 'visitor event redirects away from profile');
+must(visitorProfile.includes('EN ATTENTE D’APPROBATION') && visitorProfile.includes('JE PARTICIPE'), 'visitor inline event pending/RSVP states missing');
 
 must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'integration cache-clean contract missing');
 must(packageJson.scripts?.['integration:preflight']?.includes('clean-integration-cache.cjs'), 'integration preflight does not clean generated caches');
