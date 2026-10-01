@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.38",
+  "version": "2026-10-01.39",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -567,7 +567,20 @@
     "legacyMiniChatWordingRemoved": true,
     "legacyDrawerWordingRemoved": true,
     "movableElementWhenClosed": "floating_button",
-    "openedPresentation": "full_screen"
+    "openedPresentation": "full_screen",
+    "chatOnly": true,
+    "audioCalls": false,
+    "videoCalls": false,
+    "cameraCapture": false,
+    "directThreadHeaderActions": "none_except_close",
+    "groupThreadHeaderAction": "members",
+    "inboxHeaderAction": "new_conversation",
+    "composerActions": [
+      "reactions",
+      "track",
+      "paypal_qr"
+    ],
+    "visualLayerCanBeFinalizedBeforeBackendWiring": true
   },
   "lokiPulseBubbles": {
     "homeAlwaysVisibleWhenStylesExist": true,

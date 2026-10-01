@@ -977,26 +977,28 @@ export default function MusicAgoraPanel({
         <View style={s.compactHeader}>
           <View style={s.liveDot} />
           <View style={s.compactHeaderCopy}>
-            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? `@${replyTarget.username}` : 'Chat'}</Text>
+            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? replyTarget.username : 'Chat'}</Text>
             <Text style={s.compactMeta}>
               {activeGroup
-                ? `SALON PRIVÉ · ${activeGroup.memberCount} personne${activeGroup.memberCount > 1 ? 's' : ''}`
+                ? `Groupe privé · ${activeGroup.memberCount} membre${activeGroup.memberCount > 1 ? 's' : ''}`
                 : replyTarget
-                  ? 'Conversation privée · musique · FREE · paiement'
-                  : (chatMode === 'MESSAGES' ? 'Messages · salons · invitations' : 'LA PLACE · PUBLIC · tout le monde peut rejoindre')}
+                  ? 'Conversation privée'
+                  : (chatMode === 'MESSAGES' ? 'Messages, groupes et invitations' : 'Salon public · tout le monde peut rejoindre')}
             </Text>
           </View>
-          <TouchableOpacity
-            style={s.compactHeaderAction}
-            onPress={() => {
-              if (activeGroup?.myStatus === 'ACTIVE') void openGroupMembers();
-              else openCreateGroup();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer un groupe privé'}
-          >
-            <Text style={s.compactHeaderActionText}>{activeGroup ? '＋👥' : '＋'}</Text>
-          </TouchableOpacity>
+          {chatMode === 'MESSAGES' && !replyTarget ? (
+            <TouchableOpacity
+              style={s.compactHeaderAction}
+              onPress={() => {
+                if (activeGroup?.myStatus === 'ACTIVE') void openGroupMembers();
+                else openCreateGroup();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer une conversation'}
+            >
+              <Text style={s.compactHeaderActionText}>{activeGroup ? '👥' : '＋'}</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             style={s.compactClose}
             onPress={() => { if (onCompactClose) onCompactClose(); else void updateHomeChat(false, true); }}
@@ -1307,7 +1309,7 @@ export default function MusicAgoraPanel({
               : null}
           </View>
           <View style={s.selectedMusicCompactCopy}>
-            <Text style={s.selectedMusicEyebrow}>PÉPITE SÉLECTIONNÉE</Text>
+            <Text style={s.selectedMusicEyebrow}>MORCEAU SÉLECTIONNÉ</Text>
             <Text style={s.selectedMusicCompactTitle} numberOfLines={1}>{sharedTrack.title}</Text>
             <Text style={s.selectedMusicCompactArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
             {paymentLocked ? (
@@ -1372,9 +1374,9 @@ export default function MusicAgoraPanel({
           disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && paymentLocked)}
           onPress={() => void publish()}
           accessibilityRole="button"
-          accessibilityLabel="Valider la pépite dans le chat"
+          accessibilityLabel="Partager le morceau dans le chat"
         >
-          <Text style={s.validateMusicText}>{posting ? 'VALIDATION…' : 'VALIDER LA PÉPITE'}</Text>
+          <Text style={s.validateMusicText}>{posting ? 'ENVOI…' : 'PARTAGER LE MORCEAU'}</Text>
         </TouchableOpacity>
 
         {shareOptionsOpen ? <ScrollView style={s.shareAccordionBody} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
@@ -1534,7 +1536,7 @@ export default function MusicAgoraPanel({
             accessibilityLabel="Ajouter une pépite"
           >
             <Text style={s.drawerActionIcon}>♫</Text>
-            <Text style={s.drawerActionText}>PÉPITE</Text>
+            <Text style={s.drawerActionText}>MORCEAU</Text>
           </TouchableOpacity>
           {replyTarget ? <TouchableOpacity
             style={[s.drawerAction, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]}
