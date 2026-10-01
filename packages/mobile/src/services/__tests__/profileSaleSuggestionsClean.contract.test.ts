@@ -19,7 +19,8 @@ describe('suggestions de ventes du profil', () => {
     expect(sql).toContain('seller_rank<=2');
   });
   it('rubrique : slogan, lignes compactes partagées, aucune carte vide ni bouton en doublon', () => {
-    expect(rail).toContain('Choisi pour ton oreille');
+    expect(rail).toContain('DROP DU MOMENT');
+    expect(rail).toContain('DROP_MARKETING_HOOKS');
     expect(rail).not.toContain('>POUR TOI<');
     expect(rail).toContain('<SaleCollectionRow');
     expect(rail).toContain('if (!suggestions.length) return null;');
