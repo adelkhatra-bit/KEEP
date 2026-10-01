@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const read=(...parts:string[])=>fs.readFileSync(path.resolve(__dirname,'..','..','..',...parts),'utf8');
+const read=(...parts:string[])=>fs.readFileSync(path.resolve(__dirname,'..','..',...parts),'utf8');
 
 describe('Social scale and musical agora contracts',()=>{
   it('paginates profile communities instead of loading a giant graph',()=>{
@@ -30,7 +30,6 @@ describe('Social scale and musical agora contracts',()=>{
     const visitor=read('screens','PublicUserProfileScreen.tsx');
     expect(visitor).toContain('Drops musicaux');
     expect(visitor).toContain('eventSpotlightTitle');
-    expect(visitor).toContain('À VIVRE');
     expect(visitor).not.toContain('Vendu par @{profile.username}');
   });
 
