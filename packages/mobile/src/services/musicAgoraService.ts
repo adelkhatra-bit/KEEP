@@ -7,6 +7,8 @@ export type MusicAgoraRoom = {
   sortOrder: number;
 };
 
+export type MusicAgoraRevealMode = 'NONE' | 'MASKED' | 'FULL';
+
 export type MusicAgoraMessage = {
   id: number;
   roomSlug: string;
@@ -16,9 +18,74 @@ export type MusicAgoraMessage = {
   kind: string;
   body: string;
   createdAt: string;
+  targetProfileId: string | null;
+  targetUsername: string | null;
+  sharedTrackId: string | null;
+  musicRevealMode: MusicAgoraRevealMode;
+  trackTitle: string | null;
+  trackArtist: string | null;
+  trackArtworkUrl: string | null;
+  trackPreviewUrl: string | null;
+};
+
+export type MusicAgoraSettings = {
+  homeEnabled: boolean;
+  notificationsEnabled: boolean;
+};
+
+export type MusicAgoraPostOptions = {
+  targetProfileId?: string | null;
+  sharedTrackId?: string | null;
+  revealMode?: MusicAgoraRevealMode;
 };
 
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
+
+export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
+  if (!supabase) return { homeEnabled: false, notificationsEnabled: true };
+  const { data, error } = await supabase.rpc('keep_agora_my_settings');
+  if (error || !data) return { homeEnabled: false, notificationsEnabled: true };
+  return {
+    homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
+    notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
+  };
+}
+
+export async function saveMusicAgoraSettings(homeEnabled: boolean, notificationsEnabled = true): Promise<MusicAgoraSettings> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_set_settings', {
+    p_home_enabled: homeEnabled,
+    p_notifications_enabled: notificationsEnabled,
+  });
+  if (error) throw error;
+  return {
+    homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled),
+    notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
+  };
+}
+
+export async function setMusicAgoraRoomSubscription(
+  roomSlug: string,
+  subscribed = true,
+  notificationsEnabled = true,
+): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('keep_agora_subscribe_room', {
+    p_room_slug: roomSlug,
+    p_subscribed: subscribed,
+    p_notifications_enabled: notificationsEnabled,
+  });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function markMusicAgoraRoomRead(roomSlug: string, messageId: number): Promise<void> {
+  if (!supabase || !roomSlug || !messageId) return;
+  await supabase.rpc('keep_agora_mark_room_read', {
+    p_room_slug: roomSlug,
+    p_message_id: messageId,
+  }).catch(() => {});
+}
 
 export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
   if (!supabase) return [];
@@ -34,13 +101,13 @@ export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
 
 export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number, limit = 24): Promise<MusicAgoraMessage[]> {
   if (!supabase || !roomSlug) return [];
-  const { data, error } = await supabase.rpc('keep_agora_messages', {
+  const { data, error } = await supabase.rpc('keep_agora_messages_v2', {
     p_room_slug: roomSlug,
     p_before_id: beforeId ?? null,
     p_limit: limit,
   });
   if (error) throw error;
-  return (Array.isArray(data) ? data : []).map((row: any) => ({
+  const rows = (Array.isArray(data) ? data : []).map((row: any) => ({
     id: Number(row.id),
     roomSlug: String(row.room_slug || roomSlug),
     profileId: String(row.profile_id || ''),
@@ -49,12 +116,34 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     kind: String(row.kind || 'USER'),
     body: String(row.body || ''),
     createdAt: String(row.created_at || ''),
+    targetProfileId: row.target_profile_id ? String(row.target_profile_id) : null,
+    targetUsername: row.target_username ? String(row.target_username) : null,
+    sharedTrackId: row.shared_track_id ? String(row.shared_track_id) : null,
+    musicRevealMode: (['MASKED','FULL'].includes(String(row.music_reveal_mode || '').toUpperCase())
+      ? String(row.music_reveal_mode).toUpperCase()
+      : 'NONE') as MusicAgoraRevealMode,
+    trackTitle: row.track_title ? String(row.track_title) : null,
+    trackArtist: row.track_artist ? String(row.track_artist) : null,
+    trackArtworkUrl: row.track_artwork_url ? String(row.track_artwork_url) : null,
+    trackPreviewUrl: row.track_preview_url ? String(row.track_preview_url) : null,
   })).filter((row) => row.id && row.profileId && row.body);
+  if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
+  return rows;
 }
 
-export async function postMusicAgoraMessage(roomSlug: string, body: string): Promise<number> {
+export async function postMusicAgoraMessage(
+  roomSlug: string,
+  body: string,
+  options: MusicAgoraPostOptions = {},
+): Promise<number> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_post_message', { p_room_slug: roomSlug, p_body: body });
+  const { data, error } = await supabase.rpc('keep_agora_post_message_v2', {
+    p_room_slug: roomSlug,
+    p_body: body,
+    p_target_profile_id: options.targetProfileId ?? null,
+    p_shared_track_id: options.sharedTrackId ?? null,
+    p_reveal_mode: options.revealMode ?? 'NONE',
+  });
   if (error) throw error;
   return Number(data || 0);
 }
