@@ -1712,7 +1712,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ▶ APERÇU
           </MotionActionButton>
           <View style={s.ownerQuickActionBadgeWrap}>
-            <MotionActionButton variant="outline" size="medium" containerStyle={s.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer pépites">
+            <MotionActionButton
+              variant="outline"
+              size="medium"
+              containerStyle={s.ownerQuickActionFull}
+              onPress={() => {
+                if (accountRequired) {
+                  Alert.alert(
+                    'Publier une Pépite',
+                    'L’écoute reste disponible en mode essai. Pour publier une collection exclusive et recevoir des FREE ou un paiement, connecte-toi ou crée ton compte Loki Music.',
+                    [
+                      { text: 'Plus tard', style: 'cancel' },
+                      { text: 'Se connecter', onPress: () => useAccountGateStore.getState().requestAccount('login') },
+                      { text: 'Créer un compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+                    ],
+                  );
+                  return;
+                }
+                navigation.navigate('PlaylistSale');
+              }}
+              accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}
+            >
               ◆ PÉPITES
             </MotionActionButton>
             {playlistSaleOffers.length ? <View pointerEvents="none" style={s.ownerQuickActionBadge} accessibilityLabel={`${playlistSaleOffers.length} collection${playlistSaleOffers.length > 1 ? 's' : ''} publiée${playlistSaleOffers.length > 1 ? 's' : ''}`}><Text style={s.ownerQuickActionBadgeText}>{playlistSaleOffers.length}</Text></View> : null}
