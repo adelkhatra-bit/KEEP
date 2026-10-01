@@ -83,7 +83,12 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
     expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
-    expect(dock).toContain('Math.round(height * 0.38)');
+    expect(dock).toContain("chooseVerticalPreset('HIGH')");
+    expect(dock).toContain("chooseVerticalPreset('MIDDLE')");
+    expect(dock).toContain("chooseVerticalPreset('LOW')");
+    expect(panel).toContain("chooseChatVertical('HIGH')");
+    expect(panel).toContain('HAUTEUR DU TIROIR');
+    expect(dock).toContain('Math.round(height * 0.44)');
     expect(dock).toContain('fabWrap');
     expect(dock).toContain('fabLeft');
     expect(dock).toContain('fabRight');
