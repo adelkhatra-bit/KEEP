@@ -2,63 +2,34 @@
 import fs from 'fs';
 import path from 'path';
 
-const read = (...segments: string[]) =>
-  fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
+const read = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('global Loki messenger contract', () => {
+describe('legacy Loki messenger decommission contract', () => {
   const app = read(__dirname, '..', '..', '..', 'App.tsx');
   const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
-  const dock = read(__dirname, '..', '..', 'components', 'GlobalChatDock.tsx');
   const panel = read(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx');
-  const messenger = read(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx');
-  const service = read(__dirname, '..', '..', 'services', 'musicAgoraService.ts');
+  const banner = read(__dirname, '..', '..', 'components', 'GlobalNotificationBanner.tsx');
+  const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
-  it('mounts the chat once at application root, never only inside Profile', () => {
-    expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
-    expect(app).toContain('{user ? <GlobalChatDock /> : null}');
-    expect(profile).not.toContain("import GlobalChatDock from '../components/GlobalChatDock';");
-    expect(profile).not.toContain('<GlobalChatDock />');
+  it('keeps the old floating chat out of the visible app', () => {
+    expect(app).not.toContain('GlobalChatDock');
+    expect(profile).not.toContain('useGlobalChatStore');
+    expect(profile).not.toContain('onOpenChat=');
   });
 
-  it('supports all selectable chat surfaces and persists their selection', () => {
-    for (const surface of ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']) {
-      expect(service).toContain(surface);
-      expect(dock).toContain(surface);
-      expect(panel).toContain(surface);
+  it('keeps the old messenger out of notification settings and banners', () => {
+    for (const forbidden of ['MESSAGERIE LOKI','Afficher la messagerie','Notifications messages','OÙ L’AFFICHER','OUVRIR LA MESSAGERIE','chatSettingsOpen','toggleChatSurface','useGlobalChatStore']) {
+      expect(panel).not.toContain(forbidden);
     }
-    expect(dock).toContain('chatSurfaceForRoute');
-    expect(dock).toContain('chatSurfaces.includes(activeSurface)');
-    expect(dock).toContain('saveMusicAgoraSettings');
-    expect(panel).toContain('toggleChatSurface');
-    expect(panel).toContain('accessibilityRole="checkbox"');
+    expect(banner).not.toContain('useGlobalChatStore');
+    expect(banner).not.toContain('openChatFromNotification');
+    expect(banner).not.toContain('ouvrir le tchat');
   });
 
-  it('keeps the control visible and movable left/right near the bottom', () => {
-    expect(dock).toContain('PanResponder.create');
-    expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
-    expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
-    expect(dock).toContain('fabWrap');
-    expect(dock).toContain('fabLeft');
-    expect(dock).toContain('fabRight');
-    expect(dock).toContain('chatNudge');
-  });
-
-  it('opens chat settings as an expandable section from the notification bell', () => {
-    expect(panel).toContain('chatSettingsOpen');
-    expect(panel).toContain('MESSAGERIE LOKI');
-    expect(panel).toContain('Afficher la messagerie');
-    expect(panel).toContain('Notifications messages');
-    expect(panel).toContain('OÙ L’AFFICHER');
-    expect(panel).toContain('POSITION');
-    expect(panel).toContain('OUVRIR LA MESSAGERIE');
-  });
-
-  it('is direct-message first and keeps the public Place secondary', () => {
-    expect(messenger).toContain("'MESSAGES' | 'PLACE'");
-    expect(messenger).toContain('loadMusicAgoraConversations');
-    expect(messenger).toContain('loadMusicAgoraDirectMessages');
-    expect(messenger).toContain('MESSAGES');
-    expect(messenger).toContain('LA PLACE');
-    expect(messenger).toContain('＋ PÉPITE');
+  it('locks the latest explicit user decision', () => {
+    expect(contract.chatExperience.status).toBe('LEGACY_UI_DECOMMISSIONED_PENDING_NEW_MESSENGER');
+    expect(contract.chatExperience.legacyGlobalDockMounted).toBe(false);
+    expect(contract.chatExperience.legacySettingsVisible).toBe(false);
+    expect(contract.chatExperience.legacyNotificationOpenAction).toBe(false);
   });
 });
