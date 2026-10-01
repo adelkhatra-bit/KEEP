@@ -55,6 +55,13 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("previewOnly ? 'CONNEXION'");
   });
 
+  it('opens into a large conversation drawer and returns to the edge tab', () => {
+    expect(messenger).toContain("height:'68%'");
+    expect(messenger).toContain('maxHeight:620');
+    expect(messenger).toContain('onCompactClose');
+    expect(dock).toContain('onCompactClose={closeChat}');
+  });
+
   it('keeps the control visible and movable left/right near the bottom', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
