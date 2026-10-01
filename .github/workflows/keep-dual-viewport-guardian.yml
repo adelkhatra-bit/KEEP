@@ -179,6 +179,23 @@ jobs:
             if(dims.scrollWidth>dims.width+1) throw new Error(`${label}: horizontal overflow ${JSON.stringify(dims)}`);
           }
 
+          async function assertProfileFreeAligned(page) {
+            const kind=page.getByLabel(/type de profil/i).last();
+            const free=page.getByLabel(/Free en mode démo|détail de mes Free/i).last();
+            await kind.waitFor({state:'visible',timeout:15000});
+            await free.waitFor({state:'visible',timeout:15000});
+            const [kindBox,freeBox]=await Promise.all([kind.boundingBox(),free.boundingBox()]);
+            if(!kindBox||!freeBox) throw new Error('Profil: impossible de mesurer Utilisateur / FREE');
+            const kindCenter=kindBox.y+(kindBox.height/2);
+            const freeCenter=freeBox.y+(freeBox.height/2);
+            if(Math.abs(kindCenter-freeCenter)>2) {
+              throw new Error(`Profil: FREE non aligné avec Utilisateur ${JSON.stringify({kindBox,freeBox})}`);
+            }
+            if(Math.abs(kindBox.height-freeBox.height)>1) {
+              throw new Error(`Profil: hauteurs Utilisateur/FREE différentes ${JSON.stringify({kindBox,freeBox})}`);
+            }
+          }
+
           (async()=>{
             const browser = await chromium.launch({ headless:true, args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream','--use-file-for-fake-audio-capture=/tmp/keep-tone.wav'] });
             const report=[];
@@ -290,6 +307,11 @@ jobs:
             await clickRobust(page,page.getByText('‹',{exact:true}).last(),'Close Battle');
             await page.getByText('Soirées',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
+            await clickRobust(page,page.getByText('Profil',{exact:true}).last(),'Profil alignment check');
+            await page.getByLabel('Menu du profil').last().waitFor({state:'visible',timeout:15000});
+            await assertProfileFreeAligned(page);
+            await page.screenshot({path:'artifacts/dual-viewport/03b-profile-free-aligned.png',fullPage:true});
+
             await openEdit(page);
             await page.getByPlaceholder('tonpseudo').last().fill(USERNAME);
             await page.getByPlaceholder('Quelques mots sur toi').last().fill(BIO);
@@ -378,7 +400,7 @@ jobs:
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
             await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
 
-            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, full-screen Battle V3, profile edit, GPS city+country, date, save, profile menu social settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
+            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, full-screen Battle V3, FREE aligned with profile type, profile edit, GPS city+country, date, save, profile menu social settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
             fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
             await context.close();
             await browser.close();
