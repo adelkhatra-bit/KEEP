@@ -1470,7 +1470,29 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // si les préférences avaient changé entretemps. On relit la valeur
       // fraîche côté serveur juste avant de démarrer le pack solo.
       const freshPrefs = await loadMyMatchPreferences().catch(() => null);
-      const pack = await loadKeepBattleSoloPack(themeCode, roundCount, freshPrefs?.themeCodes || myPreferredThemes);
+      const preferredThemes = freshPrefs?.themeCodes || myPreferredThemes;
+      let pack: KeepBattleSoloPack;
+      try {
+        pack = await loadKeepBattleSoloPack(themeCode, roundCount, preferredThemes);
+      } catch (firstError: any) {
+        let serialized = '';
+        try { serialized = JSON.stringify(firstError); } catch { serialized = String(firstError ?? ''); }
+        const compact = [firstError?.message, firstError?.details, firstError?.hint, firstError?.code, serialized]
+          .filter(Boolean).join(' ').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const sparseTheme = compact.includes('BATTLECATALOGTOOSMALL')
+          || compact.includes('BATTLETHEMECATALOGTOOSMALL')
+          || compact.includes('BATTLETHEMEUNAVAILABLE');
+        if (!sparseTheme) throw firstError;
+        // SOLO doit rester jouable même si un style choisi manque de matière.
+        // On retombe automatiquement sur MIX, sans toucher à la disponibilité
+        // Battle en ligne ni aux préférences enregistrées de l'utilisateur.
+        pack = await loadKeepBattleSoloPack('MIX', roundCount, null);
+        setThemeCode('MIX');
+        Alert.alert(
+          'Solo lancé en MIX',
+          'Ton style choisi n’avait pas assez de morceaux jouables. Loki a basculé automatiquement sur MIX pour ne pas bloquer ta partie.',
+        );
+      }
       soloDailySessionTokenRef.current = `solo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
       soloDailyConsumedRef.current = false;
       setSoloDailyStarted(false);
