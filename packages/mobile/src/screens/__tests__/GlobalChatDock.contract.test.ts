@@ -15,7 +15,7 @@ describe('global Loki messenger contract', () => {
 
   it('mounts the chat once at application root, never only inside Profile', () => {
     expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
-    expect(app).toContain('{user ? <GlobalChatDock /> : null}');
+    expect(app).toContain('{authReady && user ? <GlobalChatDock /> : null}');
     expect(profile).not.toContain("import GlobalChatDock from '../components/GlobalChatDock';");
     expect(profile).not.toContain('<GlobalChatDock />');
   });
@@ -67,7 +67,7 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('paddingTop: Math.max(10, safeArea.top + 8)');
     expect(messenger).not.toContain('const compactPanelHeight = Math.min');
     expect(messenger).toContain('fontSize:18,lineHeight:25');
-    expect(messenger).toContain('inputCompact:{height:62');
+    expect(messenger).toContain('inputCompact:{height:48');
     expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
     expect(messenger).toContain("keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
@@ -100,7 +100,7 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain("chooseChatVerticalPreset('HIGH')");
     expect(panel).toContain("chooseChatVerticalPreset('MIDDLE')");
     expect(panel).toContain("chooseChatVerticalPreset('LOW')");
-    expect(panel).toContain('HAUTEUR DU TIROIR');
+    expect(panel).toContain('HAUTEUR DU BOUTON');
     expect(profile).toContain("key: 'chatSettings'");
     expect(profile).toContain('RÉGLER LA MESSAGERIE');
     expect(profile).toContain('useGlobalChatStore.getState().openSettings()');
@@ -133,7 +133,7 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('Tout reste ici, sans changer d’écran.');
     expect(panel).toContain('Alertes dans l’application');
     expect(panel).toContain('MESSAGERIE LOKI');
-    expect(panel).toContain('Tiroir latéral');
+    expect(panel).toContain('Bouton flottant + plein écran');
     expect(panel).toContain('OUVRIR LA CONVERSATION');
     expect(panel).not.toContain("navigationRef");
     expect(panel).toContain('useGlobalChatStore.getState().open(target)');
