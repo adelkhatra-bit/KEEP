@@ -12,7 +12,6 @@ import {
   notificationPlanLabel,
   type NotificationAccessRule,
 } from '../services/notificationAccessService';
-import { navigationRef } from '../navigation/navigationRef';
 
 type Props = {
   visible: boolean;
@@ -177,16 +176,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     await markAllNotificationsRead(profileId).catch(() => {});
   };
 
-  const openRequiredPlan = async (item: KeepNotification) => {
-    await markRead(item);
-    const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
-    close();
-    setTimeout(() => {
-      if (!navigationRef.isReady()) return;
-      (navigationRef.navigate as any)('Offers', { focusPlan: requiredPlan, sourceFeature: 'NOTIFICATION_ACCESS' });
-    }, 200);
-  };
-
   const openChatNotification = async (item: KeepNotification) => {
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
@@ -201,11 +190,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   };
 
   const toggleNotification = async (item: KeepNotification) => {
-    const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
-    if (locked) {
-      await openRequiredPlan(item);
-      return;
-    }
     await markRead(item);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId((current) => current === item.id ? null : item.id);
@@ -279,18 +263,28 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               const chatAction = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' || type.startsWith('AGORA');
               return (
                 <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
-                  <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded: !locked && expanded }}>
+                  <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
                     <View style={s.cardTop}>
                       <View style={[s.dot, item.readAt && s.dotRead, locked && s.dotLocked]} />
                       <Text style={s.cardTitle} numberOfLines={1}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
                       <Text style={s.time}>{timeLabel(item.createdAt)}</Text>
-                      <Text style={s.chevron}>{locked ? '›' : expanded ? '⌃' : '⌄'}</Text>
+                      <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
                     </View>
-                    {locked ? <Text style={s.lockedBody}>Disponible avec {notificationPlanLabel(requiredPlan)}. Appuie pour voir la formule qui la débloque.</Text> : expanded ? (
+                    {expanded ? (
                       <View style={s.details}>
-                        <Text style={s.body}>{item.body}</Text>
-                        <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
-                        {chatAction ? <TouchableOpacity style={s.notificationAction} onPress={() => void openChatNotification(item)}><Text style={s.notificationActionText}>OUVRIR LA CONVERSATION</Text></TouchableOpacity> : null}
+                        {locked ? (
+                          <View style={s.lockedDetails}>
+                            <Text style={s.lockedPlan}>🔒 {notificationPlanLabel(requiredPlan)}</Text>
+                            <Text style={s.lockedBody}>Cette notification reste ici, dans ta cloche. Son contenu se débloque automatiquement avec la formule {notificationPlanLabel(requiredPlan)}.</Text>
+                            <Text style={s.lockedHint}>Aucune redirection : referme simplement la ligne pour continuer à parcourir tes notifications.</Text>
+                          </View>
+                        ) : (
+                          <>
+                            <Text style={s.body}>{item.body}</Text>
+                            <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
+                            {chatAction ? <TouchableOpacity style={s.notificationAction} onPress={() => void openChatNotification(item)}><Text style={s.notificationActionText}>OUVRIR LA CONVERSATION</Text></TouchableOpacity> : null}
+                          </>
+                        )}
                       </View>
                     ) : null}
                   </TouchableOpacity>
@@ -353,7 +347,10 @@ const s = StyleSheet.create({
   details:{paddingTop:8,marginTop:7,borderTopWidth:1,borderTopColor:colors.border},
   body:{color:colors.textMutedGrey,fontSize:12,lineHeight:18},
   typeLabel:{color:colors.textMuted,fontSize:8,fontWeight:'900',letterSpacing:.7,marginTop:7},
-  lockedBody:{color:colors.primaryLight,fontSize:11,lineHeight:16,marginTop:7,fontWeight:'800'},
+  lockedDetails:{borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,padding:10},
+  lockedPlan:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},
+  lockedBody:{color:colors.textPrimary,fontSize:11,lineHeight:17,marginTop:5,fontWeight:'800'},
+  lockedHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:6},
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10},
   notificationActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
   emptyCard:{padding:20,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center'},
