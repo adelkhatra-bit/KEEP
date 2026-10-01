@@ -5,8 +5,11 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
-import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigateToEvent, navigationRef } from '../navigation/navigationRef';
 import { setEventRsvp } from '../services/creatorEventService';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { loadCurrentPlanCode } from '../services/planService';
+import { isNotificationAccessLocked, loadNotificationAccessRules, normalizeNotificationPlanCode, notificationAccessRequiredPlan, notificationPlanLabel, type NotificationAccessRule, type NotificationPlanCode } from '../services/notificationAccessService';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -50,6 +53,11 @@ function isFreeCreditNotification(notification: KeepNotification): boolean {
     || String(notification.data?.event || '').toUpperCase() === 'FREE_CREDITED';
 }
 
+function isAgoraNotification(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  const event = String(notification.data?.event || '').toUpperCase();
+  return type.startsWith('AGORA_') || event.startsWith('AGORA_');
+}
 
 export default function GlobalNotificationBanner() {
   const user = useUserStore((s) => s.user);
@@ -70,6 +78,8 @@ export default function GlobalNotificationBanner() {
   const notificationsEnabled = useRef(true);
   const seenNotificationIds = useRef(new Set<string>());
   const recentSemanticKeys = useRef(new Map<string, number>());
+  const notificationPlanRef = useRef<NotificationPlanCode>('FREE');
+  const notificationAccessRulesRef = useRef<NotificationAccessRule[]>([]);
   // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
   // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
   // remonter vers le haut" -- remplace l'ancienne entrée/sortie latérale
@@ -176,6 +186,12 @@ export default function GlobalNotificationBanner() {
         if (active) notificationsEnabled.current = prefs.systemEnabled;
       })
       .catch(() => {});
+    void loadCurrentPlanCode(user.id)
+      .then((code) => { if (active) notificationPlanRef.current = normalizeNotificationPlanCode(code); })
+      .catch(() => {});
+    void loadNotificationAccessRules()
+      .then((rules) => { if (active) notificationAccessRulesRef.current = rules; })
+      .catch(() => {});
 
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
       if (!active || !notificationsEnabled.current) return;
@@ -220,7 +236,21 @@ export default function GlobalNotificationBanner() {
       opacity.setValue(0);
       freeCreditPulse.stopAnimation();
       freeCreditPulse.setValue(0);
-      setCurrent(notification);
+      const requiredPlan = notificationAccessRequiredPlan(notification.type, notificationAccessRulesRef.current);
+      const lockedByPlan = isNotificationAccessLocked(notification.type, notificationPlanRef.current, notificationAccessRulesRef.current);
+      const presentedNotification: KeepNotification = lockedByPlan
+        ? {
+            ...notification,
+            title: '🔒 Notification réservée',
+            body: `Disponible avec ${notificationPlanLabel(requiredPlan)}. Appuie pour voir la formule.`,
+            data: {
+              ...(notification.data ?? {}),
+              __notificationAccessLocked: true,
+              __requiredPlanCode: requiredPlan,
+            },
+          }
+        : notification;
+      setCurrent(presentedNotification);
 
       requestAnimationFrame(() => {
         Animated.parallel([
@@ -319,6 +349,36 @@ export default function GlobalNotificationBanner() {
 
   if (!current) return null;
 
+  const notificationAccessLockedBanner = current.data?.__notificationAccessLocked === true;
+  const notificationRequiredPlan = normalizeNotificationPlanCode(current.data?.__requiredPlanCode);
+  if (notificationAccessLockedBanner) {
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          style={styles.banner}
+          onPress={() => {
+            const id = current.id;
+            void markNotificationRead(user.id, id).catch(() => {});
+            animateOut(() => {
+              if (!navigationRef.isReady()) return;
+              (navigationRef.navigate as any)('Offers', { focusPlan: notificationRequiredPlan, sourceFeature: 'NOTIFICATION_ACCESS' });
+            });
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Notification réservée à la formule ${notificationPlanLabel(notificationRequiredPlan)}`}
+        >
+          <View style={styles.artworkFallback}><Text style={styles.note}>🔒</Text></View>
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>LOKI MUSIC · ACCÈS</Text></View>
+            <Text style={styles.title} numberOfLines={1}>Notification réservée</Text>
+            <Text style={styles.body} numberOfLines={2}>Disponible avec {notificationPlanLabel(notificationRequiredPlan)}. Appuie pour voir la formule.</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
   const artworkUrl = dataText(current, 'artworkUrl');
   const trackTitle = dataText(current, 'trackTitle');
   const trackArtist = dataText(current, 'trackArtist');
@@ -336,11 +396,32 @@ export default function GlobalNotificationBanner() {
     animateOut();
   };
 
+  const openChatFromNotification = () => {
+    if (!current) return;
+    const roomSlug = dataText(current, 'roomSlug') || dataText(current, 'room_slug');
+    const targetProfileId = dataText(current, 'senderId') || dataText(current, 'sender_id') || dataText(current, 'profileId');
+    const targetUsername = dataText(current, 'senderUsername') || dataText(current, 'sender_username') || dataText(current, 'username');
+    const messageIdRaw = dataText(current, 'messageId') || dataText(current, 'message_id');
+    const messageId = Number(messageIdRaw || 0) || undefined;
+    const id = current.id;
+    setCurrent((item) => item ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item);
+    void markNotificationRead(user.id, id).catch(() => {});
+    animateOut(() => {
+      useGlobalChatStore.getState().open({
+        roomSlug: roomSlug || undefined,
+        targetProfileId: targetProfileId || undefined,
+        targetUsername: targetUsername || undefined,
+        messageId,
+      });
+    });
+  };
+
   const battleChallenge = isBattleChallenge(current);
   const battleRematch = isBattleRematch(current);
   const challengeId = dataText(current, 'challengeId');
   const rematchArenaId = dataText(current, 'arenaId');
   const eventInvite = isEventInvite(current);
+  const agoraNotification = isAgoraNotification(current);
   const eventId = dataText(current, 'event_id') || dataText(current, 'eventId');
   const eventAudience = dataText(current, 'audience_mode');
 
@@ -532,9 +613,9 @@ export default function GlobalNotificationBanner() {
       <TouchableOpacity
         activeOpacity={0.94}
         style={styles.banner}
-        onPress={() => { void markReadAndHide(); }}
+        onPress={() => { if (agoraNotification) openChatFromNotification(); else void markReadAndHide(); }}
         accessibilityRole="button"
-        accessibilityLabel={`${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
+        accessibilityLabel={agoraNotification ? `${current.title}. Ouvrir le Tchat.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
       >
         <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
         {artworkUrl ? (
@@ -545,7 +626,7 @@ export default function GlobalNotificationBanner() {
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
             <Text style={styles.eyebrow}>{isMusic ? 'Loki Music LIVE' : 'Loki Music'}</Text>
-            <Text style={styles.closeHint}>toucher = lu</Text>
+            <Text style={styles.closeHint}>{agoraNotification ? 'ouvrir le tchat' : 'toucher = lu'}</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
           <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
