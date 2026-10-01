@@ -19,7 +19,7 @@ describe('notification preview network safety contract', () => {
 
   it('keeps real notification writes disabled in demo mode', () => {
     expect(panel).toContain("if (!isDemoMode) await markNotificationRead");
-    expect(panel).toContain("if (!isDemoMode) await markAllNotificationsRead");
+    expect(panel).toContain("if (!isDemoMode) await Promise.all(visibleIds.map((id) => markNotificationRead");
     expect(panel).toContain("if (!isDemoMode) await saveNotificationPreferences");
     expect(panel).toContain("if (!isDemoMode) void saveMusicAgoraPosition");
   });
