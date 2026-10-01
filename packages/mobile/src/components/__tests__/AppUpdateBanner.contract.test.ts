@@ -22,4 +22,12 @@ describe('web update control contract', () => {
     expect(source).toContain('checkNow().finally(reloadToLatest)');
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
   });
+
+  it('auto-applies the latest production OTA on native TestFlight launches', () => {
+    expect(source).toContain("import * as Updates from 'expo-updates'");
+    expect(source).toContain('Updates.checkForUpdateAsync()');
+    expect(source).toContain('Updates.fetchUpdateAsync()');
+    expect(source).toContain('Updates.reloadAsync()');
+    expect(source).toContain("Platform.OS === 'web' || __DEV__ || !Updates.isEnabled");
+  });
 });
