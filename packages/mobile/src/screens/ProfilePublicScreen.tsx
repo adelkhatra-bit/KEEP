@@ -56,6 +56,7 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -1049,6 +1050,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
       .sort((a, b) => b.entries.length - a.entries.length || a.label.localeCompare(b.label))
       .map(({ label, entries }) => ({ genre: label, entries }));
   }, [profileKeptTracks]);
+
+  // Les bulles de styles restent visibles même pendant une restauration lente
+  // de la bibliothèque : priorité au DNA appris, puis goûts déclarés persistés,
+  // puis genres réellement présents dans les morceaux.
+  const profileStyleBubbles = useMemo(() => {
+    const values = [
+      ...dna.topGenres.map((row) => row.genre),
+      ...(user?.favoriteGenres ?? []),
+      ...trackGenreOptions.map((row) => row.genre),
+    ];
+    const seen = new Set<string>();
+    return values.filter((raw) => {
+      const value = String(raw || '').trim();
+      if (!value) return false;
+      const key = value.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [dna.topGenres, trackGenreOptions, user?.favoriteGenres]);
+
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- la détection de genre existait déjà mais restait
   // réservée à Creator Pro/Venue Pro (Vibes Auto) et n'était jamais
@@ -1945,7 +1967,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             <View>
               <Text style={s.dnaEyebrow}>Loki Music DNA</Text>
               <Text style={s.dnaTitle}>Tes styles dominants</Text>
-              <Text style={s.dnaCountHint}>{Math.min(4, dna.topGenres.length)} affiché{Math.min(4, dna.topGenres.length) > 1 ? 's' : ''} sur {genreFolders.length} style{genreFolders.length > 1 ? 's' : ''}</Text>
+              <Text style={s.dnaCountHint}>{Math.min(8, profileStyleBubbles.length)} affiché{Math.min(8, profileStyleBubbles.length) > 1 ? 's' : ''} · {genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} dans tes morceaux</Text>
             </View>
             <Text style={s.dnaScore}>{Math.round(dna.diversityScore*100)}%</Text>
           </View>
