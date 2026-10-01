@@ -111,19 +111,24 @@ Source : `ProfilePublicScreen.tsx`.
 Zone identité :
 1. avatar ;
 2. pseudo + certification ;
-3. type Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement ;
-4. **FREE immédiatement à droite du badge de type** ;
-5. Battle dans la même zone identité, à droite ;
-6. ville / pays dessous.
+3. type Fan / Créateur / DJ / Artiste / Producteur / Lieu ;
+4. Battle dans la même zone identité, à droite ;
+5. ville / pays dessous.
 
-Barre suivante : **PLUS | Abonnés | Reprises**.
+Barre suivante verrouillée : **PLUS | Abonnés | Reprises | FREE**.
+**FREE est immédiatement à droite de Reprises et n'apparaît nulle part à côté du type de profil.**
+
+Bas du profil propriétaire :
+- **Mes réseaux** ;
+- **Loki Pulse** juste dessous ;
+- **Partager mon profil** immédiatement après Loki Pulse.
 
 Interdictions :
-- pas de second FREE dans la barre des compteurs ;
+- FREE apparaît exactement une fois dans la barre des compteurs ;
 - une correction UI ne doit jamais écrire ou réinitialiser la certification ou le solde FREE en production ;
 - certification = donnée réelle Supabase `profiles.certification_tier` ;
 - solde FREE = donnée réelle issue des RPC de crédit existantes ;
-- ne pas déplacer type/FREE pour corriger un autre module.
+- ne pas déplacer FREE hors de la position immédiatement après Reprises pour corriger un autre module.
 
 ## 10. Hamburger profil
 
