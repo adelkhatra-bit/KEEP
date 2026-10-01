@@ -1553,12 +1553,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {workspaceTab === 'LIBRARY' && mobileSection === 'TRACKS' && activeTab === 'MUSIQUES' && localKeptEntries.length && !saleSelectionMode ? <View style={styles.originSummary}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.originFilters}>
           {([
-            ['ALL', `TOUT · ${localKeptEntries.length}`],
-            ['LISTEN', `DÉCOUVERTES · ${ownDiscoveryEntries.length}`],
-            ['SESSION', `SESSIONS · ${sessionEntries.length}`],
-            ['USERS', `REPRISES · ${socialRepriseEntries.length}`],
-            ['IDENTIFIED', `IDENTIFIÉ LOKI · ${identifiedEntries.length}`],
-            ['PULSE', `LOKI PULSE · ${lokiPulseEntries.length}`],
+            ['ALL', 'TOUT'],
+            ['LISTEN', 'DÉCOUVERTE'],
+            ['SESSION', 'SESSION'],
+            ['USERS', '🔒 REPRISE'],
+            ['IDENTIFIED', 'IDENTIFIER'],
+            ['PULSE', 'PULSE'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               key={key}
