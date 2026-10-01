@@ -186,7 +186,8 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
 
 export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void): () => void {
   if (!supabase || !roomSlug) return () => {};
-  const channel = supabase
+  const client = supabase;
+  const channel = client
     .channel(`keep-agora:${roomSlug}:${Date.now()}`)
     .on(
       'postgres_changes',
@@ -195,7 +196,7 @@ export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void):
     )
     .subscribe();
   return () => {
-    void supabase.removeChannel(channel);
+    void client.removeChannel(channel);
   };
 }
 
