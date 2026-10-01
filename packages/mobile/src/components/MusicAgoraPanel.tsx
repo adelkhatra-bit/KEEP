@@ -35,6 +35,18 @@ import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseReques
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
 
 const PAGE_SIZE = 24;
+const LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
+const QUICK_REACTIONS = [
+  { label: '❤️', payload: '❤️' },
+  { label: '🔥', payload: '🔥' },
+  { label: '👏', payload: '👏' },
+  { label: '🎵', payload: '🎵' },
+  { label: '😂', payload: '😂' },
+  { label: '🤯', payload: '🤯' },
+  { label: '🙌', payload: '🙌' },
+  { label: '⚡', payload: '⚡' },
+  { label: 'LOKI ✦', payload: LOKI_REACTION_TOKEN, loki: true },
+] as const;
 
 function ago(iso: string): string {
   const t = new Date(iso).getTime();
@@ -418,6 +430,10 @@ export default function MusicAgoraPanel({
       return;
     }
     if (!roomSlug || posting || (!sharedTrack && body.length < 2)) return;
+    if (awaitingDirectReply) {
+      Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
+      return;
+    }
     if (sharedTrack && sharePaymentMode === 'FREE' && (!Number.isInteger(requestedFreePrice) || requestedFreePrice < 1 || requestedFreePrice > 10000)) {
       Alert.alert('Montant FREE', 'Choisis entre 1 et 10 000 FREE.');
       return;
@@ -480,6 +496,10 @@ export default function MusicAgoraPanel({
 
   const sendQuickReaction = async (emoji: string) => {
     if (!enabled || !roomSlug || posting) return;
+    if (awaitingDirectReply) {
+      Alert.alert('En attente de réponse', 'Patiente un peu : cette personne n’a pas encore répondu à tes 3 derniers messages.');
+      return;
+    }
     setPosting(true);
     try {
       await postMusicAgoraMessage(roomSlug, emoji, { targetProfileId: replyTarget?.profileId ?? null });
@@ -639,6 +659,21 @@ export default function MusicAgoraPanel({
     );
   };
 
+  const unansweredDirectCount = useMemo(() => {
+    if (!replyTarget?.profileId || chatMode !== 'MESSAGES') return 0;
+    let count = 0;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.profileId === currentProfileId) {
+        count += 1;
+        continue;
+      }
+      break;
+    }
+    return count;
+  }, [messages, replyTarget?.profileId, chatMode, currentProfileId]);
+  const awaitingDirectReply = Boolean(replyTarget?.profileId && chatMode === 'MESSAGES' && unansweredDirectCount >= 3);
+
   const paymentLocked = Boolean(
     sharedTrack && (
       (sharedTrack as any).canSell === false ||
@@ -778,7 +813,9 @@ export default function MusicAgoraPanel({
               <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
             </View>
           </TouchableOpacity>
-          {extractMusicAgoraPayoutQrUrl(message.body) ? (
+          {message.body === LOKI_REACTION_TOKEN ? (
+            <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>LOKI ✦</Text></View>
+          ) : extractMusicAgoraPayoutQrUrl(message.body) ? (
             <View style={s.qrMessage}>
               <Text style={s.qrMessageTitle}>QR PAYPAL · @{message.username}</Text>
               <Image source={{ uri: extractMusicAgoraPayoutQrUrl(message.body)! }} style={s.qrMessageImage} resizeMode="contain" />
@@ -1082,16 +1119,26 @@ export default function MusicAgoraPanel({
         </View>
       </View> : null}
 
-      <View style={s.quickReactions}>
-        {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity
-          key={emoji}
-          style={s.quickReaction}
-          disabled={posting}
+      {awaitingDirectReply ? <View style={s.awaitingReplyBanner}>
+        <Text style={s.awaitingReplyTitle}>EN ATTENTE DE RÉPONSE</Text>
+        <Text style={s.awaitingReplyText}>Tu as envoyé 3 messages sans réponse. Loki réactive l’envoi dès que @{replyTarget?.username || 'cette personne'} répond.</Text>
+      </View> : null}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.quickReactions}
+        contentContainerStyle={s.quickReactionsContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {QUICK_REACTIONS.map((reaction) => <TouchableOpacity
+          key={reaction.payload}
+          style={[s.quickReaction, reaction.loki && s.quickReactionLoki, awaitingDirectReply && s.quickReactionDisabled]}
+          disabled={posting || awaitingDirectReply}
           activeOpacity={0.7}
-          onPress={() => void sendQuickReaction(emoji)}
-          accessibilityLabel={`Envoyer ${emoji}`}
-        ><Text style={s.quickReactionText}>{emoji}</Text></TouchableOpacity>)}
-      </View>
+          onPress={() => void sendQuickReaction(reaction.payload)}
+          accessibilityLabel={reaction.loki ? 'Envoyer la réaction Loki' : `Envoyer ${reaction.label}`}
+        ><Text style={[s.quickReactionText, reaction.loki && s.quickReactionLokiText]}>{reaction.label}</Text></TouchableOpacity>)}
+      </ScrollView>
       <TextInput
         value={draft}
         onChangeText={setDraft}
@@ -1108,14 +1155,14 @@ export default function MusicAgoraPanel({
         style={[s.input, compact && s.inputCompact]}
       />
       <View style={s.composerBottom}>
-        <TouchableOpacity style={s.shareMusic} disabled={!shareableTracks.length} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
+        <TouchableOpacity style={[s.shareMusic, awaitingDirectReply && s.quickReactionDisabled]} disabled={!shareableTracks.length || awaitingDirectReply} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
           <Text style={s.shareMusicText}>＋ PÉPITE</Text>
         </TouchableOpacity>
-        {replyTarget ? <TouchableOpacity style={[s.shareQr, !myPayoutQrUrl && s.shareQrOff]} onPress={() => void sharePayoutQr()} accessibilityLabel="Partager mon QR PayPal">
+        {replyTarget ? <TouchableOpacity style={[s.shareQr, (!myPayoutQrUrl || awaitingDirectReply) && s.shareQrOff]} disabled={awaitingDirectReply} onPress={() => void sharePayoutQr()} accessibilityLabel="Partager mon QR PayPal">
           <Text style={s.shareQrText}>▣ QR PAYPAL</Text>
         </TouchableOpacity> : null}
         <Text style={s.counter}>{draft.length}/2000</Text>
-        <TouchableOpacity style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.send, ((!sharedTrack && !draft.trim()) || awaitingDirectReply) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting || awaitingDirectReply} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
     </View> : <View style={s.locked}><Text style={s.lockedText}>Connecte-toi pour écrire. La lecture reste ouverte.</Text></View>}
 
@@ -1198,9 +1245,18 @@ const s=StyleSheet.create({
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
   input:{height:72,minHeight:72,maxHeight:72,color:colors.textPrimary,fontSize:15.5,lineHeight:21,textAlignVertical:'top',overflow:'scroll'},
   inputCompact:{height:52,minHeight:52,maxHeight:52,fontSize:15.5,lineHeight:21,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0,overflow:'scroll'},
-  quickReactions:{height:46,minHeight:46,maxHeight:46,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexGrow:0,flexShrink:0},
-  quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
-  quickReactionText:{fontSize:21},
+  awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
+  awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
+  awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
+  quickReactions:{height:46,minHeight:46,maxHeight:46,marginBottom:6,flexGrow:0,flexShrink:0},
+  quickReactionsContent:{alignItems:'center',gap:7,paddingRight:8},
+  quickReaction:{width:44,height:40,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  quickReactionDisabled:{opacity:.38},
+  quickReactionLoki:{width:72,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  quickReactionText:{fontSize:20},
+  quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
+  lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
+  lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
   composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
   counter:{color:colors.textMutedGrey,fontSize:10,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
