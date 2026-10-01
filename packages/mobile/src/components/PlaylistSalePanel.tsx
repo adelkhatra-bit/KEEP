@@ -44,7 +44,11 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
   const [retiredOpen, setRetiredOpen] = useState(false);
+  const [offerFilter, setOfferFilter] = useState<'ALL' | 'FREE' | 'MONEY'>('ALL');
   const { published, retired } = useMemo(() => splitSaleOffersByStatus(offers, focusOfferId), [offers, focusOfferId]);
+  const freePublished = useMemo(() => published.filter((item) => item.paymentMode === 'FREE'), [published]);
+  const moneyPublished = useMemo(() => published.filter((item) => item.paymentMode !== 'FREE'), [published]);
+  const filteredPublished = useMemo(() => offerFilter === 'FREE' ? freePublished : offerFilter === 'MONEY' ? moneyPublished : published, [freePublished, moneyPublished, offerFilter, published]);
   const activeLimitReached = Boolean(access && access.activeOffers >= access.maxActiveOffers);
   // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
   // par lien externe, non conforme Apple IAP pour du contenu numérique
@@ -293,8 +297,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           <Text style={s.back}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerText}>
-          <Text style={s.title}>◆ Mes collections exclusives</Text>
-          <Text style={s.subtitle}>Compose, fixe € / FREE, publie ton univers</Text>
+          <Text style={s.title}>◆ Pépites</Text>
+          <Text style={s.subtitle}>Collections · FREE ou €</Text>
         </View>
         {/* Adel (21/09/2026, mission 3/3) : "Écran historique des déblocages"
             -- lecture seule, séparé de ce panneau de gestion. */}
@@ -323,7 +327,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           <>
             {/* Accès */}
             <View style={[s.accessCard, access.unlocked && s.accessCardUnlocked]}>
-              <Text style={s.accessEyebrow}>ACCÈS COLLECTIONS</Text>
+              <Text style={s.accessEyebrow}>CRÉER UNE COLLECTION</Text>
               <View style={s.accessRow}>
                 <View style={s.accessStat}>
                   <Text style={s.accessValue}>{access.followers}</Text>
@@ -345,7 +349,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                   <Text style={s.accessHint}>
                     🔒 Il te manque {Math.max(access.threshold - access.followers, 0)} abonné{Math.max(access.threshold - access.followers, 0) > 1 ? 's' : ''}. Fais grandir ta communauté pour débloquer la publication.
                   </Text>
-                  <Text style={s.accessBenefit}>Une collection = un seul titre, plusieurs morceaux. En € : tu choisis ton paiement direct. En FREE : tu facilites les déblocages, les écoutes et la croissance de ta communauté.</Text>
+                  <Text style={s.accessBenefit}>Une collection = un nom + plusieurs morceaux. En € : paiement direct. En FREE : déblocage dans la communauté.</Text>
                   <TouchableOpacity
                     style={[s.createCollectionBtn, s.createCollectionBtnLocked]}
                     onPress={() => Alert.alert('Collections verrouillées', `Atteins ${access.threshold} abonnés pour publier. Tu en as ${access.followers}. Une fois débloqué, tu pourras choisir € ou FREE pour toute la collection.`)}
@@ -356,8 +360,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 </>
               ) : (
                 <>
-                  <Text style={s.accessBenefit}>Crée une playlist/collection avec plusieurs morceaux. Son titre devient le seul produit visible : jamais de vente morceau par morceau. Choisis ensuite obligatoirement € ou FREE.</Text>
-                  <Text style={s.collectionLimitText}>Collections actives : {access.activeOffers} / {access.maxActiveOffers} · 200 morceaux maximum par collection</Text>
+                  <Text style={s.accessBenefit}>Parcours simple : 1. choisis tes morceaux · 2. choisis FREE ou € · 3. publie.</Text>
+                  <Text style={s.collectionLimitText}>Collections actives : {access.activeOffers} / {access.maxActiveOffers} · 200 morceaux maximum</Text>
                   <TouchableOpacity
                     style={[s.createCollectionBtn, activeLimitReached && s.createCollectionBtnLocked]}
                     onPress={() => activeLimitReached
@@ -371,6 +375,30 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               )}
             </View>
 
+            <View style={s.modeDashboard}>
+              <View style={s.modeDashboardHead}>
+                <View>
+                  <Text style={s.modeDashboardEyebrow}>TES COLLECTIONS PUBLIÉES</Text>
+                  <Text style={s.modeDashboardTitle}>{published.length} collection{published.length > 1 ? 's' : ''}</Text>
+                </View>
+                <View style={s.modeCounts}>
+                  <Text style={s.modeCountFree}>⚡ {freePublished.length} FREE</Text>
+                  <Text style={s.modeCountMoney}>€ {moneyPublished.length} EUROS</Text>
+                </View>
+              </View>
+              <View style={s.modeTabs}>
+                {([
+                  ['ALL', 'TOUTES', published.length],
+                  ['FREE', '⚡ FREE', freePublished.length],
+                  ['MONEY', '€ EUROS', moneyPublished.length],
+                ] as const).map(([key, label, count]) => (
+                  <TouchableOpacity key={key} style={[s.modeTab, offerFilter === key && s.modeTabOn]} onPress={() => setOfferFilter(key)} accessibilityRole="button" accessibilityState={{ selected: offerFilter === key }}>
+                    <Text style={[s.modeTabText, offerFilter === key && s.modeTabTextOn]}>{label} · {count}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={s.modeDashboardHint}>{offerFilter === 'FREE' ? 'Collections débloquées avec des FREE Loki Music.' : offerFilter === 'MONEY' ? 'Collections en euros avec paiement direct sur le lien personnel du vendeur.' : 'Filtre tes collections sans mélanger FREE et argent réel.'}</Text>
+            </View>
             {/* Adel (21/09/2026, décision 2) : encart permanent -- le
                 fonctionnement reste manuel tant que l'API de paiement
                 réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
@@ -391,14 +419,14 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
             {/* Offres Actives */}
             {published.length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>MES COLLECTIONS PUBLIÉES ({published.length})</Text>
-                <Text style={s.sectionHint}>Chaque carte est un lot complet. Modifie les morceaux, puis choisis € ou FREE sans recréer la collection ni perdre son historique.</Text>
-                <FlatList
+                <Text style={s.sectionTitle}>{offerFilter === 'FREE' ? 'COLLECTIONS FREE' : offerFilter === 'MONEY' ? 'COLLECTIONS EN EUROS' : 'TOUTES LES COLLECTIONS'} ({filteredPublished.length})</Text>
+                <Text style={s.sectionHint}>Chaque carte est un lot complet. FREE et euros sont séparés visuellement.</Text>
+                {filteredPublished.length ? <FlatList
                   scrollEnabled={false}
-                  data={published}
+                  data={filteredPublished}
                   keyExtractor={(item) => item.offerId || item.playlistId}
                   renderItem={({ item }) => (
-                    <View style={[s.offerCard, focusOfferId && (item.offerId === focusOfferId || item.playlistId === focusOfferId) && s.offerCardFocus]}>
+                    <View style={[s.offerCard, item.paymentMode === 'FREE' ? s.offerCardFree : s.offerCardMoney, focusOfferId && (item.offerId === focusOfferId || item.playlistId === focusOfferId) && s.offerCardFocus]}>
                       <View style={s.offerTop}>
                         <View style={s.offerInfo}>
                           <Text style={s.offerName}>{item.playlistName}</Text>
@@ -410,8 +438,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                           {item.genres?.length ? <Text style={s.offerDate}>{item.genres.slice(0, 4).join(' · ')}</Text> : null}
                           <Text style={s.offerDate}>{item.trackCount ?? 0} morceau{(item.trackCount ?? 0) > 1 ? 'x' : ''} dans ce lot</Text>
                         </View>
-                        <View style={s.offerBadge}>
-                          <Text style={s.offerBadgeText}>PUBLIÉE</Text>
+                        <View style={[s.offerBadge, item.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
+                          <Text style={s.offerBadgeText}>{item.paymentMode === 'FREE' ? '⚡ FREE' : '€ EUROS'}</Text>
                         </View>
                       </View>
                       <Text style={s.offerDate}>Mise à jour: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
@@ -456,7 +484,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       </View>
                     </View>
                   )}
-                />
+                /> : <View style={s.filterEmpty}><Text style={s.filterEmptyTitle}>Aucune collection dans ce mode</Text><Text style={s.filterEmptyText}>Change de filtre ou crée une nouvelle collection.</Text></View>}
               </View>
             )}
 
@@ -706,6 +734,10 @@ const s = StyleSheet.create({
   createCollectionBtn: { minHeight: 48, marginTop: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   createCollectionBtnLocked: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
   createCollectionBtnText: { color: colors.white, fontSize: 12, fontWeight: '900', letterSpacing: .35 },
+  modeDashboard:{borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:spacing.md},
+  modeDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},modeDashboardEyebrow:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:1},modeDashboardTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',marginTop:3},modeCounts:{alignItems:'flex-end',gap:3},modeCountFree:{color:colors.keep,fontSize:10,fontWeight:'900'},modeCountMoney:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  modeTabs:{flexDirection:'row',gap:7,marginTop:14},modeTab:{flex:1,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:5},modeTabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},modeTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},modeTabTextOn:{color:colors.textPrimary},modeDashboardHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:9},
+  filterEmpty:{borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},filterEmptyTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},filterEmptyText:{color:colors.textMuted,fontSize:10,marginTop:4,textAlign:'center'},
   manualNotice: { marginTop: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
   manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
@@ -728,12 +760,14 @@ const s = StyleSheet.create({
   sectionTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.md },
   sectionHint: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 16, marginTop: -6, marginBottom: spacing.md },
   offerCard: { borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md },
+  offerCardFree:{borderColor:'rgba(45,225,194,.45)'},offerCardMoney:{borderColor:'rgba(168,132,250,.50)'},
   offerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm },
   offerInfo: { flex: 1 },
   offerName: { color: colors.textPrimary, fontSize: 14, fontWeight: '900' },
   offerPrice: { color: colors.success, fontSize: 16, fontWeight: '900', marginTop: 2 },
-  offerBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, backgroundColor: colors.success },
-  offerBadgeText: { color: colors.background, fontSize: 11, fontWeight: '900' },
+  offerBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, borderWidth:1 },
+  offerBadgeFree:{backgroundColor:'rgba(45,225,194,.12)',borderColor:colors.keep},offerBadgeMoney:{backgroundColor:colors.primaryFaint,borderColor:colors.primaryLight},
+  offerBadgeText: { color: colors.textPrimary, fontSize: 10, fontWeight: '900' },
   offerBadgeRetired: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   offerBadgeTextRetired: { color: colors.textMutedGrey },
   offerCardRetired: { opacity: .75 },
