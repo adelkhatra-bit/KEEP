@@ -14,8 +14,9 @@ describe('PublicUserProfileScreen Loki Music DNA compaction (Adel, 21/09/2026 : 
   });
 
   it('keeps compact music-style pills visible even while DNA is collapsed, with full detail behind the chevron', () => {
-    expect(visited).toContain('<View style={styles.chips}>');
-    expect(visited).toContain('profile.favoriteGenres.slice(0, 4).map');
+    expect(visited).toContain('testID="visitor-music-style-bubbles"');
+    expect(visited).toContain('genres={visitorStyleBubbles}');
+    expect(visited).toContain('<MusicStyleBubbles');
     expect(visited).toContain("openBrowseSwipe({ type: 'genre'");
     // Le détail complet (puces cliquables Styles + Artistes) reste présent derrière le chevron.
     expect(visited).toContain('<Text style={styles.dnaRowLabel}>STYLES</Text>');
