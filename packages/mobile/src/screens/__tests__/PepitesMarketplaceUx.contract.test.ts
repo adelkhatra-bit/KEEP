@@ -24,8 +24,9 @@ describe('Pépites marketplace professional flow', () => {
   });
 
   it('preloads and saves the seller payout link inline', () => {
-    expect(panel).toContain('getPayoutLinkForProfile(user.id)');
+    expect(panel).toContain('getMyPayoutMethods()');
     expect(panel).toContain('setMyPayoutLink(clean)');
     expect(panel).toContain('OUVRIR PAYPAL.ME');
+    expect(panel).toContain('PayPalQrPayoutControl');
   });
 });
