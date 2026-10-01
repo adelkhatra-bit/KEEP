@@ -4,6 +4,8 @@ export type GlobalChatTarget = {
   roomSlug?: string | null;
   targetProfileId?: string | null;
   targetUsername?: string | null;
+  groupId?: string | null;
+  groupName?: string | null;
   messageId?: number | null;
 };
 
