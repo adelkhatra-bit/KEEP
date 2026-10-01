@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.3**  
+Version : **2026-10-01.4**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -112,11 +112,12 @@ Zone identité :
 1. avatar ;
 2. pseudo + certification ;
 3. type Fan / Créateur / DJ / Artiste / Producteur / Lieu ;
-4. Battle dans la même zone identité, à droite ;
-5. ville / pays dessous.
+4. **FREE immédiatement à droite du type de profil**, sur le même axe et à la même hauteur ;
+5. Battle dans la même zone identité, à droite ;
+6. ville / pays dessous.
 
-Barre suivante verrouillée : **PLUS | Abonnés | Reprises | FREE**.
-**FREE est immédiatement à droite de Reprises et n'apparaît nulle part à côté du type de profil.**
+Barre suivante verrouillée : **PLUS | Abonnés | Reprises**.
+**FREE apparaît une seule fois, dans la zone identité à côté du type de profil, jamais en doublon dans la barre des compteurs.**
 
 Bas du profil propriétaire :
 - **Mes réseaux** ;
@@ -124,12 +125,12 @@ Bas du profil propriétaire :
 - **Partager mon profil** immédiatement après Loki Pulse.
 
 Interdictions :
-- FREE apparaît exactement une fois dans la barre des compteurs ;
+- FREE apparaît exactement une fois à côté du type de profil ;
 - une correction UI ne doit jamais écrire ou réinitialiser la certification ou le solde FREE en production ;
 - certification = donnée réelle Supabase `profiles.certification_tier` ;
 - solde FREE = donnée réelle issue des RPC de crédit existantes ;
-- ne pas déplacer FREE hors de la position immédiatement après Reprises pour corriger un autre module.
-- le nombre FREE principal reste uniquement dans la barre `PLUS | Abonnés | Reprises | FREE` ;
+- ne pas déplacer FREE dans la barre des compteurs pour corriger un autre module ;
+- le nombre FREE principal reste uniquement dans la zone identité `type de profil | FREE | Battle` ;
 - quand l’utilisateur ouvre le détail FREE, **ne pas répéter “FREE disponibles”** : la première statistique est **FREE dépensés aujourd’hui** pour les vrais GARDER débités ;
 - cette dépense quotidienne vient du journal serveur `keep_free_spend_events` / RPC `keep_free_spent_today`, avec le montant réellement débité au moment de l’action ; ne jamais la recalculer avec le prix actuel ;
 - une reprise sociale à 0 FREE ne compte jamais comme dépense ;
@@ -258,3 +259,13 @@ Après une nouvelle règle validée :
 En cas de conflit entre un vieux commentaire, un vieux test, un ancien message agent et une décision plus récente d'Adel, la décision explicite la plus récente + `config/keep-product-contract.json` gagnent.
 
 Le dernier cahier des charges validé remplace les anciennes consignes contradictoires.
+
+## 18. Tchat — propriété musicale et revente
+
+- Un morceau provenant d’un autre utilisateur peut être **partagé** et **écouté** dans le Tchat.
+- Il ne peut jamais être revendu par ce second utilisateur contre des **FREE** ni contre de l’**argent**.
+- Dans le sélecteur et le composer, les choix payants affichent un **cadenas visible** quand la revente est interdite ; le partage standard reste disponible.
+- La provenance du morceau reste enregistrée et visible : premier découvreur / profil source.
+- Le blocage n’est jamais seulement visuel : Supabase doit refuser toute tentative de revente non autorisée.
+- Si le destinataire possède déjà le morceau, Loki ne doit créer ni vente ni débit FREE inutile.
+
