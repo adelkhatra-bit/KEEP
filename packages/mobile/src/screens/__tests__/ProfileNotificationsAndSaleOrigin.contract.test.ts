@@ -22,19 +22,20 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(bellBlock).not.toContain("navigation.navigate('Notifications')");
   });
 
-  it('keeps chat out of the hamburger and accessible from notifications', () => {
+  it('keeps chat out of the hamburger and accessible from the bell message tab', () => {
     expect(profile).not.toContain("title: 'TCHAT'");
-    expect(notificationPanel).toContain('onOpenChat');
-    expect(notificationPanel).toContain('>TCHAT<');
+    expect(notificationPanel).toContain("activeTab === 'MESSAGES'");
+    expect(notificationPanel).toContain('OUVRIR LA CONVERSATION');
+    expect(notificationPanel).toContain('useGlobalChatStore');
   });
 
   it('opens the exact chat target from an AGORA notification and keeps the nudge visible longer', () => {
-    expect(notificationPanel).toContain("type.startsWith('AGORA')");
+    expect(notificationPanel).toContain("value.startsWith('AGORA')");
     expect(notificationPanel).toContain('roomSlug');
     expect(notificationPanel).toContain('targetProfileId');
     expect(notificationPanel).toContain('targetUsername');
     expect(notificationPanel).toContain('messageId');
-    expect(profile).toContain('onOpenChat={(target) => useGlobalChatStore.getState().open(target ?? null)}');
+    expect(notificationPanel).toContain('useGlobalChatStore.getState().open(target)');
     expect(profile).toContain('}, 7000);');
   });
 
