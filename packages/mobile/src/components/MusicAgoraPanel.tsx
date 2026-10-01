@@ -207,7 +207,9 @@ export default function MusicAgoraPanel({
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const show = Keyboard.addListener(showEvent, (event) => {
       const reportedHeight = Math.max(0, Number(event.endCoordinates?.height || 0));
-      setKeyboardInset(reportedHeight);
+      const reportedTop = Math.max(0, Number(event.endCoordinates?.screenY || 0));
+      const coveredByTop = reportedTop > 0 ? Math.max(0, baseViewportHeightRef.current - reportedTop) : 0;
+      setKeyboardInset(Math.max(reportedHeight, coveredByTop));
       setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
     });
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
@@ -217,7 +219,14 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 92;
+  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
+  const compactPanelHeight = Math.min(
+    470,
+    Math.max(280, baseViewportHeightRef.current - (keyboardInset > 0 ? keyboardInset + 84 : 190)),
+  );
+  const compactTop = keyboardInset > 0
+    ? undefined
+    : Math.max(54, Math.round((baseViewportHeightRef.current - compactPanelHeight) / 2));
 
   useEffect(() => {
     if (!enabled) {
@@ -922,9 +931,13 @@ export default function MusicAgoraPanel({
     style={[
       s.shell,
       compact && s.shellCompact,
-      compact && (keyboardInset > 0
-        ? { top: 54, bottom: compactBottom, minHeight: 0 }
-        : { top: 54, bottom: 92, minHeight: 0 }),
+      compact && {
+        top: compactTop,
+        bottom: keyboardInset > 0 ? compactBottom : undefined,
+        height: compactPanelHeight,
+        minHeight: 0,
+        maxHeight: compactPanelHeight,
+      },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
