@@ -308,7 +308,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>{activeTab === 'MESSAGES' ? '💬' : '🔔'}</Text><Text style={s.emptyTitle}>{activeTab === 'MESSAGES' ? 'Aucun message' : 'Rien de nouveau'}</Text><Text style={s.empty}>{activeTab === 'MESSAGES' ? 'Tes nouveaux messages apparaîtront ici, séparés des autres notifications.' : 'Tes Battles, reprises, visites, événements et gains apparaîtront ici.'}</Text></View> : null}
               {items.filter((item) => activeTab === 'MESSAGES' ? isChatNotificationType(item.type) : !isChatNotificationType(item.type)).map((item) => {
                 const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
-                const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
                 const expanded = expandedId === item.id;
                 const type = String(item.type || '').toUpperCase();
                 const chatAction = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' || type.startsWith('AGORA');
