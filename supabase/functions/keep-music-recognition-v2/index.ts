@@ -173,6 +173,8 @@ async function normalizeResult(result: any) {
     isrc: result.isrc ? String(result.isrc) : apple?.isrc ? String(apple.isrc) : spotify?.external_ids?.isrc ? String(spotify.external_ids.isrc) : undefined,
     artworkUrl: artwork ? upscaleArtwork(String(artwork)) : undefined,
     previewUrl: catalog?.previewUrl ? String(catalog.previewUrl) : deezer?.preview ? String(deezer.preview) : undefined,
+    genres: catalog?.primaryGenreName ? [String(catalog.primaryGenreName)] : [],
+    releaseYear: /^\d{4}/.test(String(catalog?.releaseDate ?? '')) ? Number(String(catalog.releaseDate).slice(0, 4)) : undefined,
     availableOn: [spotifyId ? "Spotify" : null, (appleId || catalog?.trackViewUrl) ? "Apple Music" : null, deezerId ? "Deezer" : null].filter(Boolean),
     externalUrls,
     providerIds,
