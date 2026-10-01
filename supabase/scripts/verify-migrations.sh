@@ -148,6 +148,20 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
   name=$(basename "$f")
   echo "  -> $name"
 
+  # Legacy production drift before 20260928000500:
+  # production already had Solo progress columns and the two-argument RPC
+  # shape before this historical file was recorded. Migration history is
+  # immutable, so the replay harness reproduces that pre-existing managed
+  # state instead of rewriting an old production migration.
+  if [ "$name" = "20260928000500_include_active_solo_players_in_battle_picker.sql" ]; then
+    pg -d "$DB" <<'SQL' >/dev/null
+alter table public.keep_battle_solo_presence
+  add column if not exists solo_round_index integer,
+  add column if not exists solo_round_total integer;
+drop function if exists public.keep_battle_solo_available(integer,integer);
+SQL
+  fi
+
   # Supabase fournit pg_cron/pg_net comme extensions managées. Le CI plain
   # PostgreSQL utilise les shims ci-dessus et retire uniquement les deux
   # instructions CREATE EXTENSION qui ne sont pas installables ici.
