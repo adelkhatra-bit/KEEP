@@ -7,6 +7,7 @@ import OnboardingGenresScreen from './OnboardingGenresScreen';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
+import { useAccountGateStore } from '../../store/useAccountGateStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
 
@@ -152,6 +153,7 @@ export default function OnboardingScreen() {
       return;
     }
     closeAccount();
+    useAccountGateStore.getState().handleSuccess();
   };
 
   const continueWithoutSignup = async () => {
@@ -168,8 +170,8 @@ export default function OnboardingScreen() {
   if (genresOpen) {
     return (
       <OnboardingGenresScreen
-        onDone={() => { setGenresOpen(false); closeAccount(); }}
-        onSkip={() => { setGenresOpen(false); closeAccount(); }}
+        onDone={() => { setGenresOpen(false); closeAccount(); useAccountGateStore.getState().handleSuccess(); }}
+        onSkip={() => { setGenresOpen(false); closeAccount(); useAccountGateStore.getState().handleSuccess(); }}
       />
     );
   }

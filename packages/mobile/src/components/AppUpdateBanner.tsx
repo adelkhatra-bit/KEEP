@@ -17,9 +17,9 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
   const webReloadingRef = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return undefined;
+    if (!authReady || Platform.OS !== 'web') return undefined;
     void checkNow();
-    const interval = setInterval(() => { void checkNow(); }, 30_000);
+    const interval = setInterval(() => { void checkNow(); }, 60_000);
     const onVisible = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         void checkNow();
@@ -30,16 +30,16 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
       clearInterval(interval);
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [checkNow]);
+  }, [authReady, checkNow]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;
+    if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;
     webReloadingRef.current = true;
     reloadToLatest();
-  }, [latestSha]);
+  }, [authReady, latestSha]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || __DEV__) return undefined;
+    if (!authReady || Platform.OS === 'web' || __DEV__) return undefined;
     let active = true;
 
     const applySilently = async () => {
@@ -58,7 +58,7 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
 
     void applySilently();
     return () => { active = false; };
-  }, []);
+  }, [authReady]);
 
   return null;
 }

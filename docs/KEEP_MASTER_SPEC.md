@@ -51,6 +51,8 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 - `html`, `body` et `#root` gardent une hauteur viewport valide.
 - Les 5 onglets restent visibles.
 - Aucun débordement horizontal critique.
+- Les mises à jour Web/OTA sont automatiques et silencieuses : aucun bandeau, bouton « Actualiser / Mettre à jour » ou carte de version n'est montré à l'utilisateur.
+- Un reload automatique attend obligatoirement la fin du bootstrap Auth Supabase ; il ne peut jamais partir pendant la restauration de session.
 
 ## 5. Écouter
 

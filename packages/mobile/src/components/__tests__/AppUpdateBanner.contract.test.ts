@@ -13,12 +13,15 @@ describe('silent app update contract', () => {
     expect(source).not.toContain('<TouchableOpacity');
   });
 
-  it('checks web deployment state and applies a newer bundle automatically', () => {
+  it('waits for auth bootstrap, then checks web deployment state and applies a newer bundle automatically', () => {
+    expect(source).toContain('authReady');
+    expect(source).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
     expect(source).toContain('useAppUpdateStore');
     expect(source).toContain('latestSha');
     expect(source).toContain('void checkNow()');
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
     expect(source).toContain('reloadToLatest()');
+    expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
   });
 
   it('auto-applies a compatible production OTA on native TestFlight launches', () => {
@@ -26,6 +29,6 @@ describe('silent app update contract', () => {
     expect(source).toContain('Updates.checkForUpdateAsync()');
     expect(source).toContain('Updates.fetchUpdateAsync()');
     expect(source).toContain('Updates.reloadAsync()');
-    expect(source).toContain("Platform.OS === 'web' || __DEV__");
+    expect(source).toContain("!authReady || Platform.OS === 'web' || __DEV__");
   });
 });

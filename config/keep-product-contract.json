@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.27",
+  "version": "2026-10-01.28",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -507,12 +507,13 @@
   },
   "webUpdateExperience": {
     "autoDetectNewPublishedSha": true,
-    "fullBannerWhenNewVersion": true,
-    "allowLater": true,
-    "desktopManualUpdateControlAlwaysVisible": true,
-    "desktopManualUpdateControlMinWidth": 768,
-    "manualUpdateUsesCacheBustedCanonicalReload": true,
-    "visualGuardViewport": "1440x900"
+    "userFacingUpdateUi": false,
+    "manualRefreshControl": false,
+    "silentAutomaticApply": true,
+    "waitForAuthBootstrapBeforeReload": true,
+    "webCheckIntervalSeconds": 60,
+    "silentReloadUsesCacheBustedCanonicalReload": true,
+    "nativeCompatibleOtaAutoApply": true
   },
   "battleAudioFairness": {
     "serverClockSource": "round.startedAt",

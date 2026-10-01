@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import './src/i18n';
@@ -11,7 +11,6 @@ import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
 import { useUserStore } from './src/store/useUserStore';
-import { useAppUpdateStore } from './src/store/useAppUpdateStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
@@ -47,6 +46,7 @@ export default function App() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
+  const [authReady, setAuthReady] = useState(() => process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' || !isSupabaseConfigured || !supabase);
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
@@ -78,30 +78,8 @@ export default function App() {
     }
   }, []);
 
-  // Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
-  // puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
-  // ferai plus tard" -- vérifie périodiquement si le bundle déployé est plus
-  // récent que celui chargé (voir useAppUpdateStore), et revérifie chaque
-  // fois que l'onglet redevient visible (retour d'un switch d'app), pas
-  // seulement sur une minuterie fixe.
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    void useAppUpdateStore.getState().checkNow();
-    const interval = setInterval(() => { void useAppUpdateStore.getState().checkNow(); }, 15 * 60 * 1000);
-    const onVisible = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        void useAppUpdateStore.getState().checkNow();
-      }
-    };
-    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(interval);
-      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user || isDemoMode || (user.city && user.countryCode)) return;
+    if (!authReady || !user || isDemoMode || (user.city && user.countryCode)) return;
     let cancelled = false;
 
     const autoFillLocation = async () => {
@@ -133,11 +111,15 @@ export default function App() {
 
     void autoFillLocation();
     return () => { cancelled = true; };
-  }, [isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
+  }, [authReady, isDemoMode, updateUser, user?.city, user?.countryCode, user?.id]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase) {
+      setAuthReady(true);
+      return;
+    }
 
+    let active = true;
     const authService = createAuthService(supabase);
     const profileService = createProfileService(supabase);
     let profileLoadedFor: string | null = null;
@@ -208,7 +190,14 @@ export default function App() {
       }
     };
 
-    void authService.getCurrentSession().then(handleSession);
+    void authService.getCurrentSession()
+      .then(async (session) => {
+        await handleSession(session);
+        if (active) setAuthReady(true);
+      })
+      .catch(() => {
+        if (active) setAuthReady(true);
+      });
     const unsubscribeAuth = authService.onSessionChange((session) => {
       void handleSession(session);
     });
@@ -228,6 +217,7 @@ export default function App() {
     });
 
     return () => {
+      active = false;
       if (saveTimer) clearTimeout(saveTimer);
       unsubscribeStore();
       unsubscribeAuth();
@@ -236,10 +226,10 @@ export default function App() {
 
   return (
     <>
-      {user ? <Navigation /> : <OnboardingScreen />}
-      {user ? <GlobalNotificationBanner /> : null}
-      {user ? <GlobalChatDock /> : null}
-      <AppUpdateBanner />
+      {authReady ? (user ? <Navigation /> : <OnboardingScreen />) : <View style={{ flex: 1, backgroundColor: colors.background }} />}
+      {authReady && user ? <GlobalNotificationBanner /> : null}
+      {authReady && user ? <GlobalChatDock /> : null}
+      <AppUpdateBanner authReady={authReady} />
       <AlertHost />
       <AccountGateModal />
       <StatusBar style="light" backgroundColor={colors.background} />
