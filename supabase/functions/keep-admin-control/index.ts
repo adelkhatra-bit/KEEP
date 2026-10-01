@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
+import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -423,32 +424,18 @@ async function setRecognitionRuntimeStatus(key: string, status: string, message:
 // _shared/ trois lignes plus haut. escapeHtml/shellHtml deplaces vers
 // _shared/lokiEmailShell.ts (lokiEmailCtaShell), source unique desormais.
 
-async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
-  const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-  const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
-  if (!senderEmail) return { ok: false, status: 409, error: "sender_not_configured" };
-
-  const mjKey = await getSecret("MAILJET_API_KEY");
-  const mjSecret = await getSecret("MAILJET_SECRET_KEY");
-  if (mjKey && mjSecret) {
-    const response = await fetch("https://api.mailjet.com/v3.1/send", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Basic ${btoa(`${mjKey}:${mjSecret}`)}` },
-      body: JSON.stringify({ Messages: [{ From: { Email: senderEmail, Name: senderName }, To: [{ Email: to }], Subject: subject, HTMLPart: html, TextPart: text }] }),
-    });
-    if (!response.ok) return { ok: false, status: response.status, error: "mailjet_send_failed", details: (await response.text()).slice(0, 500) };
-    return { ok: true, provider: "mailjet" };
-  }
-
-  const apiKey = await getSecret("BREVO_API_KEY");
-  if (!apiKey) return { ok: false, status: 409, error: "email_provider_not_configured" };
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "content-type": "application/json", "api-key": apiKey, accept: "application/json" },
-    body: JSON.stringify({ sender: { email: senderEmail, name: senderName }, to: [{ email: to }], subject, htmlContent: html, textContent: text }),
-  });
-  if (!response.ok) return { ok: false, status: response.status, error: "brevo_send_failed", details: (await response.text()).slice(0, 500) };
-  return { ok: true, provider: "brevo" };
+async function sendViaConfiguredProvider(to: string, subject: string, html: string, text: string): Promise<{ ok: true; provider: "resend" | "mailjet" | "brevo" } | { ok: false; status: number; error: string; details?: string }> {
+  const sent = await sendTransactionalEmail(
+    to,
+    subject,
+    html,
+    text,
+    "admin-test",
+    "keep-admin-control",
+  );
+  return sent.ok
+    ? { ok: true, provider: sent.provider }
+    : { ok: false, status: 503, error: sent.error, details: sent.detail };
 }
 
 function generateTemporaryPassword() {
@@ -763,9 +750,8 @@ Deno.serve(async (req) => {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
       const email = String(body?.email ?? "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(400, { error: "invalid_email" });
-      const senderEmail = await getSecret("BREVO_SENDER_EMAIL");
-      const senderName = (await getSecret("BREVO_SENDER_NAME")) ?? "Loki Music";
-      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne BREVO_SENDER_EMAIL (l'identité d'expéditeur Loki Music, partagée par tous les fournisseurs)." });
+      const senderEmail = (await getSecret("EMAIL_SENDER_ADDRESS")) ?? (await getSecret("BREVO_SENDER_EMAIL"));
+      if (!senderEmail) return json(409, { error: "sender_not_configured", message: "Renseigne EMAIL_SENDER_ADDRESS avec une adresse sur ton domaine vérifié." });
 
       const subject = "Loki Music — test e-mail réussi";
       const html = lokiEmailShell(
@@ -780,7 +766,7 @@ Deno.serve(async (req) => {
       // gratuit" -- Mailjet en alternative a Brevo (meme bascule automatique
       // que keep-auth-email : Mailjet en priorite s'il est configure).
       const sent = await sendViaConfiguredProvider(email, subject, html, text);
-      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne MAILJET_API_KEY+MAILJET_SECRET_KEY, ou BREVO_API_KEY." : undefined, details: sent.details });
+      if (!sent.ok) return json(sent.status, { error: sent.error, message: sent.status === 409 ? "Renseigne RESEND_API_KEY + EMAIL_SENDER_ADDRESS, ou configure Mailjet/Brevo en secours." : undefined, details: sent.details });
       await audit(actor.id, "integration_email.tested", sent.provider, email, { ok: true });
       return json(200, { ok: true, provider: sent.provider });
     }
