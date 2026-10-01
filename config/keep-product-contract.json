@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.32",
+  "version": "2026-10-01.33",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -554,7 +554,14 @@
     "actionsWrapOnNarrowPhones": true,
     "keepsPublicAndPrivateChatFeatures": true
   },
-  "lokiPulseStyleBubbles": {
+  "lokiPulseBubbles": {
+    "homeAlwaysVisibleWhenStylesExist": true,
+    "ownProfileAlwaysVisibleWhenStylesExist": true,
+    "publicProfileAlwaysVisibleWhenStylesExist": true,
+    "neverHiddenBehindDnaAccordion": true,
+    "neverGatedByKeepDnaFeatureFlag": true,
+    "sharedMergeRule": "packages/mobile/src/services/musicStyleBubbles.ts",
+    "visibleBranding": "LOKI PULSE",
     "canonicalSurfaces": [
       "LISTEN_HOME",
       "OWNER_PROFILE",
@@ -564,14 +571,5 @@
     "homeReplacesLokiMusicDna": true,
     "usesFavoriteGenresFallback": true,
     "regressionGuardRequired": true
-  },
-  "lokiPulseBubbles": {
-    "homeAlwaysVisibleWhenStylesExist": true,
-    "ownProfileAlwaysVisibleWhenStylesExist": true,
-    "publicProfileAlwaysVisibleWhenStylesExist": true,
-    "neverHiddenBehindDnaAccordion": true,
-    "neverGatedByKeepDnaFeatureFlag": true,
-    "sharedMergeRule": "packages/mobile/src/services/musicStyleBubbles.ts",
-    "visibleBranding": "LOKI PULSE"
   }
 }

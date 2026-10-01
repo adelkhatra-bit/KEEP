@@ -16,17 +16,18 @@ describe('Loki Pulse bubbles permanent placement', () => {
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI MUSIC DNA</Text>');
   });
 
-  it('keeps the owner profile Loki Pulse bubbles visible outside the collapsible DNA details', () => {
-    expect(owner).toContain('testID="profile-loki-pulse-card"');
-    expect(owner).toContain('testID="profile-loki-pulse-bubbles"');
-    expect(owner).toContain('<Text style={s.pulseBubbleEyebrow}>LOKI PULSE</Text>');
-    expect(owner.indexOf('testID="profile-loki-pulse-card"')).toBeLessThan(owner.indexOf('ownerDnaExpanded ?'));
+  it('keeps owner profile bubbles permanently visible without a DNA accordion', () => {
+    expect(owner).toContain('testID="profile-loki-pulse-bubbles-card"');
+    expect(owner).toContain('testID="profile-music-style-bubbles"');
+    expect(owner).toContain('<Text style={s.dnaEyebrow}>LOKI PULSE</Text>');
+    expect(owner).not.toContain('ownerDnaExpanded');
+    expect(owner).not.toContain("isFeatureEnabled('keep_dna')");
   });
 
-  it('keeps visited-profile Loki Pulse bubbles visible independently of the DNA accordion', () => {
-    expect(visitor).toContain('testID="visitor-loki-pulse-card"');
-    expect(visitor).toContain('testID="visitor-loki-pulse-bubbles"');
-    expect(visitor).toContain('<Text style={styles.pulseBubbleEyebrow}>LOKI PULSE</Text>');
-    expect(visitor.indexOf('testID="visitor-loki-pulse-card"')).toBeLessThan(visitor.indexOf('dnaExpanded ?'));
+  it('keeps visited-profile bubbles permanently visible without a DNA accordion', () => {
+    expect(visitor).toContain('testID="public-profile-loki-pulse-bubbles-card"');
+    expect(visitor).toContain('testID="public-profile-music-style-bubbles"');
+    expect(visitor).toContain('<Text style={styles.dnaEyebrow}>LOKI PULSE</Text>');
+    expect(visitor).not.toContain('dnaExpanded');
   });
 });
