@@ -469,6 +469,7 @@ export default function GlobalChatDock() {
           ]}
         >
           <TouchableOpacity
+            testID="loki-global-chat-drawer"
             style={styles.fab}
             onPress={() => { void toggle(); }}
             accessibilityRole="button"
