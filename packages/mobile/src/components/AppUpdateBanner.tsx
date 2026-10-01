@@ -19,11 +19,11 @@ export default function AppUpdateBanner() {
     return () => clearInterval(timer);
   }, [checkNow]);
 
-  if (Platform.OS !== 'web' || !latestSha) return null;
+  if (Platform.OS !== 'web' || width < 768 || !latestSha) return null;
 
   return (
     <View
-      style={[s.wrap, width < 768 && s.wrapCompact]}
+      style={s.wrap}
       pointerEvents="box-none"
       testID="keep-update-available-button"
     >
@@ -48,11 +48,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     zIndex: 190,
     pointerEvents: 'box-none',
-  },
-  wrapCompact: {
-    bottom: 132,
-    alignItems: 'flex-start',
-    paddingLeft: 10,
   },
   button: {
     minHeight: 36,
