@@ -1518,6 +1518,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <MusicAgoraPanel
         currentProfileId={user.id}
         enabled={!accountRequired}
+        shareableTracks={publicKeptTracks.map((entry) => entry.track)}
         onOpenProfile={(username) => {
           setMenuOpen(false);
           setExpandedMenuItem(null);
