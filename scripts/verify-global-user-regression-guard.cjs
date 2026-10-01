@@ -84,8 +84,8 @@ requireText(
 );
 requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
-  'if (!accountReady || !chatEnabled || !user) return null;',
-  'un compte réel ne suffit pas à forcer un réglage Tchat désactivé',
+  'if (!previewOnly && !settingsOpen && (!accountReady || !chatEnabled)) return null;',
+  'un compte réel ne suffit pas à forcer un réglage Tchat désactivé, hors aperçu visuel et panneau de réglages',
 );
 
 // 6) Soirées / Playlists : explications derrière un ? compact, pas de mur de texte.
