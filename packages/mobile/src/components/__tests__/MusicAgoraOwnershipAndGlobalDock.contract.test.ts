@@ -13,6 +13,7 @@ describe('Music Agora ownership + global dock contract', () => {
   const dock = read(components, 'GlobalChatDock.tsx');
   const panel = read(components, 'MusicAgoraPanel.tsx');
   const service = read(mobile, 'src', 'services', 'musicAgoraService.ts');
+  const myMusic = read(mobile, 'src', 'screens', 'MyMusicScreen.tsx');
   const ownership = read(repoRoot, 'supabase', 'migrations', '20261001214500_chat_music_ownership_and_resale_guard.sql');
   const paidShare = read(repoRoot, 'supabase', 'migrations', '20261001215000_chat_paid_share_v4.sql');
 
@@ -56,5 +57,15 @@ describe('Music Agora ownership + global dock contract', () => {
     expect(panel).toContain('mise à l’écoute par @');
     expect(service).toContain("supabase.rpc('keep_agora_messages_v5'");
     expect(service).toContain("supabase.rpc('keep_agora_post_message_v4'");
+  });
+
+  it('keeps external euro unlocks web-only for digital music', () => {
+    expect(panel).toContain("Platform.OS === 'web' ? <TouchableOpacity");
+    expect(panel).toContain("sharePaymentMode === 'MONEY' && Platform.OS === 'web'");
+    expect(panel).toContain("message.paymentMode === 'MONEY' && Platform.OS !== 'web'");
+    expect(panel).toContain('€ INDISPONIBLE SUR L’APP');
+    expect(myMusic).toContain("sellPaymentMode === 'MONEY' && Platform.OS !== 'web'");
+    expect(myMusic).toContain("Platform.OS === 'web' ? <TouchableOpacity");
+    expect(myMusic).toContain('Paiement € indisponible dans l’app');
   });
 });
