@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { KeepNotification, loadNotifications, markAllNotificationsRead, markNotificationRead, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, NotificationPreferences, loadNotificationPreferences, loadNotifications, markAllNotificationsRead, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
 import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
 import { loadCurrentPlanCode } from '../services/planService';
@@ -62,10 +62,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const slide = useRef(new Animated.Value(1)).current;
   const [items, setItems] = useState<KeepNotification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'SETTINGS' | 'INBOX'>('INBOX');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [preparedChatId, setPreparedChatId] = useState<string | null>(null);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
+  const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
   const [accessRules, setAccessRules] = useState<NotificationAccessRule[]>([]);
   const [currentPlan, setCurrentPlan] = useState('FREE');
-  const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [chatSettingsLoading, setChatSettingsLoading] = useState(false);
   const [chatSaving, setChatSaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
@@ -77,14 +80,16 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (!profileId) return;
     setLoading(true);
     try {
-      const [notifications, rules, plan] = await Promise.all([
+      const [notifications, rules, plan, prefs] = await Promise.all([
         loadNotifications(profileId),
         loadNotificationAccessRules().catch(() => []),
         loadCurrentPlanCode(profileId).catch(() => 'FREE'),
+        loadNotificationPreferences(profileId).catch(() => null),
       ]);
       setItems(notifications);
       setAccessRules(rules);
       setCurrentPlan(plan || 'FREE');
+      setNotificationPrefs(prefs);
     } finally {
       setLoading(false);
     }
@@ -176,17 +181,27 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     await markAllNotificationsRead(profileId).catch(() => {});
   };
 
-  const openChatNotification = async (item: KeepNotification) => {
+  const toggleSystemNotifications = async (enabled: boolean) => {
+    if (!notificationPrefs || notificationPrefsSaving) return;
+    const previous = notificationPrefs;
+    const next = { ...previous, systemEnabled: enabled };
+    setNotificationPrefs(next);
+    setNotificationPrefsSaving(true);
+    try {
+      await saveNotificationPreferences(profileId, next);
+    } catch {
+      setNotificationPrefs(previous);
+    } finally {
+      setNotificationPrefsSaving(false);
+    }
+  };
+
+  const prepareChatNotification = async (item: KeepNotification) => {
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
-    close();
-    setTimeout(() => {
-      if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
-        useGlobalChatStore.getState().open(null);
-        return;
-      }
-      useGlobalChatStore.getState().open(chatTarget(item));
-    }, 200);
+    const target = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' ? null : chatTarget(item);
+    useGlobalChatStore.getState().prime(target);
+    setPreparedChatId(item.id);
   };
 
   const toggleNotification = async (item: KeepNotification) => {
@@ -203,95 +218,117 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           <View style={s.header}>
             <View>
               <Text style={s.eyebrow}>LOKI MUSIC</Text>
-              <Text style={s.title}>Notifications</Text>
-              <Text style={s.headerHint}>Appuie sur une ligne pour la déplier.</Text>
+              <Text style={s.title}>Cloche</Text>
+              <Text style={s.headerHint}>Tout reste ici, sans changer d’écran.</Text>
             </View>
             <TouchableOpacity style={s.close} onPress={close} accessibilityLabel="Fermer"><Text style={s.closeText}>×</Text></TouchableOpacity>
           </View>
 
-          <View style={s.actions}>
-            <TouchableOpacity style={s.actionGhost} onPress={() => void markAll()}><Text style={s.actionGhostText}>TOUT LIRE</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.actionGhost, chatSettingsOpen && s.actionGhostOn]} onPress={() => setChatSettingsOpen((value) => !value)} accessibilityLabel="Réglages de la messagerie"><Text style={[s.actionGhostText, chatSettingsOpen && s.actionGhostTextOn]}>TCHAT {chatSettingsOpen ? '⌃' : '⌄'}</Text></TouchableOpacity>
+          <View style={s.tabs}>
+            <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => setActiveTab('SETTINGS')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
+              <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
+              <Text style={s.tabHint}>activation</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.tab, activeTab === 'INBOX' && s.tabOn]} onPress={() => setActiveTab('INBOX')} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'INBOX' }}>
+              <Text style={[s.tabText, activeTab === 'INBOX' && s.tabTextOn]}>NOTIFICATIONS</Text>
+              <Text style={s.tabHint}>{items.filter((item) => !item.readAt).length} non lue{items.filter((item) => !item.readAt).length > 1 ? 's' : ''}</Text>
+            </TouchableOpacity>
           </View>
 
-          {chatSettingsOpen ? (
-            <View style={s.chatAccordion}>
-              <View style={s.chatAccordionHead}>
-                <View style={{flex:1,minWidth:0}}>
-                  <Text style={s.chatEyebrow}>MESSAGERIE LOKI</Text>
-                  <Text style={s.chatTitle}>Toujours à portée de main</Text>
-                  <Text style={s.chatHint}>Active le bouton flottant, choisis les écrans où il apparaît et place-le à gauche ou à droite.</Text>
+          {activeTab === 'SETTINGS' ? (
+            <ScrollView contentContainerStyle={s.settingsList} showsVerticalScrollIndicator={false}>
+              <View style={s.notificationMaster}>
+                <View style={s.notificationMasterCopy}>
+                  <Text style={s.chatEyebrow}>NOTIFICATIONS LOKI</Text>
+                  <Text style={s.chatTitle}>Alertes dans l’application</Text>
+                  <Text style={s.chatHint}>Active ou coupe les alertes sans quitter cette cloche.</Text>
                 </View>
-                {chatSettingsLoading || chatSaving ? <ActivityIndicator color={colors.primaryLight} /> : null}
+                <Switch value={notificationPrefs?.systemEnabled ?? true} disabled={!notificationPrefs || notificationPrefsSaving} onValueChange={(value) => void toggleSystemNotifications(value)} trackColor={{ false: colors.border, true: colors.keep }} />
               </View>
-              <View style={s.chatSwitchRow}>
-                <Text style={s.chatSwitchLabel}>Afficher la messagerie</Text>
-                <Switch value={chatEnabled} disabled={chatSaving} onValueChange={(value) => void persistChat(value, chatNotifications, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
-              </View>
-              <View style={s.chatSwitchRow}>
-                <Text style={s.chatSwitchLabel}>Notifications messages</Text>
-                <Switch value={chatNotifications} disabled={chatSaving || !chatEnabled} onValueChange={(value) => void persistChat(true, value, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
-              </View>
-              <Text style={s.chatSectionLabel}>OÙ L’AFFICHER</Text>
-              <View style={s.chatSurfaceGrid}>
-                {CHAT_SURFACE_OPTIONS.map((option) => {
-                  const selected = chatSurfaces.includes(option.key);
-                  return <TouchableOpacity key={option.key} style={[s.chatSurfaceChip, selected && s.chatSurfaceChipOn]} disabled={chatSaving} onPress={() => toggleChatSurface(option.key)} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}>
-                    <Text style={[s.chatSurfaceChipText, selected && s.chatSurfaceChipTextOn]}>{selected ? '✓ ' : ''}{option.label}</Text>
-                  </TouchableOpacity>;
-                })}
-              </View>
-              <Text style={s.chatSectionLabel}>POSITION</Text>
-              <View style={s.chatSideRow}>
-                <TouchableOpacity style={[s.chatSideButton, chatSide === 'left' && s.chatSideButtonOn]} onPress={() => chooseChatSide('left')}><Text style={[s.chatSideText, chatSide === 'left' && s.chatSideTextOn]}>GAUCHE</Text></TouchableOpacity>
-                <TouchableOpacity style={[s.chatSideButton, chatSide === 'right' && s.chatSideButtonOn]} onPress={() => chooseChatSide('right')}><Text style={[s.chatSideText, chatSide === 'right' && s.chatSideTextOn]}>DROITE</Text></TouchableOpacity>
-              </View>
-              <TouchableOpacity style={s.chatOpen} onPress={() => { if (!chatEnabled) void persistChat(true, chatNotifications, chatSurfaces); close(); setTimeout(() => useGlobalChatStore.getState().open(null), 200); }} accessibilityLabel="Ouvrir la messagerie Loki">
-                <Text style={s.chatOpenText}>OUVRIR LA MESSAGERIE</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
 
-          <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
-            {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
-            {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>🔔</Text><Text style={s.emptyTitle}>Rien de nouveau</Text><Text style={s.empty}>Tes Battles, reprises, visites, événements et gains apparaîtront ici.</Text></View> : null}
-            {items.map((item) => {
-              const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
-              const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
-              const expanded = expandedId === item.id;
-              const type = String(item.type || '').toUpperCase();
-              const chatAction = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' || type.startsWith('AGORA');
-              return (
-                <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
-                  <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
-                    <View style={s.cardTop}>
-                      <View style={[s.dot, item.readAt && s.dotRead, locked && s.dotLocked]} />
-                      <Text style={s.cardTitle} numberOfLines={1}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
-                      <Text style={s.time}>{timeLabel(item.createdAt)}</Text>
-                      <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
-                    </View>
-                    {expanded ? (
-                      <View style={s.details}>
-                        {locked ? (
-                          <View style={s.lockedDetails}>
-                            <Text style={s.lockedPlan}>🔒 {notificationPlanLabel(requiredPlan)}</Text>
-                            <Text style={s.lockedBody}>Cette notification reste ici, dans ta cloche. Son contenu se débloque automatiquement avec la formule {notificationPlanLabel(requiredPlan)}.</Text>
-                            <Text style={s.lockedHint}>Aucune redirection : referme simplement la ligne pour continuer à parcourir tes notifications.</Text>
-                          </View>
-                        ) : (
-                          <>
-                            <Text style={s.body}>{item.body}</Text>
-                            <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
-                            {chatAction ? <TouchableOpacity style={s.notificationAction} onPress={() => void openChatNotification(item)}><Text style={s.notificationActionText}>OUVRIR LA CONVERSATION</Text></TouchableOpacity> : null}
-                          </>
-                        )}
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
+              <View style={s.chatAccordion}>
+                <View style={s.chatAccordionHead}>
+                  <View style={{flex:1,minWidth:0}}>
+                    <Text style={s.chatEyebrow}>MESSAGERIE LOKI</Text>
+                    <Text style={s.chatTitle}>Tiroir latéral</Text>
+                    <Text style={s.chatHint}>Il se range sur le bord choisi. Un nouveau message le fait ressortir avec son badge.</Text>
+                  </View>
+                  {chatSettingsLoading || chatSaving ? <ActivityIndicator color={colors.primaryLight} /> : null}
                 </View>
-              );
-            })}
-          </ScrollView>
+                <View style={s.chatSwitchRow}>
+                  <Text style={s.chatSwitchLabel}>Afficher la messagerie</Text>
+                  <Switch value={chatEnabled} disabled={chatSaving} onValueChange={(value) => void persistChat(value, chatNotifications, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
+                </View>
+                <View style={s.chatSwitchRow}>
+                  <Text style={s.chatSwitchLabel}>Alertes nouveaux messages</Text>
+                  <Switch value={chatNotifications} disabled={chatSaving || !chatEnabled} onValueChange={(value) => void persistChat(true, value, chatSurfaces)} trackColor={{ false: colors.border, true: colors.keep }} />
+                </View>
+                <Text style={s.chatSectionLabel}>OÙ L’AFFICHER</Text>
+                <View style={s.chatSurfaceGrid}>
+                  {CHAT_SURFACE_OPTIONS.map((option) => {
+                    const selected = chatSurfaces.includes(option.key);
+                    return <TouchableOpacity key={option.key} style={[s.chatSurfaceChip, selected && s.chatSurfaceChipOn]} disabled={chatSaving} onPress={() => toggleChatSurface(option.key)} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}>
+                      <Text style={[s.chatSurfaceChipText, selected && s.chatSurfaceChipTextOn]}>{selected ? '✓ ' : ''}{option.label}</Text>
+                    </TouchableOpacity>;
+                  })}
+                </View>
+                <Text style={s.chatSectionLabel}>CÔTÉ DU TIROIR</Text>
+                <View style={s.chatSideRow}>
+                  <TouchableOpacity style={[s.chatSideButton, chatSide === 'left' && s.chatSideButtonOn]} onPress={() => chooseChatSide('left')}><Text style={[s.chatSideText, chatSide === 'left' && s.chatSideTextOn]}>GAUCHE</Text></TouchableOpacity>
+                  <TouchableOpacity style={[s.chatSideButton, chatSide === 'right' && s.chatSideButtonOn]} onPress={() => chooseChatSide('right')}><Text style={[s.chatSideText, chatSide === 'right' && s.chatSideTextOn]}>DROITE</Text></TouchableOpacity>
+                </View>
+                <Text style={s.drawerHint}>Fermer le Tchat le remet automatiquement dans son tiroir sur le bord.</Text>
+              </View>
+            </ScrollView>
+          ) : (
+            <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
+              <View style={s.inboxActions}>
+                <Text style={s.inboxHint}>Appuie sur une notification : elle se déplie ici.</Text>
+                <TouchableOpacity style={s.markAllButton} onPress={() => void markAll()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
+              </View>
+              {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
+              {!loading && !items.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>🔔</Text><Text style={s.emptyTitle}>Rien de nouveau</Text><Text style={s.empty}>Tes Battles, reprises, visites, événements et gains apparaîtront ici.</Text></View> : null}
+              {items.map((item) => {
+                const locked = isNotificationAccessLocked(item.type, currentPlan, accessRules);
+                const requiredPlan = notificationAccessRequiredPlan(item.type, accessRules);
+                const expanded = expandedId === item.id;
+                const type = String(item.type || '').toUpperCase();
+                const chatAction = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' || type.startsWith('AGORA');
+                return (
+                  <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
+                    <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
+                      <View style={s.cardTop}>
+                        <View style={[s.dot, item.readAt && s.dotRead, locked && s.dotLocked]} />
+                        <Text style={s.cardTitle} numberOfLines={1}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
+                        <Text style={s.time}>{timeLabel(item.createdAt)}</Text>
+                        <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
+                      </View>
+                      {expanded ? (
+                        <View style={s.details}>
+                          {locked ? (
+                            <>
+                              <Text style={s.lockedTitle}>CONTENU PROTÉGÉ</Text>
+                              <Text style={s.lockedBody}>Cette notification se débloque à partir de {notificationPlanLabel(requiredPlan)}. Le contenu reste masqué ici.</Text>
+                            </>
+                          ) : (
+                            <>
+                              <Text style={s.body}>{item.body}</Text>
+                              <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
+                              {chatAction ? (
+                                <TouchableOpacity style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]} onPress={() => void prepareChatNotification(item)}>
+                                  <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'TCHAT PRÊT SUR LE CÔTÉ' : 'PRÉPARER LA CONVERSATION'}</Text>
+                                </TouchableOpacity>
+                              ) : null}
+                            </>
+                          )}
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -308,12 +345,20 @@ const s = StyleSheet.create({
   headerHint:{color:colors.textMutedGrey,fontSize:10,marginTop:3},
   close:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   closeText:{color:colors.textPrimary,fontSize:26,lineHeight:28,fontWeight:'700'},
-  actions:{flexDirection:'row',gap:8,paddingHorizontal:16,paddingTop:14,paddingBottom:10},
-  actionGhost:{flex:1,minHeight:40,borderRadius:13,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated},
-  actionGhostOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
-  actionGhostText:{color:colors.textPrimary,fontSize:9,fontWeight:'900'},
-  actionGhostTextOn:{color:colors.primaryLight},
-  chatAccordion:{marginHorizontal:16,marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
+  tabs:{flexDirection:'row',gap:8,paddingHorizontal:16,paddingTop:14,paddingBottom:10},
+  tab:{flex:1,minHeight:52,borderRadius:16,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated},
+  tabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  tabText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.5},
+  tabTextOn:{color:colors.primaryLight},
+  tabHint:{color:colors.textMuted,fontSize:8,fontWeight:'700',marginTop:2},
+  settingsList:{paddingHorizontal:16,paddingBottom:36,gap:10},
+  notificationMaster:{minHeight:76,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:12},
+  notificationMasterCopy:{flex:1,minWidth:0},
+  inboxActions:{minHeight:42,flexDirection:'row',alignItems:'center',gap:8},
+  inboxHint:{flex:1,color:colors.textMutedGrey,fontSize:9,lineHeight:13,fontWeight:'700'},
+  markAllButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
+  markAllText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  chatAccordion:{marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
   chatAccordionHead:{flexDirection:'row',alignItems:'flex-start',gap:8},
   chatEyebrow:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:1.1},
   chatTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
@@ -331,8 +376,7 @@ const s = StyleSheet.create({
   chatSideButtonOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)'},
   chatSideText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
   chatSideTextOn:{color:colors.keep},
-  chatOpen:{marginTop:10,minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
-  chatOpenText:{color:'#FFF',fontSize:10,fontWeight:'900',letterSpacing:.6},
+  drawerHint:{color:colors.keep,fontSize:9,lineHeight:14,fontWeight:'800',marginTop:10},
   list:{padding:16,paddingTop:6,paddingBottom:36,gap:9},
   card:{padding:12,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},
   cardUnread:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
@@ -352,6 +396,7 @@ const s = StyleSheet.create({
   lockedBody:{color:colors.textPrimary,fontSize:11,lineHeight:17,marginTop:5,fontWeight:'800'},
   lockedHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:6},
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10},
+  notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
   notificationActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
   emptyCard:{padding:20,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center'},
   emptyIcon:{fontSize:28,marginBottom:8},

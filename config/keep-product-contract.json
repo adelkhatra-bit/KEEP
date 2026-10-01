@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.13",
+  "version": "2026-10-01.14",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -397,7 +397,10 @@
     "latestDecision": "2026-10-01-global-messenger-active-user-lock",
     "doNotDecommission": true,
     "latestUserDecisionAt": "2026-10-01",
-    "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée."
+    "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée.",
+    "closedState": "edge-drawer-tucked",
+    "unreadBehavior": "drawer-peeks-out-with-badge-and-nudge",
+    "closeBehavior": "returns-to-selected-edge"
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
@@ -417,6 +420,12 @@
     "bellInteraction": "inline-only",
     "bellTapMustNeverNavigateAway": true,
     "lockedBellNotificationExpandsRequiredPlanInline": true,
-    "lockedTopBannerMustNeverNavigateAway": true
+    "lockedTopBannerMustNeverNavigateAway": true,
+    "bellTabs": [
+      "SETTINGS",
+      "INBOX"
+    ],
+    "bellInteractionNavigation": "inline-only",
+    "chatNotificationBehavior": "prepare-exact-thread-inline-then-open-from-edge-drawer"
   }
 }

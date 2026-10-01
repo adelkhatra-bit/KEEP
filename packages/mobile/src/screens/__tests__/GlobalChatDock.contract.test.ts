@@ -41,16 +41,24 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('fabLeft');
     expect(dock).toContain('fabRight');
     expect(dock).toContain('chatNudge');
+    expect(dock).toContain('drawerPeek');
+    expect(dock).toContain('drawerGrip');
+    expect(dock).toContain("outputRange: [-30, 0]");
+    expect(dock).toContain("outputRange: [30, 0]");
   });
 
-  it('opens chat settings as an expandable section from the notification bell', () => {
-    expect(panel).toContain('chatSettingsOpen');
+  it('keeps bell settings and received notifications separated and inline', () => {
+    expect(panel).toContain("activeTab === 'SETTINGS'");
+    expect(panel).toContain("activeTab === 'INBOX'");
+    expect(panel).toContain('RÉGLAGES');
+    expect(panel).toContain('NOTIFICATIONS');
+    expect(panel).toContain('Tout reste ici, sans changer d’écran.');
+    expect(panel).toContain('Alertes dans l’application');
     expect(panel).toContain('MESSAGERIE LOKI');
-    expect(panel).toContain('Afficher la messagerie');
-    expect(panel).toContain('Notifications messages');
-    expect(panel).toContain('OÙ L’AFFICHER');
-    expect(panel).toContain('POSITION');
-    expect(panel).toContain('OUVRIR LA MESSAGERIE');
+    expect(panel).toContain('Tiroir latéral');
+    expect(panel).toContain('TCHAT PRÊT SUR LE CÔTÉ');
+    expect(panel).not.toContain("navigationRef");
+    expect(panel).not.toContain("navigation.navigate");
   });
 
   it('is direct-message first and keeps the public Place secondary', () => {

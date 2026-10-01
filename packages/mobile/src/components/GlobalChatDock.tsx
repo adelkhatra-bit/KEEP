@@ -52,6 +52,7 @@ export default function GlobalChatDock() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const pulse = useRef(new Animated.Value(1)).current;
+  const drawerPeek = useRef(new Animated.Value(0)).current;
   const nudge = useRef(new Animated.Value(0)).current;
   const lastNudgeUnread = useRef(0);
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -170,18 +171,29 @@ export default function GlobalChatDock() {
     if (!accountReady || open || unreadCount <= 0) {
       nudge.stopAnimation();
       nudge.setValue(0);
+      drawerPeek.stopAnimation();
+      drawerPeek.setValue(0);
       return;
     }
     if (unreadCount <= lastNudgeUnread.current) return;
     lastNudgeUnread.current = unreadCount;
     nudge.stopAnimation();
+    drawerPeek.stopAnimation();
     nudge.setValue(0);
-    Animated.sequence([
-      Animated.timing(nudge, { toValue: 1, duration: 280, useNativeDriver: false }),
-      Animated.delay(2600),
-      Animated.timing(nudge, { toValue: 0, duration: 320, useNativeDriver: false }),
+    drawerPeek.setValue(0);
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(nudge, { toValue: 1, duration: 260, useNativeDriver: false }),
+        Animated.delay(2900),
+        Animated.timing(nudge, { toValue: 0, duration: 320, useNativeDriver: false }),
+      ]),
+      Animated.sequence([
+        Animated.spring(drawerPeek, { toValue: 1, useNativeDriver: true, friction: 7, tension: 90 }),
+        Animated.delay(2900),
+        Animated.spring(drawerPeek, { toValue: 0, useNativeDriver: true, friction: 8, tension: 80 }),
+      ]),
     ]).start();
-  }, [accountReady, open, unreadCount, nudge]);
+  }, [accountReady, open, unreadCount, nudge, drawerPeek]);
 
   const minBottom = 82 + insets.bottom;
   const maxBottom = Math.max(minBottom, height - 150);
@@ -373,7 +385,14 @@ export default function GlobalChatDock() {
             side === 'left' ? styles.fabLeft : styles.fabRight,
             {
               bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)),
-              transform: [{ translateX: drag.x }, { translateY: drag.y }, { scale: pulse }],
+              transform: [
+                { translateX: side === 'left'
+                  ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] })
+                  : drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+                { translateX: drag.x },
+                { translateY: drag.y },
+                { scale: pulse },
+              ],
             },
           ]}
         >
@@ -386,12 +405,18 @@ export default function GlobalChatDock() {
             <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
             <View style={styles.fabDepthBack} />
             <View style={styles.fabDepthMid} />
-            <View style={styles.fabFace}>
+            <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
+              <View style={styles.drawerGrip}><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/><View style={styles.drawerGripLine}/></View>
               <View style={styles.robotHead}>
                 <View style={styles.robotAntenna} />
                 <View style={styles.robotEyes}><View style={styles.robotEye}/><View style={styles.robotEye}/></View>
                 <View style={styles.robotMouth}/>
               </View>
+              <View style={styles.drawerCopy}>
+                <Text style={styles.drawerLabel}>LOKI</Text>
+                <Text style={styles.drawerSub}>CHAT</Text>
+              </View>
+              <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
               {unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
             </View>
@@ -432,20 +457,28 @@ const styles = StyleSheet.create({
   chatNudgeText:{minWidth:168,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
 
   fabWrap:{position:'absolute',zIndex:90,elevation:30},
-  fabLeft:{left:12},
-  fabRight:{right:12},
-  halo:{position:'absolute',left:-5,top:-5,width:64,height:64,borderRadius:32,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.05)',opacity:.72},
+  fabLeft:{left:0},
+  fabRight:{right:0},
+  halo:{position:'absolute',left:-4,top:-4,width:80,height:66,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.04)',opacity:.62},
   haloOff:{borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.05)',opacity:.5},
-  fab:{width:54,height:54,position:'relative'},
-  fabDepthBack:{position:'absolute',left:7,top:8,width:47,height:47,borderRadius:24,backgroundColor:'rgba(90,61,196,.34)'},
-  fabDepthMid:{position:'absolute',left:3,top:4,width:49,height:49,borderRadius:25,backgroundColor:'rgba(41,194,255,.28)'},
-  fabFace:{width:49,height:49,borderRadius:25,alignItems:'center',justifyContent:'center',borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#000',shadowOpacity:.42,shadowRadius:12,shadowOffset:{width:0,height:8},elevation:18},
-  robotHead:{width:27,height:22,borderRadius:8,borderWidth:1.5,borderColor:colors.keep,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.08)'},
+  fab:{width:76,height:58,position:'relative'},
+  fabDepthBack:{position:'absolute',left:6,top:7,width:70,height:52,borderRadius:17,backgroundColor:'rgba(90,61,196,.30)'},
+  fabDepthMid:{position:'absolute',left:3,top:3,width:70,height:52,borderRadius:17,backgroundColor:'rgba(41,194,255,.20)'},
+  fabFace:{width:70,height:52,flexDirection:'row',alignItems:'center',gap:6,paddingHorizontal:8,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#000',shadowOpacity:.42,shadowRadius:12,shadowOffset:{width:0,height:8},elevation:18},
+  fabFaceLeft:{borderTopRightRadius:18,borderBottomRightRadius:18},
+  fabFaceRight:{borderTopLeftRadius:18,borderBottomLeftRadius:18},
+  drawerGrip:{width:4,gap:2,alignItems:'center'},
+  drawerGripLine:{width:3,height:8,borderRadius:2,backgroundColor:'rgba(167,139,250,.52)'},
+  robotHead:{width:24,height:20,borderRadius:7,borderWidth:1.5,borderColor:colors.keep,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.08)'},
   robotAntenna:{position:'absolute',top:-7,width:2,height:7,borderRadius:1,backgroundColor:colors.keep},
   robotEyes:{flexDirection:'row',gap:6},
   robotEye:{width:4,height:4,borderRadius:2,backgroundColor:colors.primaryLight},
-  robotMouth:{width:10,height:2,borderRadius:1,backgroundColor:colors.keep,marginTop:4},
-  presenceDot:{position:'absolute',left:2,bottom:2,width:9,height:9,borderRadius:5,borderWidth:2,borderColor:colors.background},
+  robotMouth:{width:9,height:2,borderRadius:1,backgroundColor:colors.keep,marginTop:3},
+  drawerCopy:{minWidth:23},
+  drawerLabel:{color:colors.textPrimary,fontSize:8,fontWeight:'900',letterSpacing:.7},
+  drawerSub:{color:colors.primaryLight,fontSize:6.5,fontWeight:'900',letterSpacing:.5,marginTop:1},
+  drawerChevron:{color:colors.primaryLight,fontSize:17,fontWeight:'900',marginLeft:'auto'},
+  presenceDot:{position:'absolute',left:5,bottom:4,width:8,height:8,borderRadius:4,borderWidth:2,borderColor:colors.background},
   presenceOn:{backgroundColor:colors.keep},
   presenceOff:{backgroundColor:colors.textMutedGrey},
   badge:{position:'absolute',right:-5,top:-7,minWidth:20,height:20,borderRadius:10,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},
