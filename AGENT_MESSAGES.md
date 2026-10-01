@@ -2328,3 +2328,19 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - NE PAS modifier `App.tsx`, `Navigation.tsx`, barre 5 onglets, Super Admin, profil/accueil/chat visuel sauf régression prouvée.
 - Lane Claude demandée: auditer/réaligner les tests CI obsolètes sans restaurer d’anciens designs. Mobile CI 958a6d23 a 32 suites rouges; plusieurs contrats réclament encore d’anciens textes/layouts.
 - Lane ChatGPT: publication réelle, preuve visuelle chat ouvert, audit charge/scalabilité du GlobalChatDock.
+
+
+## [2026-10-02] ChatGPT — handoff QA Claude Code
+- HEAD relu avant handoff : 4e068329b8d7ab8fecd45fcb7843b40098f7393d.
+- NE PAS retoucher ProfilePublicScreen.tsx, HomeScreenCompact.tsx, MusicAgoraPanel.tsx, GlobalChatDock.tsx tant que la release QA n'est pas terminée.
+- État produit vérifié :
+  - Accueil Loki Music : bulles de styles seules, sans label Loki Pulse/DNA ni titre « Tes bulles musicales » ; clic = ouverture des morceaux gardés du style dans le Swipe.
+  - Profil propriétaire : jauge/% visible ; replié = aucune bulle ; détails seulement après ouverture.
+  - Chat : plein écran, recherche/filtres, sans caméra/appel ; blocage client 3 messages retiré.
+  - Supabase live : music_agora_messages = 2000 caractères ; direct_reply_required retiré ; anti-spam 4/minute + 30/heure conservé.
+  - Super Admin : aucun fichier packages/admin modifié par la refonte chat/profil ; admin_user_directory répond en ~240 ms pour 17 comptes.
+- Publication :
+  - Web public f87fbb38b869e682b417603686253e517530e477 = SUCCESS, avec typecheck mobile/admin + Chromium PC/tablette/mobile.
+  - Web public 958a6d23a508c25eda429fff8d183cb46765c12e encore en publication au dernier contrôle.
+- CI rouge 958a : 32 suites / 58 assertions de contrats Jest historiques, tandis que typecheck mobile/admin et runtime navigateur réel passent. Lane Claude Code : nettoyer/mettre à jour ces tests historiques un par un, sans changer le runtime pour satisfaire un ancien texte.
+- E-mails : appliquer le patch Resend seulement si les fichiers patch annoncés sont présents/partagés ; ne pas inventer de clé ni de domaine.
