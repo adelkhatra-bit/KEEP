@@ -14,6 +14,8 @@ import { loadCurrentPlanCode } from '../services/planService';
 import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { commitKeep } from '../services/keepTrackAction';
+import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem, markLokiPulseTrackKept } from '../services/lokiPulseService';
 import { loadKeepBattleGlobalLeaderboard, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -335,6 +337,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [affiliatedProfileLink, setAffiliatedProfileLink] = useState('');
   const [profileSwipeOpen, setProfileSwipeOpen] = useState(false);
   const [selectionSwipe, setSelectionSwipe] = useState<{ title: string; subtitle: string; tracks: CanonicalTrack[]; sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }> } | null>(null);
+  const [lokiPulseItems, setLokiPulseItems] = useState<LokiPulseItem[]>([]);
+  const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
+  const lokiPulseGlow = useRef(new Animated.Value(0)).current;
+  const lokiPulseScrollRef = useRef<ScrollView | null>(null);
+  const lokiPulseAutoIndex = useRef(0);
   // Adel (20/09/2026) : BUG RÉEL -- "la musique ne se lance pas
   // automatiquement, il faut appuyer sur ÉCOUTER L'EXTRAIT". Sur le web,
   // .play() n'est autorisé sans interaction que s'il est appelé de façon
@@ -462,6 +469,34 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCanonicalProfileState(); });
     return () => { live = false; unsubscribe?.(); };
   }, [accountRequired, navigation, user?.id]);
+
+  useEffect(() => {
+    let live = true;
+    const refreshPulse = async () => {
+      if (!user || accountRequired) {
+        if (live) setLokiPulseItems([]);
+        return;
+      }
+      try {
+        const items = await loadLokiPulse(16);
+        if (live) setLokiPulseItems(items);
+      } catch {
+        if (live) setLokiPulseItems([]);
+      }
+    };
+    void refreshPulse();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPulse(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [accountRequired, navigation, user?.id]);
+
+  useEffect(() => {
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(lokiPulseGlow, { toValue: 1, duration: 1400, useNativeDriver: true }),
+      Animated.timing(lokiPulseGlow, { toValue: 0, duration: 1400, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [lokiPulseGlow]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -682,6 +717,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
     sourceAvatarUrl: entry.sourceAvatarUrl,
   })), [serverOwnKeeps]);
   const profileKeptTracks = accountRequired ? keptTracks : canonicalOwnKeeps;
+  const ownTrackIdentityKeys = useMemo(() => new Set(profileKeptTracks.map((entry) => {
+    const title = entry.track.title.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+    const artist = entry.track.artist.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+    return entry.track.isrc?.trim().toUpperCase() || `${title}|${artist}`;
+  })), [profileKeptTracks]);
+  const visibleLokiPulseItems = useMemo(() => lokiPulseItems.filter((item) => {
+    const title = item.track.title.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+    const artist = item.track.artist.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
+    const identity = item.track.isrc?.trim().toUpperCase() || `${title}|${artist}`;
+    return !ownTrackIdentityKeys.has(identity);
+  }), [lokiPulseItems, ownTrackIdentityKeys]);
   const publicKeptTracks = useMemo(() => profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC'), [profileKeptTracks]);
   // DESIGN_SYSTEM v3 (21/09/2026) : "État privé (opacité réduite + icône
   // cadenas)" -- avant, l'onglet Musiques n'affichait QUE les morceaux
@@ -709,6 +755,66 @@ export default function ProfilePublicScreen({ navigation }: any) {
     });
     return mapping;
   }, [publicKeptTracks]);
+
+  useEffect(() => {
+    if (visibleLokiPulseItems.length < 2 || lokiPulseSwipeOpen) return undefined;
+    const timer = setInterval(() => {
+      lokiPulseAutoIndex.current = (lokiPulseAutoIndex.current + 1) % visibleLokiPulseItems.length;
+      lokiPulseScrollRef.current?.scrollTo({ x: lokiPulseAutoIndex.current * 88, animated: true });
+    }, 3600);
+    return () => clearInterval(timer);
+  }, [lokiPulseSwipeOpen, visibleLokiPulseItems.length]);
+
+  const refreshProfileAfterPulseKeep = async () => {
+    if (accountRequired) return;
+    const [keeps, credit] = await Promise.all([
+      loadOwnProfileKeeps().catch(() => null),
+      getDownloadCreditStatus().catch(() => null),
+    ]);
+    if (keeps) setServerOwnKeeps(keeps);
+    if (credit) {
+      setCreditRemaining(credit.remaining);
+      setCreditUnlimited(credit.unlimited);
+    }
+    const battleStatus = await loadMyKeepBattleCreditStatus().catch(() => null);
+    if (battleStatus) {
+      setFreeBalance(battleStatus.remainingFree);
+      setFreeWon(battleStatus.won);
+      setFreeLost(battleStatus.lost);
+    }
+  };
+
+  const keepFromLokiPulse = async (track: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
+    try {
+      const result = await commitKeep(track, [], undefined, {
+        visibility,
+        consumeCredit: true,
+        context: { source: 'loki_pulse', recommendation: 'personalized_profile_rail' },
+      });
+      await markLokiPulseTrackKept(track.id).catch(() => {});
+      setLokiPulseItems((items) => items.filter((item) => item.track.id !== track.id));
+      await refreshProfileAfterPulseKeep();
+      if (result.alreadyKept) {
+        Alert.alert('Déjà dans tes musiques', 'Ce morceau était déjà sur ton profil. Aucun Free supplémentaire n’a été débité.');
+      }
+      return true;
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      Alert.alert(
+        'Loki Pulse',
+        message.includes('CREDITS_EXHAUSTED')
+          ? `Il te faut ${freeCostPerKeep} FREE pour garder ce morceau sur ton profil.`
+          : 'Impossible d’ajouter ce morceau pour le moment.',
+      );
+      return false;
+    }
+  };
+
+  const hideFromLokiPulse = async (track: CanonicalTrack) => {
+    await hideLokiPulseTrack(track.id).catch(() => {});
+    setLokiPulseItems((items) => items.filter((item) => item.track.id !== track.id));
+    return true;
+  };
   const dna = useMemo(() => {
     const decisions: DnaSourceDecision[] = publicKeptTracks.map((entry) => ({ artist: entry.track.artist, genres: entry.track.genres ?? [], decision: 'KEPT', createdAt: entry.detectedAt }));
     return computeMusicDNA(decisions);
@@ -1581,17 +1687,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </MotionActionButton>
       ) : null}
 
-      {!accountRequired ? (
-        <View>
-          {/* 29/09/2026 : l'info au-dessus, le bouton ne dit que son action. */}
-          <Text style={s.profileShareInfo}>Ton lien contient ton parrainage : chaque inscription est comptée.</Text>
-          <TouchableOpacity style={s.profileShareBottom} onPress={() => void shareNative()} accessibilityRole="button" accessibilityLabel="Partager mon profil Loki Music">
-            <Text style={s.profileShareBottomIcon}>↗</Text>
-            <Text style={s.profileShareBottomTitle}>PARTAGER MON PROFIL</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       {/* Adel (02/09/2026) : "le bouton est parfait, par contre je le ferai
           un tout petit peu plus petit ... mettre un petit bouton info pour
           comprendre" -- ligne compacte (juste Disponible/Indisponible),
@@ -1637,6 +1732,53 @@ export default function ProfilePublicScreen({ navigation }: any) {
         })}</View>
       </View>
 
+      {!accountRequired && visibleLokiPulseItems.length ? (
+        <View style={s.lokiPulseSection}>
+          <View style={s.lokiPulseHeader}>
+            <View style={s.lokiPulseHeaderCopy}>
+              <Text style={s.lokiPulseEyebrow}>LOKI PULSE</Text>
+              <Text style={s.lokiPulseTitle}>Des sons qui te ressemblent</Text>
+            </View>
+            <Text style={s.lokiPulseCost}>GARDER · {freeCostPerKeep} FREE</Text>
+          </View>
+          <Text style={s.lokiPulseHint}>Appris par Loki à partir des écoutes de la communauté et adapté à tes styles. PASSER masque le son ; GARDER te laisse choisir Public ou Privé.</Text>
+          <ScrollView
+            ref={lokiPulseScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.lokiPulseRail}
+          >
+            {visibleLokiPulseItems.map((item) => (
+              <TouchableOpacity
+                key={item.track.id}
+                style={s.lokiPulseCard}
+                onPress={() => { unlockWebAudioForGesture(); setLokiPulseSwipeOpen(true); }}
+                accessibilityLabel={`Écouter ${item.track.title} dans Loki Pulse`}
+              >
+                <Animated.View style={[s.lokiPulseArtworkRing, { transform: [{ scale: lokiPulseGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }) }] }]}>
+                  {item.track.artworkUrl
+                    ? <Image source={{ uri: item.track.artworkUrl }} style={s.lokiPulseArtwork} />
+                    : <View style={[s.lokiPulseArtwork, s.avatarFallback]}><Text style={s.lokiPulseFallback}>♫</Text></View>}
+                  {item.isNew ? <View style={s.lokiPulseNewDot}><Text style={s.lokiPulseNewText}>NEW</Text></View> : null}
+                </Animated.View>
+                <Text style={s.lokiPulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
+                <Text style={s.lokiPulseArtist} numberOfLines={1}>{item.track.artist}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {!accountRequired ? (
+        <View>
+          <Text style={s.profileShareInfo}>Ton lien contient ton parrainage : chaque inscription est comptée.</Text>
+          <TouchableOpacity style={s.profileShareBottom} onPress={() => void shareNative()} accessibilityRole="button" accessibilityLabel="Partager mon profil Loki Music">
+            <Text style={s.profileShareBottomIcon}>↗</Text>
+            <Text style={s.profileShareBottomTitle}>PARTAGER MON PROFIL</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Adel (02/09/2026) : "on me montrera pas le lien du site, on mettra
           un bouton, je clique par exemple tu prendras le nom du bouton" --
           jamais l'URL affichée directement, juste le libellé choisi. */}
@@ -1660,6 +1802,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
       previewOnly
       onOpenSourceProfile={(username) => { setProfileSwipeOpen(false); navigation.navigate('PublicProfile', { username }); }}
       onClose={() => setProfileSwipeOpen(false)}
+    />
+
+    <MusicSwipeDeckModal
+      visible={lokiPulseSwipeOpen}
+      tracks={visibleLokiPulseItems.map((item) => item.track)}
+      title="Loki Pulse"
+      subtitle={`Pour toi · GARDER coûte actuellement ${freeCostPerKeep} FREE`}
+      emptyTitle="Ton Loki Pulse est à jour."
+      backLabel="REVENIR AU PROFIL"
+      loop
+      askVisibilityOnKeep
+      onKeep={keepFromLokiPulse}
+      onPass={hideFromLokiPulse}
+      onClose={() => setLokiPulseSwipeOpen(false)}
     />
 
     <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => (expandedMenuItem ? setExpandedMenuItem(null) : setMenuOpen(false))}>
@@ -1924,6 +2080,8 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   genreFolderPanel:{marginTop:0,marginBottom:10,padding:10,borderRadius:radius.md,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:7},genreFolderPanelHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:2},genreFolderPanelTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'800',flex:1,minWidth:0},genreFolderPanelActions:{flexDirection:'row',gap:8,marginBottom:2},genreFolderPlayButton:{flex:1,minHeight:34,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},genreFolderPlayText:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},genreFolderSellButton:{flex:1,minHeight:34,paddingHorizontal:12,borderRadius:radius.pill,backgroundColor:`${colors.success}22`,borderWidth:1,borderColor:colors.success,alignItems:'center',justifyContent:'center'},genreFolderSellText:{color:colors.success,fontSize:12,fontWeight:'900'},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},socialHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},musicLink:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},socialRow:{flexDirection:'row',justifyContent:'space-between',marginTop:12},socialButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},socialButtonOn:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight},
+  lokiPulseSection:{marginHorizontal:18,marginTop:8,marginBottom:12,paddingVertical:13,borderRadius:20,backgroundColor:'rgba(19,13,30,.96)',borderWidth:1,borderColor:'rgba(168,132,250,.42)',overflow:'hidden'},lokiPulseHeader:{paddingHorizontal:13,flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',gap:8},lokiPulseHeaderCopy:{flex:1,minWidth:0},lokiPulseEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1.6},lokiPulseTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},lokiPulseCost:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.55,textAlign:'right'},lokiPulseHint:{color:colors.textMuted,fontSize:9,lineHeight:13,paddingHorizontal:13,marginTop:5},lokiPulseRail:{paddingHorizontal:12,paddingTop:12,paddingBottom:2,gap:10},lokiPulseCard:{width:78,alignItems:'center'},lokiPulseArtworkRing:{width:66,height:66,borderRadius:33,borderWidth:2,borderColor:colors.primaryLight,padding:3,backgroundColor:'rgba(124,92,252,.12)',shadowColor:colors.primaryLight,shadowOpacity:.28,shadowRadius:8,shadowOffset:{width:0,height:0}},lokiPulseArtwork:{width:'100%',height:'100%',borderRadius:29},lokiPulseFallback:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},lokiPulseNewDot:{position:'absolute',right:-4,bottom:-2,minWidth:25,height:16,borderRadius:8,paddingHorizontal:4,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:colors.backgroundCard},lokiPulseNewText:{color:'#09110F',fontSize:6,fontWeight:'900',letterSpacing:.4},lokiPulseTrackTitle:{width:'100%',color:colors.textPrimary,fontSize:9,fontWeight:'900',textAlign:'center',marginTop:6},lokiPulseArtist:{width:'100%',color:colors.textMuted,fontSize:8,textAlign:'center',marginTop:1},
+
   growthPanel:{padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},growthText:{color:colors.textPrimary,fontSize:12,fontWeight:'700',lineHeight:17},growthBarTrack:{marginTop:8,height:6,borderRadius:3,backgroundColor:colors.backgroundCard,overflow:'hidden'},growthBarFill:{height:6,borderRadius:3,backgroundColor:colors.primaryLight},growthBadgeText:{color:colors.success,fontSize:13,fontWeight:'900',textAlign:'center'},browseChipsRow:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},browseChip:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},browseChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   topMetricsBar:{marginHorizontal:0,marginTop:12,minHeight:58,flexDirection:'row',alignItems:'flex-end',gap:8},
   topMetricFreeStack:{width:82,alignItems:'stretch',justifyContent:'flex-end',gap:7},
