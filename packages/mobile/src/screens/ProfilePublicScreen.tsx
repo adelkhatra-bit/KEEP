@@ -2223,7 +2223,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
       visible={notificationPanelOpen}
       profileId={user.id}
       onClose={() => setNotificationPanelOpen(false)}
-      onOpenAll={() => navigation.navigate('Notifications')}
     />
 
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
