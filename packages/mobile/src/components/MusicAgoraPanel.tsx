@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Keyboard, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -222,7 +222,7 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = keyboardInset > 0 ? keyboardInset : 0;
+  const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0;
 
   useEffect(() => {
     if (!enabled) {
@@ -579,13 +579,20 @@ export default function MusicAgoraPanel({
     if (enabled && homeEnabled && !activeGroup?.id) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
     const unsubscribe = activeGroup?.id
       ? subscribeMusicAgoraGroup(activeGroup.id, () => {
-          void refresh(roomSlug, true);
+          browsingHistoryRef.current = false;
+          forceBottomRef.current = true;
+          void refresh(roomSlug, true).finally(() => followChatBottom(true));
           void refreshInbox();
           if (groupMembersOpen) void refreshGroupMembers(activeGroup.id);
         })
       : subscribeMusicAgoraRoom(roomSlug, () => {
-          if (chatMode === 'MESSAGES' && !replyTarget?.profileId) void refreshInbox();
-          else void refresh(roomSlug, true);
+          if (chatMode === 'MESSAGES' && !replyTarget?.profileId) {
+            void refreshInbox();
+          } else {
+            browsingHistoryRef.current = false;
+            forceBottomRef.current = true;
+            void refresh(roomSlug, true).finally(() => followChatBottom(true));
+          }
         });
 
     // Realtime handles messages immediately. This low-frequency timer is only
@@ -928,9 +935,12 @@ export default function MusicAgoraPanel({
     )
   );
 
-  if (compact && (!enabled || !homeEnabled)) return null;
+  if (compact && !enabled) return null;
 
-  return <View
+  return <KeyboardAvoidingView
+    enabled={compact && Platform.OS !== 'web'}
+    behavior={compact && Platform.OS === 'ios' ? 'padding' : compact ? 'height' : undefined}
+    keyboardVerticalOffset={0}
     style={[
       s.shell,
       compact && s.shellCompact,
@@ -1659,7 +1669,7 @@ export default function MusicAgoraPanel({
         </ScrollView>
       </View></View>
     </Modal>
-  </View>;
+  </KeyboardAvoidingView>;
 }
 
 const s=StyleSheet.create({
