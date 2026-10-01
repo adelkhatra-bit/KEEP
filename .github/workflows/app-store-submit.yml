@@ -17,6 +17,8 @@ on:
       - reconcile/claude-main-20260825
     paths:
       - 'packages/mobile/.app-store-submit-trigger'
+      - 'packages/mobile/fastlane/Fastfile'
+      - '.github/workflows/app-store-submit.yml'
 
 concurrency:
   group: app-store-submit
@@ -70,6 +72,42 @@ jobs:
             fi
           done
           [ "$missing" = "0" ]
+
+      - name: Verify App Store subscription products
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const crypto = require('node:crypto');
+          (async () => {
+            const privateKey = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+            const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+            const now = Math.floor(Date.now() / 1000);
+            const unsigned = encode({ alg: 'ES256', kid: process.env.ASC_KEY_ID, typ: 'JWT' }) + '.' +
+              encode({ iss: process.env.ASC_ISSUER_ID, iat: now - 30, exp: now + 300, aud: 'appstoreconnect-v1' });
+            const jwt = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), { key: privateKey, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+            const url = new URL('https://api.appstoreconnect.apple.com/v1/apps/' + encodeURIComponent(process.env.ASC_APP_ID) + '/subscriptionGroups');
+            url.searchParams.set('include', 'subscriptions');
+            url.searchParams.set('fields[subscriptions]', 'productId,state');
+            url.searchParams.set('limit', '200');
+            url.searchParams.set('limit[subscriptions]', '50');
+            const response = await fetch(url, { headers: { Authorization: 'Bearer ' + jwt }, signal: AbortSignal.timeout(30000) });
+            if (!response.ok) throw new Error('App Store subscriptions API HTTP ' + response.status + ': ' + (await response.text()).slice(0, 300));
+            const payload = await response.json();
+            const subs = (payload.included || []).filter(item => item.type === 'subscriptions');
+            const byProduct = new Map(subs.map(item => [item.attributes?.productId, item.attributes?.state]));
+            const expected = [
+              'com.adelkhatra.keep.premium.monthly',
+              'com.adelkhatra.keep.creatorpro.monthly',
+              'com.adelkhatra.keep.venuepro.monthly',
+            ];
+            const missing = expected.filter(id => !byProduct.has(id));
+            if (missing.length) throw new Error('Abonnements App Store manquants: ' + missing.join(', '));
+            const badStates = new Set(['MISSING_METADATA','DEVELOPER_ACTION_NEEDED','REJECTED']);
+            const blocked = expected.filter(id => badStates.has(String(byProduct.get(id) || '')));
+            if (blocked.length) throw new Error('Abonnements App Store non prêts: ' + blocked.map(id => id + '=' + byProduct.get(id)).join(', '));
+            console.log('App Store subscriptions OK: ' + expected.map(id => id + '=' + byProduct.get(id)).join(', '));
+          })().catch(error => { console.error(error.message); process.exit(1); });
+          NODE
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@762794c140bbeda0f1224786aa33b4b46783a6c1 # v1
