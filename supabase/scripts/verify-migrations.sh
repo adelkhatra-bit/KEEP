@@ -162,6 +162,29 @@ drop function if exists public.keep_battle_solo_available(integer,integer);
 SQL
   fi
 
+  # Legacy production drift before 20261001120500:
+  # admin_event_pending_count() existed in production before the hardening
+  # migration that revokes/grants it, but no historical creation migration was
+  # recorded. Reproduce the exact live function here; immutable history remains
+  # untouched and the current additive migration below documents it canonically.
+  if [ "$name" = "20261001120500_harden_admin_rpc_anonymous_access.sql" ]; then
+    pg -d "$DB" <<'SQL' >/dev/null
+create or replace function public.admin_event_pending_count()
+returns integer
+language sql
+stable
+security definer
+set search_path to 'public','auth'
+as $function$
+  select count(*)::integer
+  from public.events e
+  where e.moderation_status = 'PENDING'
+    and e.is_disabled = false
+    and public.admin_has_role(auth.uid(), array['SUPER_ADMIN','ADMIN','MODERATOR']);
+$function$;
+SQL
+  fi
+
   # Supabase fournit pg_cron/pg_net comme extensions managées. Le CI plain
   # PostgreSQL utilise les shims ci-dessus et retire uniquement les deux
   # instructions CREATE EXTENSION qui ne sont pas installables ici.
