@@ -12,6 +12,7 @@ import { ProfileKind, SocialLink } from '../types';
 import { buildAffiliatedPublicProfileLink, buildPublicProfileLink, copyProfileShareText, sharePlaylist, shareProfile, shareProfileByEmail, shareProfileTrack } from '../services/sharingService';
 import { loadCurrentPlanCode } from '../services/planService';
 import { createProfileService } from '../services/profileService';
+import { createAuthService } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditService';
 import { commitKeep } from '../services/keepTrackAction';
@@ -129,6 +130,63 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const enterDemoMode = useUserStore((s) => s.enterDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  const [realSessionUserId, setRealSessionUserId] = useState<string | null>(null);
+
+  // Garde-fou auth propriétaire : Supabase est la source de vérité.
+  // Un flag invité/démo local périmé ne doit jamais déconnecter visuellement
+  // un vrai compte déjà restauré (cas Inside). Réconciliation au montage,
+  // au focus et à chaque changement de session.
+  useEffect(() => {
+    if (!supabase) return undefined;
+    let live = true;
+    const auth = createAuthService(supabase);
+    const profiles = createProfileService(supabase);
+
+    const reconcile = async () => {
+      const session = await auth.getCurrentSession().catch(() => null);
+      if (!live) return;
+      if (!session || session.isAnonymous) {
+        setRealSessionUserId(null);
+        return;
+      }
+
+      setRealSessionUserId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+        try {
+          const ownProfile = await profiles.loadOrCreateOwnProfile(session);
+          if (live) useUserStore.getState().setUser(ownProfile);
+        } catch {
+          // La session réelle est déjà suffisante pour ne pas bloquer l'UI.
+        }
+      }
+    };
+
+    void reconcile();
+    const offFocus = navigation?.addListener?.('focus', () => { void reconcile(); });
+    const offAuth = auth.onSessionChange((session) => {
+      if (!live) return;
+      if (!session || session.isAnonymous) {
+        setRealSessionUserId(null);
+        return;
+      }
+      setRealSessionUserId(session.userId);
+      const state = useUserStore.getState();
+      if (!state.user || state.user.id !== session.userId || state.isLocalGuest || state.isDemoMode) {
+        state.syncFromAuthSession(session);
+      }
+    });
+
+    return () => {
+      live = false;
+      offFocus?.();
+      offAuth();
+    };
+  }, [navigation]);
+
+  const effectiveAuthenticatedUserId = realSessionUserId
+    || (!isLocalGuest && !isDemoMode ? user?.id ?? null : null);
   const sessions = useSessionHistoryStore((s) => s.sessions);
   const syncUnsyncedKeeps = useSessionHistoryStore((s) => s.syncUnsyncedKeeps);
   const syncPendingFavoriteImports = useSessionHistoryStore((s) => s.syncPendingFavoriteImports);
@@ -211,7 +269,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const providerPlaylists = usePlaylistStore((s) => s.playlists);
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
-  const accountRequired = isLocalGuest || isDemoMode;
+  const accountRequired = !effectiveAuthenticatedUserId;
   const [planCode, setPlanCode] = useState('FREE');
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
