@@ -117,7 +117,7 @@ for (const expected of [
   'listen = 0',
   'recognize = 0',
   'PASS = 0',
-  'KEEP = -1',
+  'KEEP = -3',
   'rrhqsqzcplvmwxizqnla.supabase.co',
 ]) {
   if (!masterSpec.includes(expected)) failures.push(`MASTER SPEC MARKER MISSING: ${expected}`);
