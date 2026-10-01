@@ -1,3 +1,4 @@
+import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 
 export type MusicAgoraRoom = {
@@ -146,6 +147,30 @@ export async function postMusicAgoraMessage(
   });
   if (error) throw error;
   return Number(data || 0);
+}
+
+export async function loadMusicAgoraSharedTrack(trackId: string): Promise<CanonicalTrack | null> {
+  if (!supabase || !trackId) return null;
+  const { data, error } = await supabase
+    .from('tracks')
+    .select('id,isrc,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on,release_year')
+    .eq('id', trackId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    id: String((data as any).id),
+    isrc: (data as any).isrc || undefined,
+    title: String((data as any).title || ''),
+    artist: String((data as any).artist || ''),
+    album: (data as any).album || undefined,
+    artworkUrl: (data as any).artwork_url || undefined,
+    previewUrl: (data as any).preview_url || undefined,
+    genres: Array.isArray((data as any).genres) ? (data as any).genres : [],
+    providerIds: (data as any).provider_ids || {},
+    externalUrls: (data as any).external_urls || {},
+    availableOn: Array.isArray((data as any).available_on) ? (data as any).available_on : [],
+    releaseYear: (data as any).release_year || undefined,
+  } as CanonicalTrack;
 }
 
 export async function reportMusicAgoraMessage(messageId: number, reason: MusicAgoraReportReason): Promise<void> {
