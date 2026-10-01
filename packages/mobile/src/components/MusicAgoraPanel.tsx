@@ -130,6 +130,7 @@ export default function MusicAgoraPanel({
       return;
     }
     let live = true;
+    setSharePreflight(null);
     setSharePreflightBusy(true);
     loadMusicAgoraSharePreflight(sharedTrack.id, replyTarget?.profileId ?? null)
       .then((state) => {
@@ -256,11 +257,21 @@ export default function MusicAgoraPanel({
 
   const publish = async () => {
     const body = draft.trim();
+    const requestedFreePrice = Number(shareFreePriceInput || 0);
+    const requestedMoneyCents = Math.round(Number((shareMoneyPriceInput || '').replace(',', '.')) * 100);
     if (!enabled) {
       Alert.alert('Compte requis', 'Connecte ton compte Loki Music pour participer au Tchat.');
       return;
     }
     if (!roomSlug || posting || (!sharedTrack && body.length < 2)) return;
+    if (sharedTrack && sharePaymentMode === 'FREE' && (!Number.isInteger(requestedFreePrice) || requestedFreePrice < 1 || requestedFreePrice > 10000)) {
+      Alert.alert('Montant FREE', 'Choisis entre 1 et 10 000 FREE.');
+      return;
+    }
+    if (sharedTrack && sharePaymentMode === 'MONEY' && (!Number.isFinite(requestedMoneyCents) || requestedMoneyCents < 50 || requestedMoneyCents > 500000)) {
+      Alert.alert('Montant €', 'Choisis un montant entre 0,50 € et 5 000 €.');
+      return;
+    }
     if (sharedTrack && sharePaymentMode !== 'NONE' && sharePreflight?.targetOwnsTrack) {
       Alert.alert('Déjà dans sa musique', `@${sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} possède déjà cette musique. Loki bloque toute vente ou débit FREE inutile.`);
       return;
@@ -284,8 +295,8 @@ export default function MusicAgoraPanel({
         sharedTrackId: sharedTrack?.id ?? null,
         revealMode: sharedTrack ? (sharePaymentMode === 'NONE' ? shareRevealMode : 'MASKED') : 'NONE',
         paymentMode: sharedTrack ? sharePaymentMode : 'NONE',
-        freePrice: sharedTrack && sharePaymentMode === 'FREE' ? shareFreePrice : null,
-        priceCents: sharedTrack && sharePaymentMode === 'MONEY' ? shareMoneyPriceCents : null,
+        freePrice: sharedTrack && sharePaymentMode === 'FREE' ? requestedFreePrice : null,
+        priceCents: sharedTrack && sharePaymentMode === 'MONEY' ? requestedMoneyCents : null,
         currencyCode: 'EUR',
       });
       setDraft('');
