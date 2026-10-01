@@ -202,17 +202,7 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 78;
-  const compactTopGap = 54;
-  const compactPanelHeight = compact
-    ? Math.max(
-        340,
-        Math.min(
-          Math.max(340, baseViewportHeightRef.current - compactTopGap - compactBottom),
-          Math.max(340, viewportHeight - compactTopGap - compactBottom),
-        ),
-      )
-    : undefined;
+  const compactBottom = keyboardInset > 0 ? keyboardInset + 8 : 92;
 
   useEffect(() => {
     if (!enabled) {
