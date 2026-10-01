@@ -94,6 +94,7 @@ export default function MusicAgoraPanel({
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ profileId: string; username: string } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [sharedTrack, setSharedTrack] = useState<CanonicalTrack | null>(null);
   const [shareRevealMode, setShareRevealMode] = useState<MusicAgoraRevealMode>('MASKED');
   const [sharePaymentMode, setSharePaymentMode] = useState<MusicAgoraPaymentMode>('NONE');
@@ -112,17 +113,40 @@ export default function MusicAgoraPanel({
   const forceBottomRef = useRef(false);
   const { height: viewportHeight } = useWindowDimensions();
   const [keyboardInset, setKeyboardInset] = useState(0);
+  const baseViewportHeightRef = useRef(viewportHeight);
 
   useEffect(() => {
-    if (!compact || Platform.OS !== 'ios') {
+    if (!compact) {
       setKeyboardInset(0);
       return undefined;
     }
-    const show = Keyboard.addListener('keyboardWillShow', (event) => {
+
+    if (Platform.OS === 'web') {
+      const win = typeof window !== 'undefined' ? window : null;
+      const viewport = win?.visualViewport;
+      if (!win || !viewport) return undefined;
+      const sync = () => {
+        const covered = Math.max(0, Math.round(win.innerHeight - viewport.height - viewport.offsetTop));
+        setKeyboardInset(covered >= 80 ? covered : 0);
+        if (covered < 80 && win.innerHeight > baseViewportHeightRef.current) baseViewportHeightRef.current = win.innerHeight;
+        setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
+      };
+      viewport.addEventListener('resize', sync);
+      viewport.addEventListener('scroll', sync);
+      sync();
+      return () => {
+        viewport.removeEventListener('resize', sync);
+        viewport.removeEventListener('scroll', sync);
+      };
+    }
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (event) => {
       setKeyboardInset(Math.max(0, Number(event.endCoordinates?.height || 0)));
       setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 80);
     });
-    const hide = Keyboard.addListener('keyboardWillHide', () => setKeyboardInset(0));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardInset(0));
     return () => {
       show.remove();
       hide.remove();
@@ -130,9 +154,7 @@ export default function MusicAgoraPanel({
   }, [compact]);
 
   const compactPanelHeight = compact
-    ? keyboardInset > 0
-      ? Math.max(230, Math.min(400, viewportHeight - keyboardInset - 110))
-      : Math.max(300, Math.min(620, Math.round(viewportHeight * 0.68)))
+    ? Math.max(360, Math.min(500, Math.round(baseViewportHeightRef.current * 0.56)))
     : undefined;
 
   const followChatBottom = (animated = true) => {
@@ -371,6 +393,7 @@ export default function MusicAgoraPanel({
       setDraft('');
       if (!(compact && chatMode === 'MESSAGES')) setReplyTarget(null);
       setSharedTrack(null);
+      setShareOptionsOpen(false);
       setShareRevealMode('MASKED');
       setSharePaymentMode('NONE');
       setShareFreePrice(3);
@@ -538,7 +561,7 @@ export default function MusicAgoraPanel({
     style={[
       s.shell,
       compact && s.shellCompact,
-      compact && { height: compactPanelHeight, minHeight: 0, bottom: keyboardInset > 0 ? keyboardInset + 10 : 78 },
+      compact && { height: compactPanelHeight, minHeight: compactPanelHeight, maxHeight: compactPanelHeight, bottom: keyboardInset > 0 ? keyboardInset + 8 : 78 },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
   >
@@ -754,90 +777,125 @@ export default function MusicAgoraPanel({
     {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyTarget ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
-        <View style={s.selectedMusicPreview}>
+        <View style={s.selectedMusicCompactRow}>
           {sharedTrack.artworkUrl
-            ? <Image source={{ uri: sharedTrack.artworkUrl }} style={s.selectedMusicArtwork} resizeMode="cover" />
-            : <View style={[s.selectedMusicArtwork, s.selectedMusicArtworkFallback]}><Text style={s.selectedMusicFallbackText}>♫</Text></View>}
-          <View style={s.selectedMusicShade}>
-            <Text style={s.selectedMusicEyebrow}>APERÇU AVANT ENVOI</Text>
-            <Text style={s.selectedMusicTitle} numberOfLines={2}>{sharedTrack.title}</Text>
-            <Text style={s.selectedMusicArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
-            <View style={s.selectedMusicPlayRow}>
-              <TrackPreviewButton trackKey={sharedTrack.id} previewUrl={sharedTrack.previewUrl || undefined} compact />
-              <TouchableOpacity style={s.removeMusicLarge} onPress={() => { setSharedTrack(null); setSharePaymentMode('NONE'); setSharePreflight(null); }} accessibilityLabel="Retirer cette musique"><Text style={s.removeMusicText}>×</Text></TouchableOpacity>
+            ? <Image source={{ uri: sharedTrack.artworkUrl }} style={s.selectedMusicThumb} resizeMode="cover" />
+            : <View style={[s.selectedMusicThumb, s.selectedMusicArtworkFallback]}><Text style={s.selectedMusicThumbFallback}>♫</Text></View>}
+          <View style={s.selectedMusicCompactCopy}>
+            <Text style={s.selectedMusicEyebrow}>PÉPITE SÉLECTIONNÉE</Text>
+            <Text style={s.selectedMusicCompactTitle} numberOfLines={1}>{sharedTrack.title}</Text>
+            <Text style={s.selectedMusicCompactArtist} numberOfLines={1}>{sharedTrack.artist}</Text>
+            {sharePreflight && !sharePreflight.canSell ? (
+              <TouchableOpacity
+                style={s.shareLockPill}
+                onPress={() => Alert.alert(
+                  '🔒 Partage uniquement',
+                  sharePreflight.sourceUsername
+                    ? `Cette musique vient de @${sharePreflight.sourceUsername}. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.`
+                    : 'Cette musique vient d’un autre utilisateur. Tu peux la partager et la faire écouter, mais tu ne peux pas demander de FREE ni de paiement.',
+                )}
+              >
+                <Text style={s.shareLockPillText}>🔒 PARTAGE UNIQUEMENT</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <TrackPreviewButton trackKey={sharedTrack.id} previewUrl={sharedTrack.previewUrl || undefined} compact />
+          <TouchableOpacity
+            style={s.shareAccordionToggle}
+            onPress={() => setShareOptionsOpen((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: shareOptionsOpen }}
+            accessibilityLabel={shareOptionsOpen ? 'Replier les options de la pépite' : 'Déplier les options de la pépite'}
+          >
+            <Text style={s.shareAccordionToggleText}>{shareOptionsOpen ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.removeMusicCompact} onPress={() => { setSharedTrack(null); setShareOptionsOpen(false); setSharePaymentMode('NONE'); setSharePreflight(null); }} accessibilityLabel="Retirer cette musique">
+            <Text style={s.removeMusicText}>×</Text>
+          </TouchableOpacity>
+        </View>
+
+        {shareOptionsOpen ? <View style={s.shareAccordionBody}>
+          <View style={s.revealChoices}>
+            <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
+            <TouchableOpacity
+              style={[s.revealChip,shareRevealMode==='FULL'&&s.revealChipOn,sharePaymentMode!=='NONE'&&s.revealChipDisabled]}
+              disabled={sharePaymentMode!=='NONE'}
+              onPress={() => setShareRevealMode('FULL')}
+            ><Text style={s.revealChipText}>TITRE + JAQUETTE</Text></TouchableOpacity>
+          </View>
+          {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule}>🔒 Vente = identité masquée jusqu’au déblocage. L’extrait reste écoutable.</Text> : null}
+          {sharePreflightBusy ? <Text style={s.preflightText}>Vérification propriété…</Text> : null}
+          {sharePreflight?.targetOwnsTrack ? <Text style={s.preflightOwned}>✓ @{sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} a déjà cette musique · aucune vente nécessaire</Text> : null}
+          {sharePreflight && !sharePreflight.canSell ? (
+            <Text style={s.preflightBlocked}>🔒 PARTAGE UNIQUEMENT · vente FREE/€ bloquée{sharePreflight.sourceUsername ? ` · source @${sharePreflight.sourceUsername}` : ''}</Text>
+          ) : null}
+          <View style={s.paymentChoices}>
+            <Text style={s.paymentLabel}>ACCÈS</Text>
+            <TouchableOpacity style={[s.paymentChip,sharePaymentMode==='NONE'&&s.paymentChipOn]} onPress={() => setSharePaymentMode('NONE')}><Text style={s.paymentChipText}>STANDARD</Text></TouchableOpacity>
+            <TouchableOpacity
+              style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
+              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
+              onPress={() => setSharePaymentMode('FREE')}
+            ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
+            {Platform.OS === 'web' ? <TouchableOpacity
+              style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
+              disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
+              onPress={() => setSharePaymentMode('MONEY')}
+            ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
+          </View>
+          {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
+            <View style={s.priceChoices}>
+              {[1,3,5,10,20].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareFreePrice===amount&&s.priceChipOn]} onPress={() => { setShareFreePrice(amount); setShareFreePriceInput(String(amount)); }}><Text style={s.priceChipText}>{amount}</Text></TouchableOpacity>)}
             </View>
-          </View>
-        </View>
-        <View style={s.revealChoices}>
-          <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
+            <View style={s.customPriceRow}>
+              <TextInput
+                value={shareFreePriceInput}
+                onChangeText={(value) => {
+                  const clean = value.replace(/[^0-9]/g, '').slice(0,5);
+                  setShareFreePriceInput(clean);
+                  const next = Number(clean || 0);
+                  if (next >= 1 && next <= 10000) setShareFreePrice(next);
+                }}
+                keyboardType="number-pad"
+                placeholder="Montant"
+                placeholderTextColor={colors.textMutedGrey}
+                style={s.customPriceInput}
+              />
+              <Text style={s.priceUnit}>FREE</Text>
+            </View>
+          </View> : null}
+          {sharePaymentMode === 'MONEY' && Platform.OS === 'web' ? <View style={s.priceBlock}>
+            <View style={s.priceChoices}>
+              {[50,100,200,300,500,1000].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareMoneyPriceCents===amount&&s.priceChipOn]} onPress={() => { setShareMoneyPriceCents(amount); setShareMoneyPriceInput(String(amount/100)); }}><Text style={s.priceChipText}>{(amount/100).toFixed(amount % 100 ? 2 : 0)}€</Text></TouchableOpacity>)}
+            </View>
+            <View style={s.customPriceRow}>
+              <TextInput
+                value={shareMoneyPriceInput}
+                onChangeText={(value) => {
+                  const clean = value.replace(',', '.').replace(/[^0-9.]/g, '').slice(0,8);
+                  setShareMoneyPriceInput(clean);
+                  const euros = Number(clean || 0);
+                  const cents = Math.round(euros * 100);
+                  if (cents >= 50 && cents <= 500000) setShareMoneyPriceCents(cents);
+                }}
+                keyboardType="decimal-pad"
+                placeholder="Montant"
+                placeholderTextColor={colors.textMutedGrey}
+                style={s.customPriceInput}
+              />
+              <Text style={s.priceUnit}>€</Text>
+            </View>
+          </View> : null}
+
           <TouchableOpacity
-            style={[s.revealChip,shareRevealMode==='FULL'&&s.revealChipOn,sharePaymentMode!=='NONE'&&s.revealChipDisabled]}
-            disabled={sharePaymentMode!=='NONE'}
-            onPress={() => setShareRevealMode('FULL')}
-          ><Text style={s.revealChipText}>TITRE + JAQUETTE</Text></TouchableOpacity>
-        </View>
-        {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule}>🔒 Vente = identité masquée jusqu’au déblocage. L’extrait reste écoutable.</Text> : null}
-        {sharePreflightBusy ? <Text style={s.preflightText}>Vérification propriété…</Text> : null}
-        {sharePreflight?.targetOwnsTrack ? <Text style={s.preflightOwned}>✓ @{sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} a déjà cette musique · aucune vente nécessaire</Text> : null}
-        {sharePreflight && !sharePreflight.canSell ? (
-          <Text style={s.preflightBlocked}>🔒 PARTAGE UNIQUEMENT · vente FREE/€ bloquée{sharePreflight.sourceUsername ? ` · source @${sharePreflight.sourceUsername}` : ''}</Text>
-        ) : null}
-        <View style={s.paymentChoices}>
-          <Text style={s.paymentLabel}>ACCÈS</Text>
-          <TouchableOpacity style={[s.paymentChip,sharePaymentMode==='NONE'&&s.paymentChipOn]} onPress={() => setSharePaymentMode('NONE')}><Text style={s.paymentChipText}>STANDARD</Text></TouchableOpacity>
-          <TouchableOpacity
-            style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
-            disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
-            onPress={() => setSharePaymentMode('FREE')}
-          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
-          {Platform.OS === 'web' ? <TouchableOpacity
-            style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
-            disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
-            onPress={() => setSharePaymentMode('MONEY')}
-          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity> : null}
-        </View>
-        {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
-          <View style={s.priceChoices}>
-            {[1,3,5,10,20].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareFreePrice===amount&&s.priceChipOn]} onPress={() => { setShareFreePrice(amount); setShareFreePriceInput(String(amount)); }}><Text style={s.priceChipText}>{amount}</Text></TouchableOpacity>)}
-          </View>
-          <View style={s.customPriceRow}>
-            <TextInput
-              value={shareFreePriceInput}
-              onChangeText={(value) => {
-                const clean = value.replace(/[^0-9]/g, '').slice(0,5);
-                setShareFreePriceInput(clean);
-                const next = Number(clean || 0);
-                if (next >= 1 && next <= 10000) setShareFreePrice(next);
-              }}
-              keyboardType="number-pad"
-              placeholder="Montant"
-              placeholderTextColor={colors.textMutedGrey}
-              style={s.customPriceInput}
-            />
-            <Text style={s.priceUnit}>FREE</Text>
-          </View>
-        </View> : null}
-        {sharePaymentMode === 'MONEY' && Platform.OS === 'web' ? <View style={s.priceBlock}>
-          <View style={s.priceChoices}>
-            {[50,100,200,300,500,1000].map((amount) => <TouchableOpacity key={amount} style={[s.priceChip,shareMoneyPriceCents===amount&&s.priceChipOn]} onPress={() => { setShareMoneyPriceCents(amount); setShareMoneyPriceInput(String(amount/100)); }}><Text style={s.priceChipText}>{(amount/100).toFixed(amount % 100 ? 2 : 0)}€</Text></TouchableOpacity>)}
-          </View>
-          <View style={s.customPriceRow}>
-            <TextInput
-              value={shareMoneyPriceInput}
-              onChangeText={(value) => {
-                const clean = value.replace(',', '.').replace(/[^0-9.]/g, '').slice(0,8);
-                setShareMoneyPriceInput(clean);
-                const euros = Number(clean || 0);
-                const cents = Math.round(euros * 100);
-                if (cents >= 50 && cents <= 500000) setShareMoneyPriceCents(cents);
-              }}
-              keyboardType="decimal-pad"
-              placeholder="Montant"
-              placeholderTextColor={colors.textMutedGrey}
-              style={s.customPriceInput}
-            />
-            <Text style={s.priceUnit}>€</Text>
-          </View>
+            style={s.validateMusic}
+            disabled={posting || sharePreflightBusy || (sharePaymentMode !== 'NONE' && (!sharePreflight?.canSell || Boolean(sharePreflight?.targetOwnsTrack)))}
+            onPress={() => void publish()}
+            accessibilityRole="button"
+            accessibilityLabel="Valider la pépite dans le chat"
+          >
+            <Text style={s.validateMusicText}>{posting ? 'VALIDATION…' : 'VALIDER LA PÉPITE'}</Text>
+          </TouchableOpacity>
         </View> : null}
       </View> : null}
       <View style={s.quickReactions}>
@@ -865,7 +923,7 @@ export default function MusicAgoraPanel({
         <TouchableOpacity style={s.shareMusic} disabled={!shareableTracks.length} onPress={() => setShareOpen(true)} accessibilityLabel="Ajouter une pépite à ce message">
           <Text style={s.shareMusicText}>＋ PÉPITE</Text>
         </TouchableOpacity>
-        <Text style={s.counter}>{draft.length}/280</Text>
+        <Text style={s.counter}>{draft.length}/1000</Text>
         <TouchableOpacity style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]} disabled={(!sharedTrack && !draft.trim()) || posting} onPress={() => void publish()}><Text style={s.sendText}>{posting ? '…' : 'ENVOYER'}</Text></TouchableOpacity>
       </View>
     </View> : <View style={s.locked}><Text style={s.lockedText}>Connecte-toi pour écrire. La lecture reste ouverte.</Text></View>}
@@ -874,7 +932,7 @@ export default function MusicAgoraPanel({
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <View style={s.shareHead}><View style={{ flex:1 }}><Text style={s.shareTitle}>Ajouter une pépite</Text><Text style={s.shareHint}>Choisis un morceau. Dans une conversation privée, tu peux l’envoyer gratuitement, demander des FREE ou préparer un paiement conforme au canal disponible.</Text></View><TouchableOpacity onPress={() => setShareOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity></View>
         <ScrollView style={s.shareList} contentContainerStyle={{ gap:7 }}>
-          {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOpen(false); }}>
+          {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOptionsOpen(true); setShareOpen(false); }}>
             {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.shareTrackArt}/> : <View style={[s.shareTrackArt,s.musicArtMasked]}><Text style={s.musicMaskIcon}>♫</Text></View>}
             <View style={{ flex:1,minWidth:0 }}>
               <Text style={s.shareTrackTitle} numberOfLines={1}>{track.title}</Text>
@@ -892,14 +950,14 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
-  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:'68%',minHeight:0,maxHeight:620,flexGrow:0,flexShrink:0,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
+  shellCompact:{position:'absolute',bottom:78,width:360,maxWidth:'92%',height:470,minHeight:470,maxHeight:470,flexGrow:0,flexShrink:0,padding:9,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.985)',overflow:'hidden',shadowColor:'#000',shadowOpacity:.42,shadowRadius:22,shadowOffset:{width:0,height:12},elevation:24,zIndex:80},
   shellCompactLeft:{left:10},
   shellCompactRight:{right:10},
   compactHeader:{minHeight:40,flexShrink:0,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   compactHeaderCopy:{flex:1,minWidth:0},
-  compactTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',letterSpacing:.6},
-  compactMeta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
+  compactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.6},
+  compactMeta:{color:colors.textMutedGrey,fontSize:11,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   compactClose:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   compactCloseText:{color:colors.textPrimary,fontSize:19,fontWeight:'900',lineHeight:21},
@@ -918,7 +976,7 @@ const s=StyleSheet.create({
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
   conversationName:{flex:1,color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   conversationTime:{color:colors.textMutedGrey,fontSize:9.5,fontWeight:'700'},
-  conversationPreview:{color:colors.textSecondary,fontSize:11,lineHeight:15,marginTop:3},
+  conversationPreview:{color:colors.textSecondary,fontSize:12,lineHeight:15,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900',textAlign:'center'},
@@ -944,8 +1002,8 @@ const s=StyleSheet.create({
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
   composerCompact:{padding:7,borderRadius:14,flexGrow:0,flexShrink:0},
-  input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
-  inputCompact:{height:44,minHeight:44,maxHeight:44,fontSize:14,lineHeight:19,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0},
+  input:{height:72,minHeight:72,maxHeight:72,color:colors.textPrimary,fontSize:15.5,lineHeight:21,textAlignVertical:'top',overflow:'scroll'},
+  inputCompact:{height:52,minHeight:52,maxHeight:52,fontSize:15.5,lineHeight:21,paddingTop:8,paddingBottom:7,flexGrow:0,flexShrink:0,overflow:'scroll'},
   quickReactions:{height:46,minHeight:46,maxHeight:46,flexDirection:'row',alignItems:'center',gap:7,marginBottom:6,flexGrow:0,flexShrink:0},
   quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   quickReactionText:{fontSize:21},
@@ -998,7 +1056,21 @@ const s=StyleSheet.create({
   replyTarget:{minHeight:30,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:9,borderRadius:12,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.info,marginBottom:7},
   replyTargetText:{color:colors.info,fontSize:10,fontWeight:'900'},
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
-  selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7},
+  selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7,maxHeight:250,overflow:'hidden'},
+  selectedMusicCompactRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:8},
+  selectedMusicThumb:{width:48,height:48,borderRadius:12,backgroundColor:colors.backgroundElevated},
+  selectedMusicThumbFallback:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
+  selectedMusicCompactCopy:{flex:1,minWidth:0},
+  selectedMusicCompactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
+  selectedMusicCompactArtist:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800',marginTop:2},
+  shareAccordionToggle:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
+  shareAccordionToggleText:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
+  removeMusicCompact:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  shareAccordionBody:{maxHeight:180,overflow:'hidden',marginTop:7,paddingTop:7,borderTopWidth:1,borderTopColor:colors.border},
+  shareLockPill:{alignSelf:'flex-start',marginTop:4,borderRadius:10,borderWidth:1,borderColor:colors.warning,paddingHorizontal:6,paddingVertical:3,backgroundColor:'rgba(255,184,107,.08)'},
+  shareLockPillText:{color:colors.warning,fontSize:8,fontWeight:'900'},
+  validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
+  validateMusicText:{color:colors.background,fontSize:11,fontWeight:'900',letterSpacing:.6},
   selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   selectedMusicArtwork:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},
   selectedMusicArtworkFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},
