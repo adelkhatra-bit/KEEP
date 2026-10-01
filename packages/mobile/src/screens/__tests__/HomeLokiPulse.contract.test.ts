@@ -9,6 +9,8 @@ describe('Home music bubbles contract', () => {
     expect(source).toContain('testID="home-loki-pulse-bubbles"');
     expect(source).toContain('accessibilityLabel="Tes bulles musicales"');
     expect(source).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
+    expect(source).not.toContain('Loki Pulse, tes bulles musicales');
+    expect(source).not.toContain('Loki Pulse apprend');
   });
 
   it('does not expose Loki Music DNA or redirect this block to Profile', () => {
