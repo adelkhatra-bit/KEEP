@@ -103,7 +103,7 @@ export default function AccountEmailPanel({ enabled, username }: { enabled: bool
   if (!enabled) {
     return <View style={s.card}>
       <Text style={s.title}>Sécurité du compte</Text>
-      <Text style={s.help}>Crée ou connecte ton compte Loki Music pour ajouter une adresse e-mail de récupération facultative.</Text>
+      <Text style={s.help}>Crée ou connecte ton compte Loki Music pour gérer ton adresse e-mail, ton mot de passe et tester la réception des e-mails.</Text>
     </View>;
   }
 
