@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.10",
+  "version": "2026-10-01.11",
   "name": "KEEP / Loki Music — contrat produit canonique",
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
@@ -83,6 +83,21 @@
       "socialProfileKeepsAlsoDebit": true,
       "alreadyOwnedDuplicateNeverDebits": true,
       "dailySpendCountsAuthoritativeLedgerEvents": true
+    },
+    "musicTasteSettings": {
+      "menuLabel": "Mes goûts musicaux",
+      "menuOrder": [
+        "Réglages du profil",
+        "Carte",
+        "Mes goûts musicaux",
+        "Réseaux & site web"
+      ],
+      "source": "profiles.favorite_genres + profiles.music_language_codes + profiles.music_country_codes",
+      "opens": "MusicTasteQuestionnaire",
+      "editableAnytime": true,
+      "drives": "Loki Pulse",
+      "separateFromBattleSoloPreferences": true,
+      "battleSoloPreferencesMustNeverOverwritePulseTaste": true
     }
   },
   "responsive": {
