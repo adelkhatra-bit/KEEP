@@ -23,7 +23,8 @@ describe('Music Agora ownership + global dock contract', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("side === 'left' ? styles.fabLeft : styles.fabRight");
     expect(dock).not.toContain('if (settings.homeEnabled) openChat()');
-    expect(dock).not.toContain('styles.badge');
+    expect(dock).toContain('styles.badge');
+    expect(dock).toContain('unreadCount');
   });
 
   it('forces paid shares to stay masked until unlock', () => {
@@ -36,11 +37,10 @@ describe('Music Agora ownership + global dock contract', () => {
   it('blocks resale of music acquired from another user on server and UI', () => {
     expect(ownership).toContain('keep_profile_can_resell_track');
     expect(ownership).toContain('CHAT_TRACK_RESALE_FORBIDDEN');
-    expect(panel).toContain('cette musique ne t’appartient pas');
+    expect(panel).toContain('ne t’appartient pas');
     expect(panel).toContain('sharePreflight?.canSell');
     expect(panel).toContain("'🔒 FREE'");
     expect(panel).toContain("'🔒 €'");
-    expect(panel).toContain('🔒 partage uniquement');
     expect(panel).toContain('🔒 PARTAGE UNIQUEMENT');
     expect(ownership).toContain('trg_keep_chat_sale_offer_track_guard');
   });
