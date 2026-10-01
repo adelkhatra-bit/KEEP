@@ -7,7 +7,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
-import { getDownloadCreditStatus } from '../services/creditService';
+import ContextHelpSheet from '../components/ContextHelpSheet';
 
 function autoTitle(session: KeepSession): string {
   if (session.title) return session.title;
@@ -42,28 +42,9 @@ export default function SessionHistoryScreen({ navigation }: any) {
   const reconcileOrphanedLiveSessions = useSessionHistoryStore((s) => s.reconcileOrphanedLiveSessions);
   const isListening = useSessionStore((s) => s.isActive);
   const activeSessionId = useSessionStore((s) => s.sessionId);
-  const [planBadge, setPlanBadge] = useState<{ label: string; focusPlan: string; paid: boolean }>({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
+  const [helpOpen, setHelpOpen] = useState(false);
   const realActiveSessionId = isListening ? activeSessionId : null;
   const hasOrphanedLiveSession = visibleSessions.some((session) => session.endedAt == null && session.id !== realActiveSessionId);
-
-  const refreshPlanBadge = async () => {
-    try {
-      const status = await getDownloadCreditStatus();
-      const rawCode = String(status.planCode || 'FREE').toUpperCase();
-      const code = rawCode === 'GUEST' || rawCode === 'DEMO' ? 'FREE' : rawCode;
-      const paid = code !== 'FREE';
-      const label = code === 'PREMIUM'
-        ? '♛ Premium'
-        : code === 'CREATOR_PRO'
-          ? 'Creator Pro'
-          : code === 'VENUE_PRO'
-            ? 'Venue Pro'
-            : status.remaining == null ? 'Free' : `Free · ${status.remaining}`;
-      setPlanBadge({ label, focusPlan: paid ? code : 'PREMIUM', paid });
-    } catch {
-      setPlanBadge({ label: 'Free', focusPlan: 'PREMIUM', paid: false });
-    }
-  };
 
   useEffect(() => {
     // AsyncStorage se réhydrate après le premier rendu. Cette dépendance passe à
@@ -76,7 +57,6 @@ export default function SessionHistoryScreen({ navigation }: any) {
     const refresh = () => {
       reconcileOrphanedLiveSessions(realActiveSessionId);
       void refreshCreditLocks().catch(() => {});
-      void refreshPlanBadge();
     };
     refresh();
     const unsubscribe = navigation?.addListener?.('focus', refresh);
@@ -131,16 +111,25 @@ export default function SessionHistoryScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.planBadge, planBadge.paid ? styles.planBadgePaid : styles.planBadgeFree]}
-          onPress={() => navigation.navigate('Offers', { focusPlan: planBadge.focusPlan, sourceFeature: 'SESSION_PLAN_BADGE' })}
-          accessibilityLabel="Voir mon offre Loki Music"
-        >
-          <Text style={[styles.planBadgeText, planBadge.paid ? styles.planBadgePaidText : styles.planBadgeFreeText]}>{planBadge.label}</Text>
+        <TouchableOpacity style={styles.helpButton} onPress={() => setHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Comprendre Mes Sessions">
+          <Text style={styles.helpButtonText}>?</Text>
         </TouchableOpacity>
-        <View style={styles.headerCopy}><Text style={styles.headerEyebrow}>HISTORIQUE</Text><Text style={styles.title}>{t('history.title')}</Text></View>
+        <View style={styles.headerCopy}><Text style={styles.title}>{t('history.title')}</Text></View>
         <TouchableOpacity style={styles.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retour"><Text style={styles.backArrow}>←</Text></TouchableOpacity>
       </View>
+      <ContextHelpSheet
+        visible={helpOpen}
+        title="Mes Sessions"
+        intro="Ici tu retrouves uniquement tes vraies sessions d’écoute."
+        steps={[
+          { title: 'Retrouver une écoute', text: 'Chaque session garde les morceaux détectés pendant ton écoute, avec l’heure et le contexte.' },
+          { title: 'Swiper ce qui reste', text: 'Quand des morceaux sont encore à décider, ouvre SWIPER pour les garder ou les passer.' },
+          { title: 'Garder sans doublon', text: 'Un morceau déjà ajouté à ta musique n’est pas recréé une deuxième fois.' },
+          { title: 'Session en cours', text: 'Une session réellement active reste protégée : elle ne peut pas être supprimée pendant l’écoute.' },
+          { title: 'Supprimer une session', text: 'Supprimer retire cette session de la liste, sans effacer les morceaux déjà ajoutés à tes playlists externes.' },
+        ]}
+        onClose={() => setHelpOpen(false)}
+      />
       {visibleSessions.length === 0 ? (
         <View style={styles.centered}><Text style={styles.emptyEmoji}>🕐</Text><Text style={styles.emptyText}>{t('history.empty')}</Text></View>
       ) : (
@@ -156,14 +145,9 @@ const styles = StyleSheet.create({
   backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
   headerCopy:{flex:1,minWidth:0},
-  headerEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
-  planBadge: { minHeight: 44, minWidth: 82, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  planBadgeFree: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.keep },
-  planBadgePaid: { backgroundColor: 'rgba(124,92,252,0.12)', borderColor: colors.primaryLight },
-  planBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: .3 },
-  planBadgeFreeText: { color: colors.keep },
-  planBadgePaidText: { color: colors.primaryLight },
+  helpButton:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  helpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   emptyEmoji: { fontSize: 40, marginBottom: spacing.md },
   emptyText: { color: colors.textSecondary, fontSize: 14, textAlign: 'center' },
