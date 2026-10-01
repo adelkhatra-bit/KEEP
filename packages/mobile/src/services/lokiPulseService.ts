@@ -7,9 +7,9 @@ export type LokiPulseItem = {
   isNew: boolean;
 };
 
-export async function loadLokiPulse(limit = 14): Promise<LokiPulseItem[]> {
+export async function loadLokiPulse(limit = 36): Promise<LokiPulseItem[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc('keep_loki_pulse', { p_limit: Math.max(4, Math.min(limit, 30)) });
+  const { data, error } = await supabase.rpc('keep_loki_pulse', { p_limit: Math.max(4, Math.min(limit, 60)) });
   if (error) throw error;
   return (Array.isArray(data) ? data : []).flatMap((row: any): LokiPulseItem[] => {
     const id = String(row?.track_id ?? '').trim();
