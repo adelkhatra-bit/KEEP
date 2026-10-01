@@ -7,9 +7,10 @@ describe('Battle result voice and Solo exit contract', () => {
   const audio = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'audioPreviewService.ts'), 'utf8');
 
   it('offers a real cancel before Solo starts', () => {
-    expect(battle).toContain("{ text: 'Annuler', style: 'cancel' }");
-    expect(battle).toContain("{ text: 'Jouer sans enregistrer'");
-    expect(battle).toContain("{ text: 'Oui, enregistrer'");
+    expect(battle).toContain('visible={Boolean(soloSavePrompt)}');
+    expect(battle).toContain('accessibilityLabel="Annuler le Battle solo"');
+    expect(battle).toContain('accessibilityLabel="Jouer sans enregistrer"');
+    expect(battle).toContain('accessibilityLabel="Enregistrer ce Battle solo"');
     expect(battle).not.toContain("{ text: 'Non merci', style: 'cancel', onPress: () => { void runStartSolo(false); } }");
   });
 
