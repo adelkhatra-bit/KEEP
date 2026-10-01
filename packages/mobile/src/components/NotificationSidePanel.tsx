@@ -89,6 +89,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [chatVoiceEnabled, setChatVoiceEnabled] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['PROFILE']);
   const [chatSide, setChatSide] = useState<'left' | 'right'>('right');
+  const [chatBottomOffset, setChatBottomOffset] = useState(88);
+  const { height: viewportHeight } = useWindowDimensions();
   const chatBottomOffset = useGlobalChatStore((state) => state.bottomOffset);
   const { height: viewportHeight } = useWindowDimensions();
   const chatLowBottom = Math.max(100, Math.round(viewportHeight * 0.44));
@@ -145,6 +147,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ['PROFILE']);
       setChatSide(settings.side);
+      setChatBottomOffset(settings.bottomOffset);
       useGlobalChatStore.getState().setSide(settings.side);
       useGlobalChatStore.getState().setBottomOffset(settings.bottomOffset);
     } finally {
@@ -174,6 +177,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : nextSurfaces);
       setChatSide(settings.side);
+      setChatBottomOffset(settings.bottomOffset);
       useGlobalChatStore.getState().setSide(settings.side);
       useGlobalChatStore.getState().setBottomOffset(settings.bottomOffset);
     } finally {
@@ -195,6 +199,21 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     useGlobalChatStore.getState().setSide(side);
     const bottom = useGlobalChatStore.getState().bottomOffset;
     if (!isDemoMode) void saveMusicAgoraPosition(side, bottom).catch(() => {});
+  };
+
+  const chatPositionOffsets = {
+    HIGH: Math.max(260, Math.round(viewportHeight * 0.72)),
+    MIDDLE: Math.max(220, Math.round(viewportHeight * 0.58)),
+    LOW: Math.max(180, Math.round(viewportHeight * 0.44)),
+  } as const;
+  const chatVerticalPreset = (Object.entries(chatPositionOffsets) as Array<['HIGH' | 'MIDDLE' | 'LOW', number]>)
+    .sort((a, b) => Math.abs(a[1] - chatBottomOffset) - Math.abs(b[1] - chatBottomOffset))[0]?.[0] ?? 'MIDDLE';
+
+  const chooseChatVerticalPreset = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
+    const nextBottom = chatPositionOffsets[preset];
+    setChatBottomOffset(nextBottom);
+    useGlobalChatStore.getState().setBottomOffset(nextBottom);
+    if (!isDemoMode) void saveMusicAgoraPosition(chatSide, nextBottom).catch(() => {});
   };
 
   const chooseChatVertical = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
