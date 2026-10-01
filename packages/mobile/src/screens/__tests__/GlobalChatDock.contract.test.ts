@@ -89,6 +89,9 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('saveMusicAgoraPosition(nextSide, nextBottom)');
     expect(dock).toContain('const clamped = Math.max(minBottom, Math.min(maxBottom, bottomOffset))');
     expect(dock).toContain('saveMusicAgoraPosition(side, clamped)');
+    expect(dock).toContain('chatSettingsReady');
+    expect(dock).toContain('setChatSettingsReady(true)');
+    expect(dock).toContain('!chatSettingsReady && !open && !settingsOpen');
     expect(dock).toContain('openChat(target);');
     expect(dock).toContain('setChatEnabled(true);');
     expect(dock).toContain("chooseVerticalPreset('HIGH')");
