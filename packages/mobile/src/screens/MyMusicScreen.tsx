@@ -178,6 +178,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // contenu numérique déverrouillé dans l'app. Code intact, juste masqué
   // tant que le flag Super Admin 'playlist_marketplace' reste désactivé.
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false);
+  const [playlistHelpOpen, setPlaylistHelpOpen] = useState(false);
   const [payoutLink, setPayoutLink] = useState('');
   const [payoutLinkDraft, setPayoutLinkDraft] = useState('');
   const [payoutSaving, setPayoutSaving] = useState(false);
@@ -1316,15 +1317,18 @@ export default function MyMusicScreen({ navigation, route }: any) {
       <View style={styles.header}>
         <View style={styles.headerCopy}>
           <Text style={styles.title} numberOfLines={1}>Playlists</Text>
-          <Text style={styles.headerSubtitle} numberOfLines={1}>Écouter · Trier · Organiser</Text>
         </View>
-
+        <TouchableOpacity
+          style={styles.headerHelpButton}
+          onPress={() => setPlaylistHelpOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Tout comprendre sur Playlists"
+        >
+          <Text style={styles.headerHelpButtonText}>?</Text>
+        </TouchableOpacity>
       </View>
 
       {mobileSection === 'HOME' ? <View style={styles.focusHome}>
-        <Text style={styles.focusHomeTitle}>Que veux-tu faire ?</Text>
-        <Text style={styles.focusHomeHint}>Choisis une action. Tu peux revenir ici quand tu veux.</Text>
-
         <TouchableOpacity style={styles.focusPrimary} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('TRACKS'); setActiveTab('MUSIQUES'); }}>
           <View style={styles.focusPrimaryIcon}><Text style={styles.focusPrimaryIconText}>♫</Text></View>
           <View style={styles.focusPrimaryCopy}>
@@ -1596,6 +1600,30 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
+      <Modal visible={playlistHelpOpen} transparent animationType="fade" onRequestClose={() => setPlaylistHelpOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.editCard, styles.playlistHelpCard]}>
+            <View style={styles.playlistHelpHead}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.editTitle}>Tout faire dans Playlists</Text>
+                <Text style={styles.editHint}>Un seul endroit pour écouter, ranger, modifier et retrouver tes collections.</Text>
+              </View>
+              <TouchableOpacity style={styles.playlistHelpClose} onPress={() => setPlaylistHelpOpen(false)} accessibilityLabel="Fermer l’aide Playlists">
+                <Text style={styles.playlistHelpCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.playlistHelpSteps}>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>1</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Écouter</Text><Text style={styles.playlistHelpText}>Retrouve tous les morceaux gardés, tes achats et lance les extraits.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>2</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Choisir la visibilité</Text><Text style={styles.playlistHelpText}>Passe un morceau en public, privé ou retire-le de ton profil.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>3</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Trier automatiquement</Text><Text style={styles.playlistHelpText}>Loki range ta musique par styles et artistes pour retrouver plus vite tes sons.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>4</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Créer une collection</Text><Text style={styles.playlistHelpText}>Sélectionne plusieurs morceaux, donne un nom à la collection et choisis son mode de déblocage lorsque cette fonction est disponible.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>5</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>Connecter tes services</Text><Text style={styles.playlistHelpText}>Utilise tes services musicaux pour écouter ou exporter les playlists compatibles.</Text></View></View>
+            </View>
+            <TouchableOpacity style={styles.saveButton} onPress={() => setPlaylistHelpOpen(false)}><Text style={styles.saveText}>J’AI COMPRIS</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
           <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer ma Vibe' : 'Modifier la collection'}</Text>
@@ -1790,7 +1818,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
 const styles = StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},
-  header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  header:{paddingVertical:13,paddingHorizontal:16,borderBottomWidth:1,borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},headerCopy:{flex:1,minWidth:0},title:{...typography.h1,color:colors.textPrimary},headerSubtitle:{color:colors.textMuted,fontSize:10,marginTop:1},headerHelpButton:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},headerHelpButtonText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},servicesButton:{backgroundColor:colors.primary,borderRadius:radius.pill,paddingHorizontal:11,minHeight:44,alignItems:'center',justifyContent:'center'},servicesButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
+  playlistHelpCard:{maxWidth:460,gap:14},
+  playlistHelpHead:{flexDirection:'row',alignItems:'flex-start',gap:10},
+  playlistHelpClose:{width:32,height:32,borderRadius:16,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
+  playlistHelpCloseText:{color:colors.textPrimary,fontSize:20,fontWeight:'900',lineHeight:22},
+  playlistHelpSteps:{gap:9},
+  playlistHelpStep:{minHeight:56,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:10,flexDirection:'row',alignItems:'center',gap:10},
+  playlistHelpNo:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},
+  playlistHelpCopy:{flex:1,minWidth:0},
+  playlistHelpTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
+  playlistHelpText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},
   focusHome:{marginHorizontal:14,marginTop:12,gap:12},
   focusHomeTitle:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},
   focusHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:19,marginBottom:2},
