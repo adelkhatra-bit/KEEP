@@ -38,6 +38,7 @@ export const colors = {
   warning: '#FFB454',
   danger: '#FF5C72',
   info: '#5CA8FC',
+  infoFaint: 'rgba(92, 168, 252, 0.08)',
 
   // Fonds translucides dérivés des états (menthe #2DE1C2 / corail #FF5C72)
   // + voile de modale. Ajoutés pour bannir les rgba() en dur des écrans.
