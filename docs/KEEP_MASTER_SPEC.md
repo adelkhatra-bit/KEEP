@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.1**  
+Version : **2026-10-01.3**  
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -79,7 +79,12 @@ Source : `MyMusicScreen.tsx`.
 - une seule bibliothèque ;
 - un seul moteur de classement ;
 - une seule logique Collections ;
-- aucun second workspace caché de vente/collection.
+- aucun second workspace caché de vente/collection ;
+- Pépites sépare visuellement les collections **FREE** et **€ EUROS** ;
+- création d'une collection = parcours visible en 3 étapes : morceaux → mode/prix → publication ;
+- un morceau déjà présent dans une collection publiée est signalé **DÉJÀ PUBLIÉE** et ne peut pas être ajouté une seconde fois ;
+- en euros, le lien de paiement personnel (ex. PayPal.Me) se configure directement dans ce parcours, sans route morte ni écran caché ;
+- en FREE, aucun lien de paiement externe n'est demandé.
 
 ## 8. Soirées / Battle
 
@@ -107,15 +112,14 @@ Zone identité :
 1. avatar ;
 2. pseudo + certification ;
 3. type Utilisateur / Créateur / DJ / Artiste / Producteur / Établissement ;
-4. Battle dans la même zone identité, à droite ;
-5. ville / pays dessous.
+4. **FREE immédiatement à droite du badge de type** ;
+5. Battle dans la même zone identité, à droite ;
+6. ville / pays dessous.
 
-Barre suivante : **PLUS | Abonnés | Reprises | FREE**.
-Le bloc FREE reste **juste après Reprises**, comme avant la régression du 30/09/2026.
+Barre suivante : **PLUS | Abonnés | Reprises**.
 
 Interdictions :
-- pas de FREE à côté du badge Utilisateur/Créateur ;
-- pas de second FREE ;
+- pas de second FREE dans la barre des compteurs ;
 - une correction UI ne doit jamais écrire ou réinitialiser la certification ou le solde FREE en production ;
 - certification = donnée réelle Supabase `profiles.certification_tier` ;
 - solde FREE = donnée réelle issue des RPC de crédit existantes ;
@@ -125,7 +129,9 @@ Interdictions :
 
 Le hamburger donne accès aux fonctions profil, communauté, musique et aide.
 
-Il ne contient pas de second chemin Compte / connexion / déconnexion. La session est gérée dans `ProfileSettingsMobileScreen.tsx`.
+- La rubrique est **Réseaux & site web** : elle gère les réseaux et le site, pas la visibilité globale.
+- Le réglage global **Profil visible / privé** est placé tout en haut du centre Notifications.
+- Il ne contient pas de second chemin Compte / connexion / déconnexion. La session est gérée dans `ProfileSettingsMobileScreen.tsx`.
 
 ## 11. Profil persistant
 
