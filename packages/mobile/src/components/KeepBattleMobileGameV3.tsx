@@ -26,6 +26,7 @@ import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
 import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
+import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
 import WinnerTrophy3D from './WinnerTrophy3D';
 import FreeEarnHelp from './FreeEarnHelp';
@@ -320,6 +321,7 @@ const handledOutgoingIds = new Set<string>();
 const autoJoinedChallengeIds = new Set<string>();
 
 export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenOffers }: Props) {
+  const [homeHelpOpen, setHomeHelpOpen] = React.useState(false);
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   // Adel (03/09/2026) : "pouvoir choisir 8, 15, 20 ou 30 morceaux avant de
@@ -2886,10 +2888,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
           à intégrer des artistes sur leur profil" -- pourquoi jouer, pas
           seulement comment. */}
-      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Pourquoi jouer à Loki Music Battle" onPress={() => Alert.alert(
-        'Pourquoi jouer à Loki Music Battle ?',
-        'JOUER SOLO : entraîne-toi seul sur 8, 15, 20 ou 30 morceaux et gagne des Free selon tes bonnes réponses.\n\nBATTLE EN LIGNE : affronte d’autres joueurs en direct sur le même nombre de morceaux — plus tu choisis un grand nombre de morceaux, plus la mise ET le gain en Free sont importants.\n\nÀ quoi servent les Free ? Ils te permettent d’intégrer plus d’artistes et de morceaux à ton profil, dans ton style musical. Plus ton profil te ressemble, plus tu attires une vraie communauté musicale autour de toi — et une communauté, ça se monétise un jour.',
-      )}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
+      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Tout comprendre sur Loki Music Battle" onPress={() => setHomeHelpOpen(true)}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
+      <ContextHelpSheet
+        visible={homeHelpOpen}
+        title="Tout comprendre sur Battle"
+        intro="Solo et Battle en ligne sont deux jeux différents. Voici la règle simple."
+        steps={[
+          { title: 'Solo = tu joues seul', text: 'Choisis tes styles et 8, 15, 20 ou 30 morceaux. Le Solo ne demande pas de mise FREE et peut te faire gagner des FREE.' },
+          { title: 'Battle = tu défies quelqu’un', text: 'Tu joues contre un ou plusieurs utilisateurs. Une mise FREE peut être engagée selon le nombre de morceaux.' },
+          { title: 'Tes styles Battle/Solo', text: 'Ces styles servent au jeu uniquement. Ils restent séparés de tes goûts musicaux Loki Pulse.' },
+          { title: 'Gagnés et perdus aujourd’hui', text: 'Les compteurs affichent seulement la journée Battle en cours, de 02:00 à 01:59 le lendemain.' },
+          { title: 'À quoi servent les FREE ?', text: 'Ils servent notamment à garder des morceaux dans ton profil et à certaines actions Battle. L’écoute seule reste gratuite.' },
+          { title: 'Invitations', text: 'Quand quelqu’un te défie, tu peux accepter ou refuser. Tu peux aussi couper Battle depuis ton profil si tu ne veux plus recevoir de défis.' },
+        ]}
+        onClose={() => setHomeHelpOpen(false)}
+      />
       <View style={s.battleHeroCompact}>
         <Text style={s.homeSub}>⚡ Écoute · réponds · affronte</Text>
       </View></View>{myPlayerStats || myCreditStatus ? (
