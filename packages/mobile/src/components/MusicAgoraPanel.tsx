@@ -911,10 +911,10 @@ export default function MusicAgoraPanel({
             <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? `@${replyTarget.username}` : 'MESSAGERIE LOKI'}</Text>
             <Text style={s.compactMeta}>
               {activeGroup
-                ? `${activeGroup.memberCount} personne${activeGroup.memberCount > 1 ? 's' : ''} · conversation privée`
+                ? `SALON PRIVÉ · ${activeGroup.memberCount} personne${activeGroup.memberCount > 1 ? 's' : ''}`
                 : replyTarget
                   ? 'Conversation privée · musique · FREE · paiement'
-                  : (chatMode === 'MESSAGES' ? 'Conversations choisies · jusqu’à 45 personnes' : 'La Place · discussion publique')}
+                  : (chatMode === 'MESSAGES' ? 'Conversations choisies · jusqu’à 45 personnes' : 'LA PLACE · PUBLIC · tout le monde peut rejoindre')}
             </Text>
           </View>
           <TouchableOpacity
@@ -938,7 +938,7 @@ export default function MusicAgoraPanel({
             style={[s.compactMode, chatMode === 'PLACE' && s.compactModeOn]}
             onPress={() => { setChatMode('PLACE'); setReplyTarget(null); setActiveGroup(null); void refresh(roomSlug); }}
           >
-            <Text style={[s.compactModeText, chatMode === 'PLACE' && s.compactModeTextOn]}>LA PLACE</Text>
+            <Text style={[s.compactModeText, chatMode === 'PLACE' && s.compactModeTextOn]}>LA PLACE · PUBLIC</Text>
           </TouchableOpacity>
         </View>
         {chatMode === 'MESSAGES' && (replyTarget || activeGroup) ? (
@@ -987,8 +987,8 @@ export default function MusicAgoraPanel({
         <TouchableOpacity style={s.newConversationButton} onPress={openCreateGroup} accessibilityLabel="Créer une nouvelle conversation de groupe">
           <Text style={s.newConversationPlus}>＋</Text>
           <View style={s.newConversationCopy}>
-            <Text style={s.newConversationTitle}>Nouvelle conversation</Text>
-            <Text style={s.newConversationHint}>Choisis jusqu’à 44 personnes · 45 avec toi</Text>
+            <Text style={s.newConversationTitle}>Nouveau salon privé</Text>
+            <Text style={s.newConversationHint}>Sur invitation uniquement · jusqu’à 45 personnes avec toi</Text>
           </View>
         </TouchableOpacity>
 
@@ -1489,8 +1489,8 @@ export default function MusicAgoraPanel({
       <View style={s.modalBackdrop}><View style={s.groupSheet}>
         <View style={s.shareHead}>
           <View style={{flex:1}}>
-            <Text style={s.shareTitle}>Nouvelle conversation</Text>
-            <Text style={s.shareHint}>Choisis les personnes. Maximum 45 participants avec toi.</Text>
+            <Text style={s.shareTitle}>Nouveau salon privé</Text>
+            <Text style={s.shareHint}>Sur invitation uniquement. Choisis les personnes ; tu pourras ensuite en ajouter ou en retirer depuis MEMBRES.</Text>
           </View>
           <TouchableOpacity onPress={() => setGroupCreateOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity>
         </View>
