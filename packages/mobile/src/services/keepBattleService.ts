@@ -333,6 +333,49 @@ function unwrap<T>(data: T | null, error: any): T {
   return data;
 }
 
+
+let battleClockOffsetMs = 0;
+let battleClockOffsetExpiresAt = 0;
+let battleClockOffsetInFlight: Promise<number> | null = null;
+
+/** Calibre les appareils sur l'horloge PostgreSQL pour un départ audio commun. */
+export async function estimateKeepBattleServerClockOffsetMs(force = false): Promise<number> {
+  const now = Date.now();
+  if (!force && battleClockOffsetExpiresAt > now) return battleClockOffsetMs;
+  if (battleClockOffsetInFlight) return battleClockOffsetInFlight;
+
+  battleClockOffsetInFlight = (async () => {
+    const samples: Array<{ rtt: number; offset: number }> = [];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const t0 = Date.now();
+      try {
+        const { data, error } = await client().rpc('keep_server_epoch_ms');
+        const t1 = Date.now();
+        if (error) throw error;
+        const serverMs = Number(data);
+        if (!Number.isFinite(serverMs)) continue;
+        samples.push({ rtt: Math.max(0, t1 - t0), offset: serverMs - ((t0 + t1) / 2) });
+      } catch {
+        // La calibration est un renfort de synchro, jamais un blocage du Battle.
+      }
+    }
+    if (samples.length) {
+      samples.sort((a, b) => a.rtt - b.rtt);
+      battleClockOffsetMs = Math.round(samples[0].offset);
+    } else {
+      battleClockOffsetMs = 0;
+    }
+    battleClockOffsetExpiresAt = Date.now() + 60_000;
+    return battleClockOffsetMs;
+  })().finally(() => { battleClockOffsetInFlight = null; });
+
+  return battleClockOffsetInFlight;
+}
+
+export function keepBattleServerNowMs(offsetMs = battleClockOffsetMs): number {
+  return Date.now() + offsetMs;
+}
+
 export type KeepBattleCatalogRefresh = {
   ok: boolean;
   secretRequired: boolean;
