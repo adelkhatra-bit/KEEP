@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-01.19",
+  "version": "2026-10-01.20",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -417,7 +417,7 @@
     "fixedCompactDrawer": true,
     "fixedCompactDrawerHeightPx": 470,
     "longMessagesScrollInsideDrawer": true,
-    "composerFixedHeightPx": 44,
+    "composerFixedHeightPx": 52,
     "maxMessageCharacters": 2000,
     "keyboardMeasuredFromEndCoordinates": true,
     "webKeyboardMeasuredFromVisualViewport": true,
