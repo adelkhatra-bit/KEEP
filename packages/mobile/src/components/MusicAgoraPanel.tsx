@@ -43,6 +43,7 @@ import {
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
+  subscribeMusicAgoraGroup,
 } from '../services/musicAgoraService';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseRequest, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
@@ -565,14 +566,20 @@ export default function MusicAgoraPanel({
     }
     if (enabled && homeEnabled && !activeGroup?.id) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
     const unsubscribe = activeGroup?.id
-      ? () => {}
+      ? subscribeMusicAgoraGroup(activeGroup.id, () => {
+          void refresh(roomSlug, true);
+          void refreshInbox();
+          if (groupMembersOpen) void refreshGroupMembers(activeGroup.id);
+        })
       : subscribeMusicAgoraRoom(roomSlug, () => {
           if (chatMode === 'MESSAGES' && !replyTarget?.profileId) void refreshInbox();
           else void refresh(roomSlug, true);
         });
+
+    // Realtime handles messages immediately. This low-frequency timer is only
+    // a resilience/settings sync and avoids a 5-second polling load at scale.
     const timer = setInterval(() => {
       if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) void refreshInbox();
-      else void refresh(roomSlug, true);
       if (compact && enabled) {
         void loadMusicAgoraSettings().then((settings) => {
           setHomeEnabled(settings.homeEnabled);
@@ -580,9 +587,9 @@ export default function MusicAgoraPanel({
           setSettingsSurfaces(settings.surfaces);
         }).catch(() => {});
       }
-    }, 5000);
+    }, 60000);
     return () => { unsubscribe(); clearInterval(timer); };
-  }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id]);
+  }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id, groupMembersOpen]);
 
   useEffect(() => {
     if (!messages.length) return;
