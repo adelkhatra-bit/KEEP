@@ -90,7 +90,11 @@ describe('UsernameAccountForm -- champs agrandis, tooltips, force à 2 tons (Ade
     expect(form).not.toContain("backgroundColor:'#F59E0B'");
   });
 
-  it('aucune fonction retirée : suggérer un mot de passe, switch create/login, mot de passe oublié, tous les 13 codes d\'erreur toujours présents', () => {
+  it('restores the global welcome overlay after every explicit successful login', () => {
+    expect(form).toContain("useAccountGateStore.getState().handleSuccess()");
+  });
+
+  it('aucune fonction retirée : suggérer un mot de passe, switch create/login, mot de passe oublié, tous les 13 codes d'erreur toujours présents', () => {
     expect(form).toContain('SUGGÉRER UN MOT DE PASSE');
     expect(form).toContain('J’ai déjà un compte');
     expect(form).toContain('Mot de passe oublié ?');
