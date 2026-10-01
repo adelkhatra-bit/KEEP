@@ -7,10 +7,7 @@ export type LokiPulseItem = {
   isNew: boolean;
 };
 
-export async function loadLokiPulse(limit = 36): Promise<LokiPulseItem[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase.rpc('keep_loki_pulse', { p_limit: Math.max(4, Math.min(limit, 60)) });
-  if (error) throw error;
+function normalizePulseRows(data: unknown): LokiPulseItem[] {
   return (Array.isArray(data) ? data : []).flatMap((row: any): LokiPulseItem[] => {
     const id = String(row?.track_id ?? '').trim();
     const title = String(row?.title ?? '').trim();
@@ -33,6 +30,37 @@ export async function loadLokiPulse(limit = 36): Promise<LokiPulseItem[]> {
       isNew: Boolean(row?.is_new),
     }];
   });
+}
+
+export async function requestLokiPulseCatalogExpansion(): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.functions.invoke('keep-pulse-catalog-expand', { body: {} });
+  if (error) throw error;
+}
+
+export async function loadLokiPulse(limit = 36): Promise<LokiPulseItem[]> {
+  if (!supabase) return [];
+  const safeLimit = Math.max(4, Math.min(limit, 60));
+  const first = await supabase.rpc('keep_loki_pulse', { p_limit: safeLimit });
+  if (first.error) throw first.error;
+  const initialItems = normalizePulseRows(first.data);
+
+  // A thin Pulse should self-heal from the user's declared/inferred tastes.
+  // Expansion is bounded server-side (cooldown + daily cap) and stores only
+  // public catalog metadata/previews, never full copyrighted audio files.
+  if (initialItems.length < Math.min(18, safeLimit)) {
+    try {
+      await requestLokiPulseCatalogExpansion();
+      const retry = await supabase.rpc('keep_loki_pulse', { p_limit: safeLimit });
+      if (!retry.error) return normalizePulseRows(retry.data);
+    } catch {
+      // Provider expansion is additive; a temporary provider failure must not
+      // make an already-valid Pulse disappear.
+    }
+  } else {
+    void requestLokiPulseCatalogExpansion().catch(() => {});
+  }
+  return initialItems;
 }
 
 export async function hideLokiPulseTrack(trackId: string): Promise<void> {
