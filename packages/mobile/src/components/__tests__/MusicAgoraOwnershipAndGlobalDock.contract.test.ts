@@ -37,6 +37,11 @@ describe('Music Agora ownership + global dock contract', () => {
     expect(ownership).toContain('CHAT_TRACK_RESALE_FORBIDDEN');
     expect(panel).toContain('cette musique ne t’appartient pas');
     expect(panel).toContain('sharePreflight?.canSell');
+    expect(panel).toContain("'🔒 FREE'");
+    expect(panel).toContain("'🔒 €'");
+    expect(panel).toContain('🔒 partage uniquement');
+    expect(panel).toContain('🔒 PARTAGE UNIQUEMENT');
+    expect(ownership).toContain('trg_keep_chat_sale_offer_track_guard');
   });
 
   it('prevents charging a recipient who already owns the track', () => {
