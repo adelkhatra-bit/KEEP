@@ -14,6 +14,7 @@ describe('global chat scale and visual proof contract', () => {
 
   it('keeps the preview-only visual override isolated to CI', () => {
     expect(dock).toContain("process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1'");
+    expect(dock).toContain('enabled={accountReady || visualTestPreview}');
     expect(workflow).toContain("EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST: '1'");
   });
 

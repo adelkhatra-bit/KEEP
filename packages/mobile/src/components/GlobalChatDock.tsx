@@ -532,7 +532,7 @@ export default function GlobalChatDock() {
               compact
               compactSide={side}
               currentProfileId={user.id}
-              enabled={accountReady}
+              enabled={accountReady || visualTestPreview}
               shareableTracks={tracks}
               initialRoomSlug={target?.roomSlug ?? undefined}
               initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
