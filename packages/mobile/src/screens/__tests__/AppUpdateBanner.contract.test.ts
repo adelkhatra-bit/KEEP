@@ -10,8 +10,8 @@ describe('web update control contract', () => {
   const service = read(__dirname, '..', '..', 'services', 'appUpdateService.ts');
   const workflow = read(__dirname, '..', '..', '..', '..', '.github', 'workflows', 'web-preview-pages.yml');
 
-  it('shows one discreet update button only when a newer deployed build exists', () => {
-    expect(banner).toContain("Platform.OS !== 'web' || !latestSha");
+  it('keeps the update control off mobile and free of stray arrow icons', () => {
+    expect(banner).toContain("Platform.OS !== 'web' || width < 768");
     expect(banner).toContain('keep-update-available-button');
     expect(banner).toContain('MISE À JOUR');
     expect(banner).not.toContain('↻');
