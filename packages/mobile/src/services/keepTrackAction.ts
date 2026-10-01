@@ -146,6 +146,15 @@ export async function commitKeep(
       },
     };
     const recorded = await recordKeepDecision(track, visibility, decisionContext);
+
+    // Pour tout compte réel, un GARDER n'est JAMAIS considéré comme réussi
+    // tant que le serveur n'a pas confirmé la décision. Cela garantit que le
+    // débit FREE et le ledger "dépensés aujourd'hui" sont bien passés avant
+    // que Session/Loki Pulse n'affichent le morceau comme gardé.
+    if (consumesCredit && (!recorded?.decisionId || !recorded?.trackId)) {
+      throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    }
+
     keepDecisionId = recorded?.decisionId;
 
     // L'Edge Function enregistre elle-même l'origine sociale uniquement lors
@@ -163,10 +172,10 @@ export async function commitKeep(
       });
     }
   } catch (e: any) {
-    // CREDITS_EXHAUSTED vient du controle serveur (recordKeepDecision) : ce
-    // n'est pas un simple souci de synchro, GARDER doit rester bloque pour
-    // que l'appelant (useSessionStore.keepTrack) le traite comme tel.
-    if (e?.message === 'CREDITS_EXHAUSTED') throw e;
+    // Compte réel : ne jamais masquer une panne serveur derrière un succès
+    // local. Le morceau peut déjà avoir été ajouté au fournisseur ; au nouvel
+    // essai, l'opération est idempotente et le serveur finalise décision + FREE.
+    if (consumesCredit) throw e;
     profileSyncFailed = true;
   }
 
