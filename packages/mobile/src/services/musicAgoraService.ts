@@ -91,6 +91,75 @@ export type MusicAgoraPostOptions = {
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
 
 const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'];
+export const MARKETPLACE_PAYMENT_TERMS_VERSION = '2026-10-01-chat-payments-v1';
+const PAYPAL_QR_PREFIX = '[[KEEP_PAYPAL_QR]]';
+
+export function extractMusicAgoraPayoutQrUrl(body: string): string | null {
+  const raw = String(body || '');
+  if (!raw.startsWith(PAYPAL_QR_PREFIX)) return null;
+  const url = raw.slice(PAYPAL_QR_PREFIX.length).trim();
+  if (!/^https:\/\//i.test(url)) return null;
+  return url;
+}
+
+export function musicAgoraBodyPreview(body: string): string {
+  return extractMusicAgoraPayoutQrUrl(body) ? 'QR PayPal partagé' : String(body || '');
+}
+
+async function hydrateMusicAgoraPaymentStates(rows: MusicAgoraMessage[]): Promise<MusicAgoraMessage[]> {
+  if (!supabase) return rows;
+  const offerIds = Array.from(new Set(rows.map((row) => row.saleOfferId).filter((id): id is string => Boolean(id))));
+  if (!offerIds.length) return rows;
+  const { data, error } = await supabase.rpc('keep_agora_offer_payment_states', { p_offer_ids: offerIds });
+  if (error || !Array.isArray(data)) return rows;
+  const byOffer = new Map<string, any>();
+  for (const item of data as any[]) {
+    const offerId = String(item?.offerId ?? item?.offer_id ?? '');
+    if (offerId) byOffer.set(offerId, item);
+  }
+  return rows.map((row) => {
+    if (!row.saleOfferId) return row;
+    const state = byOffer.get(row.saleOfferId);
+    if (!state) return row;
+    const status = String(state?.status || '').toUpperCase();
+    return {
+      ...row,
+      viewerPaymentId: String(state?.paymentId ?? state?.payment_id ?? row.viewerPaymentId ?? '') || null,
+      viewerPaymentStatus: status === 'COMPLETED' ? 'COMPLETED' : status === 'PENDING' ? 'PENDING' : row.viewerPaymentStatus,
+      viewerMarkedPaid: Boolean(state?.buyerMarkedPaidAt ?? state?.buyer_marked_paid_at ?? row.viewerMarkedPaid),
+      viewerUnlocked: status === 'COMPLETED' || row.viewerUnlocked,
+    };
+  });
+}
+
+export async function loadMarketplacePaymentTermsAccepted(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc('keep_marketplace_terms_status', {
+    p_version: MARKETPLACE_PAYMENT_TERMS_VERSION,
+  });
+  if (error) return false;
+  return Boolean(data);
+}
+
+export async function acceptMarketplacePaymentTerms(source = 'chat'): Promise<boolean> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_marketplace_accept_terms', {
+    p_version: MARKETPLACE_PAYMENT_TERMS_VERSION,
+    p_source: source,
+  });
+  if (error) throw error;
+  return true;
+}
+
+export async function shareMyPayoutQrInAgora(roomSlug: string, targetProfileId: string): Promise<number> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_share_my_payout_qr', {
+    p_room_slug: roomSlug,
+    p_target_profile_id: targetProfileId,
+  });
+  if (error) throw error;
+  return Number(data || 0);
+}
 
 function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
   if (!Array.isArray(value)) return ALL_CHAT_SURFACES;
@@ -237,8 +306,9 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     senderCanResell: Boolean(row.sender_can_resell),
     discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
   })).filter((row) => row.id && row.profileId && row.body);
-  if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
-  return rows.sort((a, b) => a.id - b.id);
+  const hydrated = await hydrateMusicAgoraPaymentStates(rows);
+  if (hydrated[0]?.id) void markMusicAgoraRoomRead(roomSlug, hydrated[0].id);
+  return hydrated.sort((a, b) => a.id - b.id);
 }
 
 export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgoraConversation[]> {
@@ -251,7 +321,7 @@ export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgor
     avatarUrl: row.other_avatar_url ? String(row.other_avatar_url) : null,
     lastMessageId: Number(row.last_message_id || 0),
     lastRoomSlug: String(row.last_room_slug || 'place'),
-    lastBody: String(row.last_body || ''),
+    lastBody: musicAgoraBodyPreview(String(row.last_body || '')),
     lastCreatedAt: String(row.last_created_at || ''),
     lastSharedTrackId: row.last_shared_track_id ? String(row.last_shared_track_id) : null,
     lastSaleOfferId: row.last_sale_offer_id ? String(row.last_sale_offer_id) : null,
@@ -308,7 +378,8 @@ export async function loadMusicAgoraDirectMessages(
     senderCanResell: Boolean(row.sender_can_resell),
     discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
   })).filter((row) => row.id && row.profileId && row.body);
-  return rows.sort((a, b) => a.id - b.id);
+  const hydrated = await hydrateMusicAgoraPaymentStates(rows);
+  return hydrated.sort((a, b) => a.id - b.id);
 }
 
 export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void): () => void {
