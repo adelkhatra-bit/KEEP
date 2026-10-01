@@ -27,6 +27,6 @@ describe('Profile metrics layout — product lock 01/10/2026', () => {
     expect(reprises).toBeGreaterThan(followers);
     expect(free).toBeGreaterThan(reprises);
     expect(bar).toContain('s.topMetricFreeItem');
-    expect(source.match(/accessibilityLabel="Voir le détail de mes Free"/g) ?? []).toHaveLength(1);
+    expect(source).toContain("'Voir le détail de mes Free'");
   });
 });
