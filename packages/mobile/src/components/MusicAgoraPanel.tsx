@@ -902,8 +902,14 @@ export default function MusicAgoraPanel({
         <View style={s.compactHeader}>
           <View style={s.liveDot} />
           <View style={s.compactHeaderCopy}>
-            <Text style={s.compactTitle}>{replyTarget ? `@${replyTarget.username}` : 'MESSAGERIE LOKI'}</Text>
-            <Text style={s.compactMeta}>{replyTarget ? 'Conversation privée · musique · FREE · paiement' : (chatMode === 'MESSAGES' ? 'Tes conversations' : 'La Place · discussion publique')}</Text>
+            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? `@${replyTarget.username}` : 'MESSAGERIE LOKI'}</Text>
+            <Text style={s.compactMeta}>
+              {activeGroup
+                ? `${activeGroup.memberCount} personne${activeGroup.memberCount > 1 ? 's' : ''} · conversation privée`
+                : replyTarget
+                  ? 'Conversation privée · musique · FREE · paiement'
+                  : (chatMode === 'MESSAGES' ? 'Conversations choisies · jusqu’à 45 personnes' : 'La Place · discussion publique')}
+            </Text>
           </View>
           <TouchableOpacity
             style={s.compactClose}
@@ -918,21 +924,28 @@ export default function MusicAgoraPanel({
         <View style={s.compactModes}>
           <TouchableOpacity
             style={[s.compactMode, chatMode === 'MESSAGES' && s.compactModeOn]}
-            onPress={() => { setChatMode('MESSAGES'); setReplyTarget(null); setMessages([]); void refreshInbox(); }}
+            onPress={() => { setChatMode('MESSAGES'); setReplyTarget(null); setActiveGroup(null); setMessages([]); void refreshInbox(); }}
           >
             <Text style={[s.compactModeText, chatMode === 'MESSAGES' && s.compactModeTextOn]}>MESSAGES</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.compactMode, chatMode === 'PLACE' && s.compactModeOn]}
-            onPress={() => { setChatMode('PLACE'); setReplyTarget(null); void refresh(roomSlug); }}
+            onPress={() => { setChatMode('PLACE'); setReplyTarget(null); setActiveGroup(null); void refresh(roomSlug); }}
           >
             <Text style={[s.compactModeText, chatMode === 'PLACE' && s.compactModeTextOn]}>LA PLACE</Text>
           </TouchableOpacity>
         </View>
-        {chatMode === 'MESSAGES' && replyTarget ? (
-          <TouchableOpacity style={s.threadBack} onPress={() => { setReplyTarget(null); setMessages([]); void refreshInbox(); }}>
-            <Text style={s.threadBackText}>‹ Conversations</Text>
-          </TouchableOpacity>
+        {chatMode === 'MESSAGES' && (replyTarget || activeGroup) ? (
+          <View style={s.threadTools}>
+            <TouchableOpacity style={s.threadBack} onPress={() => { setReplyTarget(null); setActiveGroup(null); setMessages([]); void refreshInbox(); }}>
+              <Text style={s.threadBackText}>‹ Conversations</Text>
+            </TouchableOpacity>
+            {activeGroup?.myStatus === 'ACTIVE' ? (
+              <TouchableOpacity style={s.membersButton} onPress={() => void openGroupMembers()} accessibilityLabel="Voir les membres de la conversation">
+                <Text style={s.membersButtonText}>MEMBRES · {activeGroup.memberCount}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         ) : null}
       </>
     ) : <View style={s.intro}>
@@ -963,8 +976,51 @@ export default function MusicAgoraPanel({
 
     {loading ? <View style={s.loading}><ActivityIndicator color={colors.primaryLight}/></View> : null}
 
-    {compact && chatMode === 'MESSAGES' && !replyTarget ? (
+    {compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup ? (
       <ScrollView style={s.inbox} contentContainerStyle={s.inboxList} showsVerticalScrollIndicator={false}>
+        <TouchableOpacity style={s.newConversationButton} onPress={openCreateGroup} accessibilityLabel="Créer une nouvelle conversation de groupe">
+          <Text style={s.newConversationPlus}>＋</Text>
+          <View style={s.newConversationCopy}>
+            <Text style={s.newConversationTitle}>Nouvelle conversation</Text>
+            <Text style={s.newConversationHint}>Choisis jusqu’à 44 personnes · 45 avec toi</Text>
+          </View>
+        </TouchableOpacity>
+
+        {groups.map((group) => (
+          <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
+            <TouchableOpacity
+              style={s.groupMain}
+              disabled={group.myStatus !== 'ACTIVE'}
+              onPress={() => void openGroup(group)}
+              accessibilityLabel={`Ouvrir la conversation ${group.name}`}
+            >
+              <View style={s.groupAvatar}><Text style={s.groupAvatarText}>👥</Text></View>
+              <View style={s.conversationCopy}>
+                <View style={s.conversationTop}>
+                  <Text style={s.conversationName} numberOfLines={1}>{group.name}</Text>
+                  {group.lastCreatedAt ? <Text style={s.conversationTime}>{ago(group.lastCreatedAt)}</Text> : null}
+                </View>
+                <Text style={s.conversationPreview} numberOfLines={1}>
+                  {group.myStatus === 'INVITED'
+                    ? `Invitation de @${group.ownerUsername}`
+                    : group.lastBody || `${group.memberCount} personnes`}
+                </Text>
+              </View>
+              {group.myStatus === 'ACTIVE' ? <Text style={s.conversationArrow}>›</Text> : null}
+            </TouchableOpacity>
+            {group.myStatus === 'INVITED' ? (
+              <View style={s.groupInviteActions}>
+                <TouchableOpacity style={s.groupDecline} disabled={groupBusy} onPress={() => void declineGroupInvite(group)}>
+                  <Text style={s.groupDeclineText}>REFUSER</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.groupAccept} disabled={groupBusy} onPress={() => void acceptGroupInvite(group)}>
+                  <Text style={s.groupAcceptText}>ACCEPTER</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        ))}
+
         {conversations.map((item) => (
           <TouchableOpacity
             key={item.profileId}
@@ -983,7 +1039,7 @@ export default function MusicAgoraPanel({
             <Text style={s.conversationArrow}>›</Text>
           </TouchableOpacity>
         ))}
-        {!conversations.length && !loading ? (
+        {!conversations.length && !groups.length && !loading ? (
           <View style={s.inboxEmpty}>
             <Text style={s.inboxEmptyTitle}>Aucune conversation pour l’instant</Text>
             <Text style={s.inboxEmptyText}>Réponds à un utilisateur depuis une notification ou depuis La Place. La conversation apparaîtra ici.</Text>
