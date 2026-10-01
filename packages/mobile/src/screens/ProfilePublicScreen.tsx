@@ -136,7 +136,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const setBattleAvailable = useBattleAvailabilityStore((s) => s.setAvailable);
   const [battleFeatureEnabled, setBattleFeatureEnabled] = useState(false);
   const [battleAvailabilityInfoOpen, setBattleAvailabilityInfoOpen] = useState(false);
+  const [battleAvailabilityInfoValue, setBattleAvailabilityInfoValue] = useState(false);
+  const battleAvailabilityInfoAnim = useRef(new Animated.Value(0)).current;
+  const battleAvailabilityInfoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => { let live = true; isKeepBattleEnabled().then((v) => live && setBattleFeatureEnabled(v)); return () => { live = false; }; }, []);
+  useEffect(() => () => { if (battleAvailabilityInfoTimer.current) clearTimeout(battleAvailabilityInfoTimer.current); }, []);
+  const showBattleAvailabilityInfo = (nextValue: boolean) => {
+    if (battleAvailabilityInfoTimer.current) clearTimeout(battleAvailabilityInfoTimer.current);
+    battleAvailabilityInfoAnim.stopAnimation();
+    battleAvailabilityInfoAnim.setValue(0);
+    setBattleAvailabilityInfoValue(nextValue);
+    setBattleAvailabilityInfoOpen(true);
+    Animated.timing(battleAvailabilityInfoAnim, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    battleAvailabilityInfoTimer.current = setTimeout(() => {
+      Animated.timing(battleAvailabilityInfoAnim, { toValue: 0, duration: 420, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setBattleAvailabilityInfoOpen(false);
+      });
+    }, 3200);
+  };
   // DESIGN_SYSTEM v3 (21/09/2026) : section "Battle & présence" -- victoires,
   // partie en cours et rang, toutes trois lues depuis Supabase (aucun chiffre
   // inventé) : keep_battle_my_stats (wins réels), keep_battle_global_leaderboard
@@ -1484,17 +1501,44 @@ export default function ProfilePublicScreen({ navigation }: any) {
               )}
                 </View>
                 {battleFeatureEnabled && !accountRequired ? (
-                  <BattleGlowButton
-                    compact
-                    style={s.profileBattleInline}
-                    active={battleAvailable}
-                    disabled={battleAvailabilityBusy}
-                    label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
-                    onPress={() => { void setBattleAvailable(!battleAvailable); }}
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
-                    accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
-                  />
+                  <View style={s.profileBattleInlineWrap}>
+                    <BattleGlowButton
+                      compact
+                      style={s.profileBattleInline}
+                      active={battleAvailable}
+                      disabled={battleAvailabilityBusy}
+                      label={battleAvailable ? '⚡ BATTLE ON' : '⚡ BATTLE OFF'}
+                      onPress={() => {
+                        const next = !battleAvailable;
+                        void setBattleAvailable(next).then(() => showBattleAvailabilityInfo(next)).catch(() => {});
+                      }}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: battleAvailable, disabled: battleAvailabilityBusy }}
+                      accessibilityLabel={battleAvailable ? 'Ne plus recevoir de défis Battle' : 'Recevoir des défis Battle'}
+                    />
+                    {battleAvailabilityInfoOpen ? (
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          s.battleAvailabilityToast,
+                          {
+                            opacity: battleAvailabilityInfoAnim,
+                            transform: [
+                              { translateX: battleAvailabilityInfoAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+                              { scaleX: battleAvailabilityInfoAnim.interpolate({ inputRange: [0, 1], outputRange: [.82, 1] }) },
+                            ],
+                          },
+                        ]}
+                      >
+                        <Text style={s.battleAvailabilityToastTitle}>{battleAvailabilityInfoValue ? 'BATTLE ON' : 'BATTLE OFF'}</Text>
+                        <Text style={s.battleAvailabilityToastText}>
+                          {battleAvailabilityInfoValue
+                            ? 'Tu es visible comme disponible et tu peux recevoir des défis. Tu restes activé jusqu’à ce que tu coupes Battle.'
+                            : 'Tu ne reçois plus de nouveaux défis. Tu peux continuer à jouer en ouvrant Battle quand tu veux.'}
+                        </Text>
+                      </Animated.View>
+                    ) : null}
+                  </View>
                 ) : null}
               </View>
               {(user.city || user.countryCode) ? <Text style={s.location}>{[user.city,user.countryCode].filter(Boolean).join(' · ')}</Text> : null}
@@ -2055,7 +2099,7 @@ const s=StyleSheet.create({
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},
   topBar:{minHeight:50,paddingHorizontal:18,paddingTop:9,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
-  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard,transform:[{translateY:17}]},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'stretch',gap:9,marginTop:10},profileMetaTopRow:{width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},profileMetaBadgeGroup:{flexDirection:'row',alignItems:'center',gap:7,flexShrink:1,flexWrap:'nowrap'},profileBattleInline:{flexShrink:0},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
+  hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard,transform:[{translateY:17}]},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'stretch',gap:9,marginTop:10},profileMetaTopRow:{width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},profileMetaBadgeGroup:{flexDirection:'row',alignItems:'center',gap:7,flexShrink:1,flexWrap:'nowrap'},profileBattleInlineWrap:{position:'relative',flexShrink:0,alignItems:'flex-end'},profileBattleInline:{flexShrink:0},battleAvailabilityToast:{position:'absolute',right:0,top:30,width:232,minHeight:70,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,paddingVertical:10,zIndex:20,shadowColor:'#000',shadowOpacity:.28,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:12},battleAvailabilityToastTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},battleAvailabilityToastText:{color:colors.textSecondary,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:4},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
 ownerActionChipPrimary:{backgroundColor:colors.primaryFaint,borderColor:colors.primary},
 ownerActionChipSuccess:{backgroundColor:colors.successFaint,borderColor:colors.success},
