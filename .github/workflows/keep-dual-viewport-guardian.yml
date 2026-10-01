@@ -5,6 +5,11 @@ on:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
+      - '!packages/mobile/**/__tests__/**'
+      - '!packages/mobile/**/*.test.ts'
+      - '!packages/mobile/**/*.test.tsx'
+      - '!packages/mobile/**/*.spec.ts'
+      - '!packages/mobile/**/*.spec.tsx'
       - 'packages/music/**'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   pull_request:
@@ -19,7 +24,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
