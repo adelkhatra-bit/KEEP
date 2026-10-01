@@ -29,7 +29,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -897,8 +897,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       Alert.alert(
         `${provider} ouvert`,
         provider === 'PayPal'
-          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Il ne reste qu'à valider le paiement. L'accès sera débloqué dès que ${request.sellerUsername || 'le créateur'} confirme la réception.`
-          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. L'accès sera débloqué dès que ${request.sellerUsername || 'le créateur'} confirme la réception.`,
+          ? `Le prix total de ${amount} ${request.currencyCode} est prérempli dans PayPal. Après validation, confirme ici ou depuis la notification. La sélection restera bloquée jusqu'à confirmation de réception par ${request.sellerUsername || 'le créateur'}.`
+          : `Paie le prix total de ${amount} ${request.currencyCode} sur le lien qui vient de s'ouvrir. Après paiement, confirme ici ou depuis la notification. La sélection restera bloquée jusqu'à confirmation de réception par ${request.sellerUsername || 'le créateur'}.`,
+        [
+          { text: 'PLUS TARD', style: 'cancel' },
+          { text: 'J’AI PAYÉ', onPress: () => { void markPlaylistSaleBuyerPaid(request.paymentId).catch(() => Alert.alert('Paiement', 'Tu peux aussi confirmer ton paiement depuis la notification reçue.')); } },
+        ],
       );
     } catch (e: any) {
       const message = String(e?.message || '');
