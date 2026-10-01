@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +15,7 @@ import { loadPublicProfileSnapshot, PublicProfileSnapshot } from '../services/pu
 import { isFeatureEnabled } from '../services/featureFlagService';
 import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import { CreatorEvent, loadUpcomingEvents } from '../services/creatorEventService';
+import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
@@ -83,6 +83,11 @@ export default function DiscoverScreen({ navigation, route }: any) {
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsFeatureEnabled, setEventsFeatureEnabled] = useState(true);
   const [returnToParties, setReturnToParties] = useState(false);
+  const [eventDetail, setEventDetail] = useState<CreatorEvent | null>(null);
+  const [eventDetailOpen, setEventDetailOpen] = useState(false);
+  const [eventRsvp, setEventRsvpState] = useState<EventRsvpStatus | null>(null);
+  const [eventRsvpCounts, setEventRsvpCounts] = useState<EventRsvpCounts>({ going: 0, maybe: 0, notGoing: 0 });
+  const [eventActionBusy, setEventActionBusy] = useState(false);
   // Adel : brancher le flag "local_discovery" pour de vrai plutôt que de
   // laisser un interrupteur décoratif dans Super Admin -- coupe-circuit
   // d'urgence réel pour tout l'écran Découvertes. `true` par défaut tant que
@@ -104,8 +109,8 @@ export default function DiscoverScreen({ navigation, route }: any) {
     if (source.startsWith('PARTIES_')) setReturnToParties(true);
     if (focus === 'EVENTS') setDiscoverMode('EVENTS');
     if (focus === 'PEOPLE') setDiscoverMode('PEOPLE');
-    if (focus || source) navigation.setParams?.({ focus: undefined, source: undefined });
-  }, [navigation, route?.params?.focus, route?.params?.source]);
+    if (focus || source) navigation.setParams?.({ focus: undefined, source: undefined, eventId: route?.params?.eventId });
+  }, [navigation, route?.params?.focus, route?.params?.source, route?.params?.eventId]);
 
   useEffect(() => {
     if (!eventsFeatureEnabled) { setUpcomingEvents([]); return undefined; }
@@ -414,6 +419,59 @@ export default function DiscoverScreen({ navigation, route }: any) {
     },
   }), [filteredProfiles.length]);
 
+  const openEventInline = async (event: CreatorEvent) => {
+    setEventDetail(event);
+    setEventDetailOpen(true);
+    setEventRsvp(null);
+    setEventRsvpCounts({ going: 0, maybe: 0, notGoing: 0 });
+    setEventActionBusy(true);
+    try {
+      const [counts, myRsvps] = await Promise.all([
+        loadEventRsvpCounts(event.id),
+        user?.id && !isLocalGuest && !isDemoMode ? loadMyRsvps(user.id) : Promise.resolve({} as Record<string, EventRsvpStatus>),
+      ]);
+      setEventRsvpCounts(counts);
+      setEventRsvp(myRsvps[event.id] ?? null);
+    } catch {
+      // Le détail reste visible même si les compteurs sont momentanément indisponibles.
+    } finally {
+      setEventActionBusy(false);
+    }
+  };
+
+  const updateEventRsvpInline = async (status: EventRsvpStatus) => {
+    if (!eventDetail || eventActionBusy) return;
+    if (!user?.id || isLocalGuest || isDemoMode) {
+      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour répondre à cet événement.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Créer / se connecter', onPress: openAccount },
+      ]);
+      return;
+    }
+    const previous = eventRsvp;
+    setEventActionBusy(true);
+    try {
+      await setEventRsvp(user.id, eventDetail.id, status);
+      setEventRsvpState(status);
+      const fresh = await loadEventRsvpCounts(eventDetail.id).catch(() => null);
+      if (fresh) setEventRsvpCounts(fresh);
+    } catch {
+      setEventRsvpState(previous);
+      Alert.alert('Événement', 'Impossible d’enregistrer ta réponse pour le moment.');
+    } finally {
+      setEventActionBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    const requestedId = String(route?.params?.eventId ?? '').trim();
+    if (!requestedId || discoverMode !== 'EVENTS' || !upcomingEvents.length) return;
+    const event = upcomingEvents.find((row) => row.id === requestedId);
+    if (!event) return;
+    void openEventInline(event);
+    navigation.setParams?.({ eventId: undefined });
+  }, [discoverMode, upcomingEvents, route?.params?.eventId, navigation]);
+
   const openPremium = () => navigation.navigate('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'SOCIAL_DISCOVERY' });
   const openCurrentProfile = () => { if (currentProfile && discoveryAccess?.allowed) navigation.navigate('PublicProfile', { username: currentProfile.username }); };
   // Adel (08/09/2026) : "il faut pas qu'il soit redirigé, il faut qu'il
@@ -507,7 +565,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
               const startsAt = new Date(event.startsAt);
               const live = startsAt.getTime() <= Date.now() && (!event.endsAt || new Date(event.endsAt).getTime() >= Date.now());
               return (
-                <TouchableOpacity key={event.id} style={styles.eventDiscoveryCard} onPress={() => navigation.navigate('Parties', { openEventId: event.id, source: 'DISCOVER_EVENTS' })} accessibilityLabel={`Ouvrir la soirée ${event.name}`}>
+                <TouchableOpacity key={event.id} style={styles.eventDiscoveryCard} onPress={() => { void openEventInline(event); }} accessibilityLabel={`Voir l’événement ${event.name} sans quitter Découvertes`}>
                   {event.imageUrl ? <Image source={{ uri: event.imageUrl }} style={styles.eventDiscoveryCover} /> : <View style={[styles.eventDiscoveryCover, styles.eventDiscoveryFallback]}><Text style={styles.eventDiscoveryFallbackText}>♬</Text></View>}
                   <View style={styles.eventDiscoveryCopy}>
                     <View style={styles.eventDiscoveryKickerRow}><Text style={styles.eventDiscoveryKicker}>{live ? '● EN COURS' : 'À VENIR'}</Text><Text style={styles.eventDiscoveryPrice}>{event.ticketPriceCents ? `${(event.ticketPriceCents / 100).toFixed(2).replace('.', ',')} €` : 'ENTRÉE LIBRE'}</Text></View>
@@ -611,6 +669,33 @@ export default function DiscoverScreen({ navigation, route }: any) {
         )}
         </>}
       </ScrollView>
+
+      <Modal visible={eventDetailOpen} transparent animationType="fade" onRequestClose={() => setEventDetailOpen(false)}>
+        <View style={styles.eventModalBackdrop}>
+          <View style={styles.eventModalCard}>
+            <View style={styles.eventModalHandle} />
+            <Text style={styles.eventModalEyebrow}>DÉCOUVERTES · ÉVÉNEMENT</Text>
+            <Text style={styles.eventModalTitle}>{eventDetail?.name ?? 'Événement'}</Text>
+            {eventDetail ? (
+              <>
+                <Text style={styles.eventModalMeta}>{new Date(eventDetail.startsAt).toLocaleString('fr-FR')} {eventDetail.venueName ? `· ${eventDetail.venueName}` : ''}</Text>
+                {eventDetail.description ? <Text style={styles.eventModalBody}>{eventDetail.description}</Text> : null}
+                <View style={styles.eventModalStats}>
+                  <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.going}</Text><Text style={styles.eventModalStatLabel}>participent</Text></View>
+                  <View style={styles.eventModalStat}><Text style={styles.eventModalStatValue}>{eventRsvpCounts.maybe}</Text><Text style={styles.eventModalStatLabel}>intéressés</Text></View>
+                </View>
+                <View style={styles.eventRsvpRow}>
+                  <TouchableOpacity disabled={eventActionBusy} style={[styles.eventRsvpButton, eventRsvp === 'NOT_GOING' && styles.eventRsvpButtonOn]} onPress={() => { void updateEventRsvpInline('NOT_GOING'); }}><Text style={styles.eventRsvpButtonText}>PAS POUR MOI</Text></TouchableOpacity>
+                  <TouchableOpacity disabled={eventActionBusy} style={[styles.eventRsvpButton, eventRsvp === 'MAYBE' && styles.eventRsvpButtonOn]} onPress={() => { void updateEventRsvpInline('MAYBE'); }}><Text style={styles.eventRsvpButtonText}>PEUT-ÊTRE</Text></TouchableOpacity>
+                  <TouchableOpacity disabled={eventActionBusy} style={[styles.eventRsvpButton, styles.eventRsvpGoing, eventRsvp === 'GOING' && styles.eventRsvpGoingOn]} onPress={() => { void updateEventRsvpInline('GOING'); }}><Text style={[styles.eventRsvpButtonText, styles.eventRsvpGoingText]}>{eventRsvp === 'GOING' ? '✓ JE PARTICIPE' : 'JE PARTICIPE'}</Text></TouchableOpacity>
+                </View>
+                {eventRsvp === 'GOING' ? <Text style={styles.eventRsvpSaved}>Participation enregistrée. Tu retrouveras aussi cet événement dans ton espace Soirées.</Text> : null}
+              </>
+            ) : null}
+            <TouchableOpacity style={styles.eventModalClose} onPress={() => setEventDetailOpen(false)}><Text style={styles.eventModalCloseText}>FERMER</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -640,6 +725,27 @@ const styles = StyleSheet.create({
   eventDiscoveryMeta:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},
   eventDiscoveryArtists:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4},
   eventDiscoveryArrow:{color:colors.primaryLight,fontSize:26,fontWeight:'800'},
+  eventModalBackdrop:{flex:1,backgroundColor:'rgba(5,3,10,.82)',alignItems:'center',justifyContent:'center',padding:18},
+  eventModalCard:{width:'100%',maxWidth:430,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:18},
+  eventModalHandle:{width:46,height:4,borderRadius:2,backgroundColor:colors.border,alignSelf:'center',marginBottom:14},
+  eventModalEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.1,textAlign:'center'},
+  eventModalTitle:{color:colors.white,fontSize:21,fontWeight:'900',textAlign:'center',marginTop:5},
+  eventModalMeta:{color:colors.primaryLight,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:7},
+  eventModalBody:{color:colors.textMuted,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
+  eventModalStats:{flexDirection:'row',gap:8,marginTop:14},
+  eventModalStat:{flex:1,minHeight:54,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
+  eventModalStatValue:{color:colors.keep,fontSize:18,fontWeight:'900'},
+  eventModalStatLabel:{color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:2},
+  eventRsvpRow:{flexDirection:'row',gap:6,marginTop:14},
+  eventRsvpButton:{flex:1,minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(124,92,252,.08)',alignItems:'center',justifyContent:'center',paddingHorizontal:5},
+  eventRsvpButtonOn:{backgroundColor:'rgba(124,92,252,.28)',borderColor:colors.primaryLight},
+  eventRsvpGoing:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},
+  eventRsvpGoingOn:{backgroundColor:'rgba(45,225,194,.20)'},
+  eventRsvpButtonText:{color:colors.white,fontSize:8.5,fontWeight:'900',textAlign:'center'},
+  eventRsvpGoingText:{color:colors.keep},
+  eventRsvpSaved:{color:colors.keep,fontSize:10,fontWeight:'800',textAlign:'center',marginTop:10},
+  eventModalClose:{minHeight:44,borderRadius:14,alignItems:'center',justifyContent:'center',marginTop:14,borderWidth:1,borderColor:colors.border},
+  eventModalCloseText:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:.7},
   discoveryHeader:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:5},usernameSearch:{minHeight:50,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:12,marginBottom:7,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1.5,borderColor:'#665B73'},usernameSearchIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'800'},usernameSearchInput:{flex:1,minHeight:46,color:colors.white,fontSize:15,fontWeight:'600'},usernameClear:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},usernameClearText:{color:colors.white,fontSize:22,lineHeight:24,fontWeight:'700'},
   sectionTitle:{color:colors.white,fontSize:16,fontWeight:'900'},mutedHint:{color:colors.textMuted,fontSize:12,lineHeight:17},
   lockBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},lockText:{color:colors.white,fontSize:10,fontWeight:'900'},trialBadge:{paddingHorizontal:9,paddingVertical:5,borderRadius:10,backgroundColor:'rgba(45,225,194,0.12)',borderWidth:1,borderColor:colors.keepPressed},trialText:{color:colors.keep,fontSize:9,fontWeight:'900'},
