@@ -56,7 +56,6 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import NotificationSidePanel from '../components/NotificationSidePanel';
-import GlobalChatDock from '../components/GlobalChatDock';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -2294,7 +2293,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
     </Modal>
-    <GlobalChatDock />
 </SafeAreaView>;
 }
 
