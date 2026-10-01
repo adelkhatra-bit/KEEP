@@ -166,7 +166,12 @@ interface UserStore {
 }
 
 export const useUserStore = create<UserStore>((set, get) => ({
-  user: cachedWebRealUser(),
+  // Ne jamais monter les écrans authentifiés à partir du snapshot web minimal.
+  // Au refresh, Supabase restaure d'abord la vraie session puis hydrate le profil.
+  // Sinon les écrans partent avec le bon UUID mais sans JWT prêt, chargent FREE/
+  // musiques/profil à vide et ne relancent pas forcément leurs effets car l'UUID
+  // reste identique après hydratation.
+  user: null,
   isDemoMode: false,
   isAnonymous: false,
   isLocalGuest: false,
