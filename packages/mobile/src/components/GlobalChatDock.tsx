@@ -82,6 +82,7 @@ export default function GlobalChatDock() {
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(ALL_CHAT_SURFACES);
   const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
+  const [chatSettingsReady, setChatSettingsReady] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestChatSender, setLatestChatSender] = useState('');
 
@@ -115,10 +116,12 @@ export default function GlobalChatDock() {
       setTracks([]);
       setChatEnabled(false);
       setUnreadCount(0);
+      setChatSettingsReady(false);
       return;
     }
 
     let live = true;
+    setChatSettingsReady(false);
     Promise.all([
       loadMusicAgoraSettings().catch(() => ({
         homeEnabled: false,
@@ -149,6 +152,7 @@ export default function GlobalChatDock() {
       const latest = unreadChat[0];
       setLatestChatSender(latest ? chatNotificationSender(latest) : '');
       if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
+      setChatSettingsReady(true);
     });
 
     return () => { live = false; };
@@ -373,6 +377,7 @@ export default function GlobalChatDock() {
 
   if (!user) return null;
   if (!previewOnly && !settingsOpen && !accountReady) return null;
+  if (!previewOnly && accountReady && !chatSettingsReady && !open && !settingsOpen) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
   return (
