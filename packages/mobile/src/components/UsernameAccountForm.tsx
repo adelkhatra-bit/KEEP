@@ -11,6 +11,7 @@ import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCredits
 import { supabase } from '../services/supabaseClient';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
@@ -158,6 +159,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
           : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
       );
     }
+    useAccountGateStore.getState().handleSuccess();
     onSuccess?.();
   };
 
