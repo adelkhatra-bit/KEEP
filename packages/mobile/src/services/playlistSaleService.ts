@@ -191,6 +191,25 @@ export async function requestPlaylistPurchase(offerId: string): Promise<Playlist
   };
 }
 
+export type PlaylistBuyerPaymentSignal = {
+  paymentId: string;
+  status: 'PENDING' | 'COMPLETED';
+  buyerMarkedPaidAt: string | null;
+  alreadyDelivered: boolean;
+};
+
+export async function markPlaylistSaleBuyerPaid(paymentId: string): Promise<PlaylistBuyerPaymentSignal> {
+  const { data, error } = await client().rpc('keep_playlist_sale_buyer_mark_paid', { p_payment_id: paymentId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_BUYER_MARK_PAID_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? paymentId),
+    status: String(row?.status ?? 'PENDING').toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+    buyerMarkedPaidAt: row?.buyerMarkedPaidAt ? String(row.buyerMarkedPaidAt) : null,
+    alreadyDelivered: Boolean(row?.alreadyDelivered),
+  };
+}
+
 export type PlaylistDeliveryResult = {
   paymentId: string;
   buyerId: string;
