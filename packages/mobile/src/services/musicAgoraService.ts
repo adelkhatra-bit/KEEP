@@ -114,7 +114,25 @@ export async function saveMusicAgoraSettings(
   return {
     homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled),
     notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
-    surfaces: parseChatSurfaces((data as any)?.surfaces),
+    surfaces: parseChatSurfaces((data as any)?.surfaces ?? (data as any)?.visibleSurfaces ?? (data as any)?.visible_surfaces),
+    side: String((data as any)?.side || '').toLowerCase() === 'left' ? 'left' : 'right',
+    bottomOffset: Math.max(72, Math.min(800, Number((data as any)?.bottomOffset ?? (data as any)?.bottom_offset ?? 88) || 88)),
+  };
+}
+
+export async function saveMusicAgoraPosition(side: 'left' | 'right', bottomOffset: number): Promise<MusicAgoraSettings> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_set_position', {
+    p_side: side,
+    p_bottom_offset: Math.max(72, Math.min(800, Math.round(bottomOffset))),
+  });
+  if (error) throw error;
+  return {
+    homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled ?? (data as any)?.enabled),
+    notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
+    surfaces: parseChatSurfaces((data as any)?.surfaces ?? (data as any)?.visibleSurfaces ?? (data as any)?.visible_surfaces),
+    side: String((data as any)?.side || '').toLowerCase() === 'left' ? 'left' : 'right',
+    bottomOffset: Math.max(72, Math.min(800, Number((data as any)?.bottomOffset ?? (data as any)?.bottom_offset ?? bottomOffset) || bottomOffset)),
   };
 }
 
