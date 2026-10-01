@@ -812,7 +812,7 @@ export default function MusicAgoraPanel({
                 onPress={() => setShareOwnershipOpen((value) => !value)}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: shareOwnershipOpen }}
-                accessibilityLabel="Pourquoi FREE et paiement sont verrouillés"
+                accessibilityLabel="🔒 partage uniquement · pourquoi FREE et paiement sont verrouillés"
               >
                 <Text style={s.shareLockPillText}>
                   {sharePreflight?.targetOwnsTrack ? '🔒 DÉJÀ CHEZ LUI' : '🔒 PARTAGE UNIQUEMENT'} {shareOwnershipOpen ? '⌃' : '⌄'}
