@@ -56,6 +56,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import AccountActionsPanel from '../components/AccountActionsPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
+import NotificationSidePanel from '../components/NotificationSidePanel';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -83,12 +84,6 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
       { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
       { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
-    ],
-  },
-  {
-    title: 'TCHAT',
-    items: [
-      { key: 'community', icon: '◉', label: 'Tchat', hint: 'Privé · groupes · musique · notifications' },
     ],
   },
   {
@@ -454,6 +449,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
   };
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const [notificationNudgeVisible, setNotificationNudgeVisible] = useState(false);
   const notificationBellShake = useRef(new Animated.Value(0)).current;
   const notificationNudgeReveal = useRef(new Animated.Value(0)).current;
@@ -822,7 +818,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         Animated.timing(notificationNudgeReveal, { toValue: 0, duration: 320, useNativeDriver: false }).start(({ finished }) => {
           if (finished) setNotificationNudgeVisible(false);
         });
-      }, 4200);
+      }, 7000);
     }
 
     return () => {
@@ -847,6 +843,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setShareOpen(false);
       setQrOpen(false);
       setProfileSwipeOpen(false);
+      setNotificationPanelOpen(false);
       setSelectionSwipe(null);
       setSourceQuickUsername('');
       setExpandedMenuItem(null);
@@ -1547,22 +1544,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // action réellement complexe (achat, upload, connexion de service).
   const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
   const directMenuAction = (key: string) => {
-    // Un seul appui depuis le hamburger : les écrans complets s'ouvrent
-    // directement ; les réglages légers restent dans le drawer avec ‹ Menu.
-    if (key === 'profile') return openFromMenu('ProfileSettings');
+    // Le premier appui ne quitte plus le profil : chaque rubrique se déplie
+    // dans le même drawer. Les écrans complets ne s'ouvrent qu'après une
+    // action explicite dans le détail de la rubrique.
     if (key === 'musicTaste') {
       setMenuOpen(false);
       setExpandedMenuItem(null);
       setPulseTasteOpen(true);
-      return;
-    }
-    if (key === 'music') return openFromMenu('MusicConnections');
-    if (key === 'offers') return openFromMenu('Offers');
-    if (key === 'sellPlaylists') return openFromMenu('PlaylistSale');
-    if (key === 'community') {
-      setMenuOpen(false);
-      setExpandedMenuItem(null);
-      useGlobalChatStore.getState().open();
       return;
     }
     if (key === 'account' && accountRequired) {
@@ -1669,13 +1657,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <View style={s.topBar} accessibilityLabel="Actions du profil">
         <View style={s.notificationBellWrap}>
           <Animated.View style={{ transform: [{ rotate: notificationBellShake.interpolate({ inputRange: [-1, 1], outputRange: ['-11deg', '11deg'] }) }] }}>
-            <TouchableOpacity style={s.iconButton} onPress={() => { setNotificationNudgeVisible(false); notificationBellShake.stopAnimation(); notificationBellShake.setValue(0); setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate('Notifications'); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
+            <TouchableOpacity style={s.iconButton} onPress={() => { setNotificationNudgeVisible(false); notificationBellShake.stopAnimation(); notificationBellShake.setValue(0); setMenuOpen(false); setExpandedMenuItem(null); setNotificationPanelOpen(true); }} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`}>
               <Text style={s.bell}>🔔</Text>
               {unreadCount > 0 ? <View style={s.notificationBadge}><Text style={s.notificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
             </TouchableOpacity>
           </Animated.View>
           {notificationNudgeVisible && unreadCount > 0 ? <Animated.View style={[s.notificationNudge, { opacity: notificationNudgeReveal, width: notificationNudgeReveal.interpolate({ inputRange: [0, 1], outputRange: [54, 222] }) }]}>
-            <TouchableOpacity style={s.notificationNudgeTouch} onPress={() => { notificationNudgeReveal.stopAnimation(); setNotificationNudgeVisible(false); navigation.navigate('Notifications'); }} accessibilityLabel={`Consulter mes ${unreadCount} notifications`}>
+            <TouchableOpacity style={s.notificationNudgeTouch} onPress={() => { notificationNudgeReveal.stopAnimation(); setNotificationNudgeVisible(false); setMenuOpen(false); setExpandedMenuItem(null); setNotificationPanelOpen(true); }} accessibilityLabel={`Consulter mes ${unreadCount} notifications`}>
               <Text style={s.notificationNudgeText} numberOfLines={1}>{unreadCount} message{unreadCount > 1 ? 's' : ''} · ouvre tes actus</Text>
             </TouchableOpacity>
           </Animated.View> : null}
@@ -2318,6 +2306,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
     </Modal>
+
+    <NotificationSidePanel
+      visible={notificationPanelOpen}
+      profileId={user.id}
+      onClose={() => setNotificationPanelOpen(false)}
+      onOpenChat={() => useGlobalChatStore.getState().open()}
+      onOpenAll={() => navigation.navigate('Notifications')}
+    />
 
     <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}>
