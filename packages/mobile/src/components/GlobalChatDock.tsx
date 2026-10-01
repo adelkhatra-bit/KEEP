@@ -26,7 +26,6 @@ export default function GlobalChatDock() {
   const setSide = useGlobalChatStore((state) => state.setSide);
   const setBottomOffset = useGlobalChatStore((state) => state.setBottomOffset);
   const [tracks, setTracks] = useState<any[]>([]);
-  const [chatEnabled, setChatEnabled] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const pulse = useRef(new Animated.Value(1)).current;
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -40,7 +39,6 @@ export default function GlobalChatDock() {
     if (!accountReady || !user?.id) {
       closeChat();
       setTracks([]);
-      setChatEnabled(false);
       setUnreadCount(0);
       return;
     }
@@ -50,9 +48,9 @@ export default function GlobalChatDock() {
       loadNotifications(user.id).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
-      setChatEnabled(Boolean(settings.homeEnabled));
+      // homeEnabled pilote uniquement le widget éditorial de l'accueil.
+      // Il ne doit jamais couper le Tchat global flottant.
       setUnreadCount(notifications.filter((item) => !item.readAt && isChatNotification(item)).length);
-      if (!settings.homeEnabled) closeChat();
     });
     return () => { live = false; };
   }, [accountReady, user?.id, closeChat]);
@@ -66,17 +64,17 @@ export default function GlobalChatDock() {
   }, [accountReady, user?.id]);
 
   useEffect(() => {
-    if (!chatEnabled || !accountReady) return;
+    if (!accountReady) return;
     let live = true;
     loadMusicAgoraShareableTracks(160).then((rows) => {
       if (!live) return;
       setTracks(rows.map((row) => row.track));
     }).catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
-  }, [chatEnabled, accountReady, user?.id, open]);
+  }, [accountReady, user?.id, open]);
 
   useEffect(() => {
-    if (!accountReady || !chatEnabled || open) {
+    if (!accountReady || open) {
       pulse.stopAnimation();
       pulse.setValue(1);
       return;
@@ -89,7 +87,7 @@ export default function GlobalChatDock() {
     );
     loop.start();
     return () => loop.stop();
-  }, [accountReady, chatEnabled, open, pulse]);
+  }, [accountReady, open, pulse]);
 
   const minBottom = 82 + insets.bottom;
   const maxBottom = Math.max(minBottom, height - 150);
@@ -118,7 +116,7 @@ export default function GlobalChatDock() {
   }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide]);
 
   const toggle = () => {
-    if (!accountReady || !chatEnabled) return;
+    if (!accountReady) return;
     if (open) {
       closeChat();
       return;
@@ -127,7 +125,7 @@ export default function GlobalChatDock() {
     openChat(target);
   };
 
-  if (!accountReady || !chatEnabled || !user) return null;
+  if (!accountReady || !user) return null;
 
   return (
     <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
