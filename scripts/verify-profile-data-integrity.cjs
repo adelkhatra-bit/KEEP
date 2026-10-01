@@ -16,7 +16,7 @@ const protectedShell = {
   // racine (popup de compte "reste au même endroit", même patron que les
   // autres overlays globaux déjà montés ici) -- pas un changement de
   // responsive/layout, vérifié via git show avant mise à jour du hash.
-  // App.tsx (GlobalChatDock) : mini-chat global validé, ajouté comme overlay racine ; aucun changement responsive/navigation.\n  'packages/mobile/App.tsx': '76ef7d58faeb26ad0a8ae385df7dfdc4ac132da0',
+  'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
