@@ -91,10 +91,11 @@ describe('global compact chat UX contract', () => {
   });
 
   it('keeps public/private room controls reachable without scrolling', () => {
-    expect(panel).toContain('LA PLACE · PUBLIC');
-    expect(panel).toContain("accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer une conversation'}");
-    expect(panel).toContain('Nouvelle conversation');
-    expect(panel).toContain('MEMBRES · {activeGroup.memberCount}');
+    expect(panel).toContain('accessibilityLabel="Ouvrir La Place"');
+    expect(panel).toContain('Salon public · tout le monde peut rejoindre');
+    expect(panel).toContain('accessibilityLabel="Créer une conversation"');
+    expect(panel).toContain('accessibilityLabel="Gérer les membres du groupe"');
+    expect(panel).not.toContain('<Text style={s.newConversationTitle}>Nouvelle conversation</Text>');
   });
 
   it('keeps a visible collapsed chat affordance', () => {

@@ -12,14 +12,16 @@ describe('Loki chat-only approved design contract', () => {
     for (const forbidden of ['📞','📹','🎥','APPEL AUDIO','APPEL VIDÉO','CAMÉRA','Appeler','tel:']) {
       expect(panel).not.toContain(forbidden);
     }
-    expect(panel).toContain("replyTarget ? replyTarget.username : 'Chat'");
+    expect(panel).toContain("replyTarget ? replyTarget.username : chatMode === 'PLACE' ? 'La Place' : 'Chat'");
     expect(panel).toContain("replyTarget\n                  ? 'Conversation privée'");
   });
 
   it('only shows the header action where it is useful', () => {
-    expect(panel).toContain("chatMode === 'MESSAGES' && !replyTarget");
-    expect(panel).toContain("accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer une conversation'}");
-    expect(panel).toContain("activeGroup ? '👥' : '＋'");
+    expect(panel).toContain("chatMode === 'MESSAGES' && !replyTarget && !activeGroup");
+    expect(panel).toContain('accessibilityLabel="Gérer les membres du groupe"');
+    expect(panel).toContain('accessibilityLabel="Créer une conversation"');
+    expect(panel).toContain('<Text style={s.compactHeaderActionText}>👥</Text>');
+    expect(panel).toContain('<Text style={s.compactHeaderActionText}>＋</Text>');
   });
 
   it('keeps the simple approved chat actions', () => {

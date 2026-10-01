@@ -2374,3 +2374,15 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - `VOIR PLUS` ne doit plus commander l'affichage des styles ; il ne déplie que les recommandations Loki Pulse.
 - Accueil Loki Music : même logique de bulles cliquables, sans titre « Tes bulles musicales » ni label Loki Pulse/DNA.
 - Ne jamais réintroduire un masquage des bulles profil derrière un accordéon.
+
+
+## [2026-10-02] ChatGPT — chat maquette validée intégrée sans doublons
+- Messagerie mobile : plein écran conservé.
+- Liste : recherche + Tous / Salons / Privés / Invitations ; un seul + dans l’en-tête pour créer une conversation.
+- Suppression de la grosse carte « Nouvelle conversation » en doublon.
+- « La Place » devient une ligne de salon public dans la liste, au lieu d’un bandeau technique MESSAGES / LA PLACE.
+- Fil : retour + avatar + pseudo/nom + statut dans l’en-tête ; plus de bandeau de modes au-dessus du fil.
+- Messages directs : pas de fiche auteur répétée dans chaque bulle ; heure compacte sous la bulle.
+- Compositeur et fonctions conservés : réactions, morceau, QR PayPal, FREE/€, confirmation vendeur, participants.
+- Caméra/appels audio/vidéo restent absents conformément à la décision utilisateur.
+- Aucun App.tsx / Navigation.tsx / barre 5 onglets / Super Admin modifié.

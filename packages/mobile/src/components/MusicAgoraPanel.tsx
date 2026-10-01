@@ -927,6 +927,17 @@ export default function MusicAgoraPanel({
     if (inboxFilter === 'GROUPS' || inboxFilter === 'INVITES') return false;
     return inboxMatches(`${item.username} ${item.lastBody}`);
   });
+  const activeDirectConversation = replyTarget
+    ? conversations.find((item) => item.profileId === replyTarget.profileId) ?? null
+    : null;
+  const compactThreadOpen = chatMode === 'PLACE' || Boolean(replyTarget || activeGroup);
+  const leaveCompactThread = () => {
+    setChatMode('MESSAGES');
+    setReplyTarget(null);
+    setActiveGroup(null);
+    setMessages([]);
+    void refreshInbox();
+  };
   if (compact && !enabled) return null;
 
   return <KeyboardAvoidingView
@@ -951,30 +962,45 @@ export default function MusicAgoraPanel({
     {compact ? (
       <>
         <View style={s.compactHeader}>
-          <View style={s.liveDot} />
+          {compactThreadOpen ? (
+            <TouchableOpacity style={s.compactThreadBack} onPress={leaveCompactThread} accessibilityRole="button" accessibilityLabel="Retour aux conversations">
+              <Text style={s.compactThreadBackText}>‹</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {activeGroup ? (
+            <View style={s.compactThreadAvatar}><Text style={s.compactThreadAvatarText}>👥</Text></View>
+          ) : replyTarget ? (
+            activeDirectConversation?.avatarUrl
+              ? <Image source={{ uri: activeDirectConversation.avatarUrl }} style={s.compactThreadAvatar} />
+              : <View style={[s.compactThreadAvatar, s.avatarFallback]}><Text style={s.avatarText}>{replyTarget.username.slice(0,1).toUpperCase()}</Text></View>
+          ) : chatMode === 'PLACE' ? (
+            <View style={s.compactThreadAvatar}><Text style={s.compactThreadAvatarText}>◎</Text></View>
+          ) : null}
+
           <View style={s.compactHeaderCopy}>
-            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? replyTarget.username : 'Chat'}</Text>
+            <Text style={s.compactTitle}>{activeGroup ? activeGroup.name : replyTarget ? replyTarget.username : chatMode === 'PLACE' ? 'La Place' : 'Chat'}</Text>
             <Text style={s.compactMeta}>
               {activeGroup
                 ? `Groupe privé · ${activeGroup.memberCount} membre${activeGroup.memberCount > 1 ? 's' : ''}`
                 : replyTarget
                   ? 'Conversation privée'
-                  : (chatMode === 'MESSAGES' ? 'Messages, groupes et invitations' : 'Salon public · tout le monde peut rejoindre')}
+                  : chatMode === 'PLACE'
+                    ? 'Salon public · tout le monde peut rejoindre'
+                    : 'Messages, salons et invitations'}
             </Text>
           </View>
-          {chatMode === 'MESSAGES' && !replyTarget ? (
-            <TouchableOpacity
-              style={s.compactHeaderAction}
-              onPress={() => {
-                if (activeGroup?.myStatus === 'ACTIVE') void openGroupMembers();
-                else openCreateGroup();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={activeGroup ? 'Gérer les membres du groupe' : 'Créer une conversation'}
-            >
-              <Text style={s.compactHeaderActionText}>{activeGroup ? '👥' : '＋'}</Text>
+
+          {activeGroup?.myStatus === 'ACTIVE' ? (
+            <TouchableOpacity style={s.compactHeaderAction} onPress={() => void openGroupMembers()} accessibilityRole="button" accessibilityLabel="Gérer les membres du groupe">
+              <Text style={s.compactHeaderActionText}>👥</Text>
+            </TouchableOpacity>
+          ) : chatMode === 'MESSAGES' && !replyTarget && !activeGroup ? (
+            <TouchableOpacity style={s.compactHeaderAction} onPress={openCreateGroup} accessibilityRole="button" accessibilityLabel="Créer une conversation">
+              <Text style={s.compactHeaderActionText}>＋</Text>
             </TouchableOpacity>
           ) : null}
+
           <TouchableOpacity
             style={s.compactClose}
             onPress={() => { if (onCompactClose) onCompactClose(); else void updateHomeChat(false, true); }}
@@ -985,32 +1011,6 @@ export default function MusicAgoraPanel({
             <Text style={s.compactCloseText}>×</Text>
           </TouchableOpacity>
         </View>
-        <View style={s.compactModes}>
-          <TouchableOpacity
-            style={[s.compactMode, chatMode === 'MESSAGES' && s.compactModeOn]}
-            onPress={() => { setChatMode('MESSAGES'); setReplyTarget(null); setActiveGroup(null); setMessages([]); void refreshInbox(); }}
-          >
-            <Text style={[s.compactModeText, chatMode === 'MESSAGES' && s.compactModeTextOn]}>MESSAGES</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.compactMode, chatMode === 'PLACE' && s.compactModeOn]}
-            onPress={() => { setChatMode('PLACE'); setReplyTarget(null); setActiveGroup(null); void refresh(roomSlug); }}
-          >
-            <Text style={[s.compactModeText, chatMode === 'PLACE' && s.compactModeTextOn]}>LA PLACE · PUBLIC</Text>
-          </TouchableOpacity>
-        </View>
-        {chatMode === 'MESSAGES' && (replyTarget || activeGroup) ? (
-          <View style={s.threadTools}>
-            <TouchableOpacity style={s.threadBack} onPress={() => { setReplyTarget(null); setActiveGroup(null); setMessages([]); void refreshInbox(); }}>
-              <Text style={s.threadBackText}>‹ Conversations</Text>
-            </TouchableOpacity>
-            {activeGroup?.myStatus === 'ACTIVE' ? (
-              <TouchableOpacity style={s.membersButton} onPress={() => void openGroupMembers()} accessibilityLabel="Voir les membres de la conversation">
-                <Text style={s.membersButtonText}>MEMBRES · {activeGroup.memberCount}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        ) : null}
       </>
     ) : <View style={s.intro}>
       <View style={s.titleRow}>
@@ -1066,13 +1066,29 @@ export default function MusicAgoraPanel({
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {(inboxFilter === 'ALL' || inboxFilter === 'GROUPS') ? <TouchableOpacity style={s.newConversationButton} onPress={openCreateGroup} accessibilityLabel="Créer une nouvelle conversation de groupe">
-          <Text style={s.newConversationPlus}>＋</Text>
-          <View style={s.newConversationCopy}>
-            <Text style={s.newConversationTitle}>Nouvelle conversation</Text>
-            <Text style={s.newConversationHint}>Invite une ou plusieurs personnes · jusqu’à 45 avec toi</Text>
-          </View>
-        </TouchableOpacity> : null}
+        {(inboxFilter === 'ALL' || inboxFilter === 'GROUPS') ? (
+          <TouchableOpacity
+            style={s.conversationRow}
+            onPress={() => {
+              setChatMode('PLACE');
+              setReplyTarget(null);
+              setActiveGroup(null);
+              setMessages([]);
+              void refresh(roomSlug);
+            }}
+            accessibilityLabel="Ouvrir La Place"
+          >
+            <View style={[s.conversationAvatar, s.publicRoomAvatar]}><Text style={s.publicRoomAvatarText}>◎</Text></View>
+            <View style={s.conversationCopy}>
+              <View style={s.conversationTop}>
+                <Text style={s.conversationName}>La Place</Text>
+                <Text style={s.publicRoomBadge}>PUBLIC</Text>
+              </View>
+              <Text style={s.conversationPreview} numberOfLines={1}>Salon public · tout le monde peut rejoindre</Text>
+            </View>
+            <Text style={s.conversationArrow}>›</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {visibleInboxGroups.map((group) => (
           <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
@@ -1157,13 +1173,15 @@ export default function MusicAgoraPanel({
       {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : '↑ PLUS ANCIENS'}</Text></TouchableOpacity> : null}
       {messages.map((message) => (
         <View key={message.id} style={[s.message, message.profileId === currentProfileId ? s.messageOwn : s.messageOther, message.targetProfileId && s.directMessage]}>
-          <TouchableOpacity style={s.author} onPress={() => onOpenProfile(message.username)}>
-            {message.avatarUrl ? <Image source={{ uri: message.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{message.username.slice(0,1).toUpperCase()}</Text></View>}
-            <View style={s.authorCopy}>
-              <Text style={s.username} numberOfLines={1}>@{message.username}</Text>
-              <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
-            </View>
-          </TouchableOpacity>
+          {!replyTarget ? (
+            <TouchableOpacity style={s.author} onPress={() => onOpenProfile(message.username)}>
+              {message.avatarUrl ? <Image source={{ uri: message.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{message.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.authorCopy}>
+                <Text style={s.username} numberOfLines={1}>@{message.username}</Text>
+                <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : null}
           {(message.body === LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
             <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>{LOKI_REACTION_TEXT} · LOKI</Text></View>
           ) : extractMusicAgoraPayoutQrUrl(message.body) ? (
@@ -1262,10 +1280,15 @@ export default function MusicAgoraPanel({
             </View>
           ) : null}
 
-          {message.profileId !== currentProfileId ? <View style={s.messageActions}>
-            <TouchableOpacity style={s.reply} onPress={() => setReplyTarget({ profileId: message.profileId, username: message.username })}><Text style={s.replyText}>RÉPONDRE</Text></TouchableOpacity>
-            <TouchableOpacity style={s.more} onPress={() => moderate(message)} accessibilityLabel={`Actions pour le message de ${message.username}`}><Text style={s.moreText}>•••</Text></TouchableOpacity>
-          </View> : null}
+          {replyTarget ? <Text style={s.directBubbleTime}>{ago(message.createdAt)}</Text> : null}
+          {message.profileId !== currentProfileId ? (
+            <View style={s.messageActions}>
+              {!replyTarget ? (
+                <TouchableOpacity style={s.reply} onPress={() => setReplyTarget({ profileId: message.profileId, username: message.username })}><Text style={s.replyText}>RÉPONDRE</Text></TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={s.more} onPress={() => moderate(message)} accessibilityLabel={`Actions pour le message de ${message.username}`}><Text style={s.moreText}>•••</Text></TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       ))}
       {!loading && !messages.length ? <Text style={s.empty}>Le salon est calme. Lance la première discussion.</Text> : null}
@@ -1273,7 +1296,7 @@ export default function MusicAgoraPanel({
     )}
 
     {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
-      {replyTarget ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
+      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
         <View style={s.selectedMusicCompactRow}>
           <View style={s.selectedMusicThumbWrap}>
@@ -1695,8 +1718,12 @@ const s=StyleSheet.create({
   shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0,flexGrow:0,flexShrink:0,paddingHorizontal:0,borderRadius:0,borderWidth:0,backgroundColor:'#0B0712',overflow:'hidden',elevation:40,zIndex:100},
   shellCompactLeft:{left:0,right:0},
   shellCompactRight:{left:0,right:0},
-  compactHeader:{minHeight:62,flexShrink:0,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:14,paddingBottom:8,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.20)',backgroundColor:'rgba(11,7,18,.98)'},
+  compactHeader:{minHeight:64,flexShrink:0,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:12,paddingBottom:8,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.20)',backgroundColor:'rgba(11,7,18,.99)'},
   liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
+  compactThreadBack:{width:38,height:38,borderRadius:19,alignItems:'center',justifyContent:'center'},
+  compactThreadBackText:{color:colors.textPrimary,fontSize:31,lineHeight:32,fontWeight:'500'},
+  compactThreadAvatar:{width:40,height:40,borderRadius:20,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
+  compactThreadAvatarText:{fontSize:18,color:colors.textPrimary,fontWeight:'900'},
   compactHeaderCopy:{flex:1,minWidth:0},
   compactTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',letterSpacing:.25},
   compactMeta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:16,marginTop:2},
@@ -1716,7 +1743,7 @@ const s=StyleSheet.create({
   membersButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
   membersButtonText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.5},
   inbox:{flex:1,minHeight:0},
-  inboxList:{gap:8,paddingHorizontal:14,paddingTop:10,paddingBottom:18},
+  inboxList:{gap:0,paddingHorizontal:14,paddingTop:10,paddingBottom:18},
   inboxSearchWrap:{minHeight:44,borderRadius:22,borderWidth:1,borderColor:'rgba(167,139,250,.28)',backgroundColor:'rgba(26,21,38,.96)',paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8},
   inboxSearchIcon:{color:colors.textMutedGrey,fontSize:20,fontWeight:'700'},
   inboxSearch:{flex:1,minHeight:42,color:colors.textPrimary,fontSize:15,paddingVertical:0},
@@ -1730,7 +1757,7 @@ const s=StyleSheet.create({
   newConversationCopy:{flex:1,minWidth:0},
   newConversationTitle:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
   newConversationHint:{color:colors.textMutedGrey,fontSize:12.5,lineHeight:17,marginTop:2},
-  groupRow:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,overflow:'hidden'},
+  groupRow:{borderRadius:0,borderWidth:0,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.18)',backgroundColor:'transparent',overflow:'hidden'},
   groupRowInvited:{borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.06)'},
   groupMain:{minHeight:62,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
   groupAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
@@ -1740,8 +1767,11 @@ const s=StyleSheet.create({
   groupDeclineText:{color:colors.textMutedGrey,fontSize:11,fontWeight:'900'},
   groupAccept:{minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   groupAcceptText:{color:colors.white,fontSize:11,fontWeight:'900'},
-  conversationRow:{minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
-  conversationAvatar:{width:38,height:38,borderRadius:19,backgroundColor:colors.backgroundElevated},
+  conversationRow:{minHeight:64,borderRadius:0,borderWidth:0,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.18)',backgroundColor:'transparent',paddingHorizontal:6,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:10},
+  conversationAvatar:{width:44,height:44,borderRadius:22,backgroundColor:colors.backgroundElevated},
+  publicRoomAvatar:{borderColor:colors.primaryLight,borderWidth:1,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
+  publicRoomAvatarText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
+  publicRoomBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
   conversationName:{flex:1,color:colors.textPrimary,fontSize:17.5,fontWeight:'900'},
@@ -1840,6 +1870,7 @@ const s=StyleSheet.create({
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
   username:{color:colors.textPrimary,fontSize:14.5,fontWeight:'900'},
   meta:{color:colors.textMutedGrey,fontSize:10.5,lineHeight:14,marginTop:1},
+  directBubbleTime:{alignSelf:'flex-end',color:colors.textMutedGrey,fontSize:9.5,fontWeight:'700',marginTop:5},
   body:{color:colors.textPrimary,fontSize:16,lineHeight:22,marginTop:7},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
   qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},

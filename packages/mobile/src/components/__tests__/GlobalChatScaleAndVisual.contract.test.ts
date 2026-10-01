@@ -22,7 +22,7 @@ describe('global chat scale and visual proof contract', () => {
     expect(workflow).toContain("getByTestId('loki-chat-fullscreen-modal')");
     expect(workflow).toContain("keep-chat-fullscreen-390x844.png");
     expect(workflow).toContain("getByPlaceholder('Rechercher une conversation…')");
-    expect(workflow).toContain("getByText('LA PLACE', { exact: true })");
+    expect(workflow).toContain("getByLabel('Ouvrir La Place')");
     expect(workflow).toContain("getByLabel('Ouvrir les actions du message')");
     expect(workflow).toContain("getByText('RÉACTIONS', { exact: true })");
     expect(workflow).toContain("getByText('MORCEAU', { exact: true })");

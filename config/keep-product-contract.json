@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.05",
+  "version": "2026-10-02.06",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -472,7 +472,17 @@
     "nativeKeyboardManualBottomInset": false,
     "drawerClampPersistsToSupabase": true,
     "drawerOpensImmediatelyOnTap": true,
-    "latestIncomingMessageForcesBottomEvenWhenBrowsingHistory": true
+    "latestIncomingMessageForcesBottomEvenWhenBrowsingHistory": true,
+    "approvedVisualDesign": "full-screen-inbox-and-thread",
+    "inboxHeaderSingleNewConversationAction": true,
+    "duplicateNewConversationCard": false,
+    "publicPlaceEntry": "inbox-salon-row",
+    "threadHeader": "back-avatar-name-status",
+    "legacyModeStripInsideThread": false,
+    "directThreadRepeatedAuthorCards": false,
+    "audioCalls": false,
+    "videoCalls": false,
+    "camera": false
   },
   "notificationExperience": {
     "presentation": "side-panel-accordion",
