@@ -72,6 +72,7 @@ export type MusicAgoraSurface = 'LISTEN' | 'DISCOVER' | 'PLAYLISTS' | 'PARTIES' 
 export type MusicAgoraSettings = {
   homeEnabled: boolean;
   notificationsEnabled: boolean;
+  voiceAnnouncementsEnabled: boolean;
   surfaces: MusicAgoraSurface[];
   side: 'left' | 'right';
   bottomOffset: number;
@@ -99,12 +100,13 @@ function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
 }
 
 export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
-  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
+  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, voiceAnnouncementsEnabled: false, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
   const { data, error } = await supabase.rpc('keep_agora_my_settings');
-  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
+  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, voiceAnnouncementsEnabled: false, surfaces: ALL_CHAT_SURFACES, side: 'right', bottomOffset: 88 };
   return {
     homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
     notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
+    voiceAnnouncementsEnabled: Boolean((data as any).voiceAnnouncementsEnabled ?? (data as any).voice_announcements_enabled ?? false),
     surfaces: parseChatSurfaces((data as any).surfaces ?? (data as any).visibleSurfaces ?? (data as any).visible_surfaces),
     side: String((data as any).side || '').toLowerCase() === 'left' ? 'left' : 'right',
     bottomOffset: Math.max(72, Math.min(800, Number((data as any).bottomOffset ?? (data as any).bottom_offset ?? 88) || 88)),
@@ -126,6 +128,7 @@ export async function saveMusicAgoraSettings(
   return {
     homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled),
     notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
+    voiceAnnouncementsEnabled: Boolean((data as any)?.voiceAnnouncementsEnabled ?? (data as any)?.voice_announcements_enabled ?? false),
     surfaces: parseChatSurfaces((data as any)?.surfaces ?? (data as any)?.visibleSurfaces ?? (data as any)?.visible_surfaces),
     side: String((data as any)?.side || '').toLowerCase() === 'left' ? 'left' : 'right',
     bottomOffset: Math.max(72, Math.min(800, Number((data as any)?.bottomOffset ?? (data as any)?.bottom_offset ?? 88) || 88)),
@@ -470,4 +473,14 @@ export async function reportMusicAgoraMessage(messageId: number, reason: MusicAg
   if (!supabase) throw new Error('service_unavailable');
   const { error } = await supabase.rpc('keep_agora_report_message', { p_message_id: messageId, p_reason: reason });
   if (error) throw error;
+}
+
+
+export async function saveMusicAgoraVoiceAnnouncements(enabled: boolean): Promise<boolean> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_set_voice_announcements', {
+    p_enabled: Boolean(enabled),
+  });
+  if (error) throw error;
+  return Boolean(data);
 }
