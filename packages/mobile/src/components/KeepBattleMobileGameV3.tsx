@@ -2299,7 +2299,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (!arena || arena.status !== 'ACTIVE' || !audioReady || arena.round?.answered || arena.round?.revealed || pending) return;
     const startsAt = arena.round?.startedAt ? new Date(arena.round.startedAt).getTime() : 0;
     const closesAt = arena.round?.closesAt ? new Date(arena.round.closesAt).getTime() : 0;
-    if ((startsAt && Date.now() < startsAt) || (closesAt && Date.now() >= closesAt)) return;
+    const sharedNow = keepBattleServerNowMs();
+    if ((startsAt && sharedNow < startsAt) || (closesAt && sharedNow >= closesAt)) return;
     // Adel (02/09/2026) : "en attendant la réponse, tu laisses la musique" --
     // en arène, d'autres joueurs répondent peut-être encore : couper le son
     // dès QUE J'appuie serait déloyal pour eux. Le morceau s'arrête déjà tout
@@ -2487,8 +2488,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // sur l'horloge serveur -- indispensable pour rester synchronisé entre
     // joueurs -- seul l'AFFICHAGE (chrono, barre, boutons actifs) attend
     // maintenant aussi la confirmation audio locale.
-    const ready = arena.status === 'ACTIVE' && (!startsAt || now >= startsAt) && audioReady;
-    const left = arena.status === 'ACTIVE' && closesAt ? Math.max(0, closesAt - Math.max(now, startsAt || now)) : ROUND_MS;
+    const sharedArenaNow = keepBattleServerNowMs();
+    const ready = arena.status === 'ACTIVE' && (!startsAt || sharedArenaNow >= startsAt) && audioReady;
+    const left = arena.status === 'ACTIVE' && closesAt ? Math.max(0, closesAt - Math.max(sharedArenaNow, startsAt || sharedArenaNow)) : ROUND_MS;
     const pct = Math.max(0, Math.min(100, (left / ROUND_MS) * 100));
     const first = players[0]; const second = players[1];
     // Adel (04/09/2026) : "la partie est individuelle mais on joue collectif
