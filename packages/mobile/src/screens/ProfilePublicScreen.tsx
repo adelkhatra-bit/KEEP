@@ -1981,30 +1981,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
             </View>
           </View>
 
-          {!profilePulseExpanded && profileStyleBubbles.length > 0 ? (
-            <View style={s.dnaCompactPreview} testID="profile-loki-pulse-preview">
-              <MusicStyleBubbles
-                testID="profile-music-style-bubbles-preview"
-                genres={profileStyleBubbles}
-                max={4}
-                compact
-                onPressGenre={(genre) => {
-                  const folder = genreFolders.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-                  if (folder?.entries.length) {
-                    openSelectionSwipe({
-                      title: folder.genre,
-                      subtitle: `Tes morceaux ${folder.genre} dans ta collection.`,
-                      tracks: folder.entries.map((entry) => entry.track),
-                    });
-                    return;
-                  }
-                  switchProfileTab('TRACKS');
-                  setTracksGrouping('GENRE');
-                }}
-              />
-            </View>
-          ) : null}
-
           {(profileStyleBubbles.length > 0 || visibleLokiPulseItems.length > 0) ? (
             <View style={s.pulseCompactActions}>
               <TouchableOpacity
