@@ -28,6 +28,7 @@ import type { ProfileCertificationTier } from '../services/publicProfileStateSer
 import { searchAddress, reverseGeocodeAddress, getCurrentKeepLocation, KeepLocationPermissionError, AddressSuggestion } from '../services/locationService';
 import WheelPicker from '../components/WheelPicker';
 import StandardBackButton from '../components/StandardBackButton';
+import ContextHelpSheet from '../components/ContextHelpSheet';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -1162,29 +1163,20 @@ export default function PartiesScreen({ navigation, route }: any) {
           Battle et un côté les soirées ... par défaut ça revient toujours à
           soirée" -- deux onglets au lieu de mélanger les deux dans le même
           flux ; Soirées reste l'onglet par défaut. */}
-      <Modal visible={partiesTab === 'SOIREES' && eventAccessInfoOpen} transparent animationType="fade" onRequestClose={() => setEventAccessInfoOpen(false)}>
-        <View style={styles.helpBackdrop}>
-          <View style={styles.helpCard}>
-            <View style={styles.helpHead}>
-              <View style={{flex:1,minWidth:0}}>
-                <Text style={styles.helpTitle}>Tout faire dans Soirées</Text>
-                <Text style={styles.helpHint}>Publier, suivre et répondre sans encombrer l’écran principal.</Text>
-              </View>
-              <TouchableOpacity style={styles.helpClose} onPress={() => setEventAccessInfoOpen(false)} accessibilityLabel="Fermer l’aide Soirées">
-                <Text style={styles.helpCloseText}>×</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.helpSteps}>
-              <View style={styles.helpStep}><Text style={styles.helpNo}>1</Text><View style={styles.helpCopy}><Text style={styles.helpStepTitle}>Publier</Text><Text style={styles.helpText}>Crée une soirée, un concert, une porte ouverte ou un rendez-vous.</Text></View></View>
-              <View style={styles.helpStep}><Text style={styles.helpNo}>2</Text><View style={styles.helpCopy}><Text style={styles.helpStepTitle}>Suivre</Text><Text style={styles.helpText}>Retrouve tes événements, leur validation Super Admin et leurs informations.</Text></View></View>
-              <View style={styles.helpStep}><Text style={styles.helpNo}>3</Text><View style={styles.helpCopy}><Text style={styles.helpStepTitle}>Invitations</Text><Text style={styles.helpText}>Reçois les invitations et réponds-y ici, sans doublon avec Découvertes.</Text></View></View>
-              <View style={styles.helpStep}><Text style={styles.helpNo}>4</Text><View style={styles.helpCopy}><Text style={styles.helpStepTitle}>Communauté</Text><Text style={styles.helpText}>Après approbation, Loki prévient automatiquement l’audience prévue par l’organisateur.</Text></View></View>
-            </View>
-            <Text style={styles.helpStatus}>{canCreate ? `Publication disponible · ${eventAccess?.unlimited ? 'illimitée' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}</Text>
-            <TouchableOpacity style={styles.helpDone} onPress={() => setEventAccessInfoOpen(false)}><Text style={styles.helpDoneText}>J’AI COMPRIS</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ContextHelpSheet
+        visible={partiesTab === 'SOIREES' && eventAccessInfoOpen}
+        title="Tout faire dans Soirées"
+        intro="Ici tu crées, suis et gères tes soirées sans quitter cet écran."
+        steps={[
+          { title: 'Créer une soirée', text: 'Appuie sur Créer, choisis le lieu, la date, les invités et publie ta demande.' },
+          { title: 'Attendre la validation', text: 'Le Super Admin vérifie la soirée. Tant qu’elle n’est pas approuvée, elle reste marquée En attente.' },
+          { title: 'Retrouver tes soirées', text: 'Mes soirées regroupe les événements que tu as créés et ceux auxquels tu participes.' },
+          { title: 'Répondre aux invitations', text: 'Tu peux accepter, répondre Peut-être ou refuser une invitation directement dans Loki Music.' },
+          { title: 'Prévenir ta communauté', text: 'Après approbation, Loki envoie les invitations à l’audience prévue, sans créer de doublons.' },
+        ]}
+        footer={canCreate ? `Tu peux publier · ${eventAccess?.unlimited ? 'illimité' : `${eventAccess?.remaining ?? 0} restante(s) ce mois`} · ${followers} abonnés` : createLabel}
+        onClose={() => setEventAccessInfoOpen(false)}
+      />
 
       <View style={styles.partiesTabs} accessibilityLabel="Choisir Soirées ou Battle">
         <TouchableOpacity
