@@ -17,7 +17,7 @@ describe('Notifications UX and routing contract', () => {
     expect(profile).toContain('notificationBellShake');
     expect(profile).toContain('notificationNudgeVisible');
     expect(profile).toContain('notificationNudgeReveal');
-    expect(profile).toContain('ouvre tes actus');
+    expect(profile).toContain('ouvre ta cloche');
     expect(profile).toContain('outputRange: [54, 222]');
   });
 
