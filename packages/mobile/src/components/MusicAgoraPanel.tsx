@@ -1,5 +1,5 @@
 import type { CanonicalTrack } from '@keep/music';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -18,6 +18,7 @@ import {
   reportMusicAgoraMessage,
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
+  subscribeMusicAgoraRoom,
 } from '../services/musicAgoraService';
 
 const PAGE_SIZE = 24;
@@ -47,11 +48,13 @@ export default function MusicAgoraPanel({
   enabled,
   onOpenProfile,
   shareableTracks = [],
+  compact = false,
 }: {
   currentProfileId: string;
   enabled: boolean;
   onOpenProfile: (username: string) => void;
   shareableTracks?: CanonicalTrack[];
+  compact?: boolean;
 }) {
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
   const [roomSlug, setRoomSlug] = useState('');
@@ -69,6 +72,8 @@ export default function MusicAgoraPanel({
   const [sharedTrack, setSharedTrack] = useState<CanonicalTrack | null>(null);
   const [shareRevealMode, setShareRevealMode] = useState<MusicAgoraRevealMode>('MASKED');
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
+  const chatScrollRef = useRef<ScrollView | null>(null);
+  const initialScrollDone = useRef(false);
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
 
@@ -88,35 +93,56 @@ export default function MusicAgoraPanel({
     return () => { live = false; };
   }, [enabled]);
 
-  const refresh = async (slug = roomSlug) => {
+  const refresh = async (slug = roomSlug, quiet = false) => {
     if (!slug) return;
-    setLoading(true);
+    if (!quiet) setLoading(true);
     try {
       const rows = await loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
     } catch {
-      setMessages([]);
-      setHasMore(false);
+      if (!quiet) {
+        setMessages([]);
+        setHasMore(false);
+      }
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (!roomSlug) return;
+    initialScrollDone.current = false;
     void refresh(roomSlug);
     if (enabled && homeEnabled) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
-    const timer = setInterval(() => { void refresh(roomSlug); }, 20_000);
-    return () => clearInterval(timer);
-  }, [roomSlug, enabled, homeEnabled, notificationsEnabled]);
+    const unsubscribe = subscribeMusicAgoraRoom(roomSlug, () => { void refresh(roomSlug, true); });
+    const timer = setInterval(() => {
+      void refresh(roomSlug, true);
+      if (compact && enabled) {
+        void loadMusicAgoraSettings().then((settings) => {
+          setHomeEnabled(settings.homeEnabled);
+          setNotificationsEnabled(settings.notificationsEnabled);
+        }).catch(() => {});
+      }
+    }, 5000);
+    return () => { unsubscribe(); clearInterval(timer); };
+  }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const timer = setTimeout(() => {
+      chatScrollRef.current?.scrollToEnd({ animated: initialScrollDone.current });
+      initialScrollDone.current = true;
+    }, 40);
+    return () => clearTimeout(timer);
+  }, [messages[messages.length - 1]?.id, roomSlug]);
 
   const loadOlder = async () => {
     if (!roomSlug || !messages.length || olderBusy) return;
     setOlderBusy(true);
     try {
-      const rows = await loadMusicAgoraMessages(roomSlug, messages[messages.length - 1]?.id, PAGE_SIZE);
-      setMessages((current) => [...current, ...rows.filter((row) => !current.some((item) => item.id === row.id))]);
+      const rows = await loadMusicAgoraMessages(roomSlug, messages[0]?.id, PAGE_SIZE);
+      setMessages((current) => [...rows.filter((row) => !current.some((item) => item.id === row.id)), ...current]);
       setHasMore(rows.length === PAGE_SIZE);
     } finally {
       setOlderBusy(false);
@@ -131,10 +157,10 @@ export default function MusicAgoraPanel({
       setHomeEnabled(settings.homeEnabled);
       setNotificationsEnabled(settings.notificationsEnabled);
       Alert.alert(
-        settings.homeEnabled ? 'Tchat activé' : 'Tchat retiré de l’accueil',
+        settings.homeEnabled ? 'Tchat activé' : 'Tchat désactivé sur le profil',
         settings.homeEnabled
-          ? 'Un aperçu discret du Tchat apparaîtra sur Écouter. Tu peux le désactiver ici quand tu veux.'
-          : 'Le Tchat reste disponible ici sur ton profil.',
+          ? 'Le mini-Tchat reste maintenant visible sur ton profil et se met à jour automatiquement.'
+          : 'La petite fenêtre disparaît du profil. Tu peux la réactiver à tout moment dans Notifications ou dans le Tchat.',
       );
     } catch {
       Alert.alert('Tchat', 'Impossible de modifier ce réglage pour le moment.');
@@ -174,6 +200,20 @@ export default function MusicAgoraPanel({
       setSharedTrack(null);
       setShareRevealMode('MASKED');
       await refresh(roomSlug);
+    } catch (error) {
+      Alert.alert('Tchat', readableError(error));
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const sendQuickReaction = async (emoji: string) => {
+    if (!enabled || !roomSlug || posting) return;
+    setPosting(true);
+    try {
+      await postMusicAgoraMessage(roomSlug, emoji, { targetProfileId: replyTarget?.profileId ?? null });
+      setReplyTarget(null);
+      await refresh(roomSlug, true);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
     } finally {
@@ -251,8 +291,19 @@ export default function MusicAgoraPanel({
     );
   };
 
-  return <View style={s.shell}>
-    <View style={s.intro}>
+  if (compact && (!enabled || !homeEnabled)) return null;
+
+  return <View style={[s.shell, compact && s.shellCompact]}>
+    {compact ? (
+      <View style={s.compactHeader}>
+        <View style={s.liveDot} />
+        <View style={s.compactHeaderCopy}>
+          <Text style={s.compactTitle}>TCHAT LOKI · EN DIRECT</Text>
+          <Text style={s.compactMeta}>{room?.label || 'Discussion musicale'} · nouveaux messages automatiques</Text>
+        </View>
+        <Text style={s.compactBadge}>ACTIVÉ</Text>
+      </View>
+    ) : <View style={s.intro}>
       <View style={s.titleRow}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.kicker}>TCHAT LOKI</Text>
@@ -266,23 +317,33 @@ export default function MusicAgoraPanel({
       {enabled && homeEnabled ? <TouchableOpacity onPress={() => void updateNotifications(!notificationsEnabled)} style={s.notificationsToggle}>
         <Text style={s.notificationsToggleText}>{notificationsEnabled ? '🔔 Notifications du salon activées' : '🔕 Notifications du salon coupées'}</Text>
       </TouchableOpacity> : null}
-    </View>
+    </View>}
 
-    <View style={s.rooms}>
+    {!compact ? <View style={s.rooms}>
       {rooms.map((item) => (
         <TouchableOpacity key={item.slug} style={[s.roomChip, roomSlug === item.slug && s.roomChipOn]} onPress={() => setRoomSlug(item.slug)}>
           <Text style={[s.roomChipText, roomSlug === item.slug && s.roomChipTextOn]}>{item.label}</Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </View> : null}
 
-    {room ? <View style={s.prompt}><Text style={s.promptLabel}>QUESTION DU SALON</Text><Text style={s.promptText}>{room.prompt}</Text></View> : null}
+    {!compact && room ? <View style={s.prompt}><Text style={s.promptLabel}>QUESTION DU SALON</Text><Text style={s.promptText}>{room.prompt}</Text></View> : null}
 
     {loading ? <View style={s.loading}><ActivityIndicator color={colors.primaryLight}/></View> : null}
 
-    <View style={s.list}>
-      {messages.map((message) => (
-        <View key={message.id} style={[s.message, message.targetProfileId && s.directMessage]}>
+    <ScrollView
+      ref={chatScrollRef}
+      style={[s.chatScroll, compact && s.chatScrollCompact]}
+      contentContainerStyle={s.list}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      onContentSizeChange={() => {
+        if (!initialScrollDone.current) chatScrollRef.current?.scrollToEnd({ animated: false });
+      }}
+    >
+      {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : '↑ PLUS ANCIENS'}</Text></TouchableOpacity> : null}
+      {(compact ? messages.slice(-6) : messages).map((message) => (
+        <View key={message.id} style={[s.message, message.profileId === currentProfileId ? s.messageOwn : s.messageOther, message.targetProfileId && s.directMessage]}>
           <TouchableOpacity style={s.author} onPress={() => onOpenProfile(message.username)}>
             {message.avatarUrl ? <Image source={{ uri: message.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{message.username.slice(0,1).toUpperCase()}</Text></View>}
             <View style={s.authorCopy}>
@@ -314,11 +375,9 @@ export default function MusicAgoraPanel({
         </View>
       ))}
       {!loading && !messages.length ? <Text style={s.empty}>Le salon est calme. Lance la première discussion.</Text> : null}
-    </View>
+    </ScrollView>
 
-    {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : 'PLUS ANCIENS'}</Text></TouchableOpacity> : null}
-
-    {enabled ? <View style={s.composer}>
+    {enabled ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyTarget ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
         <Text style={s.selectedMusicTitle} numberOfLines={1}>♫ {sharedTrack.title} · {sharedTrack.artist}</Text>
@@ -328,6 +387,9 @@ export default function MusicAgoraPanel({
           <TouchableOpacity style={s.removeMusic} onPress={() => setSharedTrack(null)}><Text style={s.removeMusicText}>×</Text></TouchableOpacity>
         </View>
       </View> : null}
+      <View style={s.quickReactions}>
+        {['❤️','🔥','👏','🎵'].map((emoji) => <TouchableOpacity key={emoji} style={s.quickReaction} disabled={posting} onPress={() => void sendQuickReaction(emoji)} accessibilityLabel={`Envoyer ${emoji}`}><Text style={s.quickReactionText}>{emoji}</Text></TouchableOpacity>)}
+      </View>
       <TextInput
         value={draft}
         onChangeText={setDraft}
@@ -364,6 +426,13 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
+  shellCompact:{marginHorizontal:18,marginVertical:10,padding:10,borderRadius:20,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(20,14,31,.94)',overflow:'hidden'},
+  compactHeader:{minHeight:42,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:4},
+  liveDot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
+  compactHeaderCopy:{flex:1,minWidth:0},
+  compactTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.6},
+  compactMeta:{color:colors.textMutedGrey,fontSize:8.5,marginTop:2},
+  compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
   intro:{padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},
   titleRow:{flexDirection:'row',alignItems:'center',gap:10},
   kicker:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1.4},
@@ -384,7 +453,11 @@ const s=StyleSheet.create({
   promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10},
+  composerCompact:{padding:8,borderRadius:14},
   input:{minHeight:64,maxHeight:120,color:colors.textPrimary,fontSize:14,lineHeight:20,textAlignVertical:'top'},
+  quickReactions:{flexDirection:'row',alignItems:'center',gap:7,marginBottom:6},
+  quickReaction:{width:34,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  quickReactionText:{fontSize:16},
   composerBottom:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
   counter:{color:colors.textMutedGrey,fontSize:9,marginLeft:'auto'},
   send:{minHeight:34,paddingHorizontal:12,borderRadius:17,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
@@ -395,8 +468,12 @@ const s=StyleSheet.create({
   locked:{padding:10,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
-  list:{gap:8},
-  message:{position:'relative',padding:11,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
+  chatScroll:{maxHeight:410},
+  chatScrollCompact:{maxHeight:250},
+  list:{gap:8,paddingVertical:4},
+  message:{position:'relative',padding:10,borderRadius:16,borderWidth:1,maxWidth:'91%'},
+  messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
+  messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
   directMessage:{borderColor:colors.info},
   author:{flexDirection:'row',alignItems:'center',paddingRight:34},
   avatar:{width:34,height:34,borderRadius:17,backgroundColor:colors.backgroundElevated},
