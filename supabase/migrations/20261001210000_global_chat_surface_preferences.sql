@@ -1,5 +1,9 @@
 -- Global movable chat: persisted visibility per main app surface + opt-in notification.
 alter table public.profiles
+  add column if not exists community_chat_home_enabled boolean not null default false,
+  add column if not exists community_chat_notifications boolean not null default true;
+
+alter table public.profiles
   add column if not exists community_chat_surfaces text[] not null
   default array['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']::text[];
 
