@@ -133,7 +133,22 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     trackPreviewUrl: row.track_preview_url ? String(row.track_preview_url) : null,
   })).filter((row) => row.id && row.profileId && row.body);
   if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
-  return rows;
+  return rows.sort((a, b) => a.id - b.id);
+}
+
+export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void): () => void {
+  if (!supabase || !roomSlug) return () => {};
+  const channel = supabase
+    .channel(`keep-agora:${roomSlug}:${Date.now()}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'music_agora_messages', filter: `room_slug=eq.${roomSlug}` },
+      () => onChange(),
+    )
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export async function postMusicAgoraMessage(
