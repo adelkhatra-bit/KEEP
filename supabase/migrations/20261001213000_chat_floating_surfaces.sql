@@ -41,6 +41,7 @@ as $function$
   where p.id=auth.uid();
 $function$;
 
+drop function if exists public.keep_agora_set_settings_v2(boolean,boolean,text[]);
 create or replace function public.keep_agora_set_settings_v2(
   p_enabled boolean,
   p_notifications_enabled boolean default true,
