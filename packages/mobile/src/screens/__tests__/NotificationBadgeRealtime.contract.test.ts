@@ -14,11 +14,12 @@ describe('notification badge realtime contract', () => {
     expect(profile).toContain("navigation?.addListener?.('focus', refreshUnread)");
   });
 
-  it('keeps the notification bell outside the hamburger and opens Notifications directly', () => {
-    expect(profile).toContain("navigation.navigate('Notifications')");
+  it('keeps the notification bell outside the hamburger and opens the inline bell drawer', () => {
+    expect(profile).toContain('setNotificationPanelOpen(true)');
     expect(profile).toContain('accessibilityLabel={`Notifications');
     expect(profile).toContain('accessibilityLabel="Menu du profil"');
     expect(profile).toContain('setMenuOpen(true)');
-    expect(profile).not.toContain('setNotificationPanelOpen(true)');
+    const bellBlock = profile.slice(profile.indexOf('style={s.iconButton}'), profile.indexOf('style={s.iconButton}') + 1000);
+    expect(bellBlock).not.toContain("navigation.navigate('Notifications')");
   });
 });
