@@ -157,7 +157,10 @@ export type FreeCreditBattleEvent = { result: string; amount: number; createdAt:
 
 export type FreeSpentToday = {
   spent: number;
+  keepSpent: number;
   keeps: number;
+  marketplaceSpent: number;
+  marketplacePurchases: number;
   period: string;
   timezone: string;
   startedAt: string | null;
@@ -179,7 +182,10 @@ export async function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
   const row = data as any;
   return {
     spent: Number(row.spent || 0),
+    keepSpent: Number(row.keepSpent ?? row.keep_spent ?? row.spent ?? 0),
     keeps: Number(row.keeps || 0),
+    marketplaceSpent: Number(row.marketplaceSpent ?? row.marketplace_spent ?? 0),
+    marketplacePurchases: Number(row.marketplacePurchases ?? row.marketplace_purchases ?? 0),
     period: String(row.period || 'TODAY_2AM'),
     timezone: String(row.timezone || currentDeviceTimeZone()),
     startedAt: row.startedAt ? String(row.startedAt) : null,
