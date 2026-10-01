@@ -439,9 +439,13 @@ async function recordDecision(req: Request) {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    const sourceKey = typeof (context as any)?.source === "string" && String((context as any).source).trim()
-      ? String((context as any).source).trim().slice(0, 120)
-      : "unknown";
+    const sourceLabel = typeof (context as any)?.source === "string" && String((context as any).source).trim()
+      ? String((context as any).source).trim().slice(0, 70)
+      : "manual";
+    // Idempotence au niveau du morceau, jamais au niveau de l'écran/source.
+    // "session_history" seul bloquait tous les GARDER suivants de la même source
+    // à cause de l'index unique du ledger FREE.
+    const sourceKey = `${sourceLabel}:${trackId}`;
 
     const { data: committed, error: commitError } = await scoped.rpc("keep_commit_paid_decision", {
       p_track_id: trackId,
