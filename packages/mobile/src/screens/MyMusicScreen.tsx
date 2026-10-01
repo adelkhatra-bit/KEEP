@@ -164,7 +164,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [activeTab, setActiveTab] = useState<LibraryTab>('VIBES');
   const [workspaceTab, setWorkspaceTab] = useState<'LIBRARY'>('LIBRARY');
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
-  const [homeHelpExpanded, setHomeHelpExpanded] = useState(false);
+  const [visibilityIntroOpen, setVisibilityIntroOpen] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
   const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'USERS'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
@@ -294,17 +294,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [saleCartHydrated, setSaleCartHydrated] = useState(false);
   const saleCartStorageKey = useMemo(() => userId ? `keep:pepites-cart:${userId}` : '', [userId]);
   const [manageMusicMode, setManageMusicMode] = useState(false);
-  const [manageHelpVisible, setManageHelpVisible] = useState(false);
-  const toggleManageMusicMode = () => {
-    const next = !manageMusicMode;
-    setManageMusicMode(next);
-    Alert.alert(
-      next ? 'Modification activée' : 'Modification terminée',
-      next
-        ? 'Tu peux maintenant toucher les commandes de chaque morceau pour le rendre privé/public, le retirer ou le classer. Rien ne change tant que tu ne choisis pas une action.'
-        : 'Tu reviens à la consultation normale. Tes morceaux et tes réglages sont conservés.'
-    );
-  };
 
   useEffect(() => {
     if (!route?.params?.openManageMusic) return;
@@ -1455,9 +1444,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
         ) : null}
 
         <View style={styles.focusActionStack}>
-          <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('EDIT'); setActiveTab('MUSIQUES'); }}>
+          <TouchableOpacity style={styles.focusActionRow} onPress={() => setVisibilityIntroOpen(true)}>
             <View style={styles.focusActionIcon}><Text style={styles.focusActionIconText}>✎</Text></View>
-            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Choisir ce qui est visible</Text><Text style={styles.focusActionHint}>Public, privé ou retirer un morceau</Text></View>
+            <View style={styles.focusActionCopy}><Text style={styles.focusActionTitle}>Choisir ce qui est visible</Text><Text style={styles.focusActionHint}>Comprendre avant de modifier</Text></View>
             <Text style={styles.focusChoiceArrow}>›</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.focusActionRow} onPress={() => { setWorkspaceTab('LIBRARY'); setMobileSection('ORGANIZE'); setActiveTab('VIBES'); }}>
@@ -1476,10 +1465,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <Text style={styles.focusChoiceArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.focusLearnMoreButton} onPress={() => setHomeHelpExpanded((value) => !value)} accessibilityLabel="En savoir plus sur Mes musiques">
-          <Text style={styles.focusLearnMoreButtonText}>{homeHelpExpanded ? 'Masquer l’aide' : 'Besoin d’aide ?'}</Text>
-        </TouchableOpacity>
-        {homeHelpExpanded ? <Text style={styles.focusLearnMore}>Écouter = retrouver tes morceaux. · Visible = choisir public ou privé. · Trier = ranger par style ou artiste. · Collection = regrouper plusieurs morceaux.</Text> : null}
       </View> : <View style={styles.focusBar}>
         <TouchableOpacity style={styles.focusBack} onPress={() => { setMobileSection('HOME'); setWorkspaceTab('LIBRARY'); setManageMusicMode(false); }} accessibilityLabel="Revenir aux choix Mes musiques"><Text style={styles.focusBackText}>‹</Text></TouchableOpacity>
         <View style={styles.focusBarCopy}><Text style={styles.focusBarTitle}>{saleSelectionMode ? (saleEditOfferTarget ? 'Modifier la collection' : 'Créer une collection') : mobileSection === 'EDIT' ? 'Choisir ce qui est visible' : mobileSection === 'ORGANIZE' ? 'Trier ma musique' : 'Mes morceaux'}</Text></View>
@@ -1490,10 +1475,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' ? (
         <View style={[styles.manageGuide, manageMusicMode && styles.manageGuideActive]}>
-          <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setManageHelpVisible((value) => !value)} accessibilityLabel="Afficher les informations sur le mode modification"><Text style={styles.manageGuideIconText}>i</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.manageGuideIcon} onPress={() => setVisibilityIntroOpen(true)} accessibilityLabel="Comprendre la visibilité de mes morceaux"><Text style={styles.manageGuideIconText}>?</Text></TouchableOpacity>
           <View style={styles.manageGuideCopy}>
-            <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'MODIFICATION ACTIVÉE' : 'MODE MODIFICATION'}</Text>
-            <Text style={styles.manageGuideText} numberOfLines={1}>{manageMusicMode ? 'Public/privé · retirer · classer : commandes actives' : 'Active les commandes public/privé, retirer et classer'}</Text>
+            <Text style={styles.manageGuideTitle}>{manageMusicMode ? 'COMMANDES VISIBLES' : 'MA VISIBILITÉ'}</Text>
+            <Text style={styles.manageGuideText} numberOfLines={1}>{manageMusicMode ? 'Public · Privé · Retirer sous chaque morceau' : 'Rien ne change tant que tu ne choisis pas une action'}</Text>
           </View>
           <TouchableOpacity
             style={[styles.manageModeButton, manageMusicMode && styles.manageModeButtonActive]}
@@ -1506,15 +1491,14 @@ export default function MyMusicScreen({ navigation, route }: any) {
               return next;
             })}
             accessibilityRole="button"
-            accessibilityLabel={manageMusicMode ? 'Désactiver le mode modification' : 'Activer le mode modification'}
+            accessibilityLabel={manageMusicMode ? 'Terminer la gestion de visibilité' : 'Gérer la visibilité de mes morceaux'}
           >
             <Text style={[styles.manageModeButtonText, manageMusicMode && styles.manageModeButtonTextActive]}>
-              {manageMusicMode ? 'DÉSACTIVER' : 'ACTIVER'}
+              {manageMusicMode ? 'TERMINER' : 'GÉRER'}
             </Text>
           </TouchableOpacity>
         </View>
       ) : null}
-      {workspaceTab === 'LIBRARY' && mobileSection === 'EDIT' && activeTab === 'MUSIQUES' && manageHelpVisible ? <View style={styles.manageHelpBox}><Text style={styles.manageHelpTitle}>MODE MODIFICATION</Text><Text style={styles.manageHelpText}>ACTIVER affiche les commandes sur chaque morceau : rendre public ou privé, retirer et classer. DÉSACTIVER revient à la consultation normale. Un morceau placé dans un album en vente reste masqué du profil public.</Text></View> : null}
 
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
@@ -1701,6 +1685,37 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </View>
         </View>
       ) : null}
+
+      <Modal visible={visibilityIntroOpen} transparent animationType="fade" onRequestClose={() => setVisibilityIntroOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.editCard, styles.playlistHelpCard]}>
+            <View style={styles.playlistHelpHead}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.editTitle}>Choisir ce qui est visible</Text>
+                <Text style={styles.editHint}>Tu gardes le contrôle. Aucun morceau ne change sans ton choix.</Text>
+              </View>
+              <TouchableOpacity style={styles.playlistHelpClose} onPress={() => setVisibilityIntroOpen(false)} accessibilityLabel="Fermer l’aide visibilité">
+                <Text style={styles.playlistHelpCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.playlistHelpSteps}>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>1</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>PUBLIC</Text><Text style={styles.playlistHelpText}>Visible sur ton profil et écoutable par les autres.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>2</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>PRIVÉ</Text><Text style={styles.playlistHelpText}>Reste dans ta musique, mais disparaît de ton profil public.</Text></View></View>
+              <View style={styles.playlistHelpStep}><Text style={styles.playlistHelpNo}>3</Text><View style={styles.playlistHelpCopy}><Text style={styles.playlistHelpTitle}>COLLECTION EN VENTE</Text><Text style={styles.playlistHelpText}>Toujours protégée. Même “TOUT PUBLIC” ne peut pas rendre public un morceau d’une collection active.</Text></View></View>
+            </View>
+            <TouchableOpacity style={styles.saveButton} onPress={() => {
+              setVisibilityIntroOpen(false);
+              setWorkspaceTab('LIBRARY');
+              setMobileSection('EDIT');
+              setActiveTab('MUSIQUES');
+              setManageMusicMode(true);
+              setOriginFilter('ALL');
+              setSocialSectionExpanded(true);
+            }}><Text style={styles.saveText}>GÉRER MA VISIBILITÉ</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setVisibilityIntroOpen(false)}><Text style={styles.cancelText}>Plus tard</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={playlistHelpOpen} transparent animationType="fade" onRequestClose={() => setPlaylistHelpOpen(false)}>
         <View style={styles.modalBackdrop}>
