@@ -3,7 +3,7 @@ import path from 'path';
 
 describe('Monthly Free credit notification contract', () => {
   const notifications = fs.readFileSync(path.resolve(__dirname, '..', 'NotificationsScreen.tsx'), 'utf8');
-  const migration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20261001002500_monthly_free_credit_notifications.sql'), 'utf8');
+  const migration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001002500_monthly_free_credit_notifications.sql'), 'utf8');
 
   it('shows a friendly dedicated label in the notification center', () => {
     expect(notifications).toContain("if (key === 'MONTHLY_FREE_CREDIT') return 'FREE DU MOIS';");
