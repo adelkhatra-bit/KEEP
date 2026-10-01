@@ -26,6 +26,24 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(myMusic).toContain('if (tracks.length < 2)');
   });
 
+  it('keeps the Pépites creation flow as selection -> cart review -> payment -> final publish', () => {
+    expect(salePanel).toContain("collectionCartStep === 'TRACKS'");
+    expect(salePanel).toContain("collectionCartStep === 'REVIEW'");
+    expect(salePanel).toContain("collectionCartStep === 'PRICE'");
+    expect(salePanel).toContain("'J’AI FINI MA SÉLECTION'");
+    expect(salePanel).toContain('OUVRIR MON PANIER →');
+    expect(salePanel).toContain('OUI, MA SÉLECTION EST TERMINÉE');
+    expect(salePanel).toContain('PayPal · DEVISE');
+    expect(salePanel).toContain("host === 'paypal.me'");
+    expect(salePanel).toContain('PAYPAL DÉJÀ ENREGISTRÉ');
+  });
+
+  it('uses the blue design system for the Pépites cart confirmation CTA', () => {
+    expect(salePanel).toContain('collectionCartReadyButton:{minHeight:76');
+    expect(salePanel).toContain('backgroundColor:colors.primary');
+    expect(salePanel).not.toContain("collectionCartContinueHero:{flex:1,minHeight:62,backgroundColor:'#FFD166'}");
+  });
+
   it('delivers to Loki Music first, then requests connected-provider synchronization', () => {
     expect(saleService).toContain("keep_playlist_sale_mark_paid_and_deliver");
     expect(salePanel).toContain('syncMarketplaceDelivery(transaction.id)');
