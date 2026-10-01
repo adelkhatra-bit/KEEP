@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
@@ -89,6 +89,16 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [chatVoiceEnabled, setChatVoiceEnabled] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['PROFILE']);
   const [chatSide, setChatSide] = useState<'left' | 'right'>('right');
+  const chatBottomOffset = useGlobalChatStore((state) => state.bottomOffset);
+  const { height: viewportHeight } = useWindowDimensions();
+  const chatLowBottom = Math.max(100, Math.round(viewportHeight * 0.44));
+  const chatHighBottom = Math.max(chatLowBottom, viewportHeight - 150);
+  const chatMiddleBottom = Math.max(chatLowBottom, Math.min(chatHighBottom, Math.round(viewportHeight * 0.58)));
+  const chatVerticalPreset = Math.abs(chatBottomOffset - chatHighBottom) <= Math.abs(chatBottomOffset - chatMiddleBottom) && Math.abs(chatBottomOffset - chatHighBottom) <= Math.abs(chatBottomOffset - chatLowBottom)
+    ? 'HIGH'
+    : Math.abs(chatBottomOffset - chatMiddleBottom) <= Math.abs(chatBottomOffset - chatLowBottom)
+      ? 'MIDDLE'
+      : 'LOW';
 
   const refresh = async () => {
     if (!profileId) return;
@@ -185,6 +195,12 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     useGlobalChatStore.getState().setSide(side);
     const bottom = useGlobalChatStore.getState().bottomOffset;
     if (!isDemoMode) void saveMusicAgoraPosition(side, bottom).catch(() => {});
+  };
+
+  const chooseChatVertical = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
+    const nextBottom = preset === 'HIGH' ? chatHighBottom : preset === 'MIDDLE' ? chatMiddleBottom : chatLowBottom;
+    useGlobalChatStore.getState().setBottomOffset(nextBottom);
+    if (!isDemoMode) void saveMusicAgoraPosition(chatSide, nextBottom).catch(() => {});
   };
 
   useEffect(() => {
@@ -481,6 +497,21 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                     </TouchableOpacity>;
                   })}
                 </View>
+                <Text style={s.chatSectionLabel}>HAUTEUR DU TIROIR</Text>
+                <View style={s.chatPositionRow}>
+                  <TouchableOpacity style={[s.chatPositionButton, chatVerticalPreset === 'HIGH' && s.chatPositionButtonOn]} onPress={() => chooseChatVertical('HIGH')} accessibilityLabel="Placer le Tchat en haut">
+                    <Text style={[s.chatPositionText, chatVerticalPreset === 'HIGH' && s.chatPositionTextOn]}>HAUT</Text>
+                    <Text style={s.chatPositionHint}>près cloche / menu</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.chatPositionButton, chatVerticalPreset === 'MIDDLE' && s.chatPositionButtonOn]} onPress={() => chooseChatVertical('MIDDLE')} accessibilityLabel="Placer le Tchat au milieu">
+                    <Text style={[s.chatPositionText, chatVerticalPreset === 'MIDDLE' && s.chatPositionTextOn]}>MILIEU</Text>
+                    <Text style={s.chatPositionHint}>recommandé</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.chatPositionButton, chatVerticalPreset === 'LOW' && s.chatPositionButtonOn]} onPress={() => chooseChatVertical('LOW')} accessibilityLabel="Placer le Tchat en bas">
+                    <Text style={[s.chatPositionText, chatVerticalPreset === 'LOW' && s.chatPositionTextOn]}>BAS</Text>
+                    <Text style={s.chatPositionHint}>au-dessus des onglets</Text>
+                  </TouchableOpacity>
+                </View>
                 <Text style={s.chatSectionLabel}>CÔTÉ DU TIROIR</Text>
                 <View style={s.chatSideRow}>
                   <TouchableOpacity style={[s.chatSideButton, chatSide === 'left' && s.chatSideButtonOn]} onPress={() => chooseChatSide('left')}><Text style={[s.chatSideText, chatSide === 'left' && s.chatSideTextOn]}>GAUCHE</Text></TouchableOpacity>
@@ -623,6 +654,12 @@ const s = StyleSheet.create({
   chatSurfaceChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   chatSurfaceChipText:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900'},
   chatSurfaceChipTextOn:{color:colors.primaryLight},
+  chatPositionRow:{flexDirection:'row',gap:6},
+  chatPositionButton:{flex:1,minHeight:48,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:4},
+  chatPositionButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  chatPositionText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.4},
+  chatPositionTextOn:{color:colors.primaryLight},
+  chatPositionHint:{color:colors.textMutedGrey,fontSize:7,lineHeight:10,fontWeight:'700',textAlign:'center',marginTop:2},
   chatSideRow:{flexDirection:'row',gap:7},
   chatSideButton:{flex:1,minHeight:34,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   chatSideButtonOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)'},
