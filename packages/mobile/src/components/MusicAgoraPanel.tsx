@@ -68,7 +68,7 @@ export default function MusicAgoraPanel({
   currentProfileId: string;
   enabled: boolean;
   onOpenProfile: (username: string) => void;
-  shareableTracks?: CanonicalTrack[];
+  shareableTracks?: Array<CanonicalTrack & { canSell?: boolean; sourceUsername?: string | null }>;
   compact?: boolean;
   compactSide?: 'left' | 'right';
   initialRoomSlug?: string;
@@ -605,6 +605,9 @@ export default function MusicAgoraPanel({
                   ? ` · mise à l’écoute par @${message.username}`
                   : ''}
               </Text>
+              {!message.senderCanResell ? (
+                <Text style={s.musicShareOnlyText}>🔒 PARTAGE UNIQUEMENT · revente bloquée</Text>
+              ) : null}
               {message.targetOwnsTrack && message.targetUsername ? (
                 <Text style={s.musicAlreadyText}>✓ @{message.targetUsername} l’a déjà</Text>
               ) : message.viewerOwnsTrack && message.profileId !== currentProfileId ? (
@@ -638,7 +641,9 @@ export default function MusicAgoraPanel({
         {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule}>🔒 Vente = identité masquée jusqu’au déblocage. L’extrait reste écoutable.</Text> : null}
         {sharePreflightBusy ? <Text style={s.preflightText}>Vérification propriété…</Text> : null}
         {sharePreflight?.targetOwnsTrack ? <Text style={s.preflightOwned}>✓ @{sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} a déjà cette musique · aucune vente nécessaire</Text> : null}
-        {sharePreflight && !sharePreflight.canSell ? <Text style={s.preflightBlocked}>Partage autorisé · vente bloquée : cette musique ne t’appartient pas{sharePreflight.sourceUsername ? `, elle vient de @${sharePreflight.sourceUsername}` : ''}.</Text> : null}
+        {sharePreflight && !sharePreflight.canSell ? (
+          <Text style={s.preflightBlocked}>🔒 PARTAGE UNIQUEMENT · vente FREE/€ bloquée{sharePreflight.sourceUsername ? ` · source @${sharePreflight.sourceUsername}` : ''}</Text>
+        ) : null}
         <View style={s.paymentChoices}>
           <Text style={s.paymentLabel}>ACCÈS</Text>
           <TouchableOpacity style={[s.paymentChip,sharePaymentMode==='NONE'&&s.paymentChipOn]} onPress={() => setSharePaymentMode('NONE')}><Text style={s.paymentChipText}>STANDARD</Text></TouchableOpacity>
@@ -646,12 +651,12 @@ export default function MusicAgoraPanel({
             style={[s.paymentChip,sharePaymentMode==='FREE'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
             disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
             onPress={() => setSharePaymentMode('FREE')}
-          ><Text style={s.paymentChipText}>FREE</Text></TouchableOpacity>
+          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 FREE' : 'FREE'}</Text></TouchableOpacity>
           <TouchableOpacity
             style={[s.paymentChip,sharePaymentMode==='MONEY'&&s.paymentChipOn,(!sharePreflight?.canSell||sharePreflight?.targetOwnsTrack)&&s.paymentChipDisabled]}
             disabled={!sharePreflight?.canSell||Boolean(sharePreflight?.targetOwnsTrack)}
             onPress={() => setSharePaymentMode('MONEY')}
-          ><Text style={s.paymentChipText}>€</Text></TouchableOpacity>
+          ><Text style={s.paymentChipText}>{sharePreflight && !sharePreflight.canSell ? '🔒 €' : '€'}</Text></TouchableOpacity>
         </View>
         {sharePaymentMode === 'FREE' ? <View style={s.priceBlock}>
           <View style={s.priceChoices}>
@@ -725,7 +730,11 @@ export default function MusicAgoraPanel({
         <ScrollView style={s.shareList} contentContainerStyle={{ gap:7 }}>
           {shareableTracks.slice(0,60).map((track) => <TouchableOpacity key={track.id} style={s.shareTrackRow} onPress={() => { setSharedTrack(track); setShareRevealMode('MASKED'); setShareOpen(false); }}>
             {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={s.shareTrackArt}/> : <View style={[s.shareTrackArt,s.musicArtMasked]}><Text style={s.musicMaskIcon}>♫</Text></View>}
-            <View style={{ flex:1,minWidth:0 }}><Text style={s.shareTrackTitle} numberOfLines={1}>{track.title}</Text><Text style={s.shareTrackArtist} numberOfLines={1}>{track.artist}</Text></View>
+            <View style={{ flex:1,minWidth:0 }}>
+              <Text style={s.shareTrackTitle} numberOfLines={1}>{track.title}</Text>
+              <Text style={s.shareTrackArtist} numberOfLines={1}>{track.artist}</Text>
+              {track.canSell === false ? <Text style={s.shareTrackLocked} numberOfLines={1}>🔒 partage uniquement{track.sourceUsername ? ` · source @${track.sourceUsername}` : ''}</Text> : null}
+            </View>
             <Text style={s.shareTrackArrow}>›</Text>
           </TouchableOpacity>)}
           {!shareableTracks.length ? <Text style={s.empty}>Ajoute d’abord une musique à ton profil pour pouvoir la partager.</Text> : null}
@@ -867,5 +876,7 @@ const s=StyleSheet.create({
   shareTrackArt:{width:38,height:38,borderRadius:9,backgroundColor:colors.backgroundElevated},
   shareTrackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},
   shareTrackArtist:{color:colors.textMutedGrey,fontSize:9,marginTop:2},
+  shareTrackLocked:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
+  musicShareOnlyText:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
   shareTrackArrow:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
 });
