@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import FloatingGlobalChat from '../components/FloatingGlobalChat';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
 import MotionActionButton from '../components/MotionActionButton';
 import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -1024,8 +1023,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
-      <FloatingGlobalChat />
-    </SafeAreaView>;
+</SafeAreaView>;
   }
 
   // Refonte Soirées (spec Adel 22/09/2026) : le classement (podium + ligne
@@ -1814,9 +1812,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.publishSecondary} onPress={() => setReviewTarget(null)}><Text style={styles.publishSecondaryText}>Plus tard</Text></TouchableOpacity>
       </View></View>
     </Modal>
-
-    <FloatingGlobalChat />
-    </SafeAreaView>;
+</SafeAreaView>;
 }
 
 const styles=StyleSheet.create({partyHome:{gap:10,marginTop:6,marginBottom:12},partyHomeQuestion:{color:colors.textPrimary,fontSize:22,fontWeight:'900'},partyHomeHint:{color:colors.textMuted,fontSize:13,lineHeight:18,marginBottom:4},partyHomeChoicePrimary:{borderColor:colors.primary,backgroundColor:colors.primaryFaint},partyHomeAccess:{fontSize:16},partyHomeChoice:{minHeight:74,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,paddingVertical:11,flexDirection:'row',alignItems:'center',gap:12},partyHomeIcon:{width:44,height:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},partyHomeIconText:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},partyHomeCopy:{flex:1,minWidth:0},partyHomeTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},partyHomeMeta:{color:colors.textMuted,fontSize:12,lineHeight:17,marginTop:3},partyHomeArrow:{color:colors.textPrimary,fontSize:24,fontWeight:'800'},partyFocusBack:{alignSelf:'flex-start',minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,paddingHorizontal:12,alignItems:'center',justifyContent:'center',marginBottom:8},partyFocusBackText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},partyAccordion:{flexDirection:'row',gap:8,marginBottom:12},partyAccordionRow:{flex:1,minWidth:0,minHeight:66,paddingHorizontal:6,paddingVertical:8,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},partyAccordionRowOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},partyAccordionIcon:{width:29,height:29,borderRadius:9,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',marginBottom:5},partyAccordionIconText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},partyAccordionCopy:{width:'100%',minWidth:0,alignItems:'center'},partyAccordionTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',textAlign:'center'},partyAccordionHint:{display:'none'},partyAccordionChevron:{display:'none'},
