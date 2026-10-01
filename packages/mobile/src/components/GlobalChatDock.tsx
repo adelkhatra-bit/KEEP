@@ -253,7 +253,7 @@ export default function GlobalChatDock() {
   }, [accountReady, open, unreadCount, nudge, drawerPeek]);
 
   const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.44));
-  const maxBottom = Math.max(minBottom, height - 150);
+  const maxBottom = Math.max(minBottom, height - Math.max(118, insets.top + 72));
   const middleBottom = Math.max(minBottom, Math.min(maxBottom, Math.round(height * 0.58)));
   const verticalPreset = Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - middleBottom) && Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - minBottom)
     ? 'HIGH'
@@ -352,6 +352,13 @@ export default function GlobalChatDock() {
     void saveMusicAgoraPosition(side, nextBottom).catch(() => {});
   };
 
+  const chooseTopAnchor = (anchor: 'MENU' | 'BELL') => {
+    const nextSide: 'left' | 'right' = anchor === 'MENU' ? 'left' : 'right';
+    setSide(nextSide);
+    setBottomOffset(maxBottom);
+    void saveMusicAgoraPosition(nextSide, maxBottom).catch(() => {});
+  };
+
   const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
 
   if (!user) return null;
@@ -433,6 +440,24 @@ export default function GlobalChatDock() {
                   </TouchableOpacity>;
                 })}
               </View>
+            </View>
+
+            <Text style={styles.settingsScreenTitle}>ANCRAGE RAPIDE EN HAUT</Text>
+            <View style={styles.anchorRow}>
+              <TouchableOpacity style={styles.anchorChoice} onPress={() => chooseTopAnchor('MENU')} accessibilityLabel="Placer le Tchat en haut à gauche près du menu">
+                <Text style={styles.anchorIcon}>☰</Text>
+                <View style={{flex:1,minWidth:0}}>
+                  <Text style={styles.anchorTitle}>MENU · HAUT GAUCHE</Text>
+                  <Text style={styles.anchorHint}>près du hamburger</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.anchorChoice} onPress={() => chooseTopAnchor('BELL')} accessibilityLabel="Placer le Tchat en haut à droite près de la cloche">
+                <Text style={styles.anchorIcon}>🔔</Text>
+                <View style={{flex:1,minWidth:0}}>
+                  <Text style={styles.anchorTitle}>CLOCHE · HAUT DROITE</Text>
+                  <Text style={styles.anchorHint}>près des notifications</Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             <Text style={styles.settingsScreenTitle}>POSITION DU TIROIR</Text>
@@ -566,6 +591,11 @@ const styles = StyleSheet.create({
   screenChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   screenChipText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
   screenChipTextOn:{color:colors.primaryLight},
+  anchorRow:{gap:7,marginTop:2,marginBottom:10},
+  anchorChoice:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:9},
+  anchorIcon:{fontSize:18},
+  anchorTitle:{color:colors.textPrimary,fontSize:10.5,fontWeight:'900'},
+  anchorHint:{color:colors.textMutedGrey,fontSize:8.5,fontWeight:'700',marginTop:2},
   positionRow:{flexDirection:'row',gap:7,marginTop:4,marginBottom:2},
   positionChoice:{flex:1,minHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:5},
   positionChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
