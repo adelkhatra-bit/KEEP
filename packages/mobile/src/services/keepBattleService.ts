@@ -254,18 +254,31 @@ export type KeepBattlePlayerStats = {
   totalCorrect: number;
   avgResponseMs: number | null;
   topThemes: KeepBattlePlayerThemeStat[];
-  // Adel (04/09/2026) : "il faut mettre le nombre d'utilisateur [abonnés], le
-  // nombre de Free qu'il a et le nombre de Free qu'il a gagné" -- sur la
-  // fiche stats d'un joueur, déjà publique côté Battle (victoires, matchs).
   followers: number;
   freeBalance: number;
   freeWon: number;
   freeLost: number;
   freeNet: number;
+  freePeriod: 'TODAY_2AM' | string;
+  freePeriodTimezone: string;
+  freePeriodStartedAt: string | null;
+  freePeriodEndsAt: string | null;
 };
 
+function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  } catch {
+    return 'Europe/Paris';
+  }
+}
+
 export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
-  const { data, error } = await client().rpc('keep_battle_profile_battle_stats', { p_profile_id: profileId, p_theme_limit: 3 });
+  const { data, error } = await client().rpc('keep_battle_profile_battle_stats_daily', {
+    p_profile_id: profileId,
+    p_theme_limit: 3,
+    p_timezone: deviceTimeZone(),
+  });
   const row = unwrap(data as any, error);
   return {
     wins: Number(row.wins ?? 0),
@@ -283,6 +296,10 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
     freeWon: Number(row.freeWon ?? 0),
     freeLost: Number(row.freeLost ?? 0),
     freeNet: Number(row.freeNet ?? 0),
+    freePeriod: String(row.freePeriod ?? 'TODAY_2AM'),
+    freePeriodTimezone: String(row.freePeriodTimezone ?? deviceTimeZone()),
+    freePeriodStartedAt: row.freePeriodStartedAt ? String(row.freePeriodStartedAt) : null,
+    freePeriodEndsAt: row.freePeriodEndsAt ? String(row.freePeriodEndsAt) : null,
   };
 }
 
