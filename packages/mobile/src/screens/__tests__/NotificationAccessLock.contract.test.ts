@@ -7,7 +7,8 @@ const read = (...segments: string[]) =>
 describe('notification accordion and plan locks contract', () => {
   const panel = read(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx');
   const access = read(__dirname, '..', '..', 'services', 'notificationAccessService.ts');
-  const admin = read(__dirname, '..', '..', '..', '..', 'admin', 'pages', 'messages.tsx');
+  const admin = read(__dirname, '..', '..', '..', '..', 'admin', 'pages', 'notification-access.tsx');
+  const ownerProfile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
   it('keeps bell notifications inline and accordion-based', () => {
@@ -21,10 +22,14 @@ describe('notification accordion and plan locks contract', () => {
     expect(panel).toContain("activeTab === 'ACTIVITY'");
     expect(panel).toContain("activeTab === 'SETTINGS'");
     expect(panel).not.toContain("sourceFeature: 'NOTIFICATION_ACCESS'");
+    expect(panel).toContain("useGlobalChatStore.getState().open(target)");
+    expect(panel).toContain('OUVRIR LA CONVERSATION');
+    expect(ownerProfile).toContain('setNotificationPanelOpen(true)');
+    expect(ownerProfile).not.toContain("onOpenAll={() => navigation.navigate('Notifications')}");
   });
 
   it('lets Super Admin lock every live notification type by plan', () => {
-    expect(admin).toContain('Cadenas des notifications');
+    expect(admin).toContain('Accès aux notifications');
     expect(admin).toContain("from('notification_access_rules')");
     expect(admin).toContain('PREMIUM');
     expect(admin).toContain('CREATOR_PRO');
