@@ -55,9 +55,12 @@ export type MusicAgoraSharePreflight = {
   targetOwnsTrack: boolean;
 };
 
+export type MusicAgoraSurface = 'LISTEN' | 'DISCOVER' | 'PLAYLISTS' | 'PARTIES' | 'PROFILE';
+
 export type MusicAgoraSettings = {
   homeEnabled: boolean;
   notificationsEnabled: boolean;
+  surfaces: MusicAgoraSurface[];
 };
 
 export type MusicAgoraPostOptions = {
@@ -72,26 +75,42 @@ export type MusicAgoraPostOptions = {
 
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
 
+const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'];
+
+function parseChatSurfaces(value: unknown): MusicAgoraSurface[] {
+  if (!Array.isArray(value)) return ALL_CHAT_SURFACES;
+  const allowed = new Set(ALL_CHAT_SURFACES);
+  const parsed = value.map((v) => String(v || '').toUpperCase()).filter((v): v is MusicAgoraSurface => allowed.has(v as MusicAgoraSurface));
+  return parsed.length ? Array.from(new Set(parsed)) : ['PROFILE'];
+}
+
 export async function loadMusicAgoraSettings(): Promise<MusicAgoraSettings> {
-  if (!supabase) return { homeEnabled: false, notificationsEnabled: true };
+  if (!supabase) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES };
   const { data, error } = await supabase.rpc('keep_agora_my_settings');
-  if (error || !data) return { homeEnabled: false, notificationsEnabled: true };
+  if (error || !data) return { homeEnabled: false, notificationsEnabled: true, surfaces: ALL_CHAT_SURFACES };
   return {
     homeEnabled: Boolean((data as any).homeEnabled ?? (data as any).home_enabled),
     notificationsEnabled: Boolean((data as any).notificationsEnabled ?? (data as any).notifications_enabled ?? true),
+    surfaces: parseChatSurfaces((data as any).surfaces),
   };
 }
 
-export async function saveMusicAgoraSettings(homeEnabled: boolean, notificationsEnabled = true): Promise<MusicAgoraSettings> {
+export async function saveMusicAgoraSettings(
+  homeEnabled: boolean,
+  notificationsEnabled = true,
+  surfaces: MusicAgoraSurface[] = ALL_CHAT_SURFACES,
+): Promise<MusicAgoraSettings> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_set_settings', {
+  const { data, error } = await supabase.rpc('keep_agora_set_settings_v2', {
     p_home_enabled: homeEnabled,
     p_notifications_enabled: notificationsEnabled,
+    p_surfaces: parseChatSurfaces(surfaces),
   });
   if (error) throw error;
   return {
     homeEnabled: Boolean((data as any)?.homeEnabled ?? (data as any)?.home_enabled),
     notificationsEnabled: Boolean((data as any)?.notificationsEnabled ?? (data as any)?.notifications_enabled ?? true),
+    surfaces: parseChatSurfaces((data as any)?.surfaces),
   };
 }
 
