@@ -449,8 +449,8 @@ export default function GlobalChatDock() {
               bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)),
               transform: [
                 { translateX: side === 'left'
-                  ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] })
-                  : drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+                  ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] })
+                  : drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) },
                 { translateX: drag.x },
                 { translateY: drag.y },
                 { scale: pulse },
