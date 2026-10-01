@@ -17,7 +17,7 @@ import { getDownloadCreditStatus } from '../services/creditService';
 import { commitKeep } from '../services/keepTrackAction';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem, markLokiPulseTrackKept } from '../services/lokiPulseService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
-import { loadKeepBattleGlobalLeaderboard, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
+import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -553,11 +553,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       }
       if (!isLocalGuest && !isDemoMode) {
         try {
-          const battleStatus = await loadMyKeepBattleCreditStatus();
+          const [battleStatus, dailyBattleStats] = await Promise.all([
+            loadMyKeepBattleCreditStatus(),
+            loadKeepBattlePlayerStats(user.id),
+          ]);
           if (!live) return;
           setFreeBalance(battleStatus.remainingFree);
-          setFreeWon(battleStatus.won);
-          setFreeLost(battleStatus.lost);
+          setFreeWon(dailyBattleStats.freeWon);
+          setFreeLost(dailyBattleStats.freeLost);
         } catch {
           if (!live) return;
           setFreeBalance(null);
@@ -815,11 +818,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
       setCreditRemaining(credit.remaining);
       setCreditUnlimited(credit.unlimited);
     }
-    const battleStatus = await loadMyKeepBattleCreditStatus().catch(() => null);
-    if (battleStatus) {
-      setFreeBalance(battleStatus.remainingFree);
-      setFreeWon(battleStatus.won);
-      setFreeLost(battleStatus.lost);
+    const [battleStatus, dailyBattleStats] = await Promise.all([
+      loadMyKeepBattleCreditStatus().catch(() => null),
+      user?.id ? loadKeepBattlePlayerStats(user.id).catch(() => null) : Promise.resolve(null),
+    ]);
+    if (battleStatus) setFreeBalance(battleStatus.remainingFree);
+    if (dailyBattleStats) {
+      setFreeWon(dailyBattleStats.freeWon);
+      setFreeLost(dailyBattleStats.freeLost);
     }
   };
 
@@ -1395,8 +1401,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -{freeCostPerKeep} Free</Text>
         <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
         <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
-        <Text style={s.linkPreviewText}>🏆 Gagné au Battle au total : +{freeWon} Free</Text>
-        <Text style={s.linkPreviewText}>💔 Perdu au Battle au total : -{freeLost} Free</Text>
+        <Text style={s.linkPreviewText}>🏆 FREE gagnés aujourd’hui (depuis 02:00) : +{freeWon}</Text>
+        <Text style={s.linkPreviewText}>💔 FREE perdus aujourd’hui (depuis 02:00) : -{freeLost}</Text>
         <Text style={s.linkPreviewText}>📅 Free offerts chaque mois selon ta formule — prochain versement dans {daysUntilNextFreeCredit} jour{daysUntilNextFreeCredit > 1 ? 's' : ''} (le 1er du mois)</Text>
       </View>
       <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('Offers')} accessibilityLabel="Voir les offres"><Text style={s.shareActionPrimaryText}>VOIR LES OFFRES</Text></MotionActionButton>
@@ -1596,10 +1602,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Tes Free</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
           <View style={s.freeInlineStats}>
             <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeBalance ?? '…'}</Text><Text style={s.freeInlineLabel}>disponibles</Text></View>
-            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés</Text></View>
-            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeLost}</Text><Text style={s.freeInlineLabel}>utilisés</Text></View>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés aujourd’hui</Text></View>
+            <View style={s.freeInlineStat}><Text style={s.freeInlineValue}>{freeLost}</Text><Text style={s.freeInlineLabel}>perdus aujourd’hui</Text></View>
           </View>
-          <Text style={s.freeInlineHint}>Battle et Solo peuvent te faire gagner des Free · Garder un morceau coûte actuellement {freeCostPerKeep} Free.</Text>
+          <Text style={s.freeInlineHint}>Compteurs Battle du jour : 02:00 → 01:59 · Garder un morceau coûte actuellement {freeCostPerKeep} Free.</Text>
           <TouchableOpacity style={s.freeInlineCta} onPress={() => navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' })}><Text style={s.freeInlineCtaText}>COMMENT GAGNER PLUS DE FREE ›</Text></TouchableOpacity>
         </View>
       ) : null}
