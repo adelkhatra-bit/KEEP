@@ -44,6 +44,18 @@ export type MusicAgoraMessage = {
   discoveredByUsername: string | null;
 };
 
+export type MusicAgoraConversation = {
+  profileId: string;
+  username: string;
+  avatarUrl: string | null;
+  lastMessageId: number;
+  lastRoomSlug: string;
+  lastBody: string;
+  lastCreatedAt: string;
+  lastSharedTrackId: string | null;
+  lastSaleOfferId: string | null;
+};
+
 export type MusicAgoraSharePreflight = {
   hasTrack: boolean;
   canSell: boolean;
@@ -222,6 +234,76 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
   })).filter((row) => row.id && row.profileId && row.body);
   if (rows[0]?.id) void markMusicAgoraRoomRead(roomSlug, rows[0].id);
+  return rows.sort((a, b) => a.id - b.id);
+}
+
+export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgoraConversation[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_agora_my_conversations', { p_limit: limit });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    profileId: String(row.other_profile_id || ''),
+    username: String(row.other_username || 'loki-user'),
+    avatarUrl: row.other_avatar_url ? String(row.other_avatar_url) : null,
+    lastMessageId: Number(row.last_message_id || 0),
+    lastRoomSlug: String(row.last_room_slug || 'place'),
+    lastBody: String(row.last_body || ''),
+    lastCreatedAt: String(row.last_created_at || ''),
+    lastSharedTrackId: row.last_shared_track_id ? String(row.last_shared_track_id) : null,
+    lastSaleOfferId: row.last_sale_offer_id ? String(row.last_sale_offer_id) : null,
+  })).filter((row) => row.profileId && row.lastMessageId);
+}
+
+export async function loadMusicAgoraDirectMessages(
+  otherProfileId: string,
+  beforeId?: number,
+  limit = 30,
+): Promise<MusicAgoraMessage[]> {
+  if (!supabase || !otherProfileId) return [];
+  const { data, error } = await supabase.rpc('keep_agora_direct_messages_v1', {
+    p_other_profile_id: otherProfileId,
+    p_before_id: beforeId ?? null,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  const rows = (Array.isArray(data) ? data : []).map((row: any) => ({
+    id: Number(row.id),
+    roomSlug: String(row.room_slug || 'place'),
+    profileId: String(row.profile_id || ''),
+    username: String(row.username || 'loki-user'),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+    kind: String(row.kind || 'USER'),
+    body: String(row.body || ''),
+    createdAt: String(row.created_at || ''),
+    targetProfileId: row.target_profile_id ? String(row.target_profile_id) : null,
+    targetUsername: row.target_username ? String(row.target_username) : null,
+    sharedTrackId: row.shared_track_id ? String(row.shared_track_id) : null,
+    musicRevealMode: (['MASKED','FULL'].includes(String(row.music_reveal_mode || '').toUpperCase())
+      ? String(row.music_reveal_mode).toUpperCase()
+      : 'NONE') as MusicAgoraRevealMode,
+    trackTitle: row.track_title ? String(row.track_title) : null,
+    trackArtist: row.track_artist ? String(row.track_artist) : null,
+    trackArtworkUrl: row.track_artwork_url ? String(row.track_artwork_url) : null,
+    trackPreviewUrl: row.track_preview_url ? String(row.track_preview_url) : null,
+    saleOfferId: row.sale_offer_id ? String(row.sale_offer_id) : null,
+    paymentMode: (['FREE','MONEY'].includes(String(row.payment_mode || '').toUpperCase())
+      ? String(row.payment_mode).toUpperCase()
+      : 'NONE') as MusicAgoraPaymentMode,
+    freePrice: row.free_price == null ? null : Number(row.free_price),
+    priceCents: Number(row.price_cents || 0),
+    currencyCode: String(row.currency_code || 'EUR'),
+    offerActive: Boolean(row.offer_active),
+    viewerUnlocked: Boolean(row.viewer_unlocked),
+    viewerPaymentId: row.viewer_payment_id ? String(row.viewer_payment_id) : null,
+    viewerPaymentStatus: ['PENDING','COMPLETED'].includes(String(row.viewer_payment_status || '').toUpperCase())
+      ? String(row.viewer_payment_status).toUpperCase() as 'PENDING' | 'COMPLETED'
+      : null,
+    viewerMarkedPaid: Boolean(row.viewer_marked_paid),
+    targetOwnsTrack: Boolean(row.target_owns_track),
+    viewerOwnsTrack: Boolean(row.viewer_owns_track),
+    senderCanResell: Boolean(row.sender_can_resell),
+    discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
+  })).filter((row) => row.id && row.profileId && row.body);
   return rows.sort((a, b) => a.id - b.id);
 }
 
