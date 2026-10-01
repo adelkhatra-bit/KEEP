@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import * as Updates from 'expo-updates';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
@@ -18,6 +19,24 @@ export default function AppUpdateBanner() {
     const timer = setInterval(() => { void checkNow(); }, 60_000);
     return () => clearInterval(timer);
   }, [checkNow]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__ || !Updates.isEnabled) return undefined;
+    let active = true;
+    const applyLatestNativeUpdate = async () => {
+      try {
+        const check = await Updates.checkForUpdateAsync();
+        if (!active || !check.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        if (!active) return;
+        await Updates.reloadAsync();
+      } catch {
+        // La mise à jour ne doit jamais empêcher Loki Music de démarrer.
+      }
+    };
+    void applyLatestNativeUpdate();
+    return () => { active = false; };
+  }, []);
 
   if (Platform.OS !== 'web' || width < 768) return null;
 
