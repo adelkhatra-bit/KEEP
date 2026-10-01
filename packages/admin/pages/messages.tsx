@@ -4,6 +4,15 @@ import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type DirectoryUser = { id: string; username: string; display_name: string | null };
+type NotificationPlanCode = 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
+type NotificationAccessRule = { notification_type: string; is_locked: boolean; min_plan_code: NotificationPlanCode };
+
+const NOTIFICATION_PLAN_OPTIONS: Array<{ code: NotificationPlanCode; label: string }> = [
+  { code: 'FREE', label: 'Free / tous' },
+  { code: 'PREMIUM', label: 'Premium' },
+  { code: 'CREATOR_PRO', label: 'Creator Pro' },
+  { code: 'VENUE_PRO', label: 'Venue Pro' },
+];
 
 const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
@@ -18,6 +27,9 @@ export default function Messages() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [notificationRules, setNotificationRules] = useState<NotificationAccessRule[]>([]);
+  const [notificationRulesLoading, setNotificationRulesLoading] = useState(true);
+  const [notificationRuleBusy, setNotificationRuleBusy] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +46,22 @@ export default function Messages() {
     })();
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    if (!supabase) { setNotificationRulesLoading(false); return () => { live = false; }; }
+    void supabase
+      .from('notification_access_rules')
+      .select('notification_type,is_locked,min_plan_code')
+      .order('notification_type', { ascending: true })
+      .then(({ data, error: rulesError }) => {
+        if (!live) return;
+        if (rulesError) setError(rulesError.message);
+        else setNotificationRules((data ?? []) as NotificationAccessRule[]);
+        setNotificationRulesLoading(false);
+      });
+    return () => { live = false; };
+  }, []);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return users;
@@ -46,6 +74,30 @@ export default function Messages() {
       if (next.has(username)) next.delete(username); else next.add(username);
       return next;
     });
+  };
+
+  const saveNotificationRule = async (rule: NotificationAccessRule, patch: Partial<NotificationAccessRule>) => {
+    if (!supabase) return;
+    const next: NotificationAccessRule = { ...rule, ...patch };
+    setNotificationRules((current) => current.map((item) => item.notification_type === rule.notification_type ? next : item));
+    setNotificationRuleBusy(rule.notification_type);
+    setError(null);
+    try {
+      const { error: saveError } = await supabase
+        .from('notification_access_rules')
+        .upsert({
+          notification_type: next.notification_type,
+          is_locked: next.is_locked,
+          min_plan_code: next.is_locked ? next.min_plan_code : 'FREE',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'notification_type' });
+      if (saveError) throw saveError;
+      setMessage(`Règle ${next.notification_type} enregistrée.`);
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible d’enregistrer le cadenas.');
+    } finally {
+      setNotificationRuleBusy(null);
+    }
   };
 
   const send = async () => {
@@ -99,6 +151,41 @@ export default function Messages() {
               </div>
             )}
             {selected.size > 0 && <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</div>}
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }}>
+        <h3 style={{ marginTop: 0 }}>Cadenas des notifications</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: -4 }}>
+          Chaque type de notification peut rester visible mais verrouillé. Son contenu est alors masqué et l’utilisateur voit la formule nécessaire pour le débloquer.
+        </p>
+        {notificationRulesLoading ? <p style={{ color: 'var(--text-muted)' }}>Chargement des types réels…</p> : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {notificationRules.map((rule) => (
+              <div key={rule.notification_type} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) 110px minmax(150px,190px)', gap: 10, alignItems: 'center', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 10px' }}>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{rule.notification_type.replace(/_/g, ' ')}</strong>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>{rule.is_locked ? `🔒 Réservée à partir de ${rule.min_plan_code}` : '🔓 Visible pour tous'}</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={notificationRuleBusy === rule.notification_type}
+                  onClick={() => void saveNotificationRule(rule, { is_locked: !rule.is_locked, min_plan_code: !rule.is_locked && rule.min_plan_code === 'FREE' ? 'PREMIUM' : rule.min_plan_code })}
+                  style={{ background: rule.is_locked ? '#3D2860' : 'transparent', border: '1px solid var(--primary)', color: '#fff' }}
+                >
+                  {rule.is_locked ? '🔒 Verrouillé' : '🔓 Ouvert'}
+                </button>
+                <select
+                  value={rule.min_plan_code}
+                  disabled={!rule.is_locked || notificationRuleBusy === rule.notification_type}
+                  onChange={(e) => void saveNotificationRule(rule, { min_plan_code: e.target.value as NotificationPlanCode })}
+                  style={{ width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px' }}
+                >
+                  {NOTIFICATION_PLAN_OPTIONS.filter((option) => option.code !== 'FREE' || !rule.is_locked).map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+                </select>
+              </div>
+            ))}
           </div>
         )}
       </div>
