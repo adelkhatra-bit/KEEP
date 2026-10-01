@@ -652,7 +652,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
         </View>
         <View style={styles.usernameSearch}>
           <Text style={styles.usernameSearchIcon}>⌕</Text>
-          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un contact Loki Music par pseudo" />
+          <TextInput value={profileQuery} onChangeText={(value) => { setProfileQuery(value); setProfileIndex(0); setDiscoveryAccess(null); setCurrentProfileSnapshot(null); }} placeholder="Rechercher un pseudo Loki Music" placeholderTextColor={colors.textMutedGrey} autoCapitalize="none" autoCorrect={false} style={styles.usernameSearchInput} accessibilityLabel="Rechercher un contact Loki Music par pseudo" />
           {profileQuery ? <MotionActionButton
             variant="ghost"
             size="small"
