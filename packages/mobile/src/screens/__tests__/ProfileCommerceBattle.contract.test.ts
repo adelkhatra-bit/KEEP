@@ -11,7 +11,7 @@ describe('Profile commerce + Battle contract', () => {
   const publicProfile = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
   it('lets a seller edit the tracks of an existing offer without recreating it', () => {
-    expect(salePanel).toContain('accessibilityLabel={`Modifier les morceaux de ${item.playlistName}`}');
+    expect(salePanel).toContain('accessibilityLabel={`Modifier les musiques de ${item.playlistName}`}');
     expect(salePanel).toContain("screen: 'MyMusic'");
     expect(salePanel).toContain('manageSaleOfferId: item.offerId || item.playlistId');
     expect(salePanel).toContain('manageSaleOfferName: item.playlistName');
