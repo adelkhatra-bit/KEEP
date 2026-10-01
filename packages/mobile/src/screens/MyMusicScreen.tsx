@@ -1330,7 +1330,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`, onPress: () => editExistingTrackOffer(track) } : undefined}
             originBadge={localEntry ? {
               label: localEntry.sourceProfileId
-                ? `${localEntry.sourceUsername ? `REPRIS DE ${localEntry.sourceUsername.replace(/^@+/, '')}` : 'REPRIS D’UN UTILISATEUR'}`
+                ? `${localEntry.sourceUsername ? `🔒 PARTAGE SEUL · DE ${localEntry.sourceUsername.replace(/^@+/, '')}` : '🔒 PARTAGE SEUL · AUTRE UTILISATEUR'}`
                 : String((localEntry as any).originSource || '').toLowerCase() === 'loki_pulse'
                   ? 'LOKI PULSE'
                   : String((localEntry as any).originSource || '').toLowerCase() === 'session_history'
@@ -1351,12 +1351,15 @@ export default function MyMusicScreen({ navigation, route }: any) {
             expanded={manageMusicMode || expanded}
             onToggleExpand={manageMusicMode ? undefined : () => toggleTrackExpanded(key)}
           >
-            {localEntry?.sourceUsername ? <View style={styles.trackSourceRow}>
-              <Text style={styles.trackSourceLabel}>Découvert par</Text>
-              <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de ${localEntry.sourceUsername}`}>
-                <Text style={styles.trackSourceLink}>{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
-              </TouchableOpacity>
-            </View> : null}
+            {localEntry?.sourceUsername ? <>
+              <View style={styles.trackSourceRow}>
+                <Text style={styles.trackSourceLabel}>Découvert par</Text>
+                <TouchableOpacity onPress={() => openSourceProfile(localEntry.sourceUsername)} accessibilityRole="link" accessibilityLabel={`Ouvrir le profil de ${localEntry.sourceUsername}`}>
+                  <Text style={styles.trackSourceLink}>{localEntry.sourceUsername.replace(/^@+/, '')}</Text>
+                </TouchableOpacity>
+              </View>
+              {localEntry.sourceProfileId ? <Text style={styles.trackSourceOwnership}>🔒 Partage autorisé · vente FREE/€ bloquée</Text> : null}
+            </> : null}
             <View style={styles.trackActions}>
               <TouchableOpacity
                 style={[styles.visibilityTrackButton, publicTrack ? styles.visibilityTrackPublic : styles.visibilityTrackPrivate]}
@@ -2158,6 +2161,7 @@ const styles = StyleSheet.create({
   // l'habillage propre à cet écran (case de sélection multiple hors grille).
   trackRowOuter:{flexDirection:'row',alignItems:'center',gap:8},trackRowGrid:{flex:1,minWidth:0},
   trackSourceRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},trackSourceLabel:{color:colors.textMuted,fontSize:8,fontWeight:'700'},trackSourceLink:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textDecorationLine:'underline'},trackActions:{flexDirection:'row',alignItems:'stretch',gap:5},visibilityTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},visibilityTrackPublic:{backgroundColor:'#123D2C',borderColor:'#38D990'},visibilityTrackPrivate:{backgroundColor:'#4A171B',borderColor:'#F0525D'},visibilityTrackText:{color:'#FFFFFF',fontSize:7.5,fontWeight:'900'},deleteTrackButton:{flex:1,minHeight:44,paddingHorizontal:4,borderRadius:14,borderWidth:1,borderColor:'#8C4650',backgroundColor:'#311419',alignItems:'center',justifyContent:'center'},deleteTrackText:{color:'#FF9AA8',fontSize:7,fontWeight:'900'},loadingText:{color:colors.textMuted,fontSize:10,paddingVertical:8},collectionActions:{flexDirection:'row',justifyContent:'flex-end',gap:6,marginTop:2},serviceMini:{minHeight:44,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:'#A884FA',backgroundColor:'#5B3F8C',alignItems:'center',justifyContent:'center'},serviceMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},shareMini:{minHeight:44,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'#38D990',backgroundColor:'#123D2C',alignItems:'center',justifyContent:'center'},shareMiniText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
+  trackSourceOwnership:{color:colors.danger,fontSize:9,fontWeight:'900',marginTop:3,marginLeft:4},
   emptyCard:{margin:12,padding:18,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,alignItems:'center'},emptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800'},emptyText:{color:colors.textSecondary,fontSize:11,textAlign:'center',marginTop:6,lineHeight:16},emptyButton:{marginTop:10,backgroundColor:colors.primary,borderRadius:radius.pill,minHeight:44,paddingHorizontal:16,alignItems:'center',justifyContent:'center'},emptyButtonText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   saleCartReviewCard:{width:'100%',maxWidth:560,alignSelf:'center',padding:18,gap:12,borderColor:'#D49A20'},
   saleCartReviewTitle:{color:colors.textPrimary,fontSize:24,fontWeight:'900',marginTop:2},
