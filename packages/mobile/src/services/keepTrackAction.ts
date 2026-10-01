@@ -1,8 +1,9 @@
 /**
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
- * Règle produit : écouter/reconnaître/PASS = 0 crédit. Un GARDER issu d'une
- * écoute consomme un crédit gratuit ; reprendre un morceau depuis le profil
- * d'un autre membre est une découverte sociale et reste à 0 crédit.
+ * Règle produit : écouter/reconnaître/PASS = 0 FREE. Tout nouveau GARDER
+ * manuel coûte le tarif serveur (3 FREE actuellement), quelle que soit
+ * l'origine du morceau : Écouter, profil, Swipe ou Loki Pulse. Un doublon
+ * déjà possédé reste idempotent et gratuit.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import type { KeepVisibility } from '../types';
@@ -32,7 +33,7 @@ export async function commitKeep(
   options?: {
     visibility?: KeepVisibility;
     context?: Record<string, unknown>;
-    /** false = découverte sociale : le morceau est gardé sans toucher au quota d'écoute. */
+    /** false est réservé aux opérations système explicites. Un GARDER utilisateur coûte des FREE, quelle que soit sa provenance. */
     consumeCredit?: boolean;
   }
 ): Promise<CommitKeepResult> {
@@ -64,9 +65,10 @@ export async function commitKeep(
     }
   }
 
-  // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
-  // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/Loki.
-  const consumesCredit = !userState.isDemoMode && !isSocialCopy && options?.consumeCredit !== false;
+  // Chemin unique : tout NOUVEAU GARDER utilisateur coûte le même nombre
+  // de FREE, y compris depuis le profil d'un autre membre. La provenance
+  // sociale reste tracée séparément via source_user_id/source_type.
+  const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
 
