@@ -7,9 +7,9 @@ const battle = fs.readFileSync(path.resolve(__dirname, '..', 'KeepBattleMobileGa
 const migration = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260929230000_battle_solo_daily_limit_admin_setting.sql'), 'utf8');
 
 describe('Battle : infos hors des boutons, avertissements discrets', () => {
-  it('les boutons SOLO / BATTLE ne contiennent qu’une icône et un mot', () => {
+  it('les boutons SOLO / EN LIGNE ne contiennent qu’une icône et un mot', () => {
     expect(battle).toContain('<><Text style={s.modeIconText}>◎</Text><Text style={s.modeTitle}>SOLO</Text></>');
-    expect(battle).toContain('<Text style={s.modeIconText}>⚡</Text><Text style={s.modeTitle}>BATTLE</Text>');
+    expect(battle).toContain('<Text style={s.modeIconText}>⚡</Text><Text style={s.modeTitle}>EN LIGNE</Text>');
     expect(battle).not.toContain('s.modeFoot');
   });
   it('quota Solo et règle par profil au-dessus des boutons, à côté de la recharge des Free', () => {
