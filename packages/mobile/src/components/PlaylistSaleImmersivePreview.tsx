@@ -434,7 +434,7 @@ const s = StyleSheet.create({
   overlapAllText:{position:'absolute',right:7,top:3,color:colors.success,fontSize:6,fontWeight:'900'},
   unlockExplain:{marginTop:7,borderRadius:13,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:8},
   unlockExplainOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.07)'},
-  unlockExplainTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'1000',letterSpacing:.65},
+  unlockExplainTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.65},
   unlockExplainTitleOwned:{color:colors.success},
   unlockExplainText:{color:colors.textPrimary,fontSize:10,lineHeight:15,fontWeight:'700',marginTop:3},
   trackOwnershipPill:{marginTop:7,minHeight:24,borderRadius:12,borderWidth:1,paddingHorizontal:9,alignItems:'center',justifyContent:'center'},
