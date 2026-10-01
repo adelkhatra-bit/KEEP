@@ -2241,3 +2241,17 @@ Décision Adel intégrée sans toucher App.tsx/Navigation.tsx/5 onglets : la vis
 - Lane QA/Release: tests 390x844 + responsive, CI, App Store/Google Play preflight, e-mails, paiements, notifications.
 - Règles utilisateur verrouillées: FREE juste après Reprises; GARDER = 3 FREE; écouter/PASSER/MASQUER = 0; popup « Ton profil Loki » = boutons avec contour bleu visible, jamais noir plein.
 - Chaque agent doit rebaser mentalement sur le HEAD distant avant écriture et ne pas dupliquer une correction déjà poussée.
+
+
+## [2026-10-01T11:15:00Z] ChatGPT — USER LOCK PROFIL FREE / DÉMO
+
+Version canonique : `reconcile/claude-main-20260825`.
+
+Décision utilisateur verrouillée :
+- Profil propriétaire : conserver le compteur FREE principal dans la barre `PLUS | Abonnés | Reprises | FREE`.
+- Dans le panneau détail FREE, NE PLUS répéter le solde “disponibles”. Première tuile = **FREE dépensés aujourd’hui** pour les GARDER réellement débités.
+- Source autoritaire : `keep_free_spend_events` + `keep_free_spent_today`; montant enregistré au débit, donc exact même si `free_cost_per_keep` change ensuite.
+- Reprises sociales gratuites exclues des dépenses.
+- Cycle quotidien : 02:00 → 01:59 selon le fuseau local.
+- Mode démo : Découvertes verrouillé par défaut, aide “?”, aucun faux solde FREE ; Écouter limité par `demo_listen_limit` (8 par défaut) et pilotable dans Super Admin.
+- Ne pas déplacer FREE, ne pas retoucher navigation/design validés pour ces corrections.
