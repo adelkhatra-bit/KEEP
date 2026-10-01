@@ -33,6 +33,14 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('accessibilityRole="checkbox"');
   });
 
+  it('announces and previews the latest sender without exposing message content', () => {
+    expect(dock).toContain("import * as Speech from 'expo-speech'");
+    expect(dock).toContain('Message de');
+    expect(dock).toContain('latestChatSender');
+    expect(dock).toContain('chatNotificationTarget');
+    expect(dock).toContain('drawerPeek');
+  });
+
   it('keeps the control visible and movable left/right near the bottom', () => {
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side");
@@ -47,11 +55,13 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("outputRange: [30, 0]");
   });
 
-  it('keeps bell settings and received notifications separated and inline', () => {
+  it('keeps bell messages, activity and settings separated and inline', () => {
+    expect(panel).toContain("activeTab === 'MESSAGES'");
+    expect(panel).toContain("activeTab === 'ACTIVITY'");
     expect(panel).toContain("activeTab === 'SETTINGS'");
-    expect(panel).toContain("activeTab === 'INBOX'");
+    expect(panel).toContain('MESSAGES');
+    expect(panel).toContain('ACTIVITÉ');
     expect(panel).toContain('RÉGLAGES');
-    expect(panel).toContain('NOTIFICATIONS');
     expect(panel).toContain('Tout reste ici, sans changer d’écran.');
     expect(panel).toContain('Alertes dans l’application');
     expect(panel).toContain('MESSAGERIE LOKI');
