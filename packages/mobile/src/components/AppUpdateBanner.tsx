@@ -4,9 +4,9 @@ import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
 
-// Contrôle web/PWA volontairement discret : rien n'est affiché tant qu'une
-// nouvelle version réellement déployée n'est pas détectée. L'utilisateur
-// applique la mise à jour quand il le souhaite afin de ne pas interrompre un test.
+// Sur ordinateur, le contrôle reste toujours visible pour que l'utilisateur
+// puisse forcer un rechargement propre même si version.json n'a pas encore
+// détecté un SHA différent. Une nouvelle version change simplement le libellé.
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
   const checkNow = useAppUpdateStore((s) => s.checkNow);
@@ -19,7 +19,7 @@ export default function AppUpdateBanner() {
     return () => clearInterval(timer);
   }, [checkNow]);
 
-  if (Platform.OS !== 'web' || width < 768 || !latestSha) return null;
+  if (Platform.OS !== 'web' || width < 768) return null;
 
   return (
     <View
@@ -29,11 +29,13 @@ export default function AppUpdateBanner() {
     >
       <TouchableOpacity
         accessibilityRole="button"
-        accessibilityLabel="Appliquer la nouvelle version de Loki Music"
-        style={s.button}
-        onPress={reloadToLatest}
+        accessibilityLabel={latestSha ? 'Appliquer la nouvelle version de Loki Music' : 'Vérifier et recharger Loki Music'}
+        style={[s.button, latestSha && s.buttonReady]}
+        onPress={() => {
+          void checkNow().finally(reloadToLatest);
+        }}
       >
-        <Text style={s.text}>MISE À JOUR</Text>
+        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -63,6 +65,9 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
+  },
+  buttonReady: {
+    borderColor: colors.keep,
   },
   text: {
     color: colors.textPrimary,
