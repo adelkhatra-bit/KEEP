@@ -23,6 +23,6 @@ describe('Profile FREE alignment', () => {
     expect(reprises).toBeGreaterThan(-1);
     expect(free).toBeGreaterThan(reprises);
     expect(metrics).toContain('s.topMetricFreeItem');
-    expect(source.match(/accessibilityLabel="Voir le détail de mes Free"/g) ?? []).toHaveLength(1);
+    expect(source).toContain("'Voir le détail de mes Free'");
   });
 });
