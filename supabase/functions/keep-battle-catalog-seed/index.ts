@@ -9,7 +9,7 @@ const admin = createClient(
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-worker-key",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-keep-worker-key, x-keep-cron-key",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -19,16 +19,22 @@ async function sha256(value: string) {
   return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function authorized(req: Request) {
-  const supplied = req.headers.get("x-keep-worker-key") || "";
+async function validInternalKey(supplied: string, name: string) {
   if (!supplied) return false;
   const { data, error } = await admin
     .from("keep_internal_worker_secrets")
     .select("secret_hash")
-    .eq("name", "battle-catalog-seed")
+    .eq("name", name)
     .maybeSingle();
   if (error || !data?.secret_hash) return false;
   return (await sha256(supplied)) === String(data.secret_hash);
+}
+
+async function authorized(req: Request) {
+  const workerKey = req.headers.get("x-keep-worker-key") || "";
+  if (workerKey && await validInternalKey(workerKey, "battle-catalog-seed")) return true;
+  const cronKey = req.headers.get("x-keep-cron-key") || "";
+  return cronKey ? validInternalKey(cronKey, "battle-catalog-cron") : false;
 }
 
 type SearchQuery = {
@@ -258,6 +264,9 @@ const THEME_BUDGET: Record<string, number> = {
 };
 const DEFAULT_BUDGET = 1000;
 const QUERY_CONCURRENCY = 10;
+// One cron tick processes only five provider searches. This keeps expansion
+// continuous without hammering the public catalog API.
+const BATCH_QUERY_COUNT = 5;
 const DB_BATCH_SIZE = 400;
 
 function out(status: number, payload: unknown) {
@@ -345,10 +354,17 @@ async function mapLimit<T, R>(items: T[], limit: number, worker: (item: T) => Pr
   return results;
 }
 
-async function seed(theme: string) {
-  const queries = queriesForTheme(theme);
-  const resultSets = await mapLimit(queries, QUERY_CONCURRENCY, fetchQuery);
+async function seed(theme: string, batch = 0) {
+  const allQueries = queriesForTheme(theme);
+  const safeBatch = Math.max(0, Math.floor(Number.isFinite(batch) ? batch : 0));
+  const totalBatches = Math.ceil(allQueries.length / BATCH_QUERY_COUNT);
+  const start = safeBatch * BATCH_QUERY_COUNT;
+  const queries = allQueries.slice(start, start + BATCH_QUERY_COUNT);
   const budget = THEME_BUDGET[theme] ?? DEFAULT_BUDGET;
+  if (!queries.length) {
+    return { theme, batch: safeBatch, totalBatches, done: true, queries: 0, found: 0, considered: 0, distinctArtists: 0, inserted: 0, updated: 0, linked: 0, budget };
+  }
+  const resultSets = await mapLimit(queries, QUERY_CONCURRENCY, fetchQuery);
 
   const byAppleId = new Map<string, { item: any; country: string }>();
   for (let i = 0; i < resultSets.length; i += 1) {
@@ -406,6 +422,10 @@ async function seed(theme: string) {
 
   return {
     theme,
+    batch: safeBatch,
+    totalBatches,
+    nextBatch: safeBatch + 1,
+    done: safeBatch + 1 >= totalBatches,
     queries: queries.length,
     found: byAppleId.size,
     considered: selected.length,
@@ -422,10 +442,17 @@ Deno.serve(async (req) => {
   if (!(await authorized(req))) return out(401, { ok: false, error: "unauthorized" });
   try {
     let theme = "";
-    if (req.method === "GET") theme = new URL(req.url).searchParams.get("theme")?.toUpperCase() ?? "";
-    else if (req.method === "POST") theme = String((await req.json().catch(() => ({})))?.theme ?? "").toUpperCase();
-    else return out(405, { error: "method_not_allowed" });
-    return out(200, { ok: true, ...(await seed(theme)) });
+    let batch = 0;
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      theme = url.searchParams.get("theme")?.toUpperCase() ?? "";
+      batch = Number(url.searchParams.get("batch") ?? 0);
+    } else if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      theme = String(body?.theme ?? "").toUpperCase();
+      batch = Number(body?.batch ?? 0);
+    } else return out(405, { error: "method_not_allowed" });
+    return out(200, { ok: true, ...(await seed(theme, batch)) });
   } catch (error) {
     return out(400, { ok: false, error: error instanceof Error ? error.message : String(error) });
   }

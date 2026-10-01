@@ -93,6 +93,12 @@ Source : `PartiesScreen.tsx`.
 - classement Battle séparé/repliable ;
 - événements, RSVP, participants, playlist et lobby restent dans la même architecture.
 
+Catalogue Battle/Solo :
+- le catalogue grandit côté serveur, sans nouvelle version App Store ;
+- le tirage privilégie les morceaux et artistes non vus récemment (mémoire bornée : 120 morceaux / 240 artistes par profil), puis seulement le fallback du thème ;
+- **Chanson française** est un catalogue profond multi-générations avec budget de 4 000 titres par passe et au moins 120 artistes nommés au bootstrap, dont Gilbert Montagné ;
+- l'alimentation est automatisée dans Supabase Cron/Vault par petits lots afin de respecter le fournisseur et de ne jamais gonfler le bundle mobile.
+
 ## 9. Profil propriétaire — disposition verrouillée
 
 Source : `ProfilePublicScreen.tsx`.

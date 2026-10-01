@@ -16,6 +16,8 @@ describe('Battle deep catalog expansion', () => {
 
   it('keeps provider requests bounded and database writes batched', () => {
     expect(seed).toContain('QUERY_CONCURRENCY = 10');
+    expect(seed).toContain('BATCH_QUERY_COUNT = 5');
+    expect(seed).toContain('totalBatches');
     expect(seed).toContain('DB_BATCH_SIZE = 400');
     expect(seed).toContain('service_battle_catalog_ingest');
     expect(migration).toContain('ord <= 500');

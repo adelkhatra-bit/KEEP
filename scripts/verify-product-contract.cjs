@@ -14,6 +14,9 @@ const salePanel = fs.readFileSync(path.join(root, 'packages/mobile/src/component
 const myMusic = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/MyMusicScreen.tsx'), 'utf8');
 const notifications = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/NotificationsScreen.tsx'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const battleCatalogSeed = fs.readFileSync(path.join(root, 'supabase/functions/keep-battle-catalog-seed/index.ts'), 'utf8');
+const battleMemory = fs.readFileSync(path.join(root, 'supabase/migrations/20261001022000_battle_content_memory_anti_repeat.sql'), 'utf8');
+const battleCron = fs.readFileSync(path.join(root, 'supabase/migrations/20261001024000_battle_catalog_supabase_cron.sql'), 'utf8');
 
 const failures = [];
 const must = (condition, message) => { if (!condition) failures.push(message); };
@@ -66,6 +69,18 @@ for (const label of ['Loki Music','Découvertes','Playlists','Soirées','Profil'
 must(webRoot.includes('height:100dvh'), 'desktop root 100dvh protection missing');
 must(!webRoot.includes("#root { position:relative; inset:auto; height:auto"), 'desktop root height:auto regression detected');
 
+must(contract.battleCatalog?.recentTrackMemory === 120, 'Battle recent-track memory contract changed');
+must(contract.battleCatalog?.recentArtistMemory === 240, 'Battle recent-artist memory contract changed');
+must(contract.battleCatalog?.chansonFrDeepBudget === 4000, 'French Battle deep budget changed');
+must(contract.battleCatalog?.frenchNamedArtistBootstrapMinimum >= 120, 'French Battle artist bootstrap floor too small');
+must(contract.battleCatalog?.catalogExpansionWithoutAppRelease === true, 'Battle catalog must expand server-side');
+must(contract.battleCatalog?.providerRateLimitedBatches === true, 'Battle catalog rate-limit contract missing');
+must(battleCatalogSeed.includes('"Gilbert Montagné"') && battleCatalogSeed.includes('CHANSON_FR: 4000'), 'French deep catalog seed missing');
+must(battleCatalogSeed.includes('BATCH_QUERY_COUNT = 5'), 'Battle catalog batching missing');
+must(battleMemory.includes('120') && battleMemory.includes('240'), 'Battle anti-repeat memory limits missing');
+must(battleCron.includes('keep-battle-catalog-expand-every-minute') && battleCron.includes('keep_battle_catalog_cron_key'), 'Supabase Battle catalog cron missing');
+must(master.includes('**Chanson française** est un catalogue profond multi-générations'), 'master spec Battle catalog rule missing');
+
 must(contract.marketplacePurchases?.completedPurchaseMustPersistInBuyerPlaylist === true, 'purchase playlist persistence contract missing');
 must(contract.marketplacePurchases?.completedPurchaseMustPersistKeepDecision === true, 'purchase KEEP persistence contract missing');
 must(contract.marketplacePurchases?.recentPurchasesLocation === 'Playlists home / Derniers achats', 'recent purchases location changed');
@@ -102,5 +117,6 @@ if (failures.length) {
 console.log('KEEP product contract: PASS');
 console.log('profile metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('certification + FREE remain live Supabase data, never UI-reset data');
+console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: recent purchases + overlap + private missing-track offers locked');
 console.log('integration: clean preflight + product-contract postflight locked');

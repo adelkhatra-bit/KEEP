@@ -28,8 +28,8 @@ jobs:
         run: |
           set -uo pipefail
           if [ -z "${KEEP_BATTLE_CATALOG_WORKER_KEY:-}" ]; then
-            echo "::error::KEEP_BATTLE_CATALOG_WORKER_KEY is missing"
-            exit 1
+            echo "KEEP_BATTLE_CATALOG_WORKER_KEY not configured; Supabase Cron is the authoritative automatic expander."
+            exit 0
           fi
 
           base='https://rrhqsqzcplvmwxizqnla.supabase.co/functions/v1/keep-battle-catalog-seed'
@@ -43,17 +43,20 @@ jobs:
 
           for theme in "${themes[@]}"; do
             echo "=== $theme ==="
-            if ! body="$(curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 145               --fail-with-body -sS               -H "x-keep-worker-key: ${KEEP_BATTLE_CATALOG_WORKER_KEY}"               "$base?theme=$theme")"; then
-              echo "::error::Seed failed for $theme"
-              failed=1
-              continue
-            fi
-
-            echo "$body" | jq -c '{ok,theme,queries,found,considered,distinctArtists,inserted,updated,linked,budget}'
-            if [ "$(echo "$body" | jq -r '.ok // false')" != "true" ]; then
-              echo "::error::Worker returned ok=false for $theme"
-              failed=1
-            fi
+            for batch in $(seq 0 60); do
+              if ! body="$(curl --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 145                 --fail-with-body -sS                 -H "x-keep-worker-key: ${KEEP_BATTLE_CATALOG_WORKER_KEY}"                 "$base?theme=$theme&batch=$batch")"; then
+                echo "::error::Seed failed for $theme batch $batch"
+                failed=1
+                break
+              fi
+              echo "$body" | jq -c '{ok,theme,batch,totalBatches,done,queries,found,considered,distinctArtists,inserted,updated,linked,budget}'
+              if [ "$(echo "$body" | jq -r '.ok // false')" != "true" ]; then
+                failed=1
+                break
+              fi
+              [ "$(echo "$body" | jq -r '.done // false')" = "true" ] && break
+              sleep 22
+            done
           done
 
           exit "$failed"

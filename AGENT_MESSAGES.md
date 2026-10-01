@@ -2201,3 +2201,8 @@ Audit production demandé par Adel : CHANSON_FR n'avait réellement que 96 morce
 ## [2026-10-01] chatgpt — alimentation catalogue profonde automatisée
 
 Worker Supabase keep-battle-catalog-seed v7 déployé avec auth worker hachée propre (verify_jwt désactivé uniquement parce que x-keep-worker-key est vérifié dans la fonction). Workflow GitHub dédié : CHANSON_FR puis RAP_FR en priorité, cultures internationales ensuite, styles généraux enfin ; relance manuelle + hebdomadaire. Les réponses ne journalisent jamais la clé. Cette alimentation peut grandir côté serveur sans nouvelle version mobile.
+
+
+## [2026-10-01] chatgpt — expansion catalogue autonome sans secret GitHub
+
+Le run GitHub 36794367825 a échoué car KEEP_BATTLE_CATALOG_WORKER_KEY est absent d'Actions. Pour ne laisser aucun blocage manuel : l'alimentation passe côté Supabase Cron + pg_net + Vault. Le worker accepte désormais une clé cron distincte et des batches de 5 recherches. CHANSON_FR passe en premier, RAP_FR ensuite, puis les autres thèmes. Le workflow GitHub reste optionnel et ne met plus la CI en rouge quand son secret n'est pas configuré.
