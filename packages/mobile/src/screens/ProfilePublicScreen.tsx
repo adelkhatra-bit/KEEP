@@ -55,6 +55,7 @@ import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import GlobalChatDock from '../components/GlobalChatDock';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -2197,6 +2198,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
     </Modal>
+  <GlobalChatDock />
 </SafeAreaView>;
 }
 
