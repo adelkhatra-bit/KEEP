@@ -155,6 +155,38 @@ export async function getDownloadCreditStatus(): Promise<DownloadCreditStatus> {
 
 export type FreeCreditBattleEvent = { result: string; amount: number; createdAt: string; themeCode: string | null; battleType?: string };
 
+export type FreeSpentToday = {
+  spent: number;
+  keeps: number;
+  period: string;
+  timezone: string;
+  startedAt: string | null;
+  endsAt: string | null;
+};
+
+function currentDeviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  } catch {
+    return 'Europe/Paris';
+  }
+}
+
+export async function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('keep_free_spent_today', { p_timezone: currentDeviceTimeZone() });
+  if (error || !data) return null;
+  const row = data as any;
+  return {
+    spent: Number(row.spent || 0),
+    keeps: Number(row.keeps || 0),
+    period: String(row.period || 'TODAY_2AM'),
+    timezone: String(row.timezone || currentDeviceTimeZone()),
+    startedAt: row.startedAt ? String(row.startedAt) : null,
+    endsAt: row.endsAt ? String(row.endsAt) : null,
+  };
+}
+
 export type FreeCreditBreakdown = {
   remaining: number;
   guestLimit: number;
