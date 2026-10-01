@@ -324,7 +324,7 @@ export default function GlobalChatDock() {
   const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
 
   if (!user) return null;
-  if (!previewOnly && !settingsOpen && (!accountReady || !chatEnabled)) return null;
+  if (!previewOnly && !settingsOpen && !accountReady) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
   return (
