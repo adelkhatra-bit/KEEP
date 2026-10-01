@@ -22,7 +22,6 @@ import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
-import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import SaleCollectionRow from '../components/SaleCollectionRow';
 import LoginPill from '../components/LoginPill';
@@ -714,6 +713,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return true;
     }).slice(0, 8);
   }, [genreOptions, profile?.favoriteGenres]);
+
+  const visitorStyleCoveragePercent = useMemo(() => {
+    if (!swipeTracks.length) return 0;
+    const tagged = swipeTracks.filter((track) => (track.genres ?? []).some((genre) => String(genre || '').trim())).length;
+    return Math.max(0, Math.min(100, Math.round((tagged / swipeTracks.length) * 100)));
+  }, [swipeTracks]);
+
 
   const genreArtwork = useMemo(() => {
     const map: Record<string, string | undefined> = {};
@@ -1883,18 +1889,17 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               rien de supprimé). */}
           {!dnaExpanded ? (
             visitorStyleBubbles.length > 0 ? (
-              <MusicStyleBubbles
-                testID="visitor-music-style-bubbles"
-                genres={visitorStyleBubbles}
-                max={8}
-                compact
-                onPressGenre={(genre) => {
-                  const match = genreOptions.find((row) => row.genre.toLocaleLowerCase('fr-FR') === genre.toLocaleLowerCase('fr-FR'));
-                  if (match) openBrowseSwipe({ type: 'genre', value: match.genre, label: match.genre });
-                }}
-              />
+              <View style={styles.visitorDnaSummary}>
+                <View style={styles.visitorDnaTrack}>
+                  <View style={[styles.visitorDnaFill, { width: `${visitorStyleCoveragePercent}%` }]} />
+                </View>
+                <View style={styles.visitorDnaSummaryRow}>
+                  <Text style={styles.visitorDnaSummaryText}>Empreinte analysée</Text>
+                  <Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>
+                </View>
+              </View>
             ) : (
-              <Text style={styles.mutedSmall}>Aucune préférence musicale publique renseignée pour le moment.</Text>
+              <Text style={styles.mutedSmall}>Empreinte musicale en construction.</Text>
             )
           ) : (
             <>
@@ -2167,6 +2172,12 @@ const styles = StyleSheet.create({
   hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaRow:{marginTop:10},profileMetaLeft:{alignItems:'flex-start',gap:9},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},presencePill:{flexDirection:'row',alignItems:'center',gap:5,minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},presenceDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.textMuted},presenceDotOnline:{backgroundColor:colors.success},presenceText:{color:colors.textMuted,fontSize:10,fontWeight:'800'},presenceTextOnline:{color:colors.success},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},
 visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},visitorBattleButton:{minHeight:46,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,width:'100%'},visitorBattleButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
 
+  visitorDnaSummary:{marginTop:9},
+  visitorDnaTrack:{height:7,borderRadius:999,backgroundColor:colors.border,overflow:'hidden'},
+  visitorDnaFill:{height:'100%',borderRadius:999,backgroundColor:colors.keep},
+  visitorDnaSummaryRow:{marginTop:6,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  visitorDnaSummaryText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},
+  visitorDnaSummaryScore:{color:colors.keep,fontSize:13,fontWeight:'900'},
   dna:{marginHorizontal:18,marginTop:8,padding:12,borderRadius:radius.lg,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},dnaHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},dnaEyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1},dnaTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'800',marginTop:2},dnaRowLabel:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:0.5},dnaCondensed:{color:colors.textMuted,fontSize:12,fontWeight:'600',marginTop:6},chips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:6},chip:{backgroundColor:colors.smartBadgeBg,borderRadius:radius.pill,paddingHorizontal:10,paddingVertical:5},chipText:{color:colors.smartBadgeText,fontSize:12,fontWeight:'700'},mutedSmall:{color:'#FFFFFF',fontSize:12,lineHeight:17,marginTop:8},
   websiteButton:{marginHorizontal:18,marginTop:10,minHeight:44,borderRadius:radius.pill,backgroundColor:'#21182F',borderWidth:1,borderColor:'#8B5CF6',alignItems:'center',justifyContent:'center'},websiteButtonText:{color:'#FFF',fontSize:13,fontWeight:'900'},
   socialHub:{marginHorizontal:18,marginTop:10,padding:12,borderRadius:radius.lg,backgroundColor:'#151020',borderWidth:1,borderColor:'#3F3154'},socialTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},socialRow:{width:'100%',flexDirection:'row',justifyContent:'space-between',gap:7,marginTop:12},socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,opacity:.82},socialButtonConfigured:{backgroundColor:colors.backgroundCard,borderColor:colors.primaryLight,opacity:1},
