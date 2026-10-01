@@ -442,7 +442,7 @@ export default function NotificationsScreen({ navigation }: any) {
       return;
     }
     if (eventId) {
-      navigation.navigate('Main', { screen: 'Discover', params: { focus: 'EVENTS', openEventId: eventId, source: 'NOTIFICATION_EVENT' } });
+      navigation.navigate('Main', { screen: 'Discover', params: { focus: 'EVENTS', eventId, source: 'NOTIFICATION_EVENT' } });
       return;
     }
 
