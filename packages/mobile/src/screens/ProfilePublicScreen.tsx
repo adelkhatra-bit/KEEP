@@ -54,7 +54,6 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import FloatingGlobalChat from '../components/FloatingGlobalChat';
 import MusicAgoraPanel from '../components/MusicAgoraPanel';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -998,8 +997,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     return result;
   }, [playlistPreferences, providerId, providerPlaylists, publicKeptTracks.length, smartAlbums]);
 
-  if (!user) return <SafeAreaView style={s.container}><PersonalThemeBackdrop /><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View>  <FloatingGlobalChat />
-    </SafeAreaView>;
+  if (!user) return <SafeAreaView style={s.container}><PersonalThemeBackdrop /><View style={s.center}><Text style={s.demoTitle}>Profil Loki Music</Text><Text style={s.muted}>Aucun compte actif.</Text><TouchableOpacity style={s.primary} onPress={enterDemoMode}><Text style={s.primaryText}>ENTRER EN MODE DÉMO</Text></TouchableOpacity></View>
+</SafeAreaView>;
 
   const publicLinks = user.socialLinks.filter((link) => link.visibility === 'PUBLIC');
   const websiteLink = publicLinks.find((link) => link.platform === 'website' && link.url.trim());
@@ -2234,8 +2233,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       </View>
     </Modal>
-    <FloatingGlobalChat />
-    </SafeAreaView>;
+</SafeAreaView>;
 }
 
 function Empty({text}:{text:string}){return <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.muted}>{text}</Text></View>}
