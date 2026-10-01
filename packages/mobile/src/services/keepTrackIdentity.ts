@@ -23,6 +23,16 @@ export function normalizeKeepTrackText(value: string | undefined | null): string
     .trim();
 }
 
+const TRACK_LEVEL_PROVIDER_IDS = new Set([
+  'applemusic',
+  'spotify',
+  'deezer',
+  'youtube',
+  'youtubemusic',
+  'musicbrainz',
+  'musicbrainzrecording',
+]);
+
 export function keepProviderIdentities(track: Pick<CanonicalTrack, 'providerIds'>): KeepProviderIdentity[] {
   const ids = track.providerIds && typeof track.providerIds === 'object' ? track.providerIds : {};
   const seen = new Set<string>();
@@ -32,6 +42,14 @@ export function keepProviderIdentities(track: Pick<CanonicalTrack, 'providerIds'
     const provider = String(rawProvider || '').trim();
     const value = String(rawValue || '').trim();
     if (!provider || !value) continue;
+
+    // Only a TRACK identifier may prove that two songs are the same.
+    // Context metadata such as appleStorefront='FR'/'US', country/market,
+    // album/collection IDs, etc. is intentionally excluded. Treating a
+    // storefront as a song ID made every Apple Music track from the same
+    // country look like a duplicate in Loki Pulse.
+    if (!TRACK_LEVEL_PROVIDER_IDS.has(provider.toLowerCase())) continue;
+
     const key = `${provider.toLowerCase()}::${value}`;
     if (seen.has(key)) continue;
     seen.add(key);
