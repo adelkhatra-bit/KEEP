@@ -1703,6 +1703,31 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
                 </TouchableOpacity>
               )}
+                  <TouchableOpacity
+                    style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}
+                    onPress={() => {
+                      setCommunityMode(null);
+                      setRepriseListOpen(false);
+                      if (isDemoMode) {
+                        Alert.alert(
+                          'FREE · mode démo',
+                          'Le mode démo n’a aucun vrai solde FREE. Après connexion, ton solde réel apparaît ici. Écouter, reconnaître et PASSER ne dépensent pas de FREE ; GARDER et certaines actions Battle peuvent en utiliser ou en faire gagner selon les règles affichées dans Loki Music.',
+                          [
+                            { text: 'Plus tard', style: 'cancel' },
+                            { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+                          ],
+                        );
+                        return;
+                      }
+                      setFreeDetailsOpen((v) => !v);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: freeDetailsOpen }}
+                    accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
+                  >
+                    <Text style={s.profileFreeInlineValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
+                    <Text style={s.profileFreeInlineLabel}>FREE</Text>
+                  </TouchableOpacity>
                 </View>
                 {battleFeatureEnabled && !accountRequired ? (
                   <View style={s.profileBattleInlineWrap}>
@@ -1758,33 +1783,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
             <Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.topMetricSocialItem, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
+          <TouchableOpacity style={[s.topMetricSocialItem, s.topMetricSocialLast, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
             <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.topMetricSocialItem, s.topMetricSocialLast, s.topMetricFreeItem, freeDetailsOpen && s.topMetricFreeItemOn]}
-            onPress={() => {
-              setCommunityMode(null);
-              setRepriseListOpen(false);
-              if (isDemoMode) {
-                Alert.alert(
-                  'FREE · mode démo',
-                  'Le mode démo n’a aucun vrai solde FREE. Après connexion, ton solde réel apparaît ici. Écouter, reconnaître et PASSER ne dépensent pas de FREE ; GARDER et certaines actions Battle peuvent en utiliser ou en faire gagner selon les règles affichées dans Loki Music.',
-                  [
-                    { text: 'Plus tard', style: 'cancel' },
-                    { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
-                  ],
-                );
-                return;
-              }
-              setFreeDetailsOpen((v) => !v);
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: freeDetailsOpen }}
-            accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
-          >
-            <Text style={s.topMetricFreeItemValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
-            <Text style={s.topMetricFreeItemLabel}>FREE</Text>
           </TouchableOpacity>
         </View>
       </View>
