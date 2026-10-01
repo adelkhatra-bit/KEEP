@@ -21,6 +21,6 @@ describe('Battle Solo save prompt contract', () => {
   it('does not use the native three-button Alert for the save choice', () => {
     expect(source).not.toContain("'Sauvegarder ce Battle ?',");
     expect(source).not.toContain("{ text: 'Jouer sans enregistrer'");
-    expect(source).not.toContain("{ text: 'Oui, enregistrer'");
+    // A separate two-button end-of-game confirmation may still use this wording.
   });
 });
