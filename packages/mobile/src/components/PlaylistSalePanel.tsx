@@ -366,7 +366,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     style={[s.createCollectionBtn, activeLimitReached && s.createCollectionBtnLocked]}
                     onPress={() => activeLimitReached
                       ? Alert.alert('Limite atteinte', `Tu as déjà ${access.maxActiveOffers} collections actives. Retire une ancienne collection avant d'en publier une nouvelle.`)
-                      : navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true } })}
+                      : navigation.navigate('Main', { screen: 'MyMusic', params: { createSaleCollection: true, returnToPicks: true, source: 'PEPITES' } })}
                     accessibilityLabel={activeLimitReached ? "Limite de collections actives atteinte" : "Créer une nouvelle collection exclusive"}
                   >
                     <Text style={s.createCollectionBtnText}>{activeLimitReached ? 'LIMITE DE COLLECTIONS ATTEINTE' : '＋ CRÉER UNE COLLECTION'}</Text>
