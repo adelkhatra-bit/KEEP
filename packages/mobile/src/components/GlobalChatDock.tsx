@@ -254,9 +254,7 @@ export default function GlobalChatDock() {
     void saveMusicAgoraPosition(nextSide, bottomOffset).catch(() => {});
   };
 
-  const surfaceVisible = activeSurface === 'PROFILE'
-    ? true
-    : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
+  const surfaceVisible = Boolean(activeSurface && chatSurfaces.includes(activeSurface));
 
   if (!accountReady || !user) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
@@ -269,7 +267,7 @@ export default function GlobalChatDock() {
             <View style={styles.settingsHeader}>
               <View style={styles.settingsHeaderCopy}>
                 <Text style={styles.settingsKicker}>TCHAT</Text>
-                <Text style={styles.settingsTitle}>Sur ton profil</Text>
+                <Text style={styles.settingsTitle}>Tchat flottant</Text>
               </View>
               <TouchableOpacity style={styles.settingsClose} onPress={closeSettings} accessibilityLabel="Fermer les réglages du Tchat">
                 <Text style={styles.settingsCloseText}>×</Text>
