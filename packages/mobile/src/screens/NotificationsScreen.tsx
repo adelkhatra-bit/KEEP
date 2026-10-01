@@ -20,6 +20,7 @@ import {
 import { spacing, radius, typography } from '../theme/spacing';
 import { colors } from '../theme/colors';
 import { loadCurrentPlanCode } from '../services/planService';
+import { isNotificationAccessLocked, loadNotificationAccessRules, notificationAccessRequiredPlan, notificationPlanLabel, type NotificationAccessRule } from '../services/notificationAccessService';
 import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent } from '../services/creatorEventService';
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
@@ -158,6 +159,7 @@ export default function NotificationsScreen({ navigation }: any) {
   // Marketing obligatoires (interrupteur verrouillé sur activé). Payant :
   // libre de les désactiver.
   const [planCode, setPlanCode] = useState('FREE');
+  const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
   const marketingLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
   // Adel (04/09/2026) : "la seule chose qui ne pourra pas désactiver, c'est
   // les événements ... ça lui demandera de passer en Pro pour avoir la
@@ -170,6 +172,11 @@ export default function NotificationsScreen({ navigation }: any) {
     loadCurrentPlanCode(user.id).then((code) => { if (live) setPlanCode(code || 'FREE'); }).catch(() => {});
     return () => { live = false; };
   }, [user?.id]);
+  useEffect(() => {
+    let live = true;
+    loadNotificationAccessRules().then((rules) => { if (live) setNotificationAccessRules(rules); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
   useEffect(() => {
     if (!user || isLocalGuest || isDemoMode) {
       setChatEnabled(false);
@@ -491,6 +498,14 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const openNotification = async (item: KeepNotification) => {
     if (!user) return;
+    if (isNotificationAccessLocked(item.type, planCode, notificationAccessRules)) {
+      await readOne(item);
+      navigation.navigate('Offers', {
+        focusPlan: notificationAccessRequiredPlan(item.type, notificationAccessRules),
+        sourceFeature: 'NOTIFICATION_ACCESS',
+      });
+      return;
+    }
     await readOne(item);
     await deleteNotificationDuplicates(user.id, item).catch(() => 0);
     const tappedKey = notificationSemanticKey(item);
@@ -747,6 +762,29 @@ export default function NotificationsScreen({ navigation }: any) {
           {loading ? <ActivityIndicator color="#A884FA" /> : error && items.length === 0 ? <Text style={styles.error}>{error}</Text> : items.length === 0 ? (
             <View style={styles.empty}><Text style={styles.emptyIcon}>♩</Text><Text style={styles.muted}>Aucune notification pour le moment.</Text></View>
           ) : items.map((item) => {
+            const lockedByPlan = isNotificationAccessLocked(item.type, planCode, notificationAccessRules);
+            if (lockedByPlan) {
+              const requiredPlan = notificationAccessRequiredPlan(item.type, notificationAccessRules);
+              return (
+                <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
+                  <TouchableOpacity style={styles.cardMain} onPress={() => { void openNotification(item); }} activeOpacity={0.84}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.cardType}>🔒 {notificationTypeLabel(item.type)}</Text>
+                      <View style={styles.readState}>{!item.readAt ? <View style={styles.unreadDot} /> : <Text style={styles.readText}>LU</Text>}</View>
+                    </View>
+                    <View style={styles.cardBodyRow}>
+                      <View style={styles.cardTextColumn}>
+                        <Text style={styles.cardTitle}>Notification réservée · {notificationPlanLabel(requiredPlan)}</Text>
+                        <Text style={styles.cardBody} numberOfLines={3}>Cette notification est présentée avec un cadenas. Appuie pour voir la formule qui la débloque.</Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardBottomRow}>
+                      <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
             const profileUsername = notificationProfileUsername(item);
             return (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
