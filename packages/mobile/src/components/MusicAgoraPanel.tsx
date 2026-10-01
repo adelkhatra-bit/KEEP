@@ -17,6 +17,7 @@ import {
   MusicAgoraRevealMode,
   MusicAgoraSharePreflight,
   MusicAgoraRoom,
+  MusicAgoraSurface,
   postMusicAgoraMessage,
   reportMusicAgoraMessage,
   saveMusicAgoraSettings,
@@ -84,6 +85,7 @@ export default function MusicAgoraPanel({
   const [hasMore, setHasMore] = useState(false);
   const [homeEnabled, setHomeEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [settingsSurfaces, setSettingsSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ profileId: string; username: string } | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
@@ -152,13 +154,14 @@ export default function MusicAgoraPanel({
     setLoading(true);
     Promise.all([
       loadMusicAgoraRooms().catch(() => []),
-      enabled ? loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true })) : Promise.resolve({ homeEnabled: false, notificationsEnabled: true }),
+      enabled ? loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] })) : Promise.resolve({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] }),
     ]).then(([rows, settings]) => {
       if (!live) return;
       setRooms(rows);
       setRoomSlug((current) => current || rows[0]?.slug || '');
       setHomeEnabled(settings.homeEnabled);
       setNotificationsEnabled(settings.notificationsEnabled);
+      setSettingsSurfaces(settings.surfaces);
     }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [enabled]);
@@ -192,6 +195,7 @@ export default function MusicAgoraPanel({
         void loadMusicAgoraSettings().then((settings) => {
           setHomeEnabled(settings.homeEnabled);
           setNotificationsEnabled(settings.notificationsEnabled);
+          setSettingsSurfaces(settings.surfaces);
         }).catch(() => {});
       }
     }, 5000);
@@ -225,9 +229,10 @@ export default function MusicAgoraPanel({
     if (!enabled || settingsBusy) return;
     setSettingsBusy(true);
     try {
-      const settings = await saveMusicAgoraSettings(next, notificationsEnabled);
+      const settings = await saveMusicAgoraSettings(next, notificationsEnabled, settingsSurfaces);
       setHomeEnabled(settings.homeEnabled);
       setNotificationsEnabled(settings.notificationsEnabled);
+      setSettingsSurfaces(settings.surfaces);
       if (!quiet) {
         Alert.alert(
           settings.homeEnabled ? 'Tchat activé' : 'Tchat désactivé sur le profil',
@@ -247,8 +252,9 @@ export default function MusicAgoraPanel({
     if (!enabled || settingsBusy) return;
     setSettingsBusy(true);
     try {
-      const settings = await saveMusicAgoraSettings(homeEnabled, next);
+      const settings = await saveMusicAgoraSettings(homeEnabled, next, settingsSurfaces);
       setNotificationsEnabled(settings.notificationsEnabled);
+      setSettingsSurfaces(settings.surfaces);
       if (roomSlug && homeEnabled) void setMusicAgoraRoomSubscription(roomSlug, true, next).catch(() => {});
     } finally {
       setSettingsBusy(false);
