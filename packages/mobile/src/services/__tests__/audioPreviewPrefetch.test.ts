@@ -35,7 +35,7 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it('playTrackPreviewSegment consomme un préchargement correspondant à la clé avant de recréer un son', () => {
     expect(preview).toContain('if (preloadedKey === key && preloadedSound) {');
-    expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status) => onStatus(status, preloaded));');
+    expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));');
     expect(preview).toContain('await ensurePlaying(preloaded);');
   });
 
