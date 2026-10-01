@@ -29,6 +29,7 @@ export default function GlobalChatDock() {
   const side = useGlobalChatStore((state) => state.side);
   const bottomOffset = useGlobalChatStore((state) => state.bottomOffset);
   const target = useGlobalChatStore((state) => state.target);
+  const settingsOpen = useGlobalChatStore((state) => state.settingsOpen);
   const openChat = useGlobalChatStore((state) => state.open);
   const closeChat = useGlobalChatStore((state) => state.close);
   const setSide = useGlobalChatStore((state) => state.setSide);
