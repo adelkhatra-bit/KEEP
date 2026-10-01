@@ -1154,7 +1154,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             un évènement, une porte ouverte, etc." -- l'ancien texte parlait
             de swipe/jeu (vocabulaire Battle) ; celui-ci ne nomme plus que
             les évènements eux-mêmes, sans présumer du type. */}
-        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Événements'}</Text></View>
+        <View style={{flex:1}}><Text style={styles.title}>{partiesTab === 'BATTLE' ? 'Loki Music BATTLE' : 'Soirées'}</Text></View>
         {partiesTab === 'SOIREES' ? <TouchableOpacity style={styles.eventHelpButton} onPress={() => setEventAccessInfoOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={eventAccessInfoOpen ? "Masquer l'aide Événements" : "Tout comprendre sur Soirées"}><Text style={styles.eventHelpButtonText}>?</Text></TouchableOpacity> : null}
       </View>
 
@@ -1249,9 +1249,9 @@ export default function PartiesScreen({ navigation, route }: any) {
 
       {partiesTab === 'SOIREES' ? <>
         {partyHome ? <View style={styles.partyHome}>
-          <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Publier un événement"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Publier un événement</Text><Text style={styles.partyHomeMeta}>Soirée, concert, porte ouverte ou rendez-vous</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text><Text style={styles.partyHomeMeta}>Lieu, heure, participants et activité</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes invitations</Text><Text style={styles.partyHomeMeta}>Répondre oui, peut-être ou non</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           {battleFeatureEnabled ? <>
             <TouchableOpacity
               style={styles.partyHomeChoice}
