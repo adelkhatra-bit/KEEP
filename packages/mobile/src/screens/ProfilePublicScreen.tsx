@@ -1715,6 +1715,31 @@ export default function ProfilePublicScreen({ navigation }: any) {
                   <Text style={[s.kindBadgeText, { color: certificationColors.ring }]}>{PROFILE_KIND_LABELS[user.kind]}</Text>
                 </TouchableOpacity>
               )}
+                  <TouchableOpacity
+                    style={[s.profileFreeInline, freeDetailsOpen && s.profileFreeInlineOn]}
+                    onPress={() => {
+                      setCommunityMode(null);
+                      setRepriseListOpen(false);
+                      if (isDemoMode) {
+                        Alert.alert(
+                          'FREE · mode démo',
+                          'Le mode démo n’a aucun vrai solde FREE. Après connexion, ton solde réel apparaît ici. Écouter, reconnaître et PASSER ne dépensent pas de FREE ; GARDER et certaines actions Battle peuvent en utiliser ou en faire gagner selon les règles affichées dans Loki Music.',
+                          [
+                            { text: 'Plus tard', style: 'cancel' },
+                            { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+                          ],
+                        );
+                        return;
+                      }
+                      setFreeDetailsOpen((v) => !v);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: freeDetailsOpen }}
+                    accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
+                  >
+                    <Text style={s.profileFreeInlineValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
+                    <Text style={s.profileFreeInlineLabel}>FREE</Text>
+                  </TouchableOpacity>
                 </View>
                 {battleFeatureEnabled && !accountRequired ? (
                   <View style={s.profileBattleInlineWrap}>
@@ -1770,33 +1795,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={[s.topMetricSocialItem, communityMode === 'followers' && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setRepriseListOpen(false); setCommunityMode((v) => v === 'followers' ? null : 'followers'); }}>
             <Text style={s.topMetricValue}>{profileFollowerCount}</Text><Text style={s.topMetricLabel}>Abonnés</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.topMetricSocialItem, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
+          <TouchableOpacity style={[s.topMetricSocialItem, s.topMetricSocialLast, repriseListOpen && s.topMetricSocialItemOn]} onPress={() => { setFreeDetailsOpen(false); setCommunityMode(null); setRepriseListOpen((v) => !v); }}>
             <Text style={s.topMetricValue}>{profileUserKeepCount}</Text><Text style={s.topMetricLabel}>Reprises</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.topMetricSocialItem, s.topMetricSocialLast, s.topMetricFreeItem, freeDetailsOpen && s.topMetricFreeItemOn]}
-            onPress={() => {
-              setCommunityMode(null);
-              setRepriseListOpen(false);
-              if (isDemoMode) {
-                Alert.alert(
-                  'FREE · mode démo',
-                  'Le mode démo n’a aucun vrai solde FREE. Après connexion, ton solde réel apparaît ici. Écouter, reconnaître et PASSER ne dépensent pas de FREE ; GARDER et certaines actions Battle peuvent en utiliser ou en faire gagner selon les règles affichées dans Loki Music.',
-                  [
-                    { text: 'Plus tard', style: 'cancel' },
-                    { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
-                  ],
-                );
-                return;
-              }
-              setFreeDetailsOpen((v) => !v);
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: freeDetailsOpen }}
-            accessibilityLabel={isDemoMode ? 'Comprendre les Free en mode démo' : 'Voir le détail de mes Free'}
-          >
-            <Text style={s.topMetricFreeItemValue}>{isDemoMode ? '?' : (freeBalance ?? '…')}</Text>
-            <Text style={s.topMetricFreeItemLabel}>FREE</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -2396,7 +2396,7 @@ const s=StyleSheet.create({
   container:{flex:1,backgroundColor:colors.background},content:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',paddingHorizontal:24},demoTitle:{...typography.h2,color:colors.textPrimary,marginBottom:8},primary:{marginTop:20,minHeight:50,width:'100%',borderRadius:25,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},primaryText:{color:colors.white,fontSize:16,fontWeight:'900'},
   notificationBellWrap:{position:'relative',zIndex:6},notificationNudge:{position:'absolute',left:50,top:7,height:34,borderRadius:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,overflow:'hidden',shadowColor:'#000',shadowOpacity:.24,shadowRadius:8,shadowOffset:{width:0,height:3},elevation:8},notificationNudgeTouch:{flex:1,minWidth:222,paddingHorizontal:13,justifyContent:'center'},notificationNudgeText:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
   topBarRight:{flexDirection:'row',alignItems:'center',gap:10},
-  topBar:{minHeight:50,paddingHorizontal:18,paddingTop:9,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},kindBadgeEdit:{fontSize:11,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},accountIconOnline:{borderWidth:1,borderColor:colors.success,backgroundColor:`${colors.success}18`},accountIconOffline:{borderWidth:1,borderColor:colors.primaryLight,backgroundColor:`${colors.primary}18`},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
+  topBar:{minHeight:50,paddingHorizontal:18,paddingTop:9,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{height:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,lineHeight:16,fontWeight:'900'},kindBadgeEdit:{fontSize:11,lineHeight:14,fontWeight:'900'},profileFreeInline:{height:24,paddingHorizontal:8,borderRadius:12,borderWidth:1,borderColor:colors.success,backgroundColor:`${colors.success}18`,flexDirection:'row',alignItems:'center',justifyContent:'center',alignSelf:'center',gap:4},profileFreeInlineOn:{backgroundColor:`${colors.success}30`},profileFreeInlineValue:{color:colors.success,fontSize:12,lineHeight:14,fontWeight:'900'},profileFreeInlineLabel:{color:colors.success,fontSize:8,lineHeight:10,fontWeight:'900',letterSpacing:.5},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},accountIconOnline:{borderWidth:1,borderColor:colors.success,backgroundColor:`${colors.success}18`},accountIconOffline:{borderWidth:1,borderColor:colors.primaryLight,backgroundColor:`${colors.primary}18`},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerQuickActionBadgeWrap:{flex:1,position:'relative'},ownerQuickActionBadge:{position:'absolute',top:-6,right:-4,minWidth:22,height:22,paddingHorizontal:5,borderRadius:11,backgroundColor:colors.success,alignItems:'center',justifyContent:'center'},ownerQuickActionBadgeText:{color:'#0B1F1B',fontSize:12,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard,transform:[{translateY:17}]},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaLeft:{alignItems:'stretch',gap:9,marginTop:10},profileMetaTopRow:{width:'100%',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},profileMetaBadgeGroup:{flexDirection:'row',alignItems:'center',gap:7,flexShrink:1,flexWrap:'nowrap'},profileBattleInlineWrap:{position:'relative',flexShrink:0,alignItems:'flex-end'},profileBattleInline:{flexShrink:0},battleAvailabilityToast:{position:'absolute',right:'100%',top:-18,marginRight:8,width:218,minHeight:68,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,paddingHorizontal:12,paddingVertical:9,zIndex:20,shadowColor:'#000',shadowOpacity:.28,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:12},battleAvailabilityToastTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},battleAvailabilityToastText:{color:colors.textSecondary,fontSize:10,lineHeight:14,fontWeight:'700',marginTop:4},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},ownerActions:{flexDirection:'row',alignItems:'center',gap:7,marginTop:10},ownerEditButton:{flex:1,minHeight:34,borderRadius:10,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},ownerQuickActions:{flexDirection:'row',alignItems:'stretch',gap:8,marginTop:8,width:'100%'},ownerQuickActionFull:{flex:1,minWidth:0},
 ownerActionChip:{flex:1,minWidth:0,minHeight:54,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',gap:3,paddingHorizontal:4},
