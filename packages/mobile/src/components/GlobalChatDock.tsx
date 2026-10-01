@@ -137,7 +137,14 @@ export default function GlobalChatDock() {
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
       setSide(settings.side);
-      setBottomOffset(settings.bottomOffset);
+      const legacyBottom = settings.bottomOffset <= 120;
+      const migratedBottom = legacyBottom
+        ? Math.max(82 + insets.bottom, Math.round(height * 0.58))
+        : settings.bottomOffset;
+      setBottomOffset(migratedBottom);
+      if (legacyBottom) {
+        void saveMusicAgoraPosition(settings.side, migratedBottom).catch(() => {});
+      }
       const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
       setUnreadCount(unreadChat.length);
       const latest = unreadChat[0];
