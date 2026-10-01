@@ -2354,3 +2354,14 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Accueil Loki Music : bulles seules, cliquables, sans titre « Tes bulles musicales », sans label Loki Pulse/DNA.
 - Ne pas supprimer à nouveau testID="profile-loki-pulse-preview" ni testID="profile-music-style-bubbles-preview".
 - Aucun changement App.tsx / Navigation.tsx / barre 5 onglets / Super Admin pour cette correction.
+
+
+## [2026-10-02] USER LOCK OVERRIDE — bulles profil visibles + accueil cliquable + chat plein écran
+- Cette décision est PLUS RÉCENTE et annule la consigne contradictoire « profil replié = aucune bulle ».
+- Profil propriétaire : conserver la jauge/% ET afficher sous la jauge un aperçu de 4 bulles de styles lorsque le bloc est replié.
+- Ces 4 bulles sont cliquables et ouvrent directement les morceaux gardés du style dans MusicSwipeDeckModal/openSelectionSwipe.
+- Quand le bloc est développé : afficher la liste complète des styles + recommandations ; ne jamais afficher preview + liste complète en doublon au même moment.
+- Accueil Loki Music : bulles de styles visibles seules, cliquables, sans texte « Tes bulles musicales », sans label Loki Pulse/DNA.
+- Chat : design plein écran validé = composant production réel ; recherche conversations, Messages/La Place, compositeur +, réactions, morceau, QR PayPal ; aucun appel/caméra.
+- Ne pas retirer ces bulles ni rétablir l'ancien verrou contradictoire dans les tests.
+- Ne pas toucher Navigation.tsx, barre 5 onglets, Super Admin ou autres blocs pour ce correctif.

@@ -37,7 +37,7 @@ describe('Loki Music style bubbles contract', () => {
   });
 
   it('shows the same musical identity on Listen home without extra DNA/Pulse branding', () => {
-    expect(home).toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
+    expect(home).not.toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
     expect(home).toContain('testID="home-loki-pulse-bubbles"');
     expect(home).toContain('<MusicStyleBubbles');
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');

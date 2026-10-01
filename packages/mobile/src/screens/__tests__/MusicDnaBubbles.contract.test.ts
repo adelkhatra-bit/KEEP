@@ -18,8 +18,8 @@ describe('music style bubbles', () => {
 
   it('keeps owner bubbles visible even while the compact Pulse details are collapsed', () => {
     expect(profile).toContain('testID="profile-music-style-bubbles"');
-    expect(profile).not.toContain('testID="profile-loki-pulse-preview"');
-    expect(profile).not.toContain('testID="profile-music-style-bubbles-preview"');
+    expect(profile).toContain('testID="profile-loki-pulse-preview"');
+    expect(profile).toContain('testID="profile-music-style-bubbles-preview"');
   });
 
   it('keeps visitor bubbles available behind its compact control', () => {
@@ -28,7 +28,7 @@ describe('music style bubbles', () => {
   });
 
   it('shows bubbles directly on Loki Music home without a Pulse label', () => {
-    expect(home).toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
+    expect(home).not.toContain('<Text style={s.homeDnaTitle}>Tes bulles musicales</Text>');
     expect(home).toContain('testID="home-loki-pulse-bubbles"');
     expect(home).not.toContain('<Text style={s.homeDnaEyebrow}>LOKI PULSE</Text>');
     expect(home).not.toContain("onPress={() => navigation.navigate('Profile')}");
