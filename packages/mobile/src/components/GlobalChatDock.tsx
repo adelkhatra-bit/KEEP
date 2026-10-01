@@ -432,7 +432,7 @@ export default function GlobalChatDock() {
           initialRoomSlug={target?.roomSlug ?? undefined}
           initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
           initialGroupId={target?.groupId ?? undefined}
-          onOpenProfile={(username) => navigateToSharedProfile(username)}
+          onOpenProfile={(username) => { closeChat(); setTimeout(() => navigateToSharedProfile(username), 80); }}
           onCompactClose={closeChat}
         />
       ) : null}
