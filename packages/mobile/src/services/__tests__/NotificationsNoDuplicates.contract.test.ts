@@ -25,7 +25,7 @@ describe('notifications sans doublons', () => {
   });
   it('la bannière interne ignore un contenu identique déjà montré', () => {
     const banner = read('packages', 'mobile', 'src', 'components', 'GlobalNotificationBanner.tsx');
-    expect(banner).toContain('const recentContentKeys = useRef(new Map<string, number>());');
-    expect(banner).toContain('if (lastShown && Date.now() - lastShown < 2 * 60 * 1000) return;');
+    expect(banner).toContain('const recentSemanticKeys = useRef(new Map<string, number>());');
+    expect(banner).toContain('if (lastShown && Date.now() - lastShown < 30 * 60 * 1000) return;');
   });
 });
