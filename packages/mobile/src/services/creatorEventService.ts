@@ -76,6 +76,26 @@ function mapEventRow(row: any): CreatorEvent {
 // Adel (08/09/2026) : les evenements PENDING/REJECTED restent invisibles au
 // public, mais l'organisateur doit continuer a voir SON PROPRE evenement
 // (avec son badge d'attente) tant qu'il n'a pas ete approuve.
+export type ProfileEventTeaser = {
+  approvedCount: number;
+  pendingCount: number;
+  approvedEventIds: string[];
+};
+
+export async function loadProfileEventTeaser(profileId: string): Promise<ProfileEventTeaser> {
+  if (!supabase || !profileId) return { approvedCount: 0, pendingCount: 0, approvedEventIds: [] };
+  const { data, error } = await supabase.rpc('keep_profile_event_teaser', { p_profile_id: profileId });
+  if (error) throw error;
+  const value = data && typeof data === 'object' ? data as any : {};
+  return {
+    approvedCount: Math.max(0, Number(value.approvedCount ?? value.approved_count ?? 0) || 0),
+    pendingCount: Math.max(0, Number(value.pendingCount ?? value.pending_count ?? 0) || 0),
+    approvedEventIds: Array.isArray(value.approvedEventIds ?? value.approved_event_ids)
+      ? (value.approvedEventIds ?? value.approved_event_ids).map(String).filter(Boolean)
+      : [],
+  };
+}
+
 export async function loadUpcomingEvents(viewerId?: string): Promise<CreatorEvent[]> {
   if (!supabase) return [];
 
