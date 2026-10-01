@@ -37,6 +37,8 @@ export default function GlobalChatDock() {
   const closeSettings = useGlobalChatStore((state) => state.closeSettings);
   const [tracks, setTracks] = useState<any[]>([]);
   const [chatEnabled, setChatEnabled] = useState(false);
+  const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
+  const [chatSaving, setChatSaving] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE']);
   const [currentSurface, setCurrentSurface] = useState<MusicAgoraSurface | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
