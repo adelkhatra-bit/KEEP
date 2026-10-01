@@ -45,6 +45,7 @@ import {
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
   subscribeMusicAgoraGroup,
+  subscribeMusicAgoraMembership,
 } from '../services/musicAgoraService';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseRequest, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
@@ -376,6 +377,13 @@ export default function MusicAgoraPanel({
     }
   };
 
+
+  useEffect(() => {
+    if (!enabled || !currentProfileId) return undefined;
+    return subscribeMusicAgoraMembership(currentProfileId, () => {
+      void refreshInbox();
+    });
+  }, [enabled, currentProfileId]);
 
   const openGroup = async (group: MusicAgoraGroup) => {
     setReplyTarget(null);
