@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const migration = fs.readFileSync(
-  path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20261002006000_chat_message_limit_alignment.sql'),
+  path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002006000_chat_message_limit_alignment.sql'),
   'utf8',
 ).replace(/\r\n/g, '\n');
 
