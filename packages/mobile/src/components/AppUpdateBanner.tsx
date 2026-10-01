@@ -3,67 +3,68 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
-import { spacing, radius } from '../theme/spacing';
 
-// Adel (02/09/2026) : "comme une application normale ... popup pour qu'il
-// puisse faire sa mise à jour, toujours avoir la possibilité de dire je la
-// ferai plus tard" -- bandeau discret (pas un Alert bloquant : une mise à
-// jour n'empêche jamais d'utiliser l'app en attendant), monté une fois au
-// niveau racine comme GlobalNotificationBanner. Recharger la page suffit à
-// "mettre à jour" puisque KEEP est un site statique : c'est le nouveau
-// bundle déjà déployé qui se charge.
+// Mise à jour web volontairement non bloquante : rien n'est affiché tant que
+// version.json ne signale pas un nouveau build. Quand un nouveau push est
+// réellement déployé, un seul petit bouton apparaît. L'utilisateur choisit
+// quand l'appliquer afin de ne jamais interrompre un test en cours.
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
-  const dismiss = useAppUpdateStore((s) => s.dismiss);
   const { width } = useWindowDimensions();
 
-  if (Platform.OS !== 'web') return null;
-
-  if (!latestSha) {
-    return (
-      <View style={[s.manualWrap, width < 768 && s.manualWrapCompact]} pointerEvents="box-none" testID="keep-manual-update-control">
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Mise à jour du site Loki Music"
-          style={s.manualButton}
-          onPress={reloadToLatest}
-        >
-          <Text style={s.manualText}>↻ Mise à jour</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (Platform.OS !== 'web' || !latestSha) return null;
 
   return (
-    <View style={s.wrap} pointerEvents="box-none" testID="keep-update-available-banner">
-      <View style={s.card}>
-        <Text style={s.title}>🔄 Nouvelle version de Loki Music disponible</Text>
-        <Text style={s.body}>Recharge pour profiter des dernières fonctions.</Text>
-        <View style={s.actions}>
-          <TouchableOpacity accessibilityRole="button" style={s.later} onPress={dismiss}>
-            <Text style={s.laterText}>Plus tard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" style={s.update} onPress={reloadToLatest}>
-            <Text style={s.updateText}>Mettre à jour</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View
+      style={[s.wrap, width < 768 && s.wrapCompact]}
+      pointerEvents="box-none"
+      testID="keep-update-available-button"
+    >
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Appliquer la nouvelle version de Loki Music"
+        style={s.button}
+        onPress={reloadToLatest}
+      >
+        <Text style={s.text}>↻ Mise à jour</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, bottom: 78, alignItems: 'center', paddingHorizontal: spacing.lg, zIndex: 200 },
-  manualWrap: { position: 'absolute', left: 0, right: 0, bottom: 82, alignItems: 'center', zIndex: 190 },
-  manualWrapCompact: { bottom: 132, alignItems: 'flex-start', paddingLeft: 10 },
-  manualButton: { minHeight: 34, paddingHorizontal: 14, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
-  manualText: { color: colors.textPrimary, fontSize: 11, fontWeight: '900' },
-  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 8 },
-  title: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
-  body: { color: colors.textSecondary, fontSize: 12, lineHeight: 16 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  later: { flex: 1, minHeight: 40, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  laterText: { color: colors.textPrimary, fontSize: 12, fontWeight: '800' },
-  update: { flex: 1, minHeight: 40, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  updateText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
+  wrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 82,
+    alignItems: 'center',
+    zIndex: 190,
+    pointerEvents: 'box-none',
+  },
+  wrapCompact: {
+    bottom: 132,
+    alignItems: 'flex-start',
+    paddingLeft: 10,
+  },
+  button: {
+    minHeight: 36,
+    paddingHorizontal: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    backgroundColor: colors.backgroundCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  text: {
+    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '900',
+  },
 });
