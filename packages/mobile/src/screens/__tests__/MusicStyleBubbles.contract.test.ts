@@ -27,8 +27,9 @@ describe('Loki Music style bubbles contract', () => {
   });
 
   it('keeps music-style pills visible on a visited profile even while DNA is collapsed', () => {
-    expect(visitor).toContain('profile.favoriteGenres.slice(0, 4).map');
-    expect(visitor).toContain('<View style={styles.chips}>');
+    expect(visitor).toContain('visitorStyleBubbles');
+    expect(visitor).toContain('testID="visitor-music-style-bubbles"');
+    expect(visitor).toContain('<MusicStyleBubbles');
     expect(visitor).toContain("openBrowseSwipe({ type: 'genre'");
   });
 
