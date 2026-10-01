@@ -1,31 +1,39 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
 import { reloadToLatest } from '../services/appUpdateService';
 import { colors } from '../theme/colors';
 
-// Action de mise à jour réservée au web desktop. Sur mobile, elle ne doit
-// jamais encombrer l'interface : les petits écrans gardent 100 % de l'espace
-// pour l'application.
+// Contrôle web/PWA volontairement discret : rien n'est affiché tant qu'une
+// nouvelle version réellement déployée n'est pas détectée. L'utilisateur
+// applique la mise à jour quand il le souhaite afin de ne pas interrompre un test.
 export default function AppUpdateBanner() {
   const latestSha = useAppUpdateStore((s) => s.latestSha);
+  const checkNow = useAppUpdateStore((s) => s.checkNow);
   const { width } = useWindowDimensions();
 
-  if (Platform.OS !== 'web' || width < 768) return null;
+  useEffect(() => {
+    if (Platform.OS !== 'web') return undefined;
+    void checkNow();
+    const timer = setInterval(() => { void checkNow(); }, 60_000);
+    return () => clearInterval(timer);
+  }, [checkNow]);
+
+  if (Platform.OS !== 'web' || !latestSha) return null;
 
   return (
     <View
-      style={s.wrap}
+      style={[s.wrap, width < 768 && s.wrapCompact]}
       pointerEvents="box-none"
       testID="keep-update-available-button"
     >
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="Appliquer la nouvelle version de Loki Music"
-        style={[s.button, latestSha && s.buttonHot]}
+        style={s.button}
         onPress={reloadToLatest}
       >
-        <Text style={s.text}>{latestSha ? '↻ Nouvelle version' : '↻ Mise à jour'}</Text>
+        <Text style={s.text}>MISE À JOUR</Text>
       </TouchableOpacity>
     </View>
   );
@@ -40,6 +48,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     zIndex: 190,
     pointerEvents: 'box-none',
+  },
+  wrapCompact: {
+    bottom: 132,
+    alignItems: 'flex-start',
+    paddingLeft: 10,
   },
   button: {
     minHeight: 36,
@@ -56,13 +69,10 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  buttonHot: {
-    borderWidth: 2,
-    shadowOpacity: 0.38,
-  },
   text: {
     color: colors.textPrimary,
     fontSize: 11,
     fontWeight: '900',
+    letterSpacing: 0.4,
   },
 });
