@@ -33,7 +33,7 @@ export default function AppUpdateBanner() {
         style={[s.button, latestSha && s.buttonReady]}
         onPress={() => { void checkNow().finally(reloadToLatest); }}
       >
-        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : '↻ Mise à jour'}</Text>
+        <Text style={s.text}>{latestSha ? 'NOUVELLE VERSION · METTRE À JOUR' : 'MISE À JOUR'}</Text>
       </TouchableOpacity>
     </View>
   );
