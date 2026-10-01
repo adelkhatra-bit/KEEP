@@ -89,13 +89,13 @@ platform :ios do
       force: true,
       automatic_release: true,
       run_precheck_before_submit: true,
-      precheck_include_in_app_purchases: false
+      precheck_include_in_app_purchases: true
     )
     UI.success("Loki Music #{version} (build #{build}) soumise a la review App Store.")
   end
 
   desc "Controle la conformite de la fiche avant soumission"
   lane :validate do
-    precheck(include_in_app_purchases: false)
+    precheck(include_in_app_purchases: true)
   end
 end
