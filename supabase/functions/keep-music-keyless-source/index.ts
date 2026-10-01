@@ -348,6 +348,8 @@ type CatalogTrack = {
   artworkUrl?: string;
   previewUrl?: string;
   externalUrl?: string;
+  genres?: string[];
+  releaseYear?: number;
 };
 
 function appleTrack(row: any): CatalogTrack | null {
@@ -358,6 +360,8 @@ function appleTrack(row: any): CatalogTrack | null {
     artworkUrl: row.artworkUrl100 ? String(row.artworkUrl100).replace(/100x100bb/gi, "600x600bb").replace(/100x100/gi, "600x600") : undefined,
     previewUrl: row.previewUrl ? String(row.previewUrl) : undefined,
     externalUrl: row.trackViewUrl ? String(row.trackViewUrl) : undefined,
+    genres: row.primaryGenreName ? [String(row.primaryGenreName)] : [],
+    releaseYear: /^\d{4}/.test(String(row.releaseDate ?? '')) ? Number(String(row.releaseDate).slice(0, 4)) : undefined,
   };
 }
 
@@ -467,6 +471,8 @@ async function recognition(track: CatalogTrack, confidence: number, sourceUrl: s
   return {
     confidence: Math.max(0.55, Math.min(0.99, confidence)), title: track.title, artist: track.artist, album: track.album,
     artworkUrl: track.artworkUrl || corroborating?.artworkUrl, previewUrl: track.previewUrl || corroborating?.previewUrl,
+    genres: track.genres?.length ? track.genres : (corroborating?.genres ?? []),
+    releaseYear: track.releaseYear ?? corroborating?.releaseYear,
     availableOn: [providerIds.appleMusic ? "Apple Music" : null, providerIds.deezer ? "Deezer" : null].filter(Boolean),
     externalUrls, providerIds, recognitionProviderTrackId: `keyless:${track.source}:${track.id}`,
   };
