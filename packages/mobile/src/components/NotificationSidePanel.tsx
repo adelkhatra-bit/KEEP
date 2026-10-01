@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { KeepNotification, NotificationPreferences, loadNotificationPreferences, loadNotifications, markAllNotificationsRead, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
 import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
 import { useUserStore } from '../store/useUserStore';
@@ -211,10 +211,39 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
   };
 
-  const markAll = async () => {
+  const markVisibleRead = async () => {
+    if (activeTab === 'SETTINGS') return;
+    const visibleIds = (activeTab === 'MESSAGES' ? messageItems : activityItems)
+      .filter((row) => !row.readAt)
+      .map((row) => row.id);
+    if (!visibleIds.length) return;
     const readAt = new Date().toISOString();
-    setItems((prev) => prev.map((row) => ({ ...row, readAt: row.readAt || readAt })));
-    if (!isDemoMode) await markAllNotificationsRead(profileId).catch(() => {});
+    setItems((prev) => prev.map((row) => visibleIds.includes(row.id) ? { ...row, readAt } : row));
+    if (!isDemoMode) await Promise.all(visibleIds.map((id) => markNotificationRead(profileId, id).catch(() => {})));
+  };
+
+  const removeOne = async (item: KeepNotification) => {
+    setExpandedId((current) => current === item.id ? null : current);
+    setItems((prev) => prev.filter((row) => row.id !== item.id));
+    if (!isDemoMode) {
+      await deleteNotification(profileId, item.id).catch(() => {
+        void refresh();
+      });
+    }
+  };
+
+  const clearVisible = async () => {
+    if (activeTab === 'SETTINGS') return;
+    const visibleIds = (activeTab === 'MESSAGES' ? messageItems : activityItems).map((row) => row.id);
+    if (!visibleIds.length) return;
+    setExpandedId(null);
+    setItems((prev) => prev.filter((row) => !visibleIds.includes(row.id)));
+    if (!isDemoMode) {
+      const failed = await Promise.all(visibleIds.map(async (id) => {
+        try { await deleteNotification(profileId, id); return false; } catch { return true; }
+      }));
+      if (failed.some(Boolean)) void refresh();
+    }
   };
 
   const openNotificationTab = async (tab: 'MESSAGES' | 'ACTIVITY' | 'SETTINGS') => {
@@ -280,6 +309,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 
   const messageItems = items.filter((item) => isChatNotificationType(item.type));
   const activityItems = items.filter((item) => !isChatNotificationType(item.type));
+  const messageCount = messageItems.length;
+  const activityCount = activityItems.length;
   const unreadMessageCount = messageItems.filter((item) => !item.readAt).length;
   const unreadActivityCount = activityItems.filter((item) => !item.readAt).length;
   const visibleItems = activeTab === 'MESSAGES' ? messageItems : activityItems;
@@ -292,7 +323,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           <View style={s.header}>
             <View>
               <Text style={s.eyebrow}>LOKI MUSIC</Text>
-              <Text style={s.title}>Cloche</Text>
+              <Text style={s.title}>Notifications</Text>
               <Text style={s.headerHint}>Tout reste ici, sans changer d’écran.</Text>
             </View>
             <TouchableOpacity style={s.close} onPress={close} accessibilityLabel="Fermer"><Text style={s.closeText}>×</Text></TouchableOpacity>
@@ -307,9 +338,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
             >
               <View style={s.tabTitleRow}>
                 <Text style={[s.tabText, unreadMessageCount > 0 && s.tabTextUnread, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
-                {unreadMessageCount > 0 ? <View style={s.tabBadge}><Text style={s.tabBadgeText}>{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</Text></View> : null}
+                {messageCount > 0 ? <View style={[s.tabBadge, unreadMessageCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadMessageCount === 0 && s.tabBadgeTextQuiet]}>{messageCount > 99 ? '99+' : messageCount}</Text></View> : null}
               </View>
-              <Text style={[s.tabHint, unreadMessageCount > 0 && s.tabHintUnread]}>{unreadMessageCount > 0 ? 'à voir' : 'tout vu'}</Text>
+              <Text style={[s.tabHint, unreadMessageCount > 0 && s.tabHintUnread]}>{unreadMessageCount > 0 ? `${unreadMessageCount} nouveau${unreadMessageCount > 1 ? 'x' : ''}` : (messageCount > 0 ? 'conservés' : 'vide')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.tab, unreadActivityCount > 0 && s.tabUnread, activeTab === 'ACTIVITY' && s.tabOn]}
@@ -319,9 +350,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
             >
               <View style={s.tabTitleRow}>
                 <Text style={[s.tabText, unreadActivityCount > 0 && s.tabTextUnread, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
-                {unreadActivityCount > 0 ? <View style={s.tabBadge}><Text style={s.tabBadgeText}>{unreadActivityCount > 99 ? '99+' : unreadActivityCount}</Text></View> : null}
+                {activityCount > 0 ? <View style={[s.tabBadge, unreadActivityCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadActivityCount === 0 && s.tabBadgeTextQuiet]}>{activityCount > 99 ? '99+' : activityCount}</Text></View> : null}
               </View>
-              <Text style={[s.tabHint, unreadActivityCount > 0 && s.tabHintUnread]}>{unreadActivityCount > 0 ? 'à voir' : 'tout vu'}</Text>
+              <Text style={[s.tabHint, unreadActivityCount > 0 && s.tabHintUnread]}>{unreadActivityCount > 0 ? `${unreadActivityCount} nouvelle${unreadActivityCount > 1 ? 's' : ''}` : (activityCount > 0 ? 'conservée' : 'vide')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => { void openNotificationTab('SETTINGS'); }} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
               <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
@@ -392,8 +423,11 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           ) : (
             <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
               <View style={s.inboxActions}>
-                <Text style={s.inboxHint}>Appuie sur une notification : elle se déplie ici.</Text>
-                <TouchableOpacity style={s.markAllButton} onPress={() => void markAll()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
+                <Text style={s.inboxHint}>Appuie pour ouvrir. Utilise × pour supprimer ce qui ne t’est plus utile.</Text>
+                <View style={s.inboxActionButtons}>
+                  <TouchableOpacity style={s.markAllButton} onPress={() => void markVisibleRead()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
+                  <TouchableOpacity style={[s.markAllButton, s.clearButton]} onPress={() => void clearVisible()} disabled={!visibleItems.length}><Text style={s.clearText}>EFFACER</Text></TouchableOpacity>
+                </View>
               </View>
               {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
               {!loading && !visibleItems.length ? <View style={s.emptyCard}><Text style={s.emptyIcon}>{activeTab === 'MESSAGES' ? '💬' : '🔔'}</Text><Text style={s.emptyTitle}>{activeTab === 'MESSAGES' ? 'Aucun message' : 'Rien de nouveau'}</Text><Text style={s.empty}>{activeTab === 'MESSAGES' ? 'Tes nouveaux messages apparaîtront ici, séparés des autres notifications.' : 'Tes Battles, reprises, visites, événements et gains apparaîtront ici.'}</Text></View> : null}
@@ -409,6 +443,17 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                         <View style={[s.dot, item.readAt && s.dotRead, locked && s.dotLocked]} />
                         <Text style={s.cardTitle} numberOfLines={1}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
                         <Text style={s.time}>{timeLabel(item.createdAt)}</Text>
+                        <TouchableOpacity
+                          style={s.deleteOne}
+                          onPress={(event) => {
+                            event.stopPropagation?.();
+                            void removeOne(item);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Supprimer cette notification"
+                        >
+                          <Text style={s.deleteOneText}>×</Text>
+                        </TouchableOpacity>
                         <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
                       </View>
                       {expanded ? (
@@ -442,7 +487,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <Text style={s.lockedPopupTitle}>Pourquoi cette notification est verrouillée</Text>
                 <Text style={s.lockedPopupBody}>Cette notification fait partie des alertes que le Super Admin a réservées à une formule spécifique. Son contenu reste masqué tant qu’elle n’est pas débloquée.</Text>
                 <View style={s.lockedPopupPlan}><Text style={s.lockedPopupPlanText}>Disponible avec {lockedPopup.plan}</Text></View>
-                <Text style={s.lockedPopupHint}>Tu restes exactement dans ta cloche. Aucun changement d’écran et aucun contenu privé n’est affiché avant déblocage.</Text>
+                <Text style={s.lockedPopupHint}>Tu restes dans tes notifications. Aucun changement d’écran et aucun contenu privé n’est affiché avant déblocage.</Text>
                 <TouchableOpacity style={s.lockedPopupClose} onPress={() => setLockedPopup(null)}><Text style={s.lockedPopupCloseText}>J’AI COMPRIS</Text></TouchableOpacity>
               </View>
             </View>
@@ -473,6 +518,8 @@ const s = StyleSheet.create({
   tabTextUnread:{color:colors.keep},
   tabBadge:{minWidth:18,height:18,paddingHorizontal:5,borderRadius:9,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
   tabBadgeText:{color:colors.background,fontSize:8,fontWeight:'900'},
+  tabBadgeQuiet:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
+  tabBadgeTextQuiet:{color:colors.textMutedGrey},
   tabHint:{color:colors.textMuted,fontSize:8,fontWeight:'700',marginTop:2},
   tabHintUnread:{color:colors.keep,fontWeight:'900'},
   settingsList:{paddingHorizontal:16,paddingBottom:36,gap:10},
@@ -480,6 +527,9 @@ const s = StyleSheet.create({
   notificationMasterCopy:{flex:1,minWidth:0},
   inboxActions:{minHeight:42,flexDirection:'row',alignItems:'center',gap:8},
   inboxHint:{flex:1,color:colors.textMutedGrey,fontSize:9,lineHeight:13,fontWeight:'700'},
+  inboxActionButtons:{flexDirection:'row',alignItems:'center',gap:6},
+  clearButton:{borderColor:colors.danger,backgroundColor:'rgba(255,95,109,.08)'},
+  clearText:{color:colors.danger,fontSize:8,fontWeight:'900'},
   markAllButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
   markAllText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
   chatAccordion:{marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
