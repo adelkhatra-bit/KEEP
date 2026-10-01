@@ -44,6 +44,30 @@ export type CreatorEvent = {
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
 
+export type ProfileEventSpotlight = {
+  approvedCount: number;
+  pendingCount: number;
+  nextApprovedEventId: string | null;
+  nextApprovedStartsAt: string | null;
+  status: 'APPROVED' | 'PENDING' | 'NONE';
+};
+
+export async function loadProfileEventSpotlight(profileId: string): Promise<ProfileEventSpotlight> {
+  if (!supabase || !profileId) return { approvedCount: 0, pendingCount: 0, nextApprovedEventId: null, nextApprovedStartsAt: null, status: 'NONE' };
+  const { data, error } = await supabase.rpc('keep_profile_event_spotlight', { p_profile_id: profileId });
+  if (error) throw error;
+  const row = (data ?? {}) as any;
+  return {
+    approvedCount: Number(row.approvedCount ?? row.approved_count ?? 0),
+    pendingCount: Number(row.pendingCount ?? row.pending_count ?? 0),
+    nextApprovedEventId: row.nextApprovedEventId ?? row.next_approved_event_id ?? null,
+    nextApprovedStartsAt: row.nextApprovedStartsAt ?? row.next_approved_starts_at ?? null,
+    status: (String(row.status ?? 'NONE').toUpperCase() as ProfileEventSpotlight['status']),
+  };
+}
+
+
+
 const EVENT_COLUMNS = 'id,creator_id,name,description,venue_name,starts_at,ends_at,country_code,dj_artist_names,external_ticket_url,youtube_url,image_url,image_urls,require_qr_code,audience_mode,ticket_price_cents,organizer_phone_public,moderation_status,photo_status,photo_note,text_status,text_note';
 
 function mapEventRow(row: any): CreatorEvent {
