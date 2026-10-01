@@ -29,6 +29,7 @@ import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutL
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { loadMusicAgoraSettings, saveMusicAgoraSettings } from '../services/musicAgoraService';
 import GlobalChatDock from '../components/GlobalChatDock';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -467,6 +468,22 @@ export default function NotificationsScreen({ navigation }: any) {
     const data = item.data as Record<string, unknown> | null;
     const type = String(item.type || '').toUpperCase();
     const eventId = eventIdOf(item);
+
+    if (type.startsWith('AGORA')) {
+      const roomRaw = data?.roomSlug ?? data?.room_slug;
+      const senderIdRaw = data?.senderId ?? data?.sender_id ?? data?.actorId ?? data?.actor_id ?? data?.profileId ?? data?.profile_id;
+      const senderUsernameRaw = data?.senderUsername ?? data?.sender_username ?? data?.actorUsername ?? data?.actor_username ?? data?.username;
+      const messageIdRaw = data?.messageId ?? data?.message_id;
+      useGlobalChatStore.getState().open({
+        roomSlug: typeof roomRaw === 'string' && roomRaw ? roomRaw : null,
+        targetProfileId: typeof senderIdRaw === 'string' && senderIdRaw ? senderIdRaw : null,
+        targetUsername: typeof senderUsernameRaw === 'string' && senderUsernameRaw ? senderUsernameRaw : null,
+        messageId: typeof messageIdRaw === 'number'
+          ? messageIdRaw
+          : typeof messageIdRaw === 'string' && messageIdRaw ? Number(messageIdRaw) || null : null,
+      });
+      return;
+    }
 
     if (type === 'MONTHLY_FREE_CREDIT') {
       navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' });
