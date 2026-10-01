@@ -2,14 +2,18 @@
 import fs from 'fs';
 import path from 'path';
 
-describe('MusicTasteQuestionnaire tap-only contract', () => {
+describe('MusicTasteQuestionnaire global-catalog contract', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'MusicTasteQuestionnaire.tsx'), 'utf8').replace(/\r\n/g, '\n');
 
-  it('requires no free-text entry', () => {
-    expect(source).not.toContain('TextInput');
-    expect(source).not.toContain('value={query}');
-    expect(source).toContain('Aucun texte à saisir · tout se choisit en un toucher');
+  it('uses text only to search the global catalog; preferences remain tap selections', () => {
+    expect(source).toContain('TextInput');
+    expect(source).toContain('value={searchQuery}');
+    expect(source).toContain('Rechercher un style dans tout le catalogue');
+    expect(source).toContain('Rechercher une langue');
+    expect(source).toContain('Rechercher un pays');
+    expect(source).toContain('Résultats du catalogue mondial');
     expect(source).toContain('PRÉREMPLI AUTOMATIQUEMENT');
+    expect(source).toContain('onPress={() => toggle(');
   });
 
   it('prefills device language and country when no saved choice exists', () => {
