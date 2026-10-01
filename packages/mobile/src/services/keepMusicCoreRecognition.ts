@@ -201,47 +201,72 @@ export interface PersistedKeepDecision {
  * store local après une mise à jour, une reconnexion ou un nouvel appareil.
  */
 export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepDecision[]> {
-  if (!supabase) return [];
-  const { data: sessionData } = await supabase.auth.getSession();
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY) || !supabase) return [];
+
+  // Source de vérité : la session Supabase courante. Ne jamais dépendre du
+  // store UI pour retrouver la bibliothèque après un OTA/rechargement.
+  let { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session?.user?.id) {
+    const refreshed = await supabase.auth.refreshSession().catch(() => null);
+    if (refreshed?.data?.session) sessionData = refreshed.data;
+  }
   const userId = sessionData.session?.user?.id;
   if (!userId) return [];
 
-  // Source canonique propriétaire : ce RPC est SECURITY DEFINER, filtré sur
-  // auth.uid(), et renvoie PUBLIC + PRIVATE avec la dernière décision KEPT de
-  // chaque piste. Utiliser cette même source que le Profil évite qu'une erreur
-  // de jointure PostgREST fasse apparaître une bibliothèque vide alors que les
-  // KEEPs existent toujours en base.
-  const wanted = Math.max(1, Math.min(limit, 1000));
-  const pageSize = Math.min(250, wanted);
-  const rows: any[] = [];
-  for (let offset = 0; rows.length < wanted; offset += pageSize) {
-    const { data, error } = await supabase.rpc('keep_own_profile_tracks', {
-      p_limit: Math.min(pageSize, wanted - rows.length),
-      p_offset: offset,
-    });
-    if (error) throw error;
-    const page = Array.isArray(data) ? data : [];
-    rows.push(...page);
-    if (page.length < pageSize) break;
+  // IMPORTANT : deux lectures simples au lieu d'un embed PostgREST
+  // keep_decisions -> tracks -> profiles. L'ancien URL REST imbriqué pouvait
+  // échouer entièrement si PostgREST ne résolvait plus une relation/permission,
+  // puis MyMusicScreen avalait l'erreur et affichait une bibliothèque vide
+  // alors que les données existaient encore. Ici une relation optionnelle ne
+  // peut plus faire disparaître les morceaux d'un utilisateur.
+  const { data: decisionRows, error: decisionError } = await supabase
+    .from('keep_decisions')
+    .select('id,profile_id,track_id,visibility,created_at,context,source_user_id,source_type')
+    .eq('profile_id', userId)
+    .eq('decision', 'KEPT')
+    .order('created_at', { ascending: true })
+    .limit(Math.max(1, Math.min(limit, 1000)));
+  if (decisionError) throw decisionError;
+  if (!decisionRows?.length) return [];
+
+  const trackIds = [...new Set(decisionRows.map((row: any) => String(row.track_id || '')).filter(validUuid))];
+  if (!trackIds.length) return [];
+
+  const { data: trackRows, error: trackError } = await supabase
+    .from('tracks')
+    .select('id,isrc,title,artist,album,duration_sec,artwork_url,genres,provider_ids,preview_url,external_urls,available_on')
+    .in('id', trackIds);
+  if (trackError) throw trackError;
+
+  const tracksById = new Map((trackRows ?? []).map((row: any) => [String(row.id), row]));
+  const sourceIds = [...new Set(decisionRows.map((row: any) => String(row.source_user_id || '')).filter(validUuid))];
+  const sourceNames = new Map<string, string>();
+  if (sourceIds.length) {
+    const { data: sourceRows } = await supabase.from('profiles').select('id,username').in('id', sourceIds);
+    for (const row of sourceRows ?? []) {
+      if (row?.id && row?.username) sourceNames.set(String(row.id), String(row.username));
+    }
   }
 
-  return rows.flatMap((row: any): PersistedKeepDecision[] => {
-    const context = row?.context && typeof row.context === 'object' ? row.context : {};
-    const decisionId = String(row?.decision_id || '');
-    const trackId = String(row?.track_id || '');
-    if (!decisionId || !trackId || !row?.title || !row?.artist) return [];
+  return decisionRows.flatMap((row: any): PersistedKeepDecision[] => {
+    if (String(row?.profile_id || '') !== userId) return [];
+    const track = tracksById.get(String(row?.track_id || '')) as any;
+    if (!row?.id || !track?.id || !track?.title || !track?.artist) return [];
 
-    const createdAt = String(row?.kept_at || new Date().toISOString());
+    const context = row?.context && typeof row.context === 'object' ? row.context : {};
+    const createdAt = String(row.created_at || new Date().toISOString());
     const detectedAt = typeof context.detectedAt === 'string' && context.detectedAt ? context.detectedAt : createdAt;
     const sessionId = typeof context.sessionId === 'string' && context.sessionId ? context.sessionId : undefined;
-    const visibility: KeepVisibility = row?.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+    const visibility: KeepVisibility = row.visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE';
     const contextSourceProfileId = typeof context.sourceProfileId === 'string' && context.sourceProfileId.trim()
       ? context.sourceProfileId.trim()
       : undefined;
-    const sourceProfileId = row?.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
-    const sourceUsername = typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
-      ? context.sourceUsername.trim()
-      : undefined;
+    const sourceProfileId = row.source_user_id ? String(row.source_user_id) : contextSourceProfileId;
+    const sourceUsername = sourceProfileId
+      ? sourceNames.get(sourceProfileId) || (typeof context.sourceUsername === 'string' && context.sourceUsername.trim() ? context.sourceUsername.trim() : undefined)
+      : typeof context.sourceUsername === 'string' && context.sourceUsername.trim()
+        ? context.sourceUsername.trim()
+        : undefined;
     const creditPolicy: 'LISTEN_KEEP' | 'SOCIAL_ZERO_CREDIT' =
       context.creditPolicy === 'SOCIAL_ZERO_CREDIT' ? 'SOCIAL_ZERO_CREDIT' : 'LISTEN_KEEP';
     const originSource = typeof context.source === 'string' && context.source.trim()
@@ -254,7 +279,7 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       : undefined;
 
     return [{
-      decisionId,
+      decisionId: String(row.id),
       visibility,
       createdAt,
       detectedAt,
@@ -265,18 +290,18 @@ export async function loadOwnPersistedKeeps(limit = 750): Promise<PersistedKeepD
       importedFrom,
       creditPolicy,
       track: {
-        id: trackId,
-        isrc: row?.isrc || undefined,
-        title: String(row.title),
-        artist: String(row.artist),
-        album: row?.album || undefined,
-        durationSec: typeof row?.duration_sec === 'number' ? row.duration_sec : undefined,
-        artworkUrl: row?.artwork_url || undefined,
-        genres: Array.isArray(row?.genres) ? row.genres : [],
-        providerIds: row?.provider_ids && typeof row.provider_ids === 'object' ? row.provider_ids : {},
-        previewUrl: row?.preview_url || undefined,
-        externalUrls: row?.external_urls && typeof row.external_urls === 'object' ? row.external_urls : {},
-        availableOn: Array.isArray(row?.available_on) ? row.available_on : [],
+        id: String(track.id),
+        isrc: track.isrc || undefined,
+        title: String(track.title),
+        artist: String(track.artist),
+        album: track.album || undefined,
+        durationSec: typeof track.duration_sec === 'number' ? track.duration_sec : undefined,
+        artworkUrl: track.artwork_url || undefined,
+        genres: Array.isArray(track.genres) ? track.genres : [],
+        providerIds: track.provider_ids && typeof track.provider_ids === 'object' ? track.provider_ids : {},
+        previewUrl: track.preview_url || undefined,
+        externalUrls: track.external_urls && typeof track.external_urls === 'object' ? track.external_urls : {},
+        availableOn: Array.isArray(track.available_on) ? track.available_on : [],
       },
     }];
   });
