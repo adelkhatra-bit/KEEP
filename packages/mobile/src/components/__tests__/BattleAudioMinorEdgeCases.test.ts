@@ -23,7 +23,13 @@ describe('audioPreviewService -- ne reste plus "en lecture" sur un extrait web p
   });
 
   it("la minuterie reste un filet de sécurité si ended ne se déclenche jamais", () => {
-    expect(preview).toContain('activeTimer = setTimeout(finish, Math.max(1000, Math.round(durationMillis)));');
+    expect(preview).toContain('activeTimer = setTimeout(finish, Math.max(700, Math.round(effectiveDuration)));');
+  });
+  it('recalculates the shared Battle position after buffering so slower players do not restart from the beginning', () => {
+    expect(preview).toContain('syncStartEpochMs?: number');
+    expect(preview).toContain('const lateByMs = syncStartEpochMs ? Math.max(0, Date.now() - syncStartEpochMs) : 0');
+    expect(preview).toContain('const effectivePosition = basePosition + lateByMs');
+    expect(preview).toContain('startAtEpochMs');
   });
 });
 
