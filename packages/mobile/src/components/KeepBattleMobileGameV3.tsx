@@ -553,7 +553,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   ), [opponentNeedsMoreFree, roundCount]);
   const [spectateJoinBusy, setSpectateJoinBusy] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  const [soloSavePrompt, setSoloSavePrompt] = React.useState<{ costLine: string } | null>(null);
+  const [soloSavePrompt, setSoloSavePrompt] = React.useState<{ costLine: string | null } | null>(null);
   const [pending, setPending] = React.useState<string | null>(null);
   const [now, setNow] = React.useState(Date.now());
   const [audioReady, setAudioReady] = React.useState(false);

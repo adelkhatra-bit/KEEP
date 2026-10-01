@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
