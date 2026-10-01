@@ -95,6 +95,21 @@
     "catalogExpansionWithoutAppRelease": true,
     "providerRateLimitedBatches": true
   },
+  "eventExperience": {
+    "profileEventTapMustStayInline": true,
+    "notificationEventTapTarget": "Main.Discover?focus=EVENTS",
+    "discoverEventDetailMustStayInline": true,
+    "discoverEventRsvpChoices": ["NOT_GOING", "MAYBE", "GOING"],
+    "pendingEventsMustSaySuperAdminApprovalRequired": true,
+    "eventNotificationMayDeepLinkSpecificEventInsideDiscover": true
+  },
+  "adsModel": {
+    "defaultPlanWithInternalPromotions": "FREE",
+    "adFreePlans": ["PREMIUM", "CREATOR_PRO", "VENUE_PRO"],
+    "thirdPartyAdNetworkEnabled": false,
+    "initialPromotionSources": ["APPROVED_EVENTS", "LOKI_COLLECTIONS"],
+    "profilePromotionsMustNeverForceNavigation": true
+  },
   "marketplacePurchases": {
     "completedPurchaseMustPersistInBuyerPlaylist": true,
     "completedPurchaseMustPersistKeepDecision": true,
