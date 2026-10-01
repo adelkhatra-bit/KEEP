@@ -95,6 +95,19 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
   };
 }
 
+export async function loadDemoListenLimit(): Promise<number> {
+  if (!supabase) return 8;
+  const { data, error } = await supabase
+    .from('remote_config')
+    .select('value')
+    .eq('key', 'demo_listen_limit')
+    .maybeSingle();
+  if (error) return 8;
+  const limit = Number(data?.value);
+  if (!Number.isFinite(limit)) return 8;
+  return Math.max(1, Math.min(100, Math.round(limit)));
+}
+
 export async function loadSessionSilenceTimeoutMinutes(): Promise<number> {
   if (!supabase) return 15;
   const { data, error } = await supabase
