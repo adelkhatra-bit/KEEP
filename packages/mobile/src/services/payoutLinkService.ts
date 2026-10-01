@@ -12,8 +12,21 @@ function client() {
   return supabase;
 }
 
+export function normalizePayoutLinkInput(value: string): string {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const username = clean.replace(/^@/, '');
+  if (/^[A-Za-z0-9._-]{2,80}$/.test(username) && !username.includes('..')) {
+    return `https://paypal.me/${username}`;
+  }
+  if (/^paypal\.me\//i.test(clean)) return `https://${clean}`;
+  if (/^www\.paypal\.me\//i.test(clean)) return `https://${clean}`;
+  return clean;
+}
+
 export async function setMyPayoutLink(url: string): Promise<string> {
-  const { data, error } = await client().rpc('keep_set_payout_link', { p_url: url });
+  const normalized = normalizePayoutLinkInput(url);
+  const { data, error } = await client().rpc('keep_set_payout_link', { p_url: normalized });
   if (error) throw new Error(String(error.message || 'PAYOUT_LINK_SAVE_FAILED'));
   return String(data || '');
 }
@@ -30,7 +43,7 @@ export type PayoutProvider = 'PAYPAL' | 'STRIPE' | 'LYDIA' | 'OTHER';
 
 export function detectPayoutProvider(url: string): PayoutProvider {
   try {
-    const host = new URL(url.trim()).hostname.toLowerCase().replace(/^www\./, '');
+    const host = new URL(normalizePayoutLinkInput(url)).hostname.toLowerCase().replace(/^www\./, '');
     if (host === 'paypal.me' || host === 'paypal.com' || host.endsWith('.paypal.com')) return 'PAYPAL';
     if (host === 'buy.stripe.com' || host === 'checkout.stripe.com' || host.endsWith('.stripe.com')) return 'STRIPE';
     if (host === 'lydia-app.com' || host.endsWith('.lydia-app.com') || host === 'lydia.me') return 'LYDIA';
@@ -53,7 +66,7 @@ export function payoutProviderLabel(url: string): string {
  * Les autres prestataires conservent strictement l'URL fournie par le vendeur.
  */
 export function buildPayoutCheckoutUrl(url: string, amountCents: number, currencyCode = 'EUR'): string {
-  const clean = url.trim();
+  const clean = normalizePayoutLinkInput(url);
   if (detectPayoutProvider(clean) !== 'PAYPAL') return clean;
   try {
     const parsed = new URL(clean);
