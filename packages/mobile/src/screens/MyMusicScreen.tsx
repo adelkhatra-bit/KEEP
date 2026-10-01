@@ -1557,8 +1557,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
             ['LISTEN', 'DÉCOUVERTE'],
             ['SESSION', 'SESSION'],
             ['USERS', '🔒 REPRISE'],
-            ['IDENTIFIED', 'IDENTIFIER'],
-            ['PULSE', 'PULSE'],
+            ['IDENTIFIED', 'IDENTIFIÉ'],
+            ['PULSE', 'LOKI'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               key={key}
