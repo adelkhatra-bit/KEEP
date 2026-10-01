@@ -89,12 +89,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [chatVoiceEnabled, setChatVoiceEnabled] = useState(false);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(['PROFILE']);
   const [chatSide, setChatSide] = useState<'left' | 'right'>('right');
-  const [chatBottomOffset, setChatBottomOffset] = useState(88);
-  const { height: viewportHeight } = useWindowDimensions();
   const chatBottomOffset = useGlobalChatStore((state) => state.bottomOffset);
   const { height: viewportHeight } = useWindowDimensions();
   const chatLowBottom = Math.max(100, Math.round(viewportHeight * 0.44));
-  const chatHighBottom = Math.max(chatLowBottom, viewportHeight - 150);
+  const chatHighBottom = Math.max(chatLowBottom, viewportHeight - 118);
   const chatMiddleBottom = Math.max(chatLowBottom, Math.min(chatHighBottom, Math.round(viewportHeight * 0.58)));
   const chatVerticalPreset = Math.abs(chatBottomOffset - chatHighBottom) <= Math.abs(chatBottomOffset - chatMiddleBottom) && Math.abs(chatBottomOffset - chatHighBottom) <= Math.abs(chatBottomOffset - chatLowBottom)
     ? 'HIGH'
@@ -147,7 +145,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ['PROFILE']);
       setChatSide(settings.side);
-      setChatBottomOffset(settings.bottomOffset);
       useGlobalChatStore.getState().setSide(settings.side);
       useGlobalChatStore.getState().setBottomOffset(settings.bottomOffset);
     } finally {
@@ -201,25 +198,18 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (!isDemoMode) void saveMusicAgoraPosition(side, bottom).catch(() => {});
   };
 
-  const chatPositionOffsets = {
-    HIGH: Math.max(260, Math.round(viewportHeight * 0.72)),
-    MIDDLE: Math.max(220, Math.round(viewportHeight * 0.58)),
-    LOW: Math.max(180, Math.round(viewportHeight * 0.44)),
-  } as const;
-  const chatVerticalPreset = (Object.entries(chatPositionOffsets) as Array<['HIGH' | 'MIDDLE' | 'LOW', number]>)
-    .sort((a, b) => Math.abs(a[1] - chatBottomOffset) - Math.abs(b[1] - chatBottomOffset))[0]?.[0] ?? 'MIDDLE';
-
-  const chooseChatVerticalPreset = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
-    const nextBottom = chatPositionOffsets[preset];
-    setChatBottomOffset(nextBottom);
-    useGlobalChatStore.getState().setBottomOffset(nextBottom);
-    if (!isDemoMode) void saveMusicAgoraPosition(chatSide, nextBottom).catch(() => {});
-  };
-
   const chooseChatVertical = (preset: 'HIGH' | 'MIDDLE' | 'LOW') => {
     const nextBottom = preset === 'HIGH' ? chatHighBottom : preset === 'MIDDLE' ? chatMiddleBottom : chatLowBottom;
     useGlobalChatStore.getState().setBottomOffset(nextBottom);
     if (!isDemoMode) void saveMusicAgoraPosition(chatSide, nextBottom).catch(() => {});
+  };
+
+  const chooseChatTopAnchor = (anchor: 'MENU' | 'BELL') => {
+    const nextSide: 'left' | 'right' = anchor === 'MENU' ? 'left' : 'right';
+    setChatSide(nextSide);
+    useGlobalChatStore.getState().setSide(nextSide);
+    useGlobalChatStore.getState().setBottomOffset(chatHighBottom);
+    if (!isDemoMode) void saveMusicAgoraPosition(nextSide, chatHighBottom).catch(() => {});
   };
 
   useEffect(() => {
@@ -516,6 +506,17 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                     </TouchableOpacity>;
                   })}
                 </View>
+                <Text style={s.chatSectionLabel}>ANCRAGE RAPIDE EN HAUT</Text>
+                <View style={s.chatAnchorRow}>
+                  <TouchableOpacity style={s.chatAnchorButton} onPress={() => chooseChatTopAnchor('MENU')} accessibilityLabel="Tchat en haut à gauche près du menu">
+                    <Text style={s.chatAnchorIcon}>☰</Text>
+                    <Text style={s.chatAnchorText}>MENU · HAUT GAUCHE</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.chatAnchorButton} onPress={() => chooseChatTopAnchor('BELL')} accessibilityLabel="Tchat en haut à droite près de la cloche">
+                    <Text style={s.chatAnchorIcon}>🔔</Text>
+                    <Text style={s.chatAnchorText}>CLOCHE · HAUT DROITE</Text>
+                  </TouchableOpacity>
+                </View>
                 <Text style={s.chatSectionLabel}>HAUTEUR DU TIROIR</Text>
                 <View style={s.chatPositionRow}>
                   <TouchableOpacity style={[s.chatPositionButton, chatVerticalPreset === 'HIGH' && s.chatPositionButtonOn]} onPress={() => chooseChatVertical('HIGH')} accessibilityLabel="Placer le Tchat en haut">
@@ -679,6 +680,10 @@ const s = StyleSheet.create({
   chatPositionText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.4},
   chatPositionTextOn:{color:colors.primaryLight},
   chatPositionHint:{color:colors.textMutedGrey,fontSize:7,lineHeight:10,fontWeight:'700',textAlign:'center',marginTop:2},
+  chatAnchorRow:{gap:6,marginBottom:5},
+  chatAnchorButton:{minHeight:40,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:9,flexDirection:'row',alignItems:'center',gap:8},
+  chatAnchorIcon:{fontSize:15},
+  chatAnchorText:{color:colors.textPrimary,fontSize:9.5,fontWeight:'900'},
   chatSideRow:{flexDirection:'row',gap:7},
   chatSideButton:{flex:1,minHeight:34,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   chatSideButtonOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)'},
