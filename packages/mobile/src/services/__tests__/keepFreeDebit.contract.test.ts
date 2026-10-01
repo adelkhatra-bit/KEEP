@@ -7,7 +7,7 @@ const read = (...segments: string[]) =>
 
 describe('Loki FREE debit contract', () => {
   const client = read(__dirname, '..', 'keepTrackAction.ts');
-  const core = read(__dirname, '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-core', 'index.ts');
+  const core = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-core', 'index.ts');
 
   it('charges every new manual KEEP regardless of social/profile origin', () => {
     expect(client).toContain("const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;");
