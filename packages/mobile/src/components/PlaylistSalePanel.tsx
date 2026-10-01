@@ -22,6 +22,20 @@ const MARKETPLACE_CURRENCIES = [
   { code: 'CAD', label: '$ CAD' },
   { code: 'AUD', label: '$ AUD' },
   { code: 'AED', label: 'AED' },
+  { code: 'JPY', label: '¥ JPY' },
+  { code: 'CNY', label: '¥ CNY' },
+  { code: 'INR', label: '₹ INR' },
+  { code: 'BRL', label: 'R$ BRL' },
+  { code: 'MXN', label: '$ MXN' },
+  { code: 'KRW', label: '₩ KRW' },
+  { code: 'SGD', label: '$ SGD' },
+  { code: 'HKD', label: '$ HKD' },
+  { code: 'NZD', label: '$ NZD' },
+  { code: 'SEK', label: 'kr SEK' },
+  { code: 'NOK', label: 'kr NOK' },
+  { code: 'DKK', label: 'kr DKK' },
+  { code: 'PLN', label: 'zł PLN' },
+  { code: 'CZK', label: 'Kč CZK' },
 ] as const;
 
 function currencyForCountry(countryCode?: string | null): string {
@@ -33,6 +47,20 @@ function currencyForCountry(countryCode?: string | null): string {
   if (country === 'AU') return 'AUD';
   if (country === 'AE') return 'AED';
   if (country === 'US') return 'USD';
+  if (country === 'JP') return 'JPY';
+  if (country === 'CN') return 'CNY';
+  if (country === 'IN') return 'INR';
+  if (country === 'BR') return 'BRL';
+  if (country === 'MX') return 'MXN';
+  if (country === 'KR') return 'KRW';
+  if (country === 'SG') return 'SGD';
+  if (country === 'HK') return 'HKD';
+  if (country === 'NZ') return 'NZD';
+  if (country === 'SE') return 'SEK';
+  if (country === 'NO') return 'NOK';
+  if (country === 'DK') return 'DKK';
+  if (country === 'PL') return 'PLN';
+  if (country === 'CZ') return 'CZK';
   return 'EUR';
 }
 
@@ -237,7 +265,17 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     if (collectionCartPaymentMode === 'MONEY') {
       const clean = collectionCartPayoutLink.trim();
       if (!clean) {
-        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.me ou ton lien de paiement avant de publier.');
+        Alert.alert('PayPal requis', 'Ajoute ton lien PayPal.me avant de publier.');
+        return;
+      }
+      let paypalOk = false;
+      try {
+        const url = new URL(clean);
+        const host = url.hostname.toLowerCase().replace(/^www\./, '');
+        paypalOk = url.protocol === 'https:' && (host === 'paypal.me' || host === 'paypal.com' || host.endsWith('.paypal.com'));
+      } catch {}
+      if (!paypalOk) {
+        Alert.alert('Lien PayPal non reconnu', 'Utilise un lien sécurisé PayPal, par exemple https://paypal.me/tonpseudo.');
         return;
       }
       setBusy(true);
@@ -541,6 +579,23 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 {collectionCartStep === 'TRACKS' ? (
                   <>
                     <TextInput value={collectionCartQuery} onChangeText={setCollectionCartQuery} placeholder="Rechercher un morceau ou un artiste" placeholderTextColor={colors.textMuted} style={s.collectionCartSearch} />
+                    {collectionCartIds.size >= 2 ? (
+                      <View style={s.collectionCartReadyDock}>
+                        <View style={s.collectionCartReadyCopy}>
+                          <Text style={s.collectionCartReadyEyebrow}>MON PANIER EST PRÊT</Text>
+                          <Text style={s.collectionCartReadyTitle}>{collectionCartIds.size} morceaux sélectionnés</Text>
+                          <Text style={s.collectionCartReadyHint}>Quand ta sélection est terminée, ouvre le panier pour tout vérifier avant de choisir le prix.</Text>
+                        </View>
+                        <TouchableOpacity style={s.collectionCartReadyButton} onPress={continueCollectionCart} accessibilityLabel="J’ai fini ma sélection, ouvrir mon panier">
+                          <Text style={s.collectionCartReadyButtonTitle}>J’AI FINI MA SÉLECTION</Text>
+                          <Text style={s.collectionCartReadyButtonHint}>OUVRIR MON PANIER →</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={s.collectionCartNeedMore}>
+                        <Text style={s.collectionCartNeedMoreText}>Choisis au moins 2 morceaux. Le panier de validation apparaîtra ici dès qu’il sera prêt.</Text>
+                      </View>
+                    )}
                     {collectionCartLoading ? <ActivityIndicator color={colors.primaryLight} style={{marginVertical:18}} /> : visibleCollectionCartTracks.length ? (
                       <View style={s.collectionCartList}>
                         {visibleCollectionCartTracks.map((track) => {
@@ -562,10 +617,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                         })}
                       </View>
                     ) : <Text style={s.collectionCartEmpty}>Aucun morceau éligible trouvé.</Text>}
-                    <View style={s.collectionCartFooter}>
-                      <Text style={s.collectionCartCount}>{collectionCartIds.size} / 200</Text>
-                      <TouchableOpacity style={[s.collectionCartContinue, s.collectionCartContinueHero, collectionCartIds.size < 2 && s.collectionCartContinueDisabled]} disabled={collectionCartIds.size < 2} onPress={continueCollectionCart}><Text style={s.collectionCartContinueText}>{collectionCartIds.size < 2 ? 'CHOISIS AU MOINS 2 MORCEAUX' : 'VOIR MON PANIER'}</Text><Text style={s.collectionCartContinueSubtext}>{collectionCartIds.size >= 2 ? 'Tout est bon ? →' : ''}</Text></TouchableOpacity>
-                    </View>
+                    <Text style={s.collectionCartBottomCount}>{collectionCartIds.size} sélectionné{collectionCartIds.size > 1 ? 's' : ''} · 200 maximum</Text>
                   </>
                 ) : collectionCartStep === 'REVIEW' ? (
                   <>
@@ -601,8 +653,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     {collectionCartDuplicateCount > 0 ? <View style={s.collectionCartReviewNotice}><Text style={s.collectionCartReviewNoticeTitle}>AUCUN DOUBLON CRÉÉ</Text><Text style={s.collectionCartReviewNoticeText}>Les morceaux déjà proposés ailleurs restent référencés une seule fois dans Loki. Ils peuvent appartenir à plusieurs Pépites sans dupliquer la musique.</Text></View> : null}
 
                     <TouchableOpacity style={s.collectionCartReviewConfirm} onPress={confirmCollectionCartReview}>
-                      <Text style={s.collectionCartReviewConfirmTitle}>OUI, TOUT EST BON</Text>
-                      <Text style={s.collectionCartReviewConfirmHint}>Choisir maintenant FREE ou une devise</Text>
+                      <Text style={s.collectionCartReviewConfirmTitle}>OUI, MA SÉLECTION EST TERMINÉE</Text>
+                      <Text style={s.collectionCartReviewConfirmHint}>Continuer vers FREE ou paiement en devise →</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.collectionCartReviewEdit} onPress={() => setCollectionCartStep('TRACKS')}><Text style={s.collectionCartReviewEditText}>MODIFIER MON PANIER</Text></TouchableOpacity>
                   </>
@@ -613,7 +665,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <Text style={s.collectionCartFieldLabel}>MODE DE PAIEMENT</Text>
                     <View style={s.collectionCartModeRow}>
                       <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'FREE' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('FREE')}><Text style={s.collectionCartModeText}>⚡ FREE</Text></TouchableOpacity>
-                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('MONEY')}><Text style={s.collectionCartModeText}>◎ PAIEMENT DIRECT</Text></TouchableOpacity>
+                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('MONEY')}><Text style={s.collectionCartModeText}>PayPal · DEVISE</Text></TouchableOpacity>
                     </View>
                     {collectionCartPaymentMode === 'MONEY' ? (
                       <>
@@ -635,11 +687,11 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     </View>
                     {collectionCartPaymentMode === 'MONEY' ? (
                       <View style={s.collectionCartPayout}>
-                        <Text style={s.collectionCartFieldLabel}>{collectionCartPayoutLink.trim() ? 'PAYPAL / LIEN DÉJÀ ENREGISTRÉ' : 'TON PAYPAL / LIEN DE PAIEMENT'}</Text>
+                        <Text style={s.collectionCartFieldLabel}>{collectionCartPayoutLink.trim() ? 'PAYPAL DÉJÀ ENREGISTRÉ' : 'TON LIEN PAYPAL.ME'}</Text>
                         <TextInput value={collectionCartPayoutLink} onChangeText={setCollectionCartPayoutLink} autoCapitalize="none" autoCorrect={false} placeholder="https://paypal.me/tonpseudo" placeholderTextColor={colors.textMuted} style={s.collectionCartInput} />
                         <View style={s.collectionCartPayoutActions}>
                           <TouchableOpacity style={s.collectionCartSecondary} onPress={() => { void Linking.openURL('https://www.paypal.com/paypalme/'); }}><Text style={s.collectionCartSecondaryText}>OUVRIR PAYPAL.ME</Text></TouchableOpacity>
-                          <TouchableOpacity style={s.collectionCartSecondary} disabled={!collectionCartPayoutLink.trim() || busy} onPress={async () => { try { const saved=await setMyPayoutLink(collectionCartPayoutLink.trim()); setCollectionCartPayoutLink(saved || collectionCartPayoutLink.trim()); Alert.alert('Paiement','Lien enregistré. Il sera prérempli la prochaine fois.'); } catch(e:any) { Alert.alert('Paiement',e?.message || 'Impossible d’enregistrer le lien.'); } }}><Text style={s.collectionCartSecondaryText}>ENREGISTRER LE LIEN</Text></TouchableOpacity>
+                          <TouchableOpacity style={s.collectionCartSecondary} disabled={!collectionCartPayoutLink.trim() || busy} onPress={async () => { try { const saved=await setMyPayoutLink(collectionCartPayoutLink.trim()); setCollectionCartPayoutLink(saved || collectionCartPayoutLink.trim()); Alert.alert('Paiement','Lien enregistré. Il sera prérempli la prochaine fois.'); } catch(e:any) { Alert.alert('Paiement',e?.message || 'Impossible d’enregistrer le lien.'); } }}><Text style={s.collectionCartSecondaryText}>ENREGISTRER PAYPAL</Text></TouchableOpacity>
                         </View>
                       </View>
                     ) : null}
@@ -1057,12 +1109,18 @@ const s = StyleSheet.create({
   collectionCartCover:{width:48,height:48,borderRadius:12,backgroundColor:colors.background},collectionCartCoverEmpty:{alignItems:'center',justifyContent:'center'},collectionCartCoverText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
   collectionCartTrackCopy:{flex:1,minWidth:0},collectionCartTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},collectionCartTrackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},collectionCartAlready:{color:'#FFD166',fontSize:8,fontWeight:'900',marginTop:4},
   collectionCartAction:{minHeight:38,minWidth:74,paddingHorizontal:9,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartRemove:{borderColor:'#FF7885',backgroundColor:'#4A171B'},collectionCartActionText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},collectionCartEmpty:{color:colors.textMuted,fontSize:11,textAlign:'center',paddingVertical:18},
-  collectionCartFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:48,paddingHorizontal:18,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueHero:{flex:1,minHeight:62,backgroundColor:'#FFD166'},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:10,fontWeight:'900',letterSpacing:.5},collectionCartContinueSubtext:{color:'#5A420D',fontSize:8,fontWeight:'900',marginTop:2},
+  collectionCartFooter:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:52,paddingHorizontal:18,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueHero:{flex:1,minHeight:70,backgroundColor:colors.primary},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:.5},collectionCartContinueSubtext:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:3},
+  collectionCartReadyDock:{borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,padding:14,gap:12,marginTop:2},
+  collectionCartReadyCopy:{gap:3},collectionCartReadyEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.9},collectionCartReadyTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},collectionCartReadyHint:{color:colors.textSecondary,fontSize:10,lineHeight:15,fontWeight:'700'},
+  collectionCartReadyButton:{minHeight:76,borderRadius:18,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:16,shadowColor:'#000',shadowOpacity:.22,shadowRadius:8,shadowOffset:{width:0,height:4},elevation:7},
+  collectionCartReadyButtonTitle:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.5},collectionCartReadyButtonHint:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:4,letterSpacing:.4},
+  collectionCartNeedMore:{minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:12,justifyContent:'center'},collectionCartNeedMoreText:{color:colors.textMuted,fontSize:9.5,lineHeight:14,fontWeight:'700'},
+  collectionCartBottomCount:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center',paddingVertical:4},
   collectionCartReviewHero:{borderRadius:18,borderWidth:1,borderColor:'#D49A20',backgroundColor:'#211A0C',padding:16},collectionCartReviewHeroEyebrow:{color:'#FFD166',fontSize:9,fontWeight:'900',letterSpacing:1},collectionCartReviewHeroTitle:{color:colors.textPrimary,fontSize:22,fontWeight:'900',marginTop:5},collectionCartReviewHeroHint:{color:colors.textSecondary,fontSize:11,lineHeight:16,marginTop:5},
   collectionCartReviewStats:{minHeight:70,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center',paddingHorizontal:8},collectionCartReviewStat:{flex:1,alignItems:'center'},collectionCartReviewStatValue:{color:colors.keep,fontSize:20,fontWeight:'900'},collectionCartReviewStatWarn:{color:'#FFD166'},collectionCartReviewStatLabel:{color:colors.textMuted,fontSize:7.5,fontWeight:'900',textAlign:'center',marginTop:2},collectionCartReviewDivider:{width:1,height:34,backgroundColor:colors.border},
   collectionCartReviewList:{gap:7},collectionCartReviewTrack:{minHeight:52,borderRadius:13,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:8,paddingVertical:6,flexDirection:'row',alignItems:'center',gap:8},collectionCartReviewTrackNo:{width:22,color:colors.textMuted,fontSize:9,fontWeight:'900'},collectionCartReviewCover:{width:38,height:38,borderRadius:9,backgroundColor:colors.background},collectionCartReviewTrackCopy:{flex:1,minWidth:0},collectionCartReviewTrackTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900'},collectionCartReviewTrackArtist:{color:colors.textMuted,fontSize:9,marginTop:2},collectionCartReviewExisting:{color:'#FFD166',fontSize:7,fontWeight:'900'},collectionCartReviewOk:{color:colors.success,fontSize:8,fontWeight:'900'},collectionCartReviewMore:{color:colors.textMuted,fontSize:9,fontWeight:'800',textAlign:'center'},
   collectionCartReviewNotice:{borderRadius:14,borderWidth:1,borderColor:'#7B5B18',backgroundColor:'#2A1F09',padding:10},collectionCartReviewNoticeTitle:{color:'#FFD166',fontSize:9,fontWeight:'900',letterSpacing:.7},collectionCartReviewNoticeText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:3},
-  collectionCartReviewConfirm:{minHeight:60,borderRadius:18,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center',paddingHorizontal:14},collectionCartReviewConfirmTitle:{color:'#1B1405',fontSize:12,fontWeight:'900'},collectionCartReviewConfirmHint:{color:'#5A420D',fontSize:9,fontWeight:'800',marginTop:2},collectionCartReviewEdit:{minHeight:44,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},collectionCartReviewEditText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  collectionCartReviewConfirm:{minHeight:76,borderRadius:20,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:16,shadowColor:'#000',shadowOpacity:.22,shadowRadius:8,shadowOffset:{width:0,height:4},elevation:7},collectionCartReviewConfirmTitle:{color:'#FFFFFF',fontSize:12,fontWeight:'900'},collectionCartReviewConfirmHint:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:4},collectionCartReviewEdit:{minHeight:44,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},collectionCartReviewEditText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
   collectionCartCurrencyRow:{gap:7,paddingVertical:2},collectionCartCurrencyChip:{minHeight:38,paddingHorizontal:12,borderRadius:19,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},collectionCartCurrencyChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primary},collectionCartCurrencyText:{color:colors.textSecondary,fontSize:9,fontWeight:'900'},collectionCartCurrencyTextOn:{color:'#FFF'},
   collectionCartFieldLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,marginTop:3},collectionCartInput:{minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12,fontWeight:'700'},
   collectionCartModeRow:{flexDirection:'row',gap:8},collectionCartMode:{flex:1,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},collectionCartModeOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},collectionCartModeText:{color:colors.textPrimary,fontSize:10,fontWeight:'900'},
