@@ -13,6 +13,10 @@ describe('Loki chat real fullscreen web contract', () => {
     expect(dock).toContain("zIndex: 2147483647");
   });
 
+  it('does not leave the web chat below the viewport during a slide transition', () => {
+    expect(dock).toContain("animationType={Platform.OS === 'web' ? 'none' : 'slide'}");
+  });
+
   it('keeps a stable test/user entry for La Place', () => {
     expect(panel).toContain('testID="loki-chat-place-entry"');
     expect(panel).toContain('accessibilityLabel="Ouvrir La Place"');

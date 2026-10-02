@@ -520,7 +520,7 @@ export default function GlobalChatDock() {
         <Modal
           visible
           transparent={false}
-          animationType="slide"
+          animationType={Platform.OS === 'web' ? 'none' : 'slide'}
           presentationStyle="fullScreen"
           statusBarTranslucent
           onRequestClose={closeChat}
