@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { reloadToLatest } from '../services/appUpdateService';
 import { useAppUpdateStore } from '../store/useAppUpdateStore';
+import { runWhenNoGameInProgress } from '../services/updateGameGuard';
 
 /**
  * Mise à jour Loki Music sans UI visible :
@@ -41,25 +42,35 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
     // La mise à jour reste silencieuse et automatique, mais ne s'applique
     // JAMAIS sous les doigts de l'utilisateur : seulement quand l'onglet passe
     // en arrière-plan (changement d'onglet, écran verrouillé, fenêtre réduite).
+    let cancelGameWait: () => void = () => {};
     const applyUpdate = () => {
       if (webReloadingRef.current) return;
-      webReloadingRef.current = true;
-      reloadToLatest();
+      // Jamais pendant un Solo / Battle : on attend la fin de la partie.
+      cancelGameWait();
+      cancelGameWait = runWhenNoGameInProgress(() => {
+        if (webReloadingRef.current) return;
+        webReloadingRef.current = true;
+        reloadToLatest();
+      });
     };
     if (typeof document === 'undefined' || document.visibilityState === 'hidden') {
       applyUpdate();
-      return undefined;
+      return () => cancelGameWait();
     }
     const onHidden = () => {
       if (document.visibilityState === 'hidden') applyUpdate();
     };
     document.addEventListener('visibilitychange', onHidden);
-    return () => document.removeEventListener('visibilitychange', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      cancelGameWait();
+    };
   }, [authReady, latestSha]);
 
   useEffect(() => {
     if (!authReady || Platform.OS === 'web' || __DEV__) return undefined;
     let active = true;
+    let cancelGameWait: () => void = () => {};
 
     const applySilently = async () => {
       try {
@@ -69,14 +80,18 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
         if (!active || !check.isAvailable) return;
         await Updates.fetchUpdateAsync();
         if (!active) return;
-        await Updates.reloadAsync();
+        // Téléchargée maintenant, installée seulement hors partie.
+        cancelGameWait = runWhenNoGameInProgress(() => {
+          if (!active) return;
+          Updates.reloadAsync().catch(() => {});
+        });
       } catch {
         // Une panne OTA ne doit jamais empêcher Loki Music de démarrer.
       }
     };
 
     void applySilently();
-    return () => { active = false; };
+    return () => { active = false; cancelGameWait(); };
   }, [authReady]);
 
   return null;

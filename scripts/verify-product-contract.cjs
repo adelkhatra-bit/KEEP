@@ -311,6 +311,18 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   must(num(profileState, 'SOURCE_HYDRATION_BUDGET_MS') <= (rule.sourceHydrationBudgetMs || 6000) && profileState.includes('return hydrateSourceUsernamesWithinBudget(result);'), 'FILE RÉSEAU: l\'enrichissement découvreur ne doit pas cacher les musiques au-delà de son budget');
 }
 
+// ─── Mises à jour : jamais pendant une partie (Adel 02/10/2026) ──────────────
+{
+  const rule = contract.webUpdateExperience || {};
+  const banner = fs.readFileSync(path.join(root, 'packages/mobile/src/components/AppUpdateBanner.tsx'), 'utf8');
+  const guard = fs.readFileSync(path.join(root, 'packages/mobile/src/services/updateGameGuard.ts'), 'utf8');
+  must(rule.neverApplyDuringGame === true, 'MISE À JOUR: webUpdateExperience.neverApplyDuringGame doit rester true');
+  must(guard.includes('useGameSessionStore.getState().isGameInProgress') && guard.includes('useGameSessionStore.subscribe('), 'MISE À JOUR: updateGameGuard doit lire useGameSessionStore (Solo + Battle en ligne)');
+  const reloads = (banner.match(/reloadToLatest\(\)|Updates\.reloadAsync\(\)/g) || []).length;
+  const guarded = (banner.match(/runWhenNoGameInProgress\(\(\) => \{[^}]*?(reloadToLatest\(\)|Updates\.reloadAsync\(\))/g) || []).length;
+  must(reloads > 0 && reloads === guarded, `MISE À JOUR: chaque rechargement de AppUpdateBanner doit passer par runWhenNoGameInProgress (${guarded}/${reloads}). Une mise à jour en pleine partie fait perdre la mise du joueur.`);
+}
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);
@@ -323,4 +335,5 @@ console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited exp
 console.log('marketplace: FREE/€ filters + inline Pépites cart + confirmed duplicate reuse + payout locked');
 console.log('integration: clean preflight + product-contract postflight locked');
 console.log('contenu utilisateur: aucune migration destructive sans accord écrit d\'Adel');
+console.log('mises à jour: jamais pendant un Solo ou un Battle en ligne');
 console.log('connexion: échéances Auth > délai serveur, relance unique sur erreur rapide, sondages réseau >= 5 s verrouillés');

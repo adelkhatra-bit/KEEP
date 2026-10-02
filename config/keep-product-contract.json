@@ -523,7 +523,9 @@
     "waitForAuthBootstrapBeforeReload": true,
     "webCheckIntervalSeconds": 60,
     "silentReloadUsesCacheBustedCanonicalReload": true,
-    "nativeCompatibleOtaAutoApply": true
+    "nativeCompatibleOtaAutoApply": true,
+    "neverApplyDuringGame": true,
+    "neverApplyDuringGameReason": "Adel 02/10/2026 : une mise à jour (web ou OTA) ne s'installe jamais pendant un Solo ou un Battle en ligne -- recharger en pleine partie fait manquer des questions (3 absences = mise perdue). Elle attend la fin de la partie (useGameSessionStore) puis s'installe seule."
   },
   "battleAudioFairness": {
     "serverClockSource": "round.startedAt",
