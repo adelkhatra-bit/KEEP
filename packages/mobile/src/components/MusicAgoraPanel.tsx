@@ -223,7 +223,7 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0;
+  const compactBottom = 0;
 
   useEffect(() => {
     if (!enabled) {

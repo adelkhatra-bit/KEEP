@@ -86,6 +86,7 @@ export default function GlobalChatDock() {
   const [chatSettingsReady, setChatSettingsReady] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestChatSender, setLatestChatSender] = useState('');
+  const [webVisualViewport, setWebVisualViewport] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawerPeek = useRef(new Animated.Value(0)).current;
@@ -101,6 +102,40 @@ export default function GlobalChatDock() {
   const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
   const visualTestPreview = Boolean(previewOnly && process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1');
   const displayReady = accountReady || previewOnly;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !open) {
+      setWebVisualViewport(null);
+      return undefined;
+    }
+
+    const win = typeof window !== 'undefined' ? window : null;
+    const viewport = win?.visualViewport;
+    if (!win || !viewport) {
+      setWebVisualViewport(null);
+      return undefined;
+    }
+
+    const syncVisualViewport = () => {
+      setWebVisualViewport({
+        top: Math.max(0, Math.round(viewport.offsetTop || 0)),
+        left: Math.max(0, Math.round(viewport.offsetLeft || 0)),
+        width: Math.max(1, Math.round(viewport.width || win.innerWidth)),
+        height: Math.max(1, Math.round(viewport.height || win.innerHeight)),
+      });
+    };
+
+    viewport.addEventListener('resize', syncVisualViewport);
+    viewport.addEventListener('scroll', syncVisualViewport);
+    win.addEventListener('resize', syncVisualViewport);
+    syncVisualViewport();
+
+    return () => {
+      viewport.removeEventListener('resize', syncVisualViewport);
+      viewport.removeEventListener('scroll', syncVisualViewport);
+      win.removeEventListener('resize', syncVisualViewport);
+    };
+  }, [open]);
 
   useEffect(() => {
     const syncRoute = () => {
@@ -531,13 +566,13 @@ export default function GlobalChatDock() {
               styles.chatFullscreen,
               Platform.OS === 'web' && ({
                 position: 'fixed',
-                top: 0,
-                right: 0,
-                bottom: 0,
-                left: 0,
-                width: '100vw',
-                height: '100dvh',
-                minHeight: '100vh',
+                top: webVisualViewport ? String(webVisualViewport.top) + 'px' : 0,
+                left: webVisualViewport ? String(webVisualViewport.left) + 'px' : 0,
+                right: 'auto',
+                bottom: 'auto',
+                width: webVisualViewport ? String(webVisualViewport.width) + 'px' : '100vw',
+                height: webVisualViewport ? String(webVisualViewport.height) + 'px' : '100dvh',
+                minHeight: 0,
                 zIndex: 2147483647,
                 overflow: 'hidden',
               } as any),
