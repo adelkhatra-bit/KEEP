@@ -362,6 +362,20 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     if (!amount) return;
     setBusy(true);
     try {
+      // Dernier contrôle côté serveur juste avant publication. Le QR PayPal
+      // enregistré est une méthode de paiement valable à lui seul : il ne
+      // faut jamais exiger en plus un lien PayPal.Me.
+      if (collectionCartPaymentMode === 'MONEY') {
+        const payout = await getMyPayoutMethods();
+        setCollectionCartPayoutLink(payout.link || '');
+        setCollectionCartPayoutQrUrl(payout.qrUrl || '');
+        if (!payout.link.trim() && !payout.qrUrl.trim()) {
+          setCollectionCartStep('PRICE');
+          Alert.alert('Paiement requis', 'Ajoute soit ton lien PayPal.Me, soit ton QR PayPal avant de publier.');
+          return;
+        }
+      }
+
       const created = await setPlaylistSaleOfferForSelection(
         Array.from(collectionCartIds),
         collectionCartName.trim() || `Ma collection · ${collectionCartIds.size} titres`,
@@ -375,7 +389,19 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       const publishedTrackCount = Number(created.trackCount ?? collectionCartIds.size);
       Alert.alert('Pépite publiée', `« ${created.playlistName} » est en ligne avec ${publishedTrackCount} morceau${publishedTrackCount > 1 ? 'x' : ''}. Tu es resté dans Pépites.`);
     } catch (e: any) {
-      Alert.alert('Publication', e?.message || 'Impossible de publier cette collection.');
+      const raw = String(e?.message || e || '');
+      if (raw.includes('SELLER_PAYOUT_NOT_CONFIGURED')) {
+        setCollectionCartStep('PRICE');
+        Alert.alert('Paiement requis', 'Ajoute soit ton lien PayPal.Me, soit ton QR PayPal avant de publier.');
+      } else if (raw.includes('SELLER_PAYOUT_QR_INSECURE')) {
+        setCollectionCartStep('PRICE');
+        Alert.alert('QR PayPal', 'Ton QR enregistré n’est plus valide. Remplace-le puis republie.');
+      } else if (raw.includes('SELLER_PAYOUT_LINK_INSECURE')) {
+        setCollectionCartStep('PRICE');
+        Alert.alert('Lien PayPal', 'Ton lien PayPal doit être sécurisé en https://, ou utilise uniquement ton QR.');
+      } else {
+        Alert.alert('Publication', raw || 'Impossible de publier cette collection.');
+      }
     } finally {
       setBusy(false);
     }
