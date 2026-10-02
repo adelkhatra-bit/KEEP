@@ -65,48 +65,6 @@ const QUICK_REACTIONS: ReadonlyArray<{ label: string; payload: string; loki?: bo
   { label: LOKI_REACTION_TEXT, payload: LOKI_REACTION_TEXT, loki: true },
 ];
 
-const CHAT_VISUAL_TEST = process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1';
-
-function visualChatFixture(roomSlug: string, currentProfileId: string): MusicAgoraMessage[] {
-  if (!CHAT_VISUAL_TEST) return [];
-  const base = Date.now() - 36 * 60_000;
-  return Array.from({ length: 36 }, (_, index) => {
-    const own = index % 3 === 2;
-    return {
-      id: 9_000_000 + index,
-      roomSlug: roomSlug || 'place',
-      profileId: own ? currentProfileId : '00000000-0000-0000-0000-000000000099',
-      username: own ? 'moi' : 'loki-test',
-      avatarUrl: null,
-      kind: 'USER',
-      body: index === 35 ? 'DERNIER MESSAGE VISUEL LOKI' : `Historique visuel ${index + 1}`,
-      createdAt: new Date(base + index * 60_000).toISOString(),
-      targetProfileId: null,
-      targetUsername: null,
-      sharedTrackId: null,
-      musicRevealMode: 'NONE',
-      trackTitle: null,
-      trackArtist: null,
-      trackArtworkUrl: null,
-      trackPreviewUrl: null,
-      saleOfferId: null,
-      paymentMode: 'NONE',
-      freePrice: null,
-      priceCents: 0,
-      currencyCode: 'EUR',
-      offerActive: false,
-      viewerUnlocked: false,
-      viewerPaymentId: null,
-      viewerPaymentStatus: null,
-      viewerMarkedPaid: false,
-      targetOwnsTrack: false,
-      viewerOwnsTrack: false,
-      senderCanResell: false,
-      discoveredByUsername: null,
-    };
-  });
-}
-
 function ago(iso: string): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return '';
@@ -660,11 +618,8 @@ export default function MusicAgoraPanel({
         : chatMode === 'MESSAGES' && replyTarget?.profileId
           ? await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)
           : await loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
-      const resolvedRows = CHAT_VISUAL_TEST && compact && !activeGroup?.id && !replyTarget?.profileId && rows.length === 0
-        ? visualChatFixture(slug, currentProfileId)
-        : rows;
-      setMessages(resolvedRows);
-      setHasMore(CHAT_VISUAL_TEST ? false : rows.length === PAGE_SIZE);
+      setMessages(rows);
+      setHasMore(rows.length === PAGE_SIZE);
       if (chatMode === 'MESSAGES') void refreshInbox();
     } catch {
       if (!quiet) {
@@ -824,47 +779,6 @@ export default function MusicAgoraPanel({
     }
     if (sharedTrack && sharePaymentMode === 'MONEY' && !paymentTermsAccepted) {
       askPaymentTerms(() => setSharePaymentMode('MONEY'));
-      return;
-    }
-    if (CHAT_VISUAL_TEST && compact && !sharedTrack) {
-      const sentId = 9_100_000 + Date.now() % 100_000;
-      ownSendPendingRef.current = sentId;
-      stickToBottomRef.current = true;
-      userDraggingChatRef.current = false;
-      setMessages((current) => [...current, {
-        id: sentId,
-        roomSlug: roomSlug || 'place',
-        profileId: currentProfileId,
-        username: 'moi',
-        avatarUrl: null,
-        kind: 'USER',
-        body,
-        createdAt: new Date().toISOString(),
-        targetProfileId: replyTarget?.profileId ?? null,
-        targetUsername: replyTarget?.username ?? null,
-        sharedTrackId: null,
-        musicRevealMode: 'NONE',
-        trackTitle: null,
-        trackArtist: null,
-        trackArtworkUrl: null,
-        trackPreviewUrl: null,
-        saleOfferId: null,
-        paymentMode: 'NONE',
-        freePrice: null,
-        priceCents: 0,
-        currencyCode: 'EUR',
-        offerActive: false,
-        viewerUnlocked: false,
-        viewerPaymentId: null,
-        viewerPaymentStatus: null,
-        viewerMarkedPaid: false,
-        targetOwnsTrack: false,
-        viewerOwnsTrack: false,
-        senderCanResell: false,
-        discoveredByUsername: null,
-      }]);
-      setDraft('');
-      followChatBottom(false);
       return;
     }
     setPosting(true);
