@@ -165,13 +165,37 @@ export function createProfileService(client: SupabaseClient) {
     async loadOrCreateOwnProfile(session: KeepAuthSession): Promise<User> {
       const fallback = fallbackUser(session);
 
-      const { data: profile, error: profileError } = await client
+      let { data: profile, error: profileError } = await client
         .from('profiles')
         .select('*')
         .eq('id', session.userId)
         .maybeSingle();
 
-      if (profileError) throw profileError;
+      // Incident 02/10/2026 : PostgREST a renvoyé PGRST002/503 alors que les
+      // comptes existaient. En cas d'erreur, on récupère le VRAI profil par
+      // l'Edge Function SQL directe, authentifiée par la session courante.
+      if (profileError) {
+        const bootstrap = await client.functions.invoke('keep-profile-bootstrap', { body: {} });
+        const payload: any = bootstrap.data;
+        if (bootstrap.error || !payload?.ok || !payload?.profile) throw profileError;
+
+        profile = payload.profile;
+        loadedOwnProfileId = session.userId;
+        return {
+          ...publicUserFromProfile(
+            profile,
+            Array.isArray(payload.social_links) ? payload.social_links : [],
+            Number(payload.follower_count ?? 0),
+            Number(payload.following_count ?? 0),
+          ),
+          email: session.email ?? '',
+          locationOptIn: profile.location_opt_in,
+          privateInfo: {
+            birthDate: payload.private_info?.birth_date ?? undefined,
+            gender: payload.private_info?.gender ?? undefined,
+          },
+        };
+      }
 
       if (!profile) {
         // Un nouveau profil doit toujours utiliser le pseudo explicitement
