@@ -1,4 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabaseClient';
 
 const BUCKET = 'playlist-payment-proofs';
@@ -55,28 +56,58 @@ export async function loadPlaylistPaymentProof(paymentId: string): Promise<Playl
   };
 }
 
-export async function pickAndUploadPlaylistPaymentProof(paymentId: string): Promise<PlaylistPaymentProof | null> {
+export async function pickAndUploadPlaylistPaymentProof(
+  paymentId: string,
+  source: 'PHOTO' | 'DOCUMENT' = 'DOCUMENT',
+): Promise<PlaylistPaymentProof | null> {
   if (!supabase) throw new Error('Supabase indisponible.');
   const userId = await currentUserId();
 
-  const picked = await DocumentPicker.getDocumentAsync({
-    type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
-  if (picked.canceled || !picked.assets?.[0]) return null;
+  let pickedAsset: { uri: string; name: string; mimeType?: string | null; size?: number | null } | null = null;
 
-  const asset = picked.assets[0];
-  if (asset.size != null && asset.size > MAX_BYTES) throw new Error('La preuve doit faire moins de 10 Mo.');
+  if (source === 'PHOTO') {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) throw new Error('Autorise l’accès aux photos pour joindre ta capture PayPal.');
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.9,
+    });
+    if (picked.canceled || !picked.assets?.[0]?.uri) return null;
+    const asset = picked.assets[0];
+    pickedAsset = {
+      uri: asset.uri,
+      name: asset.fileName || `capture-paypal-${Date.now()}.jpg`,
+      mimeType: asset.mimeType,
+      size: asset.fileSize,
+    };
+  } else {
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (picked.canceled || !picked.assets?.[0]) return null;
+    const asset = picked.assets[0];
+    pickedAsset = {
+      uri: asset.uri,
+      name: asset.name || 'preuve',
+      mimeType: asset.mimeType,
+      size: asset.size,
+    };
+  }
 
-  const mime = inferMime(asset.name || '', asset.mimeType);
+  if (!pickedAsset) return null;
+  if (pickedAsset.size != null && pickedAsset.size > MAX_BYTES) throw new Error('La preuve doit faire moins de 10 Mo.');
+
+  const mime = inferMime(pickedAsset.name, pickedAsset.mimeType);
   if (!ALLOWED.has(mime)) throw new Error('Utilise une capture JPG/PNG/WEBP ou un PDF.');
 
-  const name = safeName(asset.name || '', mime);
+  const name = safeName(pickedAsset.name, mime);
   const path = `${userId}/${paymentId}/${Date.now()}-${name}`;
 
-  const response = await fetch(asset.uri);
-  if (!response.ok && !asset.uri.startsWith('file:') && !asset.uri.startsWith('content:') && !asset.uri.startsWith('blob:')) {
+  const response = await fetch(pickedAsset.uri);
+  if (!response.ok && !pickedAsset.uri.startsWith('file:') && !pickedAsset.uri.startsWith('content:') && !pickedAsset.uri.startsWith('blob:')) {
     throw new Error('Impossible de lire cette preuve.');
   }
   const blob = await response.blob();
