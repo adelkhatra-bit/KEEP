@@ -61,6 +61,20 @@ async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unkn
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function withAuthDeadline<T>(promise: Promise<T>, timeoutMs = 3500): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('auth_temporarily_unavailable:timeout')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function forceClearPersistedAuthSession(client: SupabaseClient): Promise<void> {
   const authClient = client.auth as any;
   const storage = authClient?.storage;
@@ -383,19 +397,33 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async getCurrentSession() {
-      let { data } = await client.auth.getSession();
+      // Incident réel 02/10/2026 : Supabase Auth a renvoyé 500/504 pendant
+      // plusieurs secondes (pool Postgres indisponible). Sans deadline,
+      // getSession()/refreshSession pouvait laisser le bootstrap bloqué sur le
+      // spinner. Une panne 5xx/timeout n'est JAMAIS interprétée comme une
+      // déconnexion : on la remonte pour que l'app garde l'identité locale et
+      // retente silencieusement.
+      const initial = await withAuthDeadline(client.auth.getSession());
+      let data = initial.data;
+      if (initial.error) {
+        if (transientAuthFailure(initial.error)) throw initial.error;
+        return null;
+      }
 
       // Supabase peut conserver un refresh token local alors que l'access
       // token courant n'est plus exposé par getSession(). Avant de conclure
-      // « déconnecté », on tente une restauration silencieuse. Cela évite le
-      // cas où le profil et la musique sont encore hydratés localement alors
-      // que l'UI affiche à tort « Se connecter ».
+      // « déconnecté », on tente une restauration silencieuse.
       if (!data.session?.user && typeof (client.auth as any).refreshSession === 'function') {
         try {
-          const refreshed = await (client.auth as any).refreshSession();
+          const refreshed = await withAuthDeadline((client.auth as any).refreshSession());
+          if (refreshed?.error) {
+            if (transientAuthFailure(refreshed.error)) throw refreshed.error;
+            return null;
+          }
           if (refreshed?.data?.session?.user) data = refreshed.data;
-        } catch {
-          // Pas de refresh token exploitable : session réellement absente.
+        } catch (error) {
+          if (transientAuthFailure(error)) throw error;
+          return null;
         }
       }
 
