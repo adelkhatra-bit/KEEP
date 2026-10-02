@@ -50,8 +50,11 @@ describe('Loki chat latest-message visual follow', () => {
   it('focuses the composer after opening a thread so the native mobile keyboard appears', () => {
     expect(source).toContain('const composerInputRef = useRef<TextInput | null>(null);');
     expect(source).toContain('composerInputRef.current?.focus();');
+    expect(source).toContain('InteractionManager.runAfterInteractions(focus);');
     expect(source).toContain('ref={composerInputRef}');
     expect(source).toContain('showSoftInputOnFocus');
+    expect(source).toContain('onPressIn={() => {');
+    expect(source).toContain('requestAnimationFrame(() => focusComposer());');
     expect(source).toContain("Platform.OS === 'ios' ? 380 : 140");
   });
 });
