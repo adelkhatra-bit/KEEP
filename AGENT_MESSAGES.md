@@ -2535,3 +2535,10 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - E-mails live : file recovery bloquée par Brevo `Authorised IPs` ; erreur confirmée `unrecognised IP address`. Ce blocage est côté compte Brevo, pas dans l'UI Loki.
 - App Store : les anciens échecs Apple 401 / `com.adelkhatra.keep.share-extension` étaient des échecs de pipeline/signature, pas une décision App Review. La première build garde la Share Extension retirée et le marketplace iOS externe OFF (3.1.1).
 - Publication iOS actuelle déclenchée via `packages/mobile/.eas-build-trigger` sur le candidat `d3e456aa...`. Commit trigger : `cc8c87b24030ab06c2399715f90c01af6880ed04`.
+
+## [2026-10-02 12:55 CEST] ChatGPT — correctif SELLER_PAYOUT_NOT_CONFIGURED / QR PayPal
+- Cause prouvée en production : le trigger `keep_playlist_sale_require_money_payout()` ne vérifiait que `profiles.payout_link` et ignorait `profiles.payout_qr_url`. Un vendeur avec QR PayPal enregistré mais sans PayPal.Me était donc rejeté à la publication avec `SELLER_PAYOUT_NOT_CONFIGURED`.
+- Correction live + migration repo : `20261002104500_playlist_sale_money_accept_qr_payout.sql`. Le trigger accepte maintenant LINK OU QR et valide HTTPS séparément. Commit : `7eb05a5b144369d9e473794327e63dfac2d93de0`.
+- Preuve : il existe actuellement 1 profil configuré QR-only ; smoke test transactionnel de `keep_playlist_sale_set_offer_for_selection_v5` en MONEY/1 EUR avec 2 titres sur ce profil = succès, rollback ensuite (aucune fausse offre conservée).
+- UI Pépites : préflight serveur juste avant PUBLIER, QR seul accepté, messages propres (plus de code brut). Commits : `9bb07efac3d19d74e2aee2756ca9e0b8c4e3ed70`, `4a1cd9561704b3c4ec257c9ff38615a2751de74b`.
+- TestFlight : rebuild final déclenché sur la chaîne incluant ces correctifs + intégrité preuve paiement. Trigger commit : `609cd6ac8e8164adfdc36641d350d9f1b9c4c36c`. Surveiller run Auto EAS iOS `36997593672`.
