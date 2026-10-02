@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -235,7 +235,10 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  const compactBottom = 0;
+  // Le chat plein écran reste physiquement AU-DESSUS du clavier natif.
+  // On s'appuie sur la hauteur réelle remontée par iOS/Android plutôt que sur
+  // KeyboardAvoidingView, qui est instable dans un Modal + conteneur absolute.
+  const compactBottom = compact && Platform.OS !== 'web' ? keyboardInset : 0;
 
   const focusComposer = () => {
     if (!compact) return;
@@ -1080,10 +1083,7 @@ export default function MusicAgoraPanel({
   };
   if (compact && !enabled) return null;
 
-  return <KeyboardAvoidingView
-    enabled={compact && Platform.OS !== 'web'}
-    behavior={compact && Platform.OS === 'ios' ? 'padding' : compact && Platform.OS === 'android' ? 'height' : undefined}
-    keyboardVerticalOffset={0}
+  return <View
     testID={compact ? "loki-chat-fullscreen" : undefined}
     accessibilityLabel={compact ? "Messagerie Loki" : undefined}
     style={[
@@ -1963,7 +1963,7 @@ export default function MusicAgoraPanel({
         </ScrollView>
       </View></View>
     </Modal>
-  </KeyboardAvoidingView>;
+  </View>;
 }
 
 const s=StyleSheet.create({
