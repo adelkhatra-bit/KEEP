@@ -7,6 +7,7 @@ import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
+import { primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -282,6 +283,20 @@ export default function GlobalChatDock() {
   }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
+    if (!accountReady || open || unreadCount <= 0 || !chatEnabled || !chatNotificationsEnabled || !chatVoiceEnabled) return undefined;
+    const remind = () => {
+      const detail = latestChatSender
+        ? `Tu as un message non lu de ${latestChatSender}`
+        : `Tu as ${unreadCount} message${unreadCount > 1 ? 's' : ''} non lu${unreadCount > 1 ? 's' : ''}`;
+      void speakLokiText(detail, { language: 'fr-FR', rate: 0.94, pitch: 1 }).catch(() => {});
+    };
+    // Rappel volontairement espacé : assez régulier pour ne pas oublier le
+    // message, sans parler en boucle pendant l'utilisation de l'application.
+    const timer = setInterval(remind, 75000);
+    return () => clearInterval(timer);
+  }, [accountReady, open, unreadCount, latestChatSender, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
+
+  useEffect(() => {
     if (!accountReady) {
       setTracks([]);
       return;
@@ -442,6 +457,7 @@ export default function GlobalChatDock() {
   };
 
   const toggle = async () => {
+    primeNotificationAudio();
     if (visualTestPreview) {
       openChat(target);
       return;
