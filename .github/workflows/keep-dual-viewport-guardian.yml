@@ -22,8 +22,10 @@ on:
   schedule:
     - cron: '41 */6 * * *'
 
+# Never run this production-backed browser load in parallel with another
+# guardian. This prevents CI fan-out from starving GoTrue/Postgres.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: keep-production-supabase-browser-audits
   cancel-in-progress: false
 
 permissions:
