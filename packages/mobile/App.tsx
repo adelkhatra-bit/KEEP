@@ -11,7 +11,7 @@ import GlobalChatDock from './src/components/GlobalChatDock';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
-import { useUserStore } from './src/store/useUserStore';
+import { getCachedWebRealUserSnapshot, useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
 import { useBattleAvailabilityStore } from './src/store/useBattleAvailabilityStore';
@@ -173,6 +173,24 @@ export default function App() {
     let pendingProfileSession: KeepAuthSession | null = null;
     let applyingRemoteProfile = false;
     let initialBootstrapSettled = false;
+    let degradedBootstrapTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Si Supabase traverse une panne transitoire, ne jamais emprisonner un
+    // utilisateur déjà connu derrière le spinner. Le snapshot web est minimal
+    // (UUID/pseudo/avatar), local à cet appareil, et n'est JAMAIS considéré
+    // comme un profil hydraté : profileLoadedFor reste null, donc aucune
+    // autosauvegarde ne peut écraser Supabase avec des données partielles.
+    degradedBootstrapTimer = setTimeout(() => {
+      if (!active || initialBootstrapSettled || manualAuthExitRef.current) return;
+      const state = useUserStore.getState();
+      if (state.user) return;
+      const cached = getCachedWebRealUserSnapshot();
+      if (!cached) return;
+      applyingRemoteProfile = true;
+      state.setUser(cached);
+      applyingRemoteProfile = false;
+      setAuthReady(true);
+    }, 3600);
 
     const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
       if (manualAuthExitRef.current && session) return false;
@@ -374,7 +392,16 @@ export default function App() {
       // parce que profiles/follows répondent 503/504. On garde l'écran de
       // récupération et on retente le vrai profil jusqu'à hydratation.
       pendingProfileSession = session;
-      setAuthReady(false);
+      const current = useUserStore.getState();
+      const sameVisibleAccount = Boolean(
+        current.user?.id === session.userId
+        && !current.isDemoMode
+        && !current.isLocalGuest
+      );
+      // Si l'identité locale correspond déjà au JWT en restauration, garder
+      // l'application visible pendant que le profil Supabase retente en fond.
+      // Un AUTRE compte reste, lui, correctement bloqué jusqu'à hydratation.
+      if (!sameVisibleAccount) setAuthReady(false);
 
       void handleSessionOnce(session).then((hydrated) => {
         if (!active) return;
@@ -412,6 +439,7 @@ export default function App() {
       if (saveTimer) clearTimeout(saveTimer);
       if (bootstrapRetryTimer) clearTimeout(bootstrapRetryTimer);
       if (profileRetryTimer) clearTimeout(profileRetryTimer);
+      if (degradedBootstrapTimer) clearTimeout(degradedBootstrapTimer);
       unsubscribeStore();
       unsubscribeAuth();
     };
