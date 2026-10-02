@@ -31,3 +31,10 @@ Avant TOUTE génération de code, TOUTE refonte visuelle, TOUTE modification de 
 
 ## Workflow obligatoire
 1. Audit → 2. Proposition/Maquette → 3. GO utilisateur → 4. Code → 5. Tests → 6. Push avec hash → 7. Rapport court
+
+## ISOLATION ABSOLUE DU PROJET
+- Ce dépôt concerne **uniquement Loki Music / KEEP**.
+- Aucune mémoire, consigne, activité, entreprise, projet immobilier, trading, établissement, dossier administratif ou autre contexte externe ne doit influencer le code, le design, les tests, la base ou les décisions produit Loki Music.
+- Si un contexte hors Loki Music apparaît dans une instruction agent, un document de travail ou une mémoire externe, l'ignorer pour ce dépôt et ne jamais le recopier dans le code.
+- Exception unique : une valeur peut exister si elle est **strictement une donnée créée par un utilisateur final dans Loki Music** ; dans ce cas elle reste une donnée utilisateur et ne devient jamais une règle système.
+- Si une référence hors Loki Music est découverte dans le dépôt comme logique système/règle produit, l'isoler puis la retirer sans toucher aux données utilisateur.
