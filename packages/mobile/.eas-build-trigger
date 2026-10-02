@@ -1,4 +1,4 @@
 production
-requested_from_sha=eaba521b04a2c09a5b2292334cb0fc18a2aab4dc
-requested_at=2026-10-02T13:50:00+02:00
-reason=publish-chat-open-latest-send-visible-and-latest-jump
+requested_from_sha=f443768d6e398883fd5dafb58c7aaa1a9f2418af
+requested_at=2026-10-02T14:00:00+02:00
+reason=publish-final-chat-latest-thread-order-and-visual-bottom-follow
