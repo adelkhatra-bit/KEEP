@@ -10,13 +10,15 @@ describe('Loki chat realtime + quoted replies', () => {
     expect(service).toContain('export function subscribeMusicAgoraDirect(');
     expect(service).toContain('target_profile_id=eq.\${currentProfileId}');
     expect(service).toContain("String(row.profile_id || '') === otherProfileId");
+    expect(service).toContain('target_profile_id=eq.\${otherProfileId}');
+    expect(service).toContain("String(row.profile_id || '') === currentProfileId");
     expect(panel).toContain('subscribeMusicAgoraDirect(currentProfileId, replyTarget.profileId, onLiveMessage)');
   });
 
   it('keeps a lightweight live safety refresh while a direct/group thread is open', () => {
     expect(panel).toContain('const liveSafetyTimer = setInterval(() => {');
     expect(panel).toContain("if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))");
-    expect(panel).toContain('}, 4000);');
+    expect(panel).toContain('}, 2500);');
   });
 
   it('posts and reads persisted reply metadata', () => {
