@@ -216,13 +216,19 @@ export default function MusicAgoraPanel({
 
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, (event) => {
+    const applyKeyboardFrame = (event: any) => {
       const reportedHeight = Math.max(0, Number(event.endCoordinates?.height || 0));
       const reportedTop = Math.max(0, Number(event.endCoordinates?.screenY || 0));
       const coveredByTop = reportedTop > 0 ? Math.max(0, baseViewportHeightRef.current - reportedTop) : 0;
-      setKeyboardInset(Math.max(reportedHeight, coveredByTop));
+      const nextInset = Math.max(reportedHeight, coveredByTop);
+      setKeyboardInset(nextInset);
       setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
-    });
+      setTimeout(() => followChatBottom(false), Platform.OS === 'ios' ? 260 : 140);
+    };
+    const show = Keyboard.addListener(showEvent, applyKeyboardFrame);
+    const frame = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillChangeFrame', applyKeyboardFrame)
+      : null;
     const hide = Keyboard.addListener(hideEvent, () => {
       setKeyboardInset(0);
       if (ownSendPendingRef.current !== null || forceBottomRef.current) {
@@ -231,6 +237,7 @@ export default function MusicAgoraPanel({
     });
     return () => {
       show.remove();
+      frame?.remove();
       hide.remove();
     };
   }, [compact, viewportHeight]);
@@ -1819,6 +1826,7 @@ export default function MusicAgoraPanel({
             forceBottomRef.current = true;
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
+            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 360);
           }}
           style={[s.input, compact && s.inputCompact]}
         />
