@@ -1886,22 +1886,31 @@ export default function MusicAgoraPanel({
       ) : null}
       {composerActionsOpen ? (
         <View style={s.composerDrawer}>
+          {/* Adel (02/10/2026) : boutons colorés pour être repérés d'un coup
+              d'œil -- Réactions en rose, Morceau en menthe. */}
           <TouchableOpacity
-            style={[s.drawerAction, reactionPaletteOpen && s.drawerActionOn]}
+            style={[s.drawerAction, s.drawerActionReactions, reactionPaletteOpen && s.drawerActionReactionsOn]}
             onPress={() => setReactionPaletteOpen((open) => !open)}
             accessibilityLabel="Réactions"
           >
-            <Text style={s.drawerActionIcon}>☺</Text>
-            <Text style={s.drawerActionText}>RÉACTIONS</Text>
+            <Text style={[s.drawerActionIcon, s.drawerActionReactionsText]}>☺</Text>
+            <Text style={[s.drawerActionText, s.drawerActionReactionsText]}>RÉACTIONS</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[s.drawerAction]}
-            disabled={!shareableTracks.length}
-            onPress={() => { setComposerActionsOpen(false); setShareOpen(true); }}
+            style={[s.drawerAction, s.drawerActionMusic]}
+            onPress={() => {
+              // Plus de bouton silencieusement désactivé : on explique quoi faire.
+              if (!shareableTracks.length) {
+                Alert.alert('Aucun morceau à partager', 'Garde d’abord une musique dans ton profil Loki Music pour pouvoir la partager ici.');
+                return;
+              }
+              setComposerActionsOpen(false);
+              setShareOpen(true);
+            }}
             accessibilityLabel="Ajouter une pépite"
           >
-            <Text style={s.drawerActionIcon}>♫</Text>
-            <Text style={s.drawerActionText}>MORCEAU</Text>
+            <Text style={[s.drawerActionIcon, s.drawerActionMusicText]}>♫</Text>
+            <Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>
           </TouchableOpacity>
           {replyTarget ? <TouchableOpacity
             style={[s.drawerAction, !myPayoutQrUrl && s.shareQrOff]}
@@ -2239,6 +2248,11 @@ const s=StyleSheet.create({
   composerDrawer:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:7,minHeight:48,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6},
   drawerAction:{flexGrow:1,minWidth:88,minHeight:42,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   drawerActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  drawerActionReactions:{borderColor:'#FF7AB6',backgroundColor:'rgba(255,122,182,.12)'},
+  drawerActionReactionsOn:{backgroundColor:'rgba(255,122,182,.26)'},
+  drawerActionReactionsText:{color:'#FF9CCB'},
+  drawerActionMusic:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)'},
+  drawerActionMusicText:{color:colors.keep},
   drawerActionIcon:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},
   drawerActionText:{color:colors.textSecondary,fontSize:11.5,fontWeight:'900',marginTop:2},
   composerBar:{flexDirection:'row',alignItems:'center',gap:7,minHeight:66,borderRadius:33,borderWidth:1,borderColor:'rgba(167,139,250,.48)',backgroundColor:'rgba(18,13,28,.98)',paddingHorizontal:6,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.14,shadowRadius:6,shadowOffset:{width:0,height:0},elevation:4},
