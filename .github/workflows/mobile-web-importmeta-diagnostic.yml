@@ -219,6 +219,12 @@ jobs:
             if (openedScroll.distance > 12) {
               throw new Error(`Chat opened away from latest message: ${JSON.stringify(openedScroll)}`);
             }
+            const newestLoadedBubble = page.getByText(/Historique visuel 5030/).last();
+            await newestLoadedBubble.waitFor({ state: 'visible', timeout: 10000 });
+            const [threadBoxAtOpen, newestBox] = await Promise.all([threadScroll.boundingBox(), newestLoadedBubble.boundingBox()]);
+            if (!threadBoxAtOpen || !newestBox || newestBox.y < threadBoxAtOpen.y - 2 || newestBox.y + newestBox.height > threadBoxAtOpen.y + threadBoxAtOpen.height + 2) {
+              throw new Error(`Newest loaded chat bubble is outside visible thread: ${JSON.stringify({ threadBoxAtOpen, newestBox })}`);
+            }
 
             // Pendant la saisie, le clavier/compositeur peut changer de hauteur.
             // Le fil doit suivre visuellement le bas sans swipe manuel.
@@ -262,7 +268,9 @@ jobs:
             await clickRobust(page.getByLabel('Ouvrir les actions du message').last(), 'Open composer actions');
             await page.getByText('RÉACTIONS', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
             await page.getByText('MORCEAU', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
-            await page.getByText('QR PAYPAL', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
+            if (await page.getByText('QR PAYPAL', { exact: true }).count() !== 0) {
+              throw new Error('QR PayPal must stay direct-message only, not in La Place');
+            }
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-actions-390x844.png', fullPage: true });
             await clickRobust(page.getByLabel('Fermer la messagerie').last(), 'Close full-screen messenger');
             await fullChat.waitFor({ state: 'hidden', timeout: 10000 });
@@ -355,7 +363,9 @@ jobs:
               'CHAT_DRAWER_VISIBLE: PASS',
               'CHAT_FULLSCREEN_390x844: PASS',
               'CHAT_OPENS_ON_LATEST_MESSAGE: PASS',
+              'CHAT_NEWEST_BUBBLE_VISIBLE_IN_VIEWPORT: PASS',
               'CHAT_FOLLOWS_BOTTOM_WHILE_TYPING: PASS',
+              'CHAT_SENT_BUBBLE_VISIBLE_WITHOUT_SWIPE: PASS',
               'BELL_INLINE_TABS_VISIBLE: PASS',
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
