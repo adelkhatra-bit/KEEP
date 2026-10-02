@@ -143,7 +143,7 @@ jobs:
             // défaut qui consommerait aussi une découverte Free sans action.
             await clickRobust(t('Découvertes',{exact:true}),'Découvertes tab');
             await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
-            await t('Aucun profil n’est affiché par défaut. Choisis une distance puis appuie sur RECHERCHER.',{exact:true}).waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Rechercher des profils autour de moi').last().waitFor({state:'visible',timeout:15000});
             if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
             await shot('03-discover-before-search-empty');
 
