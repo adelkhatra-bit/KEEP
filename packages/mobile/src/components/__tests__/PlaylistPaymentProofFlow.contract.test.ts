@@ -12,7 +12,7 @@ describe('Playlist payment proof and delivery contract', () => {
   const notifications = read(__dirname, '..', '..', 'screens', 'NotificationsScreen.tsx');
   const myMusic = read(__dirname, '..', '..', 'screens', 'MyMusicScreen.tsx');
   const proofService = read(__dirname, '..', '..', 'services', 'playlistPaymentProofService.ts');
-  const migration = read(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20261002133000_playlist_sale_payment_proof.sql');
+  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002133000_playlist_sale_payment_proof.sql');
 
   it('forces the buyer to attach a private proof before signalling payment', () => {
     expect(checkout).toContain('JOINDRE MA PREUVE');
