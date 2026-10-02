@@ -42,6 +42,9 @@ export type MusicAgoraMessage = {
   viewerOwnsTrack: boolean;
   senderCanResell: boolean;
   discoveredByUsername: string | null;
+  replyToMessageId?: number | null;
+  replyToUsername?: string | null;
+  replyToBody?: string | null;
 };
 
 export type MusicAgoraConversation = {
@@ -111,6 +114,7 @@ export type MusicAgoraPostOptions = {
   freePrice?: number | null;
   priceCents?: number | null;
   currencyCode?: string | null;
+  replyToMessageId?: number | null;
 };
 
 export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_content' | 'other';
@@ -322,7 +326,7 @@ export async function loadMusicAgoraRooms(): Promise<MusicAgoraRoom[]> {
 
 export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number, limit = 24): Promise<MusicAgoraMessage[]> {
   if (!supabase || !roomSlug) return [];
-  const { data, error } = await supabase.rpc('keep_agora_messages_v5', {
+  const { data, error } = await supabase.rpc('keep_agora_messages_v6', {
     p_room_slug: roomSlug,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -365,6 +369,9 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
     viewerOwnsTrack: Boolean(row.viewer_owns_track),
     senderCanResell: Boolean(row.sender_can_resell),
     discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
+    replyToMessageId: row.reply_to_message_id == null ? null : Number(row.reply_to_message_id),
+    replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null,
+    replyToBody: row.reply_to_body ? String(row.reply_to_body) : null,
   })).filter((row) => row.id && row.profileId && row.body);
   const hydrated = await hydrateMusicAgoraPaymentStates(rows);
   if (hydrated[0]?.id) void markMusicAgoraRoomRead(roomSlug, hydrated[0].id);
@@ -398,7 +405,7 @@ export async function loadMusicAgoraDirectMessages(
   limit = 30,
 ): Promise<MusicAgoraMessage[]> {
   if (!supabase || !otherProfileId) return [];
-  const { data, error } = await supabase.rpc('keep_agora_direct_messages_v1', {
+  const { data, error } = await supabase.rpc('keep_agora_direct_messages_v2', {
     p_other_profile_id: otherProfileId,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -441,6 +448,9 @@ export async function loadMusicAgoraDirectMessages(
     viewerOwnsTrack: Boolean(row.viewer_owns_track),
     senderCanResell: Boolean(row.sender_can_resell),
     discoveredByUsername: row.discovered_by_username ? String(row.discovered_by_username) : null,
+    replyToMessageId: row.reply_to_message_id == null ? null : Number(row.reply_to_message_id),
+    replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null,
+    replyToBody: row.reply_to_body ? String(row.reply_to_body) : null,
   })).filter((row) => row.id && row.profileId && row.body);
   const hydrated = await hydrateMusicAgoraPaymentStates(rows);
   return hydrated.sort((a, b) => a.id - b.id);
@@ -455,6 +465,29 @@ export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void):
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'music_agora_messages', filter: `room_slug=eq.${roomSlug}` },
       () => onChange(),
+    )
+    .subscribe();
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
+
+export function subscribeMusicAgoraDirect(
+  currentProfileId: string,
+  otherProfileId: string,
+  onChange: () => void,
+): () => void {
+  if (!supabase || !currentProfileId || !otherProfileId) return () => {};
+  const client = supabase;
+  const channel = client
+    .channel(`keep-agora-direct:${currentProfileId}:${otherProfileId}:${Date.now()}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'music_agora_messages', filter: `target_profile_id=eq.${currentProfileId}` },
+      (payload) => {
+        const row = (payload as any)?.new ?? {};
+        if (String(row.profile_id || '') === otherProfileId) onChange();
+      },
     )
     .subscribe();
   return () => {
@@ -507,7 +540,7 @@ export async function postMusicAgoraMessage(
   options: MusicAgoraPostOptions = {},
 ): Promise<number> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_post_message_v4', {
+  const { data, error } = await supabase.rpc('keep_agora_post_message_v5', {
     p_room_slug: roomSlug,
     p_body: body,
     p_target_profile_id: options.targetProfileId ?? null,
@@ -517,6 +550,7 @@ export async function postMusicAgoraMessage(
     p_free_price: options.freePrice ?? null,
     p_price_cents: options.priceCents ?? null,
     p_currency_code: options.currencyCode ?? 'EUR',
+    p_reply_to_message_id: options.replyToMessageId ?? null,
   });
   if (error) throw error;
   return Number((data as any)?.messageId ?? (data as any)?.message_id ?? data ?? 0);
@@ -765,7 +799,7 @@ export async function loadMusicAgoraGroupMessages(
   limit = 30,
 ): Promise<MusicAgoraMessage[]> {
   if (!supabase || !groupId) return [];
-  const { data, error } = await supabase.rpc('keep_agora_group_messages', {
+  const { data, error } = await supabase.rpc('keep_agora_group_messages_v2', {
     p_group_id: groupId,
     p_before_id: beforeId ?? null,
     p_limit: limit,
@@ -804,20 +838,24 @@ export async function loadMusicAgoraGroupMessages(
     viewerOwnsTrack: false,
     senderCanResell: false,
     discoveredByUsername: null,
+    replyToMessageId: row.reply_to_message_id == null ? null : Number(row.reply_to_message_id),
+    replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null,
+    replyToBody: row.reply_to_body ? String(row.reply_to_body) : null,
   })).filter((row) => row.id && row.profileId).sort((a, b) => a.id - b.id);
 }
 
 export async function postMusicAgoraGroupMessage(
   groupId: string,
   body: string,
-  options: Pick<MusicAgoraPostOptions, 'sharedTrackId' | 'revealMode'> = {},
+  options: Pick<MusicAgoraPostOptions, 'sharedTrackId' | 'revealMode' | 'replyToMessageId'> = {},
 ): Promise<number> {
   if (!supabase) throw new Error('service_unavailable');
-  const { data, error } = await supabase.rpc('keep_agora_post_group_message', {
+  const { data, error } = await supabase.rpc('keep_agora_post_group_message_v2', {
     p_group_id: groupId,
     p_body: String(body || ''),
     p_shared_track_id: options.sharedTrackId ?? null,
     p_reveal_mode: options.revealMode ?? 'NONE',
+    p_reply_to_message_id: options.replyToMessageId ?? null,
   });
   if (error) throw error;
   return Number(data || 0);
