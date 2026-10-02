@@ -1,4 +1,4 @@
 production
-requested_from_sha=3037d5e7087e2ab215d50fe90eba48cc417d3258
-requested_at=2026-10-01T15:16:37+02:00
-reason=sync-current-web-reference-to-testflight
+requested_from_sha=c2ea88e506ab71769e267bf12646b1b792bb6c48
+requested_at=2026-10-02T12:15:00+02:00
+reason=publish-final-loki-chat-pulse-audio-appstore-candidate
