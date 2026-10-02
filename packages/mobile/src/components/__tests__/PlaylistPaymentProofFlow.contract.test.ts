@@ -13,6 +13,7 @@ describe('Playlist payment proof and delivery contract', () => {
   const myMusic = read(__dirname, '..', '..', 'screens', 'MyMusicScreen.tsx');
   const proofService = read(__dirname, '..', '..', 'services', 'playlistPaymentProofService.ts');
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002133000_playlist_sale_payment_proof.sql');
+  const integrityMigration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002105200_playlist_payment_proof_integrity.sql');
 
   it('forces the buyer to attach a private proof before signalling payment', () => {
     expect(checkout).toContain('CAPTURE / PHOTO');
@@ -24,6 +25,10 @@ describe('Playlist payment proof and delivery contract', () => {
     expect(proofService).toContain("application/pdf");
     expect(proofService).toContain('createSignedUrl(proof.path, 300)');
     expect(migration).toContain('PAYMENT_PROOF_REQUIRED');
+    expect(integrityMigration).toContain('PAYMENT_ALREADY_SIGNALED');
+    expect(integrityMigration).toContain('PAYMENT_PROOF_FILE_NOT_FOUND');
+    expect(integrityMigration).toContain('buyer_marked_paid_at is null');
+    expect(proofService).toContain('remove([previousProof.path])');
   });
 
   it('wires the QR checkout to the exact playlist payment id', () => {
