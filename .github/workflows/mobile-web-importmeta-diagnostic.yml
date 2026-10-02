@@ -162,8 +162,41 @@ jobs:
             await page.getByPlaceholder('Rechercher une conversation…').waitFor({ state: 'visible', timeout: 10000 });
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-fullscreen-390x844.png', fullPage: true });
 
-            // Vérifie aussi les actions réelles du compositeur derrière le +.
+            // Vérifie aussi le comportement visuel réel du fil : à l'ouverture
+            // d'une conversation, on doit voir le message le plus récent, jamais
+            // atterrir au milieu de l'historique.
             await clickRobust(page.getByText('La Place', { exact: true }).last(), 'Open public chat composer');
+            const threadScroll = page.getByTestId('loki-chat-thread-scroll').last();
+            await threadScroll.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const openedScroll = await threadScroll.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (openedScroll.distance > 12) {
+              throw new Error(`Chat opened away from latest message: ${JSON.stringify(openedScroll)}`);
+            }
+
+            // Pendant la saisie, le clavier/compositeur peut changer de hauteur.
+            // Le fil doit suivre visuellement le bas sans swipe manuel.
+            const composerInput = page.getByPlaceholder('Écris un message…').last();
+            await composerInput.waitFor({ state: 'visible', timeout: 10000 });
+            await composerInput.fill('Test visuel du suivi du chat sur plusieurs mots pour faire grandir le compositeur et vérifier que le dernier message reste visible.');
+            await page.waitForTimeout(700);
+            const typedScroll = await threadScroll.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (typedScroll.distance > 12) {
+              throw new Error(`Chat stopped following bottom while typing: ${JSON.stringify(typedScroll)}`);
+            }
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-latest-message-follow-390x844.png', fullPage: true });
+            await composerInput.fill('');
+
             await page.getByLabel('Ouvrir les actions du message').waitFor({ state: 'visible', timeout: 10000 });
             await clickRobust(page.getByLabel('Ouvrir les actions du message').last(), 'Open composer actions');
             await page.getByText('RÉACTIONS', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });
@@ -260,6 +293,8 @@ jobs:
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
               'CHAT_DRAWER_VISIBLE: PASS',
               'CHAT_FULLSCREEN_390x844: PASS',
+              'CHAT_OPENS_ON_LATEST_MESSAGE: PASS',
+              'CHAT_FOLLOWS_BOTTOM_WHILE_TYPING: PASS',
               'BELL_INLINE_TABS_VISIBLE: PASS',
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
