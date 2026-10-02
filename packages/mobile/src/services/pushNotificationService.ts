@@ -156,6 +156,31 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
   });
 }
 
+const reportedPushFailures = new Set<string>();
+
+// Trace (une fois par lancement et par raison) pourquoi l'appareil ne reçoit
+// pas de notifications push. Lecture : table client_diagnostics, area
+// 'push_registration'. N'affiche rien à l'utilisateur.
+async function reportPushRegistrationFailure(code: string, message: string): Promise<void> {
+  if (!supabase || reportedPushFailures.has(code)) return;
+  reportedPushFailures.add(code);
+  try {
+    const { data } = await supabase.auth.getSession();
+    const profileId = data.session?.user?.id;
+    if (!profileId) return;
+    await supabase.from('client_diagnostics').insert({
+      profile_id: profileId,
+      area: 'push_registration',
+      code,
+      message: message || code,
+      platform: Platform.OS,
+      context: { isDevice: Device.isDevice, osVersion: Device.osVersion ?? null, model: Device.modelName ?? null },
+    });
+  } catch {
+    // Diagnostic best effort uniquement.
+  }
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
     return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
@@ -173,6 +198,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     finalStatus = status;
   }
   if (finalStatus !== 'granted') {
+    void reportPushRegistrationFailure('permission_denied', String(finalStatus));
     return { ok: false, reason: 'permission_denied' };
   }
 
@@ -196,8 +222,18 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 
   // Sans argument : expo-notifications résout automatiquement le projectId
   // depuis app.json (extra.eas.projectId) -- convention SDK 49+.
-  const tokenResponse = await Notifications.getExpoPushTokenAsync();
-  const token = tokenResponse.data;
+  // 02/10/2026 : 0 appareil enregistré en production malgré des comptes
+  // connectés sur iPhone. L'échec était silencieux ; la raison réelle est
+  // maintenant remontée dans client_diagnostics (une fois par lancement).
+  let token: string;
+  try {
+    const tokenResponse = await Notifications.getExpoPushTokenAsync();
+    token = tokenResponse.data;
+  } catch (error: any) {
+    const detail = String(error?.message || error || 'unknown').slice(0, 300);
+    void reportPushRegistrationFailure('expo_token_error', detail);
+    return { ok: false, reason: 'expo_token_error' };
+  }
 
   if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
 
@@ -208,7 +244,10 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
       p_token: token,
       p_platform: Platform.OS,
     });
-    if (error) return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
+    if (error) {
+      void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
+      return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
+    }
     return { ok: true };
   } catch {
     return { ok: false, reason: 'network_error' };
