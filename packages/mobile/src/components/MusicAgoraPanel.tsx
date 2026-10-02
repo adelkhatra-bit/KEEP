@@ -1237,6 +1237,7 @@ export default function MusicAgoraPanel({
       </ScrollView>
     ) : (
     <ScrollView
+      testID="loki-chat-thread-scroll"
       ref={chatScrollRef}
       style={compact ? s.chatScrollCompact : s.chatScroll}
       contentContainerStyle={[s.list, compact && s.listCompact]}
