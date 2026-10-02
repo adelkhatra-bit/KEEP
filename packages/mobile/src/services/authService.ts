@@ -189,18 +189,12 @@ export function createAuthService(client: SupabaseClient): AuthService {
       }
     }
 
-    const response = await retryTransient(
-      () => client.functions.invoke('keep-username-auth', {
-        body,
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      }),
-      (value) => value.error ?? (
-        (value.data as any)?.error === 'auth_temporarily_unavailable'
-        || (value.data as any)?.error === 'temporarily_unavailable'
-          ? { status: 503, message: String((value.data as any)?.error) }
-          : null
-      ),
-    );
+    // Une seule invocation côté client. Les retries transitoires sont gérés
+    // dans keep-username-auth afin d'éviter les rafales client × Edge.
+    const response = await client.functions.invoke('keep-username-auth', {
+      body,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
     const { data, error } = response;
     if (error) return { error: mapSignupError(error.message || 'auth_temporarily_unavailable') };
     if (!data?.ok || !data?.access_token || !data?.refresh_token) return { error: String(data?.error || 'server_error') };
@@ -294,6 +288,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
       const result = await retryTransient(
         () => client.auth.signInWithPassword({ email: cleanEmail, password }),
         (value) => value.error,
+        2,
       );
       const { data, error } = result;
       if (error || !data.session) return { error: mapSignupError(error?.message || 'invalid_credentials') };
