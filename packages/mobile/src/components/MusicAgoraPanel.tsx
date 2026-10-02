@@ -954,7 +954,7 @@ export default function MusicAgoraPanel({
         bottom: compactBottom,
         minHeight: 0,
         paddingTop: Math.max(10, safeArea.top + 8),
-        paddingBottom: keyboardInset > 0 ? 8 : Math.max(10, safeArea.bottom + 8),
+        paddingBottom: keyboardInset > 0 ? 12 : Math.max(14, safeArea.bottom + 14),
       },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
     ]}
