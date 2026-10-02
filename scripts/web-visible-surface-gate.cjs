@@ -43,6 +43,33 @@ const routes = [
   { path: '/Main/Profile/', marker: 'Profil' },
 ];
 const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil'];
+const LOCAL_SURFACE_ONLY = /^https?:\/\/(127\.0\.0\.1|localhost)(?::\d+)?\//i.test(BASE);
+const PROD_SUPABASE_HOST = 'rrhqsqzcplvmwxizqnla.supabase.co';
+
+async function isolateSurfaceGateFromProduction(page) {
+  if (!LOCAL_SURFACE_ONLY) return;
+  await page.route(`https://${PROD_SUPABASE_HOST}/**`, async (route) => {
+    const requestUrl = new URL(route.request().url());
+    const path = requestUrl.pathname;
+    // Ce gate valide UNIQUEMENT le rendu/viewport. Il ouvrait auparavant
+    // 50+ écrans contre le vrai Supabase à chaque déploiement, exactement au
+    // moment où les utilisateurs se connectaient. Sur l'instance Free cela a
+    // contribué aux PGRST002 et aux /auth/v1 500/504 du 02/10.
+    if (path.startsWith('/rest/v1/')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+      return;
+    }
+    if (path.startsWith('/auth/v1/')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      return;
+    }
+    if (path.startsWith('/functions/v1/')) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+      return;
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+  });
+}
 
 async function measure(page, expectedTab) {
   return page.evaluate(({ tabLabels, expectedTab }) => {
@@ -84,6 +111,7 @@ async function measure(page, expectedTab) {
   for (const scenario of scenarios) {
     const context = await browser.newContext({ ...scenario.context, locale: 'fr-FR' });
     const page = await context.newPage();
+    await isolateSurfaceGateFromProduction(page);
     for (const route of routes) {
       const url = BASE + route.path;
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -117,6 +145,7 @@ async function measure(page, expectedTab) {
   {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'fr-FR' });
     const page = await context.newPage();
+    await isolateSurfaceGateFromProduction(page);
     await page.goto(BASE + '/Main/Profile/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(2500);
