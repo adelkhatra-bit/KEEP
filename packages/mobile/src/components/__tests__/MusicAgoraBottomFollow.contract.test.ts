@@ -17,6 +17,7 @@ describe('Loki chat latest-message visual follow', () => {
   });
 
   it('keeps content-size and layout changes pinned while the user is at the bottom', () => {
+    expect(source).toContain('key={activeThreadKey}');
     expect(source).toContain('onContentSizeChange={() => {');
     expect(source).toContain('if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current');
     expect(source).toContain('onLayout={() => {');
