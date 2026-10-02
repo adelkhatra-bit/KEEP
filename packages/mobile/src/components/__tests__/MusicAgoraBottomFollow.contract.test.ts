@@ -55,6 +55,8 @@ describe('Loki chat latest-message visual follow', () => {
     expect(source).toContain('showSoftInputOnFocus');
     expect(source).toContain('onPressIn={() => {');
     expect(source).toContain('requestAnimationFrame(() => focusComposer());');
+    expect(source).toContain("const compactBottom = compact && Platform.OS !== 'web' ? keyboardInset : 0;");
+    expect(source).toContain('bottom: compactBottom');
     expect(source).toContain("Platform.OS === 'ios' ? 380 : 140");
   });
 });
