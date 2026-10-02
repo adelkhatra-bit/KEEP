@@ -166,6 +166,8 @@ export default function MusicAgoraPanel({
   const initialScrollDone = useRef(false);
   const browsingHistoryRef = useRef(false);
   const forceBottomRef = useRef(false);
+  const stickToBottomRef = useRef(true);
+  const userDraggingChatRef = useRef(false);
   const ownSendPendingRef = useRef<number | null>(null);
   const bottomRetryTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const { height: viewportHeight } = useWindowDimensions();
@@ -279,6 +281,7 @@ export default function MusicAgoraPanel({
 
   const followChatBottom = (animated = true) => {
     browsingHistoryRef.current = false;
+    stickToBottomRef.current = true;
     forceBottomRef.current = true;
     bottomRetryTimersRef.current.forEach(clearTimeout);
     bottomRetryTimersRef.current = [];
@@ -410,6 +413,8 @@ export default function MusicAgoraPanel({
   const openDirectThread = async (target: { profileId: string; username: string }, preferredRoomSlug?: string | null) => {
     initialScrollDone.current = false;
     browsingHistoryRef.current = false;
+    stickToBottomRef.current = true;
+    userDraggingChatRef.current = false;
     forceBottomRef.current = true;
     setChatMode('MESSAGES');
     setActiveGroup(null);
@@ -439,6 +444,10 @@ export default function MusicAgoraPanel({
     setSharePaymentMode('NONE');
     setDraft('');
     initialScrollDone.current = false;
+    browsingHistoryRef.current = false;
+    stickToBottomRef.current = true;
+    userDraggingChatRef.current = false;
+    forceBottomRef.current = true;
     setMessages([]);
     if (group.myStatus !== 'ACTIVE') return;
     setLoading(true);
@@ -1141,6 +1150,8 @@ export default function MusicAgoraPanel({
             onPress={() => {
               initialScrollDone.current = false;
               browsingHistoryRef.current = false;
+              stickToBottomRef.current = true;
+              userDraggingChatRef.current = false;
               forceBottomRef.current = true;
               setChatMode('PLACE');
               setReplyTarget(null);
@@ -1233,21 +1244,43 @@ export default function MusicAgoraPanel({
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
+      onScrollBeginDrag={() => {
+        userDraggingChatRef.current = true;
+      }}
       onScroll={(event) => {
         const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
         const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-        browsingHistoryRef.current = distanceFromBottom > 56;
+        if (userDraggingChatRef.current) {
+          const browsingOlder = distanceFromBottom > 56;
+          browsingHistoryRef.current = browsingOlder;
+          stickToBottomRef.current = !browsingOlder;
+        } else if (distanceFromBottom <= 20) {
+          browsingHistoryRef.current = false;
+          stickToBottomRef.current = true;
+        }
+      }}
+      onScrollEndDrag={() => {
+        userDraggingChatRef.current = false;
+      }}
+      onMomentumScrollEnd={(event) => {
+        userDraggingChatRef.current = false;
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+        const browsingOlder = distanceFromBottom > 56;
+        browsingHistoryRef.current = browsingOlder;
+        stickToBottomRef.current = !browsingOlder;
       }}
       onContentSizeChange={() => {
-        if (ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current || !browsingHistoryRef.current) {
+        if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current || !browsingHistoryRef.current) {
           requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
-          if (ownSendPendingRef.current !== null) {
+          if (ownSendPendingRef.current !== null || !initialScrollDone.current) {
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 120);
+            setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 280);
           }
         }
       }}
       onLayout={() => {
-        if (ownSendPendingRef.current !== null || forceBottomRef.current) {
+        if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current) {
           requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
         }
       }}
@@ -1675,6 +1708,8 @@ export default function MusicAgoraPanel({
             // Le verrou reste actif jusqu'après le rendu du message serveur et
             // la fin de l'animation clavier : aucun swipe manuel nécessaire.
             ownSendPendingRef.current = -1;
+            stickToBottomRef.current = true;
+            userDraggingChatRef.current = false;
             followChatBottom(false);
             void publish();
           }}
