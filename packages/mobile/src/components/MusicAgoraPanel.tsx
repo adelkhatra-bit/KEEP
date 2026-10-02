@@ -80,7 +80,7 @@ function ago(iso: string): string {
 
 function readableError(error: unknown): string {
   const message = String((error as any)?.message || error || '');
-  if (message.includes('message_blocked_language')) return 'Message refusé : garde le débat musical, enlève les insultes.';
+  if (message.includes('message_blocked_language')) return 'Message refusé : il contient un mot interdit sur KEEP (insulte, haine, drogue…). Modifie-le pour l’envoyer.';
   if (message.includes('rate_limited')) return 'Trop de messages d’un coup. Réessaie dans un instant.';
   if (message.includes('authentication_required')) return 'Ta session Loki doit être actualisée avant d’écrire. Rouvre le Tchat ; aucune reconnexion ne devrait être nécessaire.';
   if (message.includes('public_profile_required')) return 'Ton compte est connecté, mais ton profil public doit être actif pour écrire dans le Tchat.';

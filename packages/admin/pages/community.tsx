@@ -32,6 +32,130 @@ type UserReportRow = {
 const REASON_LABEL: Record<string,string> = { harassment:'Harcèlement', spam:'Spam', inappropriate_content:'Contenu inapproprié', impersonation:'Usurpation', other:'Autre' };
 const KIND_LABEL: Record<string,string> = { GROUP:'Groupe privé', DIRECT:'Message privé', PLACE:'La Place', PROFILE:'Profil' };
 
+type TermRow = {
+  id: string;
+  term: string;
+  category: string;
+  status: string;
+  source: string;
+  report_count: number;
+  example_excerpt: string | null;
+  created_at: string;
+};
+
+const TERM_CATEGORIES = ['INSULTE','HAINE','DROGUE','SEXUEL','ARNAQUE','VIOLENCE','AUTRE'] as const;
+const CATEGORY_LABEL: Record<string,string> = { INSULTE:'Insulte', HAINE:'Haine', DROGUE:'Drogue', SEXUEL:'Sexuel', ARNAQUE:'Arnaque', VIOLENCE:'Violence', AUTRE:'Autre' };
+
+// Bibliothèque de modération (Adel 02/10/2026) : un seul filtre pour La Place,
+// les messages privés et les groupes. Les mots des messages signalés arrivent
+// ici « à vérifier » ; INTERDIRE les ajoute au filtre, REFUSER ne les
+// reproposera plus.
+function ModerationLibrary() {
+  const [pending,setPending]=useState<TermRow[]>([]);
+  const [active,setActive]=useState<TermRow[]>([]);
+  const [categories,setCategories]=useState<Record<string,string>>({});
+  const [unavailable,setUnavailable]=useState(false);
+  const [libError,setLibError]=useState('');
+  const [libBusy,setLibBusy]=useState<string|null>(null);
+  const [newTerm,setNewTerm]=useState('');
+  const [newCategory,setNewCategory]=useState<string>('INSULTE');
+  const [showActive,setShowActive]=useState(false);
+
+  const loadTerms=useCallback(async()=>{
+    if(!supabase)return;
+    setLibError('');
+    const [p,a]=await Promise.all([
+      supabase.rpc('admin_moderation_terms',{p_status:'PENDING',p_limit:200}),
+      supabase.rpc('admin_moderation_terms',{p_status:'ACTIVE',p_limit:500}),
+    ]);
+    const err=p.error||a.error;
+    if(err){
+      // Migration pas encore appliquée : on l'indique sans casser la page.
+      if(err.code==='PGRST202'||/admin_moderation_terms/.test(err.message||''))setUnavailable(true);
+      else setLibError(err.message||'Impossible de charger la bibliothèque.');
+      return;
+    }
+    setUnavailable(false);
+    setPending((Array.isArray(p.data)?p.data:[]) as TermRow[]);
+    setActive((Array.isArray(a.data)?a.data:[]) as TermRow[]);
+  },[]);
+
+  useEffect(()=>{void loadTerms();},[loadTerms]);
+
+  const decideTerm=async(row:TermRow,status:'ACTIVE'|'REJECTED')=>{
+    if(!supabase||libBusy)return;
+    setLibBusy(row.id);setLibError('');
+    try{
+      const category=status==='ACTIVE'?(categories[row.id]||(row.category==='AUTRE'?'INSULTE':row.category)):null;
+      const {error:rpcError}=await supabase.rpc('admin_moderation_decide_term',{p_term_id:row.id,p_status:status,p_category:category});
+      if(rpcError)throw rpcError;
+      await loadTerms();
+    }catch(e:any){setLibError(e?.message||'Action impossible.');}
+    finally{setLibBusy(null);}
+  };
+
+  const addTerm=async()=>{
+    const term=newTerm.trim();
+    if(!supabase||libBusy||term.length<2)return;
+    setLibBusy('add');setLibError('');
+    try{
+      const {error:rpcError}=await supabase.rpc('admin_moderation_add_term',{p_term:term,p_category:newCategory});
+      if(rpcError)throw rpcError;
+      setNewTerm('');
+      await loadTerms();
+    }catch(e:any){setLibError(e?.message||'Ajout impossible.');}
+    finally{setLibBusy(null);}
+  };
+
+  const grouped=TERM_CATEGORIES.map((c)=>({category:c,terms:active.filter((t)=>t.category===c)})).filter((g)=>g.terms.length);
+  const selectStyle={padding:'7px 8px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'inherit',fontWeight:700} as const;
+
+  return <section style={{marginBottom:28}}>
+    <div className="page-title" style={{fontSize:18,marginTop:8}}>Bibliothèque de modération</div>
+    <div className="page-subtitle">Un seul filtre pour La Place, les messages privés et les groupes (accents, majuscules et « c0nnard » compris ; mots entiers uniquement). Les mots des messages signalés arrivent ici : INTERDIRE les bloque partout, REFUSER ne les reproposera plus.</div>
+    {unavailable?<div className="card" style={{marginBottom:12}}><p style={{margin:0,color:'var(--text-muted)'}}>Bibliothèque pas encore activée sur la base (migration 20261003001500 en attente de mise en production).</p></div>:null}
+    {libError?<div className="demo-banner" style={{borderColor:'#b42318'}}>Erreur : {libError}</div>:null}
+    {!unavailable?<>
+      <div className="card" style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:12}}>
+        <strong style={{fontSize:13}}>Ajouter un mot interdit</strong>
+        <input value={newTerm} onChange={(e)=>setNewTerm(e.target.value)} onKeyDown={(e)=>{if(e.key==='Enter')void addTerm();}} placeholder="mot ou expression" maxLength={80} style={{flex:'1 1 180px',minWidth:0,padding:'8px 10px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'inherit'}}/>
+        <select value={newCategory} onChange={(e)=>setNewCategory(e.target.value)} style={selectStyle}>
+          {TERM_CATEGORIES.map((c)=><option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+        </select>
+        <button disabled={libBusy==='add'||newTerm.trim().length<2} onClick={()=>void addTerm()} style={{padding:'8px 12px',borderRadius:8,border:0,background:'#FF5F83',color:'#2A0510',fontWeight:900,cursor:'pointer'}}>INTERDIRE</button>
+      </div>
+      <div style={{fontSize:13,fontWeight:900,margin:'4px 0 8px'}}>À vérifier · {pending.length}</div>
+      {!pending.length?<div className="card" style={{marginBottom:12}}><p style={{margin:0,color:'var(--text-muted)'}}>Aucun mot proposé par les signalements.</p></div>:null}
+      <div style={{display:'grid',gap:10,marginBottom:14}}>
+        {pending.map((t)=><div className="card" key={t.id} style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+          <div style={{flex:'1 1 200px',minWidth:0}}>
+            <strong style={{fontSize:15}}>{t.term}</strong>
+            <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:8}}>{t.report_count} signalement{t.report_count>1?'s':''}</span>
+            {t.example_excerpt?<div style={{fontSize:12,color:'var(--text-muted)',marginTop:4,overflowWrap:'anywhere'}}>« {t.example_excerpt} »</div>:null}
+          </div>
+          <select value={categories[t.id]||(t.category==='AUTRE'?'INSULTE':t.category)} onChange={(e)=>setCategories((c)=>({...c,[t.id]:e.target.value}))} style={selectStyle}>
+            {TERM_CATEGORIES.map((c)=><option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+          </select>
+          <button disabled={libBusy===t.id} onClick={()=>void decideTerm(t,'ACTIVE')} style={{padding:'8px 12px',borderRadius:8,border:0,background:'#FF5F83',color:'#2A0510',fontWeight:900,cursor:'pointer'}}>INTERDIRE</button>
+          <button disabled={libBusy===t.id} onClick={()=>void decideTerm(t,'REJECTED')} style={{padding:'8px 12px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'var(--text-muted)',fontWeight:800,cursor:'pointer'}}>REFUSER</button>
+        </div>)}
+      </div>
+      <button onClick={()=>setShowActive((v)=>!v)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'inherit',fontWeight:800,cursor:'pointer',marginBottom:10}}>{showActive?'Masquer':'Voir'} les mots interdits · {active.length}</button>
+      {showActive?<div style={{display:'grid',gap:10}}>
+        {grouped.map((g)=><div className="card" key={g.category}>
+          <div style={{fontSize:12,fontWeight:900,marginBottom:8}}>{CATEGORY_LABEL[g.category]} · {g.terms.length}</div>
+          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+            {g.terms.map((t)=><span key={t.id} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 8px',borderRadius:12,border:'1px solid var(--border)',fontSize:12}}>
+              {t.term}
+              <button aria-label={`Retirer ${t.term}`} title="Retirer de la liste" disabled={libBusy===t.id} onClick={()=>void decideTerm(t,'REJECTED')} style={{border:0,background:'transparent',color:'var(--text-muted)',cursor:'pointer',fontWeight:900,padding:0}}>×</button>
+            </span>)}
+          </div>
+        </div>)}
+      </div>:null}
+    </>:null}
+  </section>;
+}
+
 export default function CommunityModeration() {
   const [rows,setRows]=useState<QueueRow[]>([]);
   const [loading,setLoading]=useState(true);
@@ -84,6 +208,7 @@ export default function CommunityModeration() {
     <div className="page-subtitle">La Place · messages signalés ou masqués automatiquement. Les insultes évidentes sont bloquées avant publication ; 3 signalements indépendants retirent automatiquement le message de la lecture publique jusqu’à décision.</div>
     {error?<div className="demo-banner" style={{borderColor:'#b42318'}}>Erreur : {error}</div>:null}
     {loading?<p style={{color:'var(--text-muted)'}}>Chargement…</p>:null}
+    <ModerationLibrary />
     <div className="page-title" style={{fontSize:18,marginTop:8}}>Signalements utilisateurs</div>
     <div className="page-subtitle">Groupes privés, messages privés, La Place et profils. Chaque signalement t’envoie une notification. Pour sanctionner, ouvre le compte et retire des Free (montant négatif + raison : l’utilisateur est notifié).</div>
     {!loading&&!reports.length?<div className="card" style={{marginBottom:16}}><p style={{margin:0,color:'var(--text-muted)'}}>Aucun signalement en attente.</p></div>:null}
