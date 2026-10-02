@@ -103,6 +103,24 @@ function transientAuthFailure(error: unknown): boolean {
     || message.includes('temporarily_unavailable');
 }
 
+const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';
+
+function cachedWebAuthSession(): KeepAuthSession | null {
+  try {
+    const storage = (globalThis as any)?.localStorage;
+    if (!storage) return null;
+    const raw = storage.getItem(WEB_LAST_REAL_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const userId = String(parsed?.id || '').trim();
+    const username = String(parsed?.username || '').trim().replace(/^@+/, '');
+    if (!userId || !username) return null;
+    return { userId, username, email: null, isAnonymous: false };
+  } catch {
+    return null;
+  }
+}
+
 async function retryTransient<T>(
   operation: () => Promise<T>,
   getError: (value: T) => unknown,
@@ -398,36 +416,51 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async getCurrentSession() {
       // Incident réel 02/10/2026 : Supabase Auth a renvoyé 500/504 pendant
-      // plusieurs secondes (pool Postgres indisponible). Sans deadline,
-      // getSession()/refreshSession pouvait laisser le bootstrap bloqué sur le
-      // spinner. Une panne 5xx/timeout n'est JAMAIS interprétée comme une
-      // déconnexion : on la remonte pour que l'app garde l'identité locale et
-      // retente silencieusement.
-      const initial = await withAuthDeadline(client.auth.getSession());
-      let data = initial.data;
-      if (initial.error) {
-        if (transientAuthFailure(initial.error)) throw initial.error;
+      // plusieurs secondes. Une panne serveur n'est pas une déconnexion :
+      // si cet appareil possède déjà une identité Loki réelle en cache, on la
+      // conserve le temps que Supabase revienne au lieu de bloquer le démarrage.
+      let initial: any;
+      try {
+        initial = await withAuthDeadline<any>(client.auth.getSession());
+      } catch (error) {
+        const cached = transientAuthFailure(error) ? cachedWebAuthSession() : null;
+        if (cached) return cached;
+        throw error;
+      }
+
+      let data = initial?.data;
+      if (initial?.error) {
+        if (transientAuthFailure(initial.error)) {
+          const cached = cachedWebAuthSession();
+          if (cached) return cached;
+          throw initial.error;
+        }
         return null;
       }
 
-      // Supabase peut conserver un refresh token local alors que l'access
-      // token courant n'est plus exposé par getSession(). Avant de conclure
-      // « déconnecté », on tente une restauration silencieuse.
-      if (!data.session?.user && typeof (client.auth as any).refreshSession === 'function') {
+      if (!data?.session?.user && typeof (client.auth as any).refreshSession === 'function') {
         try {
-          const refreshed = await withAuthDeadline((client.auth as any).refreshSession());
+          const refreshed: any = await withAuthDeadline<any>((client.auth as any).refreshSession());
           if (refreshed?.error) {
-            if (transientAuthFailure(refreshed.error)) throw refreshed.error;
+            if (transientAuthFailure(refreshed.error)) {
+              const cached = cachedWebAuthSession();
+              if (cached) return cached;
+              throw refreshed.error;
+            }
             return null;
           }
           if (refreshed?.data?.session?.user) data = refreshed.data;
         } catch (error) {
-          if (transientAuthFailure(error)) throw error;
+          if (transientAuthFailure(error)) {
+            const cached = cachedWebAuthSession();
+            if (cached) return cached;
+            throw error;
+          }
           return null;
         }
       }
 
-      const user = data.session?.user;
+      const user = data?.session?.user;
       return user ? {
         userId: user.id,
         email: visibleEmail(user),
