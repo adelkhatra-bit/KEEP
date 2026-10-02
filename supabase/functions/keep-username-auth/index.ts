@@ -35,42 +35,18 @@ function looksLikeDuplicateEmail(error: unknown) {
   return message.includes("already") || message.includes("registered") || message.includes("duplicate") || message.includes("exists");
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function transientAuthFailure(error: unknown) {
-  const status = Number((error as any)?.status ?? 0);
-  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
-  return status >= 500
-    || message.includes("context deadline exceeded")
-    || message.includes("context canceled")
-    || message.includes("failed to connect")
-    || message.includes("unexpected_failure")
-    || message.includes("request_timeout")
-    || message.includes("service unavailable")
-    || message.includes("internal server error");
-}
-
 async function sessionFor(email: string, password: string) {
-  let lastError: unknown = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
-    if (!error && data.session) {
-      return {
-        ok: true as const,
-        session: {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: data.session.expires_at ?? null,
-          user_id: data.session.user.id,
-        },
-      };
-    }
-    lastError = error;
-    if (!error || !transientAuthFailure(error) || attempt === 2) break;
-    await wait(350 * (attempt + 1));
-  }
-  if (lastError && transientAuthFailure(lastError)) return { ok: false as const, error: "auth_temporarily_unavailable" };
-  return { ok: false as const, error: "invalid_credentials" };
+  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+  if (error || !data.session) return { ok: false as const, error: "invalid_credentials" };
+  return {
+    ok: true as const,
+    session: {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_at: data.session.expires_at ?? null,
+      user_id: data.session.user.id,
+    },
+  };
 }
 
 async function findAuthUserByEmail(email: string) {
