@@ -246,10 +246,18 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     // Une seule invocation côté client. Les retries transitoires sont gérés
     // dans keep-username-auth afin d'éviter les rafales client × Edge.
-    const response = await client.functions.invoke('keep-username-auth', {
-      body,
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
+    let response: any;
+    try {
+      response = await withAuthDeadline(
+        client.functions.invoke('keep-username-auth', {
+          body,
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        }) as any,
+        9500,
+      );
+    } catch (error) {
+      return { error: mapSignupError(String((error as any)?.message || error || 'auth_temporarily_unavailable')) };
+    }
     const { data, error } = response;
     if (error) return { error: mapSignupError(error.message || 'auth_temporarily_unavailable') };
     if (!data?.ok || !data?.access_token || !data?.refresh_token) return { error: String(data?.error || 'server_error') };
@@ -345,8 +353,17 @@ export function createAuthService(client: SupabaseClient): AuthService {
       // cette troisième tentative automatique évite de faire croire à
       // l'utilisateur que ses identifiants sont faux pendant une panne brève.
       const result = await retryTransient(
-        () => client.auth.signInWithPassword({ email: cleanEmail, password }),
-        (value) => value.error,
+        async () => {
+          try {
+            return await withAuthDeadline(
+              client.auth.signInWithPassword({ email: cleanEmail, password }) as any,
+              3500,
+            ) as any;
+          } catch (error) {
+            return { data: { session: null, user: null }, error } as any;
+          }
+        },
+        (value: any) => value.error,
         3,
       );
       const { data, error } = result;
