@@ -256,6 +256,34 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   }
 }
 
+// ─── Protection du contenu utilisateur (demande Adel 02/10/2026) ───────────
+// Aucune nouvelle migration ne peut supprimer/vider/détruire une table de
+// contenu utilisateur sans l'accord explicite d'Adel inscrit dans le fichier.
+{
+  const rule = contract.userContentProtection || {};
+  must(Array.isArray(rule.protectedTables) && rule.protectedTables.length >= 10, 'CONTENU: userContentProtection.protectedTables manquant');
+  const marker = rule.approvalMarker || '-- ADEL-APPROVED-DESTRUCTIVE:';
+  const from = String(rule.appliesToMigrationsFrom || '20261002180000');
+  const tables = (rule.protectedTables || []).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const destructive = new RegExp(
+    `\\b(?:delete\\s+from|truncate(?:\\s+table)?|drop\\s+table(?:\\s+if\\s+exists)?)\\s+(?:only\\s+)?(?:public\\.)?"?(${tables})"?\\b` +
+    `|\\balter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?(?:public\\.)?"?(${tables})"?\\s+drop\\s+column`,
+    'i',
+  );
+  const dir = path.join(root, 'supabase/migrations');
+  for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.sql'))) {
+    const version = (name.match(/^(\d{14})_/) || [])[1];
+    const legacy = (rule.legacyUntimestampedMigrations || []).includes(name);
+    if (!version && !legacy) failures.push(`CONTENU: migration ${name} sans horodatage AAAAMMJJHHMMSS_ -- nom interdit (contournement de l'ordre et des contrôles)`);
+    if (legacy || (version && version < from)) continue;
+    const sql = fs.readFileSync(path.join(dir, name), 'utf8').replace(/--[^\n]*/g, (c) => (c.startsWith(marker) ? c : ''));
+    const hit = sql.match(destructive);
+    if (hit && !sql.includes(marker)) {
+      failures.push(`CONTENU: la migration ${name} efface du contenu utilisateur (« ${hit[0]} »). Interdit sans accord écrit d'Adel (${marker} <date> <raison>).`);
+    }
+  }
+}
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);
@@ -267,4 +295,5 @@ console.log('certification + FREE remain live Supabase data, never UI-reset data
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: FREE/€ filters + inline Pépites cart + confirmed duplicate reuse + payout locked');
 console.log('integration: clean preflight + product-contract postflight locked');
+console.log('contenu utilisateur: aucune migration destructive sans accord écrit d\'Adel');
 console.log('connexion: échéances Auth > délai serveur, relance unique sur erreur rapide, sondages réseau >= 5 s verrouillés');

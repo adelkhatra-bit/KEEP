@@ -95,6 +95,9 @@ Le 02/10/2026, plus personne ne pouvait se connecter : un sondage réseau toutes
 - Pour changer une valeur : modifier le contrat **et** le code dans le même commit, avec la justification. Ne jamais affaiblir le contrôle pour « faire passer » un push.
 - Si la connexion casse : regarder d'abord les journaux Supabase Auth (`auth_logs`, `edge_logs` `/auth/v1/token`) **avant** de modifier le code. Un 504 « context deadline exceeded » = serveur saturé, pas un bug de mot de passe ni un compte désactivé.
 
+- **Contenu utilisateur** : aucune migration ne peut supprimer, vider ou détruire une table de contenu (profils, playlists, titres, GARDER, abonnements, historique FREE, messages) sans la ligne `-- ADEL-APPROVED-DESTRUCTIVE: <date> <raison>` écrite avec l'accord d'Adel (`config/keep-product-contract.json` > `userContentProtection`, contrôle bloquant). Le solde FREE est **calculé** depuis l'historique d'événements : ne jamais le « réinitialiser ».
+- **Écritures directes en production interdites aux IA** : pas de `execute_sql` / `apply_migration` d'écriture ni de déploiement de fonction sans demande explicite d'Adel dans la conversation en cours. Une panne ou un « contenu manquant » se diagnostique d'abord en LECTURE (comptages, journaux) : le 02/10/2026, tout le contenu était intact, seul le serveur était saturé.
+
 ## Jamais toucher
 
 `main` et `claude-local-backup-20260825` — ne jamais push, merge, ni rebase dessus

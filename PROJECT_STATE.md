@@ -159,6 +159,8 @@ agent) et messages des sessions de chat (non versionnés).
   **Adel** : Dashboard → Settings → Compute and Disk → Micro → Small. Le code ne
   peut pas lever ce blocage. Verrou anti-récidive en place : contrat
   `authResilience` + `verify-product-contract.cjs` (bloquant publication web/OTA).
+- **Contenu utilisateur vérifié intact (02/10 18h UTC)** : profils, playlists (22), titres (181), GARDER (120), abonnements (26), FREE calculés (adel4A 95, othmane 123, teyou 80…). « Contenu manquant » à l'écran = requêtes en échec (serveur saturé), pas une perte.
+- **Gouvernance (action Adel)** : activer la protection de branche GitHub sur `reconcile/claude-main-20260825` (PR obligatoire + revue CODEOWNERS + contrôles requis) et passer le connecteur Supabase des IA en lecture seule.
 - **Chat (MusicAgoraPanel)** : filet réseau toutes les 2,5 s quand une
   conversation est ouverte — à passer ≥ 5 s après le gel (déclaré dans
   `authResilience.fastIntervalAllowlist`).
