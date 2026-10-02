@@ -1794,6 +1794,7 @@ export default function MusicAgoraPanel({
           placeholderTextColor={colors.textMutedGrey}
           multiline
           scrollEnabled
+          autoFocus={compact}
           showSoftInputOnFocus
           maxLength={2000}
           onFocus={() => {
