@@ -282,6 +282,12 @@ jobs:
             await newestDirectBubble.waitFor({ state: 'visible', timeout: 10000 });
             const directMessage = 'Message direct test visible immédiatement';
             const directInput = page.getByPlaceholder('Écris un message…').last();
+            await directInput.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(500);
+            const directComposerFocused = await directInput.evaluate(el => document.activeElement === el);
+            if (!directComposerFocused) {
+              throw new Error('Direct chat composer did not receive focus when the user thread opened');
+            }
             await directInput.fill(directMessage);
             await clickRobust(page.getByLabel('Envoyer le message').last(), 'Send direct profile chat message');
             const directSentBubble = page.getByText(directMessage, { exact: true }).last();
