@@ -91,6 +91,34 @@ async function findAuthUserByEmail(email: string) {
   return null;
 }
 
+async function findAuthUserByUsername(username: string) {
+  const target = normalizeUsername(username).toLocaleLowerCase('fr-FR');
+  // Fallback de panne uniquement. Le chemin normal reste l'index SQL/PostgREST.
+  // Tant que le parc legacy est petit, Supabase Auth permet de continuer à
+  // connecter les utilisateurs même si le schema-cache REST est indisponible.
+  for (let page = 1; page <= 25; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const found = data.users.find((user) => {
+      const value = normalizeUsername(user.user_metadata?.keep_username)
+        .toLocaleLowerCase('fr-FR');
+      return value === target;
+    });
+    if (found) return found;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
+function transientProfileLookupFailure(error: unknown) {
+  const code = String((error as any)?.code ?? '').toUpperCase();
+  const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+  return transientAuthFailure(error)
+    || code === 'PGRST002'
+    || message.includes('schema cache')
+    || message.includes('could not query the database');
+}
+
 async function profileByUsername(username: string) {
   // Login critique : contourne PostgREST/schema-cache. La requête SQL directe
   // utilise l'index unique lower(username) et reste O(log n) même à grande échelle.
@@ -112,10 +140,23 @@ async function profileByUsername(username: string) {
     }
   }
 
-  // Fallback de compatibilité uniquement.
+  // Fallback PostgREST habituel.
   const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2);
-  if (error) throw error;
-  return data ?? [];
+  if (!error) return data ?? [];
+
+  // Incident 02/10/2026 : PostgREST peut perdre son schema-cache (PGRST002)
+  // alors que Supabase Auth reste accessible. Dans ce cas précis, ne jamais
+  // bloquer tous les comptes Loki : retrouver le user par son metadata
+  // keep_username et continuer le contrôle de mot de passe via Auth.
+  if (transientProfileLookupFailure(error)) {
+    const authUser = await findAuthUserByUsername(username);
+    if (authUser) {
+      const keepUsername = normalizeUsername(authUser.user_metadata?.keep_username) || username;
+      return [{ id: authUser.id, username: keepUsername, is_public: true }];
+    }
+  }
+
+  throw error;
 }
 
 async function profileById(id: string) {
