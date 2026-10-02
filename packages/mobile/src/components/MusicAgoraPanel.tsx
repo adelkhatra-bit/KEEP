@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -247,17 +247,13 @@ export default function MusicAgoraPanel({
     };
   }, [compact, viewportHeight]);
 
-  // Le chat plein écran reste physiquement AU-DESSUS du clavier natif.
-  // Android peut déjà réduire la fenêtre avec softwareKeyboardLayoutMode=resize.
-  // On ne rajoute alors que la partie du clavier que le système n'a PAS déjà
-  // absorbée, afin d'éviter un double déplacement. Sur iOS la fenêtre reste
-  // généralement pleine hauteur : l'inset clavier entier remonte le compositeur.
-  const nativeWindowResizeInset = compact && Platform.OS !== 'web'
-    ? Math.max(0, baseViewportHeightRef.current - viewportHeight)
-    : 0;
-  const compactBottom = compact && Platform.OS !== 'web'
-    ? Math.max(0, keyboardInset - nativeWindowResizeInset)
-    : 0;
+  // Un seul mécanisme déplace le chat par plateforme :
+  // - iOS : KeyboardAvoidingView ci-dessous ;
+  // - Android : fenêtre native en mode resize (app.json) ;
+  // - web : visualViewport dans GlobalChatDock.
+  // Ne jamais déplacer aussi le conteneur par "bottom", sinon le champ peut
+  // sauter pendant le tap et iOS annule parfois l'ouverture du clavier.
+  const compactBottom = 0;
 
   const focusComposer = () => {
     if (!compact) return;
@@ -265,15 +261,14 @@ export default function MusicAgoraPanel({
     composerFocusTimersRef.current = [];
     const focus = () => {
       composerInputRef.current?.focus();
-      followChatBottom(false);
     };
-    // Ne jamais attendre le réseau pour rendre le champ réellement utilisable.
-    // Sur iOS, le TextInput peut être monté pendant l'animation du Modal :
-    // on tente tout de suite, après les interactions, puis à quelques reprises.
+    // Une seule séquence de focus après l'animation du Modal. Les anciennes
+    // relances répétées pouvaient déplacer le layout pendant le tap et rendre
+    // le clavier iPhone aléatoire.
     focus();
-    InteractionManager.runAfterInteractions(focus);
-    [80, 180, 360, 700].forEach((delay) => {
-      composerFocusTimersRef.current.push(setTimeout(focus, delay));
+    InteractionManager.runAfterInteractions(() => {
+      focus();
+      composerFocusTimersRef.current.push(setTimeout(focus, 220));
     });
   };
 
@@ -1133,7 +1128,10 @@ export default function MusicAgoraPanel({
   };
   if (compact && !enabled) return null;
 
-  return <View
+  return <KeyboardAvoidingView
+    enabled={compact && Platform.OS === 'ios'}
+    behavior={compact && Platform.OS === 'ios' ? 'padding' : undefined}
+    keyboardVerticalOffset={0}
     testID={compact ? "loki-chat-fullscreen" : undefined}
     accessibilityLabel={compact ? "Messagerie Loki" : undefined}
     style={[
@@ -1884,9 +1882,11 @@ export default function MusicAgoraPanel({
           focusable
           maxLength={2000}
           onPressIn={() => {
-            composerInputRef.current?.focus();
+            // Ne pas déplacer le layout pendant le geste qui donne le focus au
+            // TextInput. Le recalage du fil se fait dans onFocus, une fois le
+            // clavier réellement engagé.
             stickToBottomRef.current = true;
-            followChatBottom(false);
+            userDraggingChatRef.current = false;
           }}
           onFocus={() => {
             setComposerActionsOpen(false);
@@ -2041,7 +2041,7 @@ export default function MusicAgoraPanel({
         </ScrollView>
       </View></View>
     </Modal>
-  </View>;
+  </KeyboardAvoidingView>;
 }
 
 const s=StyleSheet.create({
