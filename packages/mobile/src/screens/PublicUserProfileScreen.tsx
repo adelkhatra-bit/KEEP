@@ -25,9 +25,7 @@ import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import ProfileStyleCard from '../components/ProfileStyleCard';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
-import SaleCollectionRow from '../components/SaleCollectionRow';
 import LoginPill from '../components/LoginPill';
-import { nextSaleVisibleCount, SALE_ROWS_INITIAL } from '../services/saleListPaging';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -36,6 +34,7 @@ import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS,
 import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
+import SellerBoutique from '../components/SellerBoutique';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -241,13 +240,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [saleOfferOverlaps, setSaleOfferOverlaps] = useState<Record<string, PlaylistSaleOverlap>>({});
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
-  const [visibleSaleCount, setVisibleSaleCount] = useState(SALE_ROWS_INITIAL);
 
-  useEffect(() => {
-    // Chaque profil recommence à 3 Drops : jamais une longue liste héritée
-    // du profil visité juste avant.
-    setVisibleSaleCount(SALE_ROWS_INITIAL);
-  }, [profile?.id]);
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
   const [marketBannerPendingEventCount, setMarketBannerPendingEventCount] = useState(0);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
@@ -1561,80 +1554,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.marketplaceKicker}>À ÉCOUTER · @{profile.username}</Text>
-                <Text style={styles.sectionTitle}>Drops musicaux</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
-                {saleOffers.length > 0 ? (
-                  <View style={styles.marketplaceCountPill}>
-                    <Text style={styles.marketplaceCountText}>{saleOffers.length} DROP{saleOffers.length > 1 ? 'S' : ''}</Text>
-                  </View>
-                ) : null}
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
                   <Text style={styles.marketplaceHideText}>MASQUER</Text>
                 </TouchableOpacity>
               </View>
             </View>
-            <View style={styles.marketplacePulseLine}><View style={styles.marketplaceLiveDot} /><Text style={styles.marketplaceHint}>{saleOffers.length > 0 ? `${saleOffers.reduce((sum, offer) => sum + (offer.trackCount || 0), 0)} titres à découvrir · ${visiblePublicVibes.length} vibes publiques` : 'Ses prochains drops musicaux apparaîtront ici'}</Text></View>
-            {saleOffers.length === 0 ? (
-              <TouchableOpacity
-                style={styles.marketplaceEmpty}
-                onPress={() => Alert.alert('Découvertes à débloquer', `@${profile.username} n'a pas encore de musique en vente.`)}
-                accessibilityLabel={`@${profile.username} n'a pas encore de musique en vente`}
-              >
-                <Text style={styles.marketplaceEmptyText}>Pas encore de musique en vente</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                {/* Adel (29/09/2026) : « trop gros… 5 millions d'utilisateurs ».
-                    Une ligne compacte par collection (SaleCollectionRow), 3
-                    visibles puis +10 à chaque « VOIR PLUS » : même rendu pour
-                    3 ou 300 collections. Toucher la ligne ouvre la collection,
-                    ▶ lance l'aperçu anonyme de 15 s (rien n'a disparu). */}
-                <View style={styles.saleList} accessibilityLabel="Collections musicales à débloquer">
-                  {saleOffers.slice(0, visibleSaleCount).map((offer, index) => {
-                    const unlocked = Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && effectiveViewerId === profile.id);
-                    const priceLabel = offer.paymentMode === 'FREE'
-                      ? `${offer.freePrice ?? 0} FREE`
-                      : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
-                    // Une ligne courte, jamais coupée : 1 style suffit ici.
-                    const styleLabel = offer.genres?.[0] || 'Mix secret';
-                    const overlap = saleOfferOverlaps[offer.offerId];
-                    const missingLabel = overlap
-                      ? (overlap.missingCount === 0
-                          ? '✓ tout est déjà chez toi'
-                          : `${overlap.missingCount} titre${overlap.missingCount > 1 ? 's' : ''} que tu n’as pas encore`)
-                      : null;
-                    return (
-                      <SaleCollectionRow
-                        key={`sale-row:${offer.offerId}`}
-                        index={index}
-                        title={offer.playlistName || `Collection #${index + 1}`}
-                        meta={unlocked
-                          ? `${offer.trackCount} découverte${offer.trackCount > 1 ? 's' : ''} · ${styleLabel}`
-                          : missingLabel
-                            ? `${missingLabel} · ${styleLabel}`
-                            : `✦ ${offer.trackCount} à révéler · ${styleLabel}`}
-                        tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}
-                        tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}
-                        onPress={() => openSaleFolder(offer)}
-                        accessibilityLabel={unlocked
-                          ? `Ouvrir la collection ${offer.playlistName}`
-                          : `Lancer la préécoute anonyme de toute la collection ${offer.playlistName}, ${missingLabel || `${offer.trackCount} titres à révéler`}, ${priceLabel}`}
-                        onPlayPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}
-                        playAccessibilityLabel={`Écouter 15 secondes la sélection ${offer.playlistName}`}
-                      />
-                    );
-                  })}
-                </View>
-                {saleOffers.length > 3 ? (
-                  <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setVisibleSaleCount((n) => nextSaleVisibleCount(n, saleOffers.length))} accessibilityRole="button" accessibilityLabel={visibleSaleCount >= saleOffers.length ? `Réduire les collections de ${profile.username}` : `Voir plus de collections de ${profile.username}`}>
-                    <Text style={styles.marketplaceBrowseAllText}>{visibleSaleCount >= saleOffers.length ? 'RÉDUIRE À 3' : `VOIR PLUS · ${saleOffers.length - visibleSaleCount} DROP${saleOffers.length - visibleSaleCount > 1 ? 'S' : ''}`}</Text><Text style={styles.marketplaceReopenArrow}>{visibleSaleCount >= saleOffers.length ? '˄' : '˅'}</Text>
-                  </TouchableOpacity>
-                ) : null}
-                <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Par @{profile.username}</Text></TouchableOpacity>
-                <Text style={styles.saleCarouselHint}>Aperçu sans révéler les titres · une collection déjà acquise reste signalée</Text>
-              </>
-            )}
+            {/* Adel (02/10/2026) : boutique vendeur validée. Drop du moment
+                limité à 3 « à la une », étagère de 10 puis boutique complète
+                filtrable / triable (prête pour 40 collections et plus).
+                Toucher une carte = même parcours qu'avant (openSaleFolder :
+                aperçu anonyme, ou collection si déjà débloquée). */}
+            <SellerBoutique
+              offers={saleOffers}
+              sellerUsername={profile.username}
+              overlaps={saleOfferOverlaps}
+              unlockedOfferIds={new Set(saleOffers.filter((offer) => Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && effectiveViewerId === profile.id)).map((offer) => offer.offerId))}
+              onOpenOffer={(offer) => openSaleFolder(offer)}
+            />
           </ProfileMotionReveal>
         ) : saleOffers.length > 0 ? (
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">

@@ -46,7 +46,8 @@ describe('Social scale and musical agora contracts',()=>{
 
   it('separates music drops from events on a visited profile',()=>{
     const visitor=read('screens','PublicUserProfileScreen.tsx');
-    expect(visitor).toContain('Drops musicaux');
+    // 02/10/2026 : boutique vendeur (Drop du moment + boutique), distincte des événements.
+    expect(visitor).toContain('<SellerBoutique');
     expect(visitor).toContain('eventSpotlightTitle');
     expect(visitor).not.toContain('Vendu par @{profile.username}');
   });

@@ -64,7 +64,8 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   });
 
   it('is wired into the public profile boutique instead of purchasing on list-row tap', () => {
-    expect(profile).toContain('onPress={() => openSaleFolder(offer)}');
+    // 02/10/2026 : la boutique vendeur ouvre la même fenêtre via openSaleFolder.
+    expect(profile).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
     expect(profile).toContain('setImmersivePreviewOffer(offer);');
     expect(profile).toContain('onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}');
   });

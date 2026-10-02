@@ -36,11 +36,14 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   });
 
   it('represents paid music only as one locked collection card in a separate horizontal rail', () => {
-    // 29/09/2026 : une ligne compacte par collection (SaleCollectionRow), liste séparée des Styles.
-    expect(publicProfile).toContain('<View style={styles.saleList}');
-    expect(publicProfile).toContain('key={`sale-row:${offer.offerId}`}');
-    expect(publicProfile).toContain("tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}");
-    expect(publicProfile).toContain("tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}");
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    // Une carte verrouillée par collection, séparée des Styles, prix FREE / € distincts.
+    const boutique = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'SellerBoutique.tsx'), 'utf8');
+    expect(publicProfile).toContain('<SellerBoutique');
+    expect(boutique).toContain('<OfferCard key={offer.offerId}');
+    expect(boutique).toContain('✓ DÉBLOQUÉE');
+    expect(boutique).toContain('tokenFree');
+    expect(boutique).toContain('tokenMoney');
     expect(publicProfile).not.toContain('sale-style:');
   });
 

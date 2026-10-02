@@ -7,14 +7,16 @@ import path from 'path';
 const read = (f: string) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
 
 describe('ventes : collections compactes, prix juste', () => {
-  it('VOIR PLUS déroule réellement les collections par paquets et permet de revenir à 3', () => {
+  it('reste compact à grande échelle : Drop 3 max, étagère 10, boutique complète', () => {
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     const v = read('PublicUserProfileScreen.tsx');
-    expect(v).toContain('{saleOffers.slice(0, visibleSaleCount).map((offer, index) => {');
-    expect(v).toContain('onPress={() => setVisibleSaleCount((n) => nextSaleVisibleCount(n, saleOffers.length))}');
+    const b = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'SellerBoutique.tsx'), 'utf8');
+    expect(v).toContain('<SellerBoutique');
     expect(v).not.toContain('{saleOffers.slice(0, 3).map(');
-    expect(v).toContain('setVisibleSaleCount(SALE_ROWS_INITIAL);');
-    expect(v).toContain('RÉDUIRE À 3');
-    expect(v).toContain("tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}");
+    expect(b).toContain('export const DROP_FEATURED_MAX = 3;');
+    expect(b).toContain('export const SHELF_MAX = 10;');
+    expect(b).toContain('.slice(0, SHELF_MAX)');
+    expect(b).toContain('Tout voir · {visibleOffers.length} ›');
   });
 
   it('la gestion Pépites sépare publiées et retirées (plus de faux « PUBLIÉE »)', () => {

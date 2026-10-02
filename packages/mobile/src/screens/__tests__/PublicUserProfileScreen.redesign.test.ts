@@ -29,10 +29,9 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
 
   it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
     expect(source).toContain("À ÉCOUTER · @{profile.username}");
-    expect(source).toContain("Drops musicaux");
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(source).toContain('pépite');
-    expect(source).toContain('`✦ ${offer.trackCount} à révéler · ${styleLabel}`');
-    expect(source).toContain('<SaleCollectionRow');
+    expect(source).toContain('<SellerBoutique');
     expect(source).not.toContain('sale-style:');
   });
 
@@ -42,7 +41,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
     expect(source).toContain('↗ PARTAGER');
     expect(source).not.toContain('<BattleGlowButton');
-    expect(source).toContain('<SaleCollectionRow');
+    expect(source).toContain('<SellerBoutique');
     expect(source).toContain('ProfileStyleCard');
   });
 

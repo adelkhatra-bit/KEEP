@@ -9,6 +9,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   const swipe = read(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx');
   const listen = read(__dirname, '..', '..', 'components', 'TrackListenControls.tsx');
   const profile = read(__dirname, '..', 'PublicUserProfileScreen.tsx');
+  const boutique = read(__dirname, '..', '..', 'components', 'SellerBoutique.tsx');
   const ownerProfile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
   const styleCard = read(__dirname, '..', '..', 'components', 'ProfileStyleCard.tsx');
   const featureFlags = read(__dirname, '..', '..', 'services', 'featureFlagService.ts');
@@ -51,20 +52,20 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(profile).toContain('mode="PUBLIC"');
     expect(profile).toContain("onPress={() => openBrowseSwipe({ type: 'genre', value: genre, label: genre })}");
     expect(profile).toContain('artworkUrl={genreArtwork[genre]}');
-    expect(profile).toContain('<SaleCollectionRow');
-    expect(profile).toContain('accessibilityLabel="Collections musicales à débloquer"');
-    expect(profile).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    expect(profile).toContain('<SellerBoutique');
+    expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
+    expect(boutique).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
     expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
   });
 
   it('keeps sale products out of the public style grid and never reveals their artwork through the locked row', () => {
-    const saleRowStart = profile.indexOf('key={`sale-row:${offer.offerId}`}');
-    const saleRowEnd = profile.indexOf('/>', saleRowStart);
-    const saleRow = profile.slice(saleRowStart, saleRowEnd);
-    expect(saleRowStart).toBeGreaterThan(-1);
-    expect(saleRow).not.toContain('artworkUrl=');
+    // Les cartes de la boutique n'utilisent jamais la jaquette des titres masqués.
+    expect(boutique).toContain('function OfferCard(');
+    expect(boutique).not.toContain('artworkUrl');
+    expect(boutique).not.toContain('coverUrl');
     expect(profile).not.toContain('key={`sale-style:${offer.offerId}`}');
     expect(profile).toContain('fullWidth={totalStyleCardCount % 2 === 1 && index === freeStyleCardCount - 1}');
   });
@@ -78,9 +79,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('À ÉCOUTER · @{profile.username}');
-    expect(profile).toContain('Drops musicaux');
-    expect(profile).toContain("{saleOffers.length} DROP{saleOffers.length > 1 ? 'S' : ''}");
-    expect(profile).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    expect(boutique).toContain('DROP DU MOMENT');
+    expect(boutique).toContain('Boutique de @{sellerUsername}');
+    expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
+    expect(boutique).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 
@@ -120,9 +122,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('plays locked collection previews anonymously from the collection carousel', () => {
     expect(profile).toContain('loadPlaylistSaleOfferPreviewTracks(offer.playlistId)');
     // 29/09/2026 : toucher la ligne = préécoute anonyme complète ; ▶ = aperçu immersif 15 s.
-    expect(profile).toContain('onPress={() => openSaleFolder(offer)}');
-    expect(profile).toContain('onPlayPress={() => { unlockWebAudioForGesture(); setImmersivePreviewOffer(offer); }}');
-    expect(profile).toContain('Lancer la préécoute anonyme de toute la collection');
+    // Toucher une carte de la boutique = même parcours (aperçu anonyme immersif).
+    expect(profile).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
+    expect(profile).toContain('setImmersivePreviewOffer(offer);');
+    expect(boutique).toContain('Écouter l\'aperçu de ${offer.playlistName}');
   });
 
   it('renders locked sale cards with a vivid dedicated palette', () => {

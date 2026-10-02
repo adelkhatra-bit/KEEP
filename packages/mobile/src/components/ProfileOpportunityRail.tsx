@@ -11,7 +11,8 @@ type Props = {
 };
 
 function priceLabel(suggestion: ProfileSaleSuggestion): string {
-  if (suggestion.paymentMode === 'FREE') return `${suggestion.freePrice ?? 0} FREE`;
+  // Prix manquant : ne jamais inventer un montant (ancien « 3 FREE » par défaut).
+  if (suggestion.paymentMode === 'FREE') return suggestion.freePrice != null ? `${suggestion.freePrice} FREE` : 'FREE';
   return `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`;
 }
 
@@ -137,7 +138,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
               style={s.freeDropButton}
               onPress={() => onSuggestionPress(suggestion)}
               accessibilityRole="button"
-              accessibilityLabel={`Découvrir ce drop pour ${suggestion.freePrice ?? 3} FREE`}
+              accessibilityLabel={suggestion.freePrice != null ? `Découvrir ce drop pour ${suggestion.freePrice} FREE` : 'Découvrir ce drop en FREE'}
             >
               <View style={s.freeOrbStage}>
                 <Animated.View
@@ -163,13 +164,13 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
                 >
                   <View style={s.freeOrbInner}>
                     <Text style={s.freeOrbSpark}>✦</Text>
-                    <Text style={s.freeOrbValue}>{suggestion.freePrice ?? 3}</Text>
+                    <Text style={s.freeOrbValue}>{suggestion.freePrice ?? '✦'}</Text>
                     <Text style={s.freeOrbLabel}>FREE</Text>
                   </View>
                 </Animated.View>
               </View>
               <View style={s.freeDropCopy}>
-                <Text style={s.freeDropTop}>SEULEMENT {suggestion.freePrice ?? 3} FREE</Text>
+                <Text style={s.freeDropTop}>{suggestion.freePrice != null ? `SEULEMENT ${suggestion.freePrice} FREE` : 'EN FREE'}</Text>
                 <Text style={s.freeDropMiddle}>DÉBLOQUE LE DROP</Text>
                 <Text style={s.freeDropBottom}>APERÇU GRATUIT AVANT DE CHOISIR</Text>
               </View>
@@ -208,8 +209,8 @@ const s=StyleSheet.create({
   overlap:{color:colors.keep,fontSize:10,fontWeight:'900',marginTop:4},
   hook:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},
   actions:{flexDirection:'row',alignItems:'center',gap:8,marginTop:12},
-  price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center'},
-  priceText:{color:colors.keep,fontSize:11,fontWeight:'900'},
+  price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:'#E8C26A',backgroundColor:'rgba(232,194,106,.14)',alignItems:'center',justifyContent:'center'},
+  priceText:{color:'#E8C26A',fontSize:11,fontWeight:'900'},
   freeDropButton:{flex:1,minHeight:66,borderRadius:22,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',flexDirection:'row',alignItems:'center',paddingHorizontal:9,paddingVertical:7,overflow:'hidden'},
   freeOrbStage:{width:62,height:58,alignItems:'center',justifyContent:'center'},
   freeOrbAura:{position:'absolute',width:58,height:58,borderRadius:29,backgroundColor:colors.keep},
