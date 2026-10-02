@@ -1,4 +1,3 @@
-import * as Speech from 'expo-speech';
 import { isNativeRecordingModeActive } from './micCapture';
 
 type ExpoAVModule = typeof import('expo-av');
@@ -734,7 +733,6 @@ export async function playAntiShazamPreviewSegment(
 ): Promise<number> {
   const durationMs = SECRET_PREVIEW_DURATION_MS;
   return serialize(async () => {
-    try { Speech.stop(); } catch {}
 
     if (canUseWebAudio()) {
       // Démarrage à zéro : beaucoup de previews AAC iTunes sont courtes et
@@ -766,7 +764,6 @@ export async function playAntiShazamPreviewSegment(
 
 /** Coupe l'extrait anti-Shazam en cours ET la voix off associée (voir playAntiShazamPreviewSegment). */
 export async function stopAntiShazamPreview(key?: string): Promise<void> {
-  try { Speech.stop(); } catch {}
   if (canUseWebAudio()) {
     try {
       const element = getWebAudio();

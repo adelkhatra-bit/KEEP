@@ -30,10 +30,11 @@ describe('audioPreviewService -- masked collection preview', () => {
     expect(modal).toContain('RÉVÉLER + AJOUTER');
   });
 
-  it('stopping the masked preview also stops speech state and the shared audio preview', () => {
+  it('stopping the masked preview cleans the shared audio preview without a new native speech module', () => {
     const start = preview.indexOf('export async function stopAntiShazamPreview(');
     const body = preview.slice(start, preview.indexOf('\n}\n', start));
-    expect(body).toContain('Speech.stop();');
+    expect(preview).not.toContain("from 'expo-speech'");
+    expect(preview).not.toContain('Speech.stop();');
     expect(body).toContain('stopTrackPreview');
   });
 
