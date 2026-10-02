@@ -251,6 +251,18 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 <Text style={[s.totalPriceValue, freeAccess ? s.totalPriceValueFree : s.totalPriceValueMoney]}>{priceLabel}</Text>
               </View>
             </View>
+            {/* Toujours visible (comme l'original) : l'utilisateur voit tout de
+                suite ce qu'il a déjà et ce qui est nouveau (Adel, 02/10/2026). */}
+            {overlap && overlap.totalCount > 0 ? (
+              <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
+                <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
+                <View style={s.overlapDivider} />
+                <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ CHEZ TOI</Text></View>
+                <View style={s.overlapDivider} />
+                <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
+              </View>
+            ) : null}
+            {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ rien à reprendre</Text> : null}
           </View>
 
           {/* COUCHE 2 · défile : écoute, détails, PayPal, demande des manquants */}
@@ -324,16 +336,6 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </TouchableOpacity>
             {detailsOpen ? (
               <>
-                {overlap && overlap.totalCount > 0 ? (
-                  <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
-                    <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
-                    <View style={s.overlapDivider} />
-                    <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ CHEZ TOI</Text></View>
-                    <View style={s.overlapDivider} />
-                    <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
-                  </View>
-                ) : null}
-                {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ rien à reprendre</Text> : null}
                 <Text style={s.unlockExplainText}>
                   {allAlreadyOwned
                     ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
