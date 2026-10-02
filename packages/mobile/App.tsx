@@ -310,6 +310,15 @@ export default function App() {
     };
 
     const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
+      // Une session Supabase réellement restaurée suffit pour conserver le shell
+      // du MÊME compte déjà présent localement pendant que le profil distant se
+      // réhydrate. Le cache n'authentifie jamais l'utilisateur : il n'est utilisé
+      // qu'après confirmation de la vraie session Supabase.
+      const currentUser = useUserStore.getState().user;
+      if (active && session && currentUser?.id === session.userId) {
+        setAuthReady(true);
+      }
+
       const hydrated = await handleSessionOnce(session);
       if (active && hydrated) {
         initialBootstrapSettled = true;
@@ -370,11 +379,14 @@ export default function App() {
         return;
       }
 
-      // Mot de passe/session acceptés : ne jamais revenir à « Se connecter »
-      // parce que profiles/follows répondent 503/504. On garde l'écran de
-      // récupération et on retente le vrai profil jusqu'à hydratation.
+      // Mot de passe/session acceptés : une panne temporaire de profiles ne doit
+      // jamais masquer de nouveau un compte déjà affiché. Pour un changement
+      // réel de compte on attend le nouveau profil ; pour le même compte on garde
+      // Navigation visible et on réhydrate en arrière-plan.
       pendingProfileSession = session;
-      setAuthReady(false);
+      const currentUserId = useUserStore.getState().user?.id ?? null;
+      const sameAuthenticatedAccount = currentUserId === session.userId;
+      if (!sameAuthenticatedAccount) setAuthReady(false);
 
       void handleSessionOnce(session).then((hydrated) => {
         if (!active) return;
