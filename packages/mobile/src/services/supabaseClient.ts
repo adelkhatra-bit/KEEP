@@ -21,7 +21,7 @@ const isWebRuntime = Boolean((globalThis as any)?.location?.href);
 // On garde UN SEUL client, mais on borne le fan-out HTTP par appareil.
 // Auth n'attend jamais cette file ; les appels REST/Functions sont lissés.
 // Aucun écran/design n'est modifié.
-const KEEP_NETWORK_MAX_CONCURRENT = 4;
+const KEEP_NETWORK_MAX_CONCURRENT = isWebRuntime ? 2 : 3;
 let keepNetworkActive = 0;
 let keepNetworkCooldownUntil = 0;
 const keepNetworkQueue: Array<() => void> = [];
@@ -58,7 +58,7 @@ async function keepSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): 
     if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
       // Petit coupe-circuit local : évite qu'un écran qui reçoit un 504
       // relance immédiatement 10 autres RPC pendant que Postgres récupère.
-      keepNetworkCooldownUntil = Math.max(keepNetworkCooldownUntil, Date.now() + 900);
+      keepNetworkCooldownUntil = Math.max(keepNetworkCooldownUntil, Date.now() + 1600);
     }
     return response;
   } finally {
