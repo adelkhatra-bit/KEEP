@@ -240,7 +240,10 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 <Text style={s.profileLinkArrow}>›</Text>
               </TouchableOpacity>
             ) : <View />}
-            <View style={s.totalPricePill}><Text style={s.totalPriceLabel}>{freeAccess ? 'PRIX' : 'TOTAL'}</Text><Text style={s.totalPriceValue}>{priceLabel}</Text></View>
+            <View style={[s.totalPricePill, freeAccess ? s.totalPricePillFree : s.totalPricePillMoney]}>
+              <Text style={[s.totalPriceLabel, freeAccess ? s.totalPriceLabelFree : s.totalPriceLabelMoney]}>{freeAccess ? 'FREE' : 'PAYPAL'}</Text>
+              <Text style={[s.totalPriceValue, freeAccess ? s.totalPriceValueFree : s.totalPriceValueMoney]}>{priceLabel}</Text>
+            </View>
           </View>
 
           {overlap && overlap.totalCount > 0 ? (
@@ -332,8 +335,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
               pas seulement l'Alert transitoire après ouverture du lien. */}
           {purchaseEnabled && !freeAccess ? (
-            <View style={s.manualNotice}>
-              <Text style={s.manualNoticeText}>ℹ️ Paiement sur le lien du créateur · accès après sa confirmation.</Text>
+            <View style={s.moneyFlow}>
+              <View style={s.moneyFlowDot} />
+              <Text style={s.moneyFlowText}>PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection</Text>
             </View>
           ) : null}
 
@@ -420,9 +424,15 @@ const s = StyleSheet.create({
   profileLinkText: { color: colors.primaryLight, fontSize: 10, fontWeight: '900' },
   profileLinkArrow: { color: colors.primaryLight, fontSize: 16, fontWeight: '900' },
   secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
-  totalPricePill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.42)' },
-  totalPriceLabel: { color: colors.textMutedGrey, fontSize: 9, fontWeight: '900', letterSpacing: .7 },
-  totalPriceValue: { color: colors.success, fontSize: 13, fontWeight: '900' },
+  totalPricePill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  totalPricePillFree: { backgroundColor: 'rgba(45,225,194,.10)', borderColor: 'rgba(45,225,194,.42)' },
+  totalPricePillMoney: { backgroundColor: 'rgba(124,92,252,.12)', borderColor: 'rgba(167,139,250,.48)' },
+  totalPriceLabel: { fontSize: 9, fontWeight: '900', letterSpacing: .7 },
+  totalPriceLabelFree: { color: colors.success },
+  totalPriceLabelMoney: { color: colors.primaryLight },
+  totalPriceValue: { fontSize: 13, fontWeight: '900' },
+  totalPriceValueFree: { color: colors.success },
+  totalPriceValueMoney: { color: colors.primaryLight },
   overlapSummary:{marginTop:7,minHeight:46,borderRadius:12,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:8,paddingVertical:6,flexDirection:'row',alignItems:'center',position:'relative'},
   overlapBarAll:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
   overlapStat:{flex:1,alignItems:'center',justifyContent:'center'},
@@ -477,6 +487,9 @@ const s = StyleSheet.create({
   rechargeButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   manualNotice: { marginTop: 4, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
+  moneyFlow:{marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:'rgba(167,139,250,.42)',backgroundColor:'rgba(124,92,252,.09)',paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},
+  moneyFlowDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primaryLight,flexShrink:0},
+  moneyFlowText:{flex:1,color:colors.textSecondary,fontSize:9.5,lineHeight:14,fontWeight:'800'},
   waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 7, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
