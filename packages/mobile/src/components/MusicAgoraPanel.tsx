@@ -302,6 +302,11 @@ export default function MusicAgoraPanel({
   };
 
   const room = useMemo(() => rooms.find((item) => item.slug === roomSlug) ?? rooms[0] ?? null, [rooms, roomSlug]);
+  const activeThreadKey = activeGroup?.id
+    ? `group:${activeGroup.id}`
+    : replyTarget?.profileId
+      ? `direct:${replyTarget.profileId}`
+      : `${chatMode}:room:${roomSlug || 'pending'}`;
 
   useEffect(() => {
     if (initialRoomSlug && rooms.some((item) => item.slug === initialRoomSlug)) setRoomSlug(initialRoomSlug);
@@ -1237,6 +1242,7 @@ export default function MusicAgoraPanel({
       </ScrollView>
     ) : (
     <ScrollView
+      key={activeThreadKey}
       testID="loki-chat-thread-scroll"
       ref={chatScrollRef}
       style={compact ? s.chatScrollCompact : s.chatScroll}
@@ -1679,6 +1685,8 @@ export default function MusicAgoraPanel({
             // dernier message et la dernière ligne restent visibles. Cela vaut
             // pour La Place, les directs et les groupes, pas seulement pour la
             // fenêtre compacte.
+            stickToBottomRef.current = true;
+            userDraggingChatRef.current = false;
             forceBottomRef.current = true;
             requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
           }}
@@ -1695,6 +1703,8 @@ export default function MusicAgoraPanel({
           onFocus={() => {
             setComposerActionsOpen(false);
             setReactionPaletteOpen(false);
+            stickToBottomRef.current = true;
+            userDraggingChatRef.current = false;
             forceBottomRef.current = true;
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 180);
