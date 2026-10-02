@@ -19,8 +19,10 @@ on:
   schedule:
     - cron: '23 */6 * * *'
 
+# Mutual exclusion repository-wide for every browser job that talks to the
+# production Supabase project. Authentication always keeps priority.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: keep-production-supabase-browser-audits
   cancel-in-progress: false
 
 permissions:
