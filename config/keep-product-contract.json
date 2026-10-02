@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.7",
+  "version": "2026-10-02.01",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -664,5 +664,12 @@
     "blankBlackRecoverySurfaceForbidden": true,
     "manualRefreshRequired": false,
     "silentAppUpdateWaitsForAuthReady": true
+  },
+  "validatedLokiUiCheckpoint": {
+    "chat": "fullscreen_chat_only_no_calls_camera",
+    "home": "clickable_listenable_music_bubbles",
+    "profile": "dna_percentage_gauge_plus_clickable_pulse_track_bubbles",
+    "battle": "daily_free_won_lost_reset_0200_plus_recharge",
+    "auth": "local_logout_cannot_be_resurrected"
   }
 }

@@ -333,7 +333,15 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signOut() {
-      await client.auth.signOut();
+      // Déconnexion Loki : la session locale de CET appareil doit toujours
+      // disparaître, même si la révocation réseau globale échoue. Sinon un
+      // refreshSession() ultérieur peut ressusciter l'ancien compte et donner
+      // l'impression d'être connecté sous une autre identité.
+      const globalResult = await client.auth.signOut({ scope: 'global' });
+      if (globalResult.error) {
+        const localResult = await client.auth.signOut({ scope: 'local' });
+        if (localResult.error) throw localResult.error;
+      }
     },
 
     onSessionChange(callback) {

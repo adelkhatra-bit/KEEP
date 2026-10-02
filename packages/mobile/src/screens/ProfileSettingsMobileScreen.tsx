@@ -81,13 +81,19 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
   const signOutNow = async () => {
     if (sessionBusy) return;
     setSessionBusy(true);
+
+    // L'interface quitte immédiatement l'identité courante. La révocation
+    // Supabase se fait ensuite ; aucun ancien profil ne reste affiché pendant
+    // une latence réseau et aucun bouton ne peut continuer à agir au nom du
+    // compte précédent.
+    useUserStore.getState().logout();
+
     try {
       if (supabase) await createAuthService(supabase).signOut();
       await clearLocalGuestMarker();
     } catch {
       await clearLocalGuestMarker();
     } finally {
-      useUserStore.getState().logout();
       setSessionBusy(false);
     }
   };
