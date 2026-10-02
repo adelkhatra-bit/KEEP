@@ -51,6 +51,24 @@ function cachedOutageProfile(session: KeepAuthSession): User | null {
       ...fallbackUser(session),
       username,
       avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
+      bio: typeof parsed?.bio === 'string' ? parsed.bio : '',
+      playlistCount: Number.isFinite(Number(parsed?.playlistCount)) ? Number(parsed.playlistCount) : 0,
+      followerCount: Number.isFinite(Number(parsed?.followerCount)) ? Number(parsed.followerCount) : 0,
+      followingCount: Number.isFinite(Number(parsed?.followingCount)) ? Number(parsed.followingCount) : 0,
+      kind: safeProfileKind(parsed?.kind),
+      city: safeOptionalText(parsed?.city),
+      countryCode: safeOptionalText(parsed?.countryCode),
+      preferredLanguageTag: safeOptionalText(parsed?.preferredLanguageTag),
+      musicCountryCodes: normalizeProfileTextList(parsed?.musicCountryCodes, 50).map((code) => code.toUpperCase()),
+      website: safeOptionalText(parsed?.website),
+      favoriteGenres: normalizeProfileTextList(parsed?.favoriteGenres),
+      favoriteArtists: normalizeProfileTextList(parsed?.favoriteArtists),
+      socialLinks: Array.isArray(parsed?.socialLinks)
+        ? parsed.socialLinks.filter((link: unknown) => Boolean(link && typeof (link as any).platform === 'string' && typeof (link as any).url === 'string'))
+        : [],
+      isPublic: parsed?.isPublic !== false,
+      locationOptIn: Boolean(parsed?.locationOptIn),
+      privateInfo: {},
     };
   } catch {
     return null;
