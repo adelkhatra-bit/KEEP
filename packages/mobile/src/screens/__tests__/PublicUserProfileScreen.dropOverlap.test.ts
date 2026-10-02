@@ -20,7 +20,7 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
 
   it('ne remplace pas le composant Drop existant ni son prix', () => {
     expect(source).toContain('<SaleCollectionRow');
-    expect(source).toContain("tagTone={unlocked ? 'unlocked' : 'price'}");
+    expect(source).toContain("tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}");
     expect(source).toContain('onPress={() => openSaleFolder(offer)}');
   });
 });
