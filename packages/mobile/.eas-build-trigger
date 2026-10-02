@@ -1,4 +1,4 @@
 production
-requested_from_sha=4a1cd9561704b3c4ec257c9ff38615a2751de74b
-requested_at=2026-10-02T12:49:00+02:00
-reason=publish-latest-loki-qr-only-pepites-proof-bottom-validation-testflight
+requested_from_sha=38b03c88a1effc0e6f7ff1c29caf92876d2918d7
+requested_at=2026-10-02T12:52:00+02:00
+reason=publish-latest-loki-qr-sale-fix-payment-proof-bottom-validation-testflight
