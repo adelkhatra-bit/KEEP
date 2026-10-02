@@ -175,12 +175,6 @@ export default function App() {
             }
           }
 
-          // Même si le lien de confirmation e-mail ouvre directement KEEP et
-          // crée la session sans repasser par le formulaire, on conserve le
-          // compteur de l'essai local. Exemple : 3 essais consommés + 20 bonus
-          // = 20 crédits restants, et les cadenas des morceaux en attente sont
-          // retirés automatiquement sans les valider à la place de l'utilisateur.
-          await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
         }
 
         // Un profil réellement lu depuis Supabase peut monter immédiatement.
@@ -204,6 +198,9 @@ export default function App() {
 
         if (!session.isAnonymous) {
           void (async () => {
+            // Le vrai profil est déjà visible. Crédits, historique et cadenas
+            // se resynchronisent ensuite sans bloquer la reconnaissance du compte.
+            await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
             await useSessionHistoryStore.getState().syncUnsyncedKeeps();
             await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
             await clearLocalGuestMarker();
