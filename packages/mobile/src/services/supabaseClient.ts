@@ -24,9 +24,21 @@ const isWebRuntime = Boolean((globalThis as any)?.location?.href);
 const KEEP_NETWORK_MAX_CONCURRENT = isWebRuntime ? 2 : 3;
 let keepNetworkActive = 0;
 let keepNetworkCooldownUntil = 0;
+let keepAuthPriorityActive = 0;
 const keepNetworkQueue: Array<() => void> = [];
 
+function isCriticalAuthUrl(url: string) {
+  return url.includes('/auth/v1/')
+    || url.includes('/functions/v1/keep-username-auth')
+    || url.includes('/functions/v1/keep-auth-email')
+    || url.includes('/functions/v1/keep-profile-bootstrap');
+}
+
 function drainKeepNetworkQueue() {
+  // Tant qu'une connexion/restauration de profil critique est en cours, aucun
+  // nouveau RPC secondaire ne démarre. Les requêtes déjà parties finissent,
+  // puis Loki réserve réellement la capacité backend à l'auth.
+  if (keepAuthPriorityActive > 0) return;
   if (keepNetworkActive >= KEEP_NETWORK_MAX_CONCURRENT || !keepNetworkQueue.length) return;
   const waitMs = Math.max(0, keepNetworkCooldownUntil - Date.now());
   if (waitMs > 0) {
@@ -41,9 +53,21 @@ function drainKeepNetworkQueue() {
 
 async function keepSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-  // Auth doit toujours garder la priorité absolue. WebSocket Realtime ne passe
-  // pas ici ; seules les requêtes HTTP sont concernées.
-  if (url.includes('/auth/v1/')) return fetch(input, init);
+
+  // Priorité absolue à TOUT le chemin de connexion, pas seulement GoTrue.
+  // Le login par pseudo passe par keep-username-auth et l'hydratation critique
+  // par keep-profile-bootstrap : les laisser derrière Pulse/chat/crédits était
+  // précisément la raison des écrans "Le service met plus de temps..." vus le
+  // 02/10 pendant la saturation Postgres.
+  if (isCriticalAuthUrl(url)) {
+    keepAuthPriorityActive += 1;
+    try {
+      return await fetch(input, init);
+    } finally {
+      keepAuthPriorityActive = Math.max(0, keepAuthPriorityActive - 1);
+      drainKeepNetworkQueue();
+    }
+  }
 
   await new Promise<void>((resolve) => {
     keepNetworkQueue.push(() => {
