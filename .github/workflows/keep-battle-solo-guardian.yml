@@ -22,6 +22,12 @@ on:
       - '.github/workflows/keep-battle-solo-guardian.yml'
   workflow_dispatch:
 
+# This browser starts the real app against production Supabase. Serialize it
+# with every other production-backed browser audit so auth cannot be starved.
+concurrency:
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
