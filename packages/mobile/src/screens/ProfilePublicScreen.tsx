@@ -21,7 +21,8 @@ import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
 import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleStats, KeepBattleStats } from '../services/keepBattleService';
 import { getCommercialRules, getGrowthRewardStatus, getSmartSortAccess, GrowthRewardStatus, QuotaAccess } from '../services/growthAccessService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
-import { unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { preloadTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { loadUnreadNotificationCount, subscribeToNotificationChanges } from '../services/notificationService';
 import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
@@ -939,6 +940,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }, 3600);
     return () => clearInterval(timer);
   }, [lokiPulseSwipeOpen, visibleLokiPulseItems.length]);
+
+  useEffect(() => {
+    // Prépare silencieusement les premiers extraits Loki Pulse : quand une
+    // petite bulle est touchée, le Swipe peut jouer sans attendre une seconde
+    // résolution réseau.
+    let live = true;
+    const warm = async () => {
+      for (const item of visibleLokiPulseItems.slice(0, 4)) {
+        if (!live) return;
+        try {
+          const url = item.track.previewUrl?.trim() || await resolveTrackPreviewUrl(item.track);
+          if (url) await preloadTrackPreview(url);
+        } catch {}
+      }
+    };
+    void warm();
+    return () => { live = false; };
+  }, [visibleLokiPulseItems.map((item) => item.track.id).join('|')]);
 
   const refreshProfileAfterPulseKeep = async () => {
     if (accountRequired) return;
@@ -2061,6 +2080,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 style={s.lokiPulseCard}
                 onPress={() => {
                   unlockWebAudioForGesture();
+                  const knownPreview = item.track.previewUrl?.trim();
+                  if (knownPreview) {
+                    void preloadTrackPreview(knownPreview).catch(() => {});
+                  } else {
+                    void resolveTrackPreviewUrl(item.track)
+                      .then((url) => url ? preloadTrackPreview(url) : undefined)
+                      .catch(() => {});
+                  }
                   setLokiPulseSelectedTrackId(item.track.id);
                   setLokiPulseSwipeOpen(true);
                 }}
