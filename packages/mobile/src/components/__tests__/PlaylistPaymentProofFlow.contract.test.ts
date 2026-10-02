@@ -15,8 +15,10 @@ describe('Playlist payment proof and delivery contract', () => {
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002133000_playlist_sale_payment_proof.sql');
 
   it('forces the buyer to attach a private proof before signalling payment', () => {
-    expect(checkout).toContain('JOINDRE MA PREUVE');
+    expect(checkout).toContain('CAPTURE / PHOTO');
+    expect(checkout).toContain('PDF / DOCUMENT');
     expect(checkout).toContain('J’AI PAYÉ · ENVOYER AU VENDEUR');
+    expect(proofService).toContain("source: 'PHOTO' | 'DOCUMENT' = 'DOCUMENT'");
     expect(checkout).toContain('if (!proof)');
     expect(proofService).toContain("const BUCKET = 'playlist-payment-proofs'");
     expect(proofService).toContain("application/pdf");
