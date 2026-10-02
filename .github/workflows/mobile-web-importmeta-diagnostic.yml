@@ -330,6 +330,11 @@ jobs:
             // Le fil doit suivre visuellement le bas sans swipe manuel.
             const composerInput = page.getByPlaceholder('Écris un message…').last();
             await composerInput.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(700);
+            const composerFocused = await composerInput.evaluate(el => document.activeElement === el);
+            if (!composerFocused) {
+              throw new Error('Chat composer did not receive focus when the thread opened');
+            }
             const sentVisualMessage = 'Message test visible immédiatement';
             await composerInput.fill(sentVisualMessage);
             await page.waitForTimeout(700);
@@ -468,6 +473,7 @@ jobs:
               'CHAT_NEWEST_BUBBLE_VISIBLE_IN_VIEWPORT: PASS',
               'CHAT_FOLLOWS_BOTTOM_WHILE_TYPING: PASS',
               'CHAT_SENT_BUBBLE_VISIBLE_WITHOUT_SWIPE: PASS',
+              'CHAT_COMPOSER_AUTOFOCUS: PASS',
               'BELL_INLINE_TABS_VISIBLE: PASS',
               'SAMSUNG_BOTTOM_NAV_STABLE_AFTER_SWIPE: PASS',
               'PROFILE_TAB_SWITCH_NO_REFRESH: PASS',
