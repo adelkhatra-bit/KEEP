@@ -736,7 +736,25 @@ const soloRechargeJourney = {
     await page.waitForTimeout(400);
     r.explication = (await page.getByText(/retiré de ton solde de Free/).count()) > 0;
     await shot('recharger');
+    // Popup « Solos terminés » (3 boutons) : règle des popups (Adel
+    // 02/10/2026) — tous les boutons sur UNE ligne en bas, même largeur.
+    await page.getByText('SOLO', { exact: true }).first().click({ force: true });
+    await page.getByText('Tes parties Solo du jour sont terminées').first().waitFor({ timeout: 15000 });
+    await page.waitForTimeout(400);
+    r.boutons_popup = await page.evaluate(() => {
+      const row = document.querySelector('[data-testid="keep-alert-buttons"]');
+      if (!row) return null;
+      return [...row.children].map((b) => { const x = b.getBoundingClientRect(); return { top: Math.round(x.top), w: Math.round(x.width), right: Math.round(x.right), left: Math.round(x.left) }; });
+    });
+    const rowBox = await page.locator('[data-testid="keep-alert-buttons"]').first().boundingBox();
+    const bp = r.boutons_popup || [];
+    r.popup_alignee = bp.length === 3
+      && Math.max(...bp.map((b) => b.top)) - Math.min(...bp.map((b) => b.top)) <= 1
+      && Math.max(...bp.map((b) => b.w)) - Math.min(...bp.map((b) => b.w)) <= 2
+      && rowBox && Math.abs(bp[0].left - rowBox.x) <= 1 && Math.abs(bp[2].right - (rowBox.x + rowBox.width)) <= 1;
+    await shot('popup-solos-termines');
     const checks = [
+      ['popup à 3 boutons : une seule ligne en bas, même largeur, toute la largeur', r.popup_alignee],
       ['sous le bouton : pack et prix du Super Admin (+12 Solos pour 4 Free)', r.prix_sous_bouton],
       ['plus de « ou attends la recharge de 2 h »', !r.ancienne_phrase],
       ['« En savoir plus » explique quand les Free sont retirés', r.explication],

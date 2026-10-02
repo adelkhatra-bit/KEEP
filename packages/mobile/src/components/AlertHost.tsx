@@ -23,15 +23,15 @@ export default function AlertHost() {
           <View style={s.brandLine} />
           <Text style={s.title}>{current.title}</Text>
           {current.message ? <Text style={s.message}>{current.message}</Text> : null}
-          <View style={s.buttons}>
+          <View testID="keep-alert-buttons" style={[s.buttons, current.buttons.length > 3 && s.buttonsGrid]}>
             {current.buttons.map((button, index) => (
               <TouchableOpacity
                 key={`${button.text ?? 'OK'}-${index}`}
-                style={[s.button, button.style === 'destructive' ? s.buttonDestructive : button.style === 'cancel' ? s.buttonCancel : s.buttonDefault]}
+                style={[s.button, current.buttons.length > 3 ? s.buttonHalf : s.buttonEqual, button.style === 'destructive' ? s.buttonDestructive : button.style === 'cancel' ? s.buttonCancel : s.buttonDefault]}
                 onPress={() => press(button.onPress)}
                 accessibilityRole="button"
               >
-                <Text style={[s.buttonText, button.style === 'cancel' ? s.buttonTextCancel : s.buttonTextSolid]}>{button.text || 'OK'}</Text>
+                <Text style={[s.buttonText, button.style === 'cancel' ? s.buttonTextCancel : s.buttonTextSolid]} numberOfLines={2}>{button.text || 'OK'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -53,12 +53,23 @@ const s = StyleSheet.create({
   // dépassait la largeur d'un écran de téléphone et le retour à la ligne
   // (flexWrap) empilait le dernier bouton seul en dessous. Rétréci pour que
   // 2-3 boutons tiennent réellement côte à côte au lieu de s'empiler.
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6, marginTop: 10 },
-  button: { minHeight: 38, borderRadius: radius.pill, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  // RÈGLE VERROUILLÉE (Adel 02/10/2026, « c'est pas la première fois que je
+  // vois ça », capture « Solos terminés » + popup e-mail du mode démo) :
+  // les boutons d'une popup sont TOUS alignés sur UNE ligne en bas, sur
+  // toute la largeur, même largeur chacun (flex: 1) ; un libellé long passe
+  // sur 2 lignes DANS son bouton. Jamais un bouton seul renvoyé à la ligne,
+  // jamais calés à droite avec des largeurs différentes. Au-delà de 3
+  // boutons : grille régulière de 2 colonnes. Contrôlé par
+  // AlertHostButtonsLayout.contract.test.ts.
+  buttons: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 10 },
+  buttonsGrid: { flexWrap: 'wrap' },
+  button: { minHeight: 44, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  buttonEqual: { flex: 1, minWidth: 0 },
+  buttonHalf: { width: '48%', flexGrow: 1 },
   buttonDefault: { backgroundColor: colors.primary, borderColor: colors.primary },
   buttonDestructive: { backgroundColor: colors.danger, borderColor: colors.danger },
   buttonCancel: { backgroundColor: 'rgba(124,92,252,0.10)', borderColor: colors.primary },
-  buttonText: { fontSize: 11, fontWeight: '900' },
+  buttonText: { fontSize: 12, lineHeight: 15, fontWeight: '900', textAlign: 'center' },
   buttonTextSolid: { color: colors.white },
   buttonTextCancel: { color: colors.primaryLight },
 });

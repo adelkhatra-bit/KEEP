@@ -87,3 +87,13 @@ Avant chaque push qui modifie l'UI :
 - Le formulaire de publication est scrollable et suffisamment large sur téléphone comme sur desktop.
 - En euros, le lien PayPal.Me ou autre lien HTTPS se configure directement dans le parcours ; aucun bouton ne doit pointer vers une route inexistante.
 - En FREE, aucun lien bancaire n'est demandé.
+
+## 9. Popups (fenêtres de message) — boutons verrouillés
+
+Décision d'Adel (02/10/2026, capture « Tes parties Solo du jour sont terminées », même défaut déjà vu sur la popup e-mail du mode démo) :
+
+- Toute popup passe par la popup Loki unique (`utils/keepAlert` → `components/AlertHost.tsx`). Ne jamais recréer une popup maison avec ses propres boutons.
+- Les boutons sont **tous alignés sur une seule ligne, en bas, sur toute la largeur**, chacun de **même largeur**. Un libellé long passe sur 2 lignes **dans** son bouton.
+- Interdit : boutons calés à droite avec des largeurs différentes, un bouton renvoyé seul à la ligne, boutons empilés en escalier.
+- Plus de 3 boutons : grille régulière de 2 colonnes (cas à éviter : préférer 3 boutons maximum).
+- Contrôles : `AlertHostButtonsLayout.contract.test.ts` (code) + robot de parcours « Solos épuisés » (mesure réelle : même ligne, même largeur, toute la largeur).
