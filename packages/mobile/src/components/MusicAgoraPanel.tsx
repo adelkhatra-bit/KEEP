@@ -179,6 +179,11 @@ export default function MusicAgoraPanel({
   const threadRefreshQueuedKeysRef = useRef<Set<string>>(new Set());
   const activeThreadKeyRef = useRef('');
   const { height: viewportHeight } = useWindowDimensions();
+  // Adel (02/10/2026) : la fenêtre verte de partage était bloquée à 250 px ;
+  // dépliée, le choix du montant FREE / € restait coupé et inaccessible.
+  // Elle s'agrandit uniquement pendant la manipulation (options dépliées) et
+  // reprend sa taille compacte après l'envoi (shareOptionsOpen repasse à false).
+  const shareExpandedHeight = Math.max(250, Math.min(560, Math.round(viewportHeight * 0.6)));
   const safeArea = useSafeAreaInsets();
   const [keyboardInset, setKeyboardInset] = useState(0);
   const baseViewportHeightRef = useRef(viewportHeight);
@@ -1607,7 +1612,7 @@ export default function MusicAgoraPanel({
         </View>
       ) : null}
       {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}</Text></View> : null}
-      {sharedTrack ? <View style={s.selectedMusic}>
+      {sharedTrack ? <View style={[s.selectedMusic, shareOptionsOpen && { maxHeight: shareExpandedHeight }]}>
         <View style={s.selectedMusicCompactRow}>
           <View style={s.selectedMusicThumbWrap}>
             {sharedTrack.artworkUrl
@@ -1688,7 +1693,7 @@ export default function MusicAgoraPanel({
           <Text style={s.validateMusicText}>{posting ? 'ENVOI…' : 'PARTAGER LE MORCEAU'}</Text>
         </TouchableOpacity>
 
-        {shareOptionsOpen ? <ScrollView style={s.shareAccordionBody} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+        {shareOptionsOpen ? <ScrollView style={[s.shareAccordionBody, { maxHeight: Math.max(180, shareExpandedHeight - 170) }]} contentContainerStyle={s.shareAccordionContent} nestedScrollEnabled keyboardShouldPersistTaps="handled">
           <View style={s.revealChoices}>
             <TouchableOpacity style={[s.revealChip,shareRevealMode==='MASKED'&&s.revealChipOn]} onPress={() => setShareRevealMode('MASKED')}><Text style={s.revealChipText}>MASQUÉ</Text></TouchableOpacity>
             <TouchableOpacity
