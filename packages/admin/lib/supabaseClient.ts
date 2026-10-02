@@ -15,6 +15,35 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPER_ADMIN_STORAGE_KEY = 'keep-superadmin-auth-v1';
 
+// Le Super Admin partage le même backend que les utilisateurs mais PAS leur
+// session Auth (storageKey séparée ci-dessus). Pour éviter qu'une page admin
+// lourde participe à une saturation Postgres, on lisse aussi son fan-out HTTP.
+const ADMIN_NETWORK_MAX_CONCURRENT = 3;
+let adminNetworkActive = 0;
+const adminNetworkQueue: Array<() => void> = [];
+
+function drainAdminQueue() {
+  while (adminNetworkActive < ADMIN_NETWORK_MAX_CONCURRENT && adminNetworkQueue.length) {
+    adminNetworkActive += 1;
+    adminNetworkQueue.shift()?.();
+  }
+}
+
+async function adminSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+  if (url.includes('/auth/v1/')) return fetch(input, init);
+  await new Promise<void>((resolve) => {
+    adminNetworkQueue.push(resolve);
+    drainAdminQueue();
+  });
+  try {
+    return await fetch(input, init);
+  } finally {
+    adminNetworkActive = Math.max(0, adminNetworkActive - 1);
+    drainAdminQueue();
+  }
+}
+
 function isPlaceholder(value: string | undefined): boolean {
   return !value || value.startsWith('your_') || value === 'undefined';
 }
@@ -28,6 +57,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+      },
+      global: {
+        fetch: adminSupabaseFetch,
       },
     })
   : null;
