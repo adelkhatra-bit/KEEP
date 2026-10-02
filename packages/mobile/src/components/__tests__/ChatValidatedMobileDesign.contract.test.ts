@@ -22,6 +22,8 @@ describe('validated mobile chat inbox design', () => {
 
   it('keeps the approved chat full-screen and keyboard-safe', () => {
     expect(panel).toContain('KeyboardAvoidingView');
+    expect(panel).toContain("enabled={compact && Platform.OS === 'ios'}");
+    expect(panel).toContain("const compactBottom = 0;");
     expect(panel).toContain('chatScrollCompact');
     expect(panel).toContain('composerCompact');
   });
