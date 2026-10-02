@@ -21,23 +21,28 @@ import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForG
  * (sélection curatée). Aucun titre, artiste ni jaquette n'apparaît ici tant
  * que l'achat n'est pas confirmé.
  */
-const MARKETING_LINES = [
-  'Écoute. Ressens. Révèle.',
-  'Pas de titre. Juste le son.',
-  'Choisi à l’oreille.',
-];
+// Fenêtre en 3 couches (validée par Adel le 02/10/2026) : haut fixe (titre,
+// vendeur, prix), milieu qui défile (écoute, détails), bas toujours visible
+// (confirmation + déblocage). Tout texte de plus d'une ligne est réduit à une
+// ligne avec un « en savoir plus » discret : l'utilisateur qui connaît déjà le
+// fonctionnement n'a pas à relire.
+const PAYPAL_FLOW_FULL = 'PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection';
+const NO_REFUND_FULL = 'Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.';
+const MONEY_WAIVER_FULL = 'Je demande l’accès numérique dès confirmation du paiement par le créateur et je renonce à mon droit de rétractation une fois le contenu débloqué.';
 
-const EXPLAINER_LINES = [
-  'Les extraits restent anonymes jusqu’au déblocage.',
-  'Après déblocage, les pépites rejoignent ton Loki Music.',
-];
-
-const ROTATE_MS = 4200;
-const TEASER_LINES = [
-  'CHOISI À L’OREILLE',
-  'ÉCOUTE AVANT DE SAVOIR',
-  'TA PROCHAINE PÉPITE ?',
-];
+function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <Text
+      style={s.moreLink}
+      // Ne coche jamais la case parente : le lien reste un simple dépli.
+      onPress={(e: any) => { e?.stopPropagation?.(); onToggle(); }}
+      accessibilityRole="button"
+      suppressHighlighting
+    >
+      {open ? ' réduire' : ' en savoir plus'}
+    </Text>
+  );
+}
 
 interface Props {
   offer: PublicPlaylistSaleOffer;
@@ -58,10 +63,9 @@ interface Props {
 export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const compact = windowHeight < 760 || windowWidth < 360;
-  const [explainerIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [teaserIndex, setTeaserIndex] = useState(0);
-  const teaserOpacity = useRef(new Animated.Value(1)).current;
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleMore = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [overlap, setOverlap] = useState<PlaylistSaleOverlap | null>(null);
@@ -120,6 +124,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     }
     setWaiverAccepted(false);
     setDetailsOpen(false);
+    setExpanded({});
     setTracks(null);
     setOverlap(null);
     tracksRef.current = null;
@@ -140,18 +145,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       // a livré les previews, sans imposer un deuxième tap « Écouter ».
       if (loaded.length > 0) playTrackAt(0);
     }).catch(() => { if (live) { setTracks([]); setOverlap(null); tracksRef.current = []; setPreviewError('Les extraits protégés ne sont pas disponibles pour le moment.'); } });
-    // La carte reste stable, mais une seule accroche courte tourne doucement
-    // pour créer du désir sans faire défiler la musique ni déplacer les CTA.
-    const teaserTimer = setInterval(() => {
-      if (reduceMotionRef.current) { setTeaserIndex((i) => (i + 1) % TEASER_LINES.length); return; }
-      Animated.timing(teaserOpacity, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }).start(() => {
-        setTeaserIndex((i) => (i + 1) % TEASER_LINES.length);
-        Animated.timing(teaserOpacity, { toValue: 1, duration: 320, useNativeDriver: Platform.OS !== 'web' }).start();
-      });
-    }, ROTATE_MS);
     return () => {
       live = false;
-      clearInterval(teaserTimer);
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
     };
@@ -217,63 +212,49 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const allAlreadyOwned = Boolean(overlap && overlap.totalCount > 0 && overlap.missingCount === 0);
   const partiallyOwned = Boolean(overlap && overlap.ownedCount > 0 && overlap.missingCount > 0);
 
+  const detailsTitle = allAlreadyOwned
+    ? 'TU AS DÉJÀ TOUTE CETTE COLLECTION'
+    : partiallyOwned
+      ? `CE QUE TU OBTIENS · ${overlap?.missingCount ?? 0} NOUVEAU${(overlap?.missingCount ?? 0) > 1 ? 'X' : ''}`
+      : `CE QUE TU OBTIENS · ${trackCountLabel} MORCEAU${trackCountLabel > 1 ? 'X' : ''}`;
+  const creditErrorFull = purchaseError || ('Tu as ' + (freeBalance ?? 0) + ' FREE, il en faut ' + requiredFree + '. Recharge tes FREE pour continuer.');
+  const creditErrorShort = freeBalance != null ? `Tu as ${freeBalance} FREE, il en faut ${requiredFree}.` : 'Solde FREE insuffisant.';
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
-        <View style={[s.card, compact && s.cardCompact, { maxHeight: Math.max(520, windowHeight - 24) }]}>
+        {/* Hauteur = écran disponible (plus de plancher à 520 px qui poussait le
+            bouton de déblocage hors de l'écran sur les petits téléphones). */}
+        <View style={[s.card, compact && s.cardCompact, { maxHeight: windowHeight - 24 }]}>
           <TouchableOpacity style={s.closeBtn} onPress={onClose} accessibilityLabel="Fermer l'aperçu"><Text style={s.closeBtnText}>✕</Text></TouchableOpacity>
 
-          <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={s.content}>
-          <View style={[s.secretHero, compact && s.secretHeroCompact]}>
-            <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
-            <View style={s.secretHeroCopy}>
-              <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
-              <Text style={s.playlistName} numberOfLines={2}>{offer.playlistName}</Text>
+          {/* COUCHE 1 · fixe : titre, vendeur, prix */}
+          <View style={s.layerTop}>
+            <View style={[s.secretHero, compact && s.secretHeroCompact]}>
+              <View style={s.secretVinyl}><Text style={s.secretVinylNote}>♪</Text></View>
+              <View style={s.secretHeroCopy}>
+                <Text style={s.eyebrow}>PÉPITES À DÉCOUVRIR</Text>
+                <Text style={s.playlistName} numberOfLines={1}>{offer.playlistName}</Text>
+              </View>
+            </View>
+            <Text style={s.meta} numberOfLines={1}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel} · extrait 15 s</Text>
+
+            <View style={s.sellerPriceRow}>
+              {normalizedUsername && onOpenProfile ? (
+                <TouchableOpacity style={s.profileLink} onPress={onOpenProfile} accessibilityLabel={'Voir le profil de ' + normalizedUsername}>
+                  <Text style={s.profileLinkText}>@{normalizedUsername}</Text>
+                  <Text style={s.profileLinkArrow}>›</Text>
+                </TouchableOpacity>
+              ) : <View />}
+              <View style={[s.totalPricePill, freeAccess ? s.totalPricePillFree : s.totalPricePillMoney]}>
+                <Text style={[s.totalPriceLabel, freeAccess ? s.totalPriceLabelFree : s.totalPriceLabelMoney]}>{freeAccess ? 'FREE' : 'PAYPAL'}</Text>
+                <Text style={[s.totalPriceValue, freeAccess ? s.totalPriceValueFree : s.totalPriceValueMoney]}>{priceLabel}</Text>
+              </View>
             </View>
           </View>
-          <Text style={s.meta}>{trackCountLabel} découverte{trackCountLabel > 1 ? 's' : ''} · {styleMixLabel} · extrait 15 s</Text>
 
-          <View style={s.sellerPriceRow}>
-            {normalizedUsername && onOpenProfile ? (
-              <TouchableOpacity style={s.profileLink} onPress={onOpenProfile} accessibilityLabel={'Voir le profil de ' + normalizedUsername}>
-                <Text style={s.profileLinkText}>@{normalizedUsername}</Text>
-                <Text style={s.profileLinkArrow}>›</Text>
-              </TouchableOpacity>
-            ) : <View />}
-            <View style={[s.totalPricePill, freeAccess ? s.totalPricePillFree : s.totalPricePillMoney]}>
-              <Text style={[s.totalPriceLabel, freeAccess ? s.totalPriceLabelFree : s.totalPriceLabelMoney]}>{freeAccess ? 'FREE' : 'PAYPAL'}</Text>
-              <Text style={[s.totalPriceValue, freeAccess ? s.totalPriceValueFree : s.totalPriceValueMoney]}>{priceLabel}</Text>
-            </View>
-          </View>
-
-          {overlap && overlap.totalCount > 0 ? (
-            <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
-              <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
-              <View style={s.overlapDivider} />
-              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ CHEZ TOI</Text></View>
-              <View style={s.overlapDivider} />
-              <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
-              {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ rien à reprendre</Text> : null}
-            </View>
-          ) : null}
-
-          <View style={[s.unlockExplain, allAlreadyOwned && s.unlockExplainOwned]}>
-            <Text style={[s.unlockExplainTitle, allAlreadyOwned && s.unlockExplainTitleOwned]}>
-              {allAlreadyOwned
-                ? 'TU AS DÉJÀ TOUTE CETTE COLLECTION'
-                : partiallyOwned
-                  ? `CE QUE TU OBTIENS · ${overlap?.missingCount ?? 0} NOUVEAU${(overlap?.missingCount ?? 0) > 1 ? 'X' : ''}`
-                  : `CE QUE TU OBTIENS · ${trackCountLabel} MORCEAU${trackCountLabel > 1 ? 'X' : ''}`}
-            </Text>
-            <Text style={s.unlockExplainText}>
-              {allAlreadyOwned
-                ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
-                : partiallyOwned
-                  ? `Tu as déjà ${overlap?.ownedCount ?? 0} morceau${(overlap?.ownedCount ?? 0) > 1 ? 'x' : ''}. Ils ne seront jamais ajoutés en double. Le Drop sert à révéler uniquement ce qui te manque.`
-                  : `Tu écoutes les extraits gratuitement. Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
-            </Text>
-          </View>
-
+          {/* COUCHE 2 · défile : écoute, détails, PayPal, demande des manquants */}
+          <ScrollView style={s.layerMiddle} showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={s.content}>
           <SwipeDeck
             enabled={!tracksLoading && !tracksUnavailable}
             resetKey={trackIndex}
@@ -310,7 +291,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   </Text>
                 </View>
               ) : null}
-              <Text style={s.trackStatus}>
+              <Text style={s.trackStatus} numberOfLines={1}>
                 {tracksLoading
                   ? 'Chargement des extraits...'
                   : tracksUnavailable
@@ -328,16 +309,54 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </View>
           ) : null}
 
+          {/* « Ce que tu obtiens » : une ligne, dépliable (Total / Déjà chez
+              toi / Nouveaux + explication, contenu inchangé). */}
+          <View style={[s.unlockExplain, allAlreadyOwned && s.unlockExplainOwned]}>
+            <TouchableOpacity
+              style={s.detailsHeader}
+              onPress={() => setDetailsOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsOpen }}
+              accessibilityLabel={`${detailsTitle}. ${detailsOpen ? 'Masquer le détail' : 'Afficher le détail'}`}
+            >
+              <Text style={[s.unlockExplainTitle, allAlreadyOwned && s.unlockExplainTitleOwned, s.detailsTitle]} numberOfLines={1}>{detailsTitle}</Text>
+              <Text style={[s.detailsChevron, allAlreadyOwned && s.unlockExplainTitleOwned]}>{detailsOpen ? '▴' : '▾'}</Text>
+            </TouchableOpacity>
+            {detailsOpen ? (
+              <>
+                {overlap && overlap.totalCount > 0 ? (
+                  <View style={[s.overlapSummary, allAlreadyOwned && s.overlapBarAll]}>
+                    <View style={s.overlapStat}><Text style={s.overlapStatValue}>{overlap.totalCount}</Text><Text style={s.overlapStatLabel}>TOTAL</Text></View>
+                    <View style={s.overlapDivider} />
+                    <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.ownedCount > 0 && s.overlapOwned]}>{overlap.ownedCount}</Text><Text style={s.overlapStatLabel}>DÉJÀ CHEZ TOI</Text></View>
+                    <View style={s.overlapDivider} />
+                    <View style={s.overlapStat}><Text style={[s.overlapStatValue, overlap.missingCount > 0 && s.overlapNew]}>{overlap.missingCount}</Text><Text style={s.overlapStatLabel}>NOUVEAUX</Text></View>
+                  </View>
+                ) : null}
+                {allAlreadyOwned ? <Text style={s.overlapAllText}>✓ rien à reprendre</Text> : null}
+                <Text style={s.unlockExplainText}>
+                  {allAlreadyOwned
+                    ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
+                    : partiallyOwned
+                      ? `Tu as déjà ${overlap?.ownedCount ?? 0} morceau${(overlap?.ownedCount ?? 0) > 1 ? 'x' : ''}. Ils ne seront jamais ajoutés en double. Le Drop sert à révéler uniquement ce qui te manque.`
+                      : `Tu écoutes les extraits gratuitement. Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
+                </Text>
+              </>
+            ) : null}
+          </View>
 
           {/* Adel (21/09/2026, décision 2) : "documente clairement dans
               l'UI que le vendeur doit confirmer réception, et prévois un
               encart avertissement acheteur" -- fonctionnement manuel tant
               que l'API PayPal réelle n'est pas intégrée. Encart permanent,
-              pas seulement l'Alert transitoire après ouverture du lien. */}
+              réduit à une ligne + « en savoir plus » (Adel, 02/10/2026). */}
           {purchaseEnabled && !freeAccess ? (
             <View style={s.moneyFlow}>
               <View style={s.moneyFlowDot} />
-              <Text style={s.moneyFlowText}>PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection</Text>
+              <Text style={s.moneyFlowText}>
+                {expanded.paypal ? PAYPAL_FLOW_FULL : 'PAYPAL DIRECT · validé par le créateur'}
+                <MoreToggle open={Boolean(expanded.paypal)} onToggle={() => toggleMore('paypal')} />
+              </Text>
             </View>
           ) : null}
 
@@ -349,16 +368,22 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               accessibilityLabel={`Demander seulement les ${overlap?.missingCount ?? 0} morceaux manquants contre des FREE`}
             >
               <Text style={s.missingRequestTitle}>{requestMissingBusy ? '…' : `DEMANDER ${overlap?.missingCount ?? 0} MANQUANT${(overlap?.missingCount ?? 0) > 1 ? 'S' : ''}`}</Text>
-              <Text style={s.missingRequestHint}>Le créateur pourra te faire une offre en FREE.</Text>
+              <Text style={s.missingRequestHint} numberOfLines={1}>Le créateur pourra te faire une offre en FREE.</Text>
             </TouchableOpacity>
           ) : null}
+          </ScrollView>
 
+          {/* COUCHE 3 · toujours visible : confirmation + déblocage */}
+          <View style={s.layerBottom}>
           {purchaseEnabled ? (
             <>
               {freeBlocked ? (
                 <View style={s.creditError}>
                   <Text style={s.creditErrorTitle}>FREE INSUFFISANTS</Text>
-                  <Text style={s.creditErrorText}>{purchaseError || ('Tu as ' + (freeBalance ?? 0) + ' FREE, il en faut ' + requiredFree + '. Recharge tes FREE pour continuer.')}</Text>
+                  <Text style={s.creditErrorText}>
+                    {expanded.credit ? creditErrorFull : creditErrorShort}
+                    {creditErrorFull !== creditErrorShort ? <MoreToggle open={Boolean(expanded.credit)} onToggle={() => toggleMore('credit')} /> : null}
+                  </Text>
                   {onRechargeFree ? <TouchableOpacity style={s.rechargeButton} onPress={onRechargeFree} accessibilityLabel="Recharger mes FREE"><Text style={s.rechargeButtonText}>RECHARGER MES FREE</Text></TouchableOpacity> : null}
                 </View>
               ) : null}
@@ -374,7 +399,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 <Text style={s.waiverText}>
                   {freeAccess
                     ? `Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.`
-                    : 'Je demande l’accès numérique dès confirmation du paiement par le créateur et je renonce à mon droit de rétractation une fois le contenu débloqué.'}
+                    : expanded.waiver ? MONEY_WAIVER_FULL : 'Accès dès confirmation du paiement, sans rétractation.'}
+                  {!freeAccess ? <MoreToggle open={Boolean(expanded.waiver)} onToggle={() => toggleMore('waiver')} /> : null}
                 </Text>
               </TouchableOpacity>
 
@@ -385,18 +411,21 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 onPress={() => onConfirmPurchase(offer)}
                 accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Révéler cette collection et ajouter les nouveaux morceaux à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
-              {!freeAccess ? <Text style={s.noRefund}>Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.</Text> : null}
+              {!freeAccess ? <Text style={s.noRefund}>{expanded.refund ? NO_REFUND_FULL : 'Aucun remboursement après déblocage.'}<MoreToggle open={Boolean(expanded.refund)} onToggle={() => toggleMore('refund')} /></Text> : null}
             </>
           ) : (
             <View style={s.nativePreviewNotice}>
               <Text style={s.nativePreviewTitle}>PAIEMENT À ACTIVER</Text>
-              <Text style={s.nativePreviewText}>Le créateur doit avoir un lien de paiement personnel actif pour débloquer cette collection.</Text>
+              <Text style={s.nativePreviewText}>
+                {expanded.native ? 'Le créateur doit avoir un lien de paiement personnel actif pour débloquer cette collection.' : 'Lien de paiement du créateur inactif.'}
+                <MoreToggle open={Boolean(expanded.native)} onToggle={() => toggleMore('native')} />
+              </Text>
             </View>
           )}
-          </ScrollView>
+          </View>
         </View>
       </View>
     </Modal>
@@ -405,7 +434,13 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,0.86)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundElevated, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 14, position: 'relative', overflow: 'hidden' },
+  card: { width: '100%', maxWidth: 420, backgroundColor: colors.backgroundElevated, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 14, flexDirection: 'column', position: 'relative', overflow: 'hidden' },
+  layerTop: { paddingBottom: 6 },
+  layerMiddle: { flexGrow: 0, flexShrink: 1 },
+  layerBottom: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 },
+  detailsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  detailsTitle: { flex: 1 },
+  moreLink: { color: colors.primaryLight, fontSize: 10, fontWeight: '800' },
   cardCompact:{padding:10,borderRadius:20},
   content:{paddingTop:2,paddingBottom:4},
   closeBtn: { position: 'absolute', right: 12, top: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', zIndex: 5 },
@@ -417,13 +452,11 @@ const s = StyleSheet.create({
   secretHeroCopy: { flex: 1 },
   eyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
   playlistName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', marginTop: 3 },
-  secretHook: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 5 },
   meta: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 16, marginTop: 6 },
   sellerPriceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
   profileLink: { flexShrink: 1, minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
   profileLinkText: { color: colors.primaryLight, fontSize: 10, fontWeight: '900' },
   profileLinkArrow: { color: colors.primaryLight, fontSize: 16, fontWeight: '900' },
-  secretMeta: { color: colors.primaryLight, fontSize: 10, lineHeight: 14, marginTop: 4, fontWeight: '800' },
   totalPricePill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
   totalPricePillFree: { backgroundColor: 'rgba(45,225,194,.10)', borderColor: 'rgba(45,225,194,.42)' },
   totalPricePillMoney: { backgroundColor: 'rgba(124,92,252,.12)', borderColor: 'rgba(167,139,250,.48)' },
@@ -437,11 +470,11 @@ const s = StyleSheet.create({
   overlapBarAll:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.08)'},
   overlapStat:{flex:1,alignItems:'center',justifyContent:'center'},
   overlapStatValue:{color:colors.textPrimary,fontSize:13,fontWeight:'900',lineHeight:16},
-  overlapStatLabel:{color:colors.textMuted,fontSize:7,fontWeight:'900',letterSpacing:.75,marginTop:1},
+  overlapStatLabel:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.75,marginTop:1},
   overlapOwned:{color:colors.success},
   overlapNew:{color:colors.primaryLight},
   overlapDivider:{width:1,height:24,backgroundColor:colors.border},
-  overlapAllText:{position:'absolute',right:7,top:3,color:colors.success,fontSize:6,fontWeight:'900'},
+  overlapAllText:{color:colors.success,fontSize:9,fontWeight:'900',marginTop:5},
   unlockExplain:{marginTop:7,borderRadius:13,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:8},
   unlockExplainOwned:{borderColor:colors.success,backgroundColor:'rgba(45,225,194,.07)'},
   unlockExplainTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.65},
@@ -456,22 +489,14 @@ const s = StyleSheet.create({
   missingRequestButton:{marginTop:8,minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},
   missingRequestTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.45},
   missingRequestHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:2},
-  promiseBox: { marginTop: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.border },
-  promiseKicker: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, textAlign: 'center' },
-  marketing: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 3, minHeight: 18 },
-  teaserDots: { color: colors.primaryLight, fontSize: 10, textAlign: 'center', marginTop: 2, letterSpacing: 1 },
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
   visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72, position: 'relative', overflow: 'hidden', borderRadius: 18 },
   visualCompact:{height:58},
   mysteryGlow: { position: 'absolute', width: 92, height: 92, borderRadius: 46, backgroundColor: colors.primary, top: -12 },
   mysteryLock: { position: 'absolute', top: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   mysteryLockText: { color: colors.primaryLight, fontSize: 24, fontWeight: '900' },
-  mysteryCaption: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 7 },
   bar: { width: 8, borderRadius: 4, backgroundColor: colors.primary },
   trackStatus: { color: colors.textMuted, fontSize: 11, fontWeight: '700', marginTop: 10 },
-  explainer: { color: colors.textMuted, fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: 8 },
-  detailsToggle: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingVertical: 5, paddingHorizontal: 10 },
-  detailsToggleText: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
   detailsChevron: { color: colors.primaryLight, fontSize: 14, fontWeight: '900' },
   previewControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 6 },
   previewControlsCompact:{marginTop:4},
@@ -485,8 +510,6 @@ const s = StyleSheet.create({
   creditErrorText: { color: colors.danger, fontSize: 12, lineHeight: 17, fontWeight: '700', marginTop: 4 },
   rechargeButton: { minHeight: 42, marginTop: 9, borderRadius: 21, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   rechargeButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  manualNotice: { marginTop: 4, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
-  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15 },
   moneyFlow:{marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:'rgba(167,139,250,.42)',backgroundColor:'rgba(124,92,252,.09)',paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},
   moneyFlowDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primaryLight,flexShrink:0},
   moneyFlowText:{flex:1,color:colors.textSecondary,fontSize:9.5,lineHeight:14,fontWeight:'800'},
@@ -496,12 +519,12 @@ const s = StyleSheet.create({
   checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
   buyGlowShell: { width: '100%', borderWidth: 1, borderRadius: 18, padding: 2 },
-  buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   buyButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 0.25 },
   buyButtonTextDisabled: { color: colors.textMuted },
   noRefund: { color: colors.textMuted, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 8 },
-  nativePreviewNotice: { marginTop: 14, padding: 12, borderRadius: 16, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.primary },
+  nativePreviewNotice: { marginTop: 6, padding: 12, borderRadius: 16, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.primary },
   nativePreviewTitle: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   nativePreviewText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, marginTop: 4 },
 });

@@ -2566,3 +2566,9 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Causes : file réseau web à 1 requête en ordre d'arrivée (coupe-circuit b6792ef6) + pause globale pendant tout /auth/v1/* + pauses 30 s + liste des musiques bloquée par l'enrichissement découvreur.
 - Correctif (logique uniquement, aucun visuel) : file prioritaire pour le contenu utilisateur, 3 en parallèle, seule une vraie connexion réserve le réseau, pause max 10 s, enrichissement découvreur borné à 6 s. Verrou `networkQueue` dans verify-product-contract.
 - NE PAS repasser KEEP_NETWORK_MAX_CONCURRENT à 1 ni retirer un chemin de KEEP_ESSENTIAL_CONTENT_PATHS : la publication sera refusée.
+
+## [2026-10-02 21:30 CEST] CLAUDE CODE — FENÊTRE « PÉPITES À DÉCOUVRIR » EN 3 COUCHES (ERR-DROP-POPUP-OFFSCREEN-032)
+- Autorisation explicite d'Adel limitée à la fenêtre d'écoute du Drop (`PlaylistSaleImmersivePreview.tsx`). Aucun autre écran, ni Navigation, ni barre des 5 onglets touché.
+- Structure : haut fixe / milieu qui défile / bas toujours visible (case + bouton). Textes longs = une ligne + « en savoir plus » discret.
+- Paiement FREE (`purchasePlaylistOfferWithFree`), PayPal (`requestPlaylistPurchase` + lien du créateur), notifications de validation et QR code : non modifiés, branchements des deux profils vérifiés.
+- NE PAS remettre d'accroches tournantes ni de hauteur minimale sur la carte : le bouton repasserait hors écran.
