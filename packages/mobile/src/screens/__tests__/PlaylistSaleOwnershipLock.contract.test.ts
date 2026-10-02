@@ -40,7 +40,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(publicProfile).toContain('<View style={styles.saleList}');
     expect(publicProfile).toContain('key={`sale-row:${offer.offerId}`}');
     expect(publicProfile).toContain("tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}");
-    expect(publicProfile).toContain("tagTone={unlocked ? 'unlocked' : 'price'}");
+    expect(publicProfile).toContain("tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}");
     expect(publicProfile).not.toContain('sale-style:');
   });
 

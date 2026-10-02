@@ -15,7 +15,7 @@ describe('chat music ownership and resale contract', () => {
     expect(panel).toContain('🔒 PARTAGE UNIQUEMENT · vente FREE/€ bloquée');
     expect(panel).toContain("'🔒 FREE'");
     expect(panel).toContain("'🔒 €'");
-    expect(panel).toContain('disabled={!sharePreflight?.canSell');
+    expect(panel).toContain("accessibilityLabel={paymentLocked ? 'FREE verrouillé, afficher pourquoi' : 'Utiliser FREE'}");
   });
 
   it('shows the lock and source to both sides of the chat', () => {
@@ -36,7 +36,7 @@ describe('chat music ownership and resale contract', () => {
   it('uses server ownership preflight and server-enforced posting', () => {
     expect(service).toContain('keep_agora_share_preflight');
     expect(service).toContain('senderCanResell');
-    expect(service).toContain('keep_agora_post_message_v4');
+    expect(service).toContain("keep_agora_post_message_v5");
     expect(service).toContain('ACQUIRED_FROM_ANOTHER_USER');
   });
 });

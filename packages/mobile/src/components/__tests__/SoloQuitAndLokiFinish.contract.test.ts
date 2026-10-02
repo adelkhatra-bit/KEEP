@@ -100,8 +100,8 @@ describe('Solo : absence détectée + Loki qui parle', () => {
     expect(mascotLine(8, 8).mood).toBe('party');
     expect(mascotLine(0, 8, true).mood).toBe('sleepy');
     expect(mascot).not.toContain("import * as Speech from 'expo-speech'");
-    expect(mascot).toContain("await import('expo-speech').catch(() => null)");
-    expect(mascot).toContain("Speech.speak(line.text, {");
+    expect(mascot).toContain("import { speakLokiText, stopLokiSpeech } from '../services/lokiSpeechService';");
+    expect(mascot).toContain("await speakLokiText(line.text, { language: 'fr-FR'");
     expect(mascot).toContain("language: 'fr-FR'");
     expect(mascot).not.toContain('useNativeDriver: true');
   });

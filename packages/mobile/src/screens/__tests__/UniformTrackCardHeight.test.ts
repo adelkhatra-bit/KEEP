@@ -127,7 +127,7 @@ describe('Cartes de morceaux -- hauteur fixe + panneau dépliable (ProfilePublic
       expect(childrenBlock).toContain('trackSourceRow');
       expect(childrenBlock).toContain('visibilityTrackButton');
       expect(childrenBlock).toContain('deleteTrackButton');
-      expect(childrenBlock).toContain('badge={offered ? { label: `◆ Collection · ${offered.playlistName}`');
+      expect(childrenBlock).toContain("badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`");
       expect(childrenBlock).not.toContain('sellTrackButton');
     });
 

@@ -11,7 +11,9 @@ describe('Battle explicit decision everywhere', () => {
   it('polls server truth globally and renders a non-dismissible decision modal', () => {
     expect(banner).toContain('loadIncomingBattleChallenges');
     expect(banner).toContain('loadPendingArenaRematches');
-    expect(banner).toContain('BATTLE_DECISION_POLL_MS');
+    // 969e92b1 : plus de sondage global à 800 ms (incident 02/10/2026, contrat authResilience) ; resynchronisation au retour au premier plan.
+    expect(banner).toContain("AppState.addEventListener('change'");
+    expect(banner).not.toContain('BATTLE_DECISION_POLL_MS');
     expect(banner).toContain('DÉCISION REQUISE');
     expect(banner).toContain('REFUSER');
     expect(banner).toContain('ACCEPTER');

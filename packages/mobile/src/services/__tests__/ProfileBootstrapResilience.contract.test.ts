@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const profile = fs.readFileSync(path.resolve(__dirname, '..', 'profileService.ts'), 'utf8').replace(/\r\n/g, '\n');
-const fn = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'functions', 'keep-profile-bootstrap', 'index.ts'), 'utf8').replace(/\r\n/g, '\n');
+const fn = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-profile-bootstrap', 'index.ts'), 'utf8').replace(/\r\n/g, '\n');
 
 describe('profile bootstrap resilience', () => {
   it('falls back to the authenticated direct-SQL bootstrap on PostgREST profile failure', () => {

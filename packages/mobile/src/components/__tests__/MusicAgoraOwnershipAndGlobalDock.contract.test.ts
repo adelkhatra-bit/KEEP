@@ -55,8 +55,8 @@ describe('Music Agora ownership + global dock contract', () => {
     expect(panel).toContain('style={s.musicAttribution}');
     expect(panel).toContain('Découverte par @');
     expect(panel).toContain('mise à l’écoute par @');
-    expect(service).toContain("supabase.rpc('keep_agora_messages_v5'");
-    expect(service).toContain("supabase.rpc('keep_agora_post_message_v4'");
+    expect(service).toContain("supabase.rpc('keep_agora_messages_v6'");
+    expect(service).toContain("supabase.rpc('keep_agora_post_message_v5'");
   });
 
   it('keeps external euro unlocks web-only for digital music', () => {

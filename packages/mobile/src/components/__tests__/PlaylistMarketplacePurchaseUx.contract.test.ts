@@ -36,7 +36,7 @@ describe('Marketplace purchase UX contract', () => {
   it('lets sellers answer missing-track requests using FREE presets', () => {
     expect(panel).toContain('DEMANDES PERSONNALISÉES');
     expect(panel).toContain('loadMyPlaylistSaleTrackRequests');
-    expect(panel).toContain('offerPlaylistSaleTrackRequestWithFree');
+    expect(panel).toContain("offerPlaylistSaleRequestSelectionWithFree");
     expect(panel).toContain('SALE_PRESET_FREE.slice(0, 4)');
   });
 
@@ -44,7 +44,7 @@ describe('Marketplace purchase UX contract', () => {
     expect(service).toContain('loadMyPlaylistPurchaseLibrary');
     expect(service).toContain('deliveredPlaylistId');
     expect(service).toContain('requestMissingPlaylistSaleTracks');
-    expect(notifications).toContain("type === 'PLAYLIST_SALE_PARTIAL_OFFER'");
+    expect(notifications).toContain("['PLAYLIST_SALE_PARTIAL_OFFER','PLAYLIST_SALE_NEW_OFFER','PLAYLIST_SALE_OFFER_CREATED'].includes(type)");
     expect(notifications).toContain('openSaleOfferId: offerId');
   });
 });

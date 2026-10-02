@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.06",
+  "version": "2026-10-02.07",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -545,7 +545,9 @@
     "visibleOnListenHome": true,
     "replacesHomeLokiMusicDnaCard": true,
     "noRedirectToProfile": true,
-    "usesMusicStyleBubbles": true,
+    "usesMusicStyleBubbles": false,
+    "usesPulseTrackBubbles": true,
+    "pulseTrackBubblesDecision": "4a452f0e + point de contrôle visuel validé (AGENT_MESSAGES.md 02/10) : accueil = bulles artwork de MORCEAUX Loki Pulse cliquables, plus de bulles de styles.",
     "profileLokiPulseRemainsVisible": true
   },
   "lokiPulseTapBehavior": {
@@ -613,7 +615,7 @@
     "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts",
     "ownerProfileCollapsedByDefault": false,
     "ownerProfileSingleToggle": true,
-    "ownerProfileToggleLabels": "VOIR PLUS / MASQUER",
+    "ownerProfileToggleLabels": "⌄ / ⌃",
     "ownerProfileShowsAllStylesWhenExpanded": false,
     "homeRemainsVisibleWithoutExpansion": true,
     "legacyVisibleDnaWordingRemoved": true,
@@ -640,7 +642,7 @@
     "ownerExpandedShowsAllStyles": false,
     "ownerExpansionAlsoShowsRecommendations": true,
     "homeBubblesClickable": true,
-    "homeBubbleAction": "OPEN_OWN_KEPT_TRACKS_FOR_STYLE",
+    "homeBubbleAction": "OPEN_PULSE_TRACK_FIRST_IN_SWIPE",
     "homeRedirectToProfile": false,
     "ownerCollapsedPreviewClickable": true,
     "ownerCollapsedPreviewAction": "OPEN_OWN_KEPT_TRACKS_FOR_STYLE",

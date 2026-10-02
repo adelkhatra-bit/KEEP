@@ -14,12 +14,12 @@ describe('notification accordion and plan locks contract', () => {
   it('keeps bell notifications inline and accordion-based', () => {
     expect(panel).toContain('LayoutAnimation.Presets.easeInEaseOut');
     expect(panel).toContain('setExpandedId');
-    expect(panel).toContain('Appuie sur une notification : elle se déplie ici.');
+    expect(panel).toContain("Appuie pour ouvrir. Utilise × pour supprimer ce qui ne t’est plus utile.");
     expect(panel).not.toContain('TOUT VOIR');
     expect(panel).toContain('Pourquoi cette notification est verrouillée');
     expect(panel).toContain('Son contenu reste masqué tant qu’elle n’est pas débloquée.');
     expect(panel).not.toContain('lockedPopup.title');
-    expect(panel).toContain('Tu restes exactement dans ta cloche');
+    expect(panel).toContain("Tu restes dans tes notifications.");
     expect(panel).toContain("activeTab === 'MESSAGES'");
     expect(panel).toContain("activeTab === 'ACTIVITY'");
     expect(panel).toContain("activeTab === 'SETTINGS'");

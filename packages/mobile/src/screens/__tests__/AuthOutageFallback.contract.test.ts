@@ -15,9 +15,9 @@ describe('Supabase outage startup resilience', () => {
   });
 
   it('uses cached identity only for transient auth failures, never a normal sign-out', () => {
-    expect(auth).toContain("const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';");
-    expect(auth).toContain('const cached = transientAuthFailure(error) ? cachedWebAuthSession() : null;');
-    expect(auth).toContain('if (cached) return cached;');
+    expect(auth).toContain("async function persistedSupabaseAuthSession(client: SupabaseClient)");
+    expect(auth).toContain("const persisted = transientAuthFailure(error) ? await persistedSupabaseAuthSession(client) : null;");
+    expect(auth).toContain("if (persisted) return persisted;");
     expect(auth).toContain('return null;');
   });
 

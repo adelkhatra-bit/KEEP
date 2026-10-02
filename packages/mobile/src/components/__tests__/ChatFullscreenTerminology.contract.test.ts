@@ -28,8 +28,8 @@ describe('full-screen messenger terminology contract', () => {
   });
 
   it('uses simple wording for starting a private group conversation', () => {
-    expect(panel).toContain('Nouvelle conversation');
-    expect(panel).toContain('Invite une ou plusieurs personnes');
+    expect(panel).toContain("accessibilityLabel=\"Créer une conversation\"");
+    expect(panel).toContain("Sur invitation uniquement. Choisis les personnes");
     expect(panel).toContain('Nouveau groupe privé');
   });
 });

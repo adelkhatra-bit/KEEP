@@ -29,7 +29,7 @@ describe('Loki direct chat remains writable contract', () => {
   it('keeps a sent direct reply inside the same visible thread and pins it to the newest message', () => {
     expect(panel).toContain('const openDirectThread = async');
     expect(panel).toContain("setChatMode('MESSAGES')");
-    expect(panel).toContain('loadMusicAgoraDirectMessages(target.profileId, undefined, PAGE_SIZE)');
+    expect(panel).toContain("loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)");
     expect(panel).toContain('} else if (replyTarget?.profileId) {');
     expect(panel).toContain('const rows = await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)');
     expect(panel).toContain('followChatBottom(false)');

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const sql = fs.readFileSync(
-  path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20261002007000_chat_scale_indexes.sql'),
+  path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002007000_chat_scale_indexes.sql'),
   'utf8',
 ).replace(/\r\n/g, '\n');
 

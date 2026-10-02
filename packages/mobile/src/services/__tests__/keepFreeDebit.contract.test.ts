@@ -20,7 +20,8 @@ describe('Loki FREE debit contract', () => {
   it('deduplicates inside the atomic server transaction before any FREE debit', () => {
     const dedupe = atomic.indexOf('select * into v_existing');
     const duplicateReturn = atomic.indexOf("'deduplicated',true");
-    const debit = atomic.indexOf('keep_consume_download_credit_for_source');
+    // indexOf depuis duplicateReturn : on cherche l'appel du débit, pas la déclaration de la fonction en tête de migration.
+    const debit = atomic.indexOf('keep_consume_download_credit_for_source', duplicateReturn);
     expect(dedupe).toBeGreaterThan(-1);
     expect(duplicateReturn).toBeGreaterThan(dedupe);
     expect(debit).toBeGreaterThan(duplicateReturn);

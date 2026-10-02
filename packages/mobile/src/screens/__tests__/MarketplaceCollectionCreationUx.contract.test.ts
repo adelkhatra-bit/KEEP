@@ -31,7 +31,7 @@ describe('Pépites collection creation UX', () => {
 
   it('reviews the basket before price and payment', () => {
     expect(panel).toContain("collectionCartStep === 'REVIEW'");
-    expect(panel).toContain('OUI, TOUT EST BON');
+    expect(panel).toContain("OUI, MA SÉLECTION EST TERMINÉE");
     expect(panel).toContain('Aucun prix n’est demandé tant que tu n’as pas confirmé cette sélection.');
     expect(contract.marketplacePurchases.creationWizardSteps).toEqual(['TRACKS','CART_REVIEW','MODE_PRICE_CURRENCY','PAYOUT_PUBLISH']);
     expect(contract.marketplacePurchases.cartReviewMustPrecedePricing).toBe(true);
@@ -39,11 +39,11 @@ describe('Pépites collection creation UX', () => {
 
   it('keeps FREE, currencies and reusable PayPal setup in the same Pépites flow', () => {
     expect(panel).toContain('⚡ FREE');
-    expect(panel).toContain('◎ PAIEMENT DIRECT');
+    expect(panel).toContain("PayPal · DEVISE");
     expect(panel).toContain('MARKETPLACE_CURRENCIES');
     expect(panel).toContain('collectionCartCurrencyCode');
     expect(panel).toContain('OUVRIR PAYPAL.ME');
-    expect(panel).toContain('ENREGISTRER LE LIEN');
+    expect(panel).toContain("ENREGISTRER PAYPAL");
     expect(panel).toContain('getMyPayoutMethods()');
     expect(panel).toContain('PayPalQrPayoutControl');
     expect(contract.marketplacePurchases.savedPayoutLinkMustBeReused).toBe(true);

@@ -25,7 +25,7 @@ describe('Battle result voice and Solo exit contract', () => {
     expect(voice).toContain('duckActivePreviewForSpeech(0.14)');
     expect(voice).toContain('pitch: 1.02');
     expect(voice).toContain('rate: 0.94');
-    expect(voice).toContain('getAvailableVoicesAsync');
+    expect(voice).toContain("speakLokiText(");
     expect(audio).toContain('export async function duckActivePreviewForSpeech');
     expect(audio).toContain('export async function restoreActivePreviewAfterSpeech');
   });

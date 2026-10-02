@@ -34,7 +34,7 @@ describe('global Loki messenger contract', () => {
   });
 
   it('announces and previews the latest sender only after explicit voice opt-in', () => {
-    expect(dock).toContain("import('expo-speech')");
+    expect(dock).toContain("void speakLokiText(`Message de ${sender}`");
     expect(dock).toContain('Message de');
     expect(dock).toContain('latestChatSender');
     expect(dock).toContain('chatNotificationTarget');
@@ -57,21 +57,21 @@ describe('global Loki messenger contract', () => {
 
   it('keeps the conversation full-screen, keyboard-safe and readable on mobile', () => {
     expect(messenger).toContain('visualViewport');
-    expect(messenger).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
+    expect(messenger).toContain("const compactBottom = 0;");
     expect(messenger).toContain('KeyboardAvoidingView');
-    expect(messenger).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : compact && Platform.OS === 'android' ? 'height' : undefined}");
+    expect(messenger).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : undefined}");
     expect(messenger).toContain("Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'");
-    expect(messenger).toContain('setKeyboardInset(Math.max(reportedHeight, coveredByTop))');
+    expect(messenger).toContain("const nextInset = Math.max(reportedHeight, coveredByTop);");
     expect(messenger).toContain('top: 0');
     expect(messenger).toContain('bottom: compactBottom');
     expect(messenger).toContain('paddingTop: Math.max(10, safeArea.top + 8)');
     expect(messenger).not.toContain('const compactPanelHeight = Math.min');
-    expect(messenger).toContain('fontSize:18,lineHeight:25');
-    expect(messenger).toContain('inputCompact:{height:48');
+    expect(messenger).toContain("fontSize:17,lineHeight:23");
+    expect(messenger).toContain("inputCompact:{height:56");
     expect(messenger).toContain('maxLength={2000}');
     expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
-    expect(messenger).toContain("keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
-    expect(messenger).toContain('setTimeout(() => followChatBottom(false), 60)');
+    expect(messenger).toContain("keyboardDismissMode={compact ? 'none' : Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
+    expect(messenger).toContain("setTimeout(() => followChatBottom(false), Platform.OS === 'ios' ? 120 : 60)");
     expect(messenger).toContain('{messages.map((message)');
     expect(messenger).toContain('onCompactClose');
     expect(dock).toContain('onCompactClose={closeChat}');
@@ -97,9 +97,9 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain("chooseVerticalPreset('HIGH')");
     expect(dock).toContain("chooseVerticalPreset('MIDDLE')");
     expect(dock).toContain("chooseVerticalPreset('LOW')");
-    expect(panel).toContain("chooseChatVerticalPreset('HIGH')");
-    expect(panel).toContain("chooseChatVerticalPreset('MIDDLE')");
-    expect(panel).toContain("chooseChatVerticalPreset('LOW')");
+    expect(panel).toContain("chooseChatVertical('HIGH')");
+    expect(panel).toContain("chooseChatVertical('MIDDLE')");
+    expect(panel).toContain("chooseChatVertical('LOW')");
     expect(panel).toContain('HAUTEUR DU BOUTON');
     expect(profile).toContain("key: 'chatSettings'");
     expect(profile).toContain('RÉGLER LA MESSAGERIE');
@@ -113,7 +113,7 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('drawerGrip');
     expect(dock).toContain("outputRange: [-50, 0]");
     expect(dock).toContain("outputRange: [50, 0]");
-    expect(dock).toContain("if (!previewOnly && !settingsOpen && !accountReady) return null;");
+    expect(dock).toContain("if (!previewOnly && !settingsOpen && !accountReady && !open) return null;");
     expect(dock).not.toContain("(!accountReady || !chatEnabled)) return null");
     expect(dock).toContain("chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'");
     expect(dock).toContain('{open ? (');
@@ -130,7 +130,7 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('MESSAGES');
     expect(panel).toContain('ACTIVITÉ');
     expect(panel).toContain('RÉGLAGES');
-    expect(panel).toContain('Tout reste ici, sans changer d’écran.');
+    expect(panel).toContain("Messages, activité et réglages au même endroit.");
     expect(panel).toContain('Alertes dans l’application');
     expect(panel).toContain('MESSAGERIE LOKI');
     expect(panel).toContain('Bouton flottant + plein écran');
@@ -156,15 +156,15 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('loadMusicAgoraConversations');
     expect(messenger).toContain('loadMusicAgoraDirectMessages');
     expect(messenger).toContain('MESSAGES');
-    expect(messenger).toContain('LA PLACE · PUBLIC');
-    expect(messenger).toContain('Nouveau salon privé');
+    expect(messenger).toContain("<Text style={s.publicRoomBadge}>PUBLIC</Text>");
+    expect(messenger).toContain("Nouveau groupe privé");
     expect(messenger).toContain('Sur invitation uniquement');
-    expect(messenger).toContain('MEMBRES ·');
-    expect(messenger).toContain('＋ PÉPITE');
+    expect(messenger).toContain("accessibilityLabel=\"Gérer les membres du groupe");
+    expect(messenger).toContain("<Text style={s.drawerActionText}>MORCEAU</Text>");
   });
 
   it('keeps music sharing compact, explicit and anti-resale', () => {
-    expect(messenger).toContain('VALIDER LA PÉPITE');
+    expect(messenger).toContain("PARTAGER LE MORCEAU");
     expect(messenger).toContain('shareOptionsOpen');
     expect(messenger).toContain('shareOwnershipOpen');
     expect(messenger).toContain('🔒 PARTAGE UNIQUEMENT');
@@ -172,7 +172,7 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain('paymentLocked');
     expect(messenger).toContain('insertQuickReaction(reaction.payload)');
     expect(messenger).toContain('setDraft((current) =>');
-    expect(messenger).toContain('VALIDER LA PÉPITE');
+    expect(messenger).toContain("PARTAGER LE MORCEAU");
   });
 
   it('scales private rooms with Realtime instead of 5-second polling', () => {

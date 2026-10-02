@@ -17,7 +17,7 @@ describe('Battle Solo quota start contract', () => {
 
   it('consumes exactly when the first playable audio has started', () => {
     expect(service).toContain('export async function consumeKeepBattleSoloDailyStart(sessionToken: string)');
-    expect(service).toContain("{ p_session_token: token }");
+    expect(service).toContain("{ p_session_token: token, p_timezone: deviceTimeZone() }");
     expect(game).toContain("const soloDailySessionTokenRef = React.useRef('');");
     expect(game).toContain('const soloDailyConsumedRef = React.useRef(false);');
     expect(game).toContain('soloDailyConsumedRef.current = true;');

@@ -30,31 +30,31 @@ describe('global compact chat UX contract', () => {
 
   it('keeps manual history browsing possible', () => {
     expect(panel).toContain('onScroll={(event)');
-    expect(panel).toContain('browsingHistoryRef.current = distanceFromBottom > 56');
+    expect(panel).toContain("browsingHistoryRef.current = browsingOlder");
   });
 
   it('keeps music selection readable, previewable and immediately validatable', () => {
-    expect(panel).toContain('PÉPITE SÉLECTIONNÉE');
+    expect(panel).toContain("MORCEAU SÉLECTIONNÉ");
     expect(panel).toContain('TrackPreviewButton trackKey={sharedTrack.id}');
     expect(panel).toContain('shareOptionsOpen');
     expect(panel).toContain('shareAccordionBody');
     expect(panel).toContain('selectedMusicLockBadge');
     expect(panel).toContain('style={s.validateMusicPinned}');
-    expect(panel).toContain('VALIDER LA PÉPITE');
+    expect(panel).toContain("PARTAGER LE MORCEAU");
     expect(panel).toContain("selectedMusicThumbWrap:{width:80,height:80");
     expect(panel).toContain("selectedMusicThumb:{width:80,height:80");
   });
 
   it('keeps reaction buttons fixed-size inside the chat', () => {
     expect(panel).toContain("quickReaction:{width:48,height:42,flexGrow:0,flexShrink:0");
-    expect(panel).toContain("['❤️','🔥','👏','🎵']");
+    expect(panel).toContain("{ label: '❤️', payload: '❤️' }");
   });
 
   it('supports long messages without growing the drawer', () => {
     expect(panel).toContain('maxLength={2000}');
     expect(panel).toContain('{draft.length}/2000');
     expect(panel).toContain('scrollEnabled');
-    expect(panel).toContain("inputCompact:{height:48,minHeight:48,maxHeight:96");
+    expect(panel).toContain("inputCompact:{height:56,minHeight:56,maxHeight:112");
   });
 
   it('shows ownership locks before payment choices and explains them inline', () => {
@@ -75,7 +75,7 @@ describe('global compact chat UX contract', () => {
     expect(panel).toContain("keyboardDidShow");
     expect(panel).toContain('event.endCoordinates?.height');
     expect(panel).toContain('event.endCoordinates?.screenY');
-    expect(panel).toContain("const compactBottom = Platform.OS === 'web' && keyboardInset > 0 ? keyboardInset : 0");
+    expect(panel).toContain("const compactBottom = 0;");
     expect(panel).toContain('top: 0');
     expect(panel).toContain('bottom: compactBottom');
     expect(panel).toContain('forceBottomRef.current = true');

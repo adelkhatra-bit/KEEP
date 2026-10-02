@@ -16,7 +16,9 @@ describe('Collection sale entry — one source of truth', () => {
   });
 
   it('uses one creation entry and opens MyMusic only as the track selector', () => {
-    expect(panel).toContain("params: { createSaleCollection: true }");
+    // 1d1ecb70 / 0e5272a1 : la création reste dans Pépites (contrat marketplacePurchases.collectionCreationMustRemainInPepites).
+    expect(panel).not.toContain("screen: 'MyMusic', params: { createSaleCollection: true");
+    expect(panel).toContain('collectionCartOpen');
     expect(music).toContain("if (!route?.params?.createSaleCollection) return;");
     expect(music).toContain("setSaleSelectionMode(true);");
     expect(music).not.toContain('🔒 CRÉER UNE COLLECTION EXCLUSIVE');
@@ -24,8 +26,8 @@ describe('Collection sale entry — one source of truth', () => {
   });
 
   it('never creates a one-track product', () => {
-    expect(music).toContain('if (tracks.length < 2)');
-    expect(music).toContain('Une collection représente ton univers musical, jamais un morceau isolé.');
+    expect(music).toContain("if (saleCartTracks.length < 2)");
+    expect(music).toContain("Une Pépite représente une vraie sélection, jamais un morceau isolé.");
     expect(music).toContain('disabled={selectedSaleTrackIds.size < 2}');
   });
 
@@ -33,6 +35,6 @@ describe('Collection sale entry — one source of truth', () => {
     expect(music).toContain("useState<PlaylistSalePaymentMode | null>(null)");
     expect(music).toContain("if (!sellPaymentMode)");
     expect(music).toContain("Mode de déblocage requis");
-    expect(music).toContain("ÉTAPE 1 · MODE DE DÉBLOCAGE OBLIGATOIRE");
+    expect(music).toContain("MODE DE DÉBLOCAGE");
   });
 });

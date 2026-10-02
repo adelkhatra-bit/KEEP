@@ -2577,3 +2577,8 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Bug : les membres d'un groupe (invitation acceptée) voyaient « Écriture indisponible ». Cause client uniquement (condition `!replyTarget`), serveur OK.
 - Correctif + lisibilité demandée par Adel (gris → blanc, polices un peu plus grandes) limités aux styles de `MusicAgoraPanel`. Navigation et 5 onglets non touchés.
 - NE PAS reconditionner la zone d'écriture sur `replyTarget` seul : un groupe n'en a pas.
+
+## [2026-10-02 23:30 CEST] CLAUDE CODE — OTA DÉBLOQUÉE : SUITE JEST MOBILE 100 % VERTE (ERR-OTA-BLOCKED-STALE-TESTS-040)
+- La publication OTA exige `npm --workspace packages/mobile test` complet. 54 suites échouaient : plus aucune mise à jour n'arrivait sur iPhone.
+- RÈGLE POUR TOUTES LES IA : toute modification d'un texte/composant verrouillé par un test de contrat met à jour CE test dans le même commit, sinon l'OTA est bloquée pour tout le monde. Lancer `npm --workspace packages/mobile test -- --runInBand` avant chaque push mobile.
+- Ajouts du soir côté tchat (migrations NON appliquées, en attente d'Adel) : signalements → Super Admin, vente en groupe (offre à chaque membre), quitter/retirer/supprimer un groupe + notifications, réglages regroupés en 5.

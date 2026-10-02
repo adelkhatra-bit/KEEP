@@ -16,21 +16,21 @@ describe('Loki Music playlist marketplace delivery contract', () => {
 
   it('lets a creator build and name a multi-track exclusive collection with preset prices', () => {
     expect(myMusic).toContain('Créer une collection');
-    expect(myMusic).toContain('ÉTAPE 1 SUR 3');
+    expect(myMusic).toContain("ÉTAPE 1 SUR 4");
     expect(myMusic).toContain('selectedSaleTrackIds');
     expect(myMusic).toContain('Nom de la collection exclusive');
     expect(myMusic).toContain("(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map");
     expect(salePanel).toContain('SALE_PRESET_PRICES_CENTS');
     expect(salePanel).toContain('SALE_PRESET_FREE');
     expect(salePanel).toContain('updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount)');
-    expect(myMusic).toContain('if (tracks.length < 2)');
+    expect(myMusic).toContain("if (saleCartTracks.length < 2)");
   });
 
   it('keeps the Pépites creation flow as selection -> cart review -> payment -> final publish', () => {
     expect(salePanel).toContain("collectionCartStep === 'TRACKS'");
     expect(salePanel).toContain("collectionCartStep === 'REVIEW'");
     expect(salePanel).toContain("collectionCartStep === 'PRICE'");
-    expect(salePanel).toContain("'J’AI FINI MA SÉLECTION'");
+    expect(salePanel).toContain("J’AI FINI MA SÉLECTION");
     expect(salePanel).toContain('OUVRIR MON PANIER →');
     expect(salePanel).toContain('OUI, MA SÉLECTION EST TERMINÉE');
     expect(salePanel).toContain('PayPal · DEVISE');

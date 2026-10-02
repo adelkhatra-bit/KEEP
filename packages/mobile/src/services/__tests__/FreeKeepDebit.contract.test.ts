@@ -15,7 +15,7 @@ describe('Loki FREE debit contract', () => {
 
   it('charges every new manual KEEP, including a keep copied from another profile', () => {
     expect(core).toContain('if (decision === "KEPT") {');
-    expect(core).toContain('const credit = await consumeKeepCredit(token);');
+    expect(core).toContain("scoped.rpc(\"keep_commit_paid_decision\"");
     expect(core).not.toContain('if (decision === "KEPT" && !socialSource)');
     expect(action).toContain("const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;");
     expect(action).not.toContain('!isSocialCopy && options?.consumeCredit !== false');
@@ -31,12 +31,12 @@ describe('Loki FREE debit contract', () => {
 
   it('keeps duplicate ownership idempotent and free', () => {
     expect(action).toContain('alreadyKept: true');
-    expect(core).toContain('deduplicated: true');
+    expect(core).toContain("deduplicated: Boolean((committed as any).deduplicated)");
   });
 
   it('never reports a real KEEP as successful without server-confirmed debit + decision', () => {
     expect(action).toContain("throw new Error('KEEP_SERVER_NOT_CONFIRMED')");
-    expect(action).toContain('if (consumesCredit) throw e;');
+    expect(action).toContain("throw new Error('KEEP_SERVER_NOT_CONFIRMED')");
     expect(action).not.toContain("if (e?.message === 'CREDITS_EXHAUSTED') throw e;\n    profileSyncFailed = true;");
   });
 

@@ -14,11 +14,11 @@ describe('Loki core user journey contract', () => {
   const availability = read('src/store/useBattleAvailabilityStore.ts');
 
   it('explains the simple growth loop in Offers', () => {
-    expect(offers).toContain('COMMENT LOKI GRANDIT AVEC TOI');
-    expect(offers).toContain('Écoute → Garde → Partage → Joue → Recommence.');
+    expect(offers).toContain("COMMENT LOKI MUSIC GRANDIT AVEC TOI");
+    expect(offers).toContain("Écoute → Garde → Construis → Partage → Joue.");
     expect(offers).toContain('PARTAGE · Envoie ton profil à tes amis.');
     expect(offers).toContain('JOUE · Solo ou Battle');
-    expect(offers).toContain('Les Free servent à garder de nouvelles découvertes.');
+    expect(offers).toContain("RECHARGE · Utilise tes Free pour garder de nouvelles découvertes");
   });
 
   it('keeps the same explanation in À savoir / Help', () => {
@@ -32,7 +32,8 @@ describe('Loki core user journey contract', () => {
 
   it('uses the same animated Battle control on owner and visitor profiles', () => {
     expect(ownerProfile).toContain('<BattleGlowButton');
-    expect(visitorProfile).toContain('<BattleGlowButton');
+    // 095c5b6e / b0a2bb41 : le profil visité utilise la rangée d’actions du propriétaire (bouton ⚡ BATTLE).
+    expect(visitorProfile).toContain("'⚡ BATTLE'");
     expect(battleButton).toContain('Animated.loop');
     expect(battleButton).toContain("const accent = active ? colors.keep : '#7C5CFC'");
   });

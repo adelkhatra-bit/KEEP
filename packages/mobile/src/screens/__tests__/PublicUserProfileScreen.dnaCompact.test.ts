@@ -9,14 +9,14 @@ describe('profile Loki Pulse compaction', () => {
   const personal = readNormalized(__dirname, '..', 'ProfilePublicScreen.tsx');
 
   it('collapses owner and visited Pulse details by default', () => {
-    expect(personal).toContain('const [profilePulseExpanded, setProfilePulseExpanded] = useState(false);');
+    expect(personal).toContain("const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);");
     expect(visited).toContain('const [visitorPulseExpanded, setVisitorPulseExpanded] = useState(false);');
   });
 
   it('keeps percentage gauges visible while details stay compact', () => {
     expect(personal).toContain('<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>');
     expect(visited).toContain('<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>');
-    expect(personal).toContain("profilePulseExpanded ? 'MASQUER' : 'VOIR PLUS'");
+    expect(personal).toContain("ownerDnaExpanded ? '⌃' : '⌄'");
     expect(visited).toContain('VOIR SES ${visitorStyleBubbles.length} STYLES');
   });
 

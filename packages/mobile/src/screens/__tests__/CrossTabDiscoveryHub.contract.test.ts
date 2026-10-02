@@ -17,13 +17,14 @@ describe('Cross-tab People / Events / Collections integration', () => {
   });
 
   it('reuses Discover for contact search and public event discovery', () => {
-    expect(parties).toContain("navigation.navigate('Discover', { focus: 'PEOPLE'");
-    expect(parties).toContain("navigation.navigate('Discover', { focus: 'EVENTS'");
+    // 07af7788 fix(parties): les raccourcis Découvrir dupliqués dans Soirées ont été retirés ; Découvrir reste l’unique entrée.
+    expect(parties).not.toContain("navigation.navigate('Discover', { focus: 'PEOPLE'");
+    expect(parties).not.toContain("navigation.navigate('Discover', { focus: 'EVENTS'");
     expect(discover).toContain("const [discoverMode, setDiscoverMode] = useState<'PEOPLE' | 'EVENTS'>('PEOPLE')");
-    expect(discover).toContain('loadUpcomingEvents()');
+    expect(discover).toContain("loadUpcomingEvents(user?.id)");
     expect(discover).toContain('PERSONNES');
     expect(discover).toContain('ÉVÉNEMENTS');
-    expect(discover).toContain("navigation.navigate('Parties', { openEventId: event.id");
+    expect(discover).toContain("openEventInline(event)");
     expect(discover).toContain('Rechercher un pseudo Loki Music');
   });
 
@@ -35,10 +36,12 @@ describe('Cross-tab People / Events / Collections integration', () => {
   });
 
   it('keeps one collection manager and uses Playlists only as its track selector', () => {
-    for (const marker of ['MES COLLECTIONS PUBLIÉES', '♫ Morceaux', '€ / FREE', '＋ CRÉER UNE COLLECTION']) {
+    for (const marker of ['TOUTES LES COLLECTIONS', '✎ MODIFIER', '€ / FREE', '＋ CRÉER UNE COLLECTION']) {
       expect(salePanel).toContain(marker);
     }
-    expect(salePanel).toContain("params: { createSaleCollection: true }");
+    // 1d1ecb70 / 0e5272a1 : la création reste dans Pépites (contrat collectionCreationMustRemainInPepites).
+    expect(salePanel).not.toContain("screen: 'MyMusic', params: { createSaleCollection: true");
+    expect(salePanel).toContain('collectionCartOpen');
     expect(music).toContain("route?.params?.createSaleCollection");
     expect(music).not.toContain("setWorkspaceTab('COLLECTIONS')");
   });

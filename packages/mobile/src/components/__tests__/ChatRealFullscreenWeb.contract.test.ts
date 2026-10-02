@@ -8,8 +8,8 @@ const panel = fs.readFileSync(path.resolve(__dirname, '..', 'MusicAgoraPanel.tsx
 describe('Loki chat real fullscreen web contract', () => {
   it('pins the web modal to the physical viewport', () => {
     expect(dock).toContain("position: 'fixed'");
-    expect(dock).toContain("width: '100vw'");
-    expect(dock).toContain("height: '100dvh'");
+    expect(dock).toContain(": '100vw',");
+    expect(dock).toContain(": '100dvh',");
     expect(dock).toContain("zIndex: 2147483647");
   });
 

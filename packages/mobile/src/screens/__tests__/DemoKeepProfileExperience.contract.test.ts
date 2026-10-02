@@ -29,14 +29,14 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('lets demo mode exercise the Public/Private choice locally instead of skipping it', () => {
-    expect(profile).toContain('requiresAccount={!viewer || isLocalGuest}');
+    expect(profile).toContain("requiresAccount={!effectiveViewerId}");
     expect(profile).not.toContain('requiresAccount={!viewer || isLocalGuest || isDemoMode}');
     expect(profile).toContain("isDemoMode ? 'Mode démo' : 'Ajouté à ta collection'");
     expect(profile).toContain("visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'");
   });
 
   it('still requires a real account after a guest has chosen visibility, without saving first', () => {
-    expect(profile).toContain("if (!viewer || isLocalGuest) {");
+    expect(profile).toContain("if (!effectiveViewerId) {");
     expect(profile).toContain('Ton choix de visibilité est bien pris en compte, mais crée ou connecte ton compte');
   });
 
@@ -162,20 +162,20 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('shows the real number of styles separately from the number of tracks', () => {
     expect(ownerProfile).toContain("{genreFolders.length} style{genreFolders.length > 1 ? 's' : ''} · {profileTotalKeepCount} morceau");
-    expect(ownerProfile).toContain('Tes styles dominants');
-    expect(ownerProfile).toContain('VOIR MES {genreFolders.length} STYLES');
+    expect(ownerProfile).toContain("Ton empreinte musicale");
+    expect(ownerProfile).toContain("<Text style={s.dnaCompactScore}>{styleCoveragePercent}%</Text>");
   });
 
   it('opens the real music-management mode directly from the profile', () => {
     expect(ownerProfile).toContain("screen: 'MyMusic', params: { openManageMusic: true }");
     expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
     expect(myMusic).toContain("setActiveTab('MUSIQUES')");
-    expect(myMusic).toContain('GÉRER MES MUSIQUES');
+    expect(myMusic).toContain("{manageMusicMode ? 'COMMANDES VISIBLES' : 'MA VISIBILITÉ'}");
     expect(myMusic).toContain("setOriginFilter('ALL')");
     expect(myMusic).toContain('setSocialSectionExpanded(true)');
     expect(myMusic).toContain('setManageMusicMode(true)');
     expect(myMusic).toContain('expanded={manageMusicMode || expanded}');
-    expect(myMusic).toContain('PUBLIC / PRIVÉ, SUPPRIMER');
+    expect(myMusic).toContain("Public · Privé · Retirer sous chaque morceau");
   });
 
   it('uses the kept library as the single source for the Styles count', () => {
@@ -192,7 +192,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('keeps already-owned public tracks playable inside social Swipe', () => {
     expect(swipe).toContain("setPrefilterRemovedCount(0)");
-    expect(swipe).toContain("setDeckTracks(loop ? shuffle(inputTracks) : inputTracks)");
+    expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
     expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
   });
@@ -213,7 +213,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain('if (socialDiscoveryMode) {');
     expect(swipe).toContain('endAdvanceTimer.current = setTimeout(() => {');
     expect(swipe).toContain('advanceIndex();');
-    expect(swipe).toContain('}, 900);');
+    expect(swipe).toContain("}, 120);");
     expect(swipe).toContain('↻ RÉÉCOUTER');
   });
 

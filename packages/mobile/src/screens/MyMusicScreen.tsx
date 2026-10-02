@@ -1061,8 +1061,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // son offerId réel, sans jamais recréer ni perdre les autres morceaux.
   const editExistingTrackOffer = (track: CanonicalTrack) => {
     const offered = myOfferedTrackIds[track.id];
-    const includedInEditedOffer = Boolean(saleEditOfferTarget && offered?.offerId === saleEditOfferTarget.offerId);
-    const lockedByAnotherOffer = Boolean(offered && !includedInEditedOffer);
     if (!offered) return;
     Alert.alert(
       'Gérer cette collection',

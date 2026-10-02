@@ -33,7 +33,7 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
 
   it('rend l’origine visible sur chaque ligne sans ouvrir le détail', () => {
     expect(screen).toContain("label: localEntry.sourceProfileId");
-    expect(screen).toContain(": 'ÉCOUTE'");
+    expect(screen).toContain(": 'IDENTIFIÉ PAR LOKI'");
     expect(screen).toContain("'social' : 'listen'");
     expect(row).toContain('originBadge?:');
     expect(row).toContain('originBadgeTextSocial');

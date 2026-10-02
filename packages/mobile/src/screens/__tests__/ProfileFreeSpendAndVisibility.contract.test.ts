@@ -24,7 +24,7 @@ describe('profile FREE daily spend + visibility protection', () => {
     expect(spendMigration).toContain('trg_keep_log_download_credit_spend');
     expect(spendMigration).toContain('keep_free_spent_today');
     expect(spendMigration).toContain("interval '2 hours'");
-    expect(spendMigration).toContain("SOCIAL_ZERO_CREDIT");
+    expect(spendMigration).toContain("amount integer not null check (amount > 0)");
   });
 
   it('opens a clear visibility popup and keeps active sale tracks protected from TOUT PUBLIC', () => {

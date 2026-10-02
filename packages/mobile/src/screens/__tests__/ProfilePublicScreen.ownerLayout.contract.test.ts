@@ -45,7 +45,7 @@ describe('ProfilePublicScreen owner layout contract', () => {
   it('keeps every profile-kind choice visibly blue instead of black', () => {
     expect(source).toContain("borderColor:colors.info");
     expect(source).toContain("backgroundColor:'rgba(92,168,252,.08)'");
-    expect(source).toContain("kindChoiceOn:{backgroundColor:'rgba(92,168,252,.24)'");
+    expect(source).toContain("kindChoiceOn:{backgroundColor:colors.info");
     expect(contract.profileOwner.profileKindPicker.allChoicesMustHaveBlueOutline).toBe(true);
     expect(contract.profileOwner.profileKindPicker.inactiveBorderColorToken).toBe('info');
     expect(contract.profileOwner.profileKindPicker.inactiveBackgroundMayNotBeBlack).toBe(true);

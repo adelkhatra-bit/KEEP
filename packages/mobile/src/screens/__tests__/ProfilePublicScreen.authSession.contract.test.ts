@@ -11,7 +11,7 @@ describe('owner profile real-session contract', () => {
 
   it('tries Supabase refresh before deciding the account is disconnected', () => {
     expect(auth).toContain("typeof (client.auth as any).refreshSession === 'function'");
-    expect(auth).toContain('await (client.auth as any).refreshSession()');
+    expect(auth).toContain("await withAuthDeadline<any>((client.auth as any).refreshSession())");
     expect(profile).toContain('setRealSessionResolved(true)');
     expect(profile).toContain('const effectiveAuthenticatedUserId = realSessionResolved');
   });
@@ -22,11 +22,11 @@ describe('owner profile real-session contract', () => {
   });
 
   it('keeps an explicit connect/account row immediately under Help in the hamburger', () => {
+    // e0032861 fix(profile): keep account session out of hamburger (postérieur à bb1a7e84) :
+    // l'Aide reste dans le menu, la connexion est une pastille LoginPill visible à côté du menu.
     const help = profile.indexOf("{ key: 'help'");
-    const account = profile.indexOf("{ key: 'account'", help);
     expect(help).toBeGreaterThan(-1);
-    expect(account).toBeGreaterThan(help);
-    expect(profile.slice(help, account + 220)).toContain("label: 'Compte'");
-    expect(profile).toContain("accountRequired ? 'Se connecter' : 'Compte connecté'");
+    expect(profile).not.toContain("{ key: 'account'");
+    expect(profile).toContain('{accountRequired ? <View style={s.topBarRight}><LoginPill />');
   });
 });

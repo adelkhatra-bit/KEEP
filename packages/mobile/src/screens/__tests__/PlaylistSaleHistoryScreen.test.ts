@@ -43,6 +43,7 @@ describe('PlaylistSaleHistoryScreen (Adel, 21/09/2026, mission 3/3 : historique 
   it('is registered as its own route, reachable from the seller management panel', () => {
     expect(nav).toContain("import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';");
     expect(nav).toContain('<RootStack.Screen name="PlaylistSaleHistory" component={PlaylistSaleHistoryScreen} />');
-    expect(panel).toContain("navigation.navigate('PlaylistSaleHistory')");
+    // 4e65462c refactor(pepites): l'historique s'ouvre en ligne dans le panneau vendeur, sans redirection (la route reste enregistrée).
+    expect(panel).toContain('setHistoryOpen((value) => !value)');
   });
 });

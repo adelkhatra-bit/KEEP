@@ -16,7 +16,7 @@ describe('username auth PostgREST outage fallback', () => {
   });
 
   it('keeps indexed/direct profile lookup as the normal path', () => {
-    expect(source).toContain('where lower(username) = lower(');
-    expect(source).toContain('Fallback PostgREST habituel');
+    expect(source).toContain("where lower(p.username) = lower(");
+    expect(source).toContain("Fallback PostgREST borné");
   });
 });

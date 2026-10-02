@@ -16,7 +16,7 @@ describe('accès à la connexion', () => {
   it('une pastille « Se connecter » ouvre la fenêtre de compte unique directement en connexion', () => {
     expect(pill).toContain("requestAccount('login', followUsername)");
     expect(owner).toContain('{accountRequired ? <View style={s.topBarRight}><LoginPill />');
-    expect(visitor).toContain('{!viewer || isLocalGuest || isDemoMode ? <LoginPill /> : null}');
+    expect(visitor).toContain("{!effectiveViewerId ? <LoginPill /> : null}");
   });
 
   it('plus de pavé « Créer mon compte Loki Music » ni de fenêtre de compte en double sur le profil', () => {

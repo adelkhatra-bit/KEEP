@@ -21,7 +21,7 @@ describe('Loki Music Samsung mobile reliability', () => {
     expect(discover).toContain('GPS_FIX_TIMEOUT');
     expect(discover).toContain('dernière position enregistrée');
     expect(discover).toContain('minHeight:48');
-    expect(discover).toContain('minWidth:44,minHeight:44');
+    expect(discover).toContain("radiusChoice:{minWidth:48,minHeight:44");
   });
 
   it('primes WebAudio directly from the Listen tap', () => {

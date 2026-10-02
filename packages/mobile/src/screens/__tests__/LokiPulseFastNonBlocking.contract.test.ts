@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const migration = fs.readFileSync(
-  path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', '20261002007000_loki_pulse_fast_nonblocking.sql'),
+  path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002007000_loki_pulse_fast_nonblocking.sql'),
   'utf8',
 ).replace(/\r\n/g, '\n');
 

@@ -13,12 +13,12 @@ describe('Music profile consistency', () => {
   const audio = read(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
   it('uses PUBLIC + PRIVATE keeps for the owner profile style source', () => {
-    expect(profileService).toContain("return loadPagedKeeps('keep_own_profile_tracks', {});");
+    expect(profileService).toContain("const rows = await loadPagedKeeps('keep_own_profile_tracks', {});");
     expect(profileService).not.toContain("rows.filter((row) => row.visibility === 'PUBLIC')");
   });
 
   it('shows the same real style concept in MyMusic and owner profile', () => {
-    expect(profile).toContain('Mes styles');
+    expect(profile).toContain("<Text style={s.collectionTitle}>Ma musique</Text>");
     expect(profile).toContain('{genreFolders.length} style');
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
     expect(myMusic).toContain('SUGGESTIONS AUTO');
@@ -27,7 +27,7 @@ describe('Music profile consistency', () => {
 
   it('opens music management with explicit per-track actions', () => {
     expect(profile).toContain("params: { openManageMusic: true }");
-    expect(myMusic).toContain("manageMusicMode ? 'MODIFICATION ACTIVÉE' : 'MODE MODIFICATION'");
+    expect(myMusic).toContain("manageMusicMode ? 'COMMANDES VISIBLES' : 'MA VISIBILITÉ'");
     expect(myMusic).toContain("{publicTrack ? 'PUBLIC' : 'PRIVÉ'}");
     expect(myMusic).toContain('SUPPRIMER');
     expect(myMusic).toContain('Vente centralisée dans Collections/Pépites');

@@ -25,7 +25,7 @@ describe('DNA and Loki Pulse separation', () => {
   });
 
   it('uses track bubbles, not genre/style bubbles, on Loki Music home', () => {
-    expect(home).toContain('loadLokiPulse(24)');
+    expect(home).toContain("loadLokiPulse(24, user.id)");
     expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
     expect(home).toContain('openHomePulseTrack(item.track.id)');
     expect(home).not.toContain('homeStyleBubbles');

@@ -32,7 +32,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
     expect(source).toContain("import MotionActionButton from '../components/MotionActionButton';");
     expect(source).toContain('containerStyle={s.ownerQuickActionFull}');
     expect(source).toContain('accessibilityLabel="Voir aperçu"');
-    expect(source).toContain('accessibilityLabel="Gérer pépites"');
+    expect(source).toContain("accessibilityLabel={accountRequired ? 'Comprendre comment publier une Pépite' : 'Gérer pépites'}");
     expect(source).toContain('accessibilityLabel="Jouer Battle"');
   });
 

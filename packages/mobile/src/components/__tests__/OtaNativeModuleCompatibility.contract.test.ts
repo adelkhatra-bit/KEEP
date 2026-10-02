@@ -7,8 +7,11 @@ describe('OTA native-module compatibility', () => {
 
   it('does not eagerly load expo-speech at application startup', () => {
     expect(mascot).not.toContain("import * as Speech from 'expo-speech'");
-    expect(mascot).toContain("await import('expo-speech').catch(() => null)");
+    expect(mascot).toContain("import { speakLokiText, stopLokiSpeech } from '../services/lokiSpeechService';");
     expect(dock).not.toContain("import * as Speech from 'expo-speech'");
-    expect(dock).toContain("import('expo-speech').then((Speech)");
+    expect(dock).toContain("import { speakLokiText } from '../services/lokiSpeechService';");
+    // e8d46e91 : expo-speech n'est plus une dépendance du binaire TestFlight 62 ; aucun import, même paresseux.
+    expect(mascot).not.toContain('expo-speech');
+    expect(dock).not.toContain("import('expo-speech')");
   });
 });

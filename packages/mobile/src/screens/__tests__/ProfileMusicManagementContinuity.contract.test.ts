@@ -18,15 +18,15 @@ describe('Profile music management and listening continuity', () => {
     expect(block).toContain("const labels = genres.length ? genres : ['Sans genre'];");
     expect(block).not.toContain('publicKeptTracks');
     expect(block).not.toContain('.slice(0, 12)');
-    expect(owner).toContain("tracks: genreFolders.find((folder) => folder.genre === genre)?.entries.map((entry) => entry.track) ?? []");
+    expect(owner).toContain("const tracks = folder?.entries.map((entry) => entry.track) ?? [];");
   });
 
   it('opens an explicit music management mode instead of hiding controls under Playlists', () => {
     expect(myMusic).toContain("{ key: 'MUSIQUES', label: 'Musiques' }");
-    expect(myMusic).toContain('MODIFICATION ACTIVÉE');
-    expect(myMusic).toContain('Public/privé · retirer · classer : commandes actives');
-    expect(myMusic).toContain('Gérer mes morceaux');
-    expect(myMusic).toContain('Ranger ma musique');
+    expect(myMusic).toContain("COMMANDES VISIBLES");
+    expect(myMusic).toContain("Public · Privé · Retirer sous chaque morceau");
+    expect(myMusic).toContain("Choisir ce qui est visible");
+    expect(myMusic).toContain("Trier ma musique");
     expect(myMusic).toContain("if (!route?.params?.openManageMusic) return;");
     expect(myMusic).toContain("setActiveTab('MUSIQUES');");
   });
@@ -43,7 +43,7 @@ describe('Profile music management and listening continuity', () => {
     expect(swipe).toContain('const endAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);');
     expect(swipe).toContain('if (socialDiscoveryMode) {');
     expect(swipe).toContain('advanceIndex();');
-    expect(swipe).toContain('}, 900);');
-    expect(swipe).toContain('recordProfileSwipeListen(sourceProfileId, current.id)');
+    expect(swipe).toContain("}, 120);");
+    expect(swipe).toContain("recordProfileSwipeListen(currentSourceProfileId, current.id)");
   });
 });

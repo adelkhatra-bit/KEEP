@@ -19,7 +19,7 @@ describe('Profile commerce + Battle contract', () => {
     expect(myMusic).toContain("const offerId = String(route?.params?.manageSaleOfferId || '').trim();");
     expect(myMusic).toContain('setSaleEditOfferTarget({ offerId, playlistName });');
     expect(myMusic).toContain('setSaleSelectionMode(true);');
-    expect(myMusic).toContain('PRIX · € / FREE · STATUT');
+    expect(myMusic).toContain("PRIX · PAIEMENT · STATUT");
     expect(myMusic).toContain("badge={offered ? { label: saleSelectionMode ? '◆ DÉJÀ PUBLIÉE' : `◆ Collection · ${offered.playlistName}`");
   });
 
@@ -33,12 +33,12 @@ describe('Profile commerce + Battle contract', () => {
     expect(publicProfile).toContain("import { sendBattleChallenge } from '../services/keepBattleLiveService';");
     expect(publicProfile).toContain("await sendBattleChallenge(profile.id, 'MIX', 8);");
     expect(publicProfile).toContain('accessibilityLabel={`Défier ${profile.username} en Battle`}');
-    expect(publicProfile).toContain('icon="⚡"');
-    expect(publicProfile).toContain("title={battleInviteBusy ? 'INVITATION EN COURS…' : 'DÉFIER EN BATTLE'}");
+    expect(publicProfile).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+    expect(publicProfile).toContain("accessibilityLabel={`Défier ${profile.username} en Battle`}");
   });
 
   it('keeps Battle safety gates and clear failure feedback', () => {
-    expect(publicProfile).toContain("if (!viewer || isLocalGuest || isDemoMode)");
+    expect(publicProfile).toContain("if (!effectiveViewerId) {");
     expect(publicProfile).toContain("message.includes('BATTLE_TARGET_NO_CREDIT')");
     expect(publicProfile).toContain("message.includes('BATTLE_CHALLENGER_NO_CREDIT')");
     expect(publicProfile).toContain("message.includes('BATTLE_DECLINE_THROTTLED')");

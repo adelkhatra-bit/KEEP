@@ -28,8 +28,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
 
 
   it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
-    expect(source).toContain('LE CLUB DE @{profile.username}');
-    expect(source).toContain('Ses sélections exclusives');
+    expect(source).toContain("À ÉCOUTER · @{profile.username}");
+    expect(source).toContain("Drops musicaux");
     expect(source).toContain('pépite');
     expect(source).toContain('`✦ ${offer.trackCount} à révéler · ${styleLabel}`');
     expect(source).toContain('<SaleCollectionRow');
@@ -38,7 +38,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
 
   it('uses the same action row as the owner profile (3 outline MotionActionButton) while sale collections stay separate', () => {
     expect(source).toContain('<View style={styles.ownerQuickActions}>');
-    expect(source).toContain('▶ APERÇU');
+    expect(source).toContain("▶ SWIPE");
     expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
     expect(source).toContain('↗ PARTAGER');
     expect(source).not.toContain('<BattleGlowButton');

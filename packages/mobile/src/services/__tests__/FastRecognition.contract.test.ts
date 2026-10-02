@@ -17,9 +17,9 @@ describe('Fast recognition contract', () => {
 
   it('uses a shorter first iOS sample but retains longer retries', () => {
     expect(session).toContain("Platform.OS === 'ios'");
-    expect(session).toContain('return 3000;');
-    expect(session).toContain('return 5000;');
-    expect(session).toContain('return 8000;');
+    expect(session).toContain("return 4500;");
+    expect(session).toContain("return 6500;");
+    expect(session).toContain("return 9000;");
   });
 
   it('seeds fingerprint memory from kept profile tracks including native Shazam matches', () => {

@@ -11,7 +11,7 @@ describe('Playlist sale management contract — owner can edit offer content wit
   const service = read(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
 
   it('surfaces content, euro/FREE access and remove actions separately in collection management', () => {
-    expect(panel).toContain('♫ Morceaux');
+    expect(panel).toContain("✎ MODIFIER");
     expect(panel).toContain('€ / FREE');
     expect(panel).toContain('✕ Retirer');
     expect(panel).toContain('manageSaleOfferId: item.offerId || item.playlistId');

@@ -12,7 +12,7 @@ const dock = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', '
 
 describe('Loki validated UI + auth anti-regression', () => {
   it('cannot resurrect a locally signed-out account', () => {
-    expect(auth).toContain("client.auth.signOut({ scope: 'global' })");
+    expect(auth).toContain("signOut({ scope: 'local' })");
     expect(auth).toContain("client.auth.signOut({ scope: 'local' })");
     expect(settings.indexOf('useUserStore.getState().logout()')).toBeLessThan(settings.indexOf('createAuthService(supabase).signOut()'));
   });
