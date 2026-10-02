@@ -23,7 +23,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
-import { consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
+import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
 import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
@@ -534,6 +534,55 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // démarrage et à chaque retour sur l'écran Battle, affiché sous le bouton
   // SOLO avec le quota et le temps de renouvellement.
   const [soloDailyStatus, setSoloDailyStatus] = React.useState<{ plan?: string; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string | null } | null>(null);
+  // Adel (02/10/2026) : packs de Solos (10 / 25…) achetés en Free quand les
+  // Solos du jour sont épuisés ; ils s'ajoutent et ne se perdent pas.
+  const [soloPacksOpen, setSoloPacksOpen] = React.useState(false);
+  const [soloPacks, setSoloPacks] = React.useState<KeepBattleSoloPacks | null>(null);
+  const [soloPackBusy, setSoloPackBusy] = React.useState<string | null>(null);
+  const openSoloPacks = React.useCallback(async () => {
+    try {
+      const packs = await loadKeepBattleSoloPacks();
+      if (!packs) {
+        Alert.alert('Recharger mes Solos', 'Les packs de Solos arrivent très bientôt. En attendant, tes Solos se rechargent chaque nuit à 2 h et le Battle en ligne reste disponible.');
+        return;
+      }
+      setSoloPacks(packs);
+      setSoloPacksOpen(true);
+    } catch {
+      Alert.alert('Recharger mes Solos', 'Impossible de charger les packs pour le moment. Réessaie dans un instant.');
+    }
+  }, []);
+  const buySoloPack = (pack: KeepBattleSoloPackOffer) => {
+    if (soloPackBusy) return;
+    Alert.alert(
+      `${pack.solos} Solos`,
+      `Ajouter ${pack.solos} Solos pour ${pack.free} Free ? Ils s’ajoutent à tes Solos du jour et ne se perdent pas.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: `ACHETER · ${pack.free} FREE`, onPress: () => {
+          setSoloPackBusy(pack.code);
+          void buyKeepBattleSoloPack(pack.code)
+            .then(async (result) => {
+              const [status, credit, packs] = await Promise.all([
+                loadKeepBattleSoloDailyStatus().catch(() => null),
+                loadBattleCreditStatusIfAuthenticated().catch(() => null),
+                loadKeepBattleSoloPacks().catch(() => null),
+              ]);
+              if (status) setSoloDailyStatus(status);
+              if (credit) setMyCreditStatus(credit);
+              if (packs) setSoloPacks(packs);
+              setSoloPacksOpen(false);
+              Alert.alert('Solos rechargés', `+${result.solosAdded} Solos. Il te reste ${result.balance} Free.`);
+            })
+            .catch((e: any) => {
+              const message = String(e?.message || '');
+              Alert.alert('Recharger mes Solos', message.includes('NOT_ENOUGH_FREE') ? `Il te faut ${pack.free} Free pour ce pack.` : 'L’achat n’a pas abouti. Aucun Free n’a été débité, réessaie dans un instant.');
+            })
+            .finally(() => setSoloPackBusy(null));
+        } },
+      ],
+    );
+  };
   // Adel (29/09/2026) : compteurs secondaires (Victoires, Matchs, Bonnes
   // rép., Abonnés) repliés derrière PLUS, comme sur le profil.
   const [statsExpanded, setStatsExpanded] = React.useState(false);
@@ -1615,6 +1664,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`,
           [
             { text: 'OK', style: 'cancel' },
+            { text: 'Recharger mes Solos', onPress: () => { void openSoloPacks(); } },
             { text: 'Jouer en BATTLE', onPress: () => { void openOnline(); } },
           ],
         );
@@ -1940,6 +1990,25 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Text style={s.leaderboardEntryHint}>Podium, victoires, abandons</Text>
         </TouchableOpacity>
       ) : null}
+      <Modal visible={soloPacksOpen} transparent animationType="fade" onRequestClose={() => setSoloPacksOpen(false)}>
+        <View style={s.statsBackdrop}>
+          <View style={s.statsCard}>
+            <TouchableOpacity style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
+            <Text style={s.statsUsername}>Recharger mes Solos</Text>
+            <Text style={s.prefsPickerHint}>Tes Solos se rechargent chaque nuit à 2 h. Pour rejouer tout de suite, ajoute un pack : les Solos achetés s’ajoutent et ne se perdent pas.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
+            {(soloPacks?.packs ?? []).map((pack) => {
+              const short = (soloPacks?.balance ?? 0) < pack.free;
+              return (
+                <TouchableOpacity key={pack.code} disabled={Boolean(soloPackBusy)} style={[s.soloPackRow, short && s.themeShort]} onPress={() => (short ? Alert.alert('Pas assez de Free', `Il te faut ${pack.free} Free, tu en as ${soloPacks?.balance ?? 0}. Gagne des Free en Solo ou en partageant, ou recharge tes Free.`, [{ text: 'OK', style: 'cancel' }, ...(onOpenOffers ? [{ text: 'Recharger mes Free', onPress: () => { setSoloPacksOpen(false); onOpenOffers(); } }] : [])]) : buySoloPack(pack))} accessibilityRole="button" accessibilityLabel={`${pack.solos} Solos pour ${pack.free} Free`}>
+                  <Text style={s.soloPackSolos}>🎯 {pack.solos} Solos</Text>
+                  <Text style={[s.soloPackPrice, short && s.themeTextShort]}>{soloPackBusy === pack.code ? '…' : `${pack.free} FREE`}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <Text style={s.soloPackBalance}>Ton solde : {soloPacks?.balance ?? 0} Free · Paiement par carte / Apple Pay : bientôt</Text>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={prefsPickerOpen} transparent animationType="fade" onRequestClose={() => setPrefsPickerOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
@@ -3021,6 +3090,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.quotaCell}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>🎯 {q.headline}</Text><Text style={s.quotaSub} numberOfLines={1}>{q.detail}</Text></View> : null; })()}
               {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochaine recharge</Text></View> : null}
             </View>
+{soloQuotaCopy(soloDailyStatus)?.exhausted ? (
+              <TouchableOpacity style={s.soloPackEntry} onPress={() => { void openSoloPacks(); }} accessibilityRole="button" accessibilityLabel="Recharger mes Solos">
+                <Text style={s.soloPackEntryText}>＋ RECHARGER MES SOLOS</Text>
+                <Text style={s.soloPackEntryHint}>ou attends la recharge de 2 h</Text>
+              </TouchableOpacity>
+            ) : null}
             {(() => { const rule = soloPlanRuleCopy(soloDailyStatus); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
             <FreeEarnHelp highlight={insufficientForRoundCount(roundCount)} onShare={() => { void shareInvite(); }} onSolo={() => { void startSolo(); }} onOffers={onOpenOffers} />
           </View>
@@ -3134,6 +3209,7 @@ const s = StyleSheet.create({
   statsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 18 }, statsCard: { width: '100%', maxWidth: 400, borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' }, statsClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 }, statsCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' }, statsUsername: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 14, paddingRight: 40 }, statsBigRow: { flexDirection: 'row', gap: 8 }, statsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#1B1422' }, statsBigValue: { color: '#E5F266', fontSize: 22, fontWeight: '900' }, statsBigLabel: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, statsSmallRow: { flexDirection: 'row', gap: 6, marginTop: 6 }, statsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 12, backgroundColor: '#17121D' }, statsSmallValue: { color: '#FFF', fontSize: 13, fontWeight: '900' }, statsSmallValueLost: { color: colors.danger }, statsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' }, statsAvg: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12 }, statsSectionTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 20, marginBottom: 8 }, statsThemeRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#1B1422', marginBottom: 6 }, statsThemeLabel: { color: '#FFF', fontSize: 12, fontWeight: '900' }, statsThemeValue: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, statsThemeEmpty: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700' }, statsActionsRow: { flexDirection: 'row', gap: 8, marginTop: 18 }, statsFollowButton: { flex: 1, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsFollowButtonText: { color: '#8B5CF6', fontSize: 11, fontWeight: '900' }, statsProfileButtonSmall: { flex: 1, minHeight: 48, borderRadius: 24, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsProfileButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, statsChallengeDisabled: { opacity: 0.5 }, statsChallengeDisabledText: { color: colors.warning },
   playerStatsContainer: { marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A' }, playerStatsBigRow: { flexDirection: 'row', gap: 6, marginBottom: 8 }, playerStatsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#1B1422' }, playerStatsBigValue: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' }, playerStatsBigLabel: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, playerStatsSmallRow: { flexDirection: 'row', gap: 5 }, playerStatsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, backgroundColor: '#1B1422' }, playerStatsSmallValue: { color: '#FFF', fontSize: 12, fontWeight: '900' }, playerStatsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' },
   dailyFreeReset:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,textAlign:'center',marginTop:6},
+  soloPackEntry: { minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.14)', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingVertical: 6 }, soloPackEntryText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: .4 }, soloPackEntryHint: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 1 }, soloPackRow: { minHeight: 54, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 10 }, soloPackSolos: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' }, soloPackPrice: { color: '#FFFFFF', backgroundColor: colors.primary, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 13, fontWeight: '900' }, soloPackBalance: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 12 },
   prefsEditPill: { color: '#FFFFFF', backgroundColor: colors.primary, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900', letterSpacing: .4 }, leaderboardEntry: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(255,180,84,.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, marginBottom: 10 }, leaderboardEntryText: { color: colors.warning, fontSize: 13, fontWeight: '900', letterSpacing: .5 }, leaderboardEntryHint: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700' },
   prefsSummaryButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A', marginBottom: 10 }, prefsSummaryLabel: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .8 }, prefsSummaryValue: { color: '#FFF', fontSize: 13, fontWeight: '800', marginTop: 2 }, prefsSummaryHint: { color: colors.success, fontSize: 11, fontWeight: '800', marginTop: 3 }, prefsSummaryChevron: { color: '#8F879D', fontSize: 20, fontWeight: '900' }, prefsPickerHint: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700', marginBottom: 12 }, prefsPickerScroll: { maxHeight: 320, marginBottom: 14 }, prefsPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 4 }, prefsPickerCheckbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.primary, textAlign: 'center', lineHeight: 19, color: '#17130B', fontSize: 13, fontWeight: '900' }, prefsPickerCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primaryLight }, prefsPickerRowText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: colors.success, fontSize: 11, fontWeight: '800', marginTop: 2 }, arenaInviteMetaShort: { color: colors.danger }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },

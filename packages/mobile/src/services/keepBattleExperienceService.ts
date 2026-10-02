@@ -131,6 +131,35 @@ export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDai
   };
 }
 
+// Adel (02/10/2026) : packs de Solos vendus par la plateforme contre des
+// Free (réglables dans le Super Admin). Les Solos achetés s'ajoutent au jour
+// et ne se perdent pas. `null` = fonction serveur pas encore déployée.
+export type KeepBattleSoloPackOffer = { code: 'SMALL' | 'LARGE'; solos: number; free: number };
+export type KeepBattleSoloPacks = { packs: KeepBattleSoloPackOffer[]; bonusRemaining: number; balance: number };
+export async function loadKeepBattleSoloPacks(): Promise<KeepBattleSoloPacks | null> {
+  const { data, error } = await client().rpc('keep_battle_solo_packs');
+  if (error) {
+    if (String((error as any).code) === 'PGRST202') return null;
+    throw new Error(String(error.message || 'BATTLE_SOLO_PACKS_UNAVAILABLE'));
+  }
+  const raw = (data ?? {}) as any;
+  return {
+    packs: (Array.isArray(raw.packs) ? raw.packs : []).map((p: any) => ({
+      code: String(p.code) === 'LARGE' ? 'LARGE' : 'SMALL',
+      solos: Math.max(0, Number(p.solos || 0)),
+      free: Math.max(0, Number(p.free || 0)),
+    })),
+    bonusRemaining: Math.max(0, Number(raw.bonusRemaining || 0)),
+    balance: Math.max(0, Number(raw.balance || 0)),
+  };
+}
+export async function buyKeepBattleSoloPack(code: 'SMALL' | 'LARGE'): Promise<{ solosAdded: number; freeSpent: number; balance: number }> {
+  const { data, error } = await client().rpc('keep_battle_solo_buy_pack', { p_code: code });
+  if (error) throw new Error(String(error.message || 'BATTLE_SOLO_PACK_FAILED'));
+  const raw = (data ?? {}) as any;
+  return { solosAdded: Number(raw.solosAdded || 0), freeSpent: Number(raw.freeSpent || 0), balance: Number(raw.balance || 0) };
+}
+
 // Adel (29/09/2026) : « pourquoi y'a pas la date de rechargement des Free ».
 // Données brutes seulement (création du profil + bonus mensuel de la formule,
 // même source plan_prices que planService) ; le calcul de date est fait par
