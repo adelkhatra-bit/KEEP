@@ -250,6 +250,11 @@ export type PlaylistSaleTransaction = {
   currencyCode: string;
   status: 'PENDING' | 'COMPLETED';
   createdAt: string;
+  buyerMarkedPaidAt: string | null;
+  paymentProofPath: string | null;
+  paymentProofName: string | null;
+  paymentProofMime: string | null;
+  paymentProofUploadedAt: string | null;
 };
 
 type PlaylistSalePaymentContext = {
@@ -259,6 +264,11 @@ type PlaylistSalePaymentContext = {
   sellerFreeAfter: number | null;
   buyerFreeBefore: number | null;
   buyerFreeAfter: number | null;
+  buyerMarkedPaidAt: string | null;
+  paymentProofPath: string | null;
+  paymentProofName: string | null;
+  paymentProofMime: string | null;
+  paymentProofUploadedAt: string | null;
 };
 
 async function loadPlaylistSalePaymentContexts(paymentIds: string[]): Promise<Record<string, PlaylistSalePaymentContext>> {
@@ -266,7 +276,7 @@ async function loadPlaylistSalePaymentContexts(paymentIds: string[]): Promise<Re
   try {
     const { data, error } = await supabase
       .from('playlist_sale_payments')
-      .select('id,amount_free,provider,seller_free_balance_before,seller_free_balance_after,buyer_free_balance_before,buyer_free_balance_after')
+      .select('id,amount_free,provider,seller_free_balance_before,seller_free_balance_after,buyer_free_balance_before,buyer_free_balance_after,buyer_marked_paid_at,buyer_payment_proof_path,buyer_payment_proof_name,buyer_payment_proof_mime,buyer_payment_proof_uploaded_at')
       .in('id', paymentIds);
     if (error) return {};
     const out: Record<string, PlaylistSalePaymentContext> = {};
@@ -281,6 +291,11 @@ async function loadPlaylistSalePaymentContexts(paymentIds: string[]): Promise<Re
         sellerFreeAfter: (row as any).seller_free_balance_after == null ? null : Number((row as any).seller_free_balance_after),
         buyerFreeBefore: (row as any).buyer_free_balance_before == null ? null : Number((row as any).buyer_free_balance_before),
         buyerFreeAfter: (row as any).buyer_free_balance_after == null ? null : Number((row as any).buyer_free_balance_after),
+        buyerMarkedPaidAt: (row as any).buyer_marked_paid_at ? String((row as any).buyer_marked_paid_at) : null,
+        paymentProofPath: (row as any).buyer_payment_proof_path ? String((row as any).buyer_payment_proof_path) : null,
+        paymentProofName: (row as any).buyer_payment_proof_name ? String((row as any).buyer_payment_proof_name) : null,
+        paymentProofMime: (row as any).buyer_payment_proof_mime ? String((row as any).buyer_payment_proof_mime) : null,
+        paymentProofUploadedAt: (row as any).buyer_payment_proof_uploaded_at ? String((row as any).buyer_payment_proof_uploaded_at) : null,
       };
     }
     return out;
@@ -311,6 +326,11 @@ export async function loadMyPlaylistSales(): Promise<PlaylistSaleTransaction[]> 
       paymentMode: context?.paymentMode ?? 'MONEY',
       freeBalanceBefore: context?.sellerFreeBefore ?? null,
       freeBalanceAfter: context?.sellerFreeAfter ?? null,
+      buyerMarkedPaidAt: context?.buyerMarkedPaidAt ?? null,
+      paymentProofPath: context?.paymentProofPath ?? null,
+      paymentProofName: context?.paymentProofName ?? null,
+      paymentProofMime: context?.paymentProofMime ?? null,
+      paymentProofUploadedAt: context?.paymentProofUploadedAt ?? null,
     };
   });
 }
@@ -444,6 +464,11 @@ export async function loadMyPlaylistPurchases(): Promise<PlaylistSaleTransaction
       paymentMode: context?.paymentMode ?? 'MONEY',
       freeBalanceBefore: context?.buyerFreeBefore ?? null,
       freeBalanceAfter: context?.buyerFreeAfter ?? null,
+      buyerMarkedPaidAt: context?.buyerMarkedPaidAt ?? null,
+      paymentProofPath: context?.paymentProofPath ?? null,
+      paymentProofName: context?.paymentProofName ?? null,
+      paymentProofMime: context?.paymentProofMime ?? null,
+      paymentProofUploadedAt: context?.paymentProofUploadedAt ?? null,
     };
   });
 }
