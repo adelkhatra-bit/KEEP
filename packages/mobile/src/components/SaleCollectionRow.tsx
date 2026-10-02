@@ -22,7 +22,7 @@ type Props = {
   meta: string;
   // Prix (« 3 FREE », « 2,99€ ») ou statut (« ✓ DÉBLOQUÉE »).
   tag: string;
-  tagTone?: 'price' | 'unlocked';
+  tagTone?: 'price' | 'free' | 'money' | 'unlocked';
   onPress: () => void;
   accessibilityLabel: string;
   onPlayPress?: () => void;
@@ -31,6 +31,9 @@ type Props = {
 
 export default function SaleCollectionRow({ index, title, meta, tag, tagTone = 'price', onPress, accessibilityLabel, onPlayPress, playAccessibilityLabel }: Props) {
   const gradient = GRADIENTS[index % GRADIENTS.length];
+  const isFree = tagTone === 'free' || tagTone === 'price';
+  const isMoney = tagTone === 'money';
+  const isUnlocked = tagTone === 'unlocked';
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} style={({ pressed }) => [s.row, pressed && s.rowPressed]}>
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cover}>
@@ -40,8 +43,8 @@ export default function SaleCollectionRow({ index, title, meta, tag, tagTone = '
         <Text style={s.title} numberOfLines={1}>{title}</Text>
         <Text style={s.meta} numberOfLines={1}>{meta}</Text>
       </View>
-      <View style={[s.tag, tagTone === 'unlocked' && s.tagUnlocked]}>
-        <Text style={[s.tagText, tagTone === 'unlocked' && s.tagTextUnlocked]} numberOfLines={1}>{tag}</Text>
+      <View style={[s.tag, isFree && s.tagFree, isMoney && s.tagMoney, isUnlocked && s.tagUnlocked]}>
+        <Text style={[s.tagText, isFree && s.tagTextFree, isMoney && s.tagTextMoney, isUnlocked && s.tagTextUnlocked]} numberOfLines={1}>{tag}</Text>
       </View>
       {onPlayPress ? (
         <Pressable onPress={onPlayPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={playAccessibilityLabel || `Écouter ${title}`} style={({ pressed }) => [s.play, pressed && s.rowPressed]}>
@@ -60,9 +63,13 @@ const s = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   title: { color: colors.textPrimary, fontSize: 15, lineHeight: 19, fontWeight: '900' },
   meta: { color: colors.textMutedGrey, fontSize: 12, lineHeight: 16, fontWeight: '700', marginTop: 2 },
-  tag: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 11, backgroundColor: 'rgba(45,225,194,.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,.5)', maxWidth: 110 },
+  tag: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 11, borderWidth: 1, maxWidth: 110, minWidth: 58, alignItems: 'center', justifyContent: 'center' },
+  tagFree: { backgroundColor: 'rgba(45,225,194,.12)', borderColor: 'rgba(45,225,194,.5)' },
+  tagMoney: { backgroundColor: 'rgba(124,92,252,.14)', borderColor: 'rgba(167,139,250,.55)' },
   tagUnlocked: { backgroundColor: 'rgba(124,92,252,.14)', borderColor: colors.primary },
-  tagText: { color: colors.success, fontSize: 12, fontWeight: '900' },
+  tagText: { fontSize: 12, fontWeight: '900' },
+  tagTextFree: { color: colors.success },
+  tagTextMoney: { color: colors.primaryLight },
   tagTextUnlocked: { color: colors.primaryLight },
   play: { width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, borderColor: colors.success, alignItems: 'center', justifyContent: 'center' },
   playIcon: { color: colors.textPrimary, fontSize: 13, fontWeight: '900', marginLeft: 2 },
