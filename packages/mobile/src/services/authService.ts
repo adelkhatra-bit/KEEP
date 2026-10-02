@@ -132,13 +132,31 @@ async function requestMagicLink(client: SupabaseClient, email: string) {
 
 export function createAuthService(client: SupabaseClient): AuthService {
   const invokeLegacyUsernameAuth = async (body: Record<string, string>): Promise<UsernameAuthResult> => {
-    const { data: current } = await client.auth.getSession();
-    const accessToken = current.session?.access_token;
-    const { data, error } = await client.functions.invoke('keep-username-auth', {
+    // Un login explicite ne doit jamais dépendre d'une ancienne session locale.
+    // getSession() peut tenter de rafraîchir un token expiré/révoqué et bloquer
+    // une connexion pourtant valide. Le bearer ne sert qu'au legacy signup.
+    let accessToken: string | undefined;
+    if (body.action === 'signup') {
+      try {
+        const { data: current } = await client.auth.getSession();
+        accessToken = current.session?.access_token;
+      } catch {
+        accessToken = undefined;
+      }
+    }
+
+    const invoke = () => client.functions.invoke('keep-username-auth', {
       body,
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
-    if (error) return { error: error.message || 'server_error' };
+
+    let response = await invoke();
+    if (response.error) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      response = await invoke();
+    }
+    const { data, error } = response;
+    if (error) return { error: 'temporarily_unavailable' };
     if (!data?.ok || !data?.access_token || !data?.refresh_token) return { error: String(data?.error || 'server_error') };
 
     const { error: sessionError } = await client.auth.setSession({
@@ -333,15 +351,11 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signOut() {
-      // Déconnexion Loki : la session locale de CET appareil doit toujours
-      // disparaître, même si la révocation réseau globale échoue. Sinon un
-      // refreshSession() ultérieur peut ressusciter l'ancien compte et donner
-      // l'impression d'être connecté sous une autre identité.
-      const globalResult = await client.auth.signOut({ scope: 'global' });
-      if (globalResult.error) {
-        const localResult = await client.auth.signOut({ scope: 'local' });
-        if (localResult.error) throw localResult.error;
-      }
+      // Déconnexion Loki = cet appareil uniquement. La session locale doit
+      // disparaître sans dépendre du réseau et sans déconnecter les autres
+      // appareils du même utilisateur.
+      const localResult = await client.auth.signOut({ scope: 'local' });
+      if (localResult.error) throw localResult.error;
     },
 
     onSessionChange(callback) {
