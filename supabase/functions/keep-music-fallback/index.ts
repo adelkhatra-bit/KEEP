@@ -21,6 +21,21 @@ function json(status: number, payload: unknown) {
   });
 }
 
+async function setFallbackRuntimeStatus(status: string, lastError: string | null = null) {
+  try {
+    const now = new Date().toISOString();
+    await admin.from("integration_runtime_status").upsert({
+      key: "ACRCLOUD",
+      status,
+      last_checked_at: now,
+      last_error: lastError ? lastError.slice(0, 500) : null,
+      updated_at: now,
+    }, { onConflict: "key" });
+  } catch {
+    // Le diagnostic ne doit jamais bloquer l'identification.
+  }
+}
+
 async function getSecret(key: string): Promise<string | null> {
   const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
   if (error) throw error;
@@ -261,6 +276,7 @@ async function identify(req: Request) {
     getSecret("ACRCLOUD_HOST"),
   ]);
   if (!accessKey || !accessSecret || !rawHost) {
+    await setFallbackRuntimeStatus("NOT_CONFIGURED", "Configuration ACRCloud incomplète");
     return json(409, {
       error: "fallback_not_configured",
       message: "ACRCloud n'est pas encore configuré dans le Super Admin Loki Music.",
@@ -294,16 +310,39 @@ async function identify(req: Request) {
   const response = await fetch(`https://${host}${httpUri}`, { method: "POST", body: form });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    return json(502, { error: "acrcloud_http_error", status: response.status, message: String(body?.status?.msg ?? `HTTP ${response.status}`).slice(0, 220) });
+    const message = String(body?.status?.msg ?? `HTTP ${response.status}`).slice(0, 220);
+    await setFallbackRuntimeStatus("ERROR", message);
+    return json(502, { error: "acrcloud_http_error", status: response.status, message });
   }
 
   const statusCode = Number(body?.status?.code ?? -1);
   if (statusCode !== 0) {
-    // ACRCloud renvoie aussi un statut JSON pour un simple no-match. KEEP le
-    // traite comme une absence de reconnaissance et non comme une page d'erreur.
-    console.log("keep-music-fallback diag", JSON.stringify({ statusCode, statusMsg: body?.status?.msg ?? null }));
+    const statusMsg = String(body?.status?.msg ?? "");
+    console.log("keep-music-fallback diag", JSON.stringify({ statusCode, statusMsg: statusMsg || null }));
+
+    // 3003 = quota ACRCloud épuisé. C'était traité comme un simple no-match,
+    // donc Loki rappelait ACRCloud encore et encore alors qu'aucun morceau ne
+    // pouvait être reconnu. On signale maintenant explicitement l'indisponibilité
+    // pour que le mobile passe à la mémoire Loki et cesse de marteler le quota.
+    if (statusCode === 3003) {
+      await setFallbackRuntimeStatus("EXHAUSTED", statusMsg || "requests limit exceeded");
+      return json(200, {
+        ok: true,
+        provider: "ACRCloud",
+        recognition: null,
+        providerStatus: statusCode,
+        providerUnavailable: "quota_exhausted",
+        retryAfterSeconds: 21600,
+      });
+    }
+
+    // Les autres statuts fournisseur (dont les vrais no-match) restent des
+    // réponses non bloquantes : le moteur poursuit la cascade.
+    await setFallbackRuntimeStatus("ACTIVE", null);
     return json(200, { ok: true, provider: "ACRCloud", recognition: null, providerStatus: statusCode });
   }
+
+  await setFallbackRuntimeStatus("ACTIVE", null);
 
   const music = Array.isArray(body?.metadata?.music) ? body.metadata.music[0] : null;
   const rawScore = Number(music?.score ?? 100);
