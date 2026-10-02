@@ -103,19 +103,29 @@ function transientAuthFailure(error: unknown): boolean {
     || message.includes('temporarily_unavailable');
 }
 
-const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';
-
-function cachedWebAuthSession(): KeepAuthSession | null {
+async function persistedSupabaseAuthSession(client: SupabaseClient): Promise<KeepAuthSession | null> {
   try {
-    const storage = (globalThis as any)?.localStorage;
-    if (!storage) return null;
-    const raw = storage.getItem(WEB_LAST_REAL_USER_KEY);
+    const authClient = client.auth as any;
+    const storage = authClient?.storage;
+    const storageKey = authClient?.storageKey;
+    if (!storage || !storageKey || typeof storage.getItem !== 'function') return null;
+    const raw = await Promise.resolve(storage.getItem(storageKey));
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const userId = String(parsed?.id || '').trim();
-    const username = String(parsed?.username || '').trim().replace(/^@+/, '');
-    if (!userId || !username) return null;
-    return { userId, username, email: null, isAnonymous: false };
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const session = parsed?.currentSession ?? parsed?.session ?? parsed;
+    const user = session?.user;
+    const expiresAt = Number(session?.expires_at ?? 0);
+    // Ne jamais transformer un simple snapshot de profil en "session".
+    // Ce repli n'est accepté que si Supabase lui-même a persisté une vraie
+    // session encore valide avec ses tokens et son user.
+    if (!session?.access_token || !session?.refresh_token || !user?.id) return null;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000) + 15) return null;
+    return {
+      userId: String(user.id),
+      email: visibleEmail(user),
+      username: usernameFromMetadata(user),
+      isAnonymous: Boolean(user.is_anonymous),
+    };
   } catch {
     return null;
   }
@@ -420,23 +430,24 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async getCurrentSession() {
       // Incident réel 02/10/2026 : Supabase Auth a renvoyé 500/504 pendant
-      // plusieurs secondes. Une panne serveur n'est pas une déconnexion :
-      // si cet appareil possède déjà une identité Loki réelle en cache, on la
-      // conserve le temps que Supabase revienne au lieu de bloquer le démarrage.
+      // plusieurs secondes. Une panne serveur n'est pas une déconnexion.
+      // Repli autorisé uniquement sur la VRAIE session Supabase persistée et
+      // encore valide — jamais sur un simple profil local, qui pouvait afficher
+      // "connecté" tout en laissant Playlists/Pulse/Free vides faute de JWT.
       let initial: any;
       try {
         initial = await withAuthDeadline<any>(client.auth.getSession());
       } catch (error) {
-        const cached = transientAuthFailure(error) ? cachedWebAuthSession() : null;
-        if (cached) return cached;
+        const persisted = transientAuthFailure(error) ? await persistedSupabaseAuthSession(client) : null;
+        if (persisted) return persisted;
         throw error;
       }
 
       let data = initial?.data;
       if (initial?.error) {
         if (transientAuthFailure(initial.error)) {
-          const cached = cachedWebAuthSession();
-          if (cached) return cached;
+          const persisted = await persistedSupabaseAuthSession(client);
+          if (persisted) return persisted;
           throw initial.error;
         }
         return null;
@@ -447,8 +458,8 @@ export function createAuthService(client: SupabaseClient): AuthService {
           const refreshed: any = await withAuthDeadline<any>((client.auth as any).refreshSession());
           if (refreshed?.error) {
             if (transientAuthFailure(refreshed.error)) {
-              const cached = cachedWebAuthSession();
-              if (cached) return cached;
+              const persisted = await persistedSupabaseAuthSession(client);
+              if (persisted) return persisted;
               throw refreshed.error;
             }
             return null;
@@ -456,8 +467,8 @@ export function createAuthService(client: SupabaseClient): AuthService {
           if (refreshed?.data?.session?.user) data = refreshed.data;
         } catch (error) {
           if (transientAuthFailure(error)) {
-            const cached = cachedWebAuthSession();
-            if (cached) return cached;
+            const persisted = await persistedSupabaseAuthSession(client);
+            if (persisted) return persisted;
             throw error;
           }
           return null;
