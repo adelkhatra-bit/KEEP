@@ -374,6 +374,39 @@ export async function recognizeWithKeepMemoryFast(audioSample: ArrayBuffer | Blo
   return memory;
 }
 
+/**
+ * Quand ShazamKit reconnait un titre sur iOS, on apprend aussi ce titre au
+ * catalogue/memoire collective Loki via le resolver public Apple + Deezer.
+ * L'appel est best-effort et n'allonge jamais la reconnaissance affichee.
+ * Ainsi les succes natifs iPhone peuvent ensuite aider le web/Android via la
+ * memoire Loki, meme si AudD/ACRCloud sont temporairement indisponibles.
+ */
+export async function learnRecognitionInBackground(recognition: RecognitionResult): Promise<void> {
+  if (!configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return;
+  const title = String(recognition?.title ?? '').trim();
+  const artist = String(recognition?.artist ?? '').trim();
+  if (!title || !artist) return;
+
+  try {
+    const [accessToken, deviceId] = await Promise.all([getSupabaseAccessToken(), getDeviceId()]);
+    await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
+      method: 'POST',
+      headers: {
+        ...baseHeaders(accessToken),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: `${artist} - ${title}`,
+        rawText: `${artist} - ${title}`,
+        platform: Platform.OS === 'ios' ? 'NATIVE_SHAZAM' : 'NATIVE_RECOGNITION',
+        deviceId,
+      }),
+    });
+  } catch {
+    // Apprentissage opportuniste : aucun echec ne doit toucher l'UX Ecouter.
+  }
+}
+
 async function keylessSourceRecognition(accessToken: string | null): Promise<RecognitionResult | null> {
   const source = await getSharedMusicSource();
   if (!source) return null;
