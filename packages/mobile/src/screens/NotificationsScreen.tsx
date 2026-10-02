@@ -494,18 +494,41 @@ export default function NotificationsScreen({ navigation }: any) {
   const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
     const paymentId = paymentIdOf(item);
     if (!paymentId || paymentBusyId) return;
-    setPaymentBusyId(paymentId);
-    try {
-      const delivered = await markPlaylistSalePaid(paymentId);
-      await syncMarketplaceDelivery(paymentId).catch(() => null);
-      await readOne(item);
-      setNotice(`${delivered.trackCount} morceau${delivered.trackCount > 1 ? 'x' : ''} débloqué${delivered.trackCount > 1 ? 's' : ''}`);
-      await refresh();
-    } catch {
-      setError('Impossible de confirmer la réception et de débloquer la sélection.');
-    } finally {
-      setPaymentBusyId(null);
-    }
+    const data = item.data as Record<string, unknown> | null;
+    const amountCents = Number(data?.amountCents ?? data?.amount_cents ?? 0);
+    const currencyCode = String(data?.currencyCode ?? data?.currency_code ?? 'EUR').toUpperCase();
+    const buyerUsername = String(data?.buyerUsername ?? data?.buyer_username ?? '').replace(/^@+/, '');
+    const amountLabel = amountCents > 0 ? `${(amountCents / 100).toFixed(2).replace('.', ',')} ${currencyCode}` : 'le montant attendu';
+
+    Alert.alert(
+      'Confirmer les fonds reçus',
+      `Vérifie d’abord TON compte PayPal. La capture jointe n’est qu’une preuve envoyée par l’acheteur. Confirme seulement si ${amountLabel}${buyerUsername ? ` de @${buyerUsername}` : ''} sont réellement crédités. La Pépite sera débloquée immédiatement.`,
+      [
+        { text: 'Annuler', onPress: () => {} },
+        {
+          text: 'J’ai reçu les fonds',
+          onPress: async () => {
+            setPaymentBusyId(paymentId);
+            try {
+              const delivered = await markPlaylistSalePaid(paymentId);
+              await syncMarketplaceDelivery(paymentId).catch(() => null);
+              await readOne(item);
+              setNotice(`${delivered.trackCount} morceau${delivered.trackCount > 1 ? 'x' : ''} débloqué${delivered.trackCount > 1 ? 's' : ''} · choix Public/Privé envoyé à l’acheteur`);
+              await refresh();
+            } catch (e: any) {
+              const message = String(e?.message || '');
+              setError(
+                message.includes('BUYER_HAS_NOT_MARKED_PAID') || message.includes('PAYMENT_PROOF_REQUIRED')
+                  ? 'L’acheteur doit d’abord signaler son paiement et joindre une preuve.'
+                  : 'Impossible de confirmer la réception et de débloquer la sélection.',
+              );
+            } finally {
+              setPaymentBusyId(null);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const openNotification = async (item: KeepNotification) => {
