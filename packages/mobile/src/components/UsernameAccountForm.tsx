@@ -142,7 +142,29 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
   };
 
-  const finishAuthenticatedFlow = async () => {
+  const waitForHydratedAccount = async (expectedUserId?: string) => {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      const state = useUserStore.getState();
+      const ready = Boolean(
+        state.user
+        && !state.isDemoMode
+        && !state.isLocalGuest
+        && (!expectedUserId || state.user.id === expectedUserId),
+      );
+      if (ready) return true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
+  };
+
+  const finishAuthenticatedFlow = async (expectedUserId?: string) => {
+    // Le mot de passe accepté ne suffit pas : on ferme seulement lorsque le
+    // vrai profil Loki est revenu dans le store. Cela évite le faux retour
+    // « Se connecter » pendant un 503/504 Supabase.
+    const hydrated = await waitForHydratedAccount(expectedUserId);
+    if (!hydrated) throw new Error('profile_hydration_timeout');
+
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
 
     // Les sessions appartiennent à l'utilisateur et ne doivent jamais être
@@ -198,9 +220,13 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         setPendingConfirmationEmail(email.trim());
         return;
       }
-      await finishAuthenticatedFlow();
-    } catch {
-      setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      await finishAuthenticatedFlow(result.userId);
+    } catch (error: any) {
+      if (String(error?.message || error).includes('profile_hydration_timeout')) {
+        setError('Connexion validée. Loki Music récupère encore ton profil : ne recrée pas de compte, réessaie dans quelques secondes.');
+      } else {
+        setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      }
     } finally {
       setBusy(false);
     }

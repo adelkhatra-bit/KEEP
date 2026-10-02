@@ -319,11 +319,10 @@ export default function App() {
 
       // Une session Auth valide ne doit JAMAIS retomber visuellement sur
       // « Se connecter » uniquement parce que profiles/follows/private_info
-      // répondent 503/504 pendant quelques secondes. On masque l'onboarding,
-      // garde un état de récupération et on retente le VRAI profil Supabase
-      // avec la même session, sans réintroduire de faux profil local.
+      // répondent 503/504 pendant quelques secondes. On GARDE le formulaire
+      // courant monté et on retente le VRAI profil Supabase avec la même
+      // session. Le formulaire attend lui-même l'hydratation avant de fermer.
       pendingProfileSession = session;
-      setAuthReady(false);
 
       void handleSessionOnce(session).then((hydrated) => {
         if (!active) return;

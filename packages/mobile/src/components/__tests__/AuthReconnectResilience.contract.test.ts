@@ -9,7 +9,7 @@ describe('auth reconnect resilience contract', () => {
   it('retries real profile hydration after a successful auth session even after bootstrap already settled', () => {
     expect(app).toContain('const scheduleProfileRetry = (session: KeepAuthSession)');
     expect(app).toContain('pendingProfileSession = session;');
-    expect(app).toContain('setAuthReady(false);');
+    expect(app).not.toContain('pendingProfileSession = session;\n      setAuthReady(false);');
     expect(app).toContain('scheduleProfileRetry(session);');
     expect(app).toContain('profileRetryTimer');
   });
@@ -17,8 +17,14 @@ describe('auth reconnect resilience contract', () => {
   it('never sends a valid auth session back to onboarding only because profile hydration is temporarily unavailable', () => {
     const authSection = app.slice(app.indexOf('const unsubscribeAuth = authService.onSessionChange'));
     expect(authSection).toContain('if (!session) {');
-    expect(authSection).toContain('setAuthReady(false);');
+    expect(authSection).not.toContain('pendingProfileSession = session;\n      setAuthReady(false);');
     expect(authSection).toContain('scheduleProfileRetry');
+  });
+
+  it('keeps the login form open until the real account profile is hydrated', () => {
+    expect(form).toContain('waitForHydratedAccount');
+    expect(form).toContain('await finishAuthenticatedFlow(result.userId)');
+    expect(form).toContain('profile_hydration_timeout');
   });
 
   it('does not erase session history on a normal successful login', () => {
