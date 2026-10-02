@@ -41,6 +41,7 @@ import {
   postMusicAgoraMessage,
   postMusicAgoraGroupMessage,
   reportMusicAgoraMessage,
+  postMusicAgoraGroupOffer,
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
@@ -850,11 +851,9 @@ export default function MusicAgoraPanel({
       Alert.alert('Partage oui · revente non', sharePreflight?.sourceUsername ? `Cette musique vient déjà de @${sharePreflight.sourceUsername}. Tu peux la partager ou la faire écouter, mais pas la revendre.` : 'Cette musique ne t’appartient pas pour la revente. Tu peux la partager et la faire écouter, sans demander de FREE ni d’argent.');
       return;
     }
-    if (sharedTrack && sharePaymentMode !== 'NONE' && activeGroup?.id) {
-      Alert.alert('Partage de groupe', 'Dans une conversation à plusieurs, la pépite peut être partagée et écoutée, mais une demande de FREE ou de paiement doit être envoyée dans une conversation directe.');
-      return;
-    }
-    if (sharedTrack && sharePaymentMode !== 'NONE' && !replyTarget?.profileId) {
+    // Adel (02/10/2026) : en groupe, la vente part en offre privée à chaque
+    // membre actif (keep_agora_post_group_offer) au lieu d'être refusée.
+    if (sharedTrack && sharePaymentMode !== 'NONE' && !replyTarget?.profileId && !activeGroup?.id) {
       Alert.alert('Choisis le destinataire', 'Pour demander des FREE ou un paiement, réponds directement à l’utilisateur concerné.');
       return;
     }
@@ -868,7 +867,20 @@ export default function MusicAgoraPanel({
     }
     setPosting(true);
     try {
-      if (activeGroup?.id) {
+      if (activeGroup?.id && sharedTrack && sharePaymentMode !== 'NONE') {
+        const offer = await postMusicAgoraGroupOffer(activeGroup.id, body, {
+          sharedTrackId: sharedTrack.id,
+          paymentMode: sharePaymentMode === 'MONEY' ? 'MONEY' : 'FREE',
+          freePrice: sharePaymentMode === 'FREE' ? requestedFreePrice : null,
+          priceCents: sharePaymentMode === 'MONEY' ? requestedMoneyCents : null,
+          currencyCode: 'EUR',
+          replyToMessageId: replyingToMessage?.id ?? null,
+        });
+        ownSendPendingRef.current = offer.groupMessageId || -1;
+        const owned = offer.alreadyOwned > 0 ? ` ${offer.alreadyOwned} l’a déjà (rien à payer).` : '';
+        const pending = offer.alreadyPending > 0 ? ` ${offer.alreadyPending} a déjà une offre en attente.` : '';
+        Alert.alert('Pépite envoyée', `Offre privée envoyée à ${offer.offersSent} membre${offer.offersSent > 1 ? 's' : ''}.${owned}${pending}`);
+      } else if (activeGroup?.id) {
         const sentId = await postMusicAgoraGroupMessage(activeGroup.id, body, {
           sharedTrackId: sharedTrack?.id ?? null,
           revealMode: sharedTrack ? shareRevealMode : 'NONE',

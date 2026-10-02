@@ -688,6 +688,37 @@ export async function loadMusicAgoraSharedTrack(trackId: string): Promise<Canoni
   } as CanonicalTrack;
 }
 
+export type MusicAgoraGroupOfferResult = { groupMessageId: number | null; offersSent: number; alreadyOwned: number; alreadyPending: number };
+
+// Adel (02/10/2026) : vente dans un groupe = une offre privée par membre actif
+// (même circuit FREE / PayPal + QR que la vente privée). Ceux qui ont déjà le
+// morceau ne reçoivent rien à payer.
+export async function postMusicAgoraGroupOffer(
+  groupId: string,
+  body: string,
+  options: { sharedTrackId: string; paymentMode: 'FREE' | 'MONEY'; freePrice?: number | null; priceCents?: number | null; currencyCode?: string; replyToMessageId?: number | null },
+): Promise<MusicAgoraGroupOfferResult> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { data, error } = await supabase.rpc('keep_agora_post_group_offer', {
+    p_group_id: groupId,
+    p_body: body,
+    p_shared_track_id: options.sharedTrackId,
+    p_payment_mode: options.paymentMode,
+    p_free_price: options.freePrice ?? null,
+    p_price_cents: options.priceCents ?? null,
+    p_currency_code: options.currencyCode ?? 'EUR',
+    p_reply_to_message_id: options.replyToMessageId ?? null,
+  });
+  if (error) throw error;
+  const row = (data ?? {}) as any;
+  return {
+    groupMessageId: row.groupMessageId == null ? null : Number(row.groupMessageId),
+    offersSent: Number(row.offersSent || 0),
+    alreadyOwned: Number(row.alreadyOwned || 0),
+    alreadyPending: Number(row.alreadyPending || 0),
+  };
+}
+
 // Les messages de groupe ont leur propre table : un id de groupe envoyé à
 // keep_agora_report_message visait un AUTRE message (La Place / privé).
 // Chaque signalement alerte le Super Admin côté serveur (ADMIN_USER_REPORT).
