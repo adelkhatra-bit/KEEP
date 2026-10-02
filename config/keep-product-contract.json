@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.05",
+  "version": "2026-10-02.06",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -805,6 +805,27 @@
       "9997_prevent_self_keep_origin.sql",
       "9998_playlist_identity_unique.sql",
       "9999_bulk_keep_visibility.sql"
+    ]
+  },
+  "networkQueue": {
+    "rule": "ERR-PROFILE-QUEUE-STARVATION-031 : le contenu de l'utilisateur (profil, musiques, FREE, playlists, GARDER, découvreurs) passe toujours avant les requêtes secondaires ; seule une vraie connexion réserve le réseau ; jamais une seule requête à la fois ; pause après erreur plafonnée ; l'enrichissement découvreur ne peut pas cacher les musiques plus de quelques secondes.",
+    "enforcedBy": "scripts/verify-product-contract.cjs",
+    "minConcurrent": 3,
+    "maxFailureCooldownMs": 10000,
+    "sourceHydrationBudgetMs": 6000,
+    "essentialPaths": [
+      "/rest/v1/rpc/keep_own_profile_tracks",
+      "/rest/v1/rpc/keep_own_profile_snapshot",
+      "/rest/v1/rpc/keep_public_profile_snapshot",
+      "/rest/v1/rpc/keep_public_profile_tracks",
+      "/rest/v1/rpc/keep_battle_credit_status",
+      "/rest/v1/rpc/keep_download_credit_status",
+      "/rest/v1/profiles",
+      "/rest/v1/playlists",
+      "/rest/v1/playlist_tracks",
+      "/rest/v1/keep_decisions",
+      "/rest/v1/tracks",
+      "/rest/v1/rpc/keep_track_first_discoveries"
     ]
   }
 }

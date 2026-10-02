@@ -2560,3 +2560,9 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Cause côté app : `AppUpdateBanner` rechargeait la page visible dès qu'une nouvelle version était publiée (contrôle toutes les 60 s) ; avec des dizaines de publications par jour + Supabase lent, le profil ne finissait jamais de charger. Correctif : mise à jour silencieuse appliquée seulement onglet en arrière-plan. Verrou dans verify-product-contract (ERR-WEB-UPDATE-RELOAD-029). Testé Chromium PC 1440 + Android 390.
 - RAPPEL À TOUTES LES IA : chaque push publie une nouvelle version → limiter les pushes, regrouper les correctifs.
 - Base Supabase toujours non redémarrée (démarrée le 22/08) : action Adel en attente.
+
+## [2026-10-02 19:40 CEST] CLAUDE CODE — PROFILS VIDES : CAUSE TROUVÉE ET CORRIGÉE (ERR-PROFILE-QUEUE-STARVATION-031)
+- Reproduit dans Chromium avec les vraies données du compte « inside » (extraites en lecture seule) et un faux Supabase lent : avec le code en ligne, profil vide > 2 min.
+- Causes : file réseau web à 1 requête en ordre d'arrivée (coupe-circuit b6792ef6) + pause globale pendant tout /auth/v1/* + pauses 30 s + liste des musiques bloquée par l'enrichissement découvreur.
+- Correctif (logique uniquement, aucun visuel) : file prioritaire pour le contenu utilisateur, 3 en parallèle, seule une vraie connexion réserve le réseau, pause max 10 s, enrichissement découvreur borné à 6 s. Verrou `networkQueue` dans verify-product-contract.
+- NE PAS repasser KEEP_NETWORK_MAX_CONCURRENT à 1 ni retirer un chemin de KEEP_ESSENTIAL_CONTENT_PATHS : la publication sera refusée.

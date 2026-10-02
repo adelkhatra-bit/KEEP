@@ -343,7 +343,29 @@ async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_
     for (const row of rows as any[]) result.push(normalizeKeepRow(row));
     if (rows.length < KEEP_PAGE_SIZE) break;
   }
-  return hydrateSourceUsernames(result);
+  return hydrateSourceUsernamesWithinBudget(result);
+}
+
+// ERR-PROFILE-QUEUE-STARVATION-031 : les musiques étaient déjà reçues mais
+// restaient cachées tant que l'enrichissement « découvreur » (pseudo, avatar,
+// certification, suivi) n'avait pas fini -- jusqu'à 75 s de plus sur un
+// Supabase lent. Sur un serveur normal l'enrichissement finit bien avant ce
+// délai et rien ne change à l'écran ; sur un serveur saturé, les musiques
+// s'affichent quand même et les pseudos complets arrivent au rafraîchissement
+// suivant. Aucune donnée n'est modifiée.
+const SOURCE_HYDRATION_BUDGET_MS = 6000;
+
+async function hydrateSourceUsernamesWithinBudget(rows: PublicProfileKeep[]): Promise<PublicProfileKeep[]> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const budget = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), SOURCE_HYDRATION_BUDGET_MS);
+  });
+  try {
+    const enriched = await Promise.race([hydrateSourceUsernames(rows).catch(() => rows), budget]);
+    return enriched ?? rows;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export async function loadPublicProfileKeeps(profileId: string): Promise<PublicProfileKeep[]> {

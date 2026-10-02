@@ -296,6 +296,21 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   must(reloadCalls === 1 && banner.includes('const applyUpdate = () =>'), 'MISE À JOUR: reloadToLatest() doit être appelé uniquement via applyUpdate (onglet en arrière-plan)');
 }
 
+// ─── File réseau : le contenu utilisateur d'abord (ERR-PROFILE-QUEUE-STARVATION-031)
+{
+  const rule = contract.networkQueue || {};
+  const client = fs.readFileSync(path.join(root, 'packages/mobile/src/services/supabaseClient.ts'), 'utf8');
+  const profileState = fs.readFileSync(path.join(root, 'packages/mobile/src/services/publicProfileStateService.ts'), 'utf8');
+  const num = (source, name) => { const m = source.match(new RegExp(`const\\s+${name}\\s*=\\s*([0-9_]+)\\s*;`)); return m ? Number(m[1].replace(/_/g, '')) : NaN; };
+  const concurrent = num(client, 'KEEP_NETWORK_MAX_CONCURRENT');
+  must(concurrent >= (rule.minConcurrent || 3), `FILE RÉSEAU: KEEP_NETWORK_MAX_CONCURRENT doit être une constante >= ${rule.minConcurrent || 3} (trouvé ${concurrent}). Une seule requête à la fois a laissé les profils vides le 02/10/2026.`);
+  must(num(client, 'KEEP_NETWORK_FAILURE_MAX_COOLDOWN_MS') <= (rule.maxFailureCooldownMs || 10000), 'FILE RÉSEAU: pause maximale après erreur trop longue');
+  for (const p of rule.essentialPaths || []) must(client.includes(`'${p}'`), `FILE RÉSEAU: ${p} doit rester dans KEEP_ESSENTIAL_CONTENT_PATHS (contenu utilisateur prioritaire)`);
+  must(client.includes('keepNetworkPriorityQueue.shift() ?? keepNetworkQueue.shift()'), 'FILE RÉSEAU: la file prioritaire doit être servie avant la file normale');
+  must(client.includes('const reservesLane = isExplicitLoginUrl(url);') && client.includes("url.includes('grant_type=password')"), 'FILE RÉSEAU: seule une vraie connexion peut mettre la file en pause (pas /auth/v1/user)');
+  must(num(profileState, 'SOURCE_HYDRATION_BUDGET_MS') <= (rule.sourceHydrationBudgetMs || 6000) && profileState.includes('return hydrateSourceUsernamesWithinBudget(result);'), 'FILE RÉSEAU: l\'enrichissement découvreur ne doit pas cacher les musiques au-delà de son budget');
+}
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);
