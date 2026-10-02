@@ -1,4 +1,4 @@
 production
-requested_from_sha=c2ea88e506ab71769e267bf12646b1b792bb6c48
-requested_at=2026-10-02T12:15:00+02:00
-reason=publish-final-loki-chat-pulse-audio-appstore-candidate
+requested_from_sha=d3e456aa6b987cc0b63aaab8ddd122a3586d90c0
+requested_at=2026-10-02T12:45:00+02:00
+reason=publish-current-loki-ui-chat-autofollow-native-recognition-memory-testflight
