@@ -125,15 +125,23 @@ async function profileByUsername(username: string) {
   if (directDb) {
     try {
       const rows = await directDb`
-        select id::text as id, username, is_public
-        from public.profiles
-        where lower(username) = lower(${username})
+        select
+          p.id::text as id,
+          p.username,
+          p.is_public,
+          u.email,
+          u.is_anonymous
+        from public.profiles p
+        join auth.users u on u.id = p.id
+        where lower(p.username) = lower(${username})
         limit 2
       `;
       return rows.map((row: any) => ({
         id: String(row.id),
         username: String(row.username ?? ""),
         is_public: row.is_public !== false,
+        email: normalizeEmail(row.email),
+        is_anonymous: Boolean(row.is_anonymous),
       }));
     } catch (error) {
       console.error("[keep-username-auth] direct profile lookup failed", error);
@@ -248,9 +256,21 @@ async function usernameFlow(req: Request, action: string, username: string, pass
 
   if (action === "login") {
     if (!existingProfile) return json({ ok: false, error: "invalid_credentials" });
-    const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
-    if (userError || !userData.user?.email || userData.user.is_anonymous) return json({ ok: false, error: "account_not_created" });
-    const signed = await sessionFor(userData.user.email, password);
+
+    // Avec le chemin SQL direct, l'identité Auth est déjà jointe au profil :
+    // aucun appel admin.getUserById() supplémentaire n'est nécessaire.
+    let loginEmail = normalizeEmail((existingProfile as any).email);
+    let isAnonymous = Boolean((existingProfile as any).is_anonymous);
+
+    if (!loginEmail) {
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
+      if (userError || !userData.user?.email || userData.user.is_anonymous) return json({ ok: false, error: "account_not_created" });
+      loginEmail = normalizeEmail(userData.user.email);
+      isAnonymous = Boolean(userData.user.is_anonymous);
+    }
+
+    if (!loginEmail || isAnonymous) return json({ ok: false, error: "account_not_created" });
+    const signed = await sessionFor(loginEmail, password);
     if (!signed.ok) return json({ ok: false, error: signed.error });
     return json({ ok: true, username: existingProfile.username, ...signed.session });
   }
