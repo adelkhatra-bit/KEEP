@@ -1118,6 +1118,8 @@ export default function MusicAgoraPanel({
     ? conversations.find((item) => item.profileId === replyTarget.profileId) ?? null
     : null;
   const compactThreadOpen = chatMode === 'PLACE' || Boolean(replyTarget || activeGroup);
+  const compactInboxList = compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup;
+  const groupInvitePending = Boolean(activeGroup && activeGroup.myStatus !== 'ACTIVE');
   const leaveCompactThread = () => {
     setChatMode('MESSAGES');
     setReplyTarget(null);
@@ -1236,7 +1238,7 @@ export default function MusicAgoraPanel({
             value={inboxQuery}
             onChangeText={setInboxQuery}
             placeholder="Rechercher une conversation…"
-            placeholderTextColor={colors.textMutedGrey}
+            placeholderTextColor="rgba(255,255,255,0.78)"
             style={s.inboxSearch}
             autoCapitalize="none"
             autoCorrect={false}
@@ -1583,7 +1585,11 @@ export default function MusicAgoraPanel({
       </TouchableOpacity>
     ) : null}
 
-    {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
+    {/* Adel (02/10/2026) : sur téléphone, un groupe ouvert n'a pas de
+        replyTarget -- la condition « !replyTarget » masquait la zone d'écriture
+        de TOUS les membres (même actifs). La liste des conversations reste
+        sans zone d'écriture ; un fil direct ou un groupe ACTIF l'affiche. */}
+    {enabled && !compactInboxList && !groupInvitePending ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyingToMessage ? (
         <View style={s.replyTarget}>
           <View style={s.replyQuoteCopy}>
@@ -1739,7 +1745,7 @@ export default function MusicAgoraPanel({
                 }}
                 keyboardType="number-pad"
                 placeholder="Montant"
-                placeholderTextColor={colors.textMutedGrey}
+                placeholderTextColor="rgba(255,255,255,0.78)"
                 style={s.customPriceInput}
               />
               <Text style={s.priceUnit}>FREE</Text>
@@ -1761,7 +1767,7 @@ export default function MusicAgoraPanel({
                 }}
                 keyboardType="decimal-pad"
                 placeholder="Montant"
-                placeholderTextColor={colors.textMutedGrey}
+                placeholderTextColor="rgba(255,255,255,0.78)"
                 style={s.customPriceInput}
               />
               <Text style={s.priceUnit}>€</Text>
@@ -1874,7 +1880,7 @@ export default function MusicAgoraPanel({
             followChatBottom(false);
           }}
           placeholder="Écris un message…"
-          placeholderTextColor={colors.textMutedGrey}
+          placeholderTextColor="rgba(255,255,255,0.78)"
           multiline
           scrollEnabled
           autoFocus={false}
@@ -1930,7 +1936,7 @@ export default function MusicAgoraPanel({
           <Text style={s.sendText}>{posting ? '…' : '➤'}</Text>
         </TouchableOpacity>
       </View>
-    </View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
+    </View> : compactInboxList ? null : groupInvitePending ? <View style={s.locked}><Text style={s.lockedText}>Accepte l’invitation pour écrire dans ce groupe.</Text></View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
 
     <Modal visible={groupCreateOpen} transparent animationType="fade" onRequestClose={() => setGroupCreateOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.groupSheet}>
@@ -1945,7 +1951,7 @@ export default function MusicAgoraPanel({
           value={groupName}
           onChangeText={setGroupName}
           placeholder="Nom de la conversation"
-          placeholderTextColor={colors.textMutedGrey}
+          placeholderTextColor="rgba(255,255,255,0.78)"
           maxLength={80}
           style={s.groupInput}
         />
@@ -1953,7 +1959,7 @@ export default function MusicAgoraPanel({
           value={groupSearch}
           onChangeText={setGroupSearch}
           placeholder="Rechercher un utilisateur…"
-          placeholderTextColor={colors.textMutedGrey}
+          placeholderTextColor="rgba(255,255,255,0.78)"
           autoCapitalize="none"
           autoCorrect={false}
           style={s.groupInput}
@@ -2012,7 +2018,7 @@ export default function MusicAgoraPanel({
               value={groupSearch}
               onChangeText={setGroupSearch}
               placeholder="Rechercher un utilisateur…"
-              placeholderTextColor={colors.textMutedGrey}
+              placeholderTextColor="rgba(255,255,255,0.78)"
               autoCapitalize="none"
               autoCorrect={false}
               style={s.groupInput}
@@ -2069,8 +2075,8 @@ const s=StyleSheet.create({
   compactThreadAvatarText:{fontSize:18,color:colors.textPrimary,fontWeight:'900'},
   compactHeaderCopy:{flex:1,minWidth:0},
   compactTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',letterSpacing:.25},
-  compactMeta:{color:colors.textMutedGrey,fontSize:11.5,lineHeight:16,marginTop:2},
-  compactBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
+  compactMeta:{color:colors.textSecondary,fontSize:13,lineHeight:18,marginTop:2},
+  compactBadge:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.8},
   compactHeaderAction:{minWidth:38,height:38,paddingHorizontal:7,borderRadius:19,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,alignItems:'center',justifyContent:'center'},
   compactHeaderActionText:{color:colors.info,fontSize:17,fontWeight:'900'},
   compactClose:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
@@ -2078,28 +2084,28 @@ const s=StyleSheet.create({
   compactModes:{flexDirection:'row',gap:6,marginHorizontal:14,marginTop:9,padding:4,borderRadius:22,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   compactMode:{flex:1,minHeight:38,borderRadius:18,borderWidth:0,backgroundColor:'transparent',alignItems:'center',justifyContent:'center'},
   compactModeOn:{backgroundColor:colors.info,borderColor:colors.primaryLight},
-  compactModeText:{color:colors.textMutedGrey,fontSize:12,fontWeight:'900',letterSpacing:.35},
+  compactModeText:{color:colors.textSecondary,fontSize:13.5,fontWeight:'900',letterSpacing:.35},
   compactModeTextOn:{color:colors.white},
   threadTools:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:14,minHeight:38},
   threadBack:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',paddingHorizontal:5},
-  threadBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  threadBackText:{color:colors.primaryLight,fontSize:13.5,fontWeight:'900'},
   membersButton:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
-  membersButtonText:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.5},
+  membersButtonText:{color:colors.keep,fontSize:12.5,fontWeight:'900',letterSpacing:.5},
   inbox:{flex:1,minHeight:0},
   inboxList:{gap:0,paddingHorizontal:14,paddingTop:10,paddingBottom:18},
   inboxSearchWrap:{minHeight:44,borderRadius:22,borderWidth:1,borderColor:'rgba(167,139,250,.28)',backgroundColor:'rgba(26,21,38,.96)',paddingHorizontal:12,flexDirection:'row',alignItems:'center',gap:8},
-  inboxSearchIcon:{color:colors.textMutedGrey,fontSize:20,fontWeight:'700'},
+  inboxSearchIcon:{color:colors.textSecondary,fontSize:20,fontWeight:'700'},
   inboxSearch:{flex:1,minHeight:42,color:colors.textPrimary,fontSize:15,paddingVertical:0},
   inboxFilters:{gap:7,paddingRight:14},
   inboxFilterChip:{minHeight:34,paddingHorizontal:13,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   inboxFilterChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primary},
-  inboxFilterText:{color:colors.textMutedGrey,fontSize:11.5,fontWeight:'900'},
+  inboxFilterText:{color:colors.textSecondary,fontSize:13,fontWeight:'900'},
   inboxFilterTextOn:{color:colors.white},
   newConversationButton:{minHeight:64,borderRadius:18,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:10,paddingVertical:9,flexDirection:'row',alignItems:'center',gap:10},
   newConversationPlus:{width:38,height:38,borderRadius:19,textAlign:'center',textAlignVertical:'center',lineHeight:38,color:colors.white,backgroundColor:colors.primary,fontSize:22,fontWeight:'900'},
   newConversationCopy:{flex:1,minWidth:0},
   newConversationTitle:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
-  newConversationHint:{color:colors.textMutedGrey,fontSize:12.5,lineHeight:17,marginTop:2},
+  newConversationHint:{color:colors.textSecondary,fontSize:14,lineHeight:19,marginTop:2},
   groupRow:{borderRadius:0,borderWidth:0,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.18)',backgroundColor:'transparent',overflow:'hidden'},
   groupRowInvited:{borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.06)'},
   groupMain:{minHeight:62,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
@@ -2107,49 +2113,49 @@ const s=StyleSheet.create({
   groupAvatarText:{fontSize:18},
   groupInviteActions:{flexDirection:'row',justifyContent:'flex-end',gap:7,paddingHorizontal:9,paddingBottom:9},
   groupDecline:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  groupDeclineText:{color:colors.textMutedGrey,fontSize:11,fontWeight:'900'},
+  groupDeclineText:{color:colors.textSecondary,fontSize:12.5,fontWeight:'900'},
   groupAccept:{minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
-  groupAcceptText:{color:colors.white,fontSize:11,fontWeight:'900'},
+  groupAcceptText:{color:colors.white,fontSize:12.5,fontWeight:'900'},
   conversationRow:{minHeight:64,borderRadius:0,borderWidth:0,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.18)',backgroundColor:'transparent',paddingHorizontal:6,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:10},
   conversationAvatar:{width:44,height:44,borderRadius:22,backgroundColor:colors.backgroundElevated},
   publicRoomAvatar:{borderColor:colors.primaryLight,borderWidth:1,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
   publicRoomAvatarText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
-  publicRoomBadge:{color:colors.keep,fontSize:8,fontWeight:'900',letterSpacing:.8},
+  publicRoomBadge:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.8},
   conversationCopy:{flex:1,minWidth:0},
   conversationTop:{flexDirection:'row',alignItems:'center',gap:8},
   conversationName:{flex:1,color:colors.textPrimary,fontSize:17.5,fontWeight:'900'},
-  conversationTime:{color:colors.textMutedGrey,fontSize:12.5,fontWeight:'700'},
+  conversationTime:{color:colors.textSecondary,fontSize:14,fontWeight:'700'},
   conversationPreview:{color:colors.textSecondary,fontSize:16.5,lineHeight:22,marginTop:3},
   conversationArrow:{color:colors.primaryLight,fontSize:22,fontWeight:'900'},
   inboxEmpty:{flex:1,minHeight:200,alignItems:'center',justifyContent:'center',paddingHorizontal:24},
   inboxEmptyTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',textAlign:'center'},
-  inboxEmptyText:{color:colors.textMutedGrey,fontSize:12,lineHeight:17,textAlign:'center',marginTop:6},
+  inboxEmptyText:{color:colors.textSecondary,fontSize:13.5,lineHeight:19,textAlign:'center',marginTop:6},
   intro:{padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},
   titleRow:{flexDirection:'row',alignItems:'center',gap:10},
-  kicker:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:1.4},
+  kicker:{color:colors.keep,fontSize:11.5,fontWeight:'900',letterSpacing:1.4},
   title:{color:colors.textPrimary,fontSize:19,fontWeight:'900',marginTop:4},
-  subtitle:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:5},
+  subtitle:{color:colors.textSecondary,fontSize:12.5,lineHeight:17,marginTop:5},
   homeToggle:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   homeToggleOn:{backgroundColor:colors.info},
-  homeToggleText:{color:colors.info,fontSize:9,fontWeight:'900'},
+  homeToggleText:{color:colors.info,fontSize:10.5,fontWeight:'900'},
   homeToggleTextOn:{color:colors.white},
   notificationsToggle:{alignSelf:'flex-start',marginTop:8},
-  notificationsToggleText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'800'},
+  notificationsToggleText:{color:colors.textSecondary,fontSize:11.5,fontWeight:'800'},
   rooms:{flexDirection:'row',flexWrap:'wrap',gap:7},
   roomChip:{minHeight:34,paddingHorizontal:12,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   roomChipOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},
-  roomChipText:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800'},
+  roomChipText:{color:colors.textSecondary,fontSize:12.5,fontWeight:'800'},
   roomChipTextOn:{color:colors.white},
   prompt:{padding:12,borderRadius:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  promptLabel:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
+  promptLabel:{color:colors.primaryLight,fontSize:10.5,fontWeight:'900',letterSpacing:1},
   promptText:{color:colors.textPrimary,fontSize:14,lineHeight:19,fontWeight:'800',marginTop:4},
   composer:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,gap:7},
   composerCompact:{paddingHorizontal:10,paddingTop:8,paddingBottom:4,borderRadius:0,borderWidth:0,borderTopWidth:1,borderTopColor:'rgba(124,92,252,.22)',backgroundColor:'rgba(11,7,18,.99)',flexGrow:0,flexShrink:0,gap:6},
   input:{flex:1,minHeight:44,maxHeight:104,color:colors.textPrimary,fontSize:17,lineHeight:23,textAlignVertical:'top',overflow:'scroll',backgroundColor:'transparent',paddingHorizontal:8,paddingTop:10,paddingBottom:9},
   inputCompact:{height:56,minHeight:56,maxHeight:112,flex:1,fontSize:17,lineHeight:22,paddingTop:15,paddingBottom:13,overflow:'scroll'},
   awaitingReplyBanner:{borderRadius:13,borderWidth:1,borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.08)',paddingHorizontal:10,paddingVertical:7,marginBottom:6},
-  awaitingReplyTitle:{color:colors.warning,fontSize:8.5,fontWeight:'900',letterSpacing:.7},
-  awaitingReplyText:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:2},
+  awaitingReplyTitle:{color:colors.warning,fontSize:10,fontWeight:'900',letterSpacing:.7},
+  awaitingReplyText:{color:colors.textSecondary,fontSize:10.5,lineHeight:14,marginTop:2},
   quickReactions:{height:46,minHeight:46,maxHeight:46,flexGrow:0,flexShrink:0},
   reactionPopover:{minHeight:50,maxHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:7,paddingVertical:5,marginBottom:7},
   quickReactionsContent:{alignItems:'center',gap:7,paddingRight:8},
@@ -2157,14 +2163,14 @@ const s=StyleSheet.create({
   quickReactionDisabled:{opacity:.38},
   quickReactionLoki:{width:72,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   quickReactionText:{fontSize:20},
-  quickReactionLokiText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.5},
+  quickReactionLokiText:{color:colors.primaryLight,fontSize:11.5,fontWeight:'900',letterSpacing:.5},
   lokiReactionBubble:{alignSelf:'flex-start',marginTop:8,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:8},
-  lokiReactionText:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.1},
+  lokiReactionText:{color:colors.primaryLight,fontSize:14.5,fontWeight:'900',letterSpacing:1.1},
   composerDrawer:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:7,minHeight:48,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:6},
   drawerAction:{flexGrow:1,minWidth:88,minHeight:42,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   drawerActionOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   drawerActionIcon:{color:colors.textPrimary,fontSize:17,fontWeight:'900'},
-  drawerActionText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',marginTop:2},
+  drawerActionText:{color:colors.textSecondary,fontSize:11.5,fontWeight:'900',marginTop:2},
   composerBar:{flexDirection:'row',alignItems:'center',gap:7,minHeight:66,borderRadius:33,borderWidth:1,borderColor:'rgba(167,139,250,.48)',backgroundColor:'rgba(18,13,28,.98)',paddingHorizontal:6,paddingVertical:5,shadowColor:colors.primary,shadowOpacity:.14,shadowRadius:6,shadowOffset:{width:0,height:0},elevation:4},
   composerBarLocked:{borderColor:colors.warning,opacity:.72},
   addButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',flexShrink:0},
@@ -2173,30 +2179,30 @@ const s=StyleSheet.create({
   emojiButton:{width:40,height:40,borderRadius:20,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',flexShrink:0},
   emojiButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   emojiButtonText:{color:colors.textPrimary,fontSize:20,fontWeight:'900'},
-  counter:{color:colors.textMutedGrey,fontSize:11,marginLeft:'auto',paddingRight:3},
+  counter:{color:colors.textSecondary,fontSize:12.5,marginLeft:'auto',paddingRight:3},
   send:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',flexShrink:0},
   sendOff:{opacity:.45},
   sendText:{color:colors.white,fontSize:18,fontWeight:'900',lineHeight:20},
   shareMusic:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center'},
-  shareMusicText:{color:colors.keep,fontSize:11,fontWeight:'900'},
+  shareMusicText:{color:colors.keep,fontSize:12.5,fontWeight:'900'},
   shareQr:{minHeight:30,paddingHorizontal:8,borderRadius:15,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   shareQrOff:{opacity:.45},
-  shareQrText:{color:colors.info,fontSize:10.5,fontWeight:'900'},
+  shareQrText:{color:colors.info,fontSize:12,fontWeight:'900'},
   musicAttribution:{marginTop:-5,marginHorizontal:5,paddingHorizontal:9,paddingVertical:6,borderBottomLeftRadius:12,borderBottomRightRadius:12,borderWidth:1,borderTopWidth:0,borderColor:colors.border,backgroundColor:'rgba(13,9,20,.82)',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
-  musicAttributionText:{flex:1,color:colors.textMutedGrey,fontSize:8.5,fontWeight:'800'},
-  musicAlreadyText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
+  musicAttributionText:{flex:1,color:colors.textSecondary,fontSize:10,fontWeight:'800'},
+  musicAlreadyText:{color:colors.keep,fontSize:10,fontWeight:'900'},
   keepMusicDisabled:{opacity:.55},
   revealChipDisabled:{opacity:.38},
   paymentChipDisabled:{opacity:.34},
   priceBlock:{gap:6,marginTop:6},
   customPriceRow:{flexDirection:'row',alignItems:'center',gap:7},
-  customPriceInput:{width:92,minHeight:34,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,color:colors.textPrimary,paddingHorizontal:10,fontSize:12,fontWeight:'900'},
-  maskedSaleRule:{color:colors.keep,fontSize:9,lineHeight:13,fontWeight:'900',marginTop:6},
-  preflightText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'800',marginTop:5},
-  preflightOwned:{color:colors.keep,fontSize:9,lineHeight:13,fontWeight:'900',marginTop:5},
-  preflightBlocked:{color:'#FFB86B',fontSize:9,lineHeight:13,fontWeight:'900',marginTop:5},
+  customPriceInput:{width:92,minHeight:34,borderRadius:12,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,color:colors.textPrimary,paddingHorizontal:10,fontSize:13.5,fontWeight:'900'},
+  maskedSaleRule:{color:colors.keep,fontSize:10.5,lineHeight:14,fontWeight:'900',marginTop:6},
+  preflightText:{color:colors.textSecondary,fontSize:10.5,fontWeight:'800',marginTop:5},
+  preflightOwned:{color:colors.keep,fontSize:10.5,lineHeight:14,fontWeight:'900',marginTop:5},
+  preflightBlocked:{color:'#FFB86B',fontSize:10.5,lineHeight:14,fontWeight:'900',marginTop:5},
   locked:{padding:10,borderRadius:14,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  lockedText:{color:colors.textMutedGrey,fontSize:11,textAlign:'center'},
+  lockedText:{color:colors.textSecondary,fontSize:12.5,textAlign:'center'},
   loading:{paddingVertical:8,alignItems:'center'},
   chatScroll:{maxHeight:410},
   chatScrollCompact:{flex:1,minHeight:0,overflow:'hidden',backgroundColor:'#0B0712'},
@@ -2204,7 +2210,7 @@ const s=StyleSheet.create({
   listCompact:{gap:11,paddingHorizontal:14,paddingTop:12,paddingBottom:14},
   latestAnchor:{height:1,minHeight:1},
   latestJump:{alignSelf:'center',minHeight:34,paddingHorizontal:16,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginVertical:4},
-  latestJumpText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  latestJumpText:{color:colors.primaryLight,fontSize:11.5,fontWeight:'900',letterSpacing:.8},
   message:{position:'relative',paddingHorizontal:12,paddingVertical:10,borderRadius:19,borderWidth:1,maxWidth:'88%',flexGrow:0,flexShrink:0},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
   messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
@@ -2214,120 +2220,120 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},
   avatarText:{color:colors.primaryLight,fontWeight:'900'},
   authorCopy:{flex:1,minWidth:0,marginLeft:8},
-  username:{color:colors.textPrimary,fontSize:14.5,fontWeight:'900'},
-  meta:{color:colors.textMutedGrey,fontSize:10.5,lineHeight:14,marginTop:1},
-  directBubbleTime:{alignSelf:'flex-end',color:colors.textMutedGrey,fontSize:9.5,fontWeight:'700',marginTop:5},
-  body:{color:colors.textPrimary,fontSize:16,lineHeight:22,marginTop:7},
+  username:{color:colors.textPrimary,fontSize:15.5,fontWeight:'900'},
+  meta:{color:colors.textSecondary,fontSize:12,lineHeight:17,marginTop:1},
+  directBubbleTime:{alignSelf:'flex-end',color:colors.textSecondary,fontSize:11,fontWeight:'700',marginTop:5},
+  body:{color:colors.textPrimary,fontSize:17,lineHeight:23,marginTop:7},
   qrMessage:{marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,padding:9,alignItems:'center'},
-  qrMessageTitle:{color:colors.info,fontSize:10,fontWeight:'900',letterSpacing:.6},
+  qrMessageTitle:{color:colors.info,fontSize:11.5,fontWeight:'900',letterSpacing:.6},
   qrMessageImage:{width:150,height:150,borderRadius:12,backgroundColor:'#FFF',marginTop:8},
-  qrMessageHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:7},
+  qrMessageHint:{color:colors.textSecondary,fontSize:10.5,lineHeight:14,textAlign:'center',marginTop:7},
   paymentInline:{borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:9,marginBottom:7,maxHeight:230,overflow:'hidden'},
   paymentInlineHead:{flexDirection:'row',alignItems:'flex-start',gap:8},
-  paymentInlineKicker:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8},
-  paymentInlineTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900',marginTop:3},
-  paymentInlineClose:{color:colors.textMutedGrey,fontSize:20,fontWeight:'900'},
+  paymentInlineKicker:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  paymentInlineTitle:{color:colors.textPrimary,fontSize:13.5,fontWeight:'900',marginTop:3},
+  paymentInlineClose:{color:colors.textSecondary,fontSize:20,fontWeight:'900'},
   paymentInlineQr:{width:110,height:110,borderRadius:10,backgroundColor:'#FFF',alignSelf:'center',marginTop:7},
-  paymentInlineHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,textAlign:'center',marginTop:6},
+  paymentInlineHint:{color:colors.textSecondary,fontSize:10.5,lineHeight:14,textAlign:'center',marginTop:6},
   paymentInlineActions:{flexDirection:'row',gap:7,marginTop:8},
   paymentInlineOpen:{flex:1,minHeight:36,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
-  paymentInlineOpenText:{color:colors.info,fontSize:8.5,fontWeight:'900'},
+  paymentInlineOpenText:{color:colors.info,fontSize:10,fontWeight:'900'},
   paymentInlinePaid:{flex:1,minHeight:36,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
-  paymentInlinePaidText:{color:colors.background,fontSize:8.5,fontWeight:'900'},
+  paymentInlinePaidText:{color:colors.background,fontSize:10,fontWeight:'900'},
   messageActions:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,marginTop:8},
   reply:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
-  replyText:{color:colors.info,fontSize:8,fontWeight:'900'},
+  replyText:{color:colors.info,fontSize:10,fontWeight:'900'},
   quotedReply:{marginTop:6,marginBottom:2,borderLeftWidth:3,borderLeftColor:colors.info,backgroundColor:'rgba(89,174,255,.08)',borderRadius:10,paddingHorizontal:9,paddingVertical:6},
-  quotedReplyAuthor:{color:colors.info,fontSize:9,fontWeight:'900'},
-  quotedReplyBody:{color:colors.textMutedGrey,fontSize:11,lineHeight:15,marginTop:2},
+  quotedReplyAuthor:{color:colors.info,fontSize:10.5,fontWeight:'900'},
+  quotedReplyBody:{color:colors.textSecondary,fontSize:12.5,lineHeight:17,marginTop:2},
   more:{width:30,height:30,alignItems:'center',justifyContent:'center'},
-  moreText:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900'},
-  empty:{color:colors.textMutedGrey,fontSize:12,textAlign:'center',paddingVertical:16},
+  moreText:{color:colors.textSecondary,fontSize:14,fontWeight:'900'},
+  empty:{color:colors.textSecondary,fontSize:13.5,textAlign:'center',paddingVertical:16},
   older:{minHeight:40,borderRadius:16,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  olderText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  olderText:{color:colors.primaryLight,fontSize:11.5,fontWeight:'900',letterSpacing:.8},
   replyTarget:{minHeight:30,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:9,borderRadius:12,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.info,marginBottom:7},
-  replyTargetText:{color:colors.info,fontSize:10,fontWeight:'900'},
+  replyTargetText:{color:colors.info,fontSize:11.5,fontWeight:'900'},
   replyQuoteCopy:{flex:1,minWidth:0,paddingRight:8},
-  replyQuoteBody:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},
+  replyQuoteBody:{color:colors.textSecondary,fontSize:11.5,lineHeight:16,marginTop:2},
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7,maxHeight:250,overflow:'hidden'},
   selectedMusicCompactRow:{minHeight:90,flexDirection:'row',alignItems:'center',gap:9},
   selectedMusicThumbWrap:{width:80,height:80,position:'relative',flexGrow:0,flexShrink:0},
   selectedMusicThumb:{width:80,height:80,borderRadius:16,backgroundColor:colors.backgroundElevated},
   selectedMusicLockBadge:{position:'absolute',right:-5,top:-5,width:22,height:22,borderRadius:11,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
-  selectedMusicLockBadgeText:{fontSize:11},
+  selectedMusicLockBadgeText:{fontSize:12.5},
   selectedMusicThumbFallback:{color:colors.primaryLight,fontSize:30,fontWeight:'900'},
   selectedMusicCompactCopy:{flex:1,minWidth:0},
   selectedMusicCompactTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:2},
-  selectedMusicCompactArtist:{color:colors.textMutedGrey,fontSize:11,fontWeight:'800',marginTop:2},
+  selectedMusicCompactArtist:{color:colors.textSecondary,fontSize:12.5,fontWeight:'800',marginTop:2},
   shareAccordionToggle:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
   shareAccordionToggleText:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
   removeMusicCompact:{width:34,height:34,borderRadius:17,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   shareAccordionBody:{maxHeight:180,marginTop:7,borderTopWidth:1,borderTopColor:colors.border},
   shareAccordionContent:{paddingTop:7,paddingBottom:4},
   shareLockPill:{alignSelf:'flex-start',marginTop:4,borderRadius:10,borderWidth:1,borderColor:colors.warning,paddingHorizontal:6,paddingVertical:3,backgroundColor:'rgba(255,184,107,.08)'},
-  shareLockPillText:{color:colors.warning,fontSize:9,fontWeight:'900'},
+  shareLockPillText:{color:colors.warning,fontSize:10.5,fontWeight:'900'},
   validateMusicPinned:{minHeight:46,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:7,marginBottom:7},
   validateMusic:{minHeight:38,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:8},
-  validateMusicText:{color:colors.background,fontSize:12.5,fontWeight:'900',letterSpacing:.6},
+  validateMusicText:{color:colors.background,fontSize:14,fontWeight:'900',letterSpacing:.6},
   selectedMusicPreview:{height:210,borderRadius:18,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   selectedMusicArtwork:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},
   selectedMusicArtworkFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},
   selectedMusicFallbackText:{color:colors.primaryLight,fontSize:54,fontWeight:'900'},
   selectedMusicShade:{padding:14,paddingTop:70,backgroundColor:'rgba(9,6,16,.66)'},
-  selectedMusicEyebrow:{color:colors.keep,fontSize:9.5,fontWeight:'900',letterSpacing:1},
+  selectedMusicEyebrow:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:1},
   selectedMusicTitle:{color:'#FFF',fontSize:20,lineHeight:23,fontWeight:'900',marginTop:3},
-  selectedMusicArtist:{color:'#F0EAF7',fontSize:13,fontWeight:'800',marginTop:3},
+  selectedMusicArtist:{color:'#F0EAF7',fontSize:14.5,fontWeight:'800',marginTop:3},
   selectedMusicPlayRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
   removeMusicLarge:{marginLeft:'auto',width:42,height:42,borderRadius:21,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(10,8,15,.82)',alignItems:'center',justifyContent:'center'},
   ownershipLock:{marginTop:8,borderRadius:14,borderWidth:1,borderColor:'#F5A623',backgroundColor:'rgba(245,166,35,.09)',overflow:'hidden'},
   ownershipLockHead:{minHeight:46,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:10,paddingVertical:7},
   ownershipLockIcon:{fontSize:17},
-  ownershipLockTitle:{color:'#FFD28A',fontSize:10.5,fontWeight:'900',letterSpacing:.6},
-  ownershipLockSub:{color:colors.textMutedGrey,fontSize:9.5,marginTop:2},
-  ownershipLockBody:{color:colors.textPrimary,fontSize:10,lineHeight:15,paddingHorizontal:10,paddingBottom:10},
+  ownershipLockTitle:{color:'#FFD28A',fontSize:12,fontWeight:'900',letterSpacing:.6},
+  ownershipLockSub:{color:colors.textSecondary,fontSize:11,marginTop:2},
+  ownershipLockBody:{color:colors.textPrimary,fontSize:11.5,lineHeight:15,paddingHorizontal:10,paddingBottom:10},
   shareAccordionHead:{minHeight:46,marginTop:7,paddingHorizontal:10,paddingVertical:7,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
-  shareAccordionLabel:{color:colors.textMutedGrey,fontSize:8.5,fontWeight:'900',letterSpacing:.8},
-  shareAccordionValue:{color:colors.textPrimary,fontSize:11.5,fontWeight:'900',marginTop:2},
+  shareAccordionLabel:{color:colors.textSecondary,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  shareAccordionValue:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:2},
   accordionArrow:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
   revealChoices:{flexDirection:'row',alignItems:'center',gap:6,marginTop:7},
   revealChip:{minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   revealChipOn:{borderColor:colors.keep,backgroundColor:colors.successSoft},
-  revealChipText:{color:colors.textPrimary,fontSize:10.5,fontWeight:'900'},
+  revealChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
   paymentChoices:{flexDirection:'row',alignItems:'center',gap:6,marginTop:7},
-  paymentLabel:{color:colors.textMutedGrey,fontSize:9.5,fontWeight:'900',letterSpacing:.7},
+  paymentLabel:{color:colors.textSecondary,fontSize:11,fontWeight:'900',letterSpacing:.7},
   paymentChip:{minHeight:36,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   paymentChipOn:{borderColor:colors.info,backgroundColor:colors.infoFaint},
-  paymentChipText:{color:colors.textPrimary,fontSize:11.5,fontWeight:'900'},
+  paymentChipText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   priceChoices:{flexDirection:'row',alignItems:'center',gap:5,flexWrap:'wrap',marginTop:6},
   priceChip:{minWidth:42,height:36,paddingHorizontal:10,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   priceChipOn:{borderColor:colors.keep,backgroundColor:colors.successSoft},
-  priceChipText:{color:colors.textPrimary,fontSize:10.5,fontWeight:'900'},
-  priceUnit:{color:colors.keep,fontSize:10.5,fontWeight:'900'},
-  paymentStoreNote:{width:'100%',color:colors.textMutedGrey,fontSize:10,lineHeight:15,fontWeight:'700'},
+  priceChipText:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
+  priceUnit:{color:colors.keep,fontSize:12,fontWeight:'900'},
+  paymentStoreNote:{width:'100%',color:colors.textSecondary,fontSize:11.5,lineHeight:15,fontWeight:'700'},
   removeMusic:{marginLeft:'auto',width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
-  removeMusicText:{color:colors.textMutedGrey,fontSize:16,fontWeight:'900'},
+  removeMusicText:{color:colors.textSecondary,fontSize:16,fontWeight:'900'},
   musicCard:{marginTop:10,padding:10,borderRadius:20,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap',width:'100%',minHeight:132,overflow:'hidden'},
   musicArt:{width:104,height:104,borderRadius:18,backgroundColor:colors.backgroundElevated},
   musicArtMasked:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.primary},
   musicMaskIcon:{color:colors.primaryLight,fontSize:36,fontWeight:'900'},
   musicCopy:{flex:1,minWidth:130},
-  musicKicker:{color:colors.keep,fontSize:9.5,fontWeight:'900',letterSpacing:.9},
+  musicKicker:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:.9},
   musicTitle:{color:colors.textPrimary,fontSize:15.5,fontWeight:'900',marginTop:4,lineHeight:20},
-  musicArtist:{color:colors.textMutedGrey,fontSize:12.5,marginTop:4},
+  musicArtist:{color:colors.textSecondary,fontSize:14,marginTop:4},
   keepMusic:{minHeight:32,paddingHorizontal:9,borderRadius:16,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
-  keepMusicText:{color:colors.background,fontSize:8,fontWeight:'900'},
+  keepMusicText:{color:colors.background,fontSize:10,fontWeight:'900'},
   offerStatusOwn:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
-  offerStatusOwnText:{color:colors.info,fontSize:8,fontWeight:'900'},
+  offerStatusOwnText:{color:colors.info,fontSize:10,fontWeight:'900'},
   sellerConfirm:{minHeight:34,paddingHorizontal:10,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successSoft,alignItems:'center',justifyContent:'center'},
-  sellerConfirmText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
+  sellerConfirmText:{color:colors.keep,fontSize:10,fontWeight:'900'},
   offerUnlocked:{minHeight:32,paddingHorizontal:9,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successSoft,alignItems:'center',justifyContent:'center'},
-  offerUnlockedText:{color:colors.keep,fontSize:8,fontWeight:'900'},
+  offerUnlockedText:{color:colors.keep,fontSize:10,fontWeight:'900'},
   modalBackdrop:{flex:1,backgroundColor:colors.overlay,alignItems:'center',justifyContent:'center',padding:18},
   groupSheet:{width:'100%',maxWidth:460,maxHeight:'86%',borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:14},
   groupInput:{minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,fontSize:15,paddingHorizontal:12,marginTop:10},
   groupSelectionBar:{minHeight:30,justifyContent:'center',marginTop:6},
-  groupSelectionText:{color:colors.keep,fontSize:10,fontWeight:'900'},
+  groupSelectionText:{color:colors.keep,fontSize:11.5,fontWeight:'900'},
   groupPeopleList:{marginTop:4,maxHeight:330},
   groupMembersList:{marginTop:12,maxHeight:280},
   groupInviteList:{marginTop:7,maxHeight:220},
@@ -2335,23 +2341,23 @@ const s=StyleSheet.create({
   groupPersonRowSelected:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)'},
   groupPersonAvatar:{width:36,height:36,borderRadius:18,backgroundColor:colors.backgroundElevated},
   groupPersonName:{flex:1,color:colors.textPrimary,fontSize:14,fontWeight:'900'},
-  groupMemberMeta:{color:colors.textMutedGrey,fontSize:10,marginTop:2},
+  groupMemberMeta:{color:colors.textSecondary,fontSize:11.5,marginTop:2},
   groupCheck:{width:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   groupCheckOn:{borderColor:colors.keep,backgroundColor:colors.keep},
   groupCheckText:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
   groupCreateCta:{minHeight:44,borderRadius:22,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10},
   groupCreateCtaOff:{opacity:.45},
-  groupCreateCtaText:{color:colors.white,fontSize:11,fontWeight:'900',letterSpacing:.6},
-  groupSectionTitle:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:14},
+  groupCreateCtaText:{color:colors.white,fontSize:12.5,fontWeight:'900',letterSpacing:.6},
+  groupSectionTitle:{color:colors.keep,fontSize:10.5,fontWeight:'900',letterSpacing:1,marginTop:14},
   groupRemoveButton:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center'},
-  groupRemoveText:{color:colors.danger,fontSize:8.5,fontWeight:'900'},
+  groupRemoveText:{color:colors.danger,fontSize:10,fontWeight:'900'},
   groupInviteButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
-  groupInviteText:{color:colors.keep,fontSize:8.5,fontWeight:'900'},
+  groupInviteText:{color:colors.keep,fontSize:10,fontWeight:'900'},
   shareSheet:{width:'100%',maxWidth:460,maxHeight:'78%',borderRadius:22,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,padding:14},
   shareHead:{flexDirection:'row',alignItems:'flex-start',gap:10},
   shareTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
-  shareHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:3},
-  shareClose:{color:colors.textMutedGrey,fontSize:24,fontWeight:'900'},
+  shareHint:{color:colors.textSecondary,fontSize:11.5,lineHeight:15,marginTop:3},
+  shareClose:{color:colors.textSecondary,fontSize:24,fontWeight:'900'},
   shareList:{marginTop:12},
   shareTrackRow:{minHeight:104,flexDirection:'row',alignItems:'center',gap:12,padding:10,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard},
   shareTrackArtWrap:{width:82,height:82,position:'relative',flexGrow:0,flexShrink:0},
@@ -2359,8 +2365,8 @@ const s=StyleSheet.create({
   shareTrackLockBadge:{position:'absolute',right:-4,top:-4,width:28,height:28,borderRadius:14,borderWidth:1,borderColor:'#FFD28A',backgroundColor:'rgba(25,16,12,.96)',alignItems:'center',justifyContent:'center'},
   shareTrackLockBadgeText:{fontSize:14},
   shareTrackTitle:{color:colors.textPrimary,fontSize:16,fontWeight:'900'},
-  shareTrackArtist:{color:colors.textMutedGrey,fontSize:13,marginTop:4},
-  shareTrackLocked:{color:colors.warning,fontSize:10,fontWeight:'900',lineHeight:14,marginTop:4},
-  musicShareOnlyText:{color:colors.warning,fontSize:8,fontWeight:'900',marginTop:3},
+  shareTrackArtist:{color:colors.textSecondary,fontSize:14.5,marginTop:4},
+  shareTrackLocked:{color:colors.warning,fontSize:11.5,fontWeight:'900',lineHeight:16,marginTop:4},
+  musicShareOnlyText:{color:colors.warning,fontSize:10,fontWeight:'900',marginTop:3},
   shareTrackArrow:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
 });

@@ -2572,3 +2572,8 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Structure : haut fixe / milieu qui défile / bas toujours visible (case + bouton). Textes longs = une ligne + « en savoir plus » discret.
 - Paiement FREE (`purchasePlaylistOfferWithFree`), PayPal (`requestPlaylistPurchase` + lien du créateur), notifications de validation et QR code : non modifiés, branchements des deux profils vérifiés.
 - NE PAS remettre d'accroches tournantes ni de hauteur minimale sur la carte : le bouton repasserait hors écran.
+
+## [2026-10-02 22:10 CEST] CLAUDE CODE — TCHAT DE GROUPE : CLAVIER DÉBLOQUÉ (ERR-CHAT-GROUP-COMPOSER-HIDDEN-033)
+- Bug : les membres d'un groupe (invitation acceptée) voyaient « Écriture indisponible ». Cause client uniquement (condition `!replyTarget`), serveur OK.
+- Correctif + lisibilité demandée par Adel (gris → blanc, polices un peu plus grandes) limités aux styles de `MusicAgoraPanel`. Navigation et 5 onglets non touchés.
+- NE PAS reconditionner la zone d'écriture sur `replyTarget` seul : un groupe n'en a pas.
