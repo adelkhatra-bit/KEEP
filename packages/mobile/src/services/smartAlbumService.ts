@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildSmartAlbumSuggestions, type CanonicalTrack, type ProviderPlaylist } from '@keep/music';
 import { supabase } from './supabaseClient';
 import { enrichMissingGenres } from './keylessGenreService';
@@ -23,6 +24,26 @@ export type SmartAlbumRecord = {
 };
 
 export const SMART_ALBUM_UI_PREFIX = 'keep-smart:';
+const OWN_SMART_ALBUM_CACHE_PREFIX = '@keep/own-smart-albums-v1';
+
+function ownSmartAlbumCacheKey(profileId: string) {
+  return `${OWN_SMART_ALBUM_CACHE_PREFIX}:${profileId}`;
+}
+
+async function readOwnSmartAlbumCache(profileId: string): Promise<SmartAlbumRecord[] | null> {
+  try {
+    const raw = await AsyncStorage.getItem(ownSmartAlbumCacheKey(profileId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as SmartAlbumRecord[] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeOwnSmartAlbumCache(profileId: string, rows: SmartAlbumRecord[]) {
+  try { await AsyncStorage.setItem(ownSmartAlbumCacheKey(profileId), JSON.stringify(rows)); } catch {}
+}
 
 const DEFAULT_CONFIG: SmartAlbumConfig = {
   enabled: true,
@@ -99,38 +120,46 @@ export async function loadOwnSmartAlbums(): Promise<SmartAlbumRecord[]> {
   const userId = await currentUserId();
   if (!userId) return [];
 
-  const { data: playlists, error } = await supabase
-    .from('playlists')
-    .select('id,provider_playlist_id,name,description,is_public')
-    .eq('owner_id', userId)
-    .eq('provider', 'KEEP_SMART')
-    .eq('is_smart', true)
-    .order('updated_at', { ascending: false });
-  if (error) throw error;
+  try {
+    const { data: playlists, error } = await supabase
+      .from('playlists')
+      .select('id,provider_playlist_id,name,description,is_public')
+      .eq('owner_id', userId)
+      .eq('provider', 'KEEP_SMART')
+      .eq('is_smart', true)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
 
-  const ids = (playlists ?? []).map((row: any) => String(row.id));
-  const counts = new Map<string, number>();
-  if (ids.length) {
-    const { data: memberships, error: membershipError } = await supabase
-      .from('playlist_tracks')
-      .select('playlist_id')
-      .in('playlist_id', ids);
-    if (membershipError) throw membershipError;
-    for (const row of memberships ?? []) {
-      const id = String((row as any).playlist_id);
-      counts.set(id, (counts.get(id) ?? 0) + 1);
+    const ids = (playlists ?? []).map((row: any) => String(row.id));
+    const counts = new Map<string, number>();
+    if (ids.length) {
+      const { data: memberships, error: membershipError } = await supabase
+        .from('playlist_tracks')
+        .select('playlist_id')
+        .in('playlist_id', ids);
+      if (membershipError) throw membershipError;
+      for (const row of memberships ?? []) {
+        const id = String((row as any).playlist_id);
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
     }
-  }
 
-  return (playlists ?? []).map((row: any) => ({
-    id: String(row.id),
-    smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
-    name: String(row.name ?? 'Vibe Loki Music'),
-    description: String(row.description ?? ''),
-    isPublic: Boolean(row.is_public),
-    trackCount: counts.get(String(row.id)) ?? 0,
-    matchedGenres: [],
-  }));
+    const rows = (playlists ?? []).map((row: any) => ({
+      id: String(row.id),
+      smartKey: String(row.provider_playlist_id ?? '').replace(/^smart:/, ''),
+      name: String(row.name ?? 'Vibe Loki Music'),
+      description: String(row.description ?? ''),
+      isPublic: Boolean(row.is_public),
+      trackCount: counts.get(String(row.id)) ?? 0,
+      matchedGenres: [],
+    }));
+    void writeOwnSmartAlbumCache(userId, rows);
+    return rows;
+  } catch (error) {
+    const cached = await readOwnSmartAlbumCache(userId);
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 export async function loadPublicSmartAlbums(profileId: string): Promise<SmartAlbumRecord[]> {
