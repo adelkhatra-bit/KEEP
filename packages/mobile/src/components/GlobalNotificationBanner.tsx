@@ -6,6 +6,9 @@ import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore'
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
 import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
+import { markPlaylistSalePaid } from '../services/playlistSaleService';
+import { playNotificationCue } from '../services/notificationSoundService';
+import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { loadCurrentPlanCode } from '../services/planService';
@@ -57,6 +60,19 @@ function isAgoraNotification(notification: KeepNotification): boolean {
   const type = String(notification.type || '').toUpperCase();
   const event = String(notification.data?.event || '').toUpperCase();
   return type.startsWith('AGORA_') || event.startsWith('AGORA_');
+}
+
+function isPaymentNotification(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  const event = String(notification.data?.event || '').toUpperCase();
+  const soundKind = String(notification.data?.soundKind || '').toLowerCase();
+  return soundKind === 'money' || type.startsWith('PLAYLIST_SALE_') || event.startsWith('PLAYLIST_SALE_');
+}
+
+function isBuyerPaidNotification(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  const event = String(notification.data?.event || '').toUpperCase();
+  return type === 'PLAYLIST_SALE_BUYER_PAID' || event === 'PLAYLIST_SALE_BUYER_PAID';
 }
 
 export default function GlobalNotificationBanner() {
@@ -251,6 +267,7 @@ export default function GlobalNotificationBanner() {
           }
         : notification;
       setCurrent(presentedNotification);
+      void playNotificationCue(isPaymentNotification(notification) ? 'MONEY' : 'DEFAULT');
 
       requestAnimationFrame(() => {
         Animated.parallel([
@@ -419,6 +436,8 @@ export default function GlobalNotificationBanner() {
   const rematchArenaId = dataText(current, 'arenaId');
   const eventInvite = isEventInvite(current);
   const agoraNotification = isAgoraNotification(current);
+  const buyerPaidNotification = isBuyerPaidNotification(current);
+  const paymentId = dataText(current, 'paymentId') || dataText(current, 'payment_id');
   const eventId = dataText(current, 'event_id') || dataText(current, 'eventId');
   const eventAudience = dataText(current, 'audience_mode');
 
@@ -472,6 +491,30 @@ export default function GlobalNotificationBanner() {
       animateOut(() => { if (accept) navigateToEvent(eventId); });
     } catch {
       animateOut();
+    } finally {
+      setRespondBusy(false);
+    }
+  };
+
+  const confirmPaymentFromBanner = async () => {
+    if (!paymentId || respondBusy || !current) return;
+    setRespondBusy(true);
+    try {
+      const result = await markPlaylistSalePaid(paymentId);
+      void markNotificationRead(user.id, current.id).catch(() => {});
+      animateOut();
+      Alert.alert(
+        'Paiement confirmé',
+        `Tu as confirmé la réception. « ${result.playlistName || 'La sélection'} » est maintenant débloquée pour l’acheteur.`,
+      );
+    } catch (error: any) {
+      const raw = String(error?.message || error || '');
+      const message = raw.includes('BUYER_HAS_NOT_MARKED_PAID')
+        ? 'L’acheteur doit d’abord signaler son paiement.'
+        : raw.includes('PAYMENT_PROOF_REQUIRED') || raw.includes('PAYMENT_PROOF_FILE_NOT_FOUND')
+          ? 'La preuve de paiement doit être présente avant confirmation.'
+          : 'Impossible de confirmer ce paiement pour le moment.';
+      Alert.alert('Paiement', message);
     } finally {
       setRespondBusy(false);
     }
@@ -598,6 +641,30 @@ export default function GlobalNotificationBanner() {
     );
   }
 
+  if (buyerPaidNotification && paymentId) {
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+        <View style={[styles.banner, styles.paymentBanner]}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
+          <View style={styles.artworkFallback}><Text style={styles.note}>💰</Text></View>
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.paymentEyebrow}>PAIEMENT À VÉRIFIER</Text></View>
+            <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
+            <Text style={styles.body} numberOfLines={3}>{displayBody}</Text>
+            <View style={styles.battleActions}>
+              <TouchableOpacity disabled={respondBusy} style={[styles.battleNo, respondBusy && styles.battleDisabled]} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Vérifier le paiement plus tard">
+                <Text style={styles.battleNoText}>PLUS TARD</Text>
+              </TouchableOpacity>
+              <TouchableOpacity disabled={respondBusy} style={[styles.paymentConfirm, respondBusy && styles.battleDisabled]} onPress={() => { void confirmPaymentFromBanner(); }} accessibilityRole="button" accessibilityLabel="J’ai reçu le paiement">
+                <Text style={styles.paymentConfirmText}>{respondBusy ? 'VÉRIFICATION…' : 'J’AI REÇU'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View
       pointerEvents="box-none"
@@ -672,6 +739,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
   },
   eventBanner: { borderColor: '#7C5CFC' },
+  paymentBanner: { borderColor: '#2DE1C2' },
+  paymentEyebrow: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  paymentConfirm: { flex: 1, minHeight: 38, borderRadius: 14, backgroundColor: '#2DE1C2', alignItems: 'center', justifyContent: 'center' },
+  paymentConfirmText: { color: '#0B0712', fontSize: 11, fontWeight: '900' },
   freeCreditBanner: { borderWidth: 2, borderColor: '#2DE1C2', backgroundColor: 'rgba(18, 35, 37, 0.98)', shadowColor: '#2DE1C2', shadowOpacity: 0.45, shadowRadius: 18 },
   freeCreditBurst: { width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(45,225,194,.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,.65)', position: 'relative' },
   freeCreditIcon: { fontSize: 28 },
