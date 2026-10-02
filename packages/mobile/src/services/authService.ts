@@ -61,6 +61,19 @@ async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unkn
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function forceClearPersistedAuthSession(client: SupabaseClient): Promise<void> {
+  const authClient = client.auth as any;
+  const storage = authClient?.storage;
+  const storageKey = authClient?.storageKey;
+  if (!storage || !storageKey || typeof storage.removeItem !== 'function') return;
+  try {
+    await Promise.resolve(storage.removeItem(storageKey));
+  } catch {
+    // L'UI Loki a déjà quitté le compte. Ce filet sert surtout à empêcher
+    // qu'un refresh token persistant ne ressuscite la session au prochain boot.
+  }
+}
+
 function transientAuthFailure(error: unknown): boolean {
   const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
   const message = String((error as any)?.message ?? error ?? '').toLowerCase();
@@ -396,11 +409,22 @@ export function createAuthService(client: SupabaseClient): AuthService {
     },
 
     async signOut() {
-      // Déconnexion Loki = cet appareil uniquement. La session locale doit
-      // disparaître sans dépendre du réseau et sans déconnecter les autres
-      // appareils du même utilisateur.
-      const localResult = await client.auth.signOut({ scope: 'local' });
-      if (localResult.error) throw localResult.error;
+      // Déconnexion Loki = cet appareil uniquement. Elle doit rester possible
+      // même si Supabase Auth/PostgREST traverse une panne 5xx.
+      //
+      // supabase-js peut conserver le refresh token si signOut() échoue côté
+      // réseau. Résultat observé le 02/10 : l'UI se déconnecte puis le compte
+      // réapparaît au prochain lancement. On borne l'appel et on purge toujours
+      // le stockage local de la session, sans toucher aux autres appareils.
+      try {
+        await Promise.race([
+          client.auth.signOut({ scope: 'local' }),
+          wait(1500).then(() => ({ error: new Error('local_signout_timeout') })),
+        ]);
+      } catch {
+        // Le nettoyage persistant ci-dessous reste la source de vérité locale.
+      }
+      await forceClearPersistedAuthSession(client);
     },
 
     onSessionChange(callback) {

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -48,6 +48,45 @@ export default function App() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const updateUser = useUserStore((s) => s.updateUser);
   const [authReady, setAuthReady] = useState(() => process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1' || !isSupabaseConfigured || !supabase);
+  const [authRecoveryVisible, setAuthRecoveryVisible] = useState(false);
+  const [authRetryKey, setAuthRetryKey] = useState(0);
+  const manualAuthExitRef = useRef(false);
+
+  useEffect(() => {
+    if (authReady) {
+      setAuthRecoveryVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => setAuthRecoveryVisible(true), 8000);
+    return () => clearTimeout(timer);
+  }, [authReady]);
+
+  const retryAuthRecovery = () => {
+    manualAuthExitRef.current = false;
+    setAuthRecoveryVisible(false);
+    setAuthReady(false);
+    setAuthRetryKey((value) => value + 1);
+  };
+
+  const leaveAuthRecovery = () => {
+    manualAuthExitRef.current = true;
+    setAuthRecoveryVisible(false);
+    useUserStore.getState().logout();
+    void clearLocalGuestMarker().catch(() => {});
+    setAuthReady(true);
+
+    if (!supabase) {
+      manualAuthExitRef.current = false;
+      return;
+    }
+
+    void createAuthService(supabase).signOut()
+      .catch(() => {})
+      .finally(() => {
+        manualAuthExitRef.current = false;
+        setAuthRetryKey((value) => value + 1);
+      });
+  };
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_KEEP_PREVIEW !== '1') return;
@@ -136,6 +175,7 @@ export default function App() {
     let initialBootstrapSettled = false;
 
     const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
+      if (manualAuthExitRef.current && session) return false;
       if (!session) {
         profileLoadedFor = null;
         useBattleAvailabilityStore.getState().reset();
@@ -179,6 +219,7 @@ export default function App() {
 
         // Un profil réellement lu depuis Supabase peut monter immédiatement.
         // On évite toute auto-sauvegarde pendant cette hydratation distante.
+        if (manualAuthExitRef.current) return false;
         applyingRemoteProfile = true;
         useUserStore.getState().setUser(profile);
         applyingRemoteProfile = false;
@@ -374,7 +415,7 @@ export default function App() {
       unsubscribeStore();
       unsubscribeAuth();
     };
-  }, []);
+  }, [authRetryKey]);
 
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
@@ -387,8 +428,48 @@ export default function App() {
           <ActivityIndicator size="large" color={colors.primaryLight} />
           <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 18 }}>Loki Music</Text>
           <Text style={{ color: colors.textMutedGrey, fontSize: 14, textAlign: 'center', marginTop: 8 }}>
-            Connexion à ton compte…
+            {authRecoveryVisible ? 'Le service met plus de temps que prévu.' : 'Connexion à ton compte…'}
           </Text>
+
+          {authRecoveryVisible ? (
+            <View style={{ width: '100%', maxWidth: 320, marginTop: 18, gap: 10 }}>
+              <TouchableOpacity
+                testID="auth-recovery-retry"
+                accessibilityRole="button"
+                accessibilityLabel="Réessayer la connexion Loki Music"
+                onPress={retryAuthRecovery}
+                style={{
+                  minHeight: 46,
+                  borderRadius: 23,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 18,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '900' }}>RÉESSAYER</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="auth-recovery-change-account"
+                accessibilityRole="button"
+                accessibilityLabel="Changer de compte Loki Music"
+                onPress={leaveAuthRecovery}
+                style={{
+                  minHeight: 46,
+                  borderRadius: 23,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.backgroundCard,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 18,
+                }}
+              >
+                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '900' }}>CHANGER DE COMPTE</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       )}
       {authReady && user ? <GlobalNotificationBanner /> : null}

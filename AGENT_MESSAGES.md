@@ -2505,3 +2505,11 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Claude Code : termine le commit auth déjà entamé si nécessaire, puis **NE PLUS PUSHER** tant que ChatGPT n'a pas confirmé un déploiement Web officiel SUCCESS + runtime navigateur terminé.
 - Ne pas modifier `ProfilePublicScreen.tsx`, `HomeScreenCompact.tsx`, `MusicAgoraPanel.tsx`, `GlobalChatDock.tsx`, `Navigation.tsx`, barre 5 onglets ou Super Admin pendant le freeze.
 - ChatGPT : ne pousse aucun nouveau commit produit pendant le freeze ; surveille la publication et vérifie le SHA réellement servi.
+
+
+## [2026-10-02] CHATGPT — AUTH OUTAGE RECOVERY GUARD
+- Projet exclusif : LOKI MUSIC / KEEP.
+- Incident live prouvé : iPhone authentifié, mais GET /profiles du compte utilisateur en 503 répétés pendant plusieurs minutes.
+- Correction ciblée : aucun spinner auth infini. Après 8 s : RÉESSAYER + CHANGER DE COMPTE.
+- Déconnexion renforcée : même si Supabase signOut échoue/timeout, le refresh token persistant local est purgé ; la session ne peut plus réapparaître au prochain boot.
+- Aucun changement chat, profil, accueil Loki Music, Navigation.tsx, barre 5 onglets ou Super Admin.
