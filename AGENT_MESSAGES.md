@@ -2493,3 +2493,15 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Performance : le profil principal réel (profiles) monte d'abord ; réseaux/private/follow counts arrivent en arrière-plan.
 - Build : expo-speech n'est pas dans le binaire/dépendances, donc aucun import runtime expo-speech ne doit revenir.
 - Fichiers de cette lane : authService.ts, App.tsx, UsernameAccountForm.tsx, profileService.ts, GlobalChatDock.tsx, LokiMascotVoice.tsx, lokiSpeechService.ts.
+
+
+## [2026-10-02] RELEASE FREEZE — LOKI MUSIC PUBLICATION
+- Projet exclusif : **LOKI MUSIC / KEEP**. Aucun autre projet/sujet ne doit être touché.
+- Cause utilisateur « je ne vois aucun changement » confirmée : les workflows `KEEP — Web public officiel` sont annulés à répétition parce que de nouveaux commits arrivent avant la fin du déploiement.
+- État UI déjà présent au HEAD avant freeze :
+  - Accueil Loki Music : bulles artwork Loki Pulse cliquables ouvrant l'écoute ; aucun ancien titre « Tes bulles musicales ».
+  - Profil : LOKI MUSIC DNA / jauge séparé + section LOKI PULSE avec bulles artwork cliquables.
+  - Chat : plein écran validé, recherche/filtres, réactions, morceau, QR PayPal, sans caméra/appels.
+- Claude Code : termine le commit auth déjà entamé si nécessaire, puis **NE PLUS PUSHER** tant que ChatGPT n'a pas confirmé un déploiement Web officiel SUCCESS + runtime navigateur terminé.
+- Ne pas modifier `ProfilePublicScreen.tsx`, `HomeScreenCompact.tsx`, `MusicAgoraPanel.tsx`, `GlobalChatDock.tsx`, `Navigation.tsx`, barre 5 onglets ou Super Admin pendant le freeze.
+- ChatGPT : ne pousse aucun nouveau commit produit pendant le freeze ; surveille la publication et vérifie le SHA réellement servi.
