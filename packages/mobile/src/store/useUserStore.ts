@@ -67,7 +67,7 @@ const DEMO_USER: User = {
 
 const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';
 
-function cachedWebRealUser(): User | null {
+export function getCachedWebRealUserSnapshot(): User | null {
   try {
     const storage = (globalThis as any)?.localStorage;
     if (!storage) return null;
