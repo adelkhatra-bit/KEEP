@@ -7,7 +7,7 @@ import {
   clearStagedGuestMusic,
   stageGuestProfileForUpgrade,
 } from '../services/guestUpgradeService';
-import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCreditsForUpgrade } from '../services/creditService';
+import { stageLocalGuestCreditsForUpgrade } from '../services/creditService';
 import { supabase } from '../services/supabaseClient';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
@@ -143,7 +143,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   };
 
   const waitForHydratedAccount = async (expectedUserId?: string) => {
-    const deadline = Date.now() + 60000;
+    const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
       const state = useUserStore.getState();
       const ready = Boolean(
@@ -162,23 +162,25 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     const hydrated = await waitForHydratedAccount(expectedUserId);
     if (!hydrated) throw new Error('profile_hydration_timeout');
 
-    await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-
-    // Une simple reconnexion ne détruit jamais l'historique de ce compte.
-    await clearStagedGuestMusic().catch(() => {});
-    await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
-
-    const followed = await applyFollowIntent();
-    if (followUsername) {
-      Alert.alert(
-        'Compte Loki Music prêt',
-        followed
-          ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
-          : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
-      );
-    }
+    // Le profil réel est hydraté : rendre la main à l'utilisateur tout de suite.
+    // Les nettoyages/cadenas/follow ne doivent jamais retarder l'ouverture.
     useAccountGateStore.getState().handleSuccess();
     onSuccess?.();
+
+    void (async () => {
+      await clearStagedGuestMusic().catch(() => {});
+      await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+
+      const followed = await applyFollowIntent();
+      if (followUsername) {
+        Alert.alert(
+          'Compte Loki Music prêt',
+          followed
+            ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
+            : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
+        );
+      }
+    })().catch(() => {});
   };
 
   const submit = async () => {
