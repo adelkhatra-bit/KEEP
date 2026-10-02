@@ -176,7 +176,7 @@ jobs:
             await page.route('**/rest/v1/rpc/keep_agora_my_groups', async route => {
               await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
             });
-            await page.route('**/rest/v1/rpc/keep_agora_direct_messages_v1', async route => {
+            await page.route('**/rest/v1/rpc/keep_agora_direct_messages_v2', async route => {
               const rows = syntheticDirectSentBody
                 ? [{
                     id: 7031,
@@ -192,7 +192,7 @@ jobs:
                 : syntheticDirectMessages;
               await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
             });
-            await page.route('**/rest/v1/rpc/keep_agora_messages_v5', async route => {
+            await page.route('**/rest/v1/rpc/keep_agora_messages_v6', async route => {
               const rows = syntheticSentBody
                 ? [{
                     id: 5031,
@@ -206,7 +206,7 @@ jobs:
                 : syntheticRecentMessages;
               await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
             });
-            await page.route('**/rest/v1/rpc/keep_agora_post_message_v4', async route => {
+            await page.route('**/rest/v1/rpc/keep_agora_post_message_v5', async route => {
               const payload = route.request().postDataJSON?.() || {};
               const body = String(payload.p_body || 'Message test envoyé');
               const direct = Boolean(payload.p_target_profile_id);
