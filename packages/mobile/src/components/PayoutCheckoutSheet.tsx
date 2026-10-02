@@ -54,7 +54,7 @@ export default function PayoutCheckoutSheet({
     await Linking.openURL(checkoutUrl);
   };
 
-  const attachProof = async () => {
+  const attachProof = async (source: 'PHOTO' | 'DOCUMENT') => {
     if (!paymentId || proofBusy || busy) {
       if (!paymentId) setError('Référence de paiement manquante. Ferme puis rouvre le paiement.');
       return;
@@ -62,7 +62,7 @@ export default function PayoutCheckoutSheet({
     setProofBusy(true);
     setError('');
     try {
-      const uploaded = await pickAndUploadPlaylistPaymentProof(paymentId);
+      const uploaded = await pickAndUploadPlaylistPaymentProof(paymentId, source);
       if (uploaded) setProof(uploaded);
     } catch (e: any) {
       setError(e?.message || 'Impossible de joindre cette preuve.');
@@ -129,9 +129,15 @@ export default function PayoutCheckoutSheet({
               <View style={s.proofBox}>
                 <Text style={s.proofEyebrow}>PREUVE DE PAIEMENT</Text>
                 <Text style={s.proofHint}>Capture PayPal ou PDF · 10 Mo maximum · visible uniquement par toi et le vendeur.</Text>
-                <TouchableOpacity style={[s.proofButton, proof && s.proofButtonReady, (proofBusy || busy || !paymentId) && s.disabled]} disabled={proofBusy || busy || !paymentId} onPress={() => void attachProof()}>
-                  {proofBusy ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.proofButtonText}>{proof ? `✓ ${proof.name} · REMPLACER` : 'JOINDRE MA PREUVE'}</Text>}
-                </TouchableOpacity>
+                {proof ? <Text style={s.proofReadyText}>✓ {proof.name}</Text> : null}
+                <View style={s.proofActions}>
+                  <TouchableOpacity style={[s.proofButton, proof && s.proofButtonReady, (proofBusy || busy || !paymentId) && s.disabled]} disabled={proofBusy || busy || !paymentId} onPress={() => void attachProof('PHOTO')}>
+                    {proofBusy ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.proofButtonText}>{proof ? 'REMPLACER PAR UNE PHOTO' : 'CAPTURE / PHOTO'}</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.proofButton, (proofBusy || busy || !paymentId) && s.disabled]} disabled={proofBusy || busy || !paymentId} onPress={() => void attachProof('DOCUMENT')}>
+                    <Text style={s.proofButtonText}>PDF / DOCUMENT</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : null}
 
@@ -170,9 +176,11 @@ const s = StyleSheet.create({
   proofBox:{marginTop:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:12},
   proofEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},
   proofHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:5},
-  proofButton:{minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:9,paddingHorizontal:10},
+  proofReadyText:{color:colors.keep,fontSize:10,fontWeight:'900',marginTop:8},
+  proofActions:{flexDirection:'row',gap:8,marginTop:9},
+  proofButton:{flex:1,minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:8},
   proofButtonReady:{borderColor:colors.keep,backgroundColor:'rgba(229,242,102,.08)'},
-  proofButtonText:{color:'#FFF',fontSize:10,fontWeight:'900',textAlign:'center'},
+  proofButtonText:{color:'#FFF',fontSize:9,fontWeight:'900',textAlign:'center'},
   error:{color:colors.danger,fontSize:10,lineHeight:15,marginTop:10,textAlign:'center'},
   paid:{minHeight:50,borderRadius:16,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginTop:14,paddingHorizontal:12},
   paidText:{color:'#07110D',fontSize:11,fontWeight:'900',textAlign:'center'},
