@@ -1565,6 +1565,12 @@ export default function MusicAgoraPanel({
               requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
             }
           }}
+          onContentSizeChange={() => {
+            // Mobile: the multiline composer grows after onChangeText. Scroll
+            // again after the real layout change so the latest line and the
+            // newest message stay visible above the keyboard without a swipe.
+            if (compact) followChatBottom(false);
+          }}
           placeholder="Écris un message…"
           placeholderTextColor={colors.textMutedGrey}
           multiline
@@ -1582,7 +1588,13 @@ export default function MusicAgoraPanel({
         <TouchableOpacity
           style={[s.send, (!sharedTrack && !draft.trim()) && s.sendOff]}
           disabled={(!sharedTrack && !draft.trim()) || posting}
-          onPress={() => void publish()}
+          onPress={() => {
+            // Pin the thread to its newest content immediately. publish() does
+            // it again after the server refresh; this first pass covers the
+            // keyboard/composer layout window on mobile.
+            followChatBottom(false);
+            void publish();
+          }}
           accessibilityLabel="Envoyer le message"
         >
           <Text style={s.sendText}>{posting ? '…' : '➤'}</Text>
