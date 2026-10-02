@@ -128,6 +128,8 @@ jobs:
             // une ouverture au milieu de l'historique. Sans messages assez longs,
             // scrollHeight === clientHeight et un faux positif serait possible.
             let syntheticSentBody = '';
+            let syntheticDirectSentBody = '';
+            const directProfileId = '11111111-1111-4111-8111-111111111111';
             const syntheticRecentMessages = Array.from({ length: 30 }, (_, index) => {
               const id = 5030 - index;
               return {
@@ -139,6 +141,56 @@ jobs:
                 body: `Historique visuel ${id} · message assez long pour forcer un vrai défilement vertical dans le tchat Loki.`,
                 created_at: new Date(Date.UTC(2026, 9, 2, 10, 0, index)).toISOString(),
               };
+            });
+            const syntheticDirectMessages = Array.from({ length: 30 }, (_, index) => {
+              const id = 7030 - index;
+              return {
+                id,
+                room_slug: 'place',
+                profile_id: directProfileId,
+                username: 'profil-test',
+                kind: 'USER',
+                body: `Direct visuel ${id} · historique assez long pour prouver que l'ouverture arrive vraiment sur le plus récent.`,
+                created_at: new Date(Date.UTC(2026, 9, 2, 10, 30, index)).toISOString(),
+                target_profile_id: '22222222-2222-4222-8222-222222222222',
+                target_username: 'moi',
+              };
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_my_conversations', async route => {
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([{
+                  other_profile_id: directProfileId,
+                  other_username: 'profil-test',
+                  other_avatar_url: null,
+                  last_message_id: 7030,
+                  last_room_slug: 'place',
+                  last_body: 'Direct visuel 7030',
+                  last_created_at: new Date(Date.UTC(2026, 9, 2, 11, 58, 0)).toISOString(),
+                  last_shared_track_id: null,
+                  last_sale_offer_id: null,
+                }]),
+              });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_my_groups', async route => {
+              await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+            });
+            await page.route('**/rest/v1/rpc/keep_agora_direct_messages_v1', async route => {
+              const rows = syntheticDirectSentBody
+                ? [{
+                    id: 7031,
+                    room_slug: 'place',
+                    profile_id: '22222222-2222-4222-8222-222222222222',
+                    username: 'moi',
+                    kind: 'USER',
+                    body: syntheticDirectSentBody,
+                    created_at: new Date(Date.UTC(2026, 9, 2, 11, 59, 30)).toISOString(),
+                    target_profile_id: directProfileId,
+                    target_username: 'profil-test',
+                  }, ...syntheticDirectMessages.slice(0, 29)]
+                : syntheticDirectMessages;
+              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
             });
             await page.route('**/rest/v1/rpc/keep_agora_messages_v5', async route => {
               const rows = syntheticSentBody
@@ -156,8 +208,15 @@ jobs:
             });
             await page.route('**/rest/v1/rpc/keep_agora_post_message_v4', async route => {
               const payload = route.request().postDataJSON?.() || {};
-              syntheticSentBody = String(payload.p_body || 'Message test envoyé');
-              await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ messageId: 5031 }) });
+              const body = String(payload.p_body || 'Message test envoyé');
+              const direct = Boolean(payload.p_target_profile_id);
+              if (direct) syntheticDirectSentBody = body;
+              else syntheticSentBody = body;
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ messageId: direct ? 7031 : 5031 }),
+              });
             });
             await page.route('**/rest/v1/rpc/keep_agora_mark_room_read', async route => {
               await route.fulfill({ status: 200, contentType: 'application/json', body: 'true' });
@@ -202,6 +261,47 @@ jobs:
             }
             await page.getByPlaceholder('Rechercher une conversation…').waitFor({ state: 'visible', timeout: 10000 });
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-fullscreen-390x844.png', fullPage: true });
+
+            // Cas exact remonté : ouvrir une conversation privée depuis la liste
+            // (comme après un profil) doit afficher tout de suite le message le plus
+            // récent et un Envoi doit rester visible sans geste manuel.
+            await clickRobust(page.getByLabel('Ouvrir la conversation avec profil-test').last(), 'Open direct profile conversation');
+            const directThread = page.getByTestId('loki-chat-thread-scroll').last();
+            await directThread.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const directOpenedScroll = await directThread.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (directOpenedScroll.distance > 12) {
+              throw new Error(`Direct chat opened away from latest message: ${JSON.stringify(directOpenedScroll)}`);
+            }
+            const newestDirectBubble = page.getByText(/Direct visuel 7030/).last();
+            await newestDirectBubble.waitFor({ state: 'visible', timeout: 10000 });
+            const directMessage = 'Message direct test visible immédiatement';
+            const directInput = page.getByPlaceholder('Écris un message…').last();
+            await directInput.fill(directMessage);
+            await clickRobust(page.getByLabel('Envoyer le message').last(), 'Send direct profile chat message');
+            const directSentBubble = page.getByText(directMessage, { exact: true }).last();
+            await directSentBubble.waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(900);
+            const directSentScroll = await directThread.evaluate(el => ({
+              scrollTop: el.scrollTop,
+              scrollHeight: el.scrollHeight,
+              clientHeight: el.clientHeight,
+              distance: el.scrollHeight - el.clientHeight - el.scrollTop,
+            }));
+            if (directSentScroll.distance > 12) {
+              throw new Error(`Direct sent message not visible at latest: ${JSON.stringify(directSentScroll)}`);
+            }
+            const [directThreadBox, directSentBox] = await Promise.all([directThread.boundingBox(), directSentBubble.boundingBox()]);
+            if (!directThreadBox || !directSentBox || directSentBox.y < directThreadBox.y - 2 || directSentBox.y + directSentBox.height > directThreadBox.y + directThreadBox.height + 2) {
+              throw new Error(`Direct sent bubble is outside visible thread: ${JSON.stringify({ directThreadBox, directSentBox })}`);
+            }
+            await page.screenshot({ path: 'artifacts/real-browser/keep-chat-direct-latest-390x844.png', fullPage: true });
+            await clickRobust(page.getByLabel('Retour aux conversations').last(), 'Back to chat inbox');
 
             // Vérifie aussi le comportement visuel réel du fil : à l'ouverture
             // d'une conversation, on doit voir le message le plus récent, jamais
@@ -362,6 +462,8 @@ jobs:
               `BODY_BOX: ${JSON.stringify(bodyBox)}`,
               'CHAT_DRAWER_VISIBLE: PASS',
               'CHAT_FULLSCREEN_390x844: PASS',
+              'CHAT_DIRECT_PROFILE_OPENS_ON_LATEST: PASS',
+              'CHAT_DIRECT_SENT_BUBBLE_VISIBLE_WITHOUT_SWIPE: PASS',
               'CHAT_OPENS_ON_LATEST_MESSAGE: PASS',
               'CHAT_NEWEST_BUBBLE_VISIBLE_IN_VIEWPORT: PASS',
               'CHAT_FOLLOWS_BOTTOM_WHILE_TYPING: PASS',
