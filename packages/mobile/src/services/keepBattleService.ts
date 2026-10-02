@@ -179,6 +179,9 @@ export type KeepBattleGlobalLeaderboardEntry = {
   skillTier: string | null;
   isOnline: boolean;
   presenceThemeCode: string | null;
+  // Adel (02/10/2026) : abandons Battle + Solo (null tant que le serveur ne
+  // les fournit pas encore : rien n'est inventé).
+  abandons: number | null;
 };
 
 export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
@@ -196,6 +199,7 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
     skillTier: row.skill_tier ?? row.skillTier ?? null,
     isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
     presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
+    abandons: row.abandons == null ? null : Number(row.abandons),
   })).filter((row) => row.profileId);
 }
 

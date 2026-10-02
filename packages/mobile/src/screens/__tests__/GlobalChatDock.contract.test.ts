@@ -14,8 +14,9 @@ describe('global Loki messenger contract', () => {
   const service = read(__dirname, '..', '..', 'services', 'musicAgoraService.ts');
 
   it('mounts the chat once at application root, never only inside Profile', () => {
-    expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
-    expect(app).toContain('{authReady && user ? <GlobalChatDock /> : null}');
+    // Adel (02/10/2026) : un seul robot monté, à la racine ou dans l'aperçu ouvert.
+    expect(app).toContain("import { RootChatDock } from './src/components/ChatDockHost';");
+    expect(app).toContain('{authReady && user ? <RootChatDock /> : null}');
     expect(profile).not.toContain("import GlobalChatDock from '../components/GlobalChatDock';");
     expect(profile).not.toContain('<GlobalChatDock />');
   });

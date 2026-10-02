@@ -7,17 +7,17 @@ describe('Child-friendly home choices', () => {
   const parties = read('PartiesScreen.tsx');
   const music = read('MyMusicScreen.tsx');
 
-  it('keeps Soirées as a clean four-choice hub in the requested order', () => {
+  // Adel (02/10/2026) : le Classement Battle quitte Soirées (écran Battle).
+  it('keeps Soirées as a clean three-choice hub in the requested order', () => {
     const homeStart = parties.indexOf("{partyHome ? <View");
     const home = parties.slice(homeStart, homeStart + 7000);
     const create = home.indexOf('>Créer</Text>');
     const mine = home.indexOf('>Mes soirées</Text>');
     const invites = home.indexOf('>Invitations</Text>');
-    const ranking = home.indexOf('>Classement Battle</Text>');
     expect(create).toBeGreaterThan(-1);
     expect(mine).toBeGreaterThan(create);
     expect(invites).toBeGreaterThan(mine);
-    expect(ranking).toBeGreaterThan(invites);
+    expect(home).not.toContain('>Classement Battle</Text>');
     expect(home).not.toContain('Jouer au Battle');
     expect(parties).toContain('Tout comprendre sur Soirées');
     expect(parties).toContain('Tout faire dans Soirées');

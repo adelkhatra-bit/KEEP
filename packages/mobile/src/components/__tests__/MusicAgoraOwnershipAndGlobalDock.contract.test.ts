@@ -18,8 +18,9 @@ describe('Music Agora ownership + global dock contract', () => {
   const paidShare = read(repoRoot, 'supabase', 'migrations', '20261001215000_chat_paid_share_v4.sql');
 
   it('mounts exactly one app-wide dock outside individual screens', () => {
-    expect(app).toContain("import GlobalChatDock from './src/components/GlobalChatDock';");
-    expect(app).toContain('{authReady && user ? <GlobalChatDock /> : null}');
+    // Adel (02/10/2026) : un seul robot monté, à la racine ou dans l'aperçu ouvert.
+    expect(app).toContain("import { RootChatDock } from './src/components/ChatDockHost';");
+    expect(app).toContain('{authReady && user ? <RootChatDock /> : null}');
     expect(dock).toContain('PanResponder.create');
     expect(dock).toContain("side === 'left' ? styles.fabLeft : styles.fabRight");
     expect(dock).not.toContain('if (settings.homeEnabled) openChat()');

@@ -22,6 +22,17 @@ function chatNotificationSender(item: KeepNotification): string {
   return value || 'un membre Loki';
 }
 
+// Texte court de la languette : le message lui-même en privé, « groupe ·
+// @x a écrit » en groupe (le texte d'un groupe n'est pas dans la notification).
+function chatNotificationPreview(item: KeepNotification): string {
+  const type = String(item.type || '').toUpperCase();
+  const sender = chatNotificationSender(item);
+  const body = String(item.body || '').replace(/\s+/g, ' ').trim();
+  if (type === 'AGORA_GROUP_MESSAGE') return `${String(item.title || 'Groupe').trim()} · @${sender} a écrit`;
+  if (type === 'AGORA_GROUP_INVITE') return `@${sender} t’invite dans ${String(item.data?.groupName ?? item.data?.group_name ?? 'un groupe')}`;
+  return body ? `@${sender} : ${body}` : `Message de @${sender}`;
+}
+
 function chatNotificationTarget(item: KeepNotification) {
   const data = item.data ?? {};
   const roomSlugRaw = data.roomSlug ?? data.room_slug;
@@ -85,6 +96,8 @@ export default function GlobalChatDock() {
   const [chatSettingsReady, setChatSettingsReady] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestChatSender, setLatestChatSender] = useState('');
+  // Début du dernier message reçu, affiché quelques secondes dans la languette.
+  const [latestChatPreview, setLatestChatPreview] = useState('');
   const [webVisualViewport, setWebVisualViewport] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   // undefined = auth Supabase pas encore lue ; null = aucune session réelle.
   // Le chat ne doit jamais se fermer entre les deux simplement parce que le
@@ -287,6 +300,7 @@ export default function GlobalChatDock() {
       useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(notifications));
       const latest = unreadChat[0];
       setLatestChatSender(latest ? chatNotificationSender(latest) : '');
+      setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
       if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
       setChatSettingsReady(true);
     });
@@ -304,6 +318,7 @@ export default function GlobalChatDock() {
       if (unreadKey) useGlobalChatStore.getState().addUnread(unreadKey, item.id);
       flashEdge();
       setLatestChatSender(sender);
+      setLatestChatPreview(chatNotificationPreview(item));
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
       if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
@@ -411,12 +426,12 @@ export default function GlobalChatDock() {
     Animated.parallel([
       Animated.sequence([
         Animated.timing(nudge, { toValue: 1, duration: 260, useNativeDriver: false }),
-        Animated.delay(2900),
+        Animated.delay(4200),
         Animated.timing(nudge, { toValue: 0, duration: 320, useNativeDriver: false }),
       ]),
       Animated.sequence([
         Animated.spring(drawerPeek, { toValue: 1, useNativeDriver: true, friction: 7, tension: 90 }),
-        Animated.delay(2900),
+        Animated.delay(4200),
         Animated.spring(drawerPeek, { toValue: 0, useNativeDriver: true, friction: 8, tension: 80 }),
       ]),
     ]).start();
@@ -525,12 +540,12 @@ export default function GlobalChatDock() {
       return;
     }
 
-    const nextTarget = unreadCount > 0 ? target : null;
     setUnreadCount(0);
-    // Un tap sur la languette globale ne doit jamais rouvrir une ancienne
-    // conversation mémorisée. S'il y a un vrai message non lu, on ouvre ce
-    // fil précis ; sinon on revient à la liste des conversations récentes.
-    openChat(nextTarget);
+    // Adel (02/10/2026) : « quand je clique sur le robot, pourquoi il m'ouvre
+    // direct une conversation ? Je suis occupé, je veux juste voir ». Le robot
+    // ouvre TOUJOURS la liste ; les conversations non lues y sont allumées.
+    // (Toucher une notification précise ouvre toujours son fil.)
+    openChat(null);
 
     if (!chatEnabled && !chatSaving) {
       setChatEnabled(true);
@@ -769,20 +784,28 @@ export default function GlobalChatDock() {
 
       {!open && unreadCount > 0 ? (
         <Animated.View
-          pointerEvents="none"
+          pointerEvents="box-none"
           style={[
             styles.chatNudge,
             side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight,
             {
               bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)) + 7,
               opacity: nudge,
-              width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 168] }),
+              width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 232] }),
             },
           ]}
         >
-          <Text style={styles.chatNudgeText} numberOfLines={1}>
-            {latestChatSender ? `Message de @${latestChatSender}` : `${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`}
-          </Text>
+          <TouchableOpacity
+            testID="loki-chat-nudge"
+            onPress={() => { void toggle(); }}
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir la messagerie"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.chatNudgeText} numberOfLines={1}>
+              {latestChatPreview || (latestChatSender ? `Message de @${latestChatSender}` : `${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`)}
+            </Text>
+          </TouchableOpacity>
         </Animated.View>
       ) : null}
 
@@ -881,7 +904,7 @@ const styles = StyleSheet.create({
   chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
-  chatNudgeText:{minWidth:168,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
+  chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
 
   fabWrap:{position:'absolute',zIndex:90,elevation:30},
   fabLeft:{left:0},

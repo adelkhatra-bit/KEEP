@@ -24,7 +24,7 @@ import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKee
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -227,6 +227,9 @@ function RevealArtwork({ uri }: { uri: string }) {
 
 type Props = {
   enabled: boolean;
+  // Adel (02/10/2026) : le Classement Battle quitte Soirées et vit ici, sous
+  // le format (bouton « 🏆 CLASSEMENT »), ouvert par l'écran hôte.
+  onOpenLeaderboard?: () => void;
   onOpenProfile: (username: string) => void;
   onRequireAccount?: () => void;
   onExit?: () => void;
@@ -320,7 +323,7 @@ const handledOutgoingIds = new Set<string>();
 // relance "Jouer solo" ou "Battle en ligne" après avoir fermé une arène).
 const autoJoinedChallengeIds = new Set<string>();
 
-export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenOffers }: Props) {
+export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenOffers, onOpenLeaderboard }: Props) {
   const [homeHelpOpen, setHomeHelpOpen] = React.useState(false);
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
@@ -1920,7 +1923,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   };
   const renderMyPreferencesPicker = () => (
     <>
-      <TouchableOpacity style={s.prefsSummaryButton} onPress={() => setPrefsPickerOpen(true)}>
+      <TouchableOpacity style={s.prefsSummaryButton} onPress={() => setPrefsPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Modifier mes styles Battle">
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.prefsSummaryLabel}>STYLES BATTLE · 3 MAX</Text>
           <Text numberOfLines={1} style={s.prefsSummaryValue}>{prefsSaving ? 'Enregistrement…' : myPreferredThemesLabel()}</Text>
@@ -1928,8 +1931,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text numberOfLines={1} style={s.prefsSummaryHint}>Mix aléatoire de tes styles sélectionnés</Text>
           ) : null}
         </View>
-        <Text style={s.prefsSummaryChevron}>›</Text>
+        {/* Adel (02/10/2026) : un joueur ne savait pas que la case était cliquable. */}
+        <Text style={s.prefsEditPill}>MODIFIER ›</Text>
       </TouchableOpacity>
+      {onOpenLeaderboard ? (
+        <TouchableOpacity style={s.leaderboardEntry} onPress={onOpenLeaderboard} accessibilityRole="button" accessibilityLabel="Ouvrir le classement Battle">
+          <Text style={s.leaderboardEntryText}>🏆 CLASSEMENT</Text>
+          <Text style={s.leaderboardEntryHint}>Podium, victoires, abandons</Text>
+        </TouchableOpacity>
+      ) : null}
       <Modal visible={prefsPickerOpen} transparent animationType="fade" onRequestClose={() => setPrefsPickerOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
@@ -2309,7 +2319,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const stake = stakeForRounds(arena.roundCount);
     Alert.alert(
       'Quitter le Battle ?',
-      `La partie est en cours. Si tu quittes maintenant, tu perds le Battle et ${stake} Free seront débités.`,
+      `La partie est en cours. Si tu quittes maintenant, tu perds le Battle et ${stake} Free seront débités. ${ABANDON_RANKING_NOTE}`,
       [
         { text: 'RESTER', style: 'cancel' },
         { text: `QUITTER · -${stake} FREE`, style: 'destructive', onPress: closeBattleArenaNow },
@@ -3124,6 +3134,7 @@ const s = StyleSheet.create({
   statsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 18 }, statsCard: { width: '100%', maxWidth: 400, borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' }, statsClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 }, statsCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' }, statsUsername: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 14, paddingRight: 40 }, statsBigRow: { flexDirection: 'row', gap: 8 }, statsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#1B1422' }, statsBigValue: { color: '#E5F266', fontSize: 22, fontWeight: '900' }, statsBigLabel: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, statsSmallRow: { flexDirection: 'row', gap: 6, marginTop: 6 }, statsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 12, backgroundColor: '#17121D' }, statsSmallValue: { color: '#FFF', fontSize: 13, fontWeight: '900' }, statsSmallValueLost: { color: colors.danger }, statsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' }, statsAvg: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12 }, statsSectionTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 20, marginBottom: 8 }, statsThemeRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#1B1422', marginBottom: 6 }, statsThemeLabel: { color: '#FFF', fontSize: 12, fontWeight: '900' }, statsThemeValue: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, statsThemeEmpty: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700' }, statsActionsRow: { flexDirection: 'row', gap: 8, marginTop: 18 }, statsFollowButton: { flex: 1, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsFollowButtonText: { color: '#8B5CF6', fontSize: 11, fontWeight: '900' }, statsProfileButtonSmall: { flex: 1, minHeight: 48, borderRadius: 24, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsProfileButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, statsChallengeDisabled: { opacity: 0.5 }, statsChallengeDisabledText: { color: colors.warning },
   playerStatsContainer: { marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A' }, playerStatsBigRow: { flexDirection: 'row', gap: 6, marginBottom: 8 }, playerStatsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#1B1422' }, playerStatsBigValue: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' }, playerStatsBigLabel: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, playerStatsSmallRow: { flexDirection: 'row', gap: 5 }, playerStatsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, backgroundColor: '#1B1422' }, playerStatsSmallValue: { color: '#FFF', fontSize: 12, fontWeight: '900' }, playerStatsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' },
   dailyFreeReset:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,textAlign:'center',marginTop:6},
+  prefsEditPill: { color: '#FFFFFF', backgroundColor: colors.primary, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900', letterSpacing: .4 }, leaderboardEntry: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(255,180,84,.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, marginBottom: 10 }, leaderboardEntryText: { color: colors.warning, fontSize: 13, fontWeight: '900', letterSpacing: .5 }, leaderboardEntryHint: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700' },
   prefsSummaryButton: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 14, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A', marginBottom: 10 }, prefsSummaryLabel: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .8 }, prefsSummaryValue: { color: '#FFF', fontSize: 13, fontWeight: '800', marginTop: 2 }, prefsSummaryHint: { color: colors.success, fontSize: 11, fontWeight: '800', marginTop: 3 }, prefsSummaryChevron: { color: '#8F879D', fontSize: 20, fontWeight: '900' }, prefsPickerHint: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700', marginBottom: 12 }, prefsPickerScroll: { maxHeight: 320, marginBottom: 14 }, prefsPickerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 4 }, prefsPickerCheckbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.primary, textAlign: 'center', lineHeight: 19, color: '#17130B', fontSize: 13, fontWeight: '900' }, prefsPickerCheckboxOn: { backgroundColor: colors.primary, borderColor: colors.primaryLight }, prefsPickerRowText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   arenaInvitePanel: { maxHeight: 290, marginBottom: 8, padding: 10, borderRadius: 18, borderWidth: 1, borderColor: '#4A3C55', backgroundColor: '#120E17' }, arenaInviteTitle: { color: '#E5F266', fontSize: 12, fontWeight: '900', marginBottom: 8 }, arenaInviteScroll: { maxHeight: 190 }, arenaInviteList: { gap: 7 }, arenaInviteRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, padding: 7, borderRadius: 15, backgroundColor: '#1B1422' }, arenaInviteName: { color: '#FFF', fontSize: 14, fontWeight: '900' }, arenaInviteMeta: { color: colors.success, fontSize: 11, fontWeight: '800', marginTop: 2 }, arenaInviteMetaShort: { color: colors.danger }, arenaInviteButton: { minWidth: 94, minHeight: 52, paddingHorizontal: 13, borderRadius: 26, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' }, arenaInviteButtonText: { color: '#17130B', fontSize: 12, fontWeight: '900' }, arenaInviteEmpty: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', paddingVertical: 14 }, arenaShareButton: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#4A3C55', alignItems: 'center', justifyContent: 'center', marginTop: 8 }, arenaShareButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
   perfectBonusCard: { marginTop: 10, marginBottom: 2, borderRadius: 26, borderWidth: 2, backgroundColor: '#17130B', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, paddingHorizontal: 18, overflow: 'hidden' },

@@ -1,3 +1,4 @@
+import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -376,6 +377,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             </ScrollView>
           </View>
         </View>
+        <ChatDockHost active={storeOpen} />
       </Modal>
     </View>
   );

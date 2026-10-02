@@ -10,8 +10,9 @@ describe('Loki chat recent-thread ordering', () => {
   const service = read(__dirname, '..', '..', 'services', 'musicAgoraService.ts');
 
   it('does not reopen a stale thread from the global chat drawer', () => {
-    expect(dock).toContain('const nextTarget = unreadCount > 0 ? target : null;');
-    expect(dock).toContain('openChat(nextTarget);');
+    // Adel (02/10/2026) : le robot ouvre toujours la liste des conversations.
+    expect(dock).toContain('openChat(null);');
+    expect(dock).not.toContain('openChat(nextTarget);');
   });
 
   it('sorts direct and group inbox entries together by most recent activity', () => {

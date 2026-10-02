@@ -1,3 +1,4 @@
+import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
@@ -430,6 +431,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           </View>
         </View>
       </View>
+      <ChatDockHost active={visible} />
     </Modal>
   );
 }

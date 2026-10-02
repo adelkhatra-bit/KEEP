@@ -17,9 +17,15 @@ describe('Soirées → Battle direct entry', () => {
     expect(source).not.toContain('<Text style={styles.battleLauncherTitle}>Salon musical</Text>');
   });
 
-  it('keeps global Battle ranking as an optional dropdown in Soirées', () => {
+  // Adel (02/10/2026) : « le classement n'a rien à faire dans les Soirées » :
+  // bouton 🏆 CLASSEMENT dans l'écran Battle, sous le format.
+  it('opens the global Battle ranking from the Battle screen, not Soirées', () => {
+    const game = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
     expect(source).toContain('const [battleSummaryOpen, setBattleSummaryOpen] = useState(false);');
-    expect(source).toContain('<Text style={styles.partyHomeTitle}>Classement Battle</Text>');
-    expect(source).toContain('{battleSummaryOpen ? renderLeaderboard() : null}');
+    expect(source).toContain('onOpenLeaderboard={() => setBattleSummaryOpen(true)}');
+    expect(source).toContain('<ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>');
+    expect(source).not.toContain('<Text style={styles.partyHomeTitle}>Classement Battle</Text>');
+    expect(game).toContain('accessibilityLabel="Ouvrir le classement Battle"');
+    expect(game).toContain('<Text style={s.prefsEditPill}>MODIFIER ›</Text>');
   });
 });

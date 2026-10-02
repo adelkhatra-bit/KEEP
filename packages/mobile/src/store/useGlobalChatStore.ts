@@ -30,6 +30,12 @@ type GlobalChatState = {
   setUnreadByTarget: (map: Record<string, string[]>) => void;
   addUnread: (key: string, notificationId: string) => void;
   consumeUnread: (key: string) => string[];
+  // Fenêtres d'aperçu ouvertes (Loki Pulse, Drop, boutique) qui affichent le
+  // robot À L'INTÉRIEUR d'elles-mêmes : la dernière ouverte l'héberge, le
+  // robot de l'écran principal se retire (jamais deux robots montés).
+  chatHosts: string[];
+  pushChatHost: (id: string) => void;
+  popChatHost: (id: string) => void;
 };
 
 export const useGlobalChatStore = create<GlobalChatState>((set, get) => ({
@@ -54,6 +60,9 @@ export const useGlobalChatStore = create<GlobalChatState>((set, get) => ({
     if (current.includes(notificationId)) return state;
     return { unreadByTarget: { ...state.unreadByTarget, [key]: [...current, notificationId] } };
   }),
+  chatHosts: [],
+  pushChatHost: (id) => set((state) => ({ chatHosts: [...state.chatHosts.filter((h) => h !== id), id] })),
+  popChatHost: (id) => set((state) => ({ chatHosts: state.chatHosts.filter((h) => h !== id) })),
   consumeUnread: (key) => {
     const ids = get().unreadByTarget[key] ?? [];
     if (!ids.length) return [];

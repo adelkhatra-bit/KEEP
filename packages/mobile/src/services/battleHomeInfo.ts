@@ -129,11 +129,15 @@ export function soloCostNotice(status: SoloDailyStatusLike | null): string | nul
 // `status` = statut serveur APRES l'engagement du premier audio : remaining
 // contient déjà le Solo consommé. Ne jamais soustraire une seconde fois dans
 // le message de sortie.
+// Adel (02/10/2026, retour d'un joueur) : dire aussi qu'abandonner pèse sur
+// le classement — les abandons y sont comptés.
+export const ABANDON_RANKING_NOTE = 'Abandonner compte aussi dans ton classement : va au bout de tes parties pour garder une bonne place.';
+
 export function soloQuitNotice(status: SoloDailyStatusLike | null): string {
-  if (!status || status.unlimited) return 'Ta partie en cours sera perdue (aucun Free gagné).';
+  if (!status || status.unlimited) return `Ta partie en cours sera perdue (aucun Free gagné). ${ABANDON_RANKING_NOTE}`;
   const limit = Math.max(0, status.limit ?? 0);
   const left = Math.max(0, status.remaining ?? 0);
-  return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie.`;
+  return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie. ${ABANDON_RANKING_NOTE}`;
 }
 
 // Adel (29/09/2026) : « qu'on sache pourquoi on a gagné… même résultat

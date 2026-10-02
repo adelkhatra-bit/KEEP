@@ -1006,7 +1006,11 @@ export default function ProfilePublicScreen({ navigation }: any) {
         'Loki Pulse',
         message.includes('CREDITS_EXHAUSTED')
           ? `Il te faut ${freeCostPerKeep} FREE pour garder ce morceau sur ton profil.`
-          : 'Impossible d’ajouter ce morceau pour le moment.',
+          : message.includes('SELF_KEEP_NOT_ALLOWED')
+            ? 'C’est déjà ton propre morceau.'
+            : message.includes('KEEP_SERVER_NOT_CONFIRMED')
+              ? 'Le serveur n’a pas confirmé l’ajout (connexion lente). Réessaie dans un instant : un morceau déjà gardé n’est jamais débité deux fois.'
+              : 'Impossible d’ajouter ce morceau pour le moment.',
       );
       return false;
     }

@@ -1,3 +1,4 @@
+import ChatDockHost from './ChatDockHost';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -716,6 +717,7 @@ export default function MusicSwipeDeckModal({
         </View>
       </Modal> : null}
     </SafeAreaView>
+  <ChatDockHost active={visible} />
   </Modal>;
 }
 

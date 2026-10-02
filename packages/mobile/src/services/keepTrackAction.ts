@@ -37,8 +37,17 @@ export async function commitKeep(
     consumeCredit?: boolean;
   }
 ): Promise<CommitKeepResult> {
-  const session = await musicEngine.getSession();
   const userState = useUserStore.getState();
+  const realAccount = !userState.isDemoMode && !userState.isLocalGuest;
+  // Adel (02/10/2026) : « Loki Pulse : impossible d'ajouter ce morceau ».
+  // Cause : GARDER exigeait une session Apple Music (getSession lève
+  // « Apple Music non connecté ») AVANT la décision serveur. Or le GARDER
+  // Loki (anti-doublon + débit FREE + profil) est entièrement serveur ;
+  // Apple Music n'est qu'une copie optionnelle. Sans Apple Music, un compte
+  // réel garde donc normalement, sans copie fournisseur.
+  const session = realAccount
+    ? await musicEngine.getSession().catch(() => null)
+    : await musicEngine.getSession();
   const sourceProfileId = typeof options?.context?.sourceProfileId === 'string' ? options.context.sourceProfileId.trim() : '';
   if (sourceProfileId && sourceProfileId === userState.user?.id) {
     throw new Error('SELF_KEEP_NOT_ALLOWED');
@@ -71,6 +80,31 @@ export async function commitKeep(
   const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
+
+  if (!session) {
+    const playlistName = recommendations[0]?.playlistName?.trim() || 'Mes Gardés';
+    const recorded = await recordKeepDecision(track, visibility, {
+      ...(options?.context ?? {}),
+      creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
+      playback: {
+        previewUrl: track.previewUrl ?? null,
+        availableOn: track.availableOn ?? [],
+        externalUrls: track.externalUrls ?? {},
+      },
+      playlist: { provider: 'KEEP', providerPlaylistId: 'keep-profile', name: playlistName },
+    });
+    if (!recorded?.decisionId || !recorded?.trackId) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    await usePlaylistStore.getState().refresh().catch(() => {});
+    return {
+      targetPlaylistId: 'keep-profile',
+      playlistName,
+      downloaded: false,
+      visibility,
+      keepDecisionId: recorded.decisionId,
+      profileSyncFailed: false,
+      alreadyKept: false,
+    };
+  }
 
   const playlistsBefore = await withRetry(() => musicEngine.musicProvider.getPlaylists(session));
   const requestedId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;

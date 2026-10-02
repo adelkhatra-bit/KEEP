@@ -7,7 +7,7 @@ import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
-import GlobalChatDock from './src/components/GlobalChatDock';
+import { RootChatDock } from './src/components/ChatDockHost';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
@@ -485,7 +485,7 @@ export default function App() {
         </View>
       )}
       {authReady && user ? <GlobalNotificationBanner /> : null}
-      {authReady && user ? <GlobalChatDock /> : null}
+      {authReady && user ? <RootChatDock /> : null}
       <AppUpdateBanner authReady={authReady} />
       <AlertHost />
       <AccountGateModal />

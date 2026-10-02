@@ -526,8 +526,7 @@ const chatUnreadJourney = {
     r.contour_bouton = await page.locator('[data-testid="loki-chat-unread-glow"]').count();
     await shot('bouton');
     await open.click({ force: true });
-    // Le bouton ouvre directement la conversation du dernier message non lu
-    // (ici le message privé) : elle est lue, puis on revient à la liste.
+    // Le robot ouvre toujours la liste (Adel 02/10/2026).
     await page.waitForTimeout(1500);
     r.lues_a_l_ouverture = [...sb.state.readNotifications].sort();
     const back = page.locator('[aria-label="Retour aux conversations"]').first();
@@ -544,11 +543,12 @@ const chatUnreadJourney = {
     const checks = [
       ['compteur du bouton = 3 messages (l’annonce « Tchat disponible » ne compte pas)', /\b3\b/.test(r.badge) && !/\b4\b/.test(r.badge)],
       ['contour lumineux sur le bouton du tchat', r.contour_bouton === 1],
-      ['ouvrir le tchat lit la conversation du dernier message (privé)', r.lues_a_l_ouverture.join(',') === 'n-d1'],
-      ['de retour à la liste : seul le groupe reste allumé, avec 2', r.lignes_allumees === 1 && /\b2\b/.test(r.ligne_groupe_texte)],
-      ['ouvrir le groupe marque ses 2 messages lus', r.lues_apres_ouverture.join(',') === 'n-d1,n-g1,n-g2'],
+      ['le robot ouvre la LISTE : rien n’est marqué lu sans ouvrir une conversation', r.lues_a_l_ouverture.length === 0],
+      ['la liste est affichée (pas de conversation ouverte)', r.retour_ok === true],
+      ['2 conversations allumées (groupe + privé)', r.lignes_allumees === 2],
+      ['ouvrir le groupe marque seulement ses 2 messages lus', r.lues_apres_ouverture.join(',') === 'n-g1,n-g2'],
     ];
-    return { details: r, failures: failed(checks), ok: `compteur 3, contour allumé, privé lu à l’ouverture, groupe allumé (2) puis lu` };
+    return { details: r, failures: failed(checks), ok: `compteur 3, contour allumé, liste avec 2 conversations allumées, groupe lu à l’ouverture` };
   },
 };
 

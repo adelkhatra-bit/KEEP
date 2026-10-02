@@ -1011,29 +1011,6 @@ export default function PartiesScreen({ navigation, route }: any) {
     : eventAccess?.unlimited && canCreate ? '＋ ILLIMITÉ'
       : eventAccess?.planCode === 'CREATOR_PRO' ? (canCreate ? `＋ ${eventAccess.limit ?? 1} / MOIS` : '🔒 LIMITE') : '🔒 CRÉER';
 
-  if (battleOpen) {
-    return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
-      <View style={styles.battleFullscreen}>
-        <KeepBattleArenaPanel
-          enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
-          initialArenaId={pendingArenaId}
-          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
-          onRequireAccount={() => Alert.alert(
-            'Compte Loki Music requis',
-            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
-            [
-              { text: 'Plus tard', style: 'cancel' },
-              { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
-            ],
-          )}
-          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
-          onOpenOffers={() => navigation.navigate('Offers', { sourceFeature: 'BATTLE_FREE' })}
-          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
-        />
-      </View>
-</SafeAreaView>;
-  }
-
   // Refonte Soirées (spec Adel 22/09/2026) : le classement (podium + ligne
   // utilisateur surlignée violet) est partagé entre l'onglet BATTLE et le
   // sous-onglet CLASSEMENT d'un événement -- une seule source de rendu.
@@ -1091,7 +1068,7 @@ export default function PartiesScreen({ navigation, route }: any) {
                 ) : null}
               </View>
               <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
-              <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}</Text>
+              <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}{entry.abandons != null ? ` · ${entry.abandons} abandon${entry.abandons > 1 ? 's' : ''}` : ''}</Text>
               <Text style={styles.leaderboardChevron}>›</Text>
             </TouchableOpacity>
           ))}
@@ -1100,6 +1077,192 @@ export default function PartiesScreen({ navigation, route }: any) {
       ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
     </>
   );
+
+  // Fenêtres « stats d'un joueur » et « mon classement » : une seule source,
+  // utilisée par Soirées et par l'écran Battle (Adel 02/10/2026).
+  const renderRankingModals = () => (
+    <>
+    <Modal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
+      <View style={styles.statsBackdrop}>
+        <View style={styles.statsCard}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setStatsEntry(null)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
+          {statsEntry ? (
+            <>
+              <View style={styles.statsUsernameRow}><Text style={styles.statsUsername}>{statsEntry.username}</Text>{leaderboardTiers[statsEntry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[statsEntry.profileId]} compact /> : null}</View>
+              {statsLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 20 }} /> : (
+                <>
+                  <View style={styles.statsBigRow}>
+                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
+                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
+                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
+                  </View>
+                  {statsData ? <>
+                    <View style={styles.statsSmallRow}>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>FREE gagnés aujourd’hui</Text></View>
+                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>FREE perdus aujourd’hui</Text></View>
+                    </View>
+                    <Text style={styles.statsSectionTitle}>FREE DU JOUR · RESET 02:00</Text>
+                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Depuis 02:00 aujourd’hui</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={{color: colors.keep, fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
+                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE gagnés aujourd’hui</Text>
+                          <Text style={{color: colors.keep, fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE perdus aujourd’hui</Text>
+                          <Text style={{color: colors.pass, fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </> : null}
+                  {(statsData?.avgResponseMs ?? statsEntry.avgResponseMs) != null ? (
+                    <Text style={styles.statsAvg}>⚡ {(((statsData?.avgResponseMs ?? statsEntry.avgResponseMs) as number) / 1000).toFixed(1)}s de temps de réponse moyen</Text>
+                  ) : null}
+                  <Text style={styles.statsSectionTitle}>STYLES OÙ IL EST IMBATTABLE</Text>
+                  {statsData?.topThemes?.length ? statsData.topThemes.map((t) => (
+                    <View key={t.themeCode} style={styles.statsThemeRow}>
+                      <Text style={styles.statsThemeLabel}>🎯 {themeLabels[t.themeCode] || t.themeCode}</Text>
+                      <Text style={styles.statsThemeValue}>{t.wins} victoire{t.wins > 1 ? 's' : ''} · {t.matches} match{t.matches > 1 ? 's' : ''}</Text>
+                    </View>
+                  )) : <Text style={styles.statsThemeEmpty}>Pas encore assez de matchs pour dégager un style dominant.</Text>}
+                  <View style={styles.statsActionsRow}>
+                    <TouchableOpacity style={styles.statsProfileButtonSmall} onPress={() => { navigation.navigate('PublicProfile', { username: statsEntry.username }); setStatsEntry(null); }}>
+                      <Text style={styles.statsProfileButtonText}>VOIR PROFIL</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+
+    <Modal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
+      <View style={styles.statsBackdrop}><View style={styles.myRankingCard}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setMyRankingOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
+        <Text style={styles.statsUsername}>MON CLASSEMENT</Text>
+        {myRankingLoading ? <ActivityIndicator color={colors.primaryLight} /> : <ScrollView showsVerticalScrollIndicator={false}>
+          {(() => {
+            const index = leaderboard.findIndex((entry) => entry.profileId === user?.id);
+            const mine = index >= 0 ? leaderboard[index] : null;
+            return <>
+              <View style={styles.statsBigRow}>
+                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang global</Text></View>
+                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{mine?.wins ?? 0}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
+                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
+              </View>
+              {myFreeBreakdown ? <>
+                <Text style={styles.statsSectionTitle}>SOURCES DES FREE</Text>
+                {myFreeBreakdown.guestLimit > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🎁 Essai invité</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit}</Text></View> : null}
+                {myFreeBreakdown.signupBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🆕 Bonus inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.signupBonus}</Text></View> : null}
+                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>👥 Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
+                {myFreeBreakdown.followerBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⭐ Followers bonus</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
+                {myFreeBreakdown.monthlyBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>📅 Bonus mensuel</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
+                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Music Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
+                {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
+                {myFreeBreakdown.adminGrant > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🛡️ Admin grant</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.adminGrant}</Text></View> : null}
+                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
+                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🔒 Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
+                <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
+                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
+                  const matchId = `match-${event.createdAt}-${index}`;
+                  const isExpanded = expandedMatchId === matchId;
+                  const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
+                  const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
+                  const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                  return <View key={matchId}>
+                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
+                      <View style={{flex: 1}}>
+                        <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
+                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
+                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {isExpanded ? (
+                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Type</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
+                        </View>
+                        {event.themeCode ? (
+                          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                            <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Style</Text>
+                            <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
+                          </View>
+                        ) : null}
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
+                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
+                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>;
+                }) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
+              </> : <Text style={styles.statsThemeEmpty}>Historique indisponible. Réessaie dans un instant.</Text>}
+            </>;
+          })()}
+        </ScrollView>}
+      </View></View>
+    </Modal>
+
+    </>
+  );
+
+  if (battleOpen) {
+    return <SafeAreaView style={styles.container}><PersonalThemeBackdrop />
+      <View style={styles.battleFullscreen}>
+        <KeepBattleArenaPanel
+          enabled={Boolean(user && !isLocalGuest && !isDemoMode)}
+          initialArenaId={pendingArenaId}
+          onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
+          onRequireAccount={() => Alert.alert(
+            'Compte Loki Music requis',
+            'Le mode invité permet d’écouter et de visiter des profils, mais Loki Music Battle est réservé aux comptes créés. Crée ton compte (pseudo + mot de passe + e-mail) : tu reçois +20 Free offerts et tu peux jouer, gagner des Free et construire ta communauté musicale.',
+            [
+              { text: 'Plus tard', style: 'cancel' },
+              { text: 'Créer mon compte', onPress: () => useAccountGateStore.getState().requestAccount('create') },
+            ],
+          )}
+          onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
+          onOpenOffers={() => navigation.navigate('Offers', { sourceFeature: 'BATTLE_FREE' })}
+          onOpenLeaderboard={() => setBattleSummaryOpen(true)}
+          onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
+        />
+      </View>
+      <Modal visible={battleSummaryOpen} transparent animationType="slide" onRequestClose={() => setBattleSummaryOpen(false)}>
+        <View style={styles.backdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🏆 Classement Battle</Text>
+              <TouchableOpacity onPress={() => setBattleSummaryOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer le classement"><Text style={styles.close}>Fermer</Text></TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>
+          </View>
+        </View>
+      </Modal>
+      {renderRankingModals()}
+</SafeAreaView>;
+  }
 
   // Refonte Soirées (spec Adel 22/09/2026) : sous-onglet CLASSEMENT d'un
   // événement -- podium (🥇🥈🥉) des PARTICIPANTS de la soirée en cours, mêmes
@@ -1277,20 +1440,8 @@ export default function PartiesScreen({ navigation, route }: any) {
           <TouchableOpacity style={[styles.partyHomeChoice, styles.partyHomeChoicePrimary]} onPress={() => void openCreate()} accessibilityLabel="Créer une soirée"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>＋</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Créer</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes soirées"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>▣</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Mes soirées</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
           <TouchableOpacity style={styles.partyHomeChoice} onPress={() => { setPartyHome(false); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Voir mes invitations"><View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>✓</Text></View><View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Invitations</Text></View><Text style={styles.partyHomeArrow}>›</Text></TouchableOpacity>
-          {battleFeatureEnabled ? <>
-            <TouchableOpacity
-              style={styles.partyHomeChoice}
-              onPress={() => setBattleSummaryOpen((value) => !value)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: battleSummaryOpen }}
-              accessibilityLabel={battleSummaryOpen ? 'Masquer le classement Battle' : 'Afficher le classement Battle'}
-            >
-              <View style={styles.partyHomeIcon}><Text style={styles.partyHomeIconText}>🏆</Text></View>
-              <View style={styles.partyHomeCopy}><Text style={styles.partyHomeTitle}>Classement Battle</Text><Text style={styles.partyHomeMeta}>Podium, victoires et statistiques</Text></View>
-              <Text style={styles.partyHomeArrow}>{battleSummaryOpen ? '⌃' : '⌄'}</Text>
-            </TouchableOpacity>
-            {battleSummaryOpen ? renderLeaderboard() : null}
-          </> : null}
+          {/* Adel (02/10/2026) : le Classement Battle n'a rien à faire dans
+              Soirées ; il est dans l'écran Battle (bouton 🏆 CLASSEMENT). */}
         </View> : <>
         <StandardBackButton label="Soirées" onPress={() => { setPartyHome(true); setPartySection('EVENT'); setEventTab('LOBBY'); }} accessibilityLabel="Retour aux rubriques Soirées" />
           
@@ -1459,149 +1610,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       </> : null}
     </ScrollView>
 
-    <Modal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
-      <View style={styles.statsBackdrop}>
-        <View style={styles.statsCard}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setStatsEntry(null)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
-          {statsEntry ? (
-            <>
-              <View style={styles.statsUsernameRow}><Text style={styles.statsUsername}>{statsEntry.username}</Text>{leaderboardTiers[statsEntry.profileId] ? <ProfileCertificationBadge tier={leaderboardTiers[statsEntry.profileId]} compact /> : null}</View>
-              {statsLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 20 }} /> : (
-                <>
-                  <View style={styles.statsBigRow}>
-                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
-                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
-                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
-                  </View>
-                  {statsData ? <>
-                    <View style={styles.statsSmallRow}>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>👥 {statsData.followers}</Text><Text style={styles.statsSmallLabel}>Abonnés</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🎁 {statsData.freeBalance}</Text><Text style={styles.statsSmallLabel}>Free restant</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>🏆 {statsData.freeWon}</Text><Text style={styles.statsSmallLabel}>FREE gagnés aujourd’hui</Text></View>
-                      <View style={styles.statsSmallItem}><Text style={styles.statsSmallValue}>↘ {statsData.freeLost}</Text><Text style={styles.statsSmallLabel}>FREE perdus aujourd’hui</Text></View>
-                    </View>
-                    <Text style={styles.statsSectionTitle}>FREE DU JOUR · RESET 02:00</Text>
-                    <TouchableOpacity style={[styles.creditHistoryRow, Boolean(expandedMatchId === `user-free-${statsEntry?.profileId}`) && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(expandedMatchId === `user-free-${statsEntry?.profileId}` ? null : `user-free-${statsEntry?.profileId}`)}>
-                      <View style={{flex: 1}}>
-                        <Text style={styles.creditHistoryLabel}>💰 Bilan Battle</Text>
-                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>Depuis 02:00 aujourd’hui</Text>
-                      </View>
-                      <View style={{alignItems: 'flex-end'}}>
-                        <Text style={{color: colors.keep, fontSize: 12, fontWeight: '900'}}>+{statsData.freeWon}</Text>
-                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{expandedMatchId === `user-free-${statsEntry?.profileId}` ? '▼' : '▶'}</Text>
-                      </View>
-                    </TouchableOpacity>
-                    {expandedMatchId === `user-free-${statsEntry?.profileId}` ? (
-                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE gagnés aujourd’hui</Text>
-                          <Text style={{color: colors.keep, fontSize: 11, fontWeight: '700'}}>+{statsData.freeWon}</Text>
-                        </View>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>FREE perdus aujourd’hui</Text>
-                          <Text style={{color: colors.pass, fontSize: 11, fontWeight: '700'}}>−{statsData.freeLost}</Text>
-                        </View>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Bilan net</Text>
-                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{statsData.freeWon - statsData.freeLost >= 0 ? '+' : ''}{statsData.freeWon - statsData.freeLost}</Text>
-                        </View>
-                      </View>
-                    ) : null}
-                  </> : null}
-                  {(statsData?.avgResponseMs ?? statsEntry.avgResponseMs) != null ? (
-                    <Text style={styles.statsAvg}>⚡ {(((statsData?.avgResponseMs ?? statsEntry.avgResponseMs) as number) / 1000).toFixed(1)}s de temps de réponse moyen</Text>
-                  ) : null}
-                  <Text style={styles.statsSectionTitle}>STYLES OÙ IL EST IMBATTABLE</Text>
-                  {statsData?.topThemes?.length ? statsData.topThemes.map((t) => (
-                    <View key={t.themeCode} style={styles.statsThemeRow}>
-                      <Text style={styles.statsThemeLabel}>🎯 {themeLabels[t.themeCode] || t.themeCode}</Text>
-                      <Text style={styles.statsThemeValue}>{t.wins} victoire{t.wins > 1 ? 's' : ''} · {t.matches} match{t.matches > 1 ? 's' : ''}</Text>
-                    </View>
-                  )) : <Text style={styles.statsThemeEmpty}>Pas encore assez de matchs pour dégager un style dominant.</Text>}
-                  <View style={styles.statsActionsRow}>
-                    <TouchableOpacity style={styles.statsProfileButtonSmall} onPress={() => { navigation.navigate('PublicProfile', { username: statsEntry.username }); setStatsEntry(null); }}>
-                      <Text style={styles.statsProfileButtonText}>VOIR PROFIL</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </>
-          ) : null}
-        </View>
-      </View>
-    </Modal>
-
-    <Modal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
-      <View style={styles.statsBackdrop}><View style={styles.myRankingCard}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setMyRankingOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
-        <Text style={styles.statsUsername}>MON CLASSEMENT</Text>
-        {myRankingLoading ? <ActivityIndicator color={colors.primaryLight} /> : <ScrollView showsVerticalScrollIndicator={false}>
-          {(() => {
-            const index = leaderboard.findIndex((entry) => entry.profileId === user?.id);
-            const mine = index >= 0 ? leaderboard[index] : null;
-            return <>
-              <View style={styles.statsBigRow}>
-                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang global</Text></View>
-                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{mine?.wins ?? 0}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
-                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
-              </View>
-              {myFreeBreakdown ? <>
-                <Text style={styles.statsSectionTitle}>SOURCES DES FREE</Text>
-                {myFreeBreakdown.guestLimit > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🎁 Essai invité</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.guestLimit}</Text></View> : null}
-                {myFreeBreakdown.signupBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🆕 Bonus inscription</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.signupBonus}</Text></View> : null}
-                {myFreeBreakdown.referralBonus ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>👥 Partage du profil ({myFreeBreakdown.referralCount})</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.referralBonus}</Text></View> : null}
-                {myFreeBreakdown.followerBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⭐ Followers bonus</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.followerBonus}</Text></View> : null}
-                {myFreeBreakdown.monthlyBonus > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>📅 Bonus mensuel</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.monthlyBonus}</Text></View> : null}
-                {myFreeBreakdown.battleAdjustment > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>⚔️ Victoires Loki Music Battle</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.battleWon}</Text></View> : null}
-                {myFreeBreakdown.battleLost > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>   (Défaites)</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.battleLost}</Text></View> : null}
-                {myFreeBreakdown.adminGrant > 0 ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🛡️ Admin grant</Text><Text style={styles.creditHistoryGain}>+{myFreeBreakdown.adminGrant}</Text></View> : null}
-                <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>Free utilisés pour garder</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.used}</Text></View>
-                {myFreeBreakdown.lockedArena ? <View style={styles.creditHistoryRow}><Text style={styles.creditHistoryLabel}>🔒 Mises Battle en cours</Text><Text style={styles.creditHistoryLoss}>−{myFreeBreakdown.lockedArena}</Text></View> : null}
-                <Text style={styles.statsSectionTitle}>BATTLE RÉCENTS</Text>
-                {myFreeBreakdown.recentBattles.length ? myFreeBreakdown.recentBattles.map((event, index) => {
-                  const matchId = `match-${event.createdAt}-${index}`;
-                  const isExpanded = expandedMatchId === matchId;
-                  const battleTypeLabel = event.battleType === 'SOLO' ? '🎯 SOLO' : event.battleType === 'ARENA' ? '⚡ Arena' : '⚔️ Duel';
-                  const themeLabel = event.themeCode ? ` · ${themeLabels[event.themeCode] || event.themeCode}` : '';
-                  const timeStr = new Date(event.createdAt).toLocaleDateString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                  return <View key={matchId}>
-                    <TouchableOpacity style={[styles.creditHistoryRow, isExpanded && {backgroundColor:colors.backgroundCard}]} onPress={() => setExpandedMatchId(isExpanded ? null : matchId)}>
-                      <View style={{flex: 1}}>
-                        <Text style={styles.creditHistoryLabel}>{event.result === 'WIN' ? '🏆 Victoire' : '❌ Défaite'} {battleTypeLabel}{themeLabel}</Text>
-                        <Text style={[styles.creditHistoryLabel, {fontSize: 12, opacity: 0.6, marginTop: 2}]}>{timeStr}</Text>
-                      </View>
-                      <View style={{alignItems: 'flex-end'}}>
-                        <Text style={event.amount >= 0 ? styles.creditHistoryGain : styles.creditHistoryLoss}>{event.amount > 0 ? '+' : ''}{event.amount}</Text>
-                        <Text style={{fontSize: 10, color: colors.textMuted, marginTop: 2}}>{isExpanded ? '▼' : '▶'}</Text>
-                      </View>
-                    </TouchableOpacity>
-                    {isExpanded ? (
-                      <View style={{paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.backgroundElevated, marginTop: -1, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, marginBottom: 6}}>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Type</Text>
-                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{battleTypeLabel.replace('🎯 ', '').replace('⚡ ', '').replace('⚔️ ', '')}</Text>
-                        </View>
-                        {event.themeCode ? (
-                          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
-                            <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Style</Text>
-                            <Text style={{color: colors.white, fontSize: 11, fontWeight: '700'}}>{themeLabels[event.themeCode] || event.themeCode}</Text>
-                          </View>
-                        ) : null}
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8}}>
-                          <Text style={{color: colors.primaryLight, fontSize: 11, fontWeight: '800'}}>Détail Free</Text>
-                          <Text style={{color: colors.white, fontSize: 11, fontWeight: '700', textAlign: 'right'}}>{event.amount > 0 ? 'Gagné' : 'Perdu'} {Math.abs(event.amount)} Free</Text>
-                        </View>
-                      </View>
-                    ) : null}
-                  </View>;
-                }) : <Text style={styles.statsThemeEmpty}>Aucun Battle avec mouvement de Free pour le moment.</Text>}
-              </> : <Text style={styles.statsThemeEmpty}>Historique indisponible. Réessaie dans un instant.</Text>}
-            </>;
-          })()}
-        </ScrollView>}
-      </View></View>
-    </Modal>
-
+    {renderRankingModals()}
     <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
