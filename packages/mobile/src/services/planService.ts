@@ -84,15 +84,36 @@ export interface SessionScreenCopy {
   emptySubtitle: string | null;
 }
 
+const SESSION_COPY_CACHE_MS = 60 * 1000;
+let sessionCopyCache: { value: SessionScreenCopy; loadedAt: number } | null = null;
+let sessionCopyInFlight: Promise<SessionScreenCopy> | null = null;
+
 export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
-  if (!supabase) return { emptyTitle: null, emptySubtitle: null };
-  const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
-  if (error) return { emptyTitle: null, emptySubtitle: null };
-  const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, row.value]));
-  return {
-    emptyTitle: typeof map.session_empty_title === 'string' ? map.session_empty_title : null,
-    emptySubtitle: typeof map.session_empty_subtitle === 'string' ? map.session_empty_subtitle : null,
-  };
+  const fallback = { emptyTitle: null, emptySubtitle: null };
+  if (!supabase) return fallback;
+  if (sessionCopyCache && Date.now() - sessionCopyCache.loadedAt < SESSION_COPY_CACHE_MS) {
+    return sessionCopyCache.value;
+  }
+  if (!sessionCopyInFlight) {
+    sessionCopyInFlight = (async () => {
+      try {
+        const { data, error } = await supabase.from('remote_config').select('key,value').in('key', ['session_empty_title', 'session_empty_subtitle']);
+        if (error) return sessionCopyCache?.value ?? fallback;
+        const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, row.value]));
+        const value = {
+          emptyTitle: typeof map.session_empty_title === 'string' ? map.session_empty_title : null,
+          emptySubtitle: typeof map.session_empty_subtitle === 'string' ? map.session_empty_subtitle : null,
+        };
+        sessionCopyCache = { value, loadedAt: Date.now() };
+        return value;
+      } catch {
+        return sessionCopyCache?.value ?? fallback;
+      } finally {
+        sessionCopyInFlight = null;
+      }
+    })();
+  }
+  return sessionCopyInFlight;
 }
 
 export async function loadDemoListenLimit(): Promise<number> {
