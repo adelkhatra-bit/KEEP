@@ -1997,6 +1997,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         />
       ) : null}
 
+      {payoutCheckout ? (
+        <PayoutCheckoutSheet
+          visible
+          paymentId={payoutCheckout.paymentId}
+          sellerUsername={payoutCheckout.sellerUsername}
+          amountCents={payoutCheckout.amountCents}
+          currencyCode={payoutCheckout.currencyCode}
+          payoutLink={payoutCheckout.payoutLink}
+          payoutQrUrl={payoutCheckout.payoutQrUrl}
+          onClose={() => setPayoutCheckout(null)}
+          onPaid={async () => {
+            const signal = await markPlaylistSaleBuyerPaid(payoutCheckout.paymentId);
+            Alert.alert(
+              signal.alreadyDelivered ? 'Déjà débloquée' : 'Paiement signalé',
+              signal.alreadyDelivered
+                ? 'Cette Pépite a déjà été débloquée dans ton Loki Music.'
+                : 'Ta preuve a été envoyée au vendeur. Il doit maintenant vérifier son PayPal et confirmer la réception des fonds. Le déblocage se fera automatiquement après sa confirmation.',
+            );
+          }}
+        />
+      ) : null}
+
       <MusicSwipeDeckModal
         visible={swipeOpen}
         tracks={folderSwipeTracks.length ? folderSwipeTracks : browseSwipeTracks}
