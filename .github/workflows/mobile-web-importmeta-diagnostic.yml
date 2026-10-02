@@ -204,7 +204,7 @@ jobs:
             // Vérifie aussi le comportement visuel réel du fil : à l'ouverture
             // d'une conversation, on doit voir le message le plus récent, jamais
             // atterrir au milieu de l'historique.
-            await clickRobust(page.getByText('La Place', { exact: true }).last(), 'Open public chat composer');
+            await clickRobust(page.getByTestId('loki-chat-place-entry').last(), 'Open public chat composer');
             const threadScroll = page.getByTestId('loki-chat-thread-scroll').last();
             await threadScroll.waitFor({ state: 'visible', timeout: 10000 });
             await page.waitForTimeout(900);
