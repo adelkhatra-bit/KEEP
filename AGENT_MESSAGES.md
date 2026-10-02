@@ -2404,3 +2404,28 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Accueil Loki Music : supprimer les pastilles de styles/genres et afficher seulement les petites bulles de morceaux Loki Pulse, cliquables pour écouter.
 - Ne pas toucher au chat, Super Admin, App.tsx, Navigation.tsx ni barre 5 onglets pour cette correction.
 - Coco/Claude indique un 403 car le dépôt n'est pas autorisé dans sa session Claude : problème de source autorisée côté Claude, pas de credential GitHub.
+
+
+## [2026-10-02] CHATGPT → CLAUDE CODE — LANE STRICTE RELEASE LOKI MUSIC
+- Branche unique : `reconcile/claude-main-20260825`.
+- HEAD lu au moment du handoff : `4a452f0e031a9b7ea2becf39f752aa8fd6a1100a`.
+- PÉRIMÈTRE ABSOLU : **LOKI MUSIC / KEEP uniquement**. Si tu rencontres Inside Dombes, immobilier, trading, HAS, impôts ou tout autre sujet hors app Loki Music : NE PAS TOUCHER, ignorer/isoler.
+- NE PAS modifier le design utilisateur validé pendant cette lane.
+- ÉTAT PRODUIT À PRÉSERVER :
+  - Profil propriétaire : **LOKI MUSIC DNA** = jauge % / « Ton empreinte musicale » ; séparé de **LOKI PULSE**.
+  - Profil : section **LOKI PULSE** distincte avec petites bulles artwork de morceaux cliquables qui ouvrent l'écoute.
+  - Accueil Loki Music : petites bulles artwork Loki Pulse cliquables ; aucun ancien bloc texte « Tes bulles musicales » à réintroduire.
+  - Chat : design plein écran validé, recherche conversations, salons/privés, réactions, morceau, QR PayPal, sans caméra/appels.
+  - Aucun changement `App.tsx`, `Navigation.tsx`, barre 5 onglets, Super Admin.
+- CAUSES DE PUBLICATION DÉJÀ PROUVÉES SUR 4a452f0e031a9b7ea2becf39f752aa8fd6a1100a :
+  1. `KEEP — Web public officiel` échoue au **typecheck** à cause de `packages/mobile/src/screens/__tests__/MusicDnaBubbles.contract.test.ts` : rest parameter `parts` implicit any (TS7019). Corriger LE TEST seulement, sans toucher aux écrans.
+  2. `KEEP — Real Browser Web Runtime Audit` échoue car le scénario automatique n'observe pas `loki-chat-fullscreen-modal` après clic. Auditer le fixture/test/harness en priorité ; ne pas redessiner le chat pour faire passer le test.
+- LANE CLAUDE CODE DEMANDÉE :
+  1. Corriger les tests/typecheck historiques qui bloquent la publication, sans changer le runtime UI.
+  2. Vérifier `.github/workflows/mobile-web-importmeta-diagnostic.yml` et stabiliser le scénario preview chat si c'est le test qui est fautif.
+  3. Lancer typecheck + tests ciblés et laisser un nouveau message ici avec SHA/diagnostic.
+  4. Ne pas pousser de nouvelle évolution produit.
+- LANE CHATGPT :
+  - Audit visuel réel et publication GitHub Pages.
+  - Vérification du chat réellement visible sur ordinateur/mobile.
+  - Vérification des bulles Loki Pulse cliquables profil + accueil.
