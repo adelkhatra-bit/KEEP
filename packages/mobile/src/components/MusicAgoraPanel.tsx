@@ -163,6 +163,8 @@ export default function MusicAgoraPanel({
   const [inboxFilter, setInboxFilter] = useState<'ALL' | 'GROUPS' | 'DIRECT' | 'INVITES'>('ALL');
   const [showLatestJump, setShowLatestJump] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
+  const composerInputRef = useRef<TextInput | null>(null);
+  const composerFocusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
   const browsingHistoryRef = useRef(false);
@@ -234,6 +236,25 @@ export default function MusicAgoraPanel({
   }, [compact, viewportHeight]);
 
   const compactBottom = 0;
+
+  const focusComposer = () => {
+    if (!compact) return;
+    composerFocusTimersRef.current.forEach(clearTimeout);
+    composerFocusTimersRef.current = [];
+    const focus = () => {
+      composerInputRef.current?.focus();
+      followChatBottom(false);
+    };
+    focus();
+    [120, 320, 620].forEach((delay) => {
+      composerFocusTimersRef.current.push(setTimeout(focus, delay));
+    });
+  };
+
+  useEffect(() => () => {
+    composerFocusTimersRef.current.forEach(clearTimeout);
+    composerFocusTimersRef.current = [];
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -319,7 +340,10 @@ export default function MusicAgoraPanel({
     setReplyTarget(initialReplyTarget);
     setChatMode('MESSAGES');
     initialScrollDone.current = false;
-    setTimeout(() => followChatBottom(false), 60);
+    setTimeout(() => {
+      followChatBottom(false);
+      focusComposer();
+    }, Platform.OS === 'ios' ? 380 : 140);
   }, [initialReplyTarget?.profileId, initialReplyTarget?.username]);
 
   useEffect(() => {
@@ -331,6 +355,7 @@ export default function MusicAgoraPanel({
     if (group.myStatus === 'ACTIVE') {
       setActiveGroup(group);
       initialScrollDone.current = false;
+      setTimeout(() => focusComposer(), Platform.OS === 'ios' ? 380 : 140);
     } else {
       // An invitation stays in the inbox so ACCEPT / REFUSER remain visible.
       setActiveGroup(null);
@@ -437,7 +462,10 @@ export default function MusicAgoraPanel({
       const rows = await loadMusicAgoraDirectMessages(target.profileId, undefined, PAGE_SIZE);
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
-      setTimeout(() => followChatBottom(false), 40);
+      setTimeout(() => {
+        followChatBottom(false);
+        focusComposer();
+      }, Platform.OS === 'ios' ? 220 : 80);
     } catch (error) {
       Alert.alert('Conversation', readableError(error));
     } finally {
@@ -464,7 +492,10 @@ export default function MusicAgoraPanel({
       const rows = await loadMusicAgoraGroupMessages(group.id, undefined, PAGE_SIZE);
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
-      setTimeout(() => followChatBottom(false), 40);
+      setTimeout(() => {
+        followChatBottom(false);
+        focusComposer();
+      }, Platform.OS === 'ios' ? 220 : 80);
     } catch (error) {
       Alert.alert('Conversation', readableError(error));
     } finally {
@@ -1185,7 +1216,10 @@ export default function MusicAgoraPanel({
               setReplyTarget(null);
               setActiveGroup(null);
               setMessages([]);
-              void refresh(roomSlug).finally(() => followChatBottom(false));
+              void refresh(roomSlug).finally(() => {
+                followChatBottom(false);
+                setTimeout(() => focusComposer(), Platform.OS === 'ios' ? 220 : 80);
+              });
             }}
             accessibilityLabel="Ouvrir La Place"
           >
@@ -1738,6 +1772,7 @@ export default function MusicAgoraPanel({
           <Text style={s.addButtonText}>{composerActionsOpen ? '×' : '+'}</Text>
         </TouchableOpacity>
         <TextInput
+          ref={composerInputRef}
           value={draft}
           onChangeText={(value) => {
             setDraft(value);
@@ -1759,6 +1794,7 @@ export default function MusicAgoraPanel({
           placeholderTextColor={colors.textMutedGrey}
           multiline
           scrollEnabled
+          showSoftInputOnFocus
           maxLength={2000}
           onFocus={() => {
             setComposerActionsOpen(false);
