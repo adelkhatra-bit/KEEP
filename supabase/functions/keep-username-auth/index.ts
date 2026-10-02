@@ -56,7 +56,10 @@ function transientAuthFailure(error: unknown) {
 
 async function sessionFor(email: string, password: string) {
   let lastError: unknown = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  // Incident 02/10/2026 : deux timeouts Auth 504 peuvent se succéder avant
+  // qu'une troisième tentative identique passe. Le retry reste limité aux
+  // erreurs transitoires 5xx/timeout et ne masque jamais un mauvais mot de passe.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
     if (!error && data.session) {
       return {
@@ -70,8 +73,8 @@ async function sessionFor(email: string, password: string) {
       };
     }
     lastError = error;
-    if (!error || !transientAuthFailure(error) || attempt === 1) break;
-    await wait(350 * (2 ** attempt));
+    if (!error || !transientAuthFailure(error) || attempt === 2) break;
+    await wait(450 * (2 ** attempt));
   }
   if (lastError && transientAuthFailure(lastError)) {
     return { ok: false as const, error: "auth_temporarily_unavailable" };
