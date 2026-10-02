@@ -86,16 +86,25 @@ function cachedWebRealUser(): User | null {
       username,
       email: '',
       avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
-      bio: '',
-      playlistCount: 0,
-      followerCount: 0,
-      followingCount: 0,
-      kind: 'USER',
-      favoriteGenres: [],
-      favoriteArtists: [],
-      socialLinks: [],
-      isPublic: true,
-      locationOptIn: false,
+      bio: typeof parsed?.bio === 'string' ? parsed.bio : '',
+      playlistCount: Number.isFinite(Number(parsed?.playlistCount)) ? Number(parsed.playlistCount) : 0,
+      followerCount: Number.isFinite(Number(parsed?.followerCount)) ? Number(parsed.followerCount) : 0,
+      followingCount: Number.isFinite(Number(parsed?.followingCount)) ? Number(parsed.followingCount) : 0,
+      kind: ['USER','CREATOR','DJ','ARTIST','PRODUCER','VENUE'].includes(String(parsed?.kind))
+        ? parsed.kind
+        : 'USER',
+      city: typeof parsed?.city === 'string' && parsed.city ? parsed.city : undefined,
+      countryCode: typeof parsed?.countryCode === 'string' && parsed.countryCode ? parsed.countryCode : undefined,
+      preferredLanguageTag: typeof parsed?.preferredLanguageTag === 'string' && parsed.preferredLanguageTag ? parsed.preferredLanguageTag : undefined,
+      musicCountryCodes: Array.isArray(parsed?.musicCountryCodes) ? parsed.musicCountryCodes.filter((v: unknown) => typeof v === 'string') : [],
+      website: typeof parsed?.website === 'string' && parsed.website ? parsed.website : undefined,
+      favoriteGenres: Array.isArray(parsed?.favoriteGenres) ? parsed.favoriteGenres.filter((v: unknown) => typeof v === 'string') : [],
+      favoriteArtists: Array.isArray(parsed?.favoriteArtists) ? parsed.favoriteArtists.filter((v: unknown) => typeof v === 'string') : [],
+      socialLinks: Array.isArray(parsed?.socialLinks)
+        ? parsed.socialLinks.filter((link: unknown) => Boolean(link && typeof (link as any).platform === 'string' && typeof (link as any).url === 'string'))
+        : [],
+      isPublic: parsed?.isPublic !== false,
+      locationOptIn: Boolean(parsed?.locationOptIn),
       privateInfo: {},
     };
   } catch {
@@ -115,6 +124,21 @@ function cacheWebRealUser(user: User | null) {
       id: user.id,
       username: user.username,
       avatar: user.avatar || '',
+      bio: user.bio || '',
+      playlistCount: user.playlistCount || 0,
+      followerCount: user.followerCount || 0,
+      followingCount: user.followingCount || 0,
+      kind: user.kind || 'USER',
+      city: user.city || '',
+      countryCode: user.countryCode || '',
+      preferredLanguageTag: user.preferredLanguageTag || '',
+      musicCountryCodes: Array.isArray(user.musicCountryCodes) ? user.musicCountryCodes : [],
+      website: user.website || '',
+      favoriteGenres: Array.isArray(user.favoriteGenres) ? user.favoriteGenres : [],
+      favoriteArtists: Array.isArray(user.favoriteArtists) ? user.favoriteArtists : [],
+      socialLinks: Array.isArray(user.socialLinks) ? user.socialLinks : [],
+      isPublic: user.isPublic !== false,
+      locationOptIn: Boolean(user.locationOptIn),
     }));
   } catch {
     // Navigation/auth remain functional if browser storage is unavailable.
@@ -278,7 +302,12 @@ export const useUserStore = create<UserStore>((set, get) => ({
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   },
 
-  updateUser: (patch) => set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
+  updateUser: (patch) => set((s) => {
+    if (!s.user) return s;
+    const nextUser = { ...s.user, ...patch };
+    cacheWebRealUser(nextUser);
+    return { user: nextUser };
+  }),
   addFavoriteGenre: (genre) => set((s) => {
     const trimmed = genre.trim();
     if (!s.user || !trimmed || s.user.favoriteGenres.includes(trimmed)) return s;
@@ -308,3 +337,11 @@ export const useUserStore = create<UserStore>((set, get) => ({
   }),
   setPrivateInfo: (patch) => set((s) => (s.user ? { user: { ...s.user, privateInfo: { ...s.user.privateInfo, ...patch } } } : s)),
 }));
+let cachedStoreUserRef = useUserStore.getState().user;
+useUserStore.subscribe((state) => {
+  if (state.user === cachedStoreUserRef) return;
+  cachedStoreUserRef = state.user;
+  if (!state.user || state.isDemoMode || state.isLocalGuest) return;
+  cacheWebRealUser(state.user);
+});
+
