@@ -161,6 +161,7 @@ export default function MusicAgoraPanel({
   const [composerActionsOpen, setComposerActionsOpen] = useState(false);
   const [inboxQuery, setInboxQuery] = useState('');
   const [inboxFilter, setInboxFilter] = useState<'ALL' | 'GROUPS' | 'DIRECT' | 'INVITES'>('ALL');
+  const [showLatestJump, setShowLatestJump] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const musicAura = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -282,6 +283,7 @@ export default function MusicAgoraPanel({
   const followChatBottom = (animated = true) => {
     browsingHistoryRef.current = false;
     stickToBottomRef.current = true;
+    setShowLatestJump(false);
     forceBottomRef.current = true;
     bottomRetryTimersRef.current.forEach(clearTimeout);
     bottomRetryTimersRef.current = [];
@@ -421,6 +423,7 @@ export default function MusicAgoraPanel({
     stickToBottomRef.current = true;
     userDraggingChatRef.current = false;
     forceBottomRef.current = true;
+    setShowLatestJump(false);
     setChatMode('MESSAGES');
     setActiveGroup(null);
     setReplyTarget(target);
@@ -453,6 +456,7 @@ export default function MusicAgoraPanel({
     stickToBottomRef.current = true;
     userDraggingChatRef.current = false;
     forceBottomRef.current = true;
+    setShowLatestJump(false);
     setMessages([]);
     if (group.myStatus !== 'ACTIVE') return;
     setLoading(true);
@@ -676,8 +680,8 @@ export default function MusicAgoraPanel({
     const timer = setTimeout(() => {
       // Même comportement pour La Place, les messages directs et les groupes :
       // à l'ouverture / après un nouveau message, la conversation se cale sur
-      // le plus récent. Le chargement de "PLUS ANCIENS" ne change pas le
-      // dernier id et ne provoque donc pas de saut vers le bas.
+      // le plus récent. L’historique plus ancien se charge seulement quand
+      // l’utilisateur remonte volontairement tout en haut du fil.
       followChatBottom(initialScrollDone.current);
       initialScrollDone.current = true;
     }, 40);
@@ -1158,6 +1162,7 @@ export default function MusicAgoraPanel({
               stickToBottomRef.current = true;
               userDraggingChatRef.current = false;
               forceBottomRef.current = true;
+              setShowLatestJump(false);
               setChatMode('PLACE');
               setReplyTarget(null);
               setActiveGroup(null);
@@ -1261,13 +1266,22 @@ export default function MusicAgoraPanel({
           const browsingOlder = distanceFromBottom > 56;
           browsingHistoryRef.current = browsingOlder;
           stickToBottomRef.current = !browsingOlder;
+          setShowLatestJump(browsingOlder);
         } else if (distanceFromBottom <= 20) {
           browsingHistoryRef.current = false;
           stickToBottomRef.current = true;
+          setShowLatestJump(false);
         }
       }}
-      onScrollEndDrag={() => {
+      onScrollEndDrag={(event) => {
         userDraggingChatRef.current = false;
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+        const browsingOlder = distanceFromBottom > 56;
+        browsingHistoryRef.current = browsingOlder;
+        stickToBottomRef.current = !browsingOlder;
+        setShowLatestJump(browsingOlder);
+        if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();
       }}
       onMomentumScrollEnd={(event) => {
         userDraggingChatRef.current = false;
@@ -1276,6 +1290,8 @@ export default function MusicAgoraPanel({
         const browsingOlder = distanceFromBottom > 56;
         browsingHistoryRef.current = browsingOlder;
         stickToBottomRef.current = !browsingOlder;
+        setShowLatestJump(browsingOlder);
+        if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();
       }}
       onContentSizeChange={() => {
         if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current || !browsingHistoryRef.current) {
@@ -1292,7 +1308,7 @@ export default function MusicAgoraPanel({
         }
       }}
     >
-      {hasMore ? <TouchableOpacity style={s.older} disabled={olderBusy} onPress={() => void loadOlder()}><Text style={s.olderText}>{olderBusy ? 'CHARGEMENT…' : '↑ PLUS ANCIENS'}</Text></TouchableOpacity> : null}
+      {olderBusy ? <View style={s.older}><Text style={s.olderText}>CHARGEMENT HISTORIQUE…</Text></View> : null}
       {messages.map((message) => (
         <View key={message.id} style={[s.message, message.profileId === currentProfileId ? s.messageOwn : s.messageOther, message.targetProfileId && s.directMessage]}>
           {!replyTarget ? (
@@ -1414,8 +1430,28 @@ export default function MusicAgoraPanel({
         </View>
       ))}
       {!loading && !messages.length ? <Text style={s.empty}>Le salon est calme. Lance la première discussion.</Text> : null}
+      <View
+        testID="loki-chat-latest-anchor"
+        style={s.latestAnchor}
+        onLayout={() => {
+          if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current) {
+            requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
+          }
+        }}
+      />
     </ScrollView>
     )}
+
+    {showLatestJump && !(compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup) ? (
+      <TouchableOpacity
+        style={s.latestJump}
+        onPress={() => followChatBottom(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Revenir aux messages les plus récents"
+      >
+        <Text style={s.latestJumpText}>↓ PLUS RÉCENTS</Text>
+      </TouchableOpacity>
+    ) : null}
 
     {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
@@ -2001,6 +2037,9 @@ const s=StyleSheet.create({
   chatScrollCompact:{flex:1,minHeight:0,overflow:'hidden',backgroundColor:'#0B0712'},
   list:{gap:8,paddingVertical:4},
   listCompact:{gap:11,paddingHorizontal:14,paddingTop:12,paddingBottom:14},
+  latestAnchor:{height:1,minHeight:1},
+  latestJump:{alignSelf:'center',minHeight:34,paddingHorizontal:16,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginVertical:4},
+  latestJumpText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
   message:{position:'relative',paddingHorizontal:12,paddingVertical:10,borderRadius:19,borderWidth:1,maxWidth:'88%',flexGrow:0,flexShrink:0},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
   messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
