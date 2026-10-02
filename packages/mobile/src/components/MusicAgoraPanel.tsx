@@ -243,9 +243,16 @@ export default function MusicAgoraPanel({
   }, [compact, viewportHeight]);
 
   // Le chat plein écran reste physiquement AU-DESSUS du clavier natif.
-  // On s'appuie sur la hauteur réelle remontée par iOS/Android plutôt que sur
-  // KeyboardAvoidingView, qui est instable dans un Modal + conteneur absolute.
-  const compactBottom = compact && Platform.OS !== 'web' ? keyboardInset : 0;
+  // Android peut déjà réduire la fenêtre avec softwareKeyboardLayoutMode=resize.
+  // On ne rajoute alors que la partie du clavier que le système n'a PAS déjà
+  // absorbée, afin d'éviter un double déplacement. Sur iOS la fenêtre reste
+  // généralement pleine hauteur : l'inset clavier entier remonte le compositeur.
+  const nativeWindowResizeInset = compact && Platform.OS !== 'web'
+    ? Math.max(0, baseViewportHeightRef.current - viewportHeight)
+    : 0;
+  const compactBottom = compact && Platform.OS !== 'web'
+    ? Math.max(0, keyboardInset - nativeWindowResizeInset)
+    : 0;
 
   const focusComposer = () => {
     if (!compact) return;
