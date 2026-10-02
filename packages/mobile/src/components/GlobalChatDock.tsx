@@ -390,8 +390,12 @@ export default function GlobalChatDock() {
       return;
     }
 
+    const nextTarget = unreadCount > 0 ? target : null;
     setUnreadCount(0);
-    openChat(target);
+    // Un tap sur la languette globale ne doit jamais rouvrir une ancienne
+    // conversation mémorisée. S'il y a un vrai message non lu, on ouvre ce
+    // fil précis ; sinon on revient à la liste des conversations récentes.
+    openChat(nextTarget);
 
     if (!chatEnabled && !chatSaving) {
       setChatEnabled(true);
