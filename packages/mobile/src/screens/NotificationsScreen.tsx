@@ -31,6 +31,8 @@ import { loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } fro
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
+import NewKeepNotificationActions from '../components/NewKeepNotificationActions';
+import { isNewKeepNotification, maskedNewKeepCopy } from '../services/newKeepNotification';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -839,8 +841,9 @@ export default function NotificationsScreen({ navigation }: any) {
                 <View style={styles.cardBodyRow}>
                   {item.data?.image_url ? <Image source={{ uri: String(item.data.image_url) }} style={styles.cardThumbnail} /> : null}
                   <View style={styles.cardTextColumn}>
-                    <Text style={styles.cardTitle}>{item.title}</Text>
-                    <Text style={styles.cardBody} numberOfLines={3}>{item.body}</Text>
+                    {/* Nouveau morceau d'un profil suivi : titre masqué jusqu'au GARDER (Adel 02/10/2026). */}
+                    <Text style={styles.cardTitle}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).title : item.title}</Text>
+                    <Text style={styles.cardBody} numberOfLines={3}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).body : item.body}</Text>
                   </View>
                 </View>
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
@@ -850,6 +853,11 @@ export default function NotificationsScreen({ navigation }: any) {
                   {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
                 </View>
               </TouchableOpacity>
+              {isNewKeepNotification(item) ? (
+                <View style={styles.newKeepActions}>
+                  <NewKeepNotificationActions notification={item} onInteract={() => { if (!item.readAt) void readOne(item); }} />
+                </View>
+              ) : null}
               {isEventInvite(item) && eventIdOf(item) ? (() => {
                 const eventId = eventIdOf(item) as string;
                 const current = eventRsvps[eventId];
@@ -1085,6 +1093,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
   sectionTitleNoMargin: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   clearText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
+  newKeepActions: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   preferenceHint: { color:colors.white, fontSize: 11, lineHeight: 15, marginBottom: spacing.md },
   preference: { minHeight: 56, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, marginBottom: spacing.sm },
   preferenceCopy: { flex: 1, minWidth: 0 },

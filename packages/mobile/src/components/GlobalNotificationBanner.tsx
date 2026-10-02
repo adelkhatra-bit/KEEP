@@ -11,6 +11,8 @@ import { playNotificationCue } from '../services/notificationSoundService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import NewKeepNotificationActions from './NewKeepNotificationActions';
+import { maskedNewKeepCopy } from '../services/newKeepNotification';
 import { loadCurrentPlanCode } from '../services/planService';
 import { isNotificationAccessLocked, loadNotificationAccessRules, normalizeNotificationPlanCode, notificationAccessRequiredPlan, notificationPlanLabel, type NotificationAccessRule, type NotificationPlanCode } from '../services/notificationAccessService';
 
@@ -394,12 +396,12 @@ export default function GlobalNotificationBanner() {
   }
 
   const artworkUrl = dataText(current, 'artworkUrl');
-  const trackTitle = dataText(current, 'trackTitle');
-  const trackArtist = dataText(current, 'trackArtist');
   const freeCreditNotification = isFreeCreditNotification(current);
   const isMusic = current.type.toUpperCase() === 'NEW_PUBLIC_KEEP';
-  const displayBody = isMusic && (trackTitle || trackArtist)
-    ? [trackTitle, trackArtist].filter(Boolean).join(' — ')
+  // Nouveau morceau d'un profil suivi : titre, artiste et pochette MASQUÉS
+  // (Adel 02/10/2026) — révélés seulement après GARDER.
+  const displayBody = isMusic
+    ? maskedNewKeepCopy(current).body
     : current.body;
 
   const markReadAndHide = async () => {
@@ -635,6 +637,35 @@ export default function GlobalNotificationBanner() {
                 <Text style={styles.battleYesText}>{respondBusy ? '...' : 'ACCEPTER'}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  if (isMusic) {
+    const masked = maskedNewKeepCopy(current);
+    return (
+      <Animated.View pointerEvents="box-none" style={[styles.wrap, { opacity, transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+        <View testID="new-keep-banner" style={styles.banner}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
+          <View style={styles.artworkFallback}><Text style={styles.note}>?</Text></View>
+          <View style={styles.copy}>
+            <View style={styles.eyebrowRow}><Text style={styles.eyebrow}>Loki Music LIVE</Text></View>
+            <Text style={styles.title} numberOfLines={1}>{masked.title}</Text>
+            <Text style={styles.body} numberOfLines={2}>{masked.body}</Text>
+            <NewKeepNotificationActions
+              notification={current}
+              onInteract={() => {
+                // L'abonné écoute ou garde : la bannière ne se referme plus seule.
+                if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }
+                void markNotificationRead(user.id, current.id).catch(() => {});
+              }}
+              onKept={() => {
+                if (hideTimer.current) clearTimeout(hideTimer.current);
+                hideTimer.current = setTimeout(() => animateOut(), 6000);
+              }}
+            />
           </View>
         </View>
       </Animated.View>

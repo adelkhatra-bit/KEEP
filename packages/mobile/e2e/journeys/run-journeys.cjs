@@ -633,6 +633,43 @@ const chatMiniJourney = {
   },
 };
 
+// Notification « nouveau morceau » d'un profil suivi (Adel 02/10/2026) :
+// titre, artiste et pochette MASQUÉS, même pour une ancienne notification
+// qui les contient encore ; écoute masquée + GARDER dans la notification.
+const newKeepNotifJourney = {
+  id: 'notif-nouveau-morceau-masque',
+  titre: 'Notification nouveau morceau — titre masqué, écoute + GARDER',
+  devices: [ANDROID, MOBILE_SE, PC],
+  mobileFlags: true,
+  fakeOptions: { newKeepNotif: true },
+  async run({ page, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/notifications`, { waitUntil: 'load' });
+    await page.getByText(`Nouveau morceau chez @${fake.SELLER_USERNAME}`).first().waitFor({ timeout: 40000 });
+    await page.locator('[data-testid="new-keep-listen"]').first().waitFor({ timeout: 20000 });
+    const text = await page.locator('body').innerText();
+    r.titre_masque = !text.includes(fake.SECRET_TRACK.title) && !text.includes(fake.SECRET_TRACK.artist);
+    r.pochette_masquee = (await page.locator('img[src*="secret.jpg"]').count()) === 0;
+    r.ecouter = await page.locator('[data-testid="new-keep-listen"]').first().isVisible();
+    r.garder = await page.locator('[data-testid="new-keep-keep"]').first().isVisible();
+    r.texte_garder = (await page.locator('[data-testid="new-keep-keep"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
+    await shot('notification');
+    await page.locator('[data-testid="new-keep-keep"]').first().click({ force: true });
+    r.choix_public_prive = (await page.getByText('Public', { exact: true }).count()) > 0 && (await page.getByText('Privé', { exact: true }).count()) > 0;
+    const textAfter = await page.locator('body').innerText();
+    r.toujours_masque_avant_choix = !textAfter.includes(fake.SECRET_TRACK.title);
+    await shot('garder');
+    const checks = [
+      ['titre et artiste jamais affichés (même ancienne notification)', r.titre_masque],
+      ['pochette jamais affichée', r.pochette_masquee],
+      ['bouton ▶ Écouter dans la notification', r.ecouter],
+      ['bouton GARDER avec le coût FREE', r.garder && /FREE/.test(r.texte_garder)],
+      ['GARDER demande Public / Privé, titre toujours masqué', r.choix_public_prive && r.toujours_masque_avant_choix],
+    ];
+    return { details: r, failures: failed(checks), ok: 'titre masqué, écoute + GARDER dans la notification' };
+  },
+};
+
 const JOURNEYS = [
   popupJourney('FREE'),
   popupJourney('MONEY'),
@@ -645,6 +682,7 @@ const JOURNEYS = [
   chatLiveJourney,
   chatUnreadJourney,
   chatMiniJourney,
+  newKeepNotifJourney,
 ];
 
 // ---------------------------------------------------------------- exécution

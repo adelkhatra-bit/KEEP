@@ -126,7 +126,12 @@ function makeSession() {
  *                    (2 dans le groupe, 1 privé, + 1 annonce « Tchat
  *                    disponible » qui ne doit PAS compter comme message) ;
  *                    'GROUP_LATEST' : le message de groupe est le plus récent
+ *  - newKeepNotif  : true pour servir une notification « nouveau morceau »
+ *                    d'un profil suivi, À L'ANCIEN FORMAT (titre/artiste en
+ *                    clair dans le texte et data) : l'app doit tout masquer.
  */
+const SECRET_TRACK = { id: '5ec2e700-0000-4000-8000-0000000000aa', title: 'Titre Secret', artist: 'Artiste Caché', isrc: null, album: null, artwork_url: null, genres: [], provider_ids: {}, external_urls: {}, available_on: [], release_year: null };
+
 function createFakeSupabase(options = {}) {
   const opts = { origin: 'http://127.0.0.1:4721', mode: 'FREE', offers: 'single', groupRole: 'MEMBER', groupStatus: 'ACTIVE', groupMessages: false, balance: 34, ...options };
   const session = makeSession();
@@ -138,6 +143,9 @@ function createFakeSupabase(options = {}) {
     { id: 'n-d1', type: 'AGORA_DIRECT', title: 'Message', body: 'Salut', data: { roomSlug: 'place', senderId: SELLER, senderUsername: SELLER_USERNAME, messageId: 61 }, read_at: null, created_at: recent(opts.unreadChat === 'GROUP_LATEST' ? 120000 : 20000) },
     { id: 'n-sys', type: 'CHAT_ACTIVATION_AVAILABLE', title: 'Tchat', body: 'Le Tchat est disponible', data: { event: 'CHAT_ACTIVATION_AVAILABLE' }, read_at: null, created_at: recent(90000) },
   ] : [];
+  if (opts.newKeepNotif) {
+    unreadNotifications.push({ id: 'n-k1', type: 'NEW_PUBLIC_KEEP', title: `Nouveau KEEP de @${SELLER_USERNAME}`, body: `${SECRET_TRACK.title} — ${SECRET_TRACK.artist} · ajouté à son profil.`, data: { ownerProfileId: SELLER, username: SELLER_USERNAME, trackId: SECRET_TRACK.id, trackTitle: SECRET_TRACK.title, trackArtist: SECRET_TRACK.artist, artworkUrl: `${opts.origin}/secret.jpg`, kind: 'new_public_keep' }, read_at: null, created_at: recent(10000) });
+  }
   const offers = opts.offers === 'forty' ? FORTY_OFFERS : [singleOffer(opts.mode)];
 
   async function respond(route) {
@@ -189,6 +197,10 @@ function createFakeSupabase(options = {}) {
       }
     }
     if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    if (p === '/rest/v1/tracks' && opts.newKeepNotif && u.searchParams.get('id') === `eq.${SECRET_TRACK.id}`) {
+      const row = { ...SECRET_TRACK, preview_url: `${opts.origin}/none.mp3` };
+      return obj ? json(200, row) : json(200, [row]);
+    }
     if (p === '/rest/v1/profiles') {
       const f = u.searchParams.toString();
       const row = f.includes(SELLER_USERNAME) || f.includes(SELLER) ? seller : (f.includes(UID) ? profile : null);
@@ -212,4 +224,5 @@ module.exports = {
   MEMBER_USERNAME,
   GROUP_NAME,
   SHAREABLE_TRACK,
+  SECRET_TRACK,
 };
