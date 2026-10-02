@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -670,7 +670,14 @@ export default function MusicAgoraPanel({
                 setGroups((rows) => rows.filter((row) => row.id !== group.id));
                 await refreshInbox();
               })
-              .catch(() => Alert.alert('Conversation', 'Impossible de supprimer ce groupe pour le moment.'))
+              .catch((error: any) => {
+                const raw = String(error?.message || error?.code || '');
+                // Fonction serveur pas encore déployée : le dire clairement.
+                const notDeployed = raw.includes('PGRST202') || raw.includes('Could not find the function') || raw.includes('keep_agora_delete_group');
+                Alert.alert('Conversation', notDeployed
+                  ? 'La suppression de groupe arrive avec la prochaine mise à jour du serveur Loki. Ton groupe est intact.'
+                  : 'Impossible de supprimer ce groupe pour le moment.');
+              })
               .finally(() => setGroupBusy(false));
           },
         },
@@ -793,8 +800,13 @@ export default function MusicAgoraPanel({
       }
     }, 2500);
 
+    // Adel (02/10/2026) : « quand on ajoute des invités il faut fermer la
+    // fenêtre ». Si le temps réel ne passe pas (réseau mobile, socket
+    // suspendu), la liste des conversations / groupes / invitations et
+    // l'en-tête du groupe ouvert se mettent à jour d'eux-mêmes toutes les 10 s
+    // tant que le tchat est ouvert (avant : 60 s, et seulement sur la liste).
+    const inboxTimer = setInterval(() => { void refreshInbox(); }, 10000);
     const timer = setInterval(() => {
-      if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) void refreshInbox();
       if (compact && enabled) {
         void loadMusicAgoraSettings().then((settings) => {
           setHomeEnabled(settings.homeEnabled);
@@ -803,7 +815,13 @@ export default function MusicAgoraPanel({
         }).catch(() => {});
       }
     }, 60000);
-    return () => { unsubscribe(); clearInterval(liveSafetyTimer); clearInterval(timer); };
+    // Retour dans l'app : tout se remet à jour tout de suite.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void refreshInbox();
+      if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id)) void refresh(roomSlug, true);
+    });
+    return () => { unsubscribe(); clearInterval(liveSafetyTimer); clearInterval(inboxTimer); clearInterval(timer); appStateSub.remove(); };
   }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id, groupMembersOpen]);
 
   useEffect(() => {
