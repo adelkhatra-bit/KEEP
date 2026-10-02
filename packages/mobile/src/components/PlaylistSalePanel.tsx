@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -170,6 +170,19 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [collectionCartCurrencyCode, setCollectionCartCurrencyCode] = useState<string>(() => currencyForCountry((user as any)?.countryCode));
   const [collectionCartPayoutLink, setCollectionCartPayoutLink] = useState('');
   const [collectionCartPayoutQrUrl, setCollectionCartPayoutQrUrl] = useState('');
+  const collectionCartScrollRef = useRef<ScrollView | null>(null);
+
+  // Chaque étape Pépites est un écran de travail en soi. Quand l'utilisateur
+  // valide en bas, la nouvelle étape doit apparaître immédiatement à son début
+  // au lieu de conserver l'ancien offset de scroll très bas.
+  useEffect(() => {
+    if (!collectionCartOpen) return;
+    const pinStepTop = () => collectionCartScrollRef.current?.scrollTo({ y: 0, animated: false });
+    requestAnimationFrame(pinStepTop);
+    const t1 = setTimeout(pinStepTop, 60);
+    const t2 = setTimeout(pinStepTop, 180);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [collectionCartOpen, collectionCartStep]);
   const visibleCollectionCartTracks = useMemo(() => {
     const needle = collectionCartQuery.trim().toLocaleLowerCase('fr-FR');
     const rows = needle
@@ -658,17 +671,29 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour">
+        <TouchableOpacity
+          onPress={() => collectionCartOpen ? resetCollectionCart() : (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}
+          accessibilityLabel={collectionCartOpen ? "Quitter la création de Pépite" : "Retour"}
+        >
           <Text style={s.back}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerText}>
-          <Text style={s.title}>◆ Pépites</Text>
-          <Text style={s.subtitle}>Collections · FREE ou €</Text>
+          <Text style={s.title}>{collectionCartOpen ? 'Créer ma Pépite' : '◆ Pépites'}</Text>
+          <Text style={s.subtitle}>
+            {collectionCartOpen
+              ? `Étape ${collectionCartStep === 'TRACKS' ? '1' : collectionCartStep === 'REVIEW' ? '2' : collectionCartStep === 'PRICE' ? '3' : '4'} sur 4`
+              : 'Collections · FREE ou €'}
+          </Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={collectionCartScrollRef}
+        contentContainerStyle={[s.content, collectionCartOpen && s.contentCollectionFocus]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {loading ? (
           <View style={s.centerView}>
             <ActivityIndicator color={colors.primaryLight} size="large" />
@@ -840,6 +865,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             ) : null}
 
+            {!collectionCartOpen ? <>
             {/* Accès */}
             <View style={[s.accessCard, access.unlocked && s.accessCardUnlocked]}>
               <Text style={s.accessEyebrow}>CRÉER UNE COLLECTION</Text>
@@ -1187,6 +1213,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 ) : null}
               </View>
             )}
+            </> : null}
           </>
         )}
       </ScrollView>
@@ -1268,8 +1295,9 @@ const s = StyleSheet.create({
   historyLink: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   historyLinkText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.lg },
+  contentCollectionFocus:{paddingTop:12,paddingHorizontal:12,paddingBottom:28,gap:0},
   collectionLimitText: { color: colors.textMuted, fontSize: 10, lineHeight: 15, fontWeight: '800', textAlign: 'center', marginTop: 8 },
-  collectionCartCard:{borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:14,gap:10},
+  collectionCartCard:{width:'100%',borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:14,gap:10},
   collectionCartHead:{flexDirection:'row',alignItems:'flex-start',gap:10},collectionCartEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1},collectionCartTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:4},collectionCartHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:4},
   collectionCartClose:{width:40,height:40,borderRadius:20,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},collectionCartCloseText:{color:colors.textPrimary,fontSize:24,lineHeight:26},
   collectionCartSearch:{minHeight:46,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12,fontWeight:'700'},
