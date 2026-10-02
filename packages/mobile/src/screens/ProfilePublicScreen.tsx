@@ -574,27 +574,20 @@ export default function ProfilePublicScreen({ navigation }: any) {
         }
         return;
       }
-      try {
-        const [publicState, ownState, ownKeeps, impacts] = await Promise.all([
-          loadPublicProfileSnapshot(user.id),
-          loadOwnProfileSnapshot(),
-          loadOwnProfileKeeps(),
-          loadProfileDiscoveryImpacts(user.id),
-        ]);
-        if (live) {
-          setPublicSnapshot(publicState);
-          setOwnSnapshot(ownState);
-          setServerOwnKeeps(ownKeeps);
-          setDiscoveryImpacts(impacts);
-        }
-      } catch {
-        if (live) {
-          setPublicSnapshot(null);
-          setOwnSnapshot(null);
-          setServerOwnKeeps([]);
-          setDiscoveryImpacts({});
-        }
-      }
+      const [publicState, ownState, ownKeeps, impacts] = await Promise.allSettled([
+        loadPublicProfileSnapshot(user.id),
+        loadOwnProfileSnapshot(),
+        loadOwnProfileKeeps(),
+        loadProfileDiscoveryImpacts(user.id),
+      ]);
+      if (!live) return;
+      // Une panne d'un RPC ne doit JAMAIS transformer le profil en profil vide.
+      // Chaque bloc conserve son dernier état valide et se remplace seulement
+      // quand sa propre source serveur répond correctement.
+      if (publicState.status === 'fulfilled') setPublicSnapshot(publicState.value);
+      if (ownState.status === 'fulfilled') setOwnSnapshot(ownState.value);
+      if (ownKeeps.status === 'fulfilled') setServerOwnKeeps(ownKeeps.value);
+      if (impacts.status === 'fulfilled') setDiscoveryImpacts(impacts.value);
     };
     void refreshCanonicalProfileState();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCanonicalProfileState(); });
@@ -739,8 +732,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   useEffect(() => {
     let live = true;
     const refreshPreferences = async () => {
-      const next = await loadPlaylistPreferences(providerId).catch(() => ({}));
-      if (live) setPlaylistPreferences(next);
+      try {
+        const next = await loadPlaylistPreferences(providerId);
+        if (live) setPlaylistPreferences(next);
+      } catch {
+        // Conserver les préférences déjà chargées pendant une panne transitoire.
+      }
     };
     void refreshPreferences();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshPreferences(); });
@@ -756,7 +753,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
           ? await refreshOwnSmartAlbums()
           : await loadOwnSmartAlbums();
         if (live) setSmartAlbums(rows);
-      } catch { if (live) setSmartAlbums([]); }
+      } catch {
+        // Ne jamais effacer les Vibes déjà visibles à cause d'un timeout.
+        // Le prochain focus retente silencieusement.
+      }
     };
     void refreshSmart();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshSmart(); });
