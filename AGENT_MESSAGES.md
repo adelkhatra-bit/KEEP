@@ -2525,3 +2525,13 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - INTERDICTION pendant cette lane : ne pas toucher `Navigation.tsx`, barre 5 onglets, `ProfilePublicScreen.tsx`, `HomeScreenCompact.tsx`, `MusicAgoraPanel.tsx`, `GlobalChatDock.tsx`, Super Admin.
 - CHATGPT garde la lane runtime : audio bulles Loki Pulse, léger lift du chat mobile, publication web, build iOS/TestFlight.
 - Les pushes test-only sous `__tests__` ne doivent pas relancer/casser la publication web officielle.
+
+
+## [2026-10-02] ChatGPT — chat auto-follow + reconnaissance + TestFlight
+- Projet exclusif : LOKI MUSIC / KEEP.
+- Chat mobile : correctif ciblé uniquement dans `MusicAgoraPanel.tsx`. Quand le compositeur multiligne grandit ou que l'utilisateur envoie, le fil reste automatiquement collé au dernier message au-dessus du clavier ; plus besoin de swiper pour retrouver son propre message. Commit : `332d634ecf0eedf1b679072ad11989e602c9d679`.
+- Reconnaissance : iOS garde ShazamKit en premier. Désormais tout match natif Shazam est aussi réinjecté en arrière-plan dans le resolver public Apple/Deezer afin d'enrichir le catalogue + la mémoire collective Loki sans ralentir l'utilisateur. Commits : `e7a9d7e817e0680040503590dc9a185da7d0cbee`, `d3e456aa6b987cc0b63aaab8ddd122a3586d90c0`.
+- Diagnostic live 02/10 : `AUDD_API_KEY` = NOT_CONFIGURED ; ACRCloud répond `3003 requests limit exceeded`. Sur iOS, ShazamKit reste donc le moteur large catalogue prioritaire ; web/Android restent dépendants de la mémoire Loki + d'un fournisseur acoustique serveur disponible.
+- E-mails live : file recovery bloquée par Brevo `Authorised IPs` ; erreur confirmée `unrecognised IP address`. Ce blocage est côté compte Brevo, pas dans l'UI Loki.
+- App Store : les anciens échecs Apple 401 / `com.adelkhatra.keep.share-extension` étaient des échecs de pipeline/signature, pas une décision App Review. La première build garde la Share Extension retirée et le marketplace iOS externe OFF (3.1.1).
+- Publication iOS actuelle déclenchée via `packages/mobile/.eas-build-trigger` sur le candidat `d3e456aa...`. Commit trigger : `cc8c87b24030ab06c2399715f90c01af6880ed04`.
