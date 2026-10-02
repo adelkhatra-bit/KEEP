@@ -175,6 +175,9 @@ export default function MusicAgoraPanel({
   const userDraggingChatRef = useRef(false);
   const ownSendPendingRef = useRef<number | null>(null);
   const bottomRetryTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const threadRefreshInFlightRef = useRef(false);
+  const threadRefreshQueuedRef = useRef(false);
+  const activeThreadKeyRef = useRef('');
   const { height: viewportHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
   const [keyboardInset, setKeyboardInset] = useState(0);
@@ -353,6 +356,7 @@ export default function MusicAgoraPanel({
     : replyTarget?.profileId
       ? `direct:${replyTarget.profileId}`
       : `${chatMode}:room:${roomSlug || 'pending'}`;
+  activeThreadKeyRef.current = activeThreadKey;
 
   useEffect(() => {
     if (initialRoomSlug && rooms.some((item) => item.slug === initialRoomSlug)) setRoomSlug(initialRoomSlug);
@@ -425,7 +429,7 @@ export default function MusicAgoraPanel({
 
   useEffect(() => {
     let live = true;
-    setLoading(true);
+    if (!compact) setLoading(true);
     Promise.all([
       loadMusicAgoraRooms().catch(() => []),
       enabled ? loadMusicAgoraSettings().catch(() => ({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] })) : Promise.resolve({ homeEnabled: false, notificationsEnabled: true, surfaces: ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE'] as MusicAgoraSurface[] }),
@@ -486,18 +490,9 @@ export default function MusicAgoraPanel({
     // Le fil et le clavier doivent s'ouvrir immédiatement, même si le chargement
     // des messages prend du temps ou échoue.
     requestAnimationFrame(() => focusComposer());
-    setLoading(true);
-    try {
-      const rows = await loadMusicAgoraDirectMessages(target.profileId, undefined, PAGE_SIZE);
-      setMessages(rows);
-      setHasMore(rows.length === PAGE_SIZE);
-      followChatBottom(false);
-      requestAnimationFrame(() => focusComposer());
-    } catch (error) {
-      Alert.alert('Conversation', readableError(error));
-    } finally {
-      setLoading(false);
-    }
+    // Le chargement du fil est centralisé dans l'effet Realtime ci-dessous.
+    // Cela évite le double RPC qui faisait afficher "chargement" en boucle
+    // quand on ouvrait une conversation depuis un profil.
   };
 
   const openGroup = async (group: MusicAgoraGroup) => {
@@ -515,20 +510,8 @@ export default function MusicAgoraPanel({
     setShowLatestJump(false);
     setMessages([]);
     if (group.myStatus !== 'ACTIVE') return;
-    setLoading(true);
-    try {
-      const rows = await loadMusicAgoraGroupMessages(group.id, undefined, PAGE_SIZE);
-      setMessages(rows);
-      setHasMore(rows.length === PAGE_SIZE);
-      setTimeout(() => {
-        followChatBottom(false);
-        focusComposer();
-      }, Platform.OS === 'ios' ? 220 : 80);
-    } catch (error) {
-      Alert.alert('Conversation', readableError(error));
-    } finally {
-      setLoading(false);
-    }
+    requestAnimationFrame(() => focusComposer());
+    // Même règle que le direct : une seule source de chargement par fil.
   };
 
   const refreshGroupMembers = async (groupId = activeGroup?.id) => {
@@ -670,23 +653,45 @@ export default function MusicAgoraPanel({
 
   const refresh = async (slug = roomSlug, quiet = false) => {
     if (!slug && !(chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))) return;
-    if (!quiet) setLoading(true);
+    if (threadRefreshInFlightRef.current) {
+      threadRefreshQueuedRef.current = true;
+      return;
+    }
+
+    threadRefreshInFlightRef.current = true;
+    const requestThreadKey = activeThreadKeyRef.current;
+    const shouldShowLoading = !quiet && !compact && messages.length === 0;
+    if (shouldShowLoading) setLoading(true);
     try {
-      const rows = chatMode === 'MESSAGES' && activeGroup?.id
-        ? await loadMusicAgoraGroupMessages(activeGroup.id, undefined, PAGE_SIZE)
+      const loader = chatMode === 'MESSAGES' && activeGroup?.id
+        ? loadMusicAgoraGroupMessages(activeGroup.id, undefined, PAGE_SIZE)
         : chatMode === 'MESSAGES' && replyTarget?.profileId
-          ? await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)
-          : await loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
+          ? loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE)
+          : loadMusicAgoraMessages(slug, undefined, PAGE_SIZE);
+      const rows = await Promise.race([
+        loader,
+        new Promise<MusicAgoraMessage[]>((_, reject) => setTimeout(() => reject(new Error('CHAT_REFRESH_TIMEOUT')), 6000)),
+      ]);
+      // Un retour réseau d'un ancien fil ne doit jamais remplacer le fil que
+      // l'utilisateur vient d'ouvrir entre-temps.
+      if (activeThreadKeyRef.current !== requestThreadKey) return;
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
       if (chatMode === 'MESSAGES') void refreshInbox();
     } catch {
-      if (!quiet) {
-        setMessages([]);
-        setHasMore(false);
+      // En rafraîchissement silencieux on garde toujours le contenu déjà visible.
+      // En ouverture initiale mobile on garde le composeur utilisable plutôt
+      // que de bloquer l'écran sur un loader.
+      if (!quiet && !compact && activeThreadKeyRef.current === requestThreadKey) {
+        setMessages((current) => current);
       }
     } finally {
-      if (!quiet) setLoading(false);
+      if (shouldShowLoading) setLoading(false);
+      threadRefreshInFlightRef.current = false;
+      if (threadRefreshQueuedRef.current) {
+        threadRefreshQueuedRef.current = false;
+        setTimeout(() => { void refresh(slug, true); }, 0);
+      }
     }
   };
 
@@ -738,7 +743,7 @@ export default function MusicAgoraPanel({
           if (!browsingHistoryRef.current) followChatBottom(false);
         });
       }
-    }, 4000);
+    }, 2500);
 
     const timer = setInterval(() => {
       if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) void refreshInbox();
