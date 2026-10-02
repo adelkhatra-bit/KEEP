@@ -23,7 +23,8 @@ describe('silent deployment update contract', () => {
     expect(app).toContain('<AppUpdateBanner authReady={authReady} />');
     expect(app).toContain('authReady ? (user ? <Navigation /> : <OnboardingScreen />)');
     expect(banner).toContain("if (!authReady || Platform.OS !== 'web') return undefined;");
-    expect(banner).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
+    expect(banner).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;");
+    expect(banner).toContain("document.addEventListener('visibilitychange', onHidden)");
     expect(banner).toContain('setInterval(() => { void checkNow(); }, 60_000)');
   });
 

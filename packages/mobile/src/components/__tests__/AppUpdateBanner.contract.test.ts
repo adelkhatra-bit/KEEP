@@ -23,7 +23,10 @@ describe('silent app update contract', () => {
     expect(source).toContain('void checkNow()');
     expect(source).toContain('setInterval(() => { void checkNow(); }, 60_000)');
     expect(source).toContain('reloadToLatest()');
-    expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;");
+    expect(source).toContain("if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;");
+    // Jamais de rechargement sous les doigts : seulement onglet en arrière-plan.
+    expect(source).toContain("document.visibilityState === 'hidden'");
+    expect(source).toContain("document.addEventListener('visibilitychange', onHidden)");
   });
 
   it('cannot be blocked by a legacy dismissed-update SHA', () => {

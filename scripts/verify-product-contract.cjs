@@ -284,6 +284,18 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   }
 }
 
+// ─── Mise à jour web : jamais de rechargement sous les doigts (ERR-WEB-UPDATE-RELOAD-029)
+{
+  const banner = fs.readFileSync(path.join(root, 'packages/mobile/src/components/AppUpdateBanner.tsx'), 'utf8');
+  must(contract.authBootstrap?.webUpdateNeverReloadsVisiblePage === true, 'MISE À JOUR: authBootstrap.webUpdateNeverReloadsVisiblePage doit rester true');
+  must(banner.includes("if (typeof document === 'undefined' || document.visibilityState === 'hidden') {")
+    && banner.includes("if (document.visibilityState === 'hidden') applyUpdate();")
+    && banner.includes("document.addEventListener('visibilitychange', onHidden)"),
+    'MISE À JOUR: AppUpdateBanner doit attendre que l\'onglet passe en arrière-plan avant de recharger (sinon la page se recharge en plein clic et les profils ne finissent jamais de charger)');
+  const reloadCalls = (banner.match(/reloadToLatest\(\)/g) || []).length;
+  must(reloadCalls === 1 && banner.includes('const applyUpdate = () =>'), 'MISE À JOUR: reloadToLatest() doit être appelé uniquement via applyUpdate (onglet en arrière-plan)');
+}
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);

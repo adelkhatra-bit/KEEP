@@ -33,9 +33,28 @@ export default function AppUpdateBanner({ authReady = true }: { authReady?: bool
   }, [authReady, checkNow]);
 
   useEffect(() => {
-    if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return;
-    webReloadingRef.current = true;
-    reloadToLatest();
+    if (!authReady || Platform.OS !== 'web' || !latestSha || webReloadingRef.current) return undefined;
+    // Incident 02/10/2026 : la page se rechargeait en pleine utilisation (clic
+    // sur Recherche, profil en cours de chargement) à chaque publication -- et
+    // il y en a eu des dizaines dans la journée. Chaque rechargement relançait
+    // tout le chargement du profil, qui n'aboutissait jamais : profils « vides ».
+    // La mise à jour reste silencieuse et automatique, mais ne s'applique
+    // JAMAIS sous les doigts de l'utilisateur : seulement quand l'onglet passe
+    // en arrière-plan (changement d'onglet, écran verrouillé, fenêtre réduite).
+    const applyUpdate = () => {
+      if (webReloadingRef.current) return;
+      webReloadingRef.current = true;
+      reloadToLatest();
+    };
+    if (typeof document === 'undefined' || document.visibilityState === 'hidden') {
+      applyUpdate();
+      return undefined;
+    }
+    const onHidden = () => {
+      if (document.visibilityState === 'hidden') applyUpdate();
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    return () => document.removeEventListener('visibilitychange', onHidden);
   }, [authReady, latestSha]);
 
   useEffect(() => {

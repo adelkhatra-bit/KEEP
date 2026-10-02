@@ -2553,3 +2553,10 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Ne JAMAIS affaiblir ce contrôle pour faire passer un push. Changer une valeur = contrat + code dans le même commit, justifié.
 - Reste bloquant hors code : passage de l'instance Supabase Micro → Small (action Adel).
 
+
+## [2026-10-02 18:45 CEST] CLAUDE CODE — PAGE QUI SE RECHARGE + PROFILS « VIDES »
+- Adel : « quand j'appuie sur Recherche, ça recharge la page » et « les utilisateurs sont vides ».
+- Audit serveur compte par compte (identité simulée, lecture seule + rollback) : le serveur renvoie bien le contenu (inside 51 musiques/34 FREE, adel4A 30/95, teyou 13/80, floadelissa 14/28, samedi 4/40, othmane 1/123). Rien n'est perdu.
+- Cause côté app : `AppUpdateBanner` rechargeait la page visible dès qu'une nouvelle version était publiée (contrôle toutes les 60 s) ; avec des dizaines de publications par jour + Supabase lent, le profil ne finissait jamais de charger. Correctif : mise à jour silencieuse appliquée seulement onglet en arrière-plan. Verrou dans verify-product-contract (ERR-WEB-UPDATE-RELOAD-029). Testé Chromium PC 1440 + Android 390.
+- RAPPEL À TOUTES LES IA : chaque push publie une nouvelle version → limiter les pushes, regrouper les correctifs.
+- Base Supabase toujours non redémarrée (démarrée le 22/08) : action Adel en attente.

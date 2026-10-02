@@ -663,7 +663,8 @@
     "transientNullAuthEventIgnoredBeforeInitialResolution": true,
     "blankBlackRecoverySurfaceForbidden": true,
     "manualRefreshRequired": false,
-    "silentAppUpdateWaitsForAuthReady": true
+    "silentAppUpdateWaitsForAuthReady": true,
+    "webUpdateNeverReloadsVisiblePage": true
   },
   "validatedLokiUiCheckpoint": {
     "chat": "fullscreen_chat_only_no_calls_camera",
