@@ -78,8 +78,6 @@ export default function GlobalNotificationBanner() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
-  const syncBattleAvailability = useBattleAvailabilityStore((s) => s.syncFromServer);
-  const resetBattleAvailability = useBattleAvailabilityStore((s) => s.reset);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
@@ -101,14 +99,6 @@ export default function GlobalNotificationBanner() {
   // par une entrée/sortie verticale depuis le haut de l'écran, et le swipe de
   // fermeture latéral par un swipe vers le HAUT uniquement (le doigt ne peut
   // pas tirer le bandeau vers le bas au-delà de sa position posée).
-  useEffect(() => {
-    if (!user || isDemoMode || isLocalGuest) {
-      resetBattleAvailability();
-      return;
-    }
-    void syncBattleAvailability().catch(() => {});
-  }, [isDemoMode, isLocalGuest, resetBattleAvailability, syncBattleAvailability, user?.id]);
-
   const refreshBlockingBattleDecision = useCallback(async () => {
     if (!user?.id || isDemoMode || isLocalGuest || battleDecisionPollBusy.current) {
       if (!user?.id || isDemoMode || isLocalGuest) {
@@ -145,12 +135,15 @@ export default function GlobalNotificationBanner() {
     // qu'au montage et au retour de l'app au premier plan.
     let alive = true;
     const tick = () => { if (alive) void refreshBlockingBattleDecision(); };
-    tick();
+    // L'auth/profil est le chemin critique. Un défi déjà en attente peut
+    // patienter 1,2 s ; les NOUVEAUX défis arrivent immédiatement via Realtime.
+    const initialTimer = setTimeout(tick, 1200);
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') tick();
     });
     return () => {
       alive = false;
+      clearTimeout(initialTimer);
       appState.remove();
     };
   }, [isDemoMode, isLocalGuest, refreshBlockingBattleDecision, user?.id]);
