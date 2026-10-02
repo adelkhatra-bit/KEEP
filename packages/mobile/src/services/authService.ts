@@ -330,10 +330,14 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async signInWithEmailIdentity(email, password) {
       const cleanEmail = normalizeEmail(email);
+      // Incident 02/10/2026 : Supabase Auth a renvoyé deux 504 consécutifs
+      // avant d'accepter la même connexion à la tentative suivante. Garder
+      // cette troisième tentative automatique évite de faire croire à
+      // l'utilisateur que ses identifiants sont faux pendant une panne brève.
       const result = await retryTransient(
         () => client.auth.signInWithPassword({ email: cleanEmail, password }),
         (value) => value.error,
-        2,
+        3,
       );
       const { data, error } = result;
       if (error || !data.session) return { error: mapSignupError(error?.message || 'invalid_credentials') };
