@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import type { RecognitionResult } from '@keep/music';
 import KeepShazam from '../../modules/keep-shazam';
 
-const NATIVE_ERROR_BACKOFF_MS = 5 * 60 * 1000;
+const NATIVE_ERROR_BACKOFF_MS = 15 * 1000;
 let unavailableUntil = 0;
 
 function blobToBase64(blob: Blob): Promise<string> {
