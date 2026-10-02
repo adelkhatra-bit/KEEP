@@ -489,6 +489,16 @@ export function subscribeMusicAgoraDirect(
         if (String(row.profile_id || '') === otherProfileId) onChange();
       },
     )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'music_agora_messages', filter: `target_profile_id=eq.${otherProfileId}` },
+      (payload) => {
+        // Synchronise aussi un autre appareil connecté au même compte :
+        // un message envoyé ailleurs apparaît sans fermer/réouvrir le fil.
+        const row = (payload as any)?.new ?? {};
+        if (String(row.profile_id || '') === currentProfileId) onChange();
+      },
+    )
     .subscribe();
   return () => {
     void client.removeChannel(channel);
