@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-function read(...parts) { return fs.readFileSync(path.join(...parts), 'utf8'); }
+function read(...parts: string[]) { return fs.readFileSync(path.join(...parts), 'utf8'); }
 
 describe('music DNA styles and Loki Pulse track bubbles', () => {
   const profile = read(__dirname, '..', 'ProfilePublicScreen.tsx');
