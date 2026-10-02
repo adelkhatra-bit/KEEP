@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.06",
+  "version": "2026-10-02.7",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -654,5 +654,15 @@
     "secondarySectionsProgressive": true,
     "profileViewNotificationNeverBlocksRender": true,
     "fullScreenSpinnerMustNotWaitForTracksLikesSalesOrImpacts": true
+  },
+  "authBootstrap": {
+    "realSupabaseSessionRequiredBeforeAuthenticatedScreens": true,
+    "fakeMinimalProfileOnRefreshForbidden": true,
+    "transientNetworkFailuresRetryUntilHydrated": true,
+    "retryBackoffMaxMs": 5000,
+    "transientNullAuthEventIgnoredBeforeInitialResolution": true,
+    "blankBlackRecoverySurfaceForbidden": true,
+    "manualRefreshRequired": false,
+    "silentAppUpdateWaitsForAuthReady": true
   }
 }

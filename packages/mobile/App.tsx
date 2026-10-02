@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import './src/i18n';
@@ -126,6 +126,9 @@ export default function App() {
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     let inFlightSessionKey: string | null = null;
     let inFlightSessionPromise: Promise<boolean> | null = null;
+    let bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let bootstrapRetryAttempt = 0;
+    let initialBootstrapSettled = false;
 
     const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
       if (!session) {
@@ -219,25 +222,61 @@ export default function App() {
 
     const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
       const hydrated = await handleSessionOnce(session);
-      if (active && hydrated) setAuthReady(true);
+      if (active && hydrated) {
+        initialBootstrapSettled = true;
+        bootstrapRetryAttempt = 0;
+        if (bootstrapRetryTimer) {
+          clearTimeout(bootstrapRetryTimer);
+          bootstrapRetryTimer = null;
+        }
+        setAuthReady(true);
+      }
       return hydrated;
+    };
+
+    // Incident 02/10/2026 : lors d'un pic Supabase, /auth/v1/user et plusieurs
+    // RPC ont renvoyé 500/504 pendant un refresh web. L'ancien bootstrap faisait
+    // seulement UNE relance puis laissait authReady=false pour toujours : écran
+    // noir vide. On ne monte toujours JAMAIS Navigation avec un faux profil :
+    // on garde l'écran de récupération visible et on retente silencieusement
+    // jusqu'à ce que la vraie session + le vrai profil Supabase soient hydratés.
+    const scheduleBootstrapRetry = () => {
+      if (!active || initialBootstrapSettled || bootstrapRetryTimer) return;
+      const delay = Math.min(5000, 600 * (2 ** Math.min(bootstrapRetryAttempt, 3)));
+      bootstrapRetryAttempt += 1;
+      bootstrapRetryTimer = setTimeout(() => {
+        bootstrapRetryTimer = null;
+        if (!active || initialBootstrapSettled) return;
+        void authService.getCurrentSession()
+          .then(async (retrySession) => {
+            const hydrated = await finishInitialBootstrap(retrySession);
+            if (!hydrated) scheduleBootstrapRetry();
+          })
+          .catch(() => scheduleBootstrapRetry());
+      }, delay);
     };
 
     void authService.getCurrentSession()
       .then(async (session) => {
         const hydrated = await finishInitialBootstrap(session);
-        if (hydrated || !active) return;
-        setTimeout(() => {
-          if (!active) return;
-          void authService.getCurrentSession()
-            .then((retrySession) => finishInitialBootstrap(retrySession))
-            .catch(() => {});
-        }, 800);
+        if (!hydrated) scheduleBootstrapRetry();
       })
-      .catch(() => {});
+      .catch(() => scheduleBootstrapRetry());
+
     const unsubscribeAuth = authService.onSessionChange((session) => {
+      // Supabase peut émettre un événement null transitoire pendant sa propre
+      // restauration locale. Tant que le bootstrap initial n'a pas tranché,
+      // ce null ne doit jamais faire apparaître l'onboarding ni effacer le compte.
+      if (!initialBootstrapSettled && !session) return;
       void handleSessionOnce(session).then((hydrated) => {
-        if (active && hydrated) setAuthReady(true);
+        if (active && hydrated) {
+          initialBootstrapSettled = true;
+          setAuthReady(true);
+        } else if (active && !initialBootstrapSettled) {
+          scheduleBootstrapRetry();
+        }
+      }).catch(() => {
+        if (active && !initialBootstrapSettled) scheduleBootstrapRetry();
       });
     });
 
@@ -258,6 +297,7 @@ export default function App() {
     return () => {
       active = false;
       if (saveTimer) clearTimeout(saveTimer);
+      if (bootstrapRetryTimer) clearTimeout(bootstrapRetryTimer);
       unsubscribeStore();
       unsubscribeAuth();
     };
@@ -265,7 +305,19 @@ export default function App() {
 
   return (
     <>
-      {authReady ? (user ? <Navigation /> : <OnboardingScreen />) : <View style={{ flex: 1, backgroundColor: colors.background }} />}
+      {authReady ? (user ? <Navigation /> : <OnboardingScreen />) : (
+        <View
+          testID="auth-bootstrap-recovery"
+          accessibilityLabel="Connexion Loki Music en cours"
+          style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}
+        >
+          <ActivityIndicator size="large" color={colors.primaryLight} />
+          <Text style={{ color: colors.textPrimary, fontSize: 22, fontWeight: '800', marginTop: 18 }}>Loki Music</Text>
+          <Text style={{ color: colors.textMutedGrey, fontSize: 14, textAlign: 'center', marginTop: 8 }}>
+            Connexion à ton compte…
+          </Text>
+        </View>
+      )}
       {authReady && user ? <GlobalNotificationBanner /> : null}
       {authReady && user ? <GlobalChatDock /> : null}
       <AppUpdateBanner authReady={authReady} />
