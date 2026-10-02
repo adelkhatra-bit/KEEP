@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Modal, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
@@ -525,7 +525,25 @@ export default function GlobalChatDock() {
           statusBarTranslucent
           onRequestClose={closeChat}
         >
-          <View testID="loki-chat-fullscreen-modal" style={styles.chatFullscreen} accessibilityLabel="Messagerie Loki plein écran">
+          <View
+            testID="loki-chat-fullscreen-modal"
+            style={[
+              styles.chatFullscreen,
+              Platform.OS === 'web' && ({
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                width: '100vw',
+                height: '100dvh',
+                minHeight: '100vh',
+                zIndex: 2147483647,
+                overflow: 'hidden',
+              } as any),
+            ]}
+            accessibilityLabel="Messagerie Loki plein écran"
+          >
             <MusicAgoraPanel
               compact
               compactSide={side}

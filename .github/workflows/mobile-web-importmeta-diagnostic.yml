@@ -156,14 +156,14 @@ jobs:
             const fullChat = page.getByTestId('loki-chat-fullscreen-modal');
             await fullChat.waitFor({ state: 'visible', timeout: 10000 });
             const fullChatBox = await fullChat.boundingBox();
-            if (!fullChatBox || fullChatBox.width < 380 || fullChatBox.height < 820) {
-              throw new Error(`Full-screen chat does not cover the mobile viewport: ${JSON.stringify(fullChatBox)}`);
+            if (!fullChatBox || fullChatBox.width < 380 || fullChatBox.height < 820 || fullChatBox.x > 1 || fullChatBox.y > 1) {
+              throw new Error(`Full-screen chat does not cover the mobile viewport from origin: ${JSON.stringify(fullChatBox)}`);
             }
             await page.getByPlaceholder('Rechercher une conversation…').waitFor({ state: 'visible', timeout: 10000 });
             await page.screenshot({ path: 'artifacts/real-browser/keep-chat-fullscreen-390x844.png', fullPage: true });
 
             // Vérifie aussi les actions réelles du compositeur derrière le +.
-            await clickRobust(page.getByLabel('Ouvrir La Place').last(), 'Open public chat composer');
+            await clickRobust(page.getByTestId('loki-chat-place-entry').last(), 'Open public chat composer');
             await page.getByLabel('Ouvrir les actions du message').waitFor({ state: 'visible', timeout: 10000 });
             await clickRobust(page.getByLabel('Ouvrir les actions du message').last(), 'Open composer actions');
             await page.getByText('RÉACTIONS', { exact: true }).last().waitFor({ state: 'visible', timeout: 10000 });

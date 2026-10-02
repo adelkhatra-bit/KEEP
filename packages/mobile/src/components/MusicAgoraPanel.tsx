@@ -1068,6 +1068,7 @@ export default function MusicAgoraPanel({
         </ScrollView>
         {(inboxFilter === 'ALL' || inboxFilter === 'GROUPS') ? (
           <TouchableOpacity
+            testID="loki-chat-place-entry"
             style={s.conversationRow}
             onPress={() => {
               setChatMode('PLACE');
