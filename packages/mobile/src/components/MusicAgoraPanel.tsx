@@ -361,6 +361,7 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!initialReplyTarget?.profileId) return;
     setReplyTarget(initialReplyTarget);
+    setReplyingToMessage(null);
     setChatMode('MESSAGES');
     initialScrollDone.current = false;
     setTimeout(() => {
@@ -373,6 +374,7 @@ export default function MusicAgoraPanel({
     if (!initialGroupId) return;
     setChatMode('MESSAGES');
     setReplyTarget(null);
+    setReplyingToMessage(null);
     const group = groups.find((item) => item.id === initialGroupId);
     if (!group) return;
     if (group.myStatus === 'ACTIVE') {
@@ -1260,6 +1262,7 @@ export default function MusicAgoraPanel({
               setShowLatestJump(false);
               setChatMode('PLACE');
               setReplyTarget(null);
+              setReplyingToMessage(null);
               setActiveGroup(null);
               setMessages([]);
               // La Place doit être saisissable immédiatement : ne jamais attendre
