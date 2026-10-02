@@ -27,9 +27,12 @@ describe('auth reconnect resilience contract', () => {
     expect(form).toContain('profile_hydration_timeout');
   });
 
-  it('does not erase session history on a normal successful login', () => {
+  it('preserves same-account history while isolating different accounts', () => {
     const finish = form.slice(form.indexOf('const finishAuthenticatedFlow'));
-    expect(finish).not.toContain('clearSessions()');
+    expect(finish).toContain('SESSION_HISTORY_OWNER_KEY');
+    expect(finish).toContain('switchingAccount');
+    expect(finish).toContain('guestLoggingIntoExistingAccount');
+    expect(finish).toContain('clearSessions()');
     expect(finish).toContain('clearStagedGuestMusic()');
   });
 });

@@ -2472,3 +2472,13 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Fix: toute session Auth non nulle passe authReady=false, garde l'écran « Connexion à ton compte… » et retente silencieusement le vrai profil Supabase avec backoff jusqu'à hydratation. Aucun faux profil local n'est remonté.
 - Deuxième défaut retiré: UsernameAccountForm ne fait plus clearSessions() à chaque login réussi.
 - App.tsx reste inchangé côté responsive/navigation; changement strictement auth bootstrap.
+
+
+## [2026-10-02] CHATGPT — HISTORY OWNER FIX
+- Le clearSessions systématique au login reste supprimé.
+- Ajout d'un owner local persistant pour l'historique :
+  - reconnexion même user => sessions conservées;
+  - autre user => sessions locales précédentes vidées;
+  - invité -> compte existant => sessions invitées vidées;
+  - invité -> nouveau compte => sessions conservées pour upgrade.
+- Objectif : aucune disparition sur reconnexion, aucune fuite entre comptes.

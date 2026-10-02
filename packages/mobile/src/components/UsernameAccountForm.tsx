@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { createAuthService } from '../services/authService';
@@ -29,6 +30,7 @@ const AUTH_INPUT_BACKGROUND_FOCUSED = '#3A3450';
 const AUTH_INPUT_BORDER = '#625B77';
 const AUTH_INPUT_PLACEHOLDER = '#BDB8C7';
 const AUTH_INPUT_TEXT = '#ECE8F2';
+const SESSION_HISTORY_OWNER_KEY = '__loki_session_history_owner_v1';
 
 type Props = {
   initialMode?: UsernameAccountMode;
@@ -167,10 +169,21 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
 
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
 
-    // Les sessions appartiennent à l'utilisateur et ne doivent jamais être
-    // effacées lors d'une simple reconnexion. Seules les données invitées
-    // temporairement mises en attente sont nettoyées ici ; l'historique réel
-    // est resynchronisé par compte après l'hydratation Supabase.
+    // Isolation par compte sans destruction à chaque reconnexion :
+    // - même compte => conserver ses sessions locales ;
+    // - autre compte => nettoyer les sessions de l'identité précédente ;
+    // - invité -> compte existant => ne jamais injecter les écoutes invitées ;
+    // - invité -> création de compte => conserver pour l'upgrade explicite.
+    if (expectedUserId) {
+      const previousOwner = await AsyncStorage.getItem(SESSION_HISTORY_OWNER_KEY).catch(() => null);
+      const switchingAccount = Boolean(previousOwner && previousOwner !== expectedUserId);
+      const guestLoggingIntoExistingAccount = mode === 'login' && isLocalGuest;
+      if (switchingAccount || guestLoggingIntoExistingAccount) {
+        useSessionHistoryStore.getState().clearSessions();
+      }
+      await AsyncStorage.setItem(SESSION_HISTORY_OWNER_KEY, expectedUserId).catch(() => {});
+    }
+
     await clearStagedGuestMusic().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
 
