@@ -670,6 +670,52 @@ const newKeepNotifJourney = {
   },
 };
 
+// Battle en ligne (Adel 02/10/2026, capture iPhone) : grand vide sous les
+// réponses → visuel agrandi (carré au maximum), réponses descendues ; et
+// « personne n'a trouvé » affiché quand aucun joueur n'a la bonne réponse.
+const battleArenaLayoutJourney = {
+  id: 'battle-en-ligne-ecran-de-jeu',
+  titre: 'Battle en ligne — visuel agrandi, réponses en bas, « personne n’a trouvé »',
+  devices: [ANDROID, MOBILE_SE, PC],
+  mobileFlags: true,
+  fakeOptions: { battleArena: true },
+  async run({ page, sb, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/Main/Parties?openBattle=1&arenaId=arena-1`, { waitUntil: 'load' });
+    await page.getByText('QUI CHANTE ?').first().waitFor({ timeout: 40000 });
+    await page.waitForTimeout(1200);
+    const vp = page.viewportSize();
+    const answers = page.getByText("The O'Jays", { exact: true }).first();
+    const boxAns = await answers.boundingBox();
+    const earth = await page.getByText('Earth', { exact: true }).first().boundingBox();
+    const visual = await page.evaluate(() => {
+      const t = [...document.querySelectorAll('div')].find((d) => d.innerText && d.innerText.trim() === 'QUI CHANTE ?');
+      // Le visuel est le 1er bloc du cadre de jeu : on mesure sa hauteur via le cadre de la manche.
+      const all = [...document.querySelectorAll('div')].filter((d) => { const cs = getComputedStyle(d); return cs.overflow === 'hidden' && d.getBoundingClientRect().width > 200 && d.getBoundingClientRect().top > 40; });
+      const v = all.find((d) => d.getBoundingClientRect().height >= 110 && d.getBoundingClientRect().bottom < (t ? t.getBoundingClientRect().top : 9999));
+      return v ? Math.round(v.getBoundingClientRect().height) : 0;
+    });
+    r.hauteur_visuel = visual;
+    r.reponses_bas = boxAns ? Math.round(boxAns.y + boxAns.height) : null;
+    r.reponses_dans_ecran = Boolean(boxAns && earth && earth.y > 0 && boxAns.y + boxAns.height <= vp.height);
+    await shot('manche');
+    sb.state.arenaRevealed = true;
+    await page.getByTestId('battle-round-no-winner').first().waitFor({ timeout: 20000 }).catch(() => {});
+    r.personne = await page.getByTestId('battle-round-no-winner').count();
+    r.texte_personne = (await page.getByTestId('battle-round-no-winner').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
+    await shot('personne');
+    const mobile = vp.width < 900;
+    const checks = [
+      ['visuel agrandi (téléphone > 200 px, jamais sous 118 px)', mobile ? r.hauteur_visuel > 200 : r.hauteur_visuel >= 118],
+      ['ordinateur : visuel plafonné à 420 px', mobile || r.hauteur_visuel <= 421],
+      ['téléphone : réponses descendues en bas (moins de 140 px au-dessus des onglets)', !mobile || (r.reponses_bas != null && vp.height - r.reponses_bas < 140)],
+      ['les 4 réponses restent entièrement visibles', r.reponses_dans_ecran],
+      ['« personne n’a trouvé » affiché quand aucun gagnant', r.personne === 1 && /PERSONNE/.test(r.texte_personne)],
+    ];
+    return { details: r, failures: failed(checks), ok: `visuel ${r.hauteur_visuel} px, réponses visibles, « personne n’a trouvé »` };
+  },
+};
+
 const JOURNEYS = [
   popupJourney('FREE'),
   popupJourney('MONEY'),
@@ -683,6 +729,7 @@ const JOURNEYS = [
   chatUnreadJourney,
   chatMiniJourney,
   newKeepNotifJourney,
+  battleArenaLayoutJourney,
 ];
 
 // ---------------------------------------------------------------- exécution

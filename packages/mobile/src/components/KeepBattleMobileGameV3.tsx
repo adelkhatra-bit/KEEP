@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -325,6 +325,10 @@ const autoJoinedChallengeIds = new Set<string>();
 
 export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequireAccount, onExit, initialArenaId, onOpenSession, onOpenOffers, onOpenLeaderboard }: Props) {
   const [homeHelpOpen, setHomeHelpOpen] = React.useState(false);
+  // Visuel de manche en ligne : sur téléphone il prend toute la hauteur
+  // libre (réponses en bas, sous le pouce) ; sur ordinateur, plafonné.
+  const { width: windowWidth } = useWindowDimensions();
+  const arenaVisualMax = windowWidth >= 900 ? 420 : undefined;
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   // Adel (03/09/2026) : "pouvoir choisir 8, 15, 20 ou 30 morceaux avant de
@@ -2883,10 +2887,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           l'écran sans aucun moyen d'y accéder. ScrollView de secours, en plus
           (pas à la place) du carré compact -- jamais plus de contenu
           totalement inatteignable pendant un chrono de quelques secondes. */}
-      <ScrollView scrollEnabled={arena.status !== "ACTIVE"} bounces={arena.status !== "ACTIVE"} style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
+      {/* Adel (02/10/2026) : « y a toute la place, descends les boutons et
+          laisse un carré plus grand pour l'image » -- pendant la manche, le
+          visuel prend toute la hauteur libre (carré au maximum) et pousse
+          les réponses vers le bas ; jamais sous 118 px. */}
+      <ScrollView scrollEnabled={arena.status !== "ACTIVE"} bounces={arena.status !== "ACTIVE"} style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.arenaScrollContent, arena.status === 'ACTIVE' && round ? s.arenaScrollContentActive : null]}>
       {arena.status === "WAITING" && arena.matchNo > 0 && !arena.lastResult ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>🏆</Text></View><Text style={s.winner}>RÉSULTATS EN CHARGEMENT</Text><Text style={s.waitText}>Compilation de vos scores...</Text></View> : null}
       {arena.status === "WAITING" && (arena.matchNo === 0 || arena.lastResult) ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>⚡</Text></View><Text style={s.winner}>{arena.seats.length < 2 ? (arena.pendingInviteCount > 0 ? "INVITATION ENVOYÉE" : "EN ATTENTE") : "JOUEURS EN SYNCHRONISATION"}</Text><Text style={s.waitText}>{arena.seats.length >= 2 ? "Tout le monde est prêt. Le même extrait démarre pour tous." : arena.pendingInviteCount > 0 ? `${arena.pendingInviteCount} réponse${arena.pendingInviteCount > 1 ? "s" : ""} en attente · tu peux continuer à inviter d’autres joueurs.` : "Invite un adversaire ou partage le lien pour démarrer."}</Text>{arena.pendingInviteCount > 0 ? <View style={s.waitingStatusPill}><Text style={s.waitingStatusText}>EN ATTENTE DE RÉPONSE</Text></View> : null}</View> : null}
-      {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, { transform: [{ scale: pulse }] }]}><View style={s.visual}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : null}</View> : null}</View>
+      {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, s.arenaCardActive, { transform: [{ scale: pulse }] }]}><View style={[s.visual, s.arenaVisualActive, { maxHeight: arenaVisualMax }]}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : !round.myAnswer?.correct ? <Text testID="battle-round-no-winner" style={s.roundNoWinner}>😶 PERSONNE N’A TROUVÉ · aucun point sur cette manche</Text> : null}</View> : null}</View>
       <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
       {false ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={s.duelName}>{first.username}</Text><Text style={s.duelPoints}></Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{`${Math.ceil(left / 1000)}s`}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={[s.duelName, { textAlign: 'right' }]}>{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}></Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
 
@@ -3270,7 +3278,7 @@ const s = StyleSheet.create({
   battleStartButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, opacity: .72 },
   battleStartButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   battleStartButtonTextDisabled: { color: colors.textMuted },
-  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 96 },
+  arenaScroll: { flex: 1 }, arenaScrollContent: { paddingBottom: 96 }, arenaScrollContentActive: { flexGrow: 1, paddingBottom: 12 }, arenaCardActive: { flexGrow: 1 }, arenaVisualActive: { height: undefined, flexGrow: 1, flexShrink: 0, minHeight: 118 }, roundNoWinner: { color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '900', textAlign: 'center', marginTop: 9 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
   squareTileFill: { flex: 1, justifyContent: 'space-between' }, squareTileImage: { resizeMode: 'cover' },

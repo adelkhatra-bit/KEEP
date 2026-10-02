@@ -126,6 +126,9 @@ function makeSession() {
  *                    (2 dans le groupe, 1 privé, + 1 annonce « Tchat
  *                    disponible » qui ne doit PAS compter comme message) ;
  *                    'GROUP_LATEST' : le message de groupe est le plus récent
+ *  - battleArena   : true pour servir une arène Battle EN LIGNE en cours
+ *                    (2 joueurs, manche 8/8) ; state.arenaRevealed = true
+ *                    révèle la manche SANS gagnant (personne n'a trouvé).
  *  - newKeepNotif  : true pour servir une notification « nouveau morceau »
  *                    d'un profil suivi, À L'ANCIEN FORMAT (titre/artiste en
  *                    clair dans le texte et data) : l'app doit tout masquer.
@@ -135,7 +138,7 @@ const SECRET_TRACK = { id: '5ec2e700-0000-4000-8000-0000000000aa', title: 'Titre
 function createFakeSupabase(options = {}) {
   const opts = { origin: 'http://127.0.0.1:4721', mode: 'FREE', offers: 'single', groupRole: 'MEMBER', groupStatus: 'ACTIVE', groupMessages: false, balance: 34, ...options };
   const session = makeSession();
-  const state = { posted: [], groupCalls: [], extraMessages: [], readNotifications: [] };
+  const state = { posted: [], groupCalls: [], extraMessages: [], readNotifications: [], arenaRevealed: false };
   const recent = (ms) => new Date(Date.now() - ms).toISOString();
   const unreadNotifications = opts.unreadChat ? [
     { id: 'n-g1', type: 'AGORA_GROUP_MESSAGE', title: 'Groupe', body: 'Nouveau message', data: { groupId: 'g-1', groupName: GROUP_NAME, senderId: SELLER, senderUsername: MEMBER_USERNAME, messageId: 501 }, read_at: null, created_at: recent(60000) },
@@ -146,6 +149,27 @@ function createFakeSupabase(options = {}) {
   if (opts.newKeepNotif) {
     unreadNotifications.push({ id: 'n-k1', type: 'NEW_PUBLIC_KEEP', title: `Nouveau KEEP de @${SELLER_USERNAME}`, body: `${SECRET_TRACK.title} — ${SECRET_TRACK.artist} · ajouté à son profil.`, data: { ownerProfileId: SELLER, username: SELLER_USERNAME, trackId: SECRET_TRACK.id, trackTitle: SECRET_TRACK.title, trackArtist: SECRET_TRACK.artist, artworkUrl: `${opts.origin}/secret.jpg`, kind: 'new_public_keep' }, read_at: null, created_at: recent(10000) });
   }
+  const battleArenaState = (revealed) => {
+    const now = Date.now();
+    return {
+      id: 'arena-1', arenaCode: 'ABCD', themeCode: 'FUNK', status: 'ACTIVE', maxPlayers: 2, openSeats: 0, queue: 0, pendingInviteCount: 0,
+      roundCount: 8, matchNo: 1, currentRound: 8, roundDurationMs: 15000, isHost: true,
+      me: { profileId: UID, status: 'ACTIVE', score: 3 },
+      seats: [
+        { profileId: UID, username: USERNAME, avatarUrl: null, followers: 0, favoriteGenres: [], favoriteArtists: [], score: 3, isHost: true },
+        { profileId: SELLER, username: SELLER_USERNAME, avatarUrl: null, followers: 0, favoriteGenres: [], favoriteArtists: [], score: 2 },
+      ],
+      leaderboard: [],
+      round: {
+        position: 8, themeCode: 'FUNK', choices: ['Earth', 'Heatwave', 'Kool', "The O'Jays"],
+        previewUrl: `${opts.origin}/none.mp3`, startedAt: new Date(now - 4000).toISOString(), closesAt: new Date(now + (revealed ? -1000 : 11000)).toISOString(),
+        revealUntil: revealed ? new Date(now + 5000).toISOString() : null,
+        revealed: Boolean(revealed), artist: revealed ? 'Kool' : null, artworkUrl: null,
+        answered: Boolean(revealed), myAnswer: revealed ? { selectedAnswer: 'Earth', responseMs: 3200, points: 0, correct: false } : null,
+      },
+      roundWinner: null,
+    };
+  };
   const offers = opts.offers === 'forty' ? FORTY_OFFERS : [singleOffer(opts.mode)];
 
   async function respond(route) {
@@ -185,6 +209,10 @@ function createFakeSupabase(options = {}) {
           const n = Number(String(body().p_offer_id || '').split('-')[1] || 1);
           return json(200, { totalCount: 12, ownedCount: n % 4, missingCount: n === 2 ? 0 : 12 - (n % 4) });
         }
+        case 'keep_battle_arena_state':
+        case 'keep_battle_arena_my_active':
+          if (!opts.battleArena) return json(200, null);
+          return json(200, battleArenaState(state.arenaRevealed));
         case 'keep_free_credit_breakdown': return json(200, { remaining: opts.balance });
         case 'keep_battle_credit_status': return json(200, credit);
         case 'keep_own_profile_snapshot': return json(200, obj ? snapshot[0] : snapshot);
