@@ -175,8 +175,8 @@ export default function MusicAgoraPanel({
   const userDraggingChatRef = useRef(false);
   const ownSendPendingRef = useRef<number | null>(null);
   const bottomRetryTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-  const threadRefreshInFlightRef = useRef(false);
-  const threadRefreshQueuedRef = useRef(false);
+  const threadRefreshInFlightKeysRef = useRef<Set<string>>(new Set());
+  const threadRefreshQueuedKeysRef = useRef<Set<string>>(new Set());
   const activeThreadKeyRef = useRef('');
   const { height: viewportHeight } = useWindowDimensions();
   const safeArea = useSafeAreaInsets();
@@ -653,13 +653,15 @@ export default function MusicAgoraPanel({
 
   const refresh = async (slug = roomSlug, quiet = false) => {
     if (!slug && !(chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))) return;
-    if (threadRefreshInFlightRef.current) {
-      threadRefreshQueuedRef.current = true;
+    const requestThreadKey = activeThreadKeyRef.current;
+    if (threadRefreshInFlightKeysRef.current.has(requestThreadKey)) {
+      threadRefreshQueuedKeysRef.current.add(requestThreadKey);
       return;
     }
 
-    threadRefreshInFlightRef.current = true;
-    const requestThreadKey = activeThreadKeyRef.current;
+    // Les fils différents peuvent charger en parallèle. Un ancien salon ne
+    // doit jamais bloquer l'ouverture immédiate d'un nouveau profil.
+    threadRefreshInFlightKeysRef.current.add(requestThreadKey);
     const shouldShowLoading = !quiet && !compact && messages.length === 0;
     if (shouldShowLoading) setLoading(true);
     try {
@@ -687,9 +689,9 @@ export default function MusicAgoraPanel({
       }
     } finally {
       if (shouldShowLoading) setLoading(false);
-      threadRefreshInFlightRef.current = false;
-      if (threadRefreshQueuedRef.current) {
-        threadRefreshQueuedRef.current = false;
+      threadRefreshInFlightKeysRef.current.delete(requestThreadKey);
+      const rerunSameThread = threadRefreshQueuedKeysRef.current.delete(requestThreadKey);
+      if (rerunSameThread && activeThreadKeyRef.current === requestThreadKey) {
         setTimeout(() => { void refresh(slug, true); }, 0);
       }
     }
