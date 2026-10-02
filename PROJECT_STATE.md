@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-09-22T15:41:05.791Z
+- Régénéré le : 2026-10-02T16:08:01.114Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `2767c3a` (2767c3ac6029be1a82e29e772648b7d8dd407bab) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- Date du dernier commit : 2026-09-22T17:39:04+02:00
+- Dernier commit : `b9b81e22` (b9b81e22b9902aa2900968dbe6d23015349a5521) — fix(ci): serialize production-backed browser audits
+- Date du dernier commit : 2026-10-02T17:59:03+02:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -125,16 +125,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `2767c3a` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout PartiesScreen (spec Adel 22/09/2026)
-- `d85c8d9` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout DiscoverScreen (spec Adel 22/09/2026)
-- `8cd3a09` (2026-09-22, adelkhatra-bit) — feat(mobile): refonte layout HomeScreenCompact (spec Adel 22/09/2026)
-- `d7df56a` (2026-09-22, adelkhatra-bit) — style(mobile): migrer HomeScreenCompact/Discover/Parties vers les tokens colors.ts (design system strict)
-- `b7ec85b` (2026-09-22, adelkhatra-bit) — docs: [A VALIDER] supprimer workflow obsolete eas-build-ios.yml (Apple 401, permission workflows requise cote Adel)
-- `18ffee6` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- diagnostic app/build (push OK, web OK, iOS build via auto-eas-build en cours; eas-build-ios obsolete Apple 401)
-- `4a29bae` (2026-09-22, adelkhatra-bit) — docs(agent-messages): Abacus -- reconciliation branches strategie C (fix eas.json + fichiers agents), hash 33a7fc1
-- `f766644` (2026-09-22, adelkhatra-bit) — chore(reconcile): port eas.json prod fix (remove hardcoded Supabase env) + recover agent coordination files from main
-- `580f483` (2026-09-22, adelkhatra-bit) — chore(state): regenerate PROJECT_STATE.md after pull 3276a24
-- `3276a24` (2026-09-22, adelkhatra-bit) — fix(marketplace): resolve price save error + detailed error messages
+- `b9b81e22` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
+- `3b5e9946` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
+- `0c769216` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
+- `9e777b5a` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
+- `23808035` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
+- `9d286fc3` (2026-10-02, adelkhatra-bit) — test(scale): lock auth priority and safe Battle polling
+- `d07d847f` (2026-10-02, adelkhatra-bit) — fix(scale): reduce Soirees Battle fallback polling
+- `8eefc958` (2026-10-02, adelkhatra-bit) — fix(scale): stop Battle lobby from starving auth
+- `2a2cead9` (2026-10-02, adelkhatra-bit) — fix(auth): bound login requests so users never hang on spinner
+- `623d195b` (2026-10-02, adelkhatra-bit) — fix(auth): reserve network lane for full login and profile bootstrap
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -152,6 +152,18 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- **🔴 Connexion impossible (02/10/2026) — base Supabase saturée** : instance
+  Micro (1 Go), quota d'I/O disque épuisé (checkpoint de 48 Ko = 11 s, Auth
+  « context deadline exceeded » / « failed to connect localhost:5432 »). Action
+  **Adel** : Dashboard → Settings → Compute and Disk → Micro → Small. Le code ne
+  peut pas lever ce blocage. Verrou anti-récidive en place : contrat
+  `authResilience` + `verify-product-contract.cjs` (bloquant publication web/OTA).
+- **Chat (MusicAgoraPanel)** : filet réseau toutes les 2,5 s quand une
+  conversation est ouverte — à passer ≥ 5 s après le gel (déclaré dans
+  `authResilience.fastIntervalAllowlist`).
+- **Tests** : 108 suites Jest en échec AVANT ce correctif (dette existante,
+  non causée par lui) — à assainir.
 
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).

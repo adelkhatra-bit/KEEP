@@ -2542,3 +2542,14 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Preuve : il existe actuellement 1 profil configuré QR-only ; smoke test transactionnel de `keep_playlist_sale_set_offer_for_selection_v5` en MONEY/1 EUR avec 2 titres sur ce profil = succès, rollback ensuite (aucune fausse offre conservée).
 - UI Pépites : préflight serveur juste avant PUBLIER, QR seul accepté, messages propres (plus de code brut). Commits : `9bb07efac3d19d74e2aee2756ca9e0b8c4e3ed70`, `4a1cd9561704b3c4ec257c9ff38615a2751de74b`.
 - TestFlight : rebuild final déclenché sur la chaîne incluant ces correctifs + intégrité preuve paiement. Trigger commit : `609cd6ac8e8164adfdc36641d350d9f1b9c4c36c`. Surveiller run Auto EAS iOS `36997593672`.
+
+
+## [2026-10-02 18:30 CEST] CLAUDE CODE — VERROU CONNEXION (demande explicite d'Adel)
+- Projet exclusif : LOKI MUSIC / KEEP. Adel a demandé un mécanisme **obligatoire** pour que le bug de connexion ne revienne jamais, quelle que soit l'IA.
+- Cause prouvée (logs Supabase) : sondage Battle 800 ms (142 000 req/24h) → quota I/O de l'instance Micro épuisé → Auth 504 « context deadline exceeded ». Aggravé par : échéance client 3,5 s + 3 relances (client) et 3 s × 3 (keep-username-auth) sans annulation → requêtes empilées.
+- Correctif : échéances > 10 s (client 15 s, invoke pseudo 25 s, edge 11 s), 2 tentatives max, jamais de relance après échéance locale ni sur un serveur déjà lent (> 5 s).
+- **Verrou bloquant** : `config/keep-product-contract.json` > `authResilience` + contrôle dans `scripts/verify-product-contract.cjs` (exécuté par verify-source-of-truth → publication web ET OTA). Tout nouveau `setInterval` < 5 s dans packages/mobile/src doit être déclaré avec sa raison.
+- Les tests qui verrouillaient les mauvaises valeurs (`'3500'`, `'9500'`, `:timeout`) lisent maintenant le contrat.
+- Ne JAMAIS affaiblir ce contrôle pour faire passer un push. Changer une valeur = contrat + code dans le même commit, justifié.
+- Reste bloquant hors code : passage de l'instance Supabase Micro → Small (action Adel).
+

@@ -18,11 +18,16 @@ describe('Loki auth priority under backend load', () => {
     expect(client).toContain('if (keepAuthPriorityActive > 0) return;');
   });
 
-  it('never leaves an explicit login request without a deadline', () => {
+  it('never abandons an explicit login before Supabase Auth can answer', () => {
+    // Valeurs chiffrées : config/keep-product-contract.json > authResilience
+    // (vérifiées aussi, de façon bloquante, par scripts/verify-product-contract.cjs).
+    const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json')).authResilience;
     expect(auth).toContain("client.functions.invoke('keep-username-auth'");
-    expect(auth).toContain('9500');
+    expect(auth).toContain(`const CLIENT_USERNAME_AUTH_INVOKE_DEADLINE_MS = ${contract.clientUsernameAuthInvokeDeadlineMs};`);
     expect(auth).toContain('client.auth.signInWithPassword');
-    expect(auth).toContain('3500');
+    expect(auth).toContain(`const CLIENT_PASSWORD_LOGIN_DEADLINE_MS = ${contract.clientPasswordLoginDeadlineMs};`);
+    expect(contract.clientPasswordLoginDeadlineMs).toBeGreaterThan(contract.serverAuthTimeoutMs);
+    expect(auth).not.toContain('3500');
     expect(auth).toContain('auth_temporarily_unavailable');
   });
 

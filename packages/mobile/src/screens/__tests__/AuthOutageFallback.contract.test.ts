@@ -10,7 +10,7 @@ const app = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', 'App.tsx')
 describe('Supabase outage startup resilience', () => {
   it('keeps the protected App shell untouched and puts resilience in services', () => {
     expect(app).not.toContain('getCachedWebRealUserSnapshot');
-    expect(auth).toContain("auth_temporarily_unavailable:timeout");
+    expect(auth).toContain("auth_temporarily_unavailable:${AUTH_LOCAL_DEADLINE_MARKER}");
     expect(profile).toContain("profile_temporarily_unavailable:timeout");
   });
 

@@ -186,6 +186,76 @@ must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'i
 must(packageJson.scripts?.['integration:preflight']?.includes('clean-integration-cache.cjs'), 'integration preflight does not clean generated caches');
 must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-contract.cjs'), 'integration postflight does not verify product contract');
 
+// ─── Fiabilité de la connexion (incident 02/10/2026) ───────────────────────
+// BLOQUANT pour la publication web ET l'OTA mobile. Toute IA qui remet une
+// échéance Auth plus courte que le serveur, des relances en rafale ou un
+// nouveau sondage réseau rapide fait échouer ce contrôle. Pour changer une
+// valeur : modifier config/keep-product-contract.json > authResilience ET le
+// code dans le même commit, avec une justification -- jamais l'un sans l'autre.
+{
+  const authRule = contract.authResilience || {};
+  const authFile = 'packages/mobile/src/services/authService.ts';
+  const edgeFile = 'supabase/functions/keep-username-auth/index.ts';
+  const authSource = fs.readFileSync(path.join(root, authFile), 'utf8');
+  const edgeSource = fs.readFileSync(path.join(root, edgeFile), 'utf8');
+  const norm = (value) => String(value).replace(/\s+/g, ' ').trim();
+  const constValue = (source, name) => {
+    const match = source.match(new RegExp(`const\\s+${name}\\s*=\\s*([0-9_]+)\\s*;`));
+    return match ? Number(match[1].replace(/_/g, '')) : NaN;
+  };
+  const serverMs = authRule.serverAuthTimeoutMs;
+  must(Number.isFinite(serverMs) && serverMs >= 10000, 'CONNEXION: authResilience.serverAuthTimeoutMs manquant (Supabase Auth = 10000 ms)');
+
+  const clientLogin = constValue(authSource, 'CLIENT_PASSWORD_LOGIN_DEADLINE_MS');
+  const clientInvoke = constValue(authSource, 'CLIENT_USERNAME_AUTH_INVOKE_DEADLINE_MS');
+  const clientAttempts = constValue(authSource, 'MAX_SIGN_IN_ATTEMPTS');
+  const clientFast = constValue(authSource, 'RETRY_ONLY_FAST_FAILURE_MS');
+  const edgeLogin = constValue(edgeSource, 'EDGE_SIGN_IN_DEADLINE_MS');
+  const edgeAttempts = constValue(edgeSource, 'EDGE_MAX_SIGN_IN_ATTEMPTS');
+  const edgeFast = constValue(edgeSource, 'EDGE_RETRY_ONLY_FAST_FAILURE_MS');
+
+  must(clientLogin === authRule.clientPasswordLoginDeadlineMs, `CONNEXION: ${authFile} CLIENT_PASSWORD_LOGIN_DEADLINE_MS (${clientLogin}) ≠ contrat (${authRule.clientPasswordLoginDeadlineMs})`);
+  must(clientLogin > serverMs, `CONNEXION: l'app abandonne la connexion (${clientLogin} ms) avant que Supabase Auth réponde (${serverMs} ms) -> requêtes empilées, plus personne ne se connecte`);
+  must(clientInvoke === authRule.clientUsernameAuthInvokeDeadlineMs, `CONNEXION: ${authFile} CLIENT_USERNAME_AUTH_INVOKE_DEADLINE_MS (${clientInvoke}) ≠ contrat (${authRule.clientUsernameAuthInvokeDeadlineMs})`);
+  must(clientInvoke > edgeLogin + authRule.retryOnlyFastFailureMs + edgeLogin / 2, `CONNEXION: l'app abandonne keep-username-auth (${clientInvoke} ms) avant la fin possible de la fonction serveur`);
+  must(edgeLogin === authRule.edgeSignInDeadlineMs && edgeLogin > serverMs, `CONNEXION: ${edgeFile} EDGE_SIGN_IN_DEADLINE_MS (${edgeLogin}) doit valoir le contrat (${authRule.edgeSignInDeadlineMs}) et dépasser ${serverMs} ms`);
+  must(clientAttempts === authRule.maxSignInAttempts && edgeAttempts === authRule.maxSignInAttempts, `CONNEXION: tentatives client=${clientAttempts} serveur=${edgeAttempts}, contrat=${authRule.maxSignInAttempts}`);
+  must(clientFast === authRule.retryOnlyFastFailureMs && edgeFast === authRule.retryOnlyFastFailureMs, 'CONNEXION: la relance doit rester réservée aux erreurs serveur rapides (retryOnlyFastFailureMs)');
+  must(authRule.retryAfterLocalDeadlineForbidden === true, 'CONNEXION: retryAfterLocalDeadlineForbidden doit rester true');
+  must(authSource.includes(`const AUTH_LOCAL_DEADLINE_MARKER = '${authRule.localDeadlineMarker}';`) && authSource.includes('includes(AUTH_LOCAL_DEADLINE_MARKER)) return last;'), 'CONNEXION: authService relance après son échéance locale (interdit)');
+  must(authSource.includes('Date.now() - attemptStartedAt > RETRY_ONLY_FAST_FAILURE_MS) return last;'), 'CONNEXION: authService relance un serveur déjà lent (interdit)');
+  must(edgeSource.includes('includes("auth_signin_timeout")) break;') && edgeSource.includes('Date.now() - attemptStartedAt > EDGE_RETRY_ONLY_FAST_FAILURE_MS) break;'), 'CONNEXION: keep-username-auth relance après échéance ou sur serveur lent (interdit)');
+  must(!/signInWithPassword\([^;]*?\)\s*as any,\s*[0-9_]+\s*,?\s*\)/.test(authSource), 'CONNEXION: échéance en dur sur signInWithPassword -- utiliser CLIENT_PASSWORD_LOGIN_DEADLINE_MS');
+  must(!/signInWithPassword\([^;]*?\),\s*[0-9_]+\s*,\s*"auth_signin_timeout"/.test(edgeSource), 'CONNEXION: échéance en dur dans keep-username-auth -- utiliser EDGE_SIGN_IN_DEADLINE_MS');
+
+  // Sondages : tout setInterval < minNetworkPollIntervalMs doit être déclaré avec sa raison.
+  const minPoll = authRule.minNetworkPollIntervalMs;
+  must(Number.isFinite(minPoll) && minPoll >= 5000, 'CONNEXION: minNetworkPollIntervalMs manquant');
+  const allow = Array.isArray(authRule.fastIntervalAllowlist) ? authRule.fastIntervalAllowlist : [];
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === 'node_modules' || entry.name === '__tests__' ? [] : walk(full);
+    return /\.(ts|tsx|js|jsx)$/.test(entry.name) ? [full] : [];
+  });
+  for (const file of walk(path.join(root, 'packages/mobile/src'))) {
+    const rel = path.relative(root, file).split(path.sep).join('/');
+    const source = fs.readFileSync(file, 'utf8');
+    const re = /setInterval\(([\s\S]{0,400}?),\s*([0-9_]+)\s*\)/g;
+    let m;
+    while ((m = re.exec(source))) {
+      const ms = Number(m[2].replace(/_/g, ''));
+      if (ms >= minPoll) continue;
+      const declared = allow.some((a) => a.file === rel && norm(m[0]).includes(norm(a.snippet)));
+      must(declared, `CONNEXION: sondage rapide non déclaré (${ms} ms) dans ${rel} -- un sondage réseau < ${minPoll} ms a saturé Supabase le 02/10/2026. Allonger l'intervalle, ou s'il n'appelle pas le réseau, le déclarer dans authResilience.fastIntervalAllowlist avec sa raison.`);
+    }
+  }
+  for (const a of allow) {
+    const full = path.join(root, a.file);
+    const exists = fs.existsSync(full) && norm(fs.readFileSync(full, 'utf8')).includes(norm(a.snippet));
+    must(exists && typeof a.reason === 'string' && a.reason.length > 5, `CONNEXION: entrée obsolète dans fastIntervalAllowlist (${a.file}) -- la retirer`);
+  }
+}
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);
@@ -197,3 +267,4 @@ console.log('certification + FREE remain live Supabase data, never UI-reset data
 console.log('battle catalog: deep pool + anti-repeat + Supabase rate-limited expansion locked');
 console.log('marketplace: FREE/€ filters + inline Pépites cart + confirmed duplicate reuse + payout locked');
 console.log('integration: clean preflight + product-contract postflight locked');
+console.log('connexion: échéances Auth > délai serveur, relance unique sur erreur rapide, sondages réseau >= 5 s verrouillés');

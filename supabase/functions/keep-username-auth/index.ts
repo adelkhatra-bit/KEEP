@@ -73,18 +73,27 @@ function transientAuthFailure(error: unknown) {
     || message.includes("internal server error");
 }
 
+// RÈGLE VERROUILLÉE — config/keep-product-contract.json > authResilience,
+// contrôlée par scripts/verify-product-contract.cjs.
+// Incident 02/10/2026 : Supabase Auth met jusqu'à 10 s quand la base est
+// lente. withDeadline n'annule pas la requête : abandonner à 3 s puis
+// relancer empilait 3 connexions en vol par utilisateur. L'échéance reste
+// donc au-dessus du délai serveur Auth, on ne relance jamais après elle, et
+// on ne relance qu'une erreur serveur RAPIDE (un serveur lent est saturé).
+const EDGE_SIGN_IN_DEADLINE_MS = 11000;
+const EDGE_MAX_SIGN_IN_ATTEMPTS = 2;
+const EDGE_RETRY_ONLY_FAST_FAILURE_MS = 5000;
+
 async function sessionFor(email: string, password: string) {
   let lastError: unknown = null;
-  // Incident 02/10/2026 : deux timeouts Auth 504 peuvent se succéder avant
-  // qu'une troisième tentative identique passe. Le retry reste limité aux
-  // erreurs transitoires 5xx/timeout et ne masque jamais un mauvais mot de passe.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < EDGE_MAX_SIGN_IN_ATTEMPTS; attempt += 1) {
     let data: any = null;
     let error: any = null;
+    const attemptStartedAt = Date.now();
     try {
       const result: any = await withDeadline(
         publicAuth.auth.signInWithPassword({ email, password }),
-        3000,
+        EDGE_SIGN_IN_DEADLINE_MS,
         "auth_signin_timeout",
       );
       data = result?.data ?? null;
@@ -104,7 +113,9 @@ async function sessionFor(email: string, password: string) {
       };
     }
     lastError = error;
-    if (!error || !transientAuthFailure(error) || attempt === 2) break;
+    if (!error || !transientAuthFailure(error) || attempt === EDGE_MAX_SIGN_IN_ATTEMPTS - 1) break;
+    if (String(error?.message ?? error ?? "").includes("auth_signin_timeout")) break;
+    if (Date.now() - attemptStartedAt > EDGE_RETRY_ONLY_FAST_FAILURE_MS) break;
     await wait(450 * (2 ** attempt));
   }
   if (lastError && transientAuthFailure(lastError)) {

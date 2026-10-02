@@ -85,6 +85,16 @@ schéma réel Supabase (`profiles`, `keep_decisions`, `subscriptions`, `plans`,
 ces noms n'existent pas dans ce projet) font foi, pas une supposition ni un ancien
 snapshot.
 
+## 🔒 CONNEXION — RÈGLE VERROUILLÉE PAR LE CODE (incident 02/10/2026)
+
+Le 02/10/2026, plus personne ne pouvait se connecter : un sondage réseau toutes les 800 ms a épuisé la base Supabase, puis l'app abandonnait chaque connexion après 3,5 s et relançait jusqu'à 3 fois, alors que Supabase Auth met jusqu'à 10 s à répondre. Résultat : des requêtes empilées et des connexions impossibles. Ce n'est **pas** une consigne à interpréter, c'est un **contrôle bloquant** :
+
+- Valeurs chiffrées : `config/keep-product-contract.json` > `authResilience`.
+- Contrôle : `scripts/verify-product-contract.cjs`, appelé par `verify-source-of-truth.cjs`. **S'il échoue, la publication web et l'OTA mobile sont refusées.**
+- Interdit : échéance de connexion ≤ 10 s, relance après une échéance locale, relance d'un serveur déjà lent (> 5 s), plus de 2 tentatives, nouveau `setInterval` < 5 s non déclaré dans `fastIntervalAllowlist` avec sa raison.
+- Pour changer une valeur : modifier le contrat **et** le code dans le même commit, avec la justification. Ne jamais affaiblir le contrôle pour « faire passer » un push.
+- Si la connexion casse : regarder d'abord les journaux Supabase Auth (`auth_logs`, `edge_logs` `/auth/v1/token`) **avant** de modifier le code. Un 504 « context deadline exceeded » = serveur saturé, pas un bug de mot de passe ni un compte désactivé.
+
 ## Jamais toucher
 
 `main` et `claude-local-backup-20260825` — ne jamais push, merge, ni rebase dessus

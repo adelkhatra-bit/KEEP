@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.03",
+  "version": "2026-10-02.04",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -674,9 +674,70 @@
     "mobileRoot": "global_safe_area_provider"
   },
   "authResilience": {
-    "transientAuthRetries": 3,
+    "rule": "Incident 02/10/2026 : connexion impossible. Supabase Auth peut mettre jusqu'à 10 s à répondre quand la base est lente. Un client qui abandonne avant (Promise.race sans annulation) puis relance multiplie les requêtes en vol et empêche toute connexion. Interdit : abandonner une requête Auth avant que le serveur Auth ait pu répondre, relancer une requête qui peut encore être en cours, ou ajouter un sondage réseau rapide non déclaré.",
+    "enforcedBy": "scripts/verify-product-contract.cjs (appelé par verify-source-of-truth.cjs, bloquant pour la publication web et l'OTA mobile)",
+    "serverAuthTimeoutMs": 10000,
+    "clientPasswordLoginDeadlineMs": 15000,
+    "clientUsernameAuthInvokeDeadlineMs": 25000,
+    "edgeSignInDeadlineMs": 11000,
+    "maxSignInAttempts": 2,
+    "retryAfterLocalDeadlineForbidden": true,
+    "retryOnlyFastFailureMs": 5000,
+    "localDeadlineMarker": "auth_local_deadline",
     "distinguishInvalidCredentials": true,
     "logoutScope": "local",
-    "usernameEdgeRetries": true
+    "minNetworkPollIntervalMs": 5000,
+    "fastIntervalAllowlist": [
+      {
+        "file": "packages/mobile/src/components/PlaylistSaleImmersivePreview.tsx",
+        "snippet": "setSecondsLeft((s) => Math.max(0, s - 1)), 1000)",
+        "reason": "compte à rebours UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(() => setNow(Date.now()), 100)",
+        "reason": "horloge UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(() => { void tick(); }, 1500)",
+        "reason": "RÉSEAU : mode spectateur uniquement, arrêté hors spectateur"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(refreshRematchStatus, 800)",
+        "reason": "RÉSEAU : fenêtre de revanche uniquement (rematchDeadline), arrêté ensuite"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(load, 3000)",
+        "reason": "RÉSEAU : écran Battle ouvert uniquement"
+      },
+      {
+        "file": "packages/mobile/src/components/GlobalChatDock.tsx",
+        "snippet": "setInterval(syncRoute, 750)",
+        "reason": "lecture de la route locale, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/HomeScreenCompact.tsx",
+        "snippet": "setInterval(() => setElapsed(formatElapsed(startedAt)), 1000)",
+        "reason": "chronomètre UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/HomeScreenCompact.tsx",
+        "snippet": "setInterval(update, 250)",
+        "reason": "compte à rebours UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/ProfilePublicScreen.tsx",
+        "snippet": "lokiPulseScrollRef.current?.scrollTo({ x: lokiPulseAutoIndex.current * 88, animated: true }); }, 3600)",
+        "reason": "carrousel Loki Pulse visuel, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/MusicAgoraPanel.tsx",
+        "snippet": "if (!browsingHistoryRef.current) followChatBottom(false); }); } }, 2500)",
+        "reason": "RÉSEAU : filet du temps réel, seulement conversation ouverte. À passer >= 5000 ms après le gel (point ouvert)."
+      }
+    ]
   }
 }

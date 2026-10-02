@@ -61,13 +61,26 @@ async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unkn
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function withAuthDeadline<T>(promise: Promise<T>, timeoutMs = 3500): Promise<T> {
+// RÈGLE VERROUILLÉE — config/keep-product-contract.json > authResilience,
+// contrôlée par scripts/verify-product-contract.cjs (publication bloquée sinon).
+// Incident 02/10/2026 : Supabase Auth met jusqu'à 10 s quand la base est lente.
+// Promise.race n'annule PAS la requête : abandonner avant 10 s puis relancer
+// empile des requêtes en vol et plus personne n'arrive à se connecter.
+// => échéance locale toujours > délai serveur Auth, et JAMAIS de relance
+//    après une échéance locale (la requête précédente peut encore aboutir).
+const AUTH_LOCAL_DEADLINE_MARKER = 'auth_local_deadline';
+const CLIENT_PASSWORD_LOGIN_DEADLINE_MS = 15000;
+const CLIENT_USERNAME_AUTH_INVOKE_DEADLINE_MS = 25000;
+const MAX_SIGN_IN_ATTEMPTS = 2;
+const RETRY_ONLY_FAST_FAILURE_MS = 5000;
+
+async function withAuthDeadline<T>(promise: Promise<T>, timeoutMs = CLIENT_PASSWORD_LOGIN_DEADLINE_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error('auth_temporarily_unavailable:timeout')), timeoutMs);
+        timer = setTimeout(() => reject(new Error(`auth_temporarily_unavailable:${AUTH_LOCAL_DEADLINE_MARKER}`)), timeoutMs);
       }),
     ]);
   } finally {
@@ -134,13 +147,19 @@ async function persistedSupabaseAuthSession(client: SupabaseClient): Promise<Kee
 async function retryTransient<T>(
   operation: () => Promise<T>,
   getError: (value: T) => unknown,
-  attempts = 4,
+  attempts = MAX_SIGN_IN_ATTEMPTS,
 ): Promise<T> {
   let last!: T;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const attemptStartedAt = Date.now();
     last = await operation();
     const error = getError(last);
     if (!error || !transientAuthFailure(error) || attempt === attempts - 1) return last;
+    // La requête abandonnée localement peut encore être traitée par le serveur :
+    // relancer maintenant doublerait la charge exactement pendant la panne.
+    if (String((error as any)?.message ?? error ?? '').includes(AUTH_LOCAL_DEADLINE_MARKER)) return last;
+    // Un serveur qui a mis plus de 5 s à échouer est saturé : ne pas l'enfoncer.
+    if (Date.now() - attemptStartedAt > RETRY_ONLY_FAST_FAILURE_MS) return last;
     await wait(Math.min(2400, 450 * (2 ** attempt)));
   }
   return last;
@@ -253,7 +272,7 @@ export function createAuthService(client: SupabaseClient): AuthService {
           body,
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         }) as any,
-        9500,
+        CLIENT_USERNAME_AUTH_INVOKE_DEADLINE_MS,
       );
     } catch (error) {
       return { error: mapSignupError(String((error as any)?.message || error || 'auth_temporarily_unavailable')) };
@@ -348,23 +367,22 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async signInWithEmailIdentity(email, password) {
       const cleanEmail = normalizeEmail(email);
-      // Incident 02/10/2026 : Supabase Auth a renvoyé deux 504 consécutifs
-      // avant d'accepter la même connexion à la tentative suivante. Garder
-      // cette troisième tentative automatique évite de faire croire à
-      // l'utilisateur que ses identifiants sont faux pendant une panne brève.
+      // Une seconde tentative seulement si le serveur a lui-même répondu vite
+      // par une erreur transitoire -- jamais après notre échéance locale.
+      // Voir la règle verrouillée au-dessus de withAuthDeadline.
       const result = await retryTransient(
         async () => {
           try {
             return await withAuthDeadline(
               client.auth.signInWithPassword({ email: cleanEmail, password }) as any,
-              3500,
+              CLIENT_PASSWORD_LOGIN_DEADLINE_MS,
             ) as any;
           } catch (error) {
             return { data: { session: null, user: null }, error } as any;
           }
         },
         (value: any) => value.error,
-        3,
+        MAX_SIGN_IN_ATTEMPTS,
       );
       const { data, error } = result;
       if (error || !data.session) return { error: mapSignupError(error?.message || 'invalid_credentials') };
