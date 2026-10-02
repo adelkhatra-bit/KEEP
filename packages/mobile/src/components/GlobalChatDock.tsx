@@ -92,6 +92,7 @@ export default function GlobalChatDock() {
   // Le chat ne doit jamais se fermer entre les deux simplement parce que le
   // store UI est momentanément resté en mode invité/démo après un refresh.
   const [authenticatedProfileId, setAuthenticatedProfileId] = useState<string | null | undefined>(undefined);
+  const lastAuthenticatedProfileIdRef = useRef<string | null>(null);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawerPeek = useRef(new Animated.Value(0)).current;
@@ -109,7 +110,7 @@ export default function GlobalChatDock() {
   // transitoirement vide ne doit jamais fermer la messagerie d'un compte que
   // l'app a déjà authentifié dans son store. Le store est le filet de
   // continuité visuelle ; la déconnexion réelle le nettoie ensuite.
-  const effectiveProfileId = authenticatedProfileId || storeProfileId;
+  const effectiveProfileId = authenticatedProfileId || lastAuthenticatedProfileIdRef.current || storeProfileId;
   const accountReady = Boolean(effectiveProfileId);
   const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
   const visualTestPreview = Boolean(previewOnly && process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1');
@@ -124,14 +125,32 @@ export default function GlobalChatDock() {
     let live = true;
     void supabase.auth.getSession()
       .then(({ data }) => {
-        if (live) setAuthenticatedProfileId(data.session?.user?.id ?? null);
+        if (!live) return;
+        const profileId = data.session?.user?.id ?? null;
+        if (profileId) lastAuthenticatedProfileIdRef.current = profileId;
+        setAuthenticatedProfileId(profileId || storeProfileId || lastAuthenticatedProfileIdRef.current || null);
       })
       .catch(() => {
-        if (live) setAuthenticatedProfileId(null);
+        if (live) {
+          setAuthenticatedProfileId((current) => current || storeProfileId || lastAuthenticatedProfileIdRef.current || null);
+        }
       });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (live) setAuthenticatedProfileId(session?.user?.id ?? null);
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!live) return;
+      const profileId = session?.user?.id ?? null;
+      if (profileId) {
+        lastAuthenticatedProfileIdRef.current = profileId;
+        setAuthenticatedProfileId(profileId);
+        return;
+      }
+      // Sur mobile, INITIAL_SESSION/TOKEN_REFRESHED peuvent passer brièvement
+      // par null. Garder l'identité connue évite l'ouverture puis fermeture
+      // immédiate de La Place ou d'un chat utilisateur.
+      if (event === 'SIGNED_OUT') {
+        lastAuthenticatedProfileIdRef.current = null;
+        setAuthenticatedProfileId(null);
+      }
     });
 
     return () => {
@@ -194,9 +213,10 @@ export default function GlobalChatDock() {
     // dock le refermait immédiatement car Zustand disait encore "invité".
     if (!authResolved && !previewOnly) return;
     if (!accountReady || !effectiveProfileId) {
-      closeChat();
+      // Ne jamais fermer une fenêtre que l'utilisateur vient juste d'ouvrir
+      // pour un trou transitoire de session. Le contenu reste monté pendant
+      // l'hydratation et la vraie déconnexion est gérée par SIGNED_OUT.
       setTracks([]);
-      setChatEnabled(false);
       setUnreadCount(0);
       setChatSettingsReady(false);
       return;
@@ -475,8 +495,8 @@ export default function GlobalChatDock() {
 
   const surfaceVisible = previewOnly ? true : Boolean(activeSurface && chatSurfaces.includes(activeSurface));
 
-  if (!user) return null;
-  if (!previewOnly && !settingsOpen && !accountReady) return null;
+  if (!user && !effectiveProfileId && !open) return null;
+  if (!previewOnly && !settingsOpen && !accountReady && !open) return null;
   if (!previewOnly && accountReady && !chatSettingsReady && !open && !settingsOpen) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
