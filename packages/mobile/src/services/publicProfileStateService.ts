@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
 
@@ -245,6 +246,32 @@ export async function loadOwnProfileSnapshot(): Promise<OwnProfileSnapshot> {
 }
 
 const KEEP_PAGE_SIZE = 250;
+const OWN_PROFILE_KEEPS_CACHE_PREFIX = '@keep/own-profile-keeps-v1';
+
+function ownKeepsCacheKey(profileId: string) {
+  return `${OWN_PROFILE_KEEPS_CACHE_PREFIX}:${profileId}`;
+}
+
+async function readOwnKeepsCache(profileId: string): Promise<PublicProfileKeep[] | null> {
+  if (!profileId) return null;
+  try {
+    const raw = await AsyncStorage.getItem(ownKeepsCacheKey(profileId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as PublicProfileKeep[] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeOwnKeepsCache(profileId: string, rows: PublicProfileKeep[]) {
+  if (!profileId) return;
+  try {
+    // Borne le cache local sans limiter la source serveur. C'est un filet
+    // anti-panne, pas une deuxième base de données.
+    await AsyncStorage.setItem(ownKeepsCacheKey(profileId), JSON.stringify(rows.slice(0, 1000)));
+  } catch {}
+}
 
 async function loadPagedKeeps(rpcName: 'keep_public_profile_tracks' | 'keep_own_profile_tracks', args: Record<string, unknown>): Promise<PublicProfileKeep[]> {
   if (!supabase) return [];
@@ -360,11 +387,23 @@ export async function loadProfileReprisers(profileId: string, limit = 16): Promi
 
 export async function loadOwnProfileKeeps(): Promise<PublicProfileKeep[]> {
   // Le RPC propriétaire est la source canonique du propriétaire : PUBLIC +
-  // PRIVATE. Les morceaux privés restent visibles uniquement sur SON écran
-  // avec leur état PRIVÉ ; ils ne passent jamais par les RPC publiques.
-  // Ne pas les filtrer ici, sinon "Mon profil" et "Mes musiques" calculent
-  // des nombres de Styles différents à partir du même compte.
-  return loadPagedKeeps('keep_own_profile_tracks', {});
+  // PRIVATE. Les morceaux privés restent visibles uniquement sur SON écran.
+  if (!supabase) return [];
+  const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+  const profileId = sessionData.session?.user?.id ? String(sessionData.session.user.id) : '';
+
+  try {
+    const rows = await loadPagedKeeps('keep_own_profile_tracks', {});
+    if (profileId) void writeOwnKeepsCache(profileId, rows);
+    return rows;
+  } catch (error) {
+    // Incident réel 02/10/2026 : Supabase peut répondre 503/504 alors que les
+    // 46+ morceaux de l'utilisateur sont toujours en base. Dans ce cas on
+    // affiche le dernier snapshot local au lieu de faire croire à une suppression.
+    const cached = profileId ? await readOwnKeepsCache(profileId) : null;
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 export async function loadProfileDiscoveryImpacts(profileId: string): Promise<Record<string, DiscoveryImpact>> {
