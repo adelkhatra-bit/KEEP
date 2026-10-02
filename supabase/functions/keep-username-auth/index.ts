@@ -6,7 +6,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
-const directDb = DB_URL ? postgres(DB_URL, { prepare: false, max: 1, idle_timeout: 10 }) : null;
+const directDb = DB_URL ? postgres(DB_URL, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 10,
+  connect_timeout: 2,
+}) : null;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -40,6 +45,20 @@ function looksLikeDuplicateEmail(error: unknown) {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function withDeadline<T>(operation: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(operation),
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(label)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function transientAuthFailure(error: unknown) {
   const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
   const message = String((error as any)?.message ?? error ?? "").toLowerCase();
@@ -60,7 +79,19 @@ async function sessionFor(email: string, password: string) {
   // qu'une troisième tentative identique passe. Le retry reste limité aux
   // erreurs transitoires 5xx/timeout et ne masque jamais un mauvais mot de passe.
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+    let data: any = null;
+    let error: any = null;
+    try {
+      const result: any = await withDeadline(
+        publicAuth.auth.signInWithPassword({ email, password }),
+        3000,
+        "auth_signin_timeout",
+      );
+      data = result?.data ?? null;
+      error = result?.error ?? null;
+    } catch (signinError) {
+      error = signinError;
+    }
     if (!error && data.session) {
       return {
         ok: true as const,
@@ -127,7 +158,7 @@ async function profileByUsername(username: string) {
   // utilise l'index unique lower(username) et reste O(log n) même à grande échelle.
   if (directDb) {
     try {
-      const rows = await directDb`
+      const rows = await withDeadline(directDb`
         select
           p.id::text as id,
           p.username,
@@ -138,7 +169,7 @@ async function profileByUsername(username: string) {
         join auth.users u on u.id = p.id
         where lower(p.username) = lower(${username})
         limit 2
-      `;
+      `, 1500, "direct_profile_lookup_timeout");
       return rows.map((row: any) => ({
         id: String(row.id),
         username: String(row.username ?? ""),
@@ -151,34 +182,44 @@ async function profileByUsername(username: string) {
     }
   }
 
-  // Fallback PostgREST habituel.
-  const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2);
-  if (!error) return data ?? [];
+  // Fallback PostgREST borné. Un schema-cache bloqué ne doit jamais garder
+  // l'écran de connexion ouvert indéfiniment.
+  let restError: unknown = null;
+  try {
+    const result: any = await withDeadline(
+      admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2),
+      1800,
+      "postgrest_profile_lookup_timeout",
+    );
+    if (!result?.error) return result?.data ?? [];
+    restError = result.error;
+  } catch (error) {
+    restError = error;
+  }
 
-  // Incident 02/10/2026 : PostgREST peut perdre son schema-cache (PGRST002)
-  // alors que Supabase Auth reste accessible. Dans ce cas précis, ne jamais
-  // bloquer tous les comptes Loki : retrouver le user par son metadata
-  // keep_username et continuer le contrôle de mot de passe via Auth.
-  if (transientProfileLookupFailure(error)) {
-    const authUser = await findAuthUserByUsername(username);
+  // Incident 02/10/2026 : PostgREST peut perdre son schema-cache alors que
+  // Supabase Auth reste accessible. Le fallback Auth est temporaire et borné ;
+  // le chemin normal reste l'index unique lower(username), O(log n).
+  if (transientProfileLookupFailure(restError)) {
+    const authUser = await withDeadline(findAuthUserByUsername(username), 2500, "auth_username_lookup_timeout").catch(() => null);
     if (authUser) {
       const keepUsername = normalizeUsername(authUser.user_metadata?.keep_username) || username;
       return [{ id: authUser.id, username: keepUsername, is_public: true }];
     }
   }
 
-  throw error;
+  throw restError;
 }
 
 async function profileById(id: string) {
   if (directDb) {
     try {
-      const rows = await directDb`
+      const rows = await withDeadline(directDb`
         select id::text as id, username
         from public.profiles
         where id = ${id}::uuid
         limit 1
-      `;
+      `, 1500, "direct_profile_id_lookup_timeout");
       const row: any = rows[0];
       return row ? { id: String(row.id), username: String(row.username ?? "") } : null;
     } catch (error) {
@@ -449,7 +490,7 @@ Deno.serve(async (req) => {
 
     if (action === "health") {
       if (!directDb) return json({ ok: false, direct_db: false, error: "database_url_unavailable" }, 503);
-      const rows = await directDb`select 1 as ok`;
+      const rows = await withDeadline(directDb`select 1 as ok`, 1200, "direct_db_health_timeout");
       return json({ ok: Number((rows[0] as any)?.ok ?? 0) === 1, direct_db: true });
     }
 
