@@ -35,6 +35,42 @@ function fallbackUser(session: KeepAuthSession): User {
   };
 }
 
+const WEB_LAST_REAL_USER_KEY = '__keep_last_real_user_v1';
+
+function cachedOutageProfile(session: KeepAuthSession): User | null {
+  try {
+    const storage = (globalThis as any)?.localStorage;
+    if (!storage) return null;
+    const raw = storage.getItem(WEB_LAST_REAL_USER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (String(parsed?.id || '') !== session.userId) return null;
+    const username = String(parsed?.username || session.username || '').trim().replace(/^@+/, '');
+    if (!username) return null;
+    return {
+      ...fallbackUser(session),
+      username,
+      avatar: typeof parsed?.avatar === 'string' ? parsed.avatar : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function withProfileDeadline<T>(operation: PromiseLike<T>, timeoutMs = 2000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(operation),
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('profile_temporarily_unavailable:timeout')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function normalizeProfileTextList(value: unknown, maxItems = 250): string[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
@@ -165,36 +201,58 @@ export function createProfileService(client: SupabaseClient) {
     async loadOrCreateOwnProfile(session: KeepAuthSession): Promise<User> {
       const fallback = fallbackUser(session);
 
-      let { data: profile, error: profileError } = await client
-        .from('profiles')
-        .select('*')
-        .eq('id', session.userId)
-        .maybeSingle();
+      let profile: any = null;
+      let profileError: any = null;
+      try {
+        const profileResult: any = await withProfileDeadline(
+          client.from('profiles').select('*').eq('id', session.userId).maybeSingle(),
+        );
+        profile = profileResult?.data ?? null;
+        profileError = profileResult?.error ?? null;
+      } catch (error) {
+        profileError = error;
+      }
 
       // Incident 02/10/2026 : PostgREST a renvoyé PGRST002/503 alors que les
       // comptes existaient. En cas d'erreur, on récupère le VRAI profil par
       // l'Edge Function SQL directe, authentifiée par la session courante.
       if (profileError) {
-        const bootstrap = await client.functions.invoke('keep-profile-bootstrap', { body: {} });
-        const payload: any = bootstrap.data;
-        if (bootstrap.error || !payload?.ok || !payload?.profile) throw profileError;
+        try {
+          const bootstrap: any = await withProfileDeadline(
+            client.functions.invoke('keep-profile-bootstrap', { body: {} }),
+          );
+          const payload: any = bootstrap?.data;
+          if (!bootstrap?.error && payload?.ok && payload?.profile) {
+            profile = payload.profile;
+            loadedOwnProfileId = session.userId;
+            return {
+              ...publicUserFromProfile(
+                profile,
+                Array.isArray(payload.social_links) ? payload.social_links : [],
+                Number(payload.follower_count ?? 0),
+                Number(payload.following_count ?? 0),
+              ),
+              email: session.email ?? '',
+              locationOptIn: profile.location_opt_in,
+              privateInfo: {
+                birthDate: payload.private_info?.birth_date ?? undefined,
+                gender: payload.private_info?.gender ?? undefined,
+              },
+            };
+          }
+        } catch {
+          // Le fallback local ci-dessous est réservé à une indisponibilité distante.
+        }
 
-        profile = payload.profile;
-        loadedOwnProfileId = session.userId;
-        return {
-          ...publicUserFromProfile(
-            profile,
-            Array.isArray(payload.social_links) ? payload.social_links : [],
-            Number(payload.follower_count ?? 0),
-            Number(payload.following_count ?? 0),
-          ),
-          email: session.email ?? '',
-          locationOptIn: profile.location_opt_in,
-          privateInfo: {
-            birthDate: payload.private_info?.birth_date ?? undefined,
-            gender: payload.private_info?.gender ?? undefined,
-          },
-        };
+        const cached = cachedOutageProfile(session);
+        const safeFallback = cached ?? (session.username ? fallback : null);
+        if (safeFallback) {
+          // Marque l'identité comme déjà connue afin que les sauvegardes
+          // automatiques restent NON destructives au retour de Supabase.
+          loadedOwnProfileId = session.userId;
+          return safeFallback;
+        }
+        throw profileError;
       }
 
       if (!profile) {
