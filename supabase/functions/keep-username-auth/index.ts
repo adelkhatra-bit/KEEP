@@ -56,7 +56,7 @@ function transientAuthFailure(error: unknown) {
 
 async function sessionFor(email: string, password: string) {
   let lastError: unknown = null;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
     if (!error && data.session) {
       return {
@@ -70,8 +70,8 @@ async function sessionFor(email: string, password: string) {
       };
     }
     lastError = error;
-    if (!error || !transientAuthFailure(error) || attempt === 3) break;
-    await wait(250 * (2 ** attempt));
+    if (!error || !transientAuthFailure(error) || attempt === 1) break;
+    await wait(350 * (2 ** attempt));
   }
   if (lastError && transientAuthFailure(lastError)) {
     return { ok: false as const, error: "auth_temporarily_unavailable" };
