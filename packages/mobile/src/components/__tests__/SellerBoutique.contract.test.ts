@@ -36,4 +36,14 @@ describe('seller boutique', () => {
     expect(rail).not.toContain('freePrice ?? 3');
     expect(boutique).toContain("offer.freePrice != null ? `${offer.freePrice} FREE` : 'FREE'");
   });
+
+  it('shows the Pépites banner: one bubble per style, no artwork, no title, bubble opens the filtered store', () => {
+    expect(boutique).toContain('LES PÉPITES DE @{sellerUsername.toUpperCase()}');
+    expect(boutique).toContain('function StyleBubble(');
+    expect(boutique).toContain('onPress={() => openGenre(genre)}');
+    expect(boutique).toContain('Univers {selectedGenre} de @{sellerUsername}');
+    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).not.toContain('<Image');
+    expect(boutique).not.toContain('useNativeDriver: true');
+  });
 });

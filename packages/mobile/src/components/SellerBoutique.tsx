@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -70,6 +70,45 @@ function rankForViewer(offers: PublicPlaylistSaleOffer[], overlaps: Record<strin
     .map((row) => row.offer);
 }
 
+// Bannière Pépites (Adel, 02/10/2026, maquette validée) : une bulle par
+// style, comme Loki Pulse -- couleur + nom + nombre de drops, JAMAIS de
+// jaquette ni de titre. La taille suit le nombre de collections du style.
+const BUBBLE_COLORS: { bg: string; border: string; text: string }[] = [
+  { bg: '#7C5CFC', border: '#A78BFA', text: '#FFFFFF' },
+  { bg: '#E8C26A', border: '#F5DA97', text: '#2A2110' },
+  { bg: '#1B8F7D', border: '#7AF0DB', text: '#FFFFFF' },
+  { bg: '#C2563A', border: '#FFB08F', text: '#FFFFFF' },
+  { bg: '#2F5DA8', border: '#93C5FD', text: '#FFFFFF' },
+];
+const BANNER_MAX_BUBBLES = 6;
+
+function StyleBubble({ genre, count, index, size, onPress, reduceMotion }: { genre: string; count: number; index: number; size: number; onPress: () => void; reduceMotion: boolean }) {
+  const float = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduceMotion) { float.setValue(0); return undefined; }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(float, { toValue: 1, duration: 1600 + index * 230, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(float, { toValue: 0, duration: 1600 + index * 230, useNativeDriver: Platform.OS !== 'web' }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [float, index, reduceMotion]);
+  const palette = BUBBLE_COLORS[index % BUBBLE_COLORS.length];
+  return (
+    <Animated.View style={{ transform: [{ translateY: float.interpolate({ inputRange: [0, 1], outputRange: index % 2 ? [-4, 4] : [3, -5] }) }] }}>
+      <TouchableOpacity
+        style={[s.bubble, { width: size, height: size, borderRadius: size / 2, backgroundColor: palette.bg, borderColor: palette.border }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Voir les ${count} collection${count > 1 ? 's' : ''} ${genre}`}
+      >
+        <Text style={[s.bubbleGenre, { color: palette.text, fontSize: size >= 80 ? 14 : size >= 66 ? 12 : 11 }]} numberOfLines={1}>{genre}</Text>
+        <Text style={[s.bubbleCount, { color: palette.text }]}>{size >= 66 ? `${count} drop${count > 1 ? 's' : ''}` : count}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unlocked: boolean }) {
   if (unlocked) return <View style={[s.token, s.tokenUnlocked]}><Text style={[s.tokenText, s.tokenTextUnlocked]}>✓ DÉBLOQUÉE</Text></View>;
   const free = offer.paymentMode === 'FREE';
@@ -124,6 +163,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   const [storeFilter, setStoreFilter] = useState<FilterKey>('ALL');
   const [storeSort, setStoreSort] = useState<SortKey>('FOR_YOU');
   const [storeQuery, setStoreQuery] = useState('');
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    let live = true;
+    AccessibilityInfo.isReduceMotionEnabled?.().then((value) => { if (live) setReduceMotion(Boolean(value)); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => { setDropIndex((value) => (featured.length ? value % featured.length : 0)); }, [featured.length]);
 
@@ -132,6 +177,23 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     const filtered = base.filter((offer) => shelfFilter === 'FREE' ? offer.paymentMode === 'FREE' : shelfFilter === 'MONEY' ? offer.paymentMode !== 'FREE' : true);
     return filtered.slice(0, SHELF_MAX);
   }, [ranked, visibleOffers, shelfFilter]);
+
+  // Styles de la bannière : nombre de collections par style principal.
+  const genreCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    visibleOffers.forEach((offer) => { const genre = offer.genres?.[0] || 'Mix'; counts.set(genre, (counts.get(genre) || 0) + 1); });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [visibleOffers]);
+  const newTracksForViewer = useMemo(
+    () => visibleOffers.filter((offer) => !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId]).reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0),
+    [visibleOffers, unlockedOfferIds, overlaps],
+  );
+  const openGenre = (genre: string) => {
+    setStoreFilter(`GENRE:${genre}`);
+    setStoreSort('FOR_YOU');
+    setStoreQuery('');
+    setStoreOpen(true);
+  };
 
   const topGenres = useMemo(() => {
     const counts = new Map<string, number>();
@@ -160,10 +222,57 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   const drop = featured.length ? featured[dropIndex % featured.length] : null;
   const dropNew = drop ? newForViewer(drop, overlaps) : 0;
   // 2 colonnes : largeur utile = fenêtre (640 max) - marges 16 - bordures - espace 10.
+  const maxGenreCount = genreCounts[0]?.[1] || 1;
+  const bannerGenres = genreCounts.slice(0, BANNER_MAX_BUBBLES);
+  const hiddenGenreCount = Math.max(0, genreCounts.length - BANNER_MAX_BUBBLES);
+  const selectedGenre = storeFilter.startsWith('GENRE:') ? storeFilter.slice(6) : null;
+  const selectedGenreNew = selectedGenre
+    ? visibleOffers.filter((offer) => (offer.genres || []).includes(selectedGenre) && !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId]).reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0)
+    : 0;
+  const selectedGenreCount = selectedGenre ? visibleOffers.filter((offer) => (offer.genres || []).includes(selectedGenre)).length : 0;
   const storeCardWidth = Math.floor((Math.min(windowWidth, 640) - 16 * 2 - 2 - 10 - 2) / 2);
 
   return (
     <View style={s.root}>
+      <View style={s.banner}>
+        <View style={s.bannerHead}>
+          <View style={s.liveDot} />
+          <Text style={s.bannerKicker} numberOfLines={1}>LES PÉPITES DE @{sellerUsername.toUpperCase()}</Text>
+        </View>
+        <Text style={s.bannerTitle}>{visibleOffers.length} collection{visibleOffers.length > 1 ? 's' : ''} à écouter avant de choisir</Text>
+        <View style={s.bubbles} accessibilityLabel="Styles des collections">
+          {bannerGenres.map(([genre, count], index) => (
+            <StyleBubble
+              key={genre}
+              genre={genre}
+              count={count}
+              index={index}
+              size={Math.round(54 + 30 * (count / maxGenreCount))}
+              reduceMotion={reduceMotion}
+              onPress={() => openGenre(genre)}
+            />
+          ))}
+          {hiddenGenreCount > 0 ? (
+            <TouchableOpacity style={[s.bubble, s.bubbleMore]} onPress={() => { setStoreFilter('ALL'); setStoreOpen(true); }} accessibilityRole="button" accessibilityLabel={`Voir les ${hiddenGenreCount} autres styles`}>
+              <Text style={s.bubbleMoreText}>+{hiddenGenreCount}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={s.bannerPills}>
+          {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
+          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>€ {moneyCount}</Text></View> : null}
+          {newTracksForViewer > 0 ? <View style={[s.bannerPill, s.bannerPillNew]}><Text style={[s.bannerPillText, s.bannerPillNewText]}>{newTracksForViewer} nouveauté{newTracksForViewer > 1 ? 's' : ''} pour toi</Text></View> : null}
+        </View>
+        <TouchableOpacity
+          style={s.bannerCta}
+          onPress={() => { const first = featured[0] || ranked[0]; if (first) onOpenOffer(first); }}
+          accessibilityRole="button"
+          accessibilityLabel="Écouter les aperçus des pépites"
+        >
+          <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
+        </TouchableOpacity>
+      </View>
+
       {drop ? (
         <TouchableOpacity style={s.drop} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Drop du moment : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
           <View style={s.dropHead}>
@@ -236,12 +345,21 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               ))}
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', '€']] : []), ...topGenres.map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
+              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', '€']] : []), ...(selectedGenre && !topGenres.includes(selectedGenre) ? [selectedGenre, ...topGenres] : topGenres).map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
                 <TouchableOpacity key={key} style={[s.chip, storeFilter === key && s.chipOn]} onPress={() => setStoreFilter(key)} accessibilityRole="button" accessibilityState={{ selected: storeFilter === key }}>
                   <Text style={[s.chipText, storeFilter === key && s.chipTextOn]}>{label}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
+            {selectedGenre ? (
+              <View style={s.universe}>
+                <View style={s.universeBubble}><Text style={s.universeBubbleText} numberOfLines={1}>{selectedGenre}</Text></View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.universeTitle} numberOfLines={1}>Univers {selectedGenre} de @{sellerUsername}</Text>
+                  <Text style={s.universeMeta}>{selectedGenreCount} collection{selectedGenreCount > 1 ? 's' : ''}{selectedGenreNew > 0 ? ` · ${selectedGenreNew} nouveauté${selectedGenreNew > 1 ? 's' : ''} pour toi` : ''}</Text>
+                </View>
+              </View>
+            ) : null}
             <Text style={s.storeCount}>{storeRows.length} collection{storeRows.length > 1 ? 's' : ''}</Text>
             <ScrollView style={s.storeList} contentContainerStyle={s.grid}>
               {storeRows.map((offer) => (
@@ -265,6 +383,29 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 
 const s = StyleSheet.create({
   root: { gap: 10, marginTop: 10 },
+  banner: { borderRadius: 22, borderWidth: 1, borderColor: colors.primary, backgroundColor: '#140F24', padding: 16, gap: 12, overflow: 'hidden' },
+  bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
+  bannerKicker: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
+  bannerTitle: { color: colors.textPrimary, fontSize: 20, lineHeight: 26, fontWeight: '900' },
+  bubbles: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 6 },
+  bubble: { borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  bubbleGenre: { fontWeight: '900', textAlign: 'center' },
+  bubbleCount: { fontSize: 10, fontWeight: '800', marginTop: 1 },
+  bubbleMore: { width: 56, height: 56, borderRadius: 28, borderColor: colors.border, backgroundColor: colors.backgroundCard },
+  bubbleMoreText: { color: colors.textSecondary, fontSize: 12, fontWeight: '900' },
+  bannerPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bannerPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  bannerPillText: { fontSize: 12, fontWeight: '900' },
+  bannerPillNew: { borderColor: colors.keep, backgroundColor: 'transparent' },
+  bannerPillNewText: { color: colors.keep },
+  bannerCta: { minHeight: 48, borderRadius: 24, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  bannerCtaText: { color: '#140F24', fontSize: 14, fontWeight: '900', letterSpacing: .4 },
+  universe: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, backgroundColor: colors.primary, padding: 12 },
+  universeBubble: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  universeBubbleText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  universeTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  universeMeta: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 },
   drop: { borderRadius: 20, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', padding: 14 },
   dropHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dropKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
