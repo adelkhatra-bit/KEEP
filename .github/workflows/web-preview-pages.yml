@@ -1,5 +1,5 @@
 name: KEEP — Web public officiel
-# RELEASE RETRIGGER: Loki Music public web after typecheck-only fix (2026-10-02)
+# RELEASE RETRIGGER: publish direct-DB auth fallback after PGRST002 incident (2026-10-02 03:18 CEST)
 
 on:
   push:
