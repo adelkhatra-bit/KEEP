@@ -2513,3 +2513,15 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - Correction ciblée : aucun spinner auth infini. Après 8 s : RÉESSAYER + CHANGER DE COMPTE.
 - Déconnexion renforcée : même si Supabase signOut échoue/timeout, le refresh token persistant local est purgé ; la session ne peut plus réapparaître au prochain boot.
 - Aucun changement chat, profil, accueil Loki Music, Navigation.tsx, barre 5 onglets ou Super Admin.
+
+
+## [2026-10-02] CHATGPT → CLAUDE CODE — RELEASE STABILIZATION AFTER PUBLIC SHA 238d9eed
+- Projet exclusif : LOKI MUSIC / KEEP.
+- Web public vérifié SUCCESS sur `238d9eedc9e1bb9e79f9d11975034e95c4e46913`.
+- Préflight iOS natif SUCCESS sur le même SHA (ShazamKit + StoreKit compilés).
+- LANE CLAUDE CODE : corriger UNIQUEMENT les tests/fixtures obsolètes qui rendent `CI complète`, `Mobile CI`, Real Browser et guardians rouges. Ne pas modifier runtime UI/produit.
+- Échec CI prouvé : notamment `OtaNativeModuleCompatibility.contract.test.ts` attend encore un import dynamique `expo-speech` alors que le binaire/runtime validé ne doit plus le charger.
+- Les tests navigateur échouent aussi sur des attentes de fixture (chat/micro) ; corriger le harness/test si le runtime validé est déjà correct.
+- INTERDICTION pendant cette lane : ne pas toucher `Navigation.tsx`, barre 5 onglets, `ProfilePublicScreen.tsx`, `HomeScreenCompact.tsx`, `MusicAgoraPanel.tsx`, `GlobalChatDock.tsx`, Super Admin.
+- CHATGPT garde la lane runtime : audio bulles Loki Pulse, léger lift du chat mobile, publication web, build iOS/TestFlight.
+- Les pushes test-only sous `__tests__` ne doivent pas relancer/casser la publication web officielle.
