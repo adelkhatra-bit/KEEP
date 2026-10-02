@@ -388,6 +388,31 @@ export default function MusicAgoraPanel({
     });
   }, [enabled, currentProfileId]);
 
+  const openDirectThread = async (target: { profileId: string; username: string }, preferredRoomSlug?: string | null) => {
+    initialScrollDone.current = false;
+    browsingHistoryRef.current = false;
+    forceBottomRef.current = true;
+    setChatMode('MESSAGES');
+    setActiveGroup(null);
+    setReplyTarget(target);
+    setSharedTrack(null);
+    setSharePaymentMode('NONE');
+    setDraft('');
+    setMessages([]);
+    if (preferredRoomSlug) setRoomSlug(preferredRoomSlug);
+    setLoading(true);
+    try {
+      const rows = await loadMusicAgoraDirectMessages(target.profileId, undefined, PAGE_SIZE);
+      setMessages(rows);
+      setHasMore(rows.length === PAGE_SIZE);
+      setTimeout(() => followChatBottom(false), 40);
+    } catch (error) {
+      Alert.alert('Conversation', readableError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openGroup = async (group: MusicAgoraGroup) => {
     setReplyTarget(null);
     setActiveGroup(group);
@@ -738,7 +763,6 @@ export default function MusicAgoraPanel({
         });
       }
       setDraft('');
-      if (!(compact && chatMode === 'MESSAGES')) setReplyTarget(null);
       setSharedTrack(null);
       setShareOptionsOpen(false);
       setShareRevealMode('MASKED');
@@ -749,8 +773,27 @@ export default function MusicAgoraPanel({
       setShareMoneyPriceInput('1');
       setSharePreflight(null);
       browsingHistoryRef.current = false;
-      await refresh(roomSlug);
-      followChatBottom(true);
+      forceBottomRef.current = true;
+
+      // Recharge explicitement LA conversation dans laquelle le message vient
+      // d'être envoyé. C'était le bug principal : une réponse directe pouvait
+      // être envoyée, puis l'UI rechargeait le salon public et le message
+      // semblait avoir disparu jusqu'à ce que l'utilisateur cherche en scroll.
+      if (activeGroup?.id) {
+        const rows = await loadMusicAgoraGroupMessages(activeGroup.id, undefined, PAGE_SIZE);
+        setMessages(rows);
+        setHasMore(rows.length === PAGE_SIZE);
+      } else if (replyTarget?.profileId) {
+        setChatMode('MESSAGES');
+        const rows = await loadMusicAgoraDirectMessages(replyTarget.profileId, undefined, PAGE_SIZE);
+        setMessages(rows);
+        setHasMore(rows.length === PAGE_SIZE);
+      } else {
+        const rows = await loadMusicAgoraMessages(roomSlug, undefined, PAGE_SIZE);
+        setMessages(rows);
+        setHasMore(rows.length === PAGE_SIZE);
+      }
+      followChatBottom(false);
     } catch (error) {
       Alert.alert('Tchat', readableError(error));
     } finally {
@@ -891,7 +934,7 @@ export default function MusicAgoraPanel({
       'Action sur ce message',
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Répondre', onPress: () => setReplyTarget({ profileId: message.profileId, username: message.username }) },
+        { text: 'Répondre', onPress: () => { void openDirectThread({ profileId: message.profileId, username: message.username }); } },
         {
           text: 'Signaler',
           onPress: () => {
@@ -1138,14 +1181,10 @@ export default function MusicAgoraPanel({
             key={item.profileId}
             style={s.conversationRow}
             onPress={() => {
-              initialScrollDone.current = false;
-              browsingHistoryRef.current = false;
-              forceBottomRef.current = true;
-              setActiveGroup(null);
-              setMessages([]);
-              setReplyTarget({ profileId: item.profileId, username: item.username });
-              if (item.lastRoomSlug) setRoomSlug(item.lastRoomSlug);
-              setTimeout(() => followChatBottom(false), 80);
+              void openDirectThread(
+                { profileId: item.profileId, username: item.username },
+                item.lastRoomSlug,
+              );
             }}
             accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
           >
@@ -1298,7 +1337,7 @@ export default function MusicAgoraPanel({
           {message.profileId !== currentProfileId ? (
             <View style={s.messageActions}>
               {!replyTarget ? (
-                <TouchableOpacity style={s.reply} onPress={() => setReplyTarget({ profileId: message.profileId, username: message.username })}><Text style={s.replyText}>RÉPONDRE</Text></TouchableOpacity>
+                <TouchableOpacity style={s.reply} onPress={() => { void openDirectThread({ profileId: message.profileId, username: message.username }); }}><Text style={s.replyText}>RÉPONDRE</Text></TouchableOpacity>
               ) : null}
               <TouchableOpacity style={s.more} onPress={() => moderate(message)} accessibilityLabel={`Actions pour le message de ${message.username}`}><Text style={s.moreText}>•••</Text></TouchableOpacity>
             </View>
