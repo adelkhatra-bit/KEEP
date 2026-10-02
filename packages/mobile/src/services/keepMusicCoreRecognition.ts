@@ -11,6 +11,7 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const DEVICE_KEY = '@keep/music-device-id-v1';
 const FALLBACK_RECHECK_MS = 30 * 1000;
+const FALLBACK_QUOTA_RECHECK_MS = 6 * 60 * 60 * 1000;
 const PRIMARY_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
@@ -479,8 +480,8 @@ function fallbackKnownUnavailable() {
   return Date.now() < fallbackUnavailableUntil;
 }
 
-function markFallbackUnavailable() {
-  fallbackUnavailableUntil = Date.now() + FALLBACK_RECHECK_MS;
+function markFallbackUnavailable(durationMs = FALLBACK_RECHECK_MS) {
+  fallbackUnavailableUntil = Date.now() + durationMs;
 }
 
 /**
@@ -581,6 +582,18 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // Le même échantillon est réutilisé : aucune nouvelle capture micro n'est
     // nécessaire et le morceau reste dans la session dès qu'un moteur répond.
     const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
+
+    // ACRCloud renvoie HTTP 200 même quand son quota est épuisé (status 3003).
+    // Sans ce test le client interprétait ça comme un simple no-match et
+    // rappelait le fournisseur toutes les quelques secondes. On le met en
+    // veille 6 h et on laisse la mémoire Loki / les sources sans clé continuer.
+    const fallbackQuotaExhausted = fallback.payload?.providerStatus === 3003
+      || fallback.payload?.providerUnavailable === 'quota_exhausted';
+    if (fallbackQuotaExhausted) {
+      markFallbackUnavailable(FALLBACK_QUOTA_RECHECK_MS);
+      fallbackConsensus = null;
+    }
+
     if (fallback.ok && fallback.payload?.recognition) {
       fallbackUnavailableUntil = 0;
       fallbackConsensus = null;
