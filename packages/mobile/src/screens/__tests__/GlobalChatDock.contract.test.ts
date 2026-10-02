@@ -160,7 +160,7 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain("Nouveau groupe privé");
     expect(messenger).toContain('Sur invitation uniquement');
     expect(messenger).toContain("accessibilityLabel=\"Gérer les membres du groupe");
-    expect(messenger).toContain("<Text style={s.drawerActionText}>MORCEAU</Text>");
+    expect(messenger).toContain("<Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>");
   });
 
   it('keeps music sharing compact, explicit and anti-resale', () => {

@@ -26,7 +26,7 @@ describe('Social scale and musical agora contracts',()=>{
     expect(panel).toContain('subscribeMusicAgoraRoom');
     expect(panel).toContain('chatScrollRef.current?.scrollToEnd');
     expect(panel).toContain("{ label: '❤️', payload: '❤️' }");
-    expect(panel).toContain("<Text style={s.drawerActionText}>MORCEAU</Text>");
+    expect(panel).toContain("<Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>");
     expect(panel).toContain("MESSAGERIE · ACTIVÉE");
     expect(panel).toContain("shellCompact:{position:'absolute'");
     expect(panel).toContain("shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0");

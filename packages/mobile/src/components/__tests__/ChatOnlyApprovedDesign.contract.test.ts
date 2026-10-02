@@ -25,8 +25,8 @@ describe('Loki chat-only approved design contract', () => {
   });
 
   it('keeps the simple approved chat actions', () => {
-    expect(panel).toContain('<Text style={s.drawerActionText}>RÉACTIONS</Text>');
-    expect(panel).toContain('<Text style={s.drawerActionText}>MORCEAU</Text>');
+    expect(panel).toContain('<Text style={[s.drawerActionText, s.drawerActionReactionsText]}>RÉACTIONS</Text>');
+    expect(panel).toContain('<Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>');
     expect(panel).toContain('<Text style={s.drawerActionText}>QR PAYPAL</Text>');
     expect(panel).toContain('PARTAGER LE MORCEAU');
     expect(panel).toContain('placeholder="Rechercher une conversation…"');

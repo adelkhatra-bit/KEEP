@@ -17,8 +17,8 @@ describe('Loki direct chat remains writable contract', () => {
 
   it('keeps normal direct chat controls available', () => {
     expect(panel).toContain('placeholder="Écris un message…"');
-    expect(panel).toContain('<Text style={s.drawerActionText}>RÉACTIONS</Text>');
-    expect(panel).toContain('<Text style={s.drawerActionText}>MORCEAU</Text>');
+    expect(panel).toContain('<Text style={[s.drawerActionText, s.drawerActionReactionsText]}>RÉACTIONS</Text>');
+    expect(panel).toContain('<Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>');
     expect(panel).toContain('<Text style={s.drawerActionText}>QR PAYPAL</Text>');
   });
 
