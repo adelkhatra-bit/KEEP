@@ -14,6 +14,7 @@ import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../s
 import { splitSaleOffersByStatus } from '../services/saleListPaging';
 import { loadOwnPersistedKeeps } from '../services/keepMusicCoreRecognition';
 import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
+import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import type { CanonicalTrack } from '@keep/music';
 import PayPalQrPayoutControl from './PayPalQrPayoutControl';
 
@@ -415,14 +416,30 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   // Adel (16-17/09/2026) : "l'utilisateur se fait payer directement" -- une
   // fois payé sur SON lien perso (hors KEEP), le vendeur confirme ici -- ça
   // débloque l'accès de CET acheteur précis (démasquage des morceaux).
+  const handleOpenPaymentProof = async (transaction: PlaylistSaleTransaction) => {
+    try {
+      const url = await openPlaylistPaymentProof(transaction.id);
+      await Linking.openURL(url);
+    } catch (e: any) {
+      Alert.alert('Preuve de paiement', e?.message || 'Impossible d’ouvrir la preuve pour le moment.');
+    }
+  };
+
   const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
+    if (!transaction.buyerMarkedPaidAt || !transaction.paymentProofPath) {
+      Alert.alert(
+        'Confirmation impossible',
+        'Attends que l’acheteur clique sur « J’AI PAYÉ » et joigne sa preuve. Ensuite vérifie réellement ton compte PayPal avant de confirmer.',
+      );
+      return;
+    }
     Alert.alert(
       'Confirmer la réception du paiement',
-      `Confirme uniquement si tu as bien reçu ${(transaction.amountCents / 100).toFixed(2).replace('.', ',')} ${transaction.currencyCode} de @${transaction.counterpartUsername} sur ton lien de paiement personnel. Ça débloquera "${transaction.playlistName}" pour lui.`,
+      `La preuve jointe est une aide, pas une validation bancaire. Confirme uniquement après avoir vérifié sur TON compte PayPal que ${(transaction.amountCents / 100).toFixed(2).replace('.', ',')} ${transaction.currencyCode} de @${transaction.counterpartUsername} sont réellement reçus. La Pépite "${transaction.playlistName}" sera alors débloquée automatiquement.`,
       [
         { text: 'Annuler', onPress: () => {} },
         {
-          text: 'J’ai bien été payé',
+          text: 'J’ai reçu les fonds',
           onPress: async () => {
             setBusy(true);
             try {
@@ -430,13 +447,19 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
               await loadData();
               if (!providerSync?.connectedProviders) {
-                Alert.alert('Playlist livrée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans la bibliothèque Loki Music de @${transaction.counterpartUsername}. La synchronisation Spotify/Deezer démarrera dès qu’un service sera connecté.`);
+                Alert.alert('Pépite débloquée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans le Loki Music de @${transaction.counterpartUsername}. Il pourra choisir Public ou Privé.`);
               } else {
                 const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
-                Alert.alert('Playlist livrée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}.`);
+                Alert.alert('Pépite débloquée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}. L’acheteur peut maintenant choisir Public ou Privé.`);
               }
             } catch (e: any) {
-              Alert.alert('Erreur', e?.message || 'Impossible de confirmer ce paiement.');
+              const message = String(e?.message || '');
+              Alert.alert(
+                'Erreur',
+                message.includes('BUYER_HAS_NOT_MARKED_PAID') || message.includes('PAYMENT_PROOF_REQUIRED')
+                  ? 'L’acheteur doit d’abord signaler son paiement et joindre une preuve.'
+                  : (e?.message || 'Impossible de confirmer ce paiement.'),
+              );
             } finally {
               setBusy(false);
             }
@@ -651,23 +674,6 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 {collectionCartStep === 'TRACKS' ? (
                   <>
                     <TextInput value={collectionCartQuery} onChangeText={setCollectionCartQuery} placeholder="Rechercher un morceau ou un artiste" placeholderTextColor={colors.textMuted} style={s.collectionCartSearch} />
-                    {collectionCartIds.size >= 2 ? (
-                      <View style={s.collectionCartReadyDock}>
-                        <View style={s.collectionCartReadyCopy}>
-                          <Text style={s.collectionCartReadyEyebrow}>MON PANIER EST PRÊT</Text>
-                          <Text style={s.collectionCartReadyTitle}>{collectionCartIds.size} morceaux sélectionnés</Text>
-                          <Text style={s.collectionCartReadyHint}>Quand ta sélection est terminée, ouvre le panier pour tout vérifier avant de choisir le prix.</Text>
-                        </View>
-                        <TouchableOpacity style={s.collectionCartReadyButton} onPress={continueCollectionCart} accessibilityLabel="J’ai fini ma sélection, ouvrir mon panier">
-                          <Text style={s.collectionCartReadyButtonTitle}>J’AI FINI MA SÉLECTION</Text>
-                          <Text style={s.collectionCartReadyButtonHint}>OUVRIR MON PANIER →</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <View style={s.collectionCartNeedMore}>
-                        <Text style={s.collectionCartNeedMoreText}>Choisis au moins 2 morceaux. Le panier de validation apparaîtra ici dès qu’il sera prêt.</Text>
-                      </View>
-                    )}
                     {collectionCartLoading ? <ActivityIndicator color={colors.primaryLight} style={{marginVertical:18}} /> : visibleCollectionCartTracks.length ? (
                       <View style={s.collectionCartList}>
                         {visibleCollectionCartTracks.map((track) => {
@@ -690,6 +696,23 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       </View>
                     ) : <Text style={s.collectionCartEmpty}>Aucun morceau éligible trouvé.</Text>}
                     <Text style={s.collectionCartBottomCount}>{collectionCartIds.size} sélectionné{collectionCartIds.size > 1 ? 's' : ''} · 200 maximum</Text>
+                    {collectionCartIds.size >= 2 ? (
+                      <View style={s.collectionCartReadyDock}>
+                        <View style={s.collectionCartReadyCopy}>
+                          <Text style={s.collectionCartReadyEyebrow}>MON PANIER EST PRÊT</Text>
+                          <Text style={s.collectionCartReadyTitle}>{collectionCartIds.size} morceaux sélectionnés</Text>
+                          <Text style={s.collectionCartReadyHint}>Tu es arrivé en bas : valide ici, sans jamais remonter dans la liste.</Text>
+                        </View>
+                        <TouchableOpacity style={s.collectionCartReadyButton} onPress={continueCollectionCart} accessibilityLabel="J’ai fini ma sélection, ouvrir mon panier">
+                          <Text style={s.collectionCartReadyButtonTitle}>J’AI FINI MA SÉLECTION</Text>
+                          <Text style={s.collectionCartReadyButtonHint}>OUVRIR MON PANIER →</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={s.collectionCartNeedMore}>
+                        <Text style={s.collectionCartNeedMoreText}>Choisis au moins 2 morceaux. La validation apparaîtra ici, en bas de ta sélection.</Text>
+                      </View>
+                    )}
                   </>
                 ) : collectionCartStep === 'REVIEW' ? (
                   <>
@@ -1040,9 +1063,19 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                         <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'NEUTRAL')}</Text>
                       </View>
                     </View>
-                    <Text style={s.offerDate}>Demandé le {new Date(sale.createdAt).toLocaleDateString('fr-FR')} -- pas encore confirmé</Text>
-                    <TouchableOpacity style={s.editBtn} disabled={busy} onPress={() => handleMarkPaid(sale)}>
-                      <Text style={s.editBtnText}>✓ J’ai été payé -- débloquer</Text>
+                    <Text style={s.offerDate}>Demandé le {new Date(sale.createdAt).toLocaleDateString('fr-FR')}</Text>
+                    <Text style={[s.historyStatus, sale.buyerMarkedPaidAt ? s.historyStatusDone : s.historyStatusPending]}>
+                      {sale.buyerMarkedPaidAt
+                        ? `✓ @${sale.counterpartUsername} indique avoir payé${sale.paymentProofName ? ` · preuve : ${sale.paymentProofName}` : ''}`
+                        : `⏳ @${sale.counterpartUsername} n’a pas encore signalé son paiement`}
+                    </Text>
+                    {sale.paymentProofPath ? (
+                      <TouchableOpacity style={s.manageTracksBtn} disabled={busy} onPress={() => { void handleOpenPaymentProof(sale); }}>
+                        <Text style={s.manageTracksBtnText}>VOIR LA PREUVE DE PAIEMENT</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity style={[s.editBtn, (!sale.buyerMarkedPaidAt || !sale.paymentProofPath) && s.pendingConfirmDisabled]} disabled={busy || !sale.buyerMarkedPaidAt || !sale.paymentProofPath} onPress={() => handleMarkPaid(sale)}>
+                      <Text style={s.editBtnText}>{sale.buyerMarkedPaidAt && sale.paymentProofPath ? '✓ J’AI REÇU LES FONDS · DÉBLOQUER' : 'EN ATTENTE DE LA PREUVE ACHETEUR'}</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -1330,8 +1363,9 @@ const s = StyleSheet.create({
   offerActions: { flexDirection: 'row', gap: spacing.sm },
   manageTracksBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center' },
   manageTracksBtnText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900' },
-  editBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center' },
-  editBtnText: { color: colors.white, fontSize: 11, fontWeight: '900' },
+  editBtn: { flex: 1, paddingVertical: 10, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', marginTop: 8 },
+  editBtnText: { color: colors.white, fontSize: 10, fontWeight: '900', textAlign: 'center' },
+  pendingConfirmDisabled:{opacity:.38},
   removeBtn: { flex: 1, paddingVertical: 8, borderRadius: radius.md, borderWidth: 1, borderColor: colors.pass, alignItems: 'center' },
   removeBtnText: { color: colors.pass, fontSize: 11, fontWeight: '900' },
   lockedBox: { borderRadius: radius.lg, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight, padding: spacing.lg },
