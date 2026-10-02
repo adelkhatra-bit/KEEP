@@ -343,9 +343,9 @@ function recognitionSampleDurationMs() {
   // réduit nettement la latence perçue. Si elle ne matche pas, on allonge
   // progressivement la fenêtre pour les fournisseurs serveur/bruit ambiant.
   if (Platform.OS === 'ios') {
-    if (consecutiveNoMatches >= 3) return 8000;
-    if (consecutiveNoMatches >= 1) return 5000;
-    return 3000;
+    if (consecutiveNoMatches >= 3) return 9000;
+    if (consecutiveNoMatches >= 1) return 6500;
+    return 4500;
   }
   if (consecutiveNoMatches >= 3) return 9500;
   if (consecutiveNoMatches >= 1) return 7000;
