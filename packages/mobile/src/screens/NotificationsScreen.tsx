@@ -105,6 +105,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
   if (key === 'ADMIN_USER_REPORT') return 'SIGNALEMENT';
   if (key === 'AGORA_GROUP_INVITE') return 'INVITATION GROUPE';
+  if (key === 'AGORA_GROUP_REMOVED' || key === 'AGORA_GROUP_DELETED' || key === 'AGORA_GROUP_MEMBER_LEFT') return 'GROUPE';
   if (key === 'CHAT_ACTIVATION_AVAILABLE' || key === 'AGORA_ACTIVATE') return 'ACTIVE TON CHAT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
@@ -936,41 +937,40 @@ export default function NotificationsScreen({ navigation }: any) {
           {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
               d'événements -- retiré volontairement, ce n'est plus un choix
               laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
+          {/* Adel (02/10/2026) : « rassemble-les ensemble, pas trop de choix ».
+              5 interrupteurs regroupés ; mêmes colonnes en base (aucune
+              préférence existante perdue). Le tchat (messages privés,
+              groupes, invitations, offres) est classé avec le social. */}
           <Preference
-            label="Système"
-            hint="Alertes essentielles de ton compte : sécurité, connexion, activité importante."
-            value={prefs.systemEnabled}
-            onValueChange={(v) => updatePrefs({ systemEnabled: v })}
-          />
-          <Preference label="Ventes & argent" hint="Ventes, paiements reçus et activité financière." value={prefs.moneyEnabled} onValueChange={(v) => updatePrefs({ moneyEnabled: v })} />
-          <SoundPreference label="Son ventes" value={prefs.moneySound} money onChange={(v) => updatePrefs({ moneySound: v as NotificationPreferences['moneySound'] })} />
-          <Preference label="Battle" hint="Invitations, réponses, résultats et disponibilité Battle." value={prefs.battleEnabled} onValueChange={(v) => updatePrefs({ battleEnabled: v })} />
-          <SoundPreference label="Son Battle" value={prefs.battleSound} onChange={(v) => updatePrefs({ battleSound: v as NotificationPreferences['battleSound'] })} />
-          <Preference label="Musique" hint="Nouvelles pépites, reprises et activité liée à tes découvertes." value={prefs.musicEnabled} onValueChange={(v) => updatePrefs({ musicEnabled: v })} />
-          <SoundPreference label="Son musique" value={prefs.musicSound} onChange={(v) => updatePrefs({ musicSound: v as NotificationPreferences['musicSound'] })} />
-          <Preference
-            label="Social"
-            hint="Nouveaux abonnés, visites de ton profil, partages musicaux entre utilisateurs."
+            label="Messages & social"
+            hint="Messages privés, groupes (invitations, retraits, suppression), offres reçues dans le tchat, nouveaux abonnés."
             value={prefs.socialEnabled}
             onValueChange={(v) => updatePrefs({ socialEnabled: v })}
           />
+          <SoundPreference label="Son messages" value={prefs.socialSound} onChange={(v) => updatePrefs({ socialSound: v as NotificationPreferences['socialSound'] })} />
+          <Preference label="Ventes & argent" hint="Paiements à faire, paiements reçus, ventes et validations." value={prefs.moneyEnabled} onValueChange={(v) => updatePrefs({ moneyEnabled: v })} />
+          <SoundPreference label="Son ventes" value={prefs.moneySound} money onChange={(v) => updatePrefs({ moneySound: v as NotificationPreferences['moneySound'] })} />
           <Preference
-            label="Marketing"
-            hint={marketingLocked
-              ? "Offres et actualités Loki Music. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
-              : 'Offres et actualités Loki Music. Tu peux le désactiver, ta formule te le permet.'}
-            value={marketingLocked ? true : prefs.marketingEnabled}
-            onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
-            locked={marketingLocked}
+            label="Musique & Battle"
+            hint="Nouvelles pépites, reprises de tes découvertes, invitations et résultats Battle."
+            value={prefs.musicEnabled && prefs.battleEnabled}
+            onValueChange={(v) => updatePrefs({ musicEnabled: v, battleEnabled: v })}
+          />
+          <SoundPreference label="Son musique & Battle" value={prefs.musicSound} onChange={(v) => updatePrefs({ musicSound: v as NotificationPreferences['musicSound'], battleSound: v as NotificationPreferences['battleSound'] })} />
+          <Preference
+            label="Événements & actualités"
+            hint={eventsLocked || marketingLocked
+              ? "Invitations aux événements et actualités Loki Music. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
+              : 'Invitations aux événements et actualités Loki Music. Tu peux le désactiver, ta formule te le permet.'}
+            value={eventsLocked || marketingLocked ? true : prefs.eventsEnabled && prefs.marketingEnabled}
+            onValueChange={(v) => { if (!eventsLocked && !marketingLocked) updatePrefs({ eventsEnabled: v, marketingEnabled: v }); }}
+            locked={eventsLocked || marketingLocked}
           />
           <Preference
-            label="Événements"
-            hint={eventsLocked
-              ? "Invitations aux soirées et événements des profils que tu suis ou dont tu as gardé un morceau. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
-              : 'Invitations aux soirées et événements. Tu peux le désactiver, ta formule te le permet.'}
-            value={eventsLocked ? true : prefs.eventsEnabled}
-            onValueChange={(v) => { if (!eventsLocked) updatePrefs({ eventsEnabled: v }); }}
-            locked={eventsLocked}
+            label="Compte & sécurité"
+            hint="Alertes essentielles : connexion, sécurité, signalements traités."
+            value={prefs.systemEnabled}
+            onValueChange={(v) => updatePrefs({ systemEnabled: v })}
           />
         </View>
       </ScrollView>

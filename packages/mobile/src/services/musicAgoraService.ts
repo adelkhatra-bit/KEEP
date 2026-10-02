@@ -830,6 +830,14 @@ export async function inviteMusicAgoraGroupMember(groupId: string, profileId: st
   if (error) throw error;
 }
 
+// Adel (02/10/2026) : le créateur peut supprimer le groupe pour tout le monde.
+// Suppression douce côté serveur (messages conservés), chaque membre notifié.
+export async function deleteMusicAgoraGroup(groupId: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_delete_group', { p_group_id: groupId });
+  if (error) throw error;
+}
+
 export async function removeMusicAgoraGroupMember(groupId: string, profileId: string): Promise<void> {
   if (!supabase) throw new Error('service_unavailable');
   const { error } = await supabase.rpc('keep_agora_remove_group_member', {

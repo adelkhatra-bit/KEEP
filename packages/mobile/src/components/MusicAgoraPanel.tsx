@@ -42,6 +42,7 @@ import {
   postMusicAgoraGroupMessage,
   reportMusicAgoraMessage,
   postMusicAgoraGroupOffer,
+  deleteMusicAgoraGroup,
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
@@ -632,9 +633,53 @@ export default function MusicAgoraPanel({
     }
   };
 
-  const removeFromActiveGroup = async (member: MusicAgoraGroupMember) => {
+  // Sortir / retirer : confirmation d'abord (la personne concernée ou le
+  // créateur reçoit une notification côté serveur).
+  const removeFromActiveGroup = (member: MusicAgoraGroupMember) => {
     if (!activeGroup?.id || member.role === 'OWNER' || groupBusy) return;
     if (activeGroup.myRole !== 'OWNER' && member.profileId !== currentProfileId) return;
+    const leaving = member.profileId === currentProfileId;
+    Alert.alert(
+      leaving ? 'Quitter le groupe ?' : `Retirer @${member.username} ?`,
+      leaving ? `Tu ne recevras plus les messages de « ${activeGroup.name} ». Le créateur sera prévenu.` : `@${member.username} sera prévenu qu’il ne fait plus partie de « ${activeGroup.name} ».`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: leaving ? 'Quitter' : 'Retirer', style: 'destructive', onPress: () => void confirmRemoveFromActiveGroup(member) },
+      ],
+    );
+  };
+
+  const deleteActiveGroup = () => {
+    if (!activeGroup?.id || activeGroup.myRole !== 'OWNER' || groupBusy) return;
+    const group = activeGroup;
+    Alert.alert(
+      'Supprimer le groupe ?',
+      `« ${group.name} » disparaîtra pour tout le monde. Chaque membre sera prévenu.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            setGroupBusy(true);
+            void deleteMusicAgoraGroup(group.id)
+              .then(async () => {
+                setGroupMembersOpen(false);
+                setActiveGroup(null);
+                setMessages([]);
+                setGroups((rows) => rows.filter((row) => row.id !== group.id));
+                await refreshInbox();
+              })
+              .catch(() => Alert.alert('Conversation', 'Impossible de supprimer ce groupe pour le moment.'))
+              .finally(() => setGroupBusy(false));
+          },
+        },
+      ],
+    );
+  };
+
+  const confirmRemoveFromActiveGroup = async (member: MusicAgoraGroupMember) => {
+    if (!activeGroup?.id) return;
     setGroupBusy(true);
     try {
       await removeMusicAgoraGroupMember(activeGroup.id, member.profileId);
@@ -2056,6 +2101,9 @@ export default function MusicAgoraPanel({
                 </View>
               ))}
             </ScrollView>
+            <TouchableOpacity style={s.groupDeleteButton} disabled={groupBusy} onPress={deleteActiveGroup} accessibilityRole="button" accessibilityLabel="Supprimer le groupe pour tout le monde">
+              <Text style={s.groupDeleteText}>SUPPRIMER LE GROUPE</Text>
+            </TouchableOpacity>
           </>
         ) : null}
       </View></View>
@@ -2372,6 +2420,8 @@ const s=StyleSheet.create({
   groupCreateCtaText:{color:colors.white,fontSize:12.5,fontWeight:'900',letterSpacing:.6},
   groupSectionTitle:{color:colors.keep,fontSize:10.5,fontWeight:'900',letterSpacing:1,marginTop:14},
   groupRemoveButton:{minHeight:30,paddingHorizontal:9,borderRadius:15,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center'},
+  groupDeleteButton:{marginTop:12,minHeight:44,borderRadius:22,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center'},
+  groupDeleteText:{color:colors.danger,fontSize:12,fontWeight:'900',letterSpacing:.6},
   groupRemoveText:{color:colors.danger,fontSize:10,fontWeight:'900'},
   groupInviteButton:{minHeight:30,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',alignItems:'center',justifyContent:'center'},
   groupInviteText:{color:colors.keep,fontSize:10,fontWeight:'900'},

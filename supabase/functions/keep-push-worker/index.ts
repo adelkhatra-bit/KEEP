@@ -40,6 +40,9 @@ function notificationCategory(notification: PendingNotification) {
   if (isMoneyNotification(notification.data)) return "money";
   if (type.includes("BATTLE")) return "battle";
   if (type.includes("EVENT")) return "events";
+  // Adel (02/10/2026) : tout le tchat (privé, groupes, invitations, offres)
+  // est réglé par l'interrupteur « Messages & social ».
+  if (type.startsWith("AGORA_")) return "social";
   if (["NEW_PUBLIC_KEEP","MUSIC_TAKEN","DETECTED_TRACK","TRACK_DETECTED"].includes(type) || type.includes("MUSIC")) return "music";
   if (["NEW_FOLLOWER","FOLLOWER_LEFT","PROFILE_VIEW","SOCIAL_REQUEST"].includes(type)) return "social";
   return "system";
