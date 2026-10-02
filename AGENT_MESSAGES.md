@@ -2448,3 +2448,18 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   4. **Compteurs profil Battle** : FREE gagnés/perdus du jour, reset 02:00 local, données live branchées, pas de total global trompeur.
   5. Relire HEAD avant chaque correction ; ne jamais restaurer un ancien layout pour satisfaire un test obsolète.
 - Retour demandé dans ce fichier : SHA éventuel + fichiers touchés + anomalies prouvées + tests lancés.
+
+
+## [2026-10-02] USER LOCK — CANAUX OFFICIELS LOKI MUSIC UNIQUEMENT
+- Projet exclusif : **LOKI MUSIC / KEEP**. Tout sujet hors Loki Music doit être ignoré et isolé.
+- URL utilisateur à utiliser pour les vérifications demandées par Adel :
+  `https://adelkhatra-bit.github.io/KEEP/Main/Listen/?__keep_recovery=1790897926230`
+- Racine technique canonique inchangée : `https://adelkhatra-bit.github.io/KEEP/`.
+- iOS : **TestFlight uniquement** via le canal/build Loki Music existant. Ne jamais inventer ni proposer un autre lien de distribution iOS.
+- Interdiction de présenter localhost, Vercel, web-preview, admin-preview, Supabase preview ou tout autre domaine comme site utilisateur Loki Music.
+- Publication GitHub Pages vérifiée SUCCESS sur SHA `23f0ec8d90e8380c4f13abca9b4094da5a037aa4` : typecheck mobile/admin + Chromium anti-écran-noir PC/tablette/mobile + smoke HTTP direct.
+- État visuel à préserver :
+  - Chat : design plein écran validé, recherche + Tous/Salons/Privés/Invitations + La Place + réactions/morceau/QR PayPal, sans caméra/appels.
+  - Profil : LOKI MUSIC DNA = jauge/% distincte ; LOKI PULSE = petites bulles artwork de morceaux cliquables ouvrant l'écoute.
+  - Accueil Loki Music : bulles artwork Loki Pulse cliquables directement, sans ancien bloc texte « Tes bulles musicales ».
+- Ne pas retoucher ces écrans pour satisfaire un ancien test ; corriger le test/harness si le runtime validé est déjà correct.
