@@ -570,7 +570,7 @@ const chatMiniJourney = {
     await page.addInitScript(() => {
       const fake = new EventTarget();
       window.__kbd = 0;
-      for (const [k, fn] of Object.entries({ height: () => window.innerHeight - window.__kbd, width: () => window.innerWidth, offsetTop: () => 0, offsetLeft: () => 0, scale: () => 1 })) {
+      for (const [k, fn] of Object.entries({ height: () => window.innerHeight - window.__kbd, width: () => window.innerWidth, offsetTop: () => window.__kbdTop || 0, offsetLeft: () => 0, scale: () => 1 })) {
         Object.defineProperty(fake, k, { get: fn });
       }
       Object.defineProperty(window, 'visualViewport', { configurable: true, get: () => fake });
@@ -596,10 +596,23 @@ const chatMiniJourney = {
       r.clavier_mini = kb ? { top: Math.round(kb.y), bas: Math.round(kb.y + kb.height), hauteur: Math.round(kb.height) } : null;
       r.clavier_ok = Boolean(kb && composer && kb.y >= 0 && kb.y + kb.height <= vp.height - 300 + 1 && kb.height <= 381 && composer.y + composer.height <= vp.height - 300 + 1 && composer.y >= kb.y);
       await shot('clavier');
-      await page.evaluate(() => { window.__kbd = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
+      // iPhone Safari : en plus de réduire la zone visible, Safari FAIT
+      // DÉFILER la page (offsetTop > 0). La zone vue par l'utilisateur va
+      // alors de offsetTop à offsetTop + hauteur visible : le champ doit y
+      // être (bug du 02/10/2026 : seule la barre d'onglets restait visible).
+      await page.evaluate(() => { window.__kbdTop = 200; window.visualViewport.dispatchEvent(new Event('scroll')); window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(700);
+      const ios = await mini.first().boundingBox();
+      const iosComposer = await page.getByPlaceholder('Écris un message…').first().boundingBox();
+      const visTop = 200; const visBottom = 200 + vp.height - 300;
+      r.clavier_iphone = ios ? { top: Math.round(ios.y), bas: Math.round(ios.y + ios.height), zone: [visTop, visBottom] } : null;
+      r.clavier_iphone_ok = Boolean(ios && iosComposer && ios.y >= visTop - 1 && ios.y + ios.height <= visBottom + 1 && iosComposer.y >= visTop && iosComposer.y + iosComposer.height <= visBottom + 1);
+      await shot('clavier-iphone');
+      await page.evaluate(() => { window.__kbd = 0; window.__kbdTop = 0; window.visualViewport.dispatchEvent(new Event('scroll')); window.visualViewport.dispatchEvent(new Event('resize')); });
       await page.waitForTimeout(400);
     } else {
       r.clavier_ok = true;
+      r.clavier_iphone_ok = true;
     }
     await page.locator('[aria-label="Agrandir le tchat en plein écran"]').first().click({ force: true });
     await page.waitForTimeout(1500);
@@ -612,6 +625,7 @@ const chatMiniJourney = {
       ['la page reste visible derrière', r.page_visible],
       ['on peut écrire dans la mini-fenêtre', r.composer_visible],
       ['clavier ouvert : mini-fenêtre compacte juste au-dessus du clavier, champ visible', r.clavier_ok],
+      ['iPhone Safari (page défilée par le clavier) : mini-fenêtre et champ dans la zone visible', r.clavier_iphone_ok],
       ['⤢ passe en plein écran', r.plein_ecran === 1],
       ['le plein écran garde la même conversation', r.meme_fil],
     ];

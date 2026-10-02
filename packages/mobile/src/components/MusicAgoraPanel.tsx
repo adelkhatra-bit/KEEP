@@ -222,7 +222,9 @@ export default function MusicAgoraPanel({
       const viewport = win?.visualViewport;
       if (!win || !viewport) return undefined;
       const sync = () => {
-        const covered = Math.max(0, Math.round(win.innerHeight - viewport.height - viewport.offsetTop));
+        // iPhone Safari fait défiler la page (offsetTop > 0) : le clavier couvre
+        // quand même innerHeight − hauteur visible.
+        const covered = Math.max(0, Math.round(win.innerHeight - viewport.height));
         setKeyboardInset(covered >= 80 ? covered : 0);
         if (covered < 80 && win.innerHeight > baseViewportHeightRef.current) baseViewportHeightRef.current = win.innerHeight;
         setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);

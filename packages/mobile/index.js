@@ -66,6 +66,14 @@ if (typeof document !== 'undefined') {
     root.style.height = `${h}px`;
     root.style.minHeight = `${h}px`;
     root.style.maxHeight = `${h}px`;
+    // iPhone Safari (02/10/2026, « je ne vois plus ce que j'écris ») : à
+    // l'ouverture du clavier, Safari fait défiler la page (visualViewport.
+    // offsetTop > 0) alors que #root est fixé en haut de la page : toute
+    // l'application remontait hors de l'écran, seule la barre d'onglets
+    // restait visible, noir dessous. Sur téléphone, #root suit donc la zone
+    // réellement visible. Ordinateur (≥ 900 px) : inchangé.
+    const offsetTop = window.innerWidth < 900 ? Math.max(0, Math.round(window.visualViewport?.offsetTop || 0)) : 0;
+    root.style.top = window.innerWidth < 900 ? `${offsetTop}px` : '';
   };
   let viewportSettleTimers = [];
   const syncViewport = () => {
@@ -79,6 +87,7 @@ if (typeof document !== 'undefined') {
   };
   syncViewport();
   window.visualViewport?.addEventListener('resize', syncViewport, { passive: true });
+  window.visualViewport?.addEventListener('scroll', syncViewport, { passive: true });
   window.addEventListener('resize', syncViewport, { passive: true });
   window.addEventListener('orientationchange', syncViewport, { passive: true });
   window.addEventListener('pageshow', syncViewport, { passive: true });

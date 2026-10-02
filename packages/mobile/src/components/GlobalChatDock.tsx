@@ -650,7 +650,10 @@ export default function GlobalChatDock() {
   // iOS : posée juste au-dessus du clavier. Android : fenêtre déjà
   // redimensionnée par le système.
   const webCovered = Platform.OS === 'web' && webVisualViewport && typeof window !== 'undefined'
-    ? Math.max(0, Math.round(window.innerHeight - webVisualViewport.height - webVisualViewport.top))
+    // Hauteur cachée par le clavier, que Safari ait fait défiler la page
+    // (offsetTop > 0, iPhone) ou non (Android) : #root suit la zone visible
+    // (index.js), la mini-fenêtre se pose donc juste au-dessus du clavier.
+    ? Math.max(0, Math.round(window.innerHeight - webVisualViewport.height))
     : 0;
   const webKeyboardOpen = webCovered >= 80;
   const MINI_KEYBOARD_MAX = 380;
