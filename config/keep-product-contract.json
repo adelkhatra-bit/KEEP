@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02.01",
+  "version": "2026-10-02.03",
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -670,6 +670,13 @@
     "home": "clickable_listenable_music_bubbles",
     "profile": "dna_percentage_gauge_plus_clickable_pulse_track_bubbles",
     "battle": "daily_free_won_lost_reset_0200_plus_recharge",
-    "auth": "local_logout_cannot_be_resurrected"
+    "auth": "real_supabase_session_only",
+    "mobileRoot": "global_safe_area_provider"
+  },
+  "authResilience": {
+    "transientAuthRetries": 3,
+    "distinguishInvalidCredentials": true,
+    "logoutScope": "local",
+    "usernameEdgeRetries": true
   }
 }

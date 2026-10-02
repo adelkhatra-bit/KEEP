@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
@@ -304,7 +305,7 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       {authReady ? (user ? <Navigation /> : <OnboardingScreen />) : (
         <View
           testID="auth-bootstrap-recovery"
@@ -324,6 +325,6 @@ export default function App() {
       <AlertHost />
       <AccountGateModal />
       <StatusBar style="light" backgroundColor={colors.background} />
-    </>
+    </SafeAreaProvider>
   );
 }

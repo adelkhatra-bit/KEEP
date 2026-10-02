@@ -48,6 +48,7 @@ function errorText(code: string) {
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki Music.';
   if (code === 'invalid_credentials') return 'Identifiant Loki Music, e-mail ou mot de passe incorrect.';
+  if (code === 'temporarily_unavailable' || code === 'auth_temporarily_unavailable') return 'Connexion Loki Music momentanément perturbée. Réessaie dans quelques secondes.';
   if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki Music indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
   return 'Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.';
