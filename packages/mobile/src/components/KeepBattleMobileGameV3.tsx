@@ -950,7 +950,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       await refreshSocial();
     };
     void tick();
-    const id = setInterval(() => { void tick(); }, 650);
+    // Les invitations/revanches arrivent déjà par Realtime via
+    // GlobalNotificationBanner. Le polling du lobby n'est qu'un filet de
+    // cohérence (joueurs présents, outbox, salons) : 650 ms lançait jusqu'à
+    // cinq RPC en parallèle ~92 fois/minute par appareil et pouvait saturer
+    // Postgres/Auth. 5 s garde le lobby frais sans menacer la connexion.
+    const id = setInterval(() => { void tick(); }, 5000);
     return () => { alive = false; clearInterval(id); };
   }, [enabled, solo?.themeCode, Boolean(solo), browseOnline, arena?.id, refreshSocial]);
 
