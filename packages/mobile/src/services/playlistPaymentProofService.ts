@@ -104,6 +104,7 @@ export async function pickAndUploadPlaylistPaymentProof(
   if (!ALLOWED.has(mime)) throw new Error('Utilise une capture JPG/PNG/WEBP ou un PDF.');
 
   const name = safeName(pickedAsset.name, mime);
+  const previousProof = await loadPlaylistPaymentProof(paymentId).catch(() => null);
   const path = `${userId}/${paymentId}/${Date.now()}-${name}`;
 
   const response = await fetch(pickedAsset.uri);
@@ -132,6 +133,9 @@ export async function pickAndUploadPlaylistPaymentProof(
   }
 
   const row = data as any;
+  if (previousProof?.path && previousProof.path !== path) {
+    await supabase.storage.from(BUCKET).remove([previousProof.path]).catch(() => undefined);
+  }
   return {
     paymentId: String(row?.paymentId ?? paymentId),
     path: String(row?.proofPath ?? path),
