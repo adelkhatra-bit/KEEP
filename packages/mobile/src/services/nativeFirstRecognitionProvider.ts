@@ -1,7 +1,7 @@
 import type { MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import { recognizeSharedSourceKeyless } from './keylessSharedSourceRecognition';
 import { recognizeWithNativeShazam } from './nativeShazamRecognition';
-import { recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
+import { learnRecognitionInBackground, recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
 
 /**
  * Cascade de reconnaissance Loki, du plus autonome au plus dépendant :
@@ -51,7 +51,13 @@ export class NativeFirstRecognitionProvider implements MusicRecognitionProvider 
       recognizeWithKeepMemoryFast(audioSample),
       recognizeSharedSourceKeyless(),
     ]);
-    if (fast) return fast;
+    if (fast) {
+      const providerTrackId = String(fast.recognitionProviderTrackId ?? '');
+      if (!providerTrackId.startsWith('keep-memory:') && !providerTrackId.startsWith('keyless:')) {
+        void learnRecognitionInBackground(fast);
+      }
+      return fast;
+    }
 
     return this.fallback.recognizeAfterMemory
       ? this.fallback.recognizeAfterMemory(audioSample)
