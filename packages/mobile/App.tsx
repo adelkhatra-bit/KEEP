@@ -129,6 +129,9 @@ export default function App() {
     let inFlightSessionPromise: Promise<boolean> | null = null;
     let bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
     let bootstrapRetryAttempt = 0;
+    let profileRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let profileRetryAttempt = 0;
+    let pendingProfileSession: KeepAuthSession | null = null;
     let initialBootstrapSettled = false;
 
     const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
@@ -221,6 +224,36 @@ export default function App() {
       return promise;
     };
 
+    const cancelProfileRetry = () => {
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
+      profileRetryTimer = null;
+    };
+
+    const scheduleProfileRetry = (session: KeepAuthSession) => {
+      if (!active || profileRetryTimer) return;
+      pendingProfileSession = session;
+      const delay = Math.min(5000, 700 * (2 ** Math.min(profileRetryAttempt, 3)));
+      profileRetryAttempt += 1;
+      profileRetryTimer = setTimeout(() => {
+        profileRetryTimer = null;
+        const retrySession = pendingProfileSession;
+        if (!active || !retrySession) return;
+        void handleSessionOnce(retrySession)
+          .then((hydrated) => {
+            if (!active) return;
+            if (hydrated) {
+              pendingProfileSession = null;
+              profileRetryAttempt = 0;
+              initialBootstrapSettled = true;
+              setAuthReady(true);
+              return;
+            }
+            scheduleProfileRetry(retrySession);
+          })
+          .catch(() => scheduleProfileRetry(retrySession));
+      }, delay);
+    };
+
     const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
       const hydrated = await handleSessionOnce(session);
       if (active && hydrated) {
@@ -269,15 +302,42 @@ export default function App() {
       // restauration locale. Tant que le bootstrap initial n'a pas tranché,
       // ce null ne doit jamais faire apparaître l'onboarding ni effacer le compte.
       if (!initialBootstrapSettled && !session) return;
+
+      if (!session) {
+        pendingProfileSession = null;
+        profileRetryAttempt = 0;
+        cancelProfileRetry();
+        void handleSessionOnce(null).then((hydrated) => {
+          if (!active) return;
+          if (hydrated) {
+            initialBootstrapSettled = true;
+            setAuthReady(true);
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Une session Auth valide ne doit JAMAIS retomber visuellement sur
+      // « Se connecter » uniquement parce que profiles/follows/private_info
+      // répondent 503/504 pendant quelques secondes. On masque l'onboarding,
+      // garde un état de récupération et on retente le VRAI profil Supabase
+      // avec la même session, sans réintroduire de faux profil local.
+      pendingProfileSession = session;
+      setAuthReady(false);
+
       void handleSessionOnce(session).then((hydrated) => {
-        if (active && hydrated) {
+        if (!active) return;
+        if (hydrated) {
+          pendingProfileSession = null;
+          profileRetryAttempt = 0;
+          cancelProfileRetry();
           initialBootstrapSettled = true;
           setAuthReady(true);
-        } else if (active && !initialBootstrapSettled) {
-          scheduleBootstrapRetry();
+          return;
         }
+        scheduleProfileRetry(session);
       }).catch(() => {
-        if (active && !initialBootstrapSettled) scheduleBootstrapRetry();
+        if (active) scheduleProfileRetry(session);
       });
     });
 
@@ -299,6 +359,7 @@ export default function App() {
       active = false;
       if (saveTimer) clearTimeout(saveTimer);
       if (bootstrapRetryTimer) clearTimeout(bootstrapRetryTimer);
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
       unsubscribeStore();
       unsubscribeAuth();
     };

@@ -145,9 +145,10 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   const finishAuthenticatedFlow = async () => {
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
 
-    // Isolation stricte : une identité authentifiée ne récupère jamais les morceaux
-    // d'un essai/d'une autre identité locale. Le serveur applique la même règle.
-    useSessionHistoryStore.getState().clearSessions();
+    // Les sessions appartiennent à l'utilisateur et ne doivent jamais être
+    // effacées lors d'une simple reconnexion. Seules les données invitées
+    // temporairement mises en attente sont nettoyées ici ; l'historique réel
+    // est resynchronisé par compte après l'hydratation Supabase.
     await clearStagedGuestMusic().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
 

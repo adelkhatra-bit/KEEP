@@ -2463,3 +2463,12 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   - Profil : LOKI MUSIC DNA = jauge/% distincte ; LOKI PULSE = petites bulles artwork de morceaux cliquables ouvrant l'écoute.
   - Accueil Loki Music : bulles artwork Loki Pulse cliquables directement, sans ancien bloc texte « Tes bulles musicales ».
 - Ne pas retoucher ces écrans pour satisfaire un ancien test ; corriger le test/harness si le runtime validé est déjà correct.
+
+
+## [2026-10-02] CHATGPT — AUTH LOGIN BOUNCE ROOT CAUSE FIX
+- Audit live Supabase: 19 auth.users / 17 profiles; 0 profile orphelin, 0 pseudo dupliqué. Deux auth.users techniques/anciens sans profil, isolés de la population réelle.
+- Incident confirmé: /auth/v1/token, /auth/v1/user, profiles, subscriptions et remote_config ont simultanément renvoyé 500/503/504.
+- Bug client trouvé: après un login réussi, si le profil échouait à charger alors que le bootstrap initial était déjà settled, aucun retry n'était lancé; user restait null et Loki revenait à « Se connecter ».
+- Fix: toute session Auth non nulle passe authReady=false, garde l'écran « Connexion à ton compte… » et retente silencieusement le vrai profil Supabase avec backoff jusqu'à hydratation. Aucun faux profil local n'est remonté.
+- Deuxième défaut retiré: UsernameAccountForm ne fait plus clearSessions() à chaque login réussi.
+- App.tsx reste inchangé côté responsive/navigation; changement strictement auth bootstrap.

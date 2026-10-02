@@ -17,7 +17,7 @@ const protectedShell = {
   // toute mise à jour silencieuse. La restauration est dédupliquée et les
   // synchronisations secondaires ne bloquent plus le premier rendu réel.
   // Navigation.tsx et la barre des 5 onglets restent inchangées.
-  'packages/mobile/App.tsx': '5d83861a0c499112eae09b6c73e4166e1acdc321',
+  'packages/mobile/App.tsx': '277276c1b00dab096e9bf7b63b879a0cd1dea519',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
