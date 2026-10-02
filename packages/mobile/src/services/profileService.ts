@@ -202,6 +202,20 @@ export function createProfileService(client: SupabaseClient) {
         return fallback;
       }
 
+      // Le premier rendu connecté ne doit pas attendre les données secondaires
+      // (réseaux, date/genre privés, compteurs followers). Le profil principal
+      // contient déjà l'identité, avatar, bio, ville/pays et styles : on le
+      // retourne immédiatement puis App hydrate les extras en arrière-plan.
+      loadedOwnProfileId = session.userId;
+      return {
+        ...publicUserFromProfile(profile, [], 0, 0),
+        email: session.email ?? '',
+        locationOptIn: profile.location_opt_in,
+        privateInfo: {},
+      };
+    },
+
+    async loadOwnProfileExtras(session: KeepAuthSession): Promise<Partial<User>> {
       const [{ data: privateInfo, error: privateError }, socialLinks, followersResult, followingResult] = await Promise.all([
         client.from('profile_private_info').select('birth_date, gender').eq('profile_id', session.userId).maybeSingle(),
         loadSocialLinks(client, session.userId),
@@ -213,16 +227,10 @@ export function createProfileService(client: SupabaseClient) {
       if (followersResult.error) throw followersResult.error;
       if (followingResult.error) throw followingResult.error;
 
-      loadedOwnProfileId = session.userId;
       return {
-        ...publicUserFromProfile(
-          profile,
-          (socialLinks ?? []) as SocialLink[],
-          followersResult.count ?? 0,
-          followingResult.count ?? 0
-        ),
-        email: session.email ?? '',
-        locationOptIn: profile.location_opt_in,
+        followerCount: followersResult.count ?? 0,
+        followingCount: followingResult.count ?? 0,
+        socialLinks: (socialLinks ?? []) as SocialLink[],
         privateInfo: {
           birthDate: privateInfo?.birth_date ?? undefined,
           gender: privateInfo?.gender ?? undefined,

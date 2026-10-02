@@ -59,6 +59,38 @@ async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unkn
   return { ok: false, error: 'server_error' };
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function transientAuthFailure(error: unknown): boolean {
+  const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
+  const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+  return status >= 500
+    || message.includes('context deadline exceeded')
+    || message.includes('context canceled')
+    || message.includes('failed to connect')
+    || message.includes('unexpected_failure')
+    || message.includes('request_timeout')
+    || message.includes('service unavailable')
+    || message.includes('internal server error')
+    || message.includes('auth_temporarily_unavailable')
+    || message.includes('temporarily_unavailable');
+}
+
+async function retryTransient<T>(
+  operation: () => Promise<T>,
+  getError: (value: T) => unknown,
+  attempts = 4,
+): Promise<T> {
+  let last!: T;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    last = await operation();
+    const error = getError(last);
+    if (!error || !transientAuthFailure(error) || attempt === attempts - 1) return last;
+    await wait(Math.min(2400, 450 * (2 ** attempt)));
+  }
+  return last;
+}
+
 function normalizeUsername(username: string) {
   return username.trim().replace(/^@+/, '').normalize('NFKC');
 }
@@ -94,6 +126,18 @@ function visibleEmail(user: any): string | null {
 
 function mapSignupError(message: string): string {
   const value = message.toLowerCase();
+  if (value.includes('invalid login credentials') || value.includes('invalid credentials')) return 'invalid_credentials';
+  if (
+    value.includes('context deadline exceeded')
+    || value.includes('context canceled')
+    || value.includes('failed to connect')
+    || value.includes('unexpected_failure')
+    || value.includes('request_timeout')
+    || value.includes('service unavailable')
+    || value.includes('internal server error')
+    || value.includes('auth_temporarily_unavailable')
+    || value.includes('temporarily_unavailable')
+  ) return 'auth_temporarily_unavailable';
   if (value.includes('rate') && value.includes('limit')) return 'rate_limited';
   if (value.includes('expired') || value.includes('otp')) return 'email_link_invalid';
   if (value.includes('already') || value.includes('registered') || value.includes('exists')) return 'email_taken';
@@ -145,18 +189,20 @@ export function createAuthService(client: SupabaseClient): AuthService {
       }
     }
 
-    const invoke = () => client.functions.invoke('keep-username-auth', {
-      body,
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
-
-    let response = await invoke();
-    if (response.error) {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      response = await invoke();
-    }
+    const response = await retryTransient(
+      () => client.functions.invoke('keep-username-auth', {
+        body,
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      }),
+      (value) => value.error ?? (
+        (value.data as any)?.error === 'auth_temporarily_unavailable'
+        || (value.data as any)?.error === 'temporarily_unavailable'
+          ? { status: 503, message: String((value.data as any)?.error) }
+          : null
+      ),
+    );
     const { data, error } = response;
-    if (error) return { error: 'temporarily_unavailable' };
+    if (error) return { error: mapSignupError(error.message || 'auth_temporarily_unavailable') };
     if (!data?.ok || !data?.access_token || !data?.refresh_token) return { error: String(data?.error || 'server_error') };
 
     const { error: sessionError } = await client.auth.setSession({
@@ -245,7 +291,11 @@ export function createAuthService(client: SupabaseClient): AuthService {
 
     async signInWithEmailIdentity(email, password) {
       const cleanEmail = normalizeEmail(email);
-      const { data, error } = await client.auth.signInWithPassword({ email: cleanEmail, password });
+      const result = await retryTransient(
+        () => client.auth.signInWithPassword({ email: cleanEmail, password }),
+        (value) => value.error,
+      );
+      const { data, error } = result;
       if (error || !data.session) return { error: mapSignupError(error?.message || 'invalid_credentials') };
       return {
         error: null,

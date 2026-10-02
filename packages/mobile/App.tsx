@@ -129,6 +129,10 @@ export default function App() {
     let inFlightSessionPromise: Promise<boolean> | null = null;
     let bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
     let bootstrapRetryAttempt = 0;
+    let profileRetryTimer: ReturnType<typeof setTimeout> | null = null;
+    let profileRetryAttempt = 0;
+    let pendingProfileSession: KeepAuthSession | null = null;
+    let applyingRemoteProfile = false;
     let initialBootstrapSettled = false;
 
     const handleSession = async (session: KeepAuthSession | null): Promise<boolean> => {
@@ -179,8 +183,24 @@ export default function App() {
           await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
         }
 
-        profileLoadedFor = session.userId;
+        // Un profil réellement lu depuis Supabase peut monter immédiatement.
+        // On évite toute auto-sauvegarde pendant cette hydratation distante.
+        applyingRemoteProfile = true;
         useUserStore.getState().setUser(profile);
+        applyingRemoteProfile = false;
+        profileLoadedFor = session.userId;
+
+        // Les données secondaires n'empêchent jamais d'entrer dans l'app.
+        void profileService.loadOwnProfileExtras(session)
+          .then((extras) => {
+            if (!active || useUserStore.getState().user?.id !== session.userId) return;
+            applyingRemoteProfile = true;
+            useUserStore.getState().updateUser(extras);
+            applyingRemoteProfile = false;
+          })
+          .catch((error) => {
+            if (__DEV__) console.warn('[KEEP] profile extras unavailable', error);
+          });
 
         if (!session.isAnonymous) {
           void (async () => {
@@ -219,6 +239,36 @@ export default function App() {
       inFlightSessionKey = key;
       inFlightSessionPromise = promise;
       return promise;
+    };
+
+    const cancelProfileRetry = () => {
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
+      profileRetryTimer = null;
+    };
+
+    const scheduleProfileRetry = (session: KeepAuthSession) => {
+      if (!active || profileRetryTimer) return;
+      pendingProfileSession = session;
+      const delay = Math.min(5000, 700 * (2 ** Math.min(profileRetryAttempt, 3)));
+      profileRetryAttempt += 1;
+      profileRetryTimer = setTimeout(() => {
+        profileRetryTimer = null;
+        const retrySession = pendingProfileSession;
+        if (!active || !retrySession) return;
+        void handleSessionOnce(retrySession)
+          .then((hydrated) => {
+            if (!active) return;
+            if (hydrated) {
+              pendingProfileSession = null;
+              profileRetryAttempt = 0;
+              initialBootstrapSettled = true;
+              setAuthReady(true);
+              return;
+            }
+            scheduleProfileRetry(retrySession);
+          })
+          .catch(() => scheduleProfileRetry(retrySession));
+      }, delay);
     };
 
     const finishInitialBootstrap = async (session: KeepAuthSession | null) => {
@@ -265,23 +315,47 @@ export default function App() {
       .catch(() => scheduleBootstrapRetry());
 
     const unsubscribeAuth = authService.onSessionChange((session) => {
-      // Supabase peut émettre un événement null transitoire pendant sa propre
-      // restauration locale. Tant que le bootstrap initial n'a pas tranché,
-      // ce null ne doit jamais faire apparaître l'onboarding ni effacer le compte.
+      // Un null transitoire pendant la restauration ne doit jamais effacer le compte.
       if (!initialBootstrapSettled && !session) return;
+
+      if (!session) {
+        pendingProfileSession = null;
+        profileRetryAttempt = 0;
+        cancelProfileRetry();
+        void handleSessionOnce(null).then((hydrated) => {
+          if (!active) return;
+          if (hydrated) {
+            initialBootstrapSettled = true;
+            setAuthReady(true);
+          }
+        }).catch(() => {});
+        return;
+      }
+
+      // Mot de passe/session acceptés : ne jamais revenir à « Se connecter »
+      // parce que profiles/follows répondent 503/504. On garde l'écran de
+      // récupération et on retente le vrai profil jusqu'à hydratation.
+      pendingProfileSession = session;
+      setAuthReady(false);
+
       void handleSessionOnce(session).then((hydrated) => {
-        if (active && hydrated) {
+        if (!active) return;
+        if (hydrated) {
+          pendingProfileSession = null;
+          profileRetryAttempt = 0;
+          cancelProfileRetry();
           initialBootstrapSettled = true;
           setAuthReady(true);
-        } else if (active && !initialBootstrapSettled) {
-          scheduleBootstrapRetry();
+          return;
         }
+        scheduleProfileRetry(session);
       }).catch(() => {
-        if (active && !initialBootstrapSettled) scheduleBootstrapRetry();
+        if (active) scheduleProfileRetry(session);
       });
     });
 
     const unsubscribeStore = useUserStore.subscribe((state, previousState) => {
+      if (applyingRemoteProfile) return;
       if (!state.user || state.isDemoMode || state.user.id !== profileLoadedFor) return;
       if (state.user === previousState.user) return;
 
@@ -299,6 +373,7 @@ export default function App() {
       active = false;
       if (saveTimer) clearTimeout(saveTimer);
       if (bootstrapRetryTimer) clearTimeout(bootstrapRetryTimer);
+      if (profileRetryTimer) clearTimeout(profileRetryTimer);
       unsubscribeStore();
       unsubscribeAuth();
     };

@@ -2482,3 +2482,14 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   - invité -> compte existant => sessions invitées vidées;
   - invité -> nouveau compte => sessions conservées pour upgrade.
 - Objectif : aucune disparition sur reconnexion, aucune fuite entre comptes.
+
+
+## [2026-10-02] CHATGPT → CLAUDE CODE — AUTH ROBUSTNESS + FAST PROFILE HYDRATION
+- Projet exclusif : LOKI MUSIC / KEEP.
+- Ne pas restaurer les anciennes variantes « published working auth » qui retirent les retries profil post-login.
+- Logs live prouvés : Supabase Auth a renvoyé plusieurs 500/504/request_timeout pendant des connexions réelles.
+- Invariant : session Auth valide + profil temporairement indisponible => écran récupération, retry silencieux, JAMAIS retour « Se connecter ».
+- Formulaire : ne ferme qu'après hydratation du vrai user store ; aucune reconnexion ne fait clearSessions().
+- Performance : le profil principal réel (profiles) monte d'abord ; réseaux/private/follow counts arrivent en arrière-plan.
+- Build : expo-speech n'est pas dans le binaire/dépendances, donc aucun import runtime expo-speech ne doit revenir.
+- Fichiers de cette lane : authService.ts, App.tsx, UsernameAccountForm.tsx, profileService.ts, GlobalChatDock.tsx, LokiMascotVoice.tsx, lokiSpeechService.ts.

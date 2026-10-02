@@ -3,14 +3,15 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, Toucha
 import { colors } from '../theme/colors';
 import { mascotLine, type MascotMood } from '../services/battleHomeInfo';
 import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from '../services/audioPreviewService';
+import { speakLokiText, stopLokiSpeech } from '../services/lokiSpeechService';
 
 // Adel (29/09/2026) : « un dessin animé avec une voix off, selon le score :
 // “Ah zut, c'est dommage, t'aurais pu mieux faire…”, un petit message très
 // court, amusant, qu'un enfant de 5 ans serait content d'entendre ».
 // Loki = une petite boule violette avec un casque : les yeux clignent, la
 // bouche s'anime pendant qu'il parle, il saute de joie ou baisse les
-// sourcils selon le résultat. Voix : expo-speech (déjà dans l'appli, donc
-// livrable en OTA), voix aiguë façon dessin animé. 🔊 pour réécouter.
+// sourcils selon le résultat. La voix utilise le service Loki sans dépendance
+// native supplémentaire afin de rester compatible avec le binaire installé.
 const NATIVE = Platform.OS !== 'web';
 
 type LokiMascotVoiceProps = {
@@ -27,7 +28,6 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false, t
   const line = textOverride ? { text: textOverride, mood: moodOverride ?? defaultLine.mood } : defaultLine;
   const [speaking, setSpeaking] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const speechModuleRef = useRef<typeof import('expo-speech') | null>(null);
   const bounce = useRef(new Animated.Value(0)).current;
   const blink = useRef(new Animated.Value(1)).current;
   const mouth = useRef(new Animated.Value(0)).current;
@@ -41,48 +41,18 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false, t
   const speak = useCallback(async () => {
     let duckToken: number | null = null;
     try {
-      const Speech = speechModuleRef.current ?? await import('expo-speech').catch(() => null);
-      if (!Speech) { setSpeaking(false); return; }
-      speechModuleRef.current = Speech;
-
       const previous = duckTokenRef.current;
       duckTokenRef.current = null;
       releaseDuck(previous);
-      try { await Speech.stop(); } catch {}
+      await stopLokiSpeech().catch(() => {});
 
       duckToken = await duckActivePreviewForSpeech(0.14).catch(() => null);
       duckTokenRef.current = duckToken;
-
-      let voice: string | undefined;
-      try {
-        const voices = await Speech.getAvailableVoicesAsync();
-        const french = voices
-          .filter((candidate) => String(candidate.language || '').toLowerCase().startsWith('fr'))
-          .sort((a, b) => {
-            const aq = String((a as any).quality || '').toLowerCase();
-            const bq = String((b as any).quality || '').toLowerCase();
-            return Number(bq.includes('enhanced') || bq.includes('premium')) - Number(aq.includes('enhanced') || aq.includes('premium'));
-          })[0];
-        voice = french?.identifier;
-      } catch {}
-
       setSpeaking(true);
-      const finish = () => {
-        if (duckTokenRef.current === duckToken) duckTokenRef.current = null;
-        setSpeaking(false);
-        releaseDuck(duckToken);
-      };
-      Speech.speak(line.text, {
-        language: 'fr-FR',
-        voice,
-        pitch: 1.02,
-        rate: 0.94,
-        volume: 1,
-        onDone: finish,
-        onStopped: finish,
-        onError: finish,
-      });
+      await speakLokiText(line.text, { language: 'fr-FR', pitch: 1.02, rate: 0.94 });
     } catch {
+      // Voice is optional.
+    } finally {
       if (duckTokenRef.current === duckToken) duckTokenRef.current = null;
       setSpeaking(false);
       releaseDuck(duckToken);
@@ -96,7 +66,7 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false, t
     return () => {
       live = false;
       clearTimeout(t);
-      try { speechModuleRef.current?.stop(); } catch {}
+      void stopLokiSpeech().catch(() => {});
       const token = duckTokenRef.current;
       duckTokenRef.current = null;
       releaseDuck(token);

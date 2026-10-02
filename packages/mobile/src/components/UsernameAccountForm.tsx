@@ -48,6 +48,7 @@ function errorText(code: string) {
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki Music.';
   if (code === 'invalid_credentials') return 'Identifiant Loki Music, e-mail ou mot de passe incorrect.';
+  if (code === 'auth_temporarily_unavailable' || code === 'temporarily_unavailable') return 'Connexion Loki Music momentanément ralentie. Loki réessaie automatiquement : ne recrée pas de compte.';
   if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki Music indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
   return 'Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.';
@@ -141,12 +142,29 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
   };
 
-  const finishAuthenticatedFlow = async () => {
+  const waitForHydratedAccount = async (expectedUserId?: string) => {
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      const state = useUserStore.getState();
+      const ready = Boolean(
+        state.user
+        && !state.isDemoMode
+        && !state.isLocalGuest
+        && (!expectedUserId || state.user.id === expectedUserId),
+      );
+      if (ready) return true;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    return false;
+  };
+
+  const finishAuthenticatedFlow = async (expectedUserId?: string) => {
+    const hydrated = await waitForHydratedAccount(expectedUserId);
+    if (!hydrated) throw new Error('profile_hydration_timeout');
+
     await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
 
-    // Isolation stricte : une identité authentifiée ne récupère jamais les morceaux
-    // d'un essai/d'une autre identité locale. Le serveur applique la même règle.
-    useSessionHistoryStore.getState().clearSessions();
+    // Une simple reconnexion ne détruit jamais l'historique de ce compte.
     await clearStagedGuestMusic().catch(() => {});
     await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
 
@@ -196,9 +214,13 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         setPendingConfirmationEmail(email.trim());
         return;
       }
-      await finishAuthenticatedFlow();
-    } catch {
-      setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      await finishAuthenticatedFlow(result.userId);
+    } catch (error: any) {
+      if (String(error?.message || error).includes('profile_hydration_timeout')) {
+        setError('Connexion validée. Loki Music récupère encore ton profil : ne recrée pas de compte, réessaie dans quelques secondes.');
+      } else {
+        setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      }
     } finally {
       setBusy(false);
     }

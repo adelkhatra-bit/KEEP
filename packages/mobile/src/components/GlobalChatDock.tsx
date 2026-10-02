@@ -6,6 +6,7 @@ import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
+import { speakLokiText } from '../services/lokiSpeechService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -173,15 +174,12 @@ export default function GlobalChatDock() {
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
       if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
-        void import('expo-speech').then((Speech) => {
-          void Speech.stop().catch(() => {});
-          Speech.speak(`Message de ${sender}`, {
-            language: 'fr-FR',
-            rate: 0.95,
-            pitch: 1,
-          });
+        void speakLokiText(`Message de ${sender}`, {
+          language: 'fr-FR',
+          rate: 0.95,
+          pitch: 1,
         }).catch(() => {
-          // Optional native capability: never block the messenger or an OTA.
+          // Optional voice capability: never block the messenger or an OTA.
         });
       }
     });
