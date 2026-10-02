@@ -116,10 +116,12 @@ export default function HomeScreenCompact({ navigation }: any) {
         return;
       }
       try {
-        const items = await loadLokiPulse(24);
+        const items = await loadLokiPulse(24, user.id);
         if (live) setHomePulseItems(items);
       } catch {
-        if (live) setHomePulseItems([]);
+        // Une panne PostgREST temporaire ne doit jamais faire disparaître
+        // des bulles déjà visibles. Le service retourne aussi le dernier cache
+        // valide du compte après un reload.
       }
     };
     void refreshHomePulse();

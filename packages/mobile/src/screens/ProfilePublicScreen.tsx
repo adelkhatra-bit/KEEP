@@ -608,10 +608,10 @@ export default function ProfilePublicScreen({ navigation }: any) {
         return;
       }
       try {
-        const items = await loadLokiPulse(60);
+        const items = await loadLokiPulse(60, user.id);
         if (live) setLokiPulseItems(items);
       } catch {
-        if (live) setLokiPulseItems([]);
+        // Conserver les dernières bulles valides pendant une panne temporaire.
       }
     };
     void refreshPulse();
@@ -2140,7 +2140,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <MusicTasteQuestionnaire
           onDone={() => {
             setPulseTasteOpen(false);
-            void loadLokiPulse(60).then(setLokiPulseItems).catch(() => {});
+            void loadLokiPulse(60, user.id).then(setLokiPulseItems).catch(() => {});
           }}
           onLater={() => setPulseTasteOpen(false)}
         />
