@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -245,8 +245,12 @@ export default function MusicAgoraPanel({
       composerInputRef.current?.focus();
       followChatBottom(false);
     };
+    // Ne jamais attendre le réseau pour rendre le champ réellement utilisable.
+    // Sur iOS, le TextInput peut être monté pendant l'animation du Modal :
+    // on tente tout de suite, après les interactions, puis à quelques reprises.
     focus();
-    [120, 320, 620].forEach((delay) => {
+    InteractionManager.runAfterInteractions(focus);
+    [80, 180, 360, 700].forEach((delay) => {
       composerFocusTimersRef.current.push(setTimeout(focus, delay));
     });
   };
@@ -457,15 +461,16 @@ export default function MusicAgoraPanel({
     setDraft('');
     setMessages([]);
     if (preferredRoomSlug) setRoomSlug(preferredRoomSlug);
+    // Le fil et le clavier doivent s'ouvrir immédiatement, même si le chargement
+    // des messages prend du temps ou échoue.
+    requestAnimationFrame(() => focusComposer());
     setLoading(true);
     try {
       const rows = await loadMusicAgoraDirectMessages(target.profileId, undefined, PAGE_SIZE);
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
-      setTimeout(() => {
-        followChatBottom(false);
-        focusComposer();
-      }, Platform.OS === 'ios' ? 220 : 80);
+      followChatBottom(false);
+      requestAnimationFrame(() => focusComposer());
     } catch (error) {
       Alert.alert('Conversation', readableError(error));
     } finally {
@@ -1216,9 +1221,12 @@ export default function MusicAgoraPanel({
               setReplyTarget(null);
               setActiveGroup(null);
               setMessages([]);
+              // La Place doit être saisissable immédiatement : ne jamais attendre
+              // le RPC du salon avant d'ouvrir le clavier.
+              requestAnimationFrame(() => focusComposer());
               void refresh(roomSlug).finally(() => {
                 followChatBottom(false);
-                setTimeout(() => focusComposer(), Platform.OS === 'ios' ? 220 : 80);
+                requestAnimationFrame(() => focusComposer());
               });
             }}
             accessibilityLabel="Ouvrir La Place"
@@ -1794,9 +1802,15 @@ export default function MusicAgoraPanel({
           placeholderTextColor={colors.textMutedGrey}
           multiline
           scrollEnabled
-          autoFocus={compact}
+          autoFocus={false}
           showSoftInputOnFocus
+          focusable
           maxLength={2000}
+          onPressIn={() => {
+            composerInputRef.current?.focus();
+            stickToBottomRef.current = true;
+            followChatBottom(false);
+          }}
           onFocus={() => {
             setComposerActionsOpen(false);
             setReactionPaletteOpen(false);
