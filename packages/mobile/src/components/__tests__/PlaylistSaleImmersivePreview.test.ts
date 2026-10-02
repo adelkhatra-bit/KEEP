@@ -27,7 +27,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   it('keeps the seller profile and total price aligned on one compact row', () => {
     expect(source).toContain('style={s.sellerPriceRow}');
     expect(source).toContain('<Text style={s.profileLinkText}>@{normalizedUsername}</Text>');
-    expect(source).toContain("freeAccess ? 'PRIX' : 'TOTAL'");
+    expect(source).toContain("freeAccess ? 'FREE' : 'PAYPAL'");
     expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
   });
 
@@ -48,8 +48,10 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).not.toContain('Aucun débit n’est effectué morceau par morceau.');
   });
 
-  it('retains money-payment legal disclosure without cluttering FREE unlocks', () => {
-    expect(source).toContain('Paiement sur le lien du créateur · accès après sa confirmation.');
+  it('retains money-payment legal disclosure while matching the compact FREE visual language', () => {
+    expect(source).toContain('PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection');
+    expect(source).toContain('totalPricePillMoney');
+    expect(source).toContain('totalPricePillFree');
     expect(source).toContain('aucun remboursement possible');
     expect(source).toContain('{!freeAccess ? <Text style={s.noRefund}>');
   });
