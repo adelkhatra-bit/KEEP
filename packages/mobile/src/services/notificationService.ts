@@ -83,6 +83,15 @@ export function notificationSemanticKey(item: KeepNotification): string {
     if (sourceProfileId) return `${type}|source:${sourceProfileId}|theme:${themeCode}`;
   }
 
+  // Tchat : chaque message a son propre identifiant. Le texte des
+  // notifications de groupe est toujours le même (« @x a envoyé un
+  // message. ») : sans cette clé, 5 messages en 30 min n'en comptaient qu'1.
+  if (type.startsWith('AGORA')) {
+    const messageId = notificationDataValue(item, ['messageId','message_id']);
+    const groupId = notificationDataValue(item, ['groupId','group_id']);
+    if (messageId) return `${type}|message:${messageId}|group:${groupId}`;
+  }
+
   const stableId = notificationDataValue(item, [
     'paymentId','payment_id','challengeId','challenge_id','eventId','event_id','offerId','offer_id',
   ]);

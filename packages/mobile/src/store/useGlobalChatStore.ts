@@ -24,9 +24,15 @@ type GlobalChatState = {
   clearTarget: () => void;
   openSettings: () => void;
   closeSettings: () => void;
+  // Messages non lus par conversation (`g:<groupe>` / `p:<expéditeur>`) :
+  // id des notifications à marquer lues quand la conversation est ouverte.
+  unreadByTarget: Record<string, string[]>;
+  setUnreadByTarget: (map: Record<string, string[]>) => void;
+  addUnread: (key: string, notificationId: string) => void;
+  consumeUnread: (key: string) => string[];
 };
 
-export const useGlobalChatStore = create<GlobalChatState>((set) => ({
+export const useGlobalChatStore = create<GlobalChatState>((set, get) => ({
   isOpen: false,
   side: 'right',
   bottomOffset: 88,
@@ -41,4 +47,19 @@ export const useGlobalChatStore = create<GlobalChatState>((set) => ({
   clearTarget: () => set({ target: null }),
   openSettings: () => set({ settingsOpen: true, isOpen: false }),
   closeSettings: () => set({ settingsOpen: false }),
+  unreadByTarget: {},
+  setUnreadByTarget: (unreadByTarget) => set({ unreadByTarget }),
+  addUnread: (key, notificationId) => set((state) => {
+    const current = state.unreadByTarget[key] ?? [];
+    if (current.includes(notificationId)) return state;
+    return { unreadByTarget: { ...state.unreadByTarget, [key]: [...current, notificationId] } };
+  }),
+  consumeUnread: (key) => {
+    const ids = get().unreadByTarget[key] ?? [];
+    if (!ids.length) return [];
+    const next = { ...get().unreadByTarget };
+    delete next[key];
+    set({ unreadByTarget: next });
+    return ids;
+  },
 }));

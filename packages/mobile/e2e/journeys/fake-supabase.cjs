@@ -122,11 +122,22 @@ function makeSession() {
  *  - groupStatus   : statut du membre dans le groupe (défaut ACTIVE)
  *  - groupMessages : true pour servir deux messages existants dans le groupe
  *  - balance       : solde FREE affiché (défaut 34)
+ *  - unreadChat    : true pour servir des notifications de messages non lus
+ *                    (2 dans le groupe, 1 privé, + 1 annonce « Tchat
+ *                    disponible » qui ne doit PAS compter comme message) ;
+ *                    'GROUP_LATEST' : le message de groupe est le plus récent
  */
 function createFakeSupabase(options = {}) {
   const opts = { origin: 'http://127.0.0.1:4721', mode: 'FREE', offers: 'single', groupRole: 'MEMBER', groupStatus: 'ACTIVE', groupMessages: false, balance: 34, ...options };
   const session = makeSession();
-  const state = { posted: [], groupCalls: [], extraMessages: [] };
+  const state = { posted: [], groupCalls: [], extraMessages: [], readNotifications: [] };
+  const recent = (ms) => new Date(Date.now() - ms).toISOString();
+  const unreadNotifications = opts.unreadChat ? [
+    { id: 'n-g1', type: 'AGORA_GROUP_MESSAGE', title: 'Groupe', body: 'Nouveau message', data: { groupId: 'g-1', groupName: GROUP_NAME, senderId: SELLER, senderUsername: MEMBER_USERNAME, messageId: 501 }, read_at: null, created_at: recent(60000) },
+    { id: 'n-g2', type: 'AGORA_GROUP_MESSAGE', title: 'Groupe', body: 'Nouveau message', data: { groupId: 'g-1', groupName: GROUP_NAME, senderId: SELLER, senderUsername: MEMBER_USERNAME, messageId: 502 }, read_at: null, created_at: recent(30000) },
+    { id: 'n-d1', type: 'AGORA_DIRECT', title: 'Message', body: 'Salut', data: { roomSlug: 'place', senderId: SELLER, senderUsername: SELLER_USERNAME, messageId: 61 }, read_at: null, created_at: recent(opts.unreadChat === 'GROUP_LATEST' ? 120000 : 20000) },
+    { id: 'n-sys', type: 'CHAT_ACTIVATION_AVAILABLE', title: 'Tchat', body: 'Le Tchat est disponible', data: { event: 'CHAT_ACTIVATION_AVAILABLE' }, read_at: null, created_at: recent(90000) },
+  ] : [];
   const offers = opts.offers === 'forty' ? FORTY_OFFERS : [singleOffer(opts.mode)];
 
   async function respond(route) {
@@ -145,6 +156,10 @@ function createFakeSupabase(options = {}) {
       const name = p.split('/').pop();
       switch (name) {
         case 'keep_agora_my_shareable_tracks': return json(200, [SHAREABLE_TRACK]);
+        case 'keep_notification_action': state.readNotifications.push(body().p_notification_id); return json(200, true);
+        case 'keep_agora_my_conversations':
+          if (!opts.unreadChat) return json(200, []);
+          return json(200, [{ other_profile_id: SELLER, other_username: SELLER_USERNAME, other_avatar_url: null, last_message_id: 61, last_room_slug: 'place', last_body: 'Salut', last_created_at: recent(20000), last_shared_track_id: null, last_sale_offer_id: null }]);
         case 'keep_agora_share_preflight': return json(200, { hasTrack: true, canSell: true, targetOwnsTrack: false });
         case 'keep_playlist_sale_access': return json(200, { unlocked: true, enabled: true, can_buy: true, can_sell: true });
         case 'keep_agora_post_group_offer': state.posted.push(body()); return json(200, { groupMessageId: 9, offersSent: 1, alreadyOwned: 1, alreadyPending: 0 });
@@ -173,6 +188,7 @@ function createFakeSupabase(options = {}) {
           return json(200, obj ? null : []);
       }
     }
+    if (p === '/rest/v1/notifications' && req.method() === 'GET') return json(200, unreadNotifications.filter((n) => !state.readNotifications.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)));
     if (p === '/rest/v1/profiles') {
       const f = u.searchParams.toString();
       const row = f.includes(SELLER_USERNAME) || f.includes(SELLER) ? seller : (f.includes(UID) ? profile : null);

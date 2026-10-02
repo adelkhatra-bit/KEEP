@@ -506,6 +506,52 @@ const chatLiveJourney = {
   },
 };
 
+// Signal « nouveaux messages » (Adel 02/10/2026) : compteur juste (l'annonce
+// « Tchat disponible » ne compte pas), contour lumineux sur le bouton et sur
+// la conversation concernée, effacé dès qu'on l'ouvre.
+const chatUnreadJourney = {
+  id: 'tchat-signal-non-lus',
+  titre: 'Tchat — signal des messages non lus (compteur, contour, lecture)',
+  devices: [ANDROID, MOBILE_SE, PC],
+  mobileFlags: true,
+  fakeOptions: { groupRole: 'MEMBER', groupMessages: true, unreadChat: true },
+  async run({ page, sb, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await page.getByText('Passer', { exact: true }).first().click({ timeout: 25000 }).catch(() => {});
+    const open = page.locator('[aria-label="Ouvrir le Tchat"], [aria-label="Activer et ouvrir le Tchat"]').first();
+    await open.waitFor({ timeout: 40000 });
+    await page.waitForTimeout(1500);
+    r.badge = (await page.locator('[data-testid="loki-global-chat-drawer"]').innerText().catch(() => '')).replace(/\s+/g, ' ');
+    r.contour_bouton = await page.locator('[data-testid="loki-chat-unread-glow"]').count();
+    await shot('bouton');
+    await open.click({ force: true });
+    // Le bouton ouvre directement la conversation du dernier message non lu
+    // (ici le message privé) : elle est lue, puis on revient à la liste.
+    await page.waitForTimeout(1500);
+    r.lues_a_l_ouverture = [...sb.state.readNotifications].sort();
+    const back = page.locator('[aria-label="Retour aux conversations"]').first();
+    if (await back.count()) await back.click({ force: true });
+    await page.waitForTimeout(2500);
+    r.retour_ok = (await page.locator('[aria-label="Retour aux conversations"]').count()) === 0;
+    await page.getByText(fake.GROUP_NAME).first().waitFor({ timeout: 20000 });
+    r.lignes_allumees = await page.locator('[data-testid="chat-row-unread"]').count();
+    r.ligne_groupe_texte = (await page.locator('[data-testid="chat-row-unread"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
+    await shot('liste');
+    await page.getByText(fake.GROUP_NAME).first().click();
+    await page.waitForTimeout(1500);
+    r.lues_apres_ouverture = [...sb.state.readNotifications].sort();
+    const checks = [
+      ['compteur du bouton = 3 messages (l’annonce « Tchat disponible » ne compte pas)', /\b3\b/.test(r.badge) && !/\b4\b/.test(r.badge)],
+      ['contour lumineux sur le bouton du tchat', r.contour_bouton === 1],
+      ['ouvrir le tchat lit la conversation du dernier message (privé)', r.lues_a_l_ouverture.join(',') === 'n-d1'],
+      ['de retour à la liste : seul le groupe reste allumé, avec 2', r.lignes_allumees === 1 && /\b2\b/.test(r.ligne_groupe_texte)],
+      ['ouvrir le groupe marque ses 2 messages lus', r.lues_apres_ouverture.join(',') === 'n-d1,n-g1,n-g2'],
+    ];
+    return { details: r, failures: failed(checks), ok: `compteur 3, contour allumé, privé lu à l’ouverture, groupe allumé (2) puis lu` };
+  },
+};
+
 const JOURNEYS = [
   popupJourney('FREE'),
   popupJourney('MONEY'),
@@ -516,6 +562,7 @@ const JOURNEYS = [
   groupAdminJourney,
   chatRedirectJourney,
   chatLiveJourney,
+  chatUnreadJourney,
 ];
 
 // ---------------------------------------------------------------- exécution

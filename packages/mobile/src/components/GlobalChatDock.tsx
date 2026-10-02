@@ -12,11 +12,8 @@ import { navigateToSharedProfile, navigationRef } from '../navigation/navigation
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { supabase } from '../services/supabaseClient';
+import { buildChatUnreadMap, chatUnreadKey, isChatNotification } from '../services/chatUnread';
 
-function isChatNotification(item: KeepNotification): boolean {
-  const type = String(item.type || '').toUpperCase();
-  return type.startsWith('AGORA') || type.startsWith('CHAT');
-}
 
 function chatNotificationSender(item: KeepNotification): string {
   const data = item.data ?? {};
@@ -99,6 +96,24 @@ export default function GlobalChatDock() {
   const drawerPeek = useRef(new Animated.Value(0)).current;
   const nudge = useRef(new Animated.Value(0)).current;
   const lastNudgeUnread = useRef(0);
+  // Signal « nouveaux messages » (maquette validée 02/10/2026) : contour du
+  // bouton qui s'allume tant qu'il reste du non-lu, halo qui clignote autour
+  // du compteur, et bord de l'écran qui s'illumine à l'arrivée d'un message.
+  const glow = useRef(new Animated.Value(0)).current;
+  const ping = useRef(new Animated.Value(0)).current;
+  const edge = useRef(new Animated.Value(0)).current;
+  const flashEdge = () => {
+    edge.stopAnimation();
+    edge.setValue(0);
+    Animated.sequence([
+      Animated.timing(edge, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(edge, { toValue: 0.35, duration: 520, useNativeDriver: true }),
+      Animated.timing(edge, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(edge, { toValue: 0.35, duration: 520, useNativeDriver: true }),
+      Animated.timing(edge, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(edge, { toValue: 0, duration: 1400, useNativeDriver: true }),
+    ]).start();
+  };
   const drag = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const dragStartBottom = useRef(bottomOffset);
   const safeAreaInsets = useContext(SafeAreaInsetsContext);
@@ -252,6 +267,7 @@ export default function GlobalChatDock() {
       }
       const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
       setUnreadCount(unreadChat.length);
+      useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(notifications));
       const latest = unreadChat[0];
       setLatestChatSender(latest ? chatNotificationSender(latest) : '');
       if (latest) useGlobalChatStore.getState().prime(chatNotificationTarget(latest));
@@ -267,6 +283,9 @@ export default function GlobalChatDock() {
       if (!isChatNotification(item)) return;
       const sender = chatNotificationSender(item);
       setUnreadCount((value) => value + 1);
+      const unreadKey = chatUnreadKey(item);
+      if (unreadKey) useGlobalChatStore.getState().addUnread(unreadKey, item.id);
+      flashEdge();
       setLatestChatSender(sender);
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
@@ -385,6 +404,23 @@ export default function GlobalChatDock() {
       ]),
     ]).start();
   }, [accountReady, open, unreadCount, nudge, drawerPeek]);
+
+  useEffect(() => {
+    if (!accountReady || open || unreadCount <= 0) {
+      glow.stopAnimation(); glow.setValue(0);
+      ping.stopAnimation(); ping.setValue(0);
+      return undefined;
+    }
+    const loops = [
+      Animated.loop(Animated.sequence([
+        Animated.timing(glow, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(glow, { toValue: 0.25, duration: 900, useNativeDriver: true }),
+      ])),
+      Animated.loop(Animated.timing(ping, { toValue: 1, duration: 1600, useNativeDriver: true })),
+    ];
+    loops.forEach((loop) => loop.start());
+    return () => loops.forEach((loop) => loop.stop());
+  }, [accountReady, open, unreadCount, glow, ping]);
 
   const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.44));
   const maxBottom = Math.max(minBottom, height - Math.max(118, insets.top + 72));
@@ -682,6 +718,8 @@ export default function GlobalChatDock() {
         </Modal>
       ) : null}
 
+      {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
+
       {!open && unreadCount > 0 ? (
         <Animated.View
           pointerEvents="none"
@@ -729,6 +767,7 @@ export default function GlobalChatDock() {
             accessibilityLabel={previewOnly && !visualTestPreview ? 'Se connecter pour ouvrir le Tchat' : chatEnabled ? 'Ouvrir le Tchat' : 'Activer et ouvrir le Tchat'}
           >
             <View style={[styles.halo, !chatEnabled && styles.haloOff]} />
+            {unreadCount > 0 ? <Animated.View pointerEvents="none" testID="loki-chat-unread-glow" style={[styles.unreadGlow, side === 'left' ? styles.unreadGlowLeft : styles.unreadGlowRight, { opacity: glow }]} /> : null}
             <View style={styles.fabDepthBack} />
             <View style={styles.fabDepthMid} />
             <View style={[styles.fabFace, side === 'left' ? styles.fabFaceLeft : styles.fabFaceRight]}>
@@ -744,6 +783,7 @@ export default function GlobalChatDock() {
               </View>
               <Text style={styles.drawerChevron}>{side === 'left' ? '›' : '‹'}</Text>
               <View style={[styles.presenceDot, chatEnabled ? styles.presenceOn : styles.presenceOff]} />
+              {unreadCount > 0 ? <Animated.View pointerEvents="none" style={[styles.badgePing, { opacity: ping.interpolate({ inputRange: [0, 1], outputRange: [0.75, 0] }), transform: [{ scale: ping.interpolate({ inputRange: [0, 1], outputRange: [1, 2.1] }) }] }]} /> : null}
               {unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
             </View>
           </TouchableOpacity>
@@ -820,6 +860,11 @@ const styles = StyleSheet.create({
   presenceDot:{position:'absolute',left:5,bottom:4,width:8,height:8,borderRadius:4,borderWidth:2,borderColor:colors.background},
   presenceOn:{backgroundColor:colors.keep},
   presenceOff:{backgroundColor:colors.textMutedGrey},
+  edgeGlow:{...StyleSheet.absoluteFillObject,borderWidth:3,borderColor:'#FF5CB4',shadowColor:'#A78BFA',shadowOpacity:.9,shadowRadius:22,shadowOffset:{width:0,height:0}},
+  unreadGlowLeft:{borderTopRightRadius:22,borderBottomRightRadius:22},
+  unreadGlowRight:{borderTopLeftRadius:22,borderBottomLeftRadius:22},
+  unreadGlow:{position:'absolute',left:-4,top:-4,width:78,height:60,borderWidth:3,borderColor:'#FF5CB4',shadowColor:'#FF5CB4',shadowOpacity:.9,shadowRadius:14,shadowOffset:{width:0,height:0}},
+  badgePing:{position:'absolute',right:-5,top:-7,width:20,height:20,borderRadius:10,backgroundColor:'#FF5CB4'},
   badge:{position:'absolute',right:-5,top:-7,minWidth:20,height:20,borderRadius:10,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},
   badgeText:{color:'#FFF',fontSize:9,fontWeight:'900'},
 });

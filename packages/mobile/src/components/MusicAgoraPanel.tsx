@@ -52,6 +52,8 @@ import {
 } from '../services/musicAgoraService';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseRequest, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { markNotificationRead } from '../services/notificationService';
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
@@ -376,13 +378,20 @@ export default function MusicAgoraPanel({
     }, Platform.OS === 'ios' ? 380 : 140);
   }, [initialReplyTarget?.profileId, initialReplyTarget?.username]);
 
+  // Le groupe demandé à l'ouverture (message non lu) ne s'ouvre qu'UNE fois.
+  // Avant : l'effet se relançait à chaque rechargement de la liste des
+  // groupes (bouton Retour, rafraîchissement toutes les 10 s) et renvoyait
+  // de force dans le groupe — impossible de revenir aux conversations.
+  const appliedInitialGroupRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!initialGroupId) return;
+    if (!initialGroupId) { appliedInitialGroupRef.current = null; return; }
+    if (appliedInitialGroupRef.current === initialGroupId) return;
+    const group = groups.find((item) => item.id === initialGroupId);
+    if (!group) return;
+    appliedInitialGroupRef.current = initialGroupId;
     setChatMode('MESSAGES');
     setReplyTarget(null);
     setReplyingToMessage(null);
-    const group = groups.find((item) => item.id === initialGroupId);
-    if (!group) return;
     if (group.myStatus === 'ACTIVE') {
       setActiveGroup(group);
       initialScrollDone.current = false;
@@ -472,6 +481,19 @@ export default function MusicAgoraPanel({
       void refreshInbox();
     });
   }, [enabled, currentProfileId]);
+
+  // Non-lus par conversation (contour + compteur dans la liste). Ouvrir une
+  // conversation marque ses messages lus ; un message qui arrive pendant
+  // qu'elle est ouverte est lu aussitôt.
+  const unreadByTarget = useGlobalChatStore((state) => state.unreadByTarget);
+  const openThreadKey = activeGroup?.id && activeGroup.myStatus === 'ACTIVE'
+    ? `g:${activeGroup.id}`
+    : replyTarget?.profileId ? `p:${replyTarget.profileId}` : null;
+  useEffect(() => {
+    if (!openThreadKey || !unreadByTarget[openThreadKey]?.length) return;
+    const ids = useGlobalChatStore.getState().consumeUnread(openThreadKey);
+    for (const id of ids) void markNotificationRead(currentProfileId, id).catch(() => {});
+  }, [openThreadKey, unreadByTarget, currentProfileId]);
 
   const openDirectThread = async (target: { profileId: string; username: string }, preferredRoomSlug?: string | null) => {
     initialScrollDone.current = false;
@@ -1385,7 +1407,7 @@ export default function MusicAgoraPanel({
           if (entry.kind === 'GROUP') {
             const group = entry.item;
             return (
-              <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
+              <View key={`group:${group.id}`} testID={unreadByTarget[`g:${group.id}`]?.length ? 'chat-row-unread' : undefined} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited, Boolean(unreadByTarget[`g:${group.id}`]?.length) && s.rowUnread]}>
                 <TouchableOpacity
                   style={s.groupMain}
                   disabled={group.myStatus !== 'ACTIVE'}
@@ -1404,6 +1426,7 @@ export default function MusicAgoraPanel({
                         : group.lastBody || `${group.memberCount} personnes`}
                     </Text>
                   </View>
+                  {unreadByTarget[`g:${group.id}`]?.length ? <View style={s.unreadPill}><Text style={s.unreadPillText}>{unreadByTarget[`g:${group.id}`].length > 9 ? '9+' : unreadByTarget[`g:${group.id}`].length}</Text></View> : null}
                   {group.myStatus === 'ACTIVE' ? <Text style={s.conversationArrow}>›</Text> : null}
                 </TouchableOpacity>
                 {group.myStatus === 'INVITED' ? (
@@ -1424,7 +1447,8 @@ export default function MusicAgoraPanel({
           return (
             <TouchableOpacity
               key={`direct:${item.profileId}`}
-              style={s.conversationRow}
+              testID={unreadByTarget[`p:${item.profileId}`]?.length ? 'chat-row-unread' : undefined}
+              style={[s.conversationRow, Boolean(unreadByTarget[`p:${item.profileId}`]?.length) && s.rowUnread]}
               onPress={() => {
                 void openDirectThread(
                   { profileId: item.profileId, username: item.username },
@@ -1438,6 +1462,7 @@ export default function MusicAgoraPanel({
                 <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
                 <Text style={s.conversationPreview} numberOfLines={1}>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</Text>
               </View>
+              {unreadByTarget[`p:${item.profileId}`]?.length ? <View style={s.unreadPill}><Text style={s.unreadPillText}>{unreadByTarget[`p:${item.profileId}`].length > 9 ? '9+' : unreadByTarget[`p:${item.profileId}`].length}</Text></View> : null}
               <Text style={s.conversationArrow}>›</Text>
             </TouchableOpacity>
           );
@@ -2208,6 +2233,9 @@ const s=StyleSheet.create({
   newConversationCopy:{flex:1,minWidth:0},
   newConversationTitle:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
   newConversationHint:{color:colors.textSecondary,fontSize:14,lineHeight:19,marginTop:2},
+  rowUnread:{borderWidth:2,borderBottomWidth:2,borderColor:'#FF5CB4',borderBottomColor:'#FF5CB4',borderRadius:14,backgroundColor:'rgba(255,92,180,.10)',shadowColor:'#FF5CB4',shadowOpacity:.55,shadowRadius:10,shadowOffset:{width:0,height:0},marginVertical:2},
+  unreadPill:{minWidth:24,height:24,borderRadius:12,paddingHorizontal:6,backgroundColor:'#FF5CB4',alignItems:'center',justifyContent:'center'},
+  unreadPillText:{color:'#2A0518',fontSize:13,fontWeight:'900'},
   groupRow:{borderRadius:0,borderWidth:0,borderBottomWidth:1,borderBottomColor:'rgba(124,92,252,.18)',backgroundColor:'transparent',overflow:'hidden'},
   groupRowInvited:{borderColor:colors.warning,backgroundColor:'rgba(255,184,107,.06)'},
   groupMain:{minHeight:62,paddingHorizontal:9,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:9},
