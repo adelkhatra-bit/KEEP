@@ -46,4 +46,12 @@ describe('Loki chat latest-message visual follow', () => {
     expect(sendBlock).toContain('followChatBottom(false);');
     expect(sendBlock).toContain('void publish();');
   });
+
+  it('focuses the composer after opening a thread so the native mobile keyboard appears', () => {
+    expect(source).toContain('const composerInputRef = useRef<TextInput | null>(null);');
+    expect(source).toContain('composerInputRef.current?.focus();');
+    expect(source).toContain('ref={composerInputRef}');
+    expect(source).toContain('showSoftInputOnFocus');
+    expect(source).toContain("Platform.OS === 'ios' ? 380 : 140");
+  });
 });
