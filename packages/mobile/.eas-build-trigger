@@ -1,4 +1,4 @@
 production
-requested_from_sha=f443768d6e398883fd5dafb58c7aaa1a9f2418af
-requested_at=2026-10-02T14:00:00+02:00
-reason=publish-final-chat-latest-thread-order-and-visual-bottom-follow
+requested_from_sha=a019f48509d4eb8c8b0a776f3c2abfa5eebf4101
+requested_at=2026-10-02T15:27:00+02:00
+reason=publish-mobile-chat-keyboard-stability-and-recognition-reliability
