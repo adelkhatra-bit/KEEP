@@ -154,8 +154,30 @@ export function battleWinReason(results: MatchResultLike[] | null | undefined): 
 }
 
 // Solo laissé tout seul : 2 morceaux d'affilée sans réponse (depuis la
-// dernière reprise) -> « Tu es toujours là ? », fermeture après 20 s.
-export const SOLO_IDLE_AUTO_CLOSE_MS = 20_000;
+// dernière reprise) -> « Tu es toujours là ? ». Adel (02/10/2026) : « une
+// personne peut prendre un appel urgent » -> 60 s au lieu de 20 s.
+export const SOLO_IDLE_AUTO_CLOSE_MS = 60_000;
+
+// Texte exact de la fenêtre « Tu es toujours là ? » : ce qui se passe si
+// personne ne répond. Le Solo ne retire JAMAIS de Free (aucun débit côté
+// serveur) : il compte seulement dans les Solos du jour.
+export function soloIdleNotice(secondsLeft: number, status: SoloDailyStatusLike | null): string {
+  const s = Math.max(0, Math.ceil(secondsLeft));
+  const counted = !status || status.unlimited
+    ? 'la partie s’arrête sans Free gagné'
+    : `la partie s’arrête et compte dans tes Solos du jour (il t’en restera ${Math.max(0, status.remaining ?? 0)} sur ${Math.max(0, status.limit ?? 0)}), sans Free gagné`;
+  return `Personne n’a répondu aux 2 derniers morceaux. Sans réponse dans ${s} s, ${counted}. Aucun Free n’est retiré de ton solde.`;
+}
+
+// Battle en ligne : 3 questions d'affilée sans réponse = sortie de la partie
+// et mise perdue (règle serveur, Adel 02/09/2026). Adel (02/10/2026) : « il
+// faut bien marquer que là il va y avoir 3 Free débités » -> avertissement
+// dès la 2e question manquée.
+export const ARENA_AFK_LIMIT = 3;
+export function arenaMissWarning(missStreak: number, stake: number): string | null {
+  if (missStreak < ARENA_AFK_LIMIT - 1 || missStreak >= ARENA_AFK_LIMIT) return null;
+  return `⚠️ ${missStreak} questions sans réponse : encore une et tu sors du Battle, −${stake} Free débités.`;
+}
 export function soloIdleDetected(responses: string[], resumeIndex: number): boolean {
   const recent = responses.slice(Math.max(0, resumeIndex));
   if (recent.length < 2) return false;
