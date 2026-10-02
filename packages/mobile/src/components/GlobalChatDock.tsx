@@ -105,9 +105,11 @@ export default function GlobalChatDock() {
 
   const storeProfileId = user && !isDemoMode && !isLocalGuest ? user.id : null;
   const authResolved = !supabase || authenticatedProfileId !== undefined;
-  const effectiveProfileId = supabase
-    ? (authenticatedProfileId === undefined ? storeProfileId : authenticatedProfileId)
-    : storeProfileId;
+  // La session Supabase reste la source prioritaire, mais un getSession()
+  // transitoirement vide ne doit jamais fermer la messagerie d'un compte que
+  // l'app a déjà authentifié dans son store. Le store est le filet de
+  // continuité visuelle ; la déconnexion réelle le nettoie ensuite.
+  const effectiveProfileId = authenticatedProfileId || storeProfileId;
   const accountReady = Boolean(effectiveProfileId);
   const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
   const visualTestPreview = Boolean(previewOnly && process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1');
@@ -297,7 +299,9 @@ export default function GlobalChatDock() {
         setBottomOffset(settings.bottomOffset);
       })
       .catch(() => {
-        if (live) closeChat();
+        // Un échec de persistance du réglage ne doit JAMAIS fermer une
+        // conversation que l'utilisateur vient d'ouvrir.
+        if (live) setChatEnabled(true);
       })
       .finally(() => { if (live) setChatSaving(false); });
     return () => { live = false; };
@@ -401,7 +405,10 @@ export default function GlobalChatDock() {
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : nextSurfaces);
       setSide(settings.side);
       setBottomOffset(settings.bottomOffset);
-      if (!settings.homeEnabled) closeChat();
+      // Fermer uniquement quand l'utilisateur a explicitement désactivé le
+      // Tchat. Une réponse serveur incohérente pendant une activation ne doit
+      // pas éjecter l'utilisateur de sa conversation.
+      if (!enabled && !settings.homeEnabled) closeChat();
     } finally {
       setChatSaving(false);
     }
@@ -441,8 +448,9 @@ export default function GlobalChatDock() {
       try {
         await saveProfileSettings(true);
       } catch {
-        setChatEnabled(false);
-        closeChat();
+        // L'ouverture du Tchat est prioritaire sur la sauvegarde du réglage.
+        // On garde la fenêtre ouverte et on retentera la persistance plus tard.
+        setChatEnabled(true);
       }
     }
   };
