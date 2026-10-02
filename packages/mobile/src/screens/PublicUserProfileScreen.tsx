@@ -242,6 +242,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
   const [visibleSaleCount, setVisibleSaleCount] = useState(SALE_ROWS_INITIAL);
+
+  useEffect(() => {
+    // Chaque profil recommence à 3 Drops : jamais une longue liste héritée
+    // du profil visité juste avant.
+    setVisibleSaleCount(SALE_ROWS_INITIAL);
+  }, [profile?.id]);
   const [marketBannerEventIds, setMarketBannerEventIds] = useState<string[]>([]);
   const [marketBannerPendingEventCount, setMarketBannerPendingEventCount] = useState(0);
   const [marketBannerEventsLoaded, setMarketBannerEventsLoaded] = useState(false);
@@ -1609,7 +1615,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                             ? `${missingLabel} · ${styleLabel}`
                             : `✦ ${offer.trackCount} à révéler · ${styleLabel}`}
                         tag={unlocked ? '✓ DÉBLOQUÉE' : priceLabel}
-                        tagTone={unlocked ? 'unlocked' : 'price'}
+                        tagTone={unlocked ? 'unlocked' : offer.paymentMode === 'FREE' ? 'free' : 'money'}
                         onPress={() => openSaleFolder(offer)}
                         accessibilityLabel={unlocked
                           ? `Ouvrir la collection ${offer.playlistName}`
@@ -1622,7 +1628,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 </View>
                 {saleOffers.length > 3 ? (
                   <TouchableOpacity style={styles.marketplaceBrowseAll} onPress={() => setVisibleSaleCount((n) => nextSaleVisibleCount(n, saleOffers.length))} accessibilityRole="button" accessibilityLabel={visibleSaleCount >= saleOffers.length ? `Réduire les collections de ${profile.username}` : `Voir plus de collections de ${profile.username}`}>
-                    <Text style={styles.marketplaceBrowseAllText}>{visibleSaleCount >= saleOffers.length ? 'RÉDUIRE' : `VOIR PLUS · ${saleOffers.length - visibleSaleCount} AUTRE${saleOffers.length - visibleSaleCount > 1 ? 'S' : ''}`}</Text><Text style={styles.marketplaceReopenArrow}>{visibleSaleCount >= saleOffers.length ? '˄' : '˅'}</Text>
+                    <Text style={styles.marketplaceBrowseAllText}>{visibleSaleCount >= saleOffers.length ? 'RÉDUIRE À 3' : `VOIR PLUS · ${saleOffers.length - visibleSaleCount} DROP${saleOffers.length - visibleSaleCount > 1 ? 'S' : ''}`}</Text><Text style={styles.marketplaceReopenArrow}>{visibleSaleCount >= saleOffers.length ? '˄' : '˅'}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.marketplaceSellerLink} onPress={() => {}} disabled accessibilityLabel={`Profil de ${profile.username}`}><Text style={styles.marketplaceSellerLinkText}>Par @{profile.username}</Text></TouchableOpacity>
