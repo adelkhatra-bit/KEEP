@@ -21,15 +21,14 @@ export default function AccountActionsPanel() {
   const signOutNow = async () => {
     if (signingOut) return;
     setSigningOut(true);
-    try {
-      if (supabase && !isLocalGuest && !isDemoMode) await createAuthService(supabase).signOut();
-      await clearLocalGuestMarker();
-    } catch {
-      await clearLocalGuestMarker();
-    } finally {
-      logout();
-      setSigningOut(false);
+
+    // Déconnexion visible immédiate : jamais attendre Supabase pour sortir.
+    logout();
+    void clearLocalGuestMarker().catch(() => {});
+    if (supabase && !isLocalGuest && !isDemoMode) {
+      void createAuthService(supabase).signOut().catch(() => {});
     }
+    setSigningOut(false);
   };
 
   const confirmSignOut = () => {
