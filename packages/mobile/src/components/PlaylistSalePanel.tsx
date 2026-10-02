@@ -183,6 +183,16 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     const t2 = setTimeout(pinStepTop, 180);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [collectionCartOpen, collectionCartStep]);
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => {
+      // Un retour vers Pépites ne doit jamais réutiliser un ancien offset de
+      // scroll : on repart sur le contenu visible, sans chercher la zone à
+      // swiper.
+      requestAnimationFrame(() => collectionCartScrollRef.current?.scrollTo({ y: 0, animated: false }));
+    });
+    return typeof unsubscribe === 'function' ? unsubscribe : undefined;
+  }, [navigation]);
   const visibleCollectionCartTracks = useMemo(() => {
     const needle = collectionCartQuery.trim().toLocaleLowerCase('fr-FR');
     const rows = needle
