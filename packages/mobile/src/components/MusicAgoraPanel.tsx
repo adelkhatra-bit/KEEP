@@ -44,6 +44,7 @@ import {
   saveMusicAgoraSettings,
   setMusicAgoraRoomSubscription,
   subscribeMusicAgoraRoom,
+  subscribeMusicAgoraDirect,
   subscribeMusicAgoraGroup,
   subscribeMusicAgoraMembership,
 } from '../services/musicAgoraService';
@@ -140,6 +141,7 @@ export default function MusicAgoraPanel({
   const [settingsSurfaces, setSettingsSurfaces] = useState<MusicAgoraSurface[]>(['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS']);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [replyTarget, setReplyTarget] = useState<{ profileId: string; username: string } | null>(null);
+  const [replyingToMessage, setReplyingToMessage] = useState<MusicAgoraMessage | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareOptionsOpen, setShareOptionsOpen] = useState(false);
   const [sharedTrack, setSharedTrack] = useState<CanonicalTrack | null>(null);
@@ -473,6 +475,7 @@ export default function MusicAgoraPanel({
     setChatMode('MESSAGES');
     setActiveGroup(null);
     setReplyTarget(target);
+    setReplyingToMessage(null);
     setSharedTrack(null);
     setSharePaymentMode('NONE');
     setDraft('');
@@ -497,6 +500,7 @@ export default function MusicAgoraPanel({
 
   const openGroup = async (group: MusicAgoraGroup) => {
     setReplyTarget(null);
+    setReplyingToMessage(null);
     setActiveGroup(group);
     setSharedTrack(null);
     setSharePaymentMode('NONE');
@@ -695,26 +699,45 @@ export default function MusicAgoraPanel({
       void refresh(roomSlug);
     }
     if (enabled && homeEnabled && !activeGroup?.id) void setMusicAgoraRoomSubscription(roomSlug, true, notificationsEnabled).catch(() => {});
+    const onLiveMessage = () => {
+      const shouldFollow = !browsingHistoryRef.current;
+      if (shouldFollow) {
+        browsingHistoryRef.current = false;
+        stickToBottomRef.current = true;
+        forceBottomRef.current = true;
+      }
+      void refresh(roomSlug, true).finally(() => {
+        if (shouldFollow) followChatBottom(true);
+      });
+      void refreshInbox();
+    };
+
     const unsubscribe = activeGroup?.id
       ? subscribeMusicAgoraGroup(activeGroup.id, () => {
-          browsingHistoryRef.current = false;
-          forceBottomRef.current = true;
-          void refresh(roomSlug, true).finally(() => followChatBottom(true));
-          void refreshInbox();
+          onLiveMessage();
           if (groupMembersOpen) void refreshGroupMembers(activeGroup.id);
         })
-      : subscribeMusicAgoraRoom(roomSlug, () => {
-          if (chatMode === 'MESSAGES' && !replyTarget?.profileId) {
-            void refreshInbox();
-          } else {
-            browsingHistoryRef.current = false;
-            forceBottomRef.current = true;
-            void refresh(roomSlug, true).finally(() => followChatBottom(true));
-          }
-        });
+      : chatMode === 'MESSAGES' && replyTarget?.profileId
+        ? subscribeMusicAgoraDirect(currentProfileId, replyTarget.profileId, onLiveMessage)
+        : subscribeMusicAgoraRoom(roomSlug, () => {
+            if (chatMode === 'MESSAGES' && !replyTarget?.profileId) {
+              void refreshInbox();
+            } else {
+              onLiveMessage();
+            }
+          });
 
-    // Realtime handles messages immediately. This low-frequency timer is only
-    // a resilience/settings sync and avoids a 5-second polling load at scale.
+    // Realtime donne l'instantané. Ce filet de sécurité ne tourne que lorsqu'une
+    // conversation est réellement ouverte : si un mobile suspend le websocket,
+    // la réponse arrive quand même sans fermer/réouvrir l'écran.
+    const liveSafetyTimer = setInterval(() => {
+      if (chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id)) {
+        void refresh(roomSlug, true).then(() => {
+          if (!browsingHistoryRef.current) followChatBottom(false);
+        });
+      }
+    }, 4000);
+
     const timer = setInterval(() => {
       if (chatMode === 'MESSAGES' && !replyTarget?.profileId && !activeGroup?.id) void refreshInbox();
       if (compact && enabled) {
@@ -725,7 +748,7 @@ export default function MusicAgoraPanel({
         }).catch(() => {});
       }
     }, 60000);
-    return () => { unsubscribe(); clearInterval(timer); };
+    return () => { unsubscribe(); clearInterval(liveSafetyTimer); clearInterval(timer); };
   }, [roomSlug, enabled, homeEnabled, notificationsEnabled, compact, chatMode, replyTarget?.profileId, activeGroup?.id, groupMembersOpen]);
 
   useEffect(() => {
@@ -840,6 +863,7 @@ export default function MusicAgoraPanel({
         const sentId = await postMusicAgoraGroupMessage(activeGroup.id, body, {
           sharedTrackId: sharedTrack?.id ?? null,
           revealMode: sharedTrack ? shareRevealMode : 'NONE',
+          replyToMessageId: replyingToMessage?.id ?? null,
         });
         ownSendPendingRef.current = sentId || -1;
       } else {
@@ -851,10 +875,12 @@ export default function MusicAgoraPanel({
           freePrice: sharedTrack && sharePaymentMode === 'FREE' ? requestedFreePrice : null,
           priceCents: sharedTrack && sharePaymentMode === 'MONEY' ? requestedMoneyCents : null,
           currencyCode: 'EUR',
+          replyToMessageId: replyingToMessage?.id ?? null,
         });
         ownSendPendingRef.current = sentId || -1;
       }
       setDraft('');
+      setReplyingToMessage(null);
       setSharedTrack(null);
       setShareOptionsOpen(false);
       setShareRevealMode('MASKED');
@@ -1091,6 +1117,7 @@ export default function MusicAgoraPanel({
   const leaveCompactThread = () => {
     setChatMode('MESSAGES');
     setReplyTarget(null);
+    setReplyingToMessage(null);
     setActiveGroup(null);
     setMessages([]);
     void refreshInbox();
@@ -1400,6 +1427,12 @@ export default function MusicAgoraPanel({
               </View>
             </TouchableOpacity>
           ) : null}
+          {message.replyToMessageId ? (
+            <View style={s.quotedReply}>
+              <Text style={s.quotedReplyAuthor} numberOfLines={1}>↪ @{message.replyToUsername || 'message'}</Text>
+              <Text style={s.quotedReplyBody} numberOfLines={2}>{message.replyToBody || 'Message précédent'}</Text>
+            </View>
+          ) : null}
           {(message.body === LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
             <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>{LOKI_REACTION_TEXT} · LOKI</Text></View>
           ) : extractMusicAgoraPayoutQrUrl(message.body) ? (
@@ -1501,9 +1534,18 @@ export default function MusicAgoraPanel({
           {replyTarget ? <Text style={s.directBubbleTime}>{ago(message.createdAt)}</Text> : null}
           {message.profileId !== currentProfileId ? (
             <View style={s.messageActions}>
-              {!replyTarget ? (
-                <TouchableOpacity style={s.reply} onPress={() => { void openDirectThread({ profileId: message.profileId, username: message.username }); }}><Text style={s.replyText}>RÉPONDRE</Text></TouchableOpacity>
-              ) : null}
+              <TouchableOpacity
+                style={s.reply}
+                onPress={() => {
+                  setReplyingToMessage(message);
+                  stickToBottomRef.current = true;
+                  userDraggingChatRef.current = false;
+                  requestAnimationFrame(() => focusComposer());
+                }}
+                accessibilityLabel={`Répondre au message de ${message.username}`}
+              >
+                <Text style={s.replyText}>RÉPONDRE</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={s.more} onPress={() => moderate(message)} accessibilityLabel={`Actions pour le message de ${message.username}`}><Text style={s.moreText}>•••</Text></TouchableOpacity>
             </View>
           ) : null}
@@ -1534,7 +1576,18 @@ export default function MusicAgoraPanel({
     ) : null}
 
     {enabled && !(compact && chatMode === 'MESSAGES' && !replyTarget) ? <View style={[s.composer, compact && s.composerCompact]}>
-      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Réponse à @{replyTarget.username}</Text><TouchableOpacity onPress={() => setReplyTarget(null)}><Text style={s.replyTargetClose}>×</Text></TouchableOpacity></View> : null}
+      {replyingToMessage ? (
+        <View style={s.replyTarget}>
+          <View style={s.replyQuoteCopy}>
+            <Text style={s.replyTargetText} numberOfLines={1}>↪ Réponse à @{replyingToMessage.username}</Text>
+            <Text style={s.replyQuoteBody} numberOfLines={1}>{replyingToMessage.body}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setReplyingToMessage(null)} accessibilityLabel="Annuler la réponse au message">
+            <Text style={s.replyTargetClose}>×</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}</Text></View> : null}
       {sharedTrack ? <View style={s.selectedMusic}>
         <View style={s.selectedMusicCompactRow}>
           <View style={s.selectedMusicThumbWrap}>
@@ -2162,6 +2215,9 @@ const s=StyleSheet.create({
   messageActions:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:6,marginTop:8},
   reply:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:colors.info,alignItems:'center',justifyContent:'center'},
   replyText:{color:colors.info,fontSize:8,fontWeight:'900'},
+  quotedReply:{marginTop:6,marginBottom:2,borderLeftWidth:3,borderLeftColor:colors.info,backgroundColor:'rgba(89,174,255,.08)',borderRadius:10,paddingHorizontal:9,paddingVertical:6},
+  quotedReplyAuthor:{color:colors.info,fontSize:9,fontWeight:'900'},
+  quotedReplyBody:{color:colors.textMutedGrey,fontSize:11,lineHeight:15,marginTop:2},
   more:{width:30,height:30,alignItems:'center',justifyContent:'center'},
   moreText:{color:colors.textMutedGrey,fontSize:14,fontWeight:'900'},
   empty:{color:colors.textMutedGrey,fontSize:12,textAlign:'center',paddingVertical:16},
@@ -2169,6 +2225,8 @@ const s=StyleSheet.create({
   olderText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
   replyTarget:{minHeight:30,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:9,borderRadius:12,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.info,marginBottom:7},
   replyTargetText:{color:colors.info,fontSize:10,fontWeight:'900'},
+  replyQuoteCopy:{flex:1,minWidth:0,paddingRight:8},
+  replyQuoteBody:{color:colors.textMutedGrey,fontSize:10,lineHeight:14,marginTop:2},
   replyTargetClose:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   selectedMusic:{padding:8,borderRadius:18,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.successFaint,marginBottom:7,maxHeight:250,overflow:'hidden'},
   selectedMusicCompactRow:{minHeight:90,flexDirection:'row',alignItems:'center',gap:9},
