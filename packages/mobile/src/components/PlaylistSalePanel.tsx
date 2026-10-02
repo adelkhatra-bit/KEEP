@@ -984,13 +984,15 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                           <Text style={s.offerPrice}>
                             {item.paymentMode === 'FREE'
                               ? `${item.freePrice ?? 0} FREE`
-                              : `${(item.priceCents / 100).toFixed(2).replace('.', ',')}€ ${item.currencyCode}`}
+                              : item.currencyCode === 'EUR'
+                                ? `${(item.priceCents / 100).toFixed(2).replace('.', ',')} €`
+                                : `${(item.priceCents / 100).toFixed(2).replace('.', ',')} ${item.currencyCode}`}
                           </Text>
                           {item.genres?.length ? <Text style={s.offerDate}>{item.genres.slice(0, 4).join(' · ')}</Text> : null}
                           <Text style={s.offerDate}>{item.trackCount ?? 0} morceau{(item.trackCount ?? 0) > 1 ? 'x' : ''} dans ce lot</Text>
                         </View>
                         <View style={[s.offerBadge, item.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
-                          <Text style={s.offerBadgeText}>{item.paymentMode === 'FREE' ? '⚡ FREE' : '€ EUROS'}</Text>
+                          <Text style={s.offerBadgeText}>{item.paymentMode === 'FREE' ? '⚡ FREE' : 'PAYPAL'}</Text>
                         </View>
                       </View>
                       <Text style={s.offerDate}>Mise à jour: {new Date(item.updatedAt).toLocaleDateString('fr-FR')}</Text>
