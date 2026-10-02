@@ -6,7 +6,7 @@ import { colors } from '../theme/colors';
 
 type Props = {
   visible: boolean;
-  paymentId: string;
+  paymentId?: string;
   sellerUsername?: string | null;
   amountCents: number;
   currencyCode: string;
@@ -55,7 +55,10 @@ export default function PayoutCheckoutSheet({
   };
 
   const attachProof = async () => {
-    if (!paymentId || proofBusy || busy) return;
+    if (!paymentId || proofBusy || busy) {
+      if (!paymentId) setError('Référence de paiement manquante. Ferme puis rouvre le paiement.');
+      return;
+    }
     setProofBusy(true);
     setError('');
     try {
@@ -122,13 +125,15 @@ export default function PayoutCheckoutSheet({
 
             {!link && !qr ? <Text style={s.error}>Le vendeur n’a pas encore configuré son paiement.</Text> : null}
 
-            <View style={s.proofBox}>
-              <Text style={s.proofEyebrow}>PREUVE DE PAIEMENT</Text>
-              <Text style={s.proofHint}>Capture PayPal ou PDF · 10 Mo maximum · visible uniquement par toi et le vendeur.</Text>
-              <TouchableOpacity style={[s.proofButton, proof && s.proofButtonReady, (proofBusy || busy) && s.disabled]} disabled={proofBusy || busy} onPress={() => void attachProof()}>
-                {proofBusy ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.proofButtonText}>{proof ? `✓ ${proof.name} · REMPLACER` : 'JOINDRE MA PREUVE'}</Text>}
-              </TouchableOpacity>
-            </View>
+            {onPaid ? (
+              <View style={s.proofBox}>
+                <Text style={s.proofEyebrow}>PREUVE DE PAIEMENT</Text>
+                <Text style={s.proofHint}>Capture PayPal ou PDF · 10 Mo maximum · visible uniquement par toi et le vendeur.</Text>
+                <TouchableOpacity style={[s.proofButton, proof && s.proofButtonReady, (proofBusy || busy || !paymentId) && s.disabled]} disabled={proofBusy || busy || !paymentId} onPress={() => void attachProof()}>
+                  {proofBusy ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.proofButtonText}>{proof ? `✓ ${proof.name} · REMPLACER` : 'JOINDRE MA PREUVE'}</Text>}
+                </TouchableOpacity>
+              </View>
+            ) : null}
 
             {error ? <Text style={s.error}>{error}</Text> : null}
 
