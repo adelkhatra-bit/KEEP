@@ -24,11 +24,19 @@ describe('Loki chat latest-message visual follow', () => {
     expect(source).toContain('chatScrollRef.current?.scrollToEnd({ animated: false })');
   });
 
-  it('only releases bottom-follow when the user deliberately drags up', () => {
+  it('only releases bottom-follow when the user deliberately drags up and offers the inverse action back to latest', () => {
     expect(source).toContain('onScrollBeginDrag={() => {');
     expect(source).toContain('userDraggingChatRef.current = true;');
     expect(source).toContain('stickToBottomRef.current = !browsingOlder;');
     expect(source).toContain('onMomentumScrollEnd={(event) => {');
+    expect(source).toContain('↓ PLUS RÉCENTS');
+    expect(source).toContain('accessibilityLabel="Revenir aux messages les plus récents"');
+    expect(source).not.toContain('↑ PLUS ANCIENS');
+  });
+
+  it('loads older history by an intentional swipe to the top instead of using an opposite-direction button', () => {
+    expect(source).toContain('if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();');
+    expect(source).toContain('CHARGEMENT HISTORIQUE…');
   });
 
   it('pins before send so the sent bubble remains visible through keyboard/layout changes', () => {
