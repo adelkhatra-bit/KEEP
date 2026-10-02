@@ -16,7 +16,6 @@ import { isNotificationAccessLocked, loadNotificationAccessRules, normalizeNotif
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
-const BATTLE_DECISION_POLL_MS = 800;
 const EVENT_VISIBLE_MS = 20000;
 const FREE_CREDIT_VISIBLE_MS = 6500;
 const BATTLE_INLINE_TYPES = new Set([
@@ -138,16 +137,20 @@ export default function GlobalNotificationBanner() {
       setBlockingRematch(null);
       return undefined;
     }
+    // IMPORTANT SCALABILITÉ : ne JAMAIS sonder Battle toutes les 800 ms au
+    // niveau global. Ce composant est monté pour chaque utilisateur connecté :
+    // l'ancien polling déclenchait 2 RPC toutes les 800 ms par appareil et a
+    // saturé Postgres/Auth le 02/10/2026. La source temps réel est la table
+    // notifications (subscription ci-dessous). On ne relit l'état serveur
+    // qu'au montage et au retour de l'app au premier plan.
     let alive = true;
     const tick = () => { if (alive) void refreshBlockingBattleDecision(); };
     tick();
-    const timer = setInterval(tick, BATTLE_DECISION_POLL_MS);
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') tick();
     });
     return () => {
       alive = false;
-      clearInterval(timer);
       appState.remove();
     };
   }, [isDemoMode, isLocalGuest, refreshBlockingBattleDecision, user?.id]);
@@ -210,7 +213,7 @@ export default function GlobalNotificationBanner() {
       .catch(() => {});
 
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
-      if (!active || !notificationsEnabled.current) return;
+      if (!active) return;
 
       const battleChallenge = isBattleChallenge(notification);
       const battleRematch = isBattleRematch(notification);
@@ -222,10 +225,14 @@ export default function GlobalNotificationBanner() {
       // pour ne jamais couper une session d'écoute en cours sans consentement.
       if (battleChallenge || battleRematch) {
         // Battle consent is handled by the blocking server-truth prompt.
+        // Cette branche reste active même si les notifications visuelles sont
+        // désactivées : elle remplace le polling global sans perdre l'arrivée
+        // instantanée d'un défi/revanche.
         void refreshBlockingBattleDecision();
         return;
       }
 
+      if (!notificationsEnabled.current) return;
 
       // Une notification visuelle = un événement métier. L'id protège les
       // reconnexions Realtime ; la clé sémantique protège aussi deux lignes DB
