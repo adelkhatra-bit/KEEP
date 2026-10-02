@@ -212,6 +212,21 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
           ? await auth.signInWithEmailIdentity(identity, password)
           : await auth.signInWithUsername(normalizedUsername, password);
       if (result.error) return setError(errorText(result.error));
+
+      // Isolation stricte entre vrais comptes : une session locale créée sous
+      // le compte précédent ne doit jamais apparaître après connexion d'un
+      // autre utilisateur. Ne pas appliquer à la création/upgrade invité,
+      // où la musique locale est volontairement migrée vers le nouveau compte.
+      if (
+        mode === 'login'
+        && currentUser?.id
+        && result.userId
+        && currentUser.id !== result.userId
+        && !isLocalGuest
+      ) {
+        useSessionHistoryStore.getState().clearSessions();
+      }
+
       if (mode === 'create' && result.requiresEmailConfirmation) {
         setPendingConfirmationEmail(email.trim());
         return;
