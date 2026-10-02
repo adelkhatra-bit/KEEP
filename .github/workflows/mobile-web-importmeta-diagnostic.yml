@@ -80,7 +80,33 @@ jobs:
 
           (async () => {
             const browser = await chromium.launch({ headless: true });
-            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+
+            // JAMAIS charger la base Supabase de production avec ce test visuel.
+            // Les RPC du chat utiles au scénario sont mockés plus bas au niveau
+            // de la page (prioritaires sur le contexte). Tout autre PostgREST
+            // reçoit une réponse neutre locale. Les anciens audits tapaient
+            // remote_config / crédits invités en boucle et contribuaient aux
+            // timeouts de connexion réels observés sur Loki Music.
+            await context.route('**/rest/v1/**', async route => {
+              const url = route.request().url();
+              if (url.includes('/rpc/')) {
+                if (url.includes('/rpc/keep_guest_device_credit_status')) {
+                  return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify([{ consumed: 0, credit_limit: 3, remaining: 3 }]),
+                  });
+                }
+                if (url.includes('/rpc/keep_feature_flag_enabled_for_me')) {
+                  return route.fulfill({ status: 200, contentType: 'application/json', body: 'false' });
+                }
+                return route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+              }
+              return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+            });
+
+            const page = await context.newPage();
             const errors = [];
             const httpFailures = [];
 
@@ -503,7 +529,8 @@ jobs:
 
             if (errors.length > 0 || httpFailures.length > 0) throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
 
-            const desktopPage = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+            const desktopPage = await context.newPage();
+            await desktopPage.setViewportSize({ width: 1440, height: 900 });
             const desktopResponse = await desktopPage.goto('http://127.0.0.1:8081', { waitUntil: 'domcontentloaded', timeout: 60000 });
             if (!desktopResponse || !desktopResponse.ok()) throw new Error(`Desktop runtime failed: ${desktopResponse ? desktopResponse.status() : 'no response'}`);
             const manualUpdate = desktopPage.getByTestId('keep-manual-update-control');
