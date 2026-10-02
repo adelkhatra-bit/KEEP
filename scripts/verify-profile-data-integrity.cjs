@@ -22,7 +22,11 @@ const protectedShell = {
   // App.tsx (02/10/2026, incident auth) : seul le comportement de reprise
   // de session pendant une indisponibilité Supabase a changé. Shell responsive,
   // Navigation.tsx et barre 5 onglets inchangés et revérifiés.
-  'packages/mobile/App.tsx': 'f7a37911abe31eaf4bb641cd1d515e3b5ab66d01',
+  // App.tsx (02/10/2026, demande d'Adel « le robot visible dans les aperçus ») :
+  // une seule ligne — le robot est monté via RootChatDock (ChatDockHost) au
+  // lieu de GlobalChatDock directement, pour qu'un aperçu ouvert l'héberge.
+  // Shell responsive, Navigation.tsx et barre 5 onglets inchangés.
+  'packages/mobile/App.tsx': '6dba90f57c13d7ddacece091de093816568ebe48',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
