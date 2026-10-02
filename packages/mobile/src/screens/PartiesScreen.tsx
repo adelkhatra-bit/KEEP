@@ -293,7 +293,9 @@ export default function PartiesScreen({ navigation, route }: any) {
     let live = true;
     const poll = () => { loadIncomingBattleChallenges().then((rows) => { if (live) setIncomingBattle(rows); }).catch(() => {}); };
     poll();
-    const id = setInterval(poll, 2000);
+    // Realtime global signale immédiatement l'événement ; ce polling local
+    // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
+    const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
@@ -323,7 +325,9 @@ export default function PartiesScreen({ navigation, route }: any) {
     let live = true;
     const poll = () => { loadPendingArenaRematches().then((rows) => { if (live) setPendingRematchLB(rows); }).catch(() => {}); };
     poll();
-    const id = setInterval(poll, 2000);
+    // Realtime global signale immédiatement l'événement ; ce polling local
+    // ne sert qu'à resynchroniser le bandeau fixe de Soirées.
+    const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
   const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
