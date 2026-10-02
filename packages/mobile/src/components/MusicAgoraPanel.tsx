@@ -1013,6 +1013,24 @@ export default function MusicAgoraPanel({
     if (inboxFilter === 'GROUPS' || inboxFilter === 'INVITES') return false;
     return inboxMatches(`${item.username} ${item.lastBody}`);
   });
+  const visibleInboxItems = useMemo(() => {
+    const direct = visibleInboxConversations.map((item) => ({
+      kind: 'DIRECT' as const,
+      item,
+      sortTime: new Date(item.lastCreatedAt || 0).getTime() || 0,
+      sortId: item.lastMessageId || 0,
+    }));
+    const grouped = visibleInboxGroups.map((group) => ({
+      kind: 'GROUP' as const,
+      item: group,
+      sortTime: new Date(group.lastCreatedAt || 0).getTime() || 0,
+      sortId: group.lastMessageId || 0,
+    }));
+    return [...direct, ...grouped].sort((a, b) => {
+      const timeDiff = b.sortTime - a.sortTime;
+      return timeDiff || b.sortId - a.sortId;
+    });
+  }, [visibleInboxConversations, visibleInboxGroups]);
   const activeDirectConversation = replyTarget
     ? conversations.find((item) => item.profileId === replyTarget.profileId) ?? null
     : null;
@@ -1183,61 +1201,67 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         ) : null}
 
-        {visibleInboxGroups.map((group) => (
-          <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
-            <TouchableOpacity
-              style={s.groupMain}
-              disabled={group.myStatus !== 'ACTIVE'}
-              onPress={() => void openGroup(group)}
-              accessibilityLabel={`Ouvrir la conversation ${group.name}`}
-            >
-              <View style={s.groupAvatar}><Text style={s.groupAvatarText}>👥</Text></View>
-              <View style={s.conversationCopy}>
-                <View style={s.conversationTop}>
-                  <Text style={s.conversationName} numberOfLines={1}>{group.name}</Text>
-                  {group.lastCreatedAt ? <Text style={s.conversationTime}>{ago(group.lastCreatedAt)}</Text> : null}
-                </View>
-                <Text style={s.conversationPreview} numberOfLines={1}>
-                  {group.myStatus === 'INVITED'
-                    ? `Invitation de @${group.ownerUsername}`
-                    : group.lastBody || `${group.memberCount} personnes`}
-                </Text>
-              </View>
-              {group.myStatus === 'ACTIVE' ? <Text style={s.conversationArrow}>›</Text> : null}
-            </TouchableOpacity>
-            {group.myStatus === 'INVITED' ? (
-              <View style={s.groupInviteActions}>
-                <TouchableOpacity style={s.groupDecline} disabled={groupBusy} onPress={() => void declineGroupInvite(group)}>
-                  <Text style={s.groupDeclineText}>REFUSER</Text>
+        {visibleInboxItems.map((entry) => {
+          if (entry.kind === 'GROUP') {
+            const group = entry.item;
+            return (
+              <View key={`group:${group.id}`} style={[s.groupRow, group.myStatus === 'INVITED' && s.groupRowInvited]}>
+                <TouchableOpacity
+                  style={s.groupMain}
+                  disabled={group.myStatus !== 'ACTIVE'}
+                  onPress={() => void openGroup(group)}
+                  accessibilityLabel={`Ouvrir la conversation ${group.name}`}
+                >
+                  <View style={s.groupAvatar}><Text style={s.groupAvatarText}>👥</Text></View>
+                  <View style={s.conversationCopy}>
+                    <View style={s.conversationTop}>
+                      <Text style={s.conversationName} numberOfLines={1}>{group.name}</Text>
+                      {group.lastCreatedAt ? <Text style={s.conversationTime}>{ago(group.lastCreatedAt)}</Text> : null}
+                    </View>
+                    <Text style={s.conversationPreview} numberOfLines={1}>
+                      {group.myStatus === 'INVITED'
+                        ? `Invitation de @${group.ownerUsername}`
+                        : group.lastBody || `${group.memberCount} personnes`}
+                    </Text>
+                  </View>
+                  {group.myStatus === 'ACTIVE' ? <Text style={s.conversationArrow}>›</Text> : null}
                 </TouchableOpacity>
-                <TouchableOpacity style={s.groupAccept} disabled={groupBusy} onPress={() => void acceptGroupInvite(group)}>
-                  <Text style={s.groupAcceptText}>ACCEPTER</Text>
-                </TouchableOpacity>
+                {group.myStatus === 'INVITED' ? (
+                  <View style={s.groupInviteActions}>
+                    <TouchableOpacity style={s.groupDecline} disabled={groupBusy} onPress={() => void declineGroupInvite(group)}>
+                      <Text style={s.groupDeclineText}>REFUSER</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.groupAccept} disabled={groupBusy} onPress={() => void acceptGroupInvite(group)}>
+                      <Text style={s.groupAcceptText}>ACCEPTER</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-          </View>
-        ))}
+            );
+          }
 
-        {visibleInboxConversations.map((item) => (
-          <TouchableOpacity
-            key={item.profileId}
-            style={s.conversationRow}
-            onPress={() => {
-              void openDirectThread(
-                { profileId: item.profileId, username: item.username },
-                item.lastRoomSlug,
-              );
-            }}
-            accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
-          >
-            {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
-            <View style={s.conversationCopy}>
-              <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
-              <Text style={s.conversationPreview} numberOfLines={1}>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</Text>
-            </View>
-            <Text style={s.conversationArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
+          const item = entry.item;
+          return (
+            <TouchableOpacity
+              key={`direct:${item.profileId}`}
+              style={s.conversationRow}
+              onPress={() => {
+                void openDirectThread(
+                  { profileId: item.profileId, username: item.username },
+                  item.lastRoomSlug,
+                );
+              }}
+              accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
+            >
+              {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.conversationCopy}>
+                <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
+                <Text style={s.conversationPreview} numberOfLines={1}>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</Text>
+              </View>
+              <Text style={s.conversationArrow}>›</Text>
+            </TouchableOpacity>
+          );
+        })}
         {!visibleInboxConversations.length && !visibleInboxGroups.length && !loading ? (
           <View style={s.inboxEmpty}>
             <Text style={s.inboxEmptyTitle}>Aucune conversation pour l’instant</Text>
