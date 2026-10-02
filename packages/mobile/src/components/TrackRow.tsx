@@ -93,7 +93,7 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
 
         {status === 'pending' && (onKeep || onPass) ? (
           <View style={styles.actions}>
-            {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8}><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
+            {onPass && <TouchableOpacity style={styles.passBtn} onPress={() => onPass(entry.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retirer ce morceau de la session (récupérable dans Retirés)"><Text style={styles.passBtnText}>✕</Text></TouchableOpacity>}
             {onKeep && <TouchableOpacity style={[styles.keepBtn, entry.creditLocked && styles.unlockBtn]} onPress={handleKeepPress} hitSlop={8} accessibilityLabel="Garder ce morceau"><Text style={[styles.keepBtnText, entry.creditLocked && styles.unlockBtnText]}>{entry.creditLocked ? '🔒' : '♡'}</Text></TouchableOpacity>}
           </View>
         ) : status === 'passed' && onRestore ? (

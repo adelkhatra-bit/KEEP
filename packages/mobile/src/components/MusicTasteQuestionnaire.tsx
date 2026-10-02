@@ -240,8 +240,11 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
 }
 
 const s=StyleSheet.create({
-  root:{width:'100%',maxWidth:640,maxHeight:'84%',alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:24,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
-  compact:{width:'100%',maxWidth:640,maxHeight:'100%',alignSelf:'center',borderRadius:18,borderWidth:1,flex:1},
+  // Adel (02/10/2026) : sur téléphone le contenu dépassait 84 % et le bas
+  // (liste + CRÉER / ANNULER) était coupé : impossible de valider ou sortir.
+  // Hauteur fixe + liste qui défile + boutons toujours visibles.
+  root:{width:'100%',maxWidth:640,height:'92%',maxHeight:860,alignSelf:'center',backgroundColor:colors.backgroundCard,borderRadius:24,borderWidth:1,borderColor:colors.border,overflow:'hidden'},
+  compact:{width:'100%',maxWidth:640,height:'100%',maxHeight:'100%',alignSelf:'center',borderRadius:18,borderWidth:1,flex:1},
   loading:{minHeight:260,alignItems:'center',justifyContent:'center',gap:12,backgroundColor:colors.backgroundCard,borderRadius:24},
   loadingText:{color:colors.textMuted,fontSize:12,fontWeight:'800'},
   hero:{padding:18,flexDirection:'row',alignItems:'center',gap:12,borderBottomWidth:1,borderBottomColor:colors.border},
@@ -262,7 +265,7 @@ const s=StyleSheet.create({
   selectedChipText:{maxWidth:150,color:colors.textPrimary,fontSize:10,fontWeight:'900'},
   selectedChipClose:{color:colors.keep,fontSize:15,fontWeight:'900'},
   selectedEmpty:{color:colors.textMutedGrey,fontSize:10},
-  scroll:{height:330,maxHeight:330},scrollContent:{padding:14,paddingBottom:22},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
+  scroll:{flex:1,minHeight:120},scrollContent:{padding:14,paddingBottom:22},helper:{color:colors.textMuted,fontSize:11,lineHeight:16,marginBottom:10},subTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1,marginTop:18,marginBottom:8},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:7},chip:{minHeight:34,maxWidth:'100%',paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:5},catalogChip:{maxWidth:210},chipOn:{backgroundColor:colors.keep,borderColor:colors.keep},chipText:{maxWidth:165,color:colors.textPrimary,fontSize:11,fontWeight:'800'},chipTextOn:{color:colors.black,fontWeight:'900'},countMini:{color:colors.textMuted,fontSize:8,fontWeight:'900'},countMiniOn:{color:'rgba(0,0,0,.65)'},
   footer:{padding:14,borderTopWidth:1,borderTopColor:colors.border,gap:8},summary:{color:colors.textMuted,fontSize:10,textAlign:'center'},footerActions:{flexDirection:'row',alignItems:'stretch',gap:8},footerAction:{flex:1,minWidth:0},primary:{minHeight:48,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},disabled:{opacity:.6},primaryText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.4,textAlign:'center'},cancel:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10},cancelText:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},reminderText:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center'},later:{minHeight:36,alignItems:'center',justifyContent:'center'},laterText:{color:colors.primaryLight,fontSize:11,fontWeight:'800'},
 });

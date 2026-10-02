@@ -1229,6 +1229,13 @@ export default function MusicAgoraPanel({
       return timeDiff || b.sortId - a.sortId;
     });
   }, [visibleInboxConversations, visibleInboxGroups]);
+  // Adel (02/10/2026) : la mini-fenêtre ne montre QUE les conversations où
+  // j'ai un message (une ligne par conversation) ; tout le reste = plein écran.
+  const unreadInboxItems = visibleInboxItems.filter((entry) => Boolean(
+    unreadByTarget[entry.kind === 'GROUP' ? `g:${entry.item.id}` : `p:${entry.item.profileId}`]?.length,
+  ));
+  const miniUnreadOnly = compactMini && unreadInboxItems.length > 0;
+  const inboxRows = miniUnreadOnly ? unreadInboxItems : visibleInboxItems;
   const activeDirectConversation = replyTarget
     ? conversations.find((item) => item.profileId === replyTarget.profileId) ?? null
     : null;
@@ -1365,6 +1372,13 @@ export default function MusicAgoraPanel({
 
     {compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup ? (
       <ScrollView style={s.inbox} contentContainerStyle={s.inboxList} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {miniUnreadOnly ? (
+          <TouchableOpacity style={s.miniUnreadHeader} onPress={() => onCompactExpand?.(null)} accessibilityRole="button" accessibilityLabel="Voir toutes les conversations en plein écran">
+            <Text style={s.miniUnreadHeaderText}>{unreadInboxItems.length} conversation{unreadInboxItems.length > 1 ? 's' : ''} à lire</Text>
+            <Text style={s.miniUnreadHeaderLink}>Tout voir ⤢</Text>
+          </TouchableOpacity>
+        ) : null}
+        {!miniUnreadOnly ? <>
         <View style={s.inboxSearchWrap}>
           <Text style={s.inboxSearchIcon}>⌕</Text>
           <TextInput
@@ -1427,7 +1441,9 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         ) : null}
 
-        {visibleInboxItems.map((entry) => {
+        </> : null}
+
+        {inboxRows.map((entry) => {
           if (entry.kind === 'GROUP') {
             const group = entry.item;
             return (
@@ -2258,6 +2274,9 @@ const s=StyleSheet.create({
   newConversationCopy:{flex:1,minWidth:0},
   newConversationTitle:{color:colors.textPrimary,fontSize:16.5,fontWeight:'900'},
   newConversationHint:{color:colors.textSecondary,fontSize:14,lineHeight:19,marginTop:2},
+  miniUnreadHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:6,paddingVertical:8},
+  miniUnreadHeaderText:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},
+  miniUnreadHeaderLink:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   rowUnread:{borderWidth:2,borderBottomWidth:2,borderColor:'#FF5CB4',borderBottomColor:'#FF5CB4',borderRadius:14,backgroundColor:'rgba(255,92,180,.10)',shadowColor:'#FF5CB4',shadowOpacity:.55,shadowRadius:10,shadowOffset:{width:0,height:0},marginVertical:2},
   unreadPill:{minWidth:24,height:24,borderRadius:12,paddingHorizontal:6,backgroundColor:'#FF5CB4',alignItems:'center',justifyContent:'center'},
   unreadPillText:{color:'#2A0518',fontSize:13,fontWeight:'900'},

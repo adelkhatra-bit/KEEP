@@ -13,6 +13,7 @@ import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { supabase } from '../services/supabaseClient';
 import { buildChatUnreadMap, chatUnreadKey, isChatNotification } from '../services/chatUnread';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 
 
 function chatNotificationSender(item: KeepNotification): string {
@@ -456,6 +457,16 @@ export default function GlobalChatDock() {
 
   const minBottom = Math.max(82 + insets.bottom, Math.round(height * 0.44));
   const maxBottom = Math.max(minBottom, height - Math.max(118, insets.top + 72));
+  // Adel (02/10/2026) : pendant un Solo / Battle, la languette et le robot à
+  // mi-écran recouvraient les réponses. En partie, le robot monte en haut sur
+  // le côté (toujours déplaçable, sans écraser la position habituelle) et la
+  // languette se tait : le message arrive dans la bannière du haut.
+  const gameInProgress = useGameSessionStore((state) => state.isGameInProgress);
+  const [gameBottom, setGameBottom] = useState<number | null>(null);
+  useEffect(() => { if (!gameInProgress) setGameBottom(null); }, [gameInProgress]);
+  const dockBottom = gameInProgress
+    ? Math.max(minBottom, Math.min(maxBottom, gameBottom ?? maxBottom))
+    : Math.max(minBottom, Math.min(maxBottom, bottomOffset));
   const middleBottom = Math.max(minBottom, Math.min(maxBottom, Math.round(height * 0.58)));
   const verticalPreset = Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - middleBottom) && Math.abs(bottomOffset - maxBottom) <= Math.abs(bottomOffset - minBottom)
     ? 'HIGH'
@@ -475,7 +486,7 @@ export default function GlobalChatDock() {
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 24 || Math.abs(gesture.dy) > 24,
     onPanResponderGrant: () => {
-      dragStartBottom.current = bottomOffset;
+      dragStartBottom.current = dockBottom;
       drag.setValue({ x: 0, y: 0 });
     },
     onPanResponderMove: (_event, gesture) => {
@@ -484,6 +495,11 @@ export default function GlobalChatDock() {
     onPanResponderRelease: (_event, gesture) => {
       const nextSide = gesture.dx < -24 ? 'left' : gesture.dx > 24 ? 'right' : side;
       const nextBottom = Math.max(minBottom, Math.min(maxBottom, dragStartBottom.current - gesture.dy));
+      if (gameInProgress) {
+        setGameBottom(nextBottom);
+        Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
+        return;
+      }
       setSide(nextSide);
       setBottomOffset(nextBottom);
       void saveMusicAgoraPosition(nextSide, nextBottom)
@@ -491,7 +507,7 @@ export default function GlobalChatDock() {
         .catch(() => {});
       Animated.spring(drag, { toValue: { x: 0, y: 0 }, useNativeDriver: true, friction: 7 }).start();
     },
-  }), [bottomOffset, drag, maxBottom, minBottom, setBottomOffset, setSide, side]);
+  }), [bottomOffset, dockBottom, drag, gameInProgress, maxBottom, minBottom, setBottomOffset, setSide, side]);
 
   const saveProfileSettings = async (
     enabled: boolean,
@@ -604,15 +620,30 @@ export default function GlobalChatDock() {
   // 380 px en bas à droite (ordinateur) ; clavier ouvert → elle s'agrandit
   // au-dessus du clavier pour garder la zone d'écriture visible.
   const desktopMini = width >= 900;
-  const webKeyboardOpen = Platform.OS === 'web' && Boolean(webVisualViewport && typeof window !== 'undefined' && webVisualViewport.height < window.innerHeight * 0.8);
+  // Adel (02/10/2026) : « quand j'écris sur le téléphone, écran noir, ça
+  // remonte trop ». Clavier ouvert : la mini-fenêtre reste COMPACTE, posée
+  // juste au-dessus du clavier (380 px max), la page reste visible au-dessus.
+  // Web : position absolue dans la page déjà réduite au-dessus du clavier.
+  // iOS : le cadre descend jusqu'en
+  // bas de l'écran et le KeyboardAvoidingView du tchat ajoute exactement la
+  // hauteur du clavier. Android : fenêtre déjà redimensionnée par le système.
+  const webCovered = Platform.OS === 'web' && webVisualViewport && typeof window !== 'undefined'
+    ? Math.max(0, Math.round(window.innerHeight - webVisualViewport.height - webVisualViewport.top))
+    : 0;
+  const webKeyboardOpen = webCovered >= 80;
+  const MINI_KEYBOARD_MAX = 380;
   const miniFrame: any = desktopMini
     ? { right: 16, bottom: 72, width: 380, height: Math.min(640, Math.round(height * 0.74)) }
     : webKeyboardOpen && webVisualViewport
-      ? { position: 'fixed', left: webVisualViewport.left + 6, top: webVisualViewport.top + 6, width: webVisualViewport.width - 12, height: webVisualViewport.height - 12 }
+      // La page web est déjà réduite à la zone visible au-dessus du clavier
+      // (verrou de hauteur dans index.js) : ne pas ajouter la hauteur du
+      // clavier une seconde fois — c'était l'écran noir (fenêtre sortie par
+      // le haut de l'écran).
+      ? { left: 6, right: 6, bottom: 6, height: Math.min(MINI_KEYBOARD_MAX, webVisualViewport.height - 12) }
       : nativeKeyboardHeight > 0
-        // iOS : le KeyboardAvoidingView du tchat ajoute la marge du clavier ;
-        // Android : la fenêtre est déjà redimensionnée au-dessus du clavier.
-        ? { left: 6, right: 6, top: insets.top + 6, bottom: Platform.OS === 'ios' ? insets.bottom + 62 : 6 }
+        ? Platform.OS === 'ios'
+          ? { left: 6, right: 6, bottom: 0, height: nativeKeyboardHeight + Math.min(MINI_KEYBOARD_MAX, height - nativeKeyboardHeight - insets.top - 12) }
+          : { left: 6, right: 6, bottom: 6, height: Math.min(MINI_KEYBOARD_MAX, Math.max(220, height - nativeKeyboardHeight - insets.top - 12)) }
         : { left: 8, right: 8, bottom: insets.bottom + 62, height: Math.round(height * (height < 760 ? 0.68 : 0.58)) };
 
   return (
@@ -782,14 +813,14 @@ export default function GlobalChatDock() {
 
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
 
-      {!open && unreadCount > 0 ? (
+      {!open && unreadCount > 0 && !gameInProgress ? (
         <Animated.View
           pointerEvents="box-none"
           style={[
             styles.chatNudge,
             side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight,
             {
-              bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)) + 7,
+              bottom: dockBottom + 7,
               opacity: nudge,
               width: nudge.interpolate({ inputRange: [0, 1], outputRange: [0, 232] }),
             },
@@ -816,7 +847,7 @@ export default function GlobalChatDock() {
             styles.fabWrap,
             side === 'left' ? styles.fabLeft : styles.fabRight,
             {
-              bottom: Math.max(minBottom, Math.min(maxBottom, bottomOffset)),
+              bottom: dockBottom,
               transform: [
                 { translateX: side === 'left'
                   ? drawerPeek.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] })

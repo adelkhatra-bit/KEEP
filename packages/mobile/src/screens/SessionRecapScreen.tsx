@@ -238,11 +238,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     return true;
   };
 
-  const handleSwipePass = async (track: CanonicalTrack) => {
-    const entry = findPendingEntry(track);
-    if (entry) passTrackInSession(sessionId, entry.id);
-    return true;
-  };
+  // Adel (02/10/2026, cas @samedi) : PASSER dans le Swipe voulait dire
+  // « morceau suivant », pas « effacer ». Il ne change donc plus le statut :
+  // le morceau reste dans la session, réécoutable autant qu'on veut. Retirer
+  // un morceau = le ✕ de la liste (récupérable dans « RETIRÉS »).
+  const handleSwipePass = async (_track: CanonicalTrack) => true;
 
   const closeSwipe = () => {
     setSwipeOpen(false);
@@ -317,9 +317,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
               style={styles.passedHeader}
               onPress={() => setShowPassed((v) => !v)}
               accessibilityRole="button"
-              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux passés`}
+              accessibilityLabel={`${showPassed ? 'Masquer' : 'Afficher'} les ${passedTracks.length} morceaux retirés`}
             >
-              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} PASSÉS · {passedTracks.length}</Text>
+              <Text style={styles.passedHeaderText}>{showPassed ? '▾' : '▸'} RETIRÉS · {passedTracks.length} · récupérables</Text>
             </TouchableOpacity>
             {showPassed ? passedTracks.map((entry) => (
               <TrackRow
@@ -366,7 +366,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={swipeTracks}
         title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} à valider · PASSER ou GARDER enchaîne automatiquement la suivante.`}
+        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = morceau suivant (rien n’est effacé) · GARDER l’ajoute à ta collection.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep

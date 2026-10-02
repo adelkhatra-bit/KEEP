@@ -23,7 +23,8 @@ import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
+import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
+import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -107,6 +108,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseItems, setHomePulseItems] = useState<LokiPulseItem[]>([]);
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
+  const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
 
   useEffect(() => {
     let live = true;
@@ -133,6 +135,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     unlockWebAudioForGesture();
     setHomePulseSelectedTrackId(trackId);
     setHomePulseOpen(true);
+    void getDownloadCreditStatus().then((status) => { if (status.costPerKeep) setHomePulseFreeCost(status.costPerKeep); }).catch(() => {});
   };
 
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
@@ -624,10 +627,26 @@ export default function HomeScreenCompact({ navigation }: any) {
           tracks={homePulseItems.map((item) => item.track)}
           initialTrackId={homePulseSelectedTrackId}
           title="Loki Pulse"
-          subtitle="Appuie pour écouter les morceaux proposés pour toi."
+          subtitle={`Pour toi · GARDER coûte actuellement ${homePulseFreeCost} FREE`}
           emptyTitle="Aucun morceau Loki Pulse pour le moment."
           backLabel="REVENIR À LOKI MUSIC"
-          previewOnly
+          // Adel (02/10/2026) : les bulles de l'accueil ouvraient le Swipe en
+          // mode « aperçu de ton profil » → GARDER affichait toujours « déjà
+          // dans ta collection ». Même GARDER que le profil (débit, choix
+          // Public/Privé, anti-doublon par morceau), PASSER masque gratuitement.
+          askVisibilityOnKeep
+          keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER / MASQUER reste gratuit.`}
+          keepDebitAmount={homePulseFreeCost}
+          onKeep={async (track, visibility) => {
+            const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
+            if (ok) setHomePulseItems((items) => items.filter((item) => item.track.id !== track.id));
+            return ok;
+          }}
+          onPass={async (track) => {
+            await hideLokiPulseTrack(track.id).catch(() => {});
+            setHomePulseItems((items) => items.filter((item) => item.track.id !== track.id));
+            return true;
+          }}
           onClose={() => {
             setHomePulseOpen(false);
             setHomePulseSelectedTrackId(null);

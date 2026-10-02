@@ -535,6 +535,8 @@ const chatUnreadJourney = {
     r.retour_ok = (await page.locator('[aria-label="Retour aux conversations"]').count()) === 0;
     await page.getByText(fake.GROUP_NAME).first().waitFor({ timeout: 20000 });
     r.lignes_allumees = await page.locator('[data-testid="chat-row-unread"]').count();
+    r.entete_a_lire = await page.getByText('conversations à lire').count();
+    r.filtres_masques = (await page.getByText('Invitations', { exact: true }).count()) === 0;
     r.ligne_groupe_texte = (await page.locator('[data-testid="chat-row-unread"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
     await shot('liste');
     await page.getByText(fake.GROUP_NAME).first().click();
@@ -546,6 +548,7 @@ const chatUnreadJourney = {
       ['le robot ouvre la LISTE : rien n’est marqué lu sans ouvrir une conversation', r.lues_a_l_ouverture.length === 0],
       ['la liste est affichée (pas de conversation ouverte)', r.retour_ok === true],
       ['2 conversations allumées (groupe + privé)', r.lignes_allumees === 2],
+      ['mini-fenêtre : seulement les conversations à lire (en-tête, sans filtres)', r.entete_a_lire >= 1 && r.filtres_masques],
       ['ouvrir le groupe marque seulement ses 2 messages lus', r.lues_apres_ouverture.join(',') === 'n-g1,n-g2'],
     ];
     return { details: r, failures: failed(checks), ok: `compteur 3, contour allumé, liste avec 2 conversations allumées, groupe lu à l’ouverture` };
@@ -562,6 +565,16 @@ const chatMiniJourney = {
   fakeOptions: { groupRole: 'MEMBER', groupMessages: true },
   async run({ page, shot }) {
     const r = {};
+    // Clavier simulé : un visualViewport contrôlable (hauteur réduite à la
+    // demande), comme celui d'un téléphone quand le clavier s'ouvre.
+    await page.addInitScript(() => {
+      const fake = new EventTarget();
+      window.__kbd = 0;
+      for (const [k, fn] of Object.entries({ height: () => window.innerHeight - window.__kbd, width: () => window.innerWidth, offsetTop: () => 0, offsetLeft: () => 0, scale: () => 1 })) {
+        Object.defineProperty(fake, k, { get: fn });
+      }
+      Object.defineProperty(window, 'visualViewport', { configurable: true, get: () => fake });
+    });
     await page.goto(`${BASE}/`, { waitUntil: 'load' });
     await openGroup(page);
     const mini = page.locator('[data-testid="loki-chat-mini"]');
@@ -575,6 +588,19 @@ const chatMiniJourney = {
     await page.getByText('Fais tourner le son').first().waitFor({ timeout: 15000 });
     r.composer_visible = await page.getByPlaceholder('Écris un message…').first().isVisible().catch(() => false);
     await shot('mini');
+    if (vp.width < 900) {
+      await page.evaluate(() => { window.__kbd = 300; window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(600);
+      const kb = await mini.first().boundingBox();
+      const composer = await page.getByPlaceholder('Écris un message…').first().boundingBox();
+      r.clavier_mini = kb ? { top: Math.round(kb.y), bas: Math.round(kb.y + kb.height), hauteur: Math.round(kb.height) } : null;
+      r.clavier_ok = Boolean(kb && composer && kb.y >= 0 && kb.y + kb.height <= vp.height - 300 + 1 && kb.height <= 381 && composer.y + composer.height <= vp.height - 300 + 1 && composer.y >= kb.y);
+      await shot('clavier');
+      await page.evaluate(() => { window.__kbd = 0; window.visualViewport.dispatchEvent(new Event('resize')); });
+      await page.waitForTimeout(400);
+    } else {
+      r.clavier_ok = true;
+    }
     await page.locator('[aria-label="Agrandir le tchat en plein écran"]').first().click({ force: true });
     await page.waitForTimeout(1500);
     r.plein_ecran = await page.locator('[data-testid="loki-chat-fullscreen-modal"]').count();
@@ -585,6 +611,7 @@ const chatMiniJourney = {
       ['la mini-fenêtre reste entièrement dans l’écran', r.dans_ecran],
       ['la page reste visible derrière', r.page_visible],
       ['on peut écrire dans la mini-fenêtre', r.composer_visible],
+      ['clavier ouvert : mini-fenêtre compacte juste au-dessus du clavier, champ visible', r.clavier_ok],
       ['⤢ passe en plein écran', r.plein_ecran === 1],
       ['le plein écran garde la même conversation', r.meme_fil],
     ];
