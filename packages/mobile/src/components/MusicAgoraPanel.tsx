@@ -1118,7 +1118,9 @@ export default function MusicAgoraPanel({
       'Action sur ce message',
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Répondre', onPress: () => { void openDirectThread({ profileId: message.profileId, username: message.username }); } },
+        // Ouvre une conversation PRIVÉE (on quitte le fil en cours) : libellé explicite.
+        { text: 'Message privé', onPress: () => { void openDirectThread({ profileId: message.profileId, username: message.username }); } },
+        { text: 'Voir le profil', onPress: () => onOpenProfile(message.username) },
         {
           text: 'Signaler',
           onPress: () => {
@@ -1496,13 +1498,16 @@ export default function MusicAgoraPanel({
       {messages.map((message) => (
         <View key={message.id} style={[s.message, message.profileId === currentProfileId ? s.messageOwn : s.messageOther, message.targetProfileId && s.directMessage]}>
           {!replyTarget ? (
-            <TouchableOpacity style={s.author} onPress={() => onOpenProfile(message.username)}>
+            // Adel (02/10/2026) : effleurer l'en-tête en faisant défiler
+            // fermait le tchat et ouvrait le profil. L'en-tête n'est plus une
+            // zone tactile ; « Voir le profil » est un choix volontaire (•••).
+            <View style={s.author}>
               {message.avatarUrl ? <Image source={{ uri: message.avatarUrl }} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>{message.username.slice(0,1).toUpperCase()}</Text></View>}
               <View style={s.authorCopy}>
                 <Text style={s.username} numberOfLines={1}>@{message.username}</Text>
                 <Text style={s.meta}>{message.targetUsername ? `pour @${message.targetUsername} · ` : ''}{ago(message.createdAt)}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
           ) : null}
           {message.replyToMessageId ? (
             <View style={s.quotedReply}>

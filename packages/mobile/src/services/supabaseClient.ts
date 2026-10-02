@@ -62,6 +62,14 @@ const KEEP_ESSENTIAL_CONTENT_PATHS = [
   // des musiques attend ces réponses avant de s'afficher.
   '/rest/v1/rpc/keep_track_first_discoveries',
   '/rest/v1/rpc/keep_public_certification_tiers',
+  // Tchat ouvert (Adel, 02/10/2026 : « c'est lent, je suis obligé de
+  // rafraîchir ») : les messages de la conversation affichée et l'envoi ne
+  // font plus la queue derrière les chargements secondaires.
+  '/rest/v1/rpc/keep_agora_group_messages_v2',
+  '/rest/v1/rpc/keep_agora_direct_messages_v2',
+  '/rest/v1/rpc/keep_agora_post_message_v5',
+  '/rest/v1/rpc/keep_agora_post_group_message_v2',
+  '/rest/v1/rpc/keep_agora_post_group_offer',
   '/rest/v1/follows',
   '/rest/v1/profiles',
   '/rest/v1/playlists',
