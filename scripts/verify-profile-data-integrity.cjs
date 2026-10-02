@@ -19,7 +19,10 @@ const protectedShell = {
   // App.tsx (02/10/2026) : récupération Auth rendue tolérante aux 503/PGRST002
   // sans modifier le shell responsive, Navigation.tsx ni les 5 onglets.
   // Navigation.tsx et la barre des 5 onglets restent inchangées.
-  'packages/mobile/App.tsx': '268050446bd7324def9b891e68c7d2cca052fb70',
+  // App.tsx (02/10/2026, incident auth) : seul le comportement de reprise
+  // de session pendant une indisponibilité Supabase a changé. Shell responsive,
+  // Navigation.tsx et barre 5 onglets inchangés et revérifiés.
+  'packages/mobile/App.tsx': 'f7a37911abe31eaf4bb641cd1d515e3b5ab66d01',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
