@@ -110,8 +110,9 @@ const SALE_SAVE_ERROR_MESSAGES: Record<string, string> = {
   OFFER_NOT_FOUND_OR_NOT_YOURS: "Cette offre est introuvable ou ne t'appartient pas.",
   OFFER_NOT_ACTIVE: "Cette offre n'est plus active.",
   TRACK_NOT_IN_OFFER: "Ce morceau ne fait pas partie de l'offre.",
-  SELLER_PAYOUT_NOT_CONFIGURED: "Ajoute ton lien de paiement avant de publier une collection en euros.",
-  SELLER_PAYOUT_LINK_INSECURE: "Ton lien de paiement doit commencer par https:// avant de publier en euros.",
+  SELLER_PAYOUT_NOT_CONFIGURED: "Ajoute soit ton lien PayPal.Me, soit ton QR PayPal avant de publier une collection en euros.",
+  SELLER_PAYOUT_LINK_INSECURE: "Ton lien PayPal doit commencer par https://, ou utilise uniquement ton QR PayPal.",
+  SELLER_PAYOUT_QR_INSECURE: "Ton QR PayPal enregistré n’est plus valide. Remplace-le puis réessaie.",
   PLAYLIST_SALE_ACTIVE_LIMIT: "Tu as atteint le nombre maximum de collections actives. Retire une ancienne collection avant d'en publier une nouvelle.",
 };
 
