@@ -1,9 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import postgres from "npm:postgres@3.4.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
+const directDb = DB_URL ? postgres(DB_URL, { prepare: false, max: 1, idle_timeout: 10 }) : null;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -35,18 +38,45 @@ function looksLikeDuplicateEmail(error: unknown) {
   return message.includes("already") || message.includes("registered") || message.includes("duplicate") || message.includes("exists");
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function transientAuthFailure(error: unknown) {
+  const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
+  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return status >= 500
+    || message.includes("context deadline exceeded")
+    || message.includes("context canceled")
+    || message.includes("upstream request timeout")
+    || message.includes("failed to connect")
+    || message.includes("unexpected_failure")
+    || message.includes("request_timeout")
+    || message.includes("service unavailable")
+    || message.includes("internal server error");
+}
+
 async function sessionFor(email: string, password: string) {
-  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
-  if (error || !data.session) return { ok: false as const, error: "invalid_credentials" };
-  return {
-    ok: true as const,
-    session: {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      expires_at: data.session.expires_at ?? null,
-      user_id: data.session.user.id,
-    },
-  };
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
+    if (!error && data.session) {
+      return {
+        ok: true as const,
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at ?? null,
+          user_id: data.session.user.id,
+        },
+      };
+    }
+    lastError = error;
+    if (!error || !transientAuthFailure(error) || attempt === 3) break;
+    await wait(250 * (2 ** attempt));
+  }
+  if (lastError && transientAuthFailure(lastError)) {
+    return { ok: false as const, error: "auth_temporarily_unavailable" };
+  }
+  return { ok: false as const, error: "invalid_credentials" };
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -62,17 +92,83 @@ async function findAuthUserByEmail(email: string) {
 }
 
 async function profileByUsername(username: string) {
+  // Login critique : contourne PostgREST/schema-cache. La requête SQL directe
+  // utilise l'index unique lower(username) et reste O(log n) même à grande échelle.
+  if (directDb) {
+    try {
+      const rows = await directDb`
+        select id::text as id, username, is_public
+        from public.profiles
+        where lower(username) = lower(${username})
+        limit 2
+      `;
+      return rows.map((row: any) => ({
+        id: String(row.id),
+        username: String(row.username ?? ""),
+        is_public: row.is_public !== false,
+      }));
+    } catch (error) {
+      console.error("[keep-username-auth] direct profile lookup failed", error);
+    }
+  }
+
+  // Fallback de compatibilité uniquement.
   const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2);
   if (error) throw error;
   return data ?? [];
 }
 
 async function profileById(id: string) {
+  if (directDb) {
+    try {
+      const rows = await directDb`
+        select id::text as id, username
+        from public.profiles
+        where id = ${id}::uuid
+        limit 1
+      `;
+      const row: any = rows[0];
+      return row ? { id: String(row.id), username: String(row.username ?? "") } : null;
+    } catch (error) {
+      console.error("[keep-username-auth] direct profile id lookup failed", error);
+    }
+  }
   const { data } = await admin.from("profiles").select("id,username").eq("id", id).maybeSingle();
   return data ?? null;
 }
 
+async function updateProfileUsername(userId: string, username: string) {
+  if (directDb) {
+    await directDb`
+      update public.profiles
+      set username = ${username}, display_name = ${username}, updated_at = now()
+      where id = ${userId}::uuid
+    `;
+    return;
+  }
+  const { error } = await admin.from("profiles").update({ username, display_name: username, updated_at: new Date().toISOString() }).eq("id", userId);
+  if (error) throw error;
+}
+
 async function createProfile(userId: string, username: string) {
+  if (directDb) {
+    await directDb`
+      insert into public.profiles (
+        id, username, display_name, bio, avatar_url, country_code, city,
+        kind, language_code, is_public, location_opt_in, website,
+        favorite_genres, favorite_artists
+      ) values (
+        ${userId}::uuid, ${username}, ${username}, '', null, null, null,
+        'USER', 'fr', true, false, null, '{}'::text[], '{}'::text[]
+      )
+      on conflict (id) do update
+      set username = excluded.username,
+          display_name = excluded.display_name,
+          updated_at = now()
+    `;
+    return;
+  }
+
   const payload = {
     id: userId,
     username,
@@ -206,8 +302,7 @@ async function emailFlow(req: Request, action: string, username: string, email: 
     const existingOwnProfile = await profileById(existingEmailUser.id);
     if (existingOwnProfile) {
       if (existingOwnProfile.username !== username) {
-        const { error: updateProfileError } = await admin.from("profiles").update({ username, updated_at: new Date().toISOString() }).eq("id", existingEmailUser.id);
-        if (updateProfileError) throw updateProfileError;
+        await updateProfileUsername(existingEmailUser.id, username);
       }
     } else {
       await createProfile(existingEmailUser.id, username);
@@ -287,6 +382,13 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
+
+    if (action === "health") {
+      if (!directDb) return json({ ok: false, direct_db: false, error: "database_url_unavailable" }, 503);
+      const rows = await directDb`select 1 as ok`;
+      return json({ ok: Number((rows[0] as any)?.ok ?? 0) === 1, direct_db: true });
+    }
+
     const username = normalizeUsername(body?.username);
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");
