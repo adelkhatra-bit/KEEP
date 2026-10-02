@@ -240,26 +240,58 @@ export function createProfileService(client: SupabaseClient) {
     },
 
     async loadOwnProfileExtras(session: KeepAuthSession): Promise<Partial<User>> {
-      const [{ data: privateInfo, error: privateError }, socialLinks, followersResult, followingResult] = await Promise.all([
-        client.from('profile_private_info').select('birth_date, gender').eq('profile_id', session.userId).maybeSingle(),
-        loadSocialLinks(client, session.userId),
-        client.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', session.userId),
-        client.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', session.userId),
+      // Chaque extra est indépendant. Une 503 sur les réseaux ne doit pas
+      // empêcher la date/genre ou les compteurs de se charger, et inversement.
+      const safePrivate = async () => {
+        try {
+          const result = await client.from('profile_private_info').select('birth_date, gender').eq('profile_id', session.userId).maybeSingle();
+          return result.error ? null : result.data;
+        } catch {
+          return null;
+        }
+      };
+      const safeSocial = async () => {
+        try {
+          return await loadSocialLinks(client, session.userId);
+        } catch {
+          return null;
+        }
+      };
+      const safeFollowers = async () => {
+        try {
+          const result = await client.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', session.userId);
+          return result.error ? null : (result.count ?? 0);
+        } catch {
+          return null;
+        }
+      };
+      const safeFollowing = async () => {
+        try {
+          const result = await client.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', session.userId);
+          return result.error ? null : (result.count ?? 0);
+        } catch {
+          return null;
+        }
+      };
+
+      const [privateInfo, socialLinks, followerCount, followingCount] = await Promise.all([
+        safePrivate(),
+        safeSocial(),
+        safeFollowers(),
+        safeFollowing(),
       ]);
 
-      if (privateError) throw privateError;
-      if (followersResult.error) throw followersResult.error;
-      if (followingResult.error) throw followingResult.error;
-
-      return {
-        followerCount: followersResult.count ?? 0,
-        followingCount: followingResult.count ?? 0,
-        socialLinks: (socialLinks ?? []) as SocialLink[],
-        privateInfo: {
-          birthDate: privateInfo?.birth_date ?? undefined,
-          gender: privateInfo?.gender ?? undefined,
-        },
-      };
+      const patch: Partial<User> = {};
+      if (privateInfo) {
+        patch.privateInfo = {
+          birthDate: privateInfo.birth_date ?? undefined,
+          gender: privateInfo.gender ?? undefined,
+        };
+      }
+      if (socialLinks) patch.socialLinks = socialLinks as SocialLink[];
+      if (followerCount !== null) patch.followerCount = followerCount;
+      if (followingCount !== null) patch.followingCount = followingCount;
+      return patch;
     },
 
     async loadPublicProfileByUsername(username: string): Promise<User | null> {
