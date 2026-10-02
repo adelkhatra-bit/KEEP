@@ -4,7 +4,7 @@ import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-a
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
-import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface } from '../services/musicAgoraService';
+import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface, subscribeMusicAgoraTyping } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
 import { primeNotificationAudio } from '../services/notificationSoundService';
@@ -308,6 +308,29 @@ export default function GlobalChatDock() {
 
     return () => { live = false; };
   }, [accountReady, authResolved, effectiveProfileId, previewOnly, closeChat, setBottomOffset, setSide]);
+
+  // « @x est en train d'écrire » : signal éphémère, effacé après 6 s sans
+  // nouveau signal (Adel 02/10/2026).
+  const typingByKey = useGlobalChatStore((state) => state.typingByKey);
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  useEffect(() => {
+    if (!accountReady || !effectiveProfileId) return undefined;
+    const timers = typingTimersRef.current;
+    const off = subscribeMusicAgoraTyping(effectiveProfileId, (signal) => {
+      if (!signal.key) return;
+      useGlobalChatStore.getState().setTyping(signal.key, signal.fromUsername, signal.groupName);
+      if (timers[signal.key]) clearTimeout(timers[signal.key]);
+      timers[signal.key] = setTimeout(() => {
+        useGlobalChatStore.getState().clearTyping(signal.key);
+        delete timers[signal.key];
+      }, 6000);
+    });
+    return () => {
+      off();
+      Object.values(timers).forEach((t) => clearTimeout(t));
+    };
+  }, [accountReady, effectiveProfileId]);
+  const latestTyping = Object.values(typingByKey).sort((a, b) => b.at - a.at)[0];
 
   useEffect(() => {
     if (!accountReady || !effectiveProfileId) return;
@@ -624,9 +647,8 @@ export default function GlobalChatDock() {
   // remonte trop ». Clavier ouvert : la mini-fenêtre reste COMPACTE, posée
   // juste au-dessus du clavier (380 px max), la page reste visible au-dessus.
   // Web : position absolue dans la page déjà réduite au-dessus du clavier.
-  // iOS : le cadre descend jusqu'en
-  // bas de l'écran et le KeyboardAvoidingView du tchat ajoute exactement la
-  // hauteur du clavier. Android : fenêtre déjà redimensionnée par le système.
+  // iOS : posée juste au-dessus du clavier. Android : fenêtre déjà
+  // redimensionnée par le système.
   const webCovered = Platform.OS === 'web' && webVisualViewport && typeof window !== 'undefined'
     ? Math.max(0, Math.round(window.innerHeight - webVisualViewport.height - webVisualViewport.top))
     : 0;
@@ -642,7 +664,12 @@ export default function GlobalChatDock() {
       ? { left: 6, right: 6, bottom: 6, height: Math.min(MINI_KEYBOARD_MAX, webVisualViewport.height - 12) }
       : nativeKeyboardHeight > 0
         ? Platform.OS === 'ios'
-          ? { left: 6, right: 6, bottom: 0, height: nativeKeyboardHeight + Math.min(MINI_KEYBOARD_MAX, height - nativeKeyboardHeight - insets.top - 12) }
+          // iPhone : posée directement AU-DESSUS du clavier. Le
+          // KeyboardAvoidingView du tchat mesure son cadre par rapport à la
+          // mini-fenêtre (pas à l'écran) : il ne compensait qu'une partie du
+          // clavier et le champ restait caché dessous (« je ne vois pas ce
+          // que j'écris », Adel 02/10/2026). Ici il n'a plus rien à compenser.
+          ? { left: 6, right: 6, bottom: nativeKeyboardHeight + 4, height: Math.min(MINI_KEYBOARD_MAX, Math.max(220, height - nativeKeyboardHeight - insets.top - 12)) }
           : { left: 6, right: 6, bottom: 6, height: Math.min(MINI_KEYBOARD_MAX, Math.max(220, height - nativeKeyboardHeight - insets.top - 12)) }
         : { left: 8, right: 8, bottom: insets.bottom + 62, height: Math.round(height * (height < 760 ? 0.68 : 0.58)) };
 
@@ -811,6 +838,18 @@ export default function GlobalChatDock() {
         )
       ) : null}
 
+      {!open && latestTyping && !gameInProgress ? (
+        <TouchableOpacity
+          testID="loki-chat-typing"
+          onPress={() => { void toggle(); }}
+          accessibilityRole="button"
+          accessibilityLabel={`${latestTyping.username} est en train d’écrire. Ouvrir la messagerie`}
+          style={[styles.chatTyping, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: Math.max(8, dockBottom - 44) }]}
+        >
+          <Text style={styles.chatTypingText} numberOfLines={1}>✍️ @{latestTyping.username} {latestTyping.groupName ? `écrit dans ${latestTyping.groupName}…` : 'est en train d’écrire…'}</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
 
       {!open && unreadCount > 0 && !gameInProgress ? (
@@ -833,7 +872,7 @@ export default function GlobalChatDock() {
             accessibilityLabel="Ouvrir la messagerie"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.chatNudgeText} numberOfLines={1}>
+            <Text style={styles.chatNudgeText} numberOfLines={2}>
               {latestChatPreview || (latestChatSender ? `Message de @${latestChatSender}` : `${unreadCount} nouveau${unreadCount > 1 ? 'x' : ''} message${unreadCount > 1 ? 's' : ''}`)}
             </Text>
           </TouchableOpacity>
@@ -932,7 +971,7 @@ const styles = StyleSheet.create({
   sideChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.7},
   sideChoiceTextOn:{color:colors.keep},
 
-  chatNudge:{position:'absolute',zIndex:88,height:40,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
+  chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
   chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
@@ -962,6 +1001,8 @@ const styles = StyleSheet.create({
   presenceDot:{position:'absolute',left:5,bottom:4,width:8,height:8,borderRadius:4,borderWidth:2,borderColor:colors.background},
   presenceOn:{backgroundColor:colors.keep},
   presenceOff:{backgroundColor:colors.textMutedGrey},
+  chatTyping:{position:'absolute',zIndex:88,maxWidth:250,minHeight:34,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',paddingHorizontal:12},
+  chatTypingText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',fontStyle:'italic'},
   edgeGlow:{...StyleSheet.absoluteFillObject,borderWidth:3,borderColor:'#FF5CB4',shadowColor:'#A78BFA',shadowOpacity:.9,shadowRadius:22,shadowOffset:{width:0,height:0}},
   unreadGlowLeft:{borderTopRightRadius:22,borderBottomRightRadius:22},
   unreadGlowRight:{borderTopLeftRadius:22,borderBottomLeftRadius:22},

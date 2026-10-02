@@ -49,7 +49,9 @@ import {
   subscribeMusicAgoraDirect,
   subscribeMusicAgoraGroup,
   subscribeMusicAgoraMembership,
+  sendMusicAgoraTyping,
 } from '../services/musicAgoraService';
+import { useUserStore } from '../store/useUserStore';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseRequest, purchasePlaylistOfferWithFree, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -1229,6 +1231,32 @@ export default function MusicAgoraPanel({
       return timeDiff || b.sortId - a.sortId;
     });
   }, [visibleInboxConversations, visibleInboxGroups]);
+  // « @x est en train d'écrire » (Adel 02/10/2026) : pendant la saisie, un
+  // signal éphémère part vers le(s) destinataire(s), au plus toutes les 3 s.
+  const myUsername = useUserStore((state) => state.user?.username ?? '');
+  const typingSentAtRef = useRef(0);
+  const groupTypingTargetsRef = useRef<{ groupId: string; ids: string[] } | null>(null);
+  const signalTyping = () => {
+    if (!currentProfileId || Date.now() - typingSentAtRef.current < 3000) return;
+    typingSentAtRef.current = Date.now();
+    const signal = { fromId: currentProfileId, fromUsername: myUsername || 'quelqu’un' };
+    if (replyTarget?.profileId) {
+      void sendMusicAgoraTyping([replyTarget.profileId], { ...signal, key: `p:${currentProfileId}` });
+    } else if (activeGroup?.id && activeGroup.myStatus === 'ACTIVE') {
+      const group = activeGroup;
+      const send = (ids: string[]) => void sendMusicAgoraTyping(ids, { ...signal, key: `g:${group.id}`, groupName: group.name });
+      const cached = groupTypingTargetsRef.current;
+      if (cached?.groupId === group.id) send(cached.ids);
+      else void loadMusicAgoraGroupMembers(group.id).then((members) => {
+        const ids = members.filter((m: any) => String(m.status || '').toUpperCase() === 'ACTIVE').map((m: any) => String(m.profileId));
+        groupTypingTargetsRef.current = { groupId: group.id, ids };
+        send(ids);
+      }).catch(() => {});
+    }
+  };
+  const typingByKey = useGlobalChatStore((state) => state.typingByKey);
+  const typingHere = openThreadKey ? typingByKey[openThreadKey] : undefined;
+
   // Adel (02/10/2026) : la mini-fenêtre ne montre QUE les conversations où
   // j'ai un message (une ligne par conversation) ; tout le reste = plein écran.
   const unreadInboxItems = visibleInboxItems.filter((entry) => Boolean(
@@ -1460,8 +1488,8 @@ export default function MusicAgoraPanel({
                       <Text style={s.conversationName} numberOfLines={1}>{group.name}</Text>
                       {group.lastCreatedAt ? <Text style={s.conversationTime}>{ago(group.lastCreatedAt)}</Text> : null}
                     </View>
-                    <Text style={s.conversationPreview} numberOfLines={1}>
-                      {group.myStatus === 'INVITED'
+                    <Text style={[s.conversationPreview, typingByKey[`g:${group.id}`] && s.typingPreview]} numberOfLines={1}>
+                      {typingByKey[`g:${group.id}`] ? `@${typingByKey[`g:${group.id}`].username} écrit…` : group.myStatus === 'INVITED'
                         ? `Invitation de @${group.ownerUsername}`
                         : group.lastBody || `${group.memberCount} personnes`}
                     </Text>
@@ -1500,7 +1528,7 @@ export default function MusicAgoraPanel({
               {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
               <View style={s.conversationCopy}>
                 <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
-                <Text style={s.conversationPreview} numberOfLines={1}>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</Text>
+                <Text style={[s.conversationPreview, typingByKey[`p:${item.profileId}`] && s.typingPreview]} numberOfLines={1}>{typingByKey[`p:${item.profileId}`] ? 'écrit…' : <>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</>}</Text>
               </View>
               {unreadByTarget[`p:${item.profileId}`]?.length ? <View style={s.unreadPill}><Text style={s.unreadPillText}>{unreadByTarget[`p:${item.profileId}`].length > 9 ? '9+' : unreadByTarget[`p:${item.profileId}`].length}</Text></View> : null}
               <Text style={s.conversationArrow}>›</Text>
@@ -1744,6 +1772,7 @@ export default function MusicAgoraPanel({
         replyTarget -- la condition « !replyTarget » masquait la zone d'écriture
         de TOUS les membres (même actifs). La liste des conversations reste
         sans zone d'écriture ; un fil direct ou un groupe ACTIF l'affiche. */}
+    {typingHere && !compactInboxList ? <Text style={s.typingLine} accessibilityLiveRegion="polite">@{typingHere.username} est en train d’écrire…</Text> : null}
     {enabled && !compactInboxList && !groupInvitePending ? <View style={[s.composer, compact && s.composerCompact]}>
       {replyingToMessage ? (
         <View style={s.replyTarget}>
@@ -2029,6 +2058,7 @@ export default function MusicAgoraPanel({
           value={draft}
           onChangeText={(value) => {
             setDraft(value);
+            if (value.trim()) signalTyping();
             // Tous les chats utilisent la même règle : pendant la saisie, le
             // dernier message et la dernière ligne restent visibles. Cela vaut
             // pour La Place, les directs et les groupes, pas seulement pour la
@@ -2277,6 +2307,8 @@ const s=StyleSheet.create({
   miniUnreadHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:6,paddingVertical:8},
   miniUnreadHeaderText:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},
   miniUnreadHeaderLink:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
+  typingLine:{color:colors.primaryLight,fontSize:14,fontStyle:'italic',fontWeight:'800',paddingHorizontal:14,paddingVertical:4},
+  typingPreview:{color:colors.primaryLight,fontStyle:'italic',fontWeight:'800'},
   rowUnread:{borderWidth:2,borderBottomWidth:2,borderColor:'#FF5CB4',borderBottomColor:'#FF5CB4',borderRadius:14,backgroundColor:'rgba(255,92,180,.10)',shadowColor:'#FF5CB4',shadowOpacity:.55,shadowRadius:10,shadowOffset:{width:0,height:0},marginVertical:2},
   unreadPill:{minWidth:24,height:24,borderRadius:12,paddingHorizontal:6,backgroundColor:'#FF5CB4',alignItems:'center',justifyContent:'center'},
   unreadPillText:{color:'#2A0518',fontSize:13,fontWeight:'900'},

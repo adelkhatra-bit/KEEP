@@ -456,6 +456,41 @@ export async function loadMusicAgoraDirectMessages(
   return hydrated.sort((a, b) => a.id - b.id);
 }
 
+// Adel (02/10/2026) : « quand quelqu'un commence à m'écrire, une petite
+// languette me dit qu'il est en train d'écrire ». Signal éphémère Realtime
+// (broadcast), rien n'est enregistré en base. Canal = destinataire.
+export type MusicAgoraTypingSignal = {
+  fromId: string;
+  fromUsername: string;
+  key: string; // conversation chez le DESTINATAIRE : p:<expéditeur> ou g:<groupe>
+  groupName?: string | null;
+};
+
+export function subscribeMusicAgoraTyping(profileId: string, onTyping: (signal: MusicAgoraTypingSignal) => void): () => void {
+  if (!supabase || !profileId) return () => {};
+  const client = supabase;
+  const channel = client
+    .channel(`keep-agora-typing:${profileId}`, { config: { broadcast: { self: false } } })
+    .on('broadcast', { event: 'typing' }, (message: any) => {
+      const p = message?.payload ?? {};
+      if (!p.fromId || p.fromId === profileId) return;
+      onTyping({ fromId: String(p.fromId), fromUsername: String(p.fromUsername || 'quelqu’un'), key: String(p.key || ''), groupName: p.groupName ? String(p.groupName) : null });
+    })
+    .subscribe();
+  return () => { void client.removeChannel(channel); };
+}
+
+export async function sendMusicAgoraTyping(targetProfileIds: string[], signal: MusicAgoraTypingSignal): Promise<void> {
+  if (!supabase) return;
+  const client = supabase;
+  const targets = [...new Set(targetProfileIds.filter((id) => id && id !== signal.fromId))].slice(0, 30);
+  await Promise.all(targets.map(async (id) => {
+    const channel = client.channel(`keep-agora-typing:${id}`, { config: { broadcast: { self: false } } });
+    try { await (channel as any).httpSend('typing', signal); } catch { /* signal facultatif */ }
+    finally { void client.removeChannel(channel); }
+  }));
+}
+
 export function subscribeMusicAgoraRoom(roomSlug: string, onChange: () => void): () => void {
   if (!supabase || !roomSlug) return () => {};
   const client = supabase;

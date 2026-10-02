@@ -33,6 +33,11 @@ type GlobalChatState = {
   // Fenêtres d'aperçu ouvertes (Loki Pulse, Drop, boutique) qui affichent le
   // robot À L'INTÉRIEUR d'elles-mêmes : la dernière ouverte l'héberge, le
   // robot de l'écran principal se retire (jamais deux robots montés).
+  // « @x est en train d'écrire » : dernier signal par conversation (clé
+  // g:<groupe> / p:<expéditeur>), expire tout seul après quelques secondes.
+  typingByKey: Record<string, { username: string; groupName?: string | null; at: number }>;
+  setTyping: (key: string, username: string, groupName?: string | null) => void;
+  clearTyping: (key: string) => void;
   chatHosts: string[];
   pushChatHost: (id: string) => void;
   popChatHost: (id: string) => void;
@@ -59,6 +64,14 @@ export const useGlobalChatStore = create<GlobalChatState>((set, get) => ({
     const current = state.unreadByTarget[key] ?? [];
     if (current.includes(notificationId)) return state;
     return { unreadByTarget: { ...state.unreadByTarget, [key]: [...current, notificationId] } };
+  }),
+  typingByKey: {},
+  setTyping: (key, username, groupName) => set((state) => ({ typingByKey: { ...state.typingByKey, [key]: { username, groupName, at: Date.now() } } })),
+  clearTyping: (key) => set((state) => {
+    if (!state.typingByKey[key]) return state;
+    const next = { ...state.typingByKey };
+    delete next[key];
+    return { typingByKey: next };
   }),
   chatHosts: [],
   pushChatHost: (id) => set((state) => ({ chatHosts: [...state.chatHosts.filter((h) => h !== id), id] })),
