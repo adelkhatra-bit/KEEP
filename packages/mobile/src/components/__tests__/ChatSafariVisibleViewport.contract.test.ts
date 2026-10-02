@@ -13,8 +13,10 @@ describe('Loki chat iPhone Safari visible viewport contract', () => {
     expect(dock).toContain("height: webVisualViewport ? String(webVisualViewport.height) + 'px' : '100dvh'");
   });
 
-  it('does not subtract the keyboard twice once the parent tracks visualViewport', () => {
+  it('uses one keyboard-lift mechanism per platform', () => {
     expect(panel).toContain('const compactBottom = 0;');
+    expect(panel).toContain("enabled={compact && Platform.OS === 'ios'}");
+    expect(panel).toContain("behavior={compact && Platform.OS === 'ios' ? 'padding' : undefined}");
   });
 
   it('keeps the larger validated composer', () => {
