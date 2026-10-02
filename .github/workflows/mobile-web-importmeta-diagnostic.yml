@@ -11,7 +11,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  # Toujours tester le dernier état du chat : une preuve visuelle obsolète ne
+  # doit pas retarder le correctif en cours.
+  cancel-in-progress: true
 
 permissions:
   contents: read
