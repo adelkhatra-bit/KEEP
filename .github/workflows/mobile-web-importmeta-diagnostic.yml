@@ -9,11 +9,13 @@ on:
       - '.github/workflows/mobile-web-importmeta-diagnostic.yml'
   workflow_dispatch:
 
+# Tous les navigateurs CI pointant vers le Supabase de production passent
+# désormais UN PAR UN. Le 02/10, plusieurs Chromium concurrents + le vrai web
+# ont coïncidé avec des /auth/v1/user et /token en 500/504 faute de transaction
+# Postgres. Aucun test visuel ne doit pouvoir affamer l'auth utilisateur.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Toujours tester le dernier état du chat : une preuve visuelle obsolète ne
-  # doit pas retarder le correctif en cours.
-  cancel-in-progress: true
+  group: keep-production-supabase-browser-audits
+  cancel-in-progress: false
 
 permissions:
   contents: read
