@@ -122,7 +122,7 @@ jobs:
               throw new Error(`${label}: ${lastError && lastError.message ? lastError.message : lastError}`);
             }
 
-            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            const response = await page.goto('http://127.0.0.1:8081', { waitUntil: 'domcontentloaded', timeout: 60000 });
             if (!response || !response.ok()) throw new Error(`HTTP runtime failed: ${response ? response.status() : 'no response'}`);
             await page.waitForTimeout(1500);
 
@@ -282,7 +282,7 @@ jobs:
             if (errors.length > 0 || httpFailures.length > 0) throw new Error(`Browser runtime issues detected:\n${[...httpFailures, ...errors].join('\n')}`);
 
             const desktopPage = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-            const desktopResponse = await desktopPage.goto('http://127.0.0.1:8081', { waitUntil: 'networkidle', timeout: 60000 });
+            const desktopResponse = await desktopPage.goto('http://127.0.0.1:8081', { waitUntil: 'domcontentloaded', timeout: 60000 });
             if (!desktopResponse || !desktopResponse.ok()) throw new Error(`Desktop runtime failed: ${desktopResponse ? desktopResponse.status() : 'no response'}`);
             const manualUpdate = desktopPage.getByTestId('keep-manual-update-control');
             if (await manualUpdate.count() !== 0) throw new Error('Manual update control must never be user-visible');

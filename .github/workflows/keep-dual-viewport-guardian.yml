@@ -115,7 +115,7 @@ jobs:
           }
 
           async function openKeep(page) {
-            await page.goto(ORIGIN,{waitUntil:'networkidle',timeout:60000});
+            await page.goto(ORIGIN,{waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
             if (await tryFree.isVisible().catch(()=>false)) await clickRobust(page,tryFree,'Guest trial');
             for (const tab of tabs) await page.getByText(tab,{exact:true}).last().waitFor({state:'visible',timeout:15000});
@@ -383,7 +383,7 @@ jobs:
             await clickRobust(page,page.getByText('← Revenir aux Playlists',{exact:true}).last(),'Return to Playlists');
             await page.getByText('Playlists',{exact:true}).last().waitFor({state:'visible',timeout:15000});
 
-            await page.reload({waitUntil:'networkidle',timeout:60000});
+            await page.reload({waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
             if(await tryFree.isVisible().catch(()=>false)) await clickRobust(page,tryFree,'Guest trial after reload');
             await openEdit(page);

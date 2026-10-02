@@ -113,7 +113,7 @@ jobs:
             const shot=async n=>page.screenshot({path:`artifacts/human-guardian/${n}.png`,fullPage:true});
             const inViewport=async(loc,label)=>{ await loc.waitFor({state:'visible',timeout:15000}); const b=await loc.boundingBox(); if(!b||b.y<0||b.y+b.height>844) throw new Error(`${label} outside viewport ${JSON.stringify(b)}`); };
             const clickRobust=async(loc,label)=>{ let last; for(let attempt=1;attempt<=5;attempt++){ try{ await loc.waitFor({state:'visible',timeout:10000}); await loc.scrollIntoViewIfNeeded().catch(()=>{}); await page.keyboard.press('Escape').catch(()=>{}); await loc.click({timeout:3000}); return; }catch(e){ last=e; await page.waitForTimeout(180*attempt); } } await loc.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(last?.message||last||'click failed')}`); }); };
-            await page.goto('http://127.0.0.1:8081',{waitUntil:'networkidle',timeout:60000});
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=t('ESSAYER GRATUITEMENT',{exact:true});
             if(await tryFree.isVisible().catch(()=>false)) await clickRobust(tryFree,'Guest trial');
             for(const x of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
