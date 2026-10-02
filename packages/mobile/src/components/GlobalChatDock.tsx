@@ -10,6 +10,7 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
+import { supabase } from '../services/supabaseClient';
 
 function isChatNotification(item: KeepNotification): boolean {
   const type = String(item.type || '').toUpperCase();
@@ -87,6 +88,10 @@ export default function GlobalChatDock() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestChatSender, setLatestChatSender] = useState('');
   const [webVisualViewport, setWebVisualViewport] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  // undefined = auth Supabase pas encore lue ; null = aucune session réelle.
+  // Le chat ne doit jamais se fermer entre les deux simplement parce que le
+  // store UI est momentanément resté en mode invité/démo après un refresh.
+  const [authenticatedProfileId, setAuthenticatedProfileId] = useState<string | null | undefined>(undefined);
 
   const pulse = useRef(new Animated.Value(1)).current;
   const drawerPeek = useRef(new Animated.Value(0)).current;
@@ -98,10 +103,40 @@ export default function GlobalChatDock() {
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const { height } = useWindowDimensions();
 
-  const accountReady = Boolean(user && !isDemoMode && !isLocalGuest);
+  const storeProfileId = user && !isDemoMode && !isLocalGuest ? user.id : null;
+  const authResolved = !supabase || authenticatedProfileId !== undefined;
+  const effectiveProfileId = supabase
+    ? (authenticatedProfileId === undefined ? storeProfileId : authenticatedProfileId)
+    : storeProfileId;
+  const accountReady = Boolean(effectiveProfileId);
   const previewOnly = Boolean(user && isDemoMode && process.env.EXPO_PUBLIC_KEEP_PREVIEW === '1');
   const visualTestPreview = Boolean(previewOnly && process.env.EXPO_PUBLIC_KEEP_CHAT_VISUAL_TEST === '1');
   const displayReady = accountReady || previewOnly;
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthenticatedProfileId(null);
+      return undefined;
+    }
+
+    let live = true;
+    void supabase.auth.getSession()
+      .then(({ data }) => {
+        if (live) setAuthenticatedProfileId(data.session?.user?.id ?? null);
+      })
+      .catch(() => {
+        if (live) setAuthenticatedProfileId(null);
+      });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (live) setAuthenticatedProfileId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      live = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !open) {
@@ -152,7 +187,11 @@ export default function GlobalChatDock() {
   }, []);
 
   useEffect(() => {
-    if (!accountReady || !user?.id) {
+    // Ne ferme pas le chat pendant l'hydratation de la vraie session Supabase.
+    // C'était le cas exact où le profil ouvrait correctement le chat, puis le
+    // dock le refermait immédiatement car Zustand disait encore "invité".
+    if (!authResolved && !previewOnly) return;
+    if (!accountReady || !effectiveProfileId) {
       closeChat();
       setTracks([]);
       setChatEnabled(false);
@@ -172,7 +211,7 @@ export default function GlobalChatDock() {
         side: 'right' as const,
         bottomOffset: 88,
       })),
-      loadNotifications(user.id).catch(() => []),
+      loadNotifications(effectiveProfileId).catch(() => []),
     ]).then(([settings, notifications]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
@@ -197,11 +236,11 @@ export default function GlobalChatDock() {
     });
 
     return () => { live = false; };
-  }, [accountReady, user?.id, closeChat, setBottomOffset, setSide]);
+  }, [accountReady, authResolved, effectiveProfileId, previewOnly, closeChat, setBottomOffset, setSide]);
 
   useEffect(() => {
-    if (!accountReady || !user?.id) return;
-    return subscribeToNotifications(user.id, (item) => {
+    if (!accountReady || !effectiveProfileId) return;
+    return subscribeToNotifications(effectiveProfileId, (item) => {
       if (!isChatNotification(item)) return;
       const sender = chatNotificationSender(item);
       setUnreadCount((value) => value + 1);
@@ -218,7 +257,7 @@ export default function GlobalChatDock() {
         });
       }
     });
-  }, [accountReady, user?.id, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
+  }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
     if (!accountReady) {
@@ -241,7 +280,7 @@ export default function GlobalChatDock() {
       })
       .catch(() => { if (live) setTracks([]); });
     return () => { live = false; };
-  }, [accountReady, open, user?.id]);
+  }, [accountReady, open, effectiveProfileId]);
 
   useEffect(() => {
     if (!accountReady || !open || chatEnabled || chatSaving) return;
@@ -586,7 +625,7 @@ export default function GlobalChatDock() {
             <MusicAgoraPanel
               compact
               compactSide={side}
-              currentProfileId={user.id}
+              currentProfileId={effectiveProfileId || user?.id || ''}
               enabled={accountReady || visualTestPreview}
               shareableTracks={tracks}
               initialRoomSlug={target?.roomSlug ?? undefined}
