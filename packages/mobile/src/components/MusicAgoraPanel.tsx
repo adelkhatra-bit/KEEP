@@ -616,11 +616,15 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!messages.length) return;
     const timer = setTimeout(() => {
+      // Même comportement pour La Place, les messages directs et les groupes :
+      // à l'ouverture / après un nouveau message, la conversation se cale sur
+      // le plus récent. Le chargement de "PLUS ANCIENS" ne change pas le
+      // dernier id et ne provoque donc pas de saut vers le bas.
       followChatBottom(initialScrollDone.current);
       initialScrollDone.current = true;
     }, 40);
     return () => clearTimeout(timer);
-  }, [messages[messages.length - 1]?.id, roomSlug]);
+  }, [messages[messages.length - 1]?.id, roomSlug, replyTarget?.profileId, activeGroup?.id, chatMode]);
 
   const loadOlder = async () => {
     if (!roomSlug || !messages.length || olderBusy) return;
@@ -1071,11 +1075,14 @@ export default function MusicAgoraPanel({
             testID="loki-chat-place-entry"
             style={s.conversationRow}
             onPress={() => {
+              initialScrollDone.current = false;
+              browsingHistoryRef.current = false;
+              forceBottomRef.current = true;
               setChatMode('PLACE');
               setReplyTarget(null);
               setActiveGroup(null);
               setMessages([]);
-              void refresh(roomSlug);
+              void refresh(roomSlug).finally(() => followChatBottom(false));
             }}
             accessibilityLabel="Ouvrir La Place"
           >
@@ -1131,8 +1138,14 @@ export default function MusicAgoraPanel({
             key={item.profileId}
             style={s.conversationRow}
             onPress={() => {
+              initialScrollDone.current = false;
+              browsingHistoryRef.current = false;
+              forceBottomRef.current = true;
+              setActiveGroup(null);
+              setMessages([]);
               setReplyTarget({ profileId: item.profileId, username: item.username });
               if (item.lastRoomSlug) setRoomSlug(item.lastRoomSlug);
+              setTimeout(() => followChatBottom(false), 80);
             }}
             accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
           >
@@ -1560,16 +1573,17 @@ export default function MusicAgoraPanel({
           value={draft}
           onChangeText={(value) => {
             setDraft(value);
-            if (compact) {
-              forceBottomRef.current = true;
-              requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
-            }
+            // Tous les chats utilisent la même règle : pendant la saisie, le
+            // dernier message et la dernière ligne restent visibles. Cela vaut
+            // pour La Place, les directs et les groupes, pas seulement pour la
+            // fenêtre compacte.
+            forceBottomRef.current = true;
+            requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
           }}
           onContentSizeChange={() => {
-            // Mobile: the multiline composer grows after onChangeText. Scroll
-            // again after the real layout change so the latest line and the
-            // newest message stay visible above the keyboard without a swipe.
-            if (compact) followChatBottom(false);
+            // Le TextInput multiligne change réellement de hauteur après
+            // onChangeText. On recale une seconde fois après ce layout.
+            followChatBottom(false);
           }}
           placeholder="Écris un message…"
           placeholderTextColor={colors.textMutedGrey}
