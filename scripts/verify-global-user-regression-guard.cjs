@@ -85,8 +85,13 @@ requireText(
 );
 requireText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
-  'if (!previewOnly && !settingsOpen && !accountReady) return null;',
-  'la languette Tchat doit rester disponible pour un compte réel, même si le Tchat est OFF',
+  'if (!previewOnly && !settingsOpen && !accountReady && !open) return null;',
+  'la languette Tchat doit rester disponible pour un compte réel, même si le Tchat est OFF, sans fermer une fenêtre déjà ouverte pendant une hydratation auth',
+);
+requireText(
+  'packages/mobile/src/components/GlobalChatDock.tsx',
+  'if (!enabled && !settings.homeEnabled) closeChat();',
+  'une activation ou une sauvegarde transitoire ne doit jamais refermer automatiquement le Tchat',
 );
 forbidText(
   'packages/mobile/src/components/GlobalChatDock.tsx',
