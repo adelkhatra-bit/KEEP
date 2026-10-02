@@ -21,9 +21,13 @@ const isWebRuntime = Boolean((globalThis as any)?.location?.href);
 // On garde UN SEUL client, mais on borne le fan-out HTTP par appareil.
 // Auth n'attend jamais cette file ; les appels REST/Functions sont lissés.
 // Aucun écran/design n'est modifié.
-const KEEP_NETWORK_MAX_CONCURRENT = isWebRuntime ? 2 : 3;
+const KEEP_NETWORK_MAX_CONCURRENT = isWebRuntime ? 1 : 2;
+const KEEP_NETWORK_FAILURE_BASE_COOLDOWN_MS = 2500;
+const KEEP_NETWORK_FAILURE_MAX_COOLDOWN_MS = 30000;
 let keepNetworkActive = 0;
 let keepNetworkCooldownUntil = 0;
+let keepNetworkFailureStreak = 0;
+let keepNetworkCooldownTimer: ReturnType<typeof setTimeout> | null = null;
 let keepAuthPriorityActive = 0;
 const keepNetworkQueue: Array<() => void> = [];
 
@@ -42,7 +46,15 @@ function drainKeepNetworkQueue() {
   if (keepNetworkActive >= KEEP_NETWORK_MAX_CONCURRENT || !keepNetworkQueue.length) return;
   const waitMs = Math.max(0, keepNetworkCooldownUntil - Date.now());
   if (waitMs > 0) {
-    setTimeout(drainKeepNetworkQueue, Math.min(waitMs, 1200));
+    // Un seul timer de reprise. Avant ce garde-fou, chaque composant en attente
+    // pouvait programmer son propre réveil et recréer une rafale dès que
+    // PostgREST revenait.
+    if (!keepNetworkCooldownTimer) {
+      keepNetworkCooldownTimer = setTimeout(() => {
+        keepNetworkCooldownTimer = null;
+        drainKeepNetworkQueue();
+      }, Math.min(waitMs, 1200));
+    }
     return;
   }
   while (keepNetworkActive < KEEP_NETWORK_MAX_CONCURRENT && keepNetworkQueue.length) {
@@ -80,9 +92,21 @@ async function keepSupabaseFetch(input: RequestInfo | URL, init?: RequestInit): 
   try {
     const response = await fetch(input, init);
     if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
-      // Petit coupe-circuit local : évite qu'un écran qui reçoit un 504
-      // relance immédiatement 10 autres RPC pendant que Postgres récupère.
-      keepNetworkCooldownUntil = Math.max(keepNetworkCooldownUntil, Date.now() + 1600);
+      // Vrai coupe-circuit progressif. PGRST002 / 500 / 503 / 504 signifient
+      // que la base ou son pool de connexions ne peut plus absorber le trafic.
+      // On ne martèle plus le serveur : 2,5 s -> 5 s -> 10 s -> 20 s -> 30 s.
+      // L'auth critique reste TOUJOURS hors de cette file et peut donc passer.
+      keepNetworkFailureStreak = Math.min(8, keepNetworkFailureStreak + 1);
+      const cooldown = Math.min(
+        KEEP_NETWORK_FAILURE_MAX_COOLDOWN_MS,
+        KEEP_NETWORK_FAILURE_BASE_COOLDOWN_MS * (2 ** Math.min(keepNetworkFailureStreak - 1, 4)),
+      );
+      keepNetworkCooldownUntil = Math.max(keepNetworkCooldownUntil, Date.now() + cooldown);
+    } else if (response.ok) {
+      // Une réponse saine confirme la récupération progressive du backend.
+      // On redescend doucement au lieu de relancer toute la file d'un coup.
+      keepNetworkFailureStreak = Math.max(0, keepNetworkFailureStreak - 1);
+      if (keepNetworkFailureStreak === 0) keepNetworkCooldownUntil = 0;
     }
     return response;
   } finally {
