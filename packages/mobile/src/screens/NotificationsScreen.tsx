@@ -30,6 +30,7 @@ import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
+import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -478,6 +479,18 @@ export default function NotificationsScreen({ navigation }: any) {
     }
   };
 
+  const openPlaylistPaymentProofFromNotification = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId) return;
+    try {
+      const url = await openPlaylistPaymentProof(paymentId);
+      await Linking.openURL(url);
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message || 'Impossible d’ouvrir la preuve de paiement.');
+    }
+  };
+
   const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
     const paymentId = paymentIdOf(item);
     if (!paymentId || paymentBusyId) return;
@@ -856,20 +869,27 @@ export default function NotificationsScreen({ navigation }: any) {
                   <TouchableOpacity
                     style={[styles.paymentActionButton, styles.paymentActionPrimary]}
                     disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => void signalPlaylistPaymentSent(item)}
+                    onPress={() => void openPaymentFromNotification(item)}
                   >
-                    <Text style={styles.paymentActionPrimaryText}>{paymentBusyId === paymentIdOf(item) ? 'ENVOI…' : 'J’AI PAYÉ'}</Text>
+                    <Text style={styles.paymentActionPrimaryText}>J’AI PAYÉ · JOINDRE PREUVE</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
               {isSellerPaymentAction(item) ? (
                 <View style={styles.paymentActionRow}>
                   <TouchableOpacity
+                    style={[styles.paymentActionButton, styles.paymentActionSecondary]}
+                    disabled={paymentBusyId === paymentIdOf(item)}
+                    onPress={() => void openPlaylistPaymentProofFromNotification(item)}
+                  >
+                    <Text style={styles.paymentActionSecondaryText}>VOIR LA PREUVE</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[styles.paymentActionButton, styles.paymentActionConfirm]}
                     disabled={paymentBusyId === paymentIdOf(item)}
                     onPress={() => void confirmPlaylistPaymentReceived(item)}
                   >
-                    <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'PAIEMENT REÇU · DÉBLOQUER'}</Text>
+                    <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'FONDS REÇUS · DÉBLOQUER'}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -932,6 +952,7 @@ export default function NotificationsScreen({ navigation }: any) {
 
       <PayoutCheckoutSheet
         visible={Boolean(paymentCheckoutItem)}
+        paymentId={paymentCheckoutItem ? (paymentIdOf(paymentCheckoutItem) ?? '') : ''}
         sellerUsername={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.sellerUsername ?? (paymentCheckoutItem.data as any)?.seller_username ?? '') : ''}
         amountCents={paymentCheckoutItem ? Number((paymentCheckoutItem.data as any)?.amountCents ?? (paymentCheckoutItem.data as any)?.amount_cents ?? 0) : 0}
         currencyCode={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.currencyCode ?? (paymentCheckoutItem.data as any)?.currency_code ?? 'EUR') : 'EUR'}
