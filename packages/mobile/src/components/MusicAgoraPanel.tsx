@@ -1367,8 +1367,8 @@ export default function MusicAgoraPanel({
       ref={chatScrollRef}
       style={compact ? s.chatScrollCompact : s.chatScroll}
       contentContainerStyle={[s.list, compact && s.listCompact]}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardShouldPersistTaps={compact ? 'always' : 'handled'}
+      keyboardDismissMode={compact ? 'none' : Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
       onScrollBeginDrag={() => {
@@ -1882,9 +1882,21 @@ export default function MusicAgoraPanel({
           focusable
           maxLength={2000}
           onPressIn={() => {
-            // Ne pas déplacer le layout pendant le geste qui donne le focus au
-            // TextInput. Le recalage du fil se fait dans onFocus, une fois le
-            // clavier réellement engagé.
+            // Sur certains iPhone le TextInput pouvait rester "focus" alors que
+            // le clavier natif n'était jamais apparu après l'animation du Modal.
+            // Un tap utilisateur doit donc TOUJOURS pouvoir réarmer le focus.
+            const input = composerInputRef.current;
+            if (input) {
+              const alreadyFocused = typeof (input as any).isFocused === 'function' && (input as any).isFocused();
+              if (alreadyFocused && compact && Platform.OS !== 'web' && keyboardInset <= 0) {
+                input.blur();
+                requestAnimationFrame(() => input.focus());
+              } else {
+                input.focus();
+              }
+            }
+            // Ne pas scroller ici : le recalage du fil se fait dans onFocus,
+            // une fois que le clavier est réellement engagé.
             stickToBottomRef.current = true;
             userDraggingChatRef.current = false;
           }}
