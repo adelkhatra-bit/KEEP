@@ -552,6 +552,46 @@ const chatUnreadJourney = {
   },
 };
 
+// Mini-tchat (Adel 02/10/2026) : toucher le robot ouvre une mini-fenêtre, la
+// page reste visible ; ⤢ passe en plein écran SANS perdre la conversation.
+const chatMiniJourney = {
+  id: 'tchat-mini-fenetre',
+  titre: 'Tchat — mini-fenêtre sur la page, ⤢ plein écran sans perdre le fil',
+  devices: [ANDROID, MOBILE_SE, PC],
+  mobileFlags: true,
+  fakeOptions: { groupRole: 'MEMBER', groupMessages: true },
+  async run({ page, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/`, { waitUntil: 'load' });
+    await openGroup(page);
+    const mini = page.locator('[data-testid="loki-chat-mini"]');
+    r.mini = await mini.count();
+    const box = r.mini ? await mini.first().boundingBox() : null;
+    const vp = page.viewportSize();
+    r.hauteur_mini_pct = box ? Math.round((box.height / vp.height) * 100) : null;
+    r.dans_ecran = Boolean(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width + 1 && box.y + box.height <= vp.height + 1);
+    r.page_visible = (await page.getByText('Écouter', { exact: true }).first().isVisible().catch(() => false));
+    await page.getByText(fake.GROUP_NAME).first().click();
+    await page.getByText('Fais tourner le son').first().waitFor({ timeout: 15000 });
+    r.composer_visible = await page.getByPlaceholder('Écris un message…').first().isVisible().catch(() => false);
+    await shot('mini');
+    await page.locator('[aria-label="Agrandir le tchat en plein écran"]').first().click({ force: true });
+    await page.waitForTimeout(1500);
+    r.plein_ecran = await page.locator('[data-testid="loki-chat-fullscreen-modal"]').count();
+    r.meme_fil = (await page.getByText('Fais tourner le son').count()) > 0;
+    await shot('plein-ecran');
+    const checks = [
+      ['le robot ouvre la mini-fenêtre (pas le plein écran)', r.mini === 1],
+      ['la mini-fenêtre reste entièrement dans l’écran', r.dans_ecran],
+      ['la page reste visible derrière', r.page_visible],
+      ['on peut écrire dans la mini-fenêtre', r.composer_visible],
+      ['⤢ passe en plein écran', r.plein_ecran === 1],
+      ['le plein écran garde la même conversation', r.meme_fil],
+    ];
+    return { details: r, failures: failed(checks), ok: `mini ${r.hauteur_mini_pct} % de l’écran, page visible, plein écran sur le même fil` };
+  },
+};
+
 const JOURNEYS = [
   popupJourney('FREE'),
   popupJourney('MONEY'),
@@ -563,6 +603,7 @@ const JOURNEYS = [
   chatRedirectJourney,
   chatLiveJourney,
   chatUnreadJourney,
+  chatMiniJourney,
 ];
 
 // ---------------------------------------------------------------- exécution

@@ -108,6 +108,8 @@ export default function MusicAgoraPanel({
   initialReplyTarget,
   initialGroupId,
   onCompactClose,
+  compactMini = false,
+  onCompactExpand,
 }: {
   currentProfileId: string;
   enabled: boolean;
@@ -119,6 +121,10 @@ export default function MusicAgoraPanel({
   initialReplyTarget?: { profileId: string; username: string };
   initialGroupId?: string;
   onCompactClose?: () => void;
+  // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre (la page
+  // reste visible derrière) ; ⤢ passe en plein écran.
+  compactMini?: boolean;
+  onCompactExpand?: (thread: { groupId?: string | null; groupName?: string | null; targetProfileId?: string | null; targetUsername?: string | null; roomSlug?: string | null } | null) => void;
 }) {
   const [rooms, setRooms] = useState<MusicAgoraRoom[]>([]);
   const [roomSlug, setRoomSlug] = useState('');
@@ -1256,6 +1262,8 @@ export default function MusicAgoraPanel({
         paddingBottom: keyboardInset > 0 ? 12 : Math.max(14, safeArea.bottom + 14),
       },
       compact && (compactSide === 'left' ? s.shellCompactLeft : s.shellCompactRight),
+      // Mini-fenêtre : pas de marge de barre d'état ni de bas d'écran.
+      compact && compactMini && s.shellMini,
     ]}
   >
     {compact ? (
@@ -1297,6 +1305,22 @@ export default function MusicAgoraPanel({
           ) : chatMode === 'MESSAGES' && !replyTarget && !activeGroup ? (
             <TouchableOpacity style={s.compactHeaderAction} onPress={openCreateGroup} accessibilityRole="button" accessibilityLabel="Créer une conversation">
               <Text style={s.compactHeaderActionText}>＋</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {onCompactExpand ? (
+            <TouchableOpacity
+              style={s.compactHeaderAction}
+              onPress={() => onCompactExpand(
+                activeGroup ? { groupId: activeGroup.id, groupName: activeGroup.name }
+                  : replyTarget ? { targetProfileId: replyTarget.profileId, targetUsername: replyTarget.username }
+                  : chatMode === 'PLACE' && roomSlug ? { roomSlug }
+                  : null,
+              )}
+              accessibilityRole="button"
+              accessibilityLabel="Agrandir le tchat en plein écran"
+            >
+              <Text style={s.compactHeaderActionText}>⤢</Text>
             </TouchableOpacity>
           ) : null}
 
@@ -2191,6 +2215,7 @@ export default function MusicAgoraPanel({
 
 const s=StyleSheet.create({
   shell:{gap:12,paddingBottom:8},
+  shellMini:{paddingTop:6,paddingBottom:8},
   shellCompact:{position:'absolute',top:0,bottom:0,left:0,right:0,flexGrow:0,flexShrink:0,paddingHorizontal:0,borderRadius:0,borderWidth:0,backgroundColor:'#0B0712',overflow:'hidden',elevation:40,zIndex:100},
   shellCompactLeft:{left:0,right:0},
   shellCompactRight:{left:0,right:0},

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, BackHandler, Keyboard, Modal, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
@@ -118,7 +118,12 @@ export default function GlobalChatDock() {
   const dragStartBottom = useRef(bottomOffset);
   const safeAreaInsets = useContext(SafeAreaInsetsContext);
   const insets = safeAreaInsets ?? initialWindowMetrics?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
+  // Adel (02/10/2026) : toucher le robot ouvre une MINI-fenêtre, la page
+  // reste visible derrière ; ⤢ passe en plein écran. Remis en mini à chaque
+  // fermeture.
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [nativeKeyboardHeight, setNativeKeyboardHeight] = useState(0);
 
   const storeProfileId = user && !isDemoMode && !isLocalGuest ? user.id : null;
   const authResolved = !supabase || authenticatedProfileId !== undefined;
@@ -174,6 +179,18 @@ export default function GlobalChatDock() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!open) setChatExpanded(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || chatExpanded || Platform.OS === 'web') { setNativeKeyboardHeight(0); return undefined; }
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => setNativeKeyboardHeight(e.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setNativeKeyboardHeight(0));
+    const back = BackHandler.addEventListener('hardwareBackPress', () => { closeChat(); return true; });
+    return () => { show.remove(); hide.remove(); back.remove(); };
+  }, [open, chatExpanded, closeChat]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !open) {
@@ -552,6 +569,37 @@ export default function GlobalChatDock() {
   if (!previewOnly && accountReady && !chatSettingsReady && !open && !settingsOpen) return null;
   if (!open && !settingsOpen && !surfaceVisible) return null;
 
+  const chatPanel = (mini: boolean) => (
+            <MusicAgoraPanel
+              compact
+              compactSide={side}
+              currentProfileId={effectiveProfileId || user?.id || ''}
+              enabled={accountReady || visualTestPreview}
+              shareableTracks={tracks}
+              initialRoomSlug={target?.roomSlug ?? undefined}
+              initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
+              initialGroupId={target?.groupId ?? undefined}
+              onOpenProfile={(username) => { closeChat(); setTimeout(() => navigateToSharedProfile(username), 80); }}
+              onCompactClose={closeChat}
+              compactMini={mini}
+              onCompactExpand={mini ? (thread) => { openChat(thread); setChatExpanded(true); } : undefined}
+            />
+  );
+  // Mini-fenêtre : moitié basse de l'écran au-dessus des onglets (téléphone),
+  // 380 px en bas à droite (ordinateur) ; clavier ouvert → elle s'agrandit
+  // au-dessus du clavier pour garder la zone d'écriture visible.
+  const desktopMini = width >= 900;
+  const webKeyboardOpen = Platform.OS === 'web' && Boolean(webVisualViewport && typeof window !== 'undefined' && webVisualViewport.height < window.innerHeight * 0.8);
+  const miniFrame: any = desktopMini
+    ? { right: 16, bottom: 72, width: 380, height: Math.min(640, Math.round(height * 0.74)) }
+    : webKeyboardOpen && webVisualViewport
+      ? { position: 'fixed', left: webVisualViewport.left + 6, top: webVisualViewport.top + 6, width: webVisualViewport.width - 12, height: webVisualViewport.height - 12 }
+      : nativeKeyboardHeight > 0
+        // iOS : le KeyboardAvoidingView du tchat ajoute la marge du clavier ;
+        // Android : la fenêtre est déjà redimensionnée au-dessus du clavier.
+        ? { left: 6, right: 6, top: insets.top + 6, bottom: Platform.OS === 'ios' ? insets.bottom + 62 : 6 }
+        : { left: 8, right: 8, bottom: insets.bottom + 62, height: Math.round(height * (height < 760 ? 0.68 : 0.58)) };
+
   return (
     <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.globalOverlay]}>
       <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
@@ -675,6 +723,15 @@ export default function GlobalChatDock() {
       </Modal>
 
       {open ? (
+        !chatExpanded ? (
+        <View
+          testID="loki-chat-mini"
+          accessibilityLabel="Messagerie Loki (mini-fenêtre)"
+          style={[styles.chatMini, miniFrame]}
+        >
+          {chatPanel(true)}
+        </View>
+        ) : (
         <Modal
           visible
           transparent={false}
@@ -702,20 +759,10 @@ export default function GlobalChatDock() {
             ]}
             accessibilityLabel="Messagerie Loki plein écran"
           >
-            <MusicAgoraPanel
-              compact
-              compactSide={side}
-              currentProfileId={effectiveProfileId || user?.id || ''}
-              enabled={accountReady || visualTestPreview}
-              shareableTracks={tracks}
-              initialRoomSlug={target?.roomSlug ?? undefined}
-              initialReplyTarget={target?.targetProfileId ? { profileId: target.targetProfileId, username: target.targetUsername || 'utilisateur' } : undefined}
-              initialGroupId={target?.groupId ?? undefined}
-              onOpenProfile={(username) => { closeChat(); setTimeout(() => navigateToSharedProfile(username), 80); }}
-              onCompactClose={closeChat}
-            />
+            {chatPanel(false)}
           </View>
         </Modal>
+        )
       ) : null}
 
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
@@ -795,6 +842,7 @@ export default function GlobalChatDock() {
 
 const styles = StyleSheet.create({
   globalOverlay:{zIndex:1000,elevation:100},
+  chatMini:{position:'absolute',zIndex:95,elevation:40,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'#0B0712',overflow:'hidden',shadowColor:'#000',shadowOpacity:.6,shadowRadius:24,shadowOffset:{width:0,height:-8}},
   chatFullscreen:{flex:1,backgroundColor:'#0B0712'},
   settingsBackdrop:{flex:1,backgroundColor:'rgba(5,4,10,.78)',alignItems:'center',justifyContent:'center',paddingHorizontal:18},
   settingsSheet:{width:'100%',maxWidth:360,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
