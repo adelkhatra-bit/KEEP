@@ -103,6 +103,8 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
+  if (key === 'ADMIN_USER_REPORT') return 'SIGNALEMENT';
+  if (key === 'AGORA_GROUP_INVITE') return 'INVITATION GROUPE';
   if (key === 'CHAT_ACTIVATION_AVAILABLE' || key === 'AGORA_ACTIVATE') return 'ACTIVE TON CHAT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...

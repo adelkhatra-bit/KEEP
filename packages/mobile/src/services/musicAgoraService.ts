@@ -688,9 +688,14 @@ export async function loadMusicAgoraSharedTrack(trackId: string): Promise<Canoni
   } as CanonicalTrack;
 }
 
-export async function reportMusicAgoraMessage(messageId: number, reason: MusicAgoraReportReason): Promise<void> {
+// Les messages de groupe ont leur propre table : un id de groupe envoyé à
+// keep_agora_report_message visait un AUTRE message (La Place / privé).
+// Chaque signalement alerte le Super Admin côté serveur (ADMIN_USER_REPORT).
+export async function reportMusicAgoraMessage(messageId: number, reason: MusicAgoraReportReason, groupId?: string | null): Promise<void> {
   if (!supabase) throw new Error('service_unavailable');
-  const { error } = await supabase.rpc('keep_agora_report_message', { p_message_id: messageId, p_reason: reason });
+  const { error } = groupId
+    ? await supabase.rpc('keep_agora_report_group_message', { p_message_id: messageId, p_reason: reason })
+    : await supabase.rpc('keep_agora_report_message', { p_message_id: messageId, p_reason: reason });
   if (error) throw error;
 }
 

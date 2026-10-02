@@ -1060,11 +1060,16 @@ export default function MusicAgoraPanel({
         {
           text: 'Signaler',
           onPress: () => {
+            // Un signalement alerte le Super Admin (groupe, privé, La Place).
+            // L'erreur n'est plus avalée : l'utilisateur sait si ça n'est pas parti.
+            const send = (reason: 'spam' | 'harassment' | 'inappropriate_content') => void reportMusicAgoraMessage(message.id, reason, activeGroup?.id ?? null)
+              .then(() => Alert.alert('Merci', 'Le message a été signalé à l’équipe Loki.'))
+              .catch(() => Alert.alert('Signalement', 'Impossible d’envoyer le signalement pour le moment. Réessaie dans un instant.'));
             Alert.alert('Signaler', 'Choisis la raison.', [
               { text: 'Annuler', style: 'cancel' },
-              { text: 'Spam', onPress: () => void reportMusicAgoraMessage(message.id, 'spam').then(() => Alert.alert('Merci', 'Le message a été signalé.')).catch(() => {}) },
-              { text: 'Harcèlement', onPress: () => void reportMusicAgoraMessage(message.id, 'harassment').then(() => Alert.alert('Merci', 'Le message a été signalé.')).catch(() => {}) },
-              { text: 'Inapproprié', onPress: () => void reportMusicAgoraMessage(message.id, 'inappropriate_content').then(() => Alert.alert('Merci', 'Le message a été signalé.')).catch(() => {}) },
+              { text: 'Spam', onPress: () => send('spam') },
+              { text: 'Harcèlement', onPress: () => send('harassment') },
+              { text: 'Inapproprié', onPress: () => send('inappropriate_content') },
             ]);
           },
         },

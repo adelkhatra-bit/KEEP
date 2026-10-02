@@ -79,6 +79,13 @@ function certificationLabel(user: DirectoryUser) {
 
 export default function Users() {
   const [query, setQuery] = useState('');
+  // Arrivée depuis Communauté > Signalements (?q=pseudo) : préremplit la
+  // recherche pour sanctionner (ajuster les Free) en un clic.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setQuery(q);
+  }, []);
   const [planFilter, setPlanFilter] = useState<PlanFilter>('ALL');
   const [users, setUsers] = useState<DirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
