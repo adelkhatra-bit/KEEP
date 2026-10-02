@@ -129,6 +129,8 @@ function makeSession() {
  *  - battleArena   : true pour servir une arène Battle EN LIGNE en cours
  *                    (2 joueurs, manche 8/8) ; state.arenaRevealed = true
  *                    révèle la manche SANS gagnant (personne n'a trouvé).
+ *  - soloExhausted : true pour servir « 0 Solo restant » (bouton Recharger)
+ *                    + packs réglés dans le Super Admin (12 Solos · 4 Free).
  *  - newKeepNotif  : true pour servir une notification « nouveau morceau »
  *                    d'un profil suivi, À L'ANCIEN FORMAT (titre/artiste en
  *                    clair dans le texte et data) : l'app doit tout masquer.
@@ -209,6 +211,12 @@ function createFakeSupabase(options = {}) {
           const n = Number(String(body().p_offer_id || '').split('-')[1] || 1);
           return json(200, { totalCount: 12, ownedCount: n % 4, missingCount: n === 2 ? 0 : 12 - (n % 4) });
         }
+        case 'keep_battle_solo_daily_status':
+          if (!opts.soloExhausted) return json(200, null);
+          return json(200, { plan: 'FREE', used: 10, limit: 10, remaining: 0, unlimited: false, resetsAt: new Date(Date.now() + 3600000).toISOString() });
+        case 'keep_battle_solo_packs':
+          if (!opts.soloExhausted) return json(200, null);
+          return json(200, { packs: [{ code: 'SMALL', solos: 12, free: 4 }, { code: 'LARGE', solos: 30, free: 7 }], bonusRemaining: 0, balance: 43 });
         case 'keep_battle_arena_state':
         case 'keep_battle_arena_my_active':
           if (!opts.battleArena) return json(200, null);

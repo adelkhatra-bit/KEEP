@@ -716,6 +716,35 @@ const battleArenaLayoutJourney = {
   },
 };
 
+// Solos épuisés (Adel 02/10/2026) : sous « Recharger mes Solos », le pack et
+// son prix réglés dans le Super Admin + « En savoir plus » clair.
+const soloRechargeJourney = {
+  id: 'battle-recharger-solos',
+  titre: 'Battle — Solos épuisés : « +12 Solos pour 4 Free » + En savoir plus',
+  devices: [ANDROID, MOBILE_SE, PC],
+  mobileFlags: true,
+  fakeOptions: { soloExhausted: true },
+  async run({ page, shot }) {
+    const r = {};
+    await page.goto(`${BASE}/Main/Parties?openBattle=1`, { waitUntil: 'load' });
+    await page.getByText('＋ RECHARGER MES SOLOS').first().waitFor({ timeout: 40000 });
+    await page.getByText('+12 Solos pour 4 Free').first().waitFor({ timeout: 15000 }).catch(() => {});
+    const body = await page.locator('body').innerText();
+    r.prix_sous_bouton = body.includes('+12 Solos pour 4 Free');
+    r.ancienne_phrase = body.includes('attends la recharge');
+    await page.getByText('En savoir plus sur la recharge').first().click();
+    await page.waitForTimeout(400);
+    r.explication = (await page.getByText(/retiré de ton solde de Free/).count()) > 0;
+    await shot('recharger');
+    const checks = [
+      ['sous le bouton : pack et prix du Super Admin (+12 Solos pour 4 Free)', r.prix_sous_bouton],
+      ['plus de « ou attends la recharge de 2 h »', !r.ancienne_phrase],
+      ['« En savoir plus » explique quand les Free sont retirés', r.explication],
+    ];
+    return { details: r, failures: failed(checks), ok: 'prix affiché, explication claire' };
+  },
+};
+
 const JOURNEYS = [
   popupJourney('FREE'),
   popupJourney('MONEY'),
@@ -730,6 +759,7 @@ const JOURNEYS = [
   chatMiniJourney,
   newKeepNotifJourney,
   battleArenaLayoutJourney,
+  soloRechargeJourney,
 ];
 
 // ---------------------------------------------------------------- exécution

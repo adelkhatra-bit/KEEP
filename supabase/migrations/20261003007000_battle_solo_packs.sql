@@ -31,10 +31,10 @@ alter table public.keep_battle_solo_pack_purchases enable row level security;
 revoke all on public.keep_battle_solo_pack_purchases from anon, authenticated;
 
 insert into public.remote_config(key, value, description) values
-  ('battle_solo_pack_small_solos', '10'::jsonb, 'Battle SOLO · petit pack : nombre de Solos'),
-  ('battle_solo_pack_small_free',  '3'::jsonb,  'Battle SOLO · petit pack : prix en Free'),
-  ('battle_solo_pack_large_solos', '25'::jsonb, 'Battle SOLO · grand pack : nombre de Solos'),
-  ('battle_solo_pack_large_free',  '6'::jsonb,  'Battle SOLO · grand pack : prix en Free')
+  ('battle_solo_pack_small_solos', '10'::jsonb, 'Battle SOLO · petit pack : nombre de Solos ajoutés au joueur (affiché sous « Recharger mes Solos »)'),
+  ('battle_solo_pack_small_free',  '3'::jsonb,  'Battle SOLO · petit pack : prix en Free, retiré du solde du joueur quand il confirme l’achat'),
+  ('battle_solo_pack_large_solos', '25'::jsonb, 'Battle SOLO · grand pack : nombre de Solos ajoutés au joueur'),
+  ('battle_solo_pack_large_free',  '6'::jsonb,  'Battle SOLO · grand pack : prix en Free, retiré du solde du joueur quand il confirme l’achat')
 on conflict (key) do nothing;
 
 -- Limite de la formule seule (ancien calcul, inchangé).

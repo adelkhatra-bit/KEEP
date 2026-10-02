@@ -24,7 +24,7 @@ import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKee
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -556,11 +556,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       Alert.alert('Recharger mes Solos', 'Impossible de charger les packs pour le moment. Réessaie dans un instant.');
     }
   }, []);
+  const soloExhausted = Boolean(soloQuotaCopy(soloDailyStatus)?.exhausted);
+  React.useEffect(() => {
+    if (!soloExhausted || soloPacks) return;
+    let live = true;
+    void loadKeepBattleSoloPacks().then((packs) => { if (live && packs) setSoloPacks(packs); }).catch(() => {});
+    return () => { live = false; };
+  }, [soloExhausted, soloPacks]);
   const buySoloPack = (pack: KeepBattleSoloPackOffer) => {
     if (soloPackBusy) return;
     Alert.alert(
       `${pack.solos} Solos`,
-      `Ajouter ${pack.solos} Solos pour ${pack.free} Free ? Ils s’ajoutent à tes Solos du jour et ne se perdent pas.`,
+      `${pack.free} Free seront retirés de ton solde pour ajouter ${pack.solos} Solos. Ils s’ajoutent à tes Solos du jour et restent sur ton compte jusqu’à ce que tu les joues.`,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: `ACHETER · ${pack.free} FREE`, onPress: () => {
@@ -1999,7 +2006,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Recharger mes Solos</Text>
-            <Text style={s.prefsPickerHint}>Tes Solos se rechargent chaque nuit à 2 h. Pour rejouer tout de suite, ajoute un pack : les Solos achetés s’ajoutent et ne se perdent pas.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
+            <Text style={s.prefsPickerHint}>Choisis un pack pour rejouer tout de suite : le prix est retiré de ton solde de Free quand tu confirmes. Les Solos achetés s’ajoutent et ne se perdent pas. Sans rien payer, tes Solos gratuits reviennent chaque nuit à 2 h.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
             {(soloPacks?.packs ?? []).map((pack) => {
               const short = (soloPacks?.balance ?? 0) < pack.free;
               return (
@@ -3101,9 +3108,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 {soloQuotaCopy(soloDailyStatus)?.exhausted ? (
               <TouchableOpacity style={s.soloPackEntry} onPress={() => { void openSoloPacks(); }} accessibilityRole="button" accessibilityLabel="Recharger mes Solos">
                 <Text style={s.soloPackEntryText}>＋ RECHARGER MES SOLOS</Text>
-                <Text style={s.soloPackEntryHint}>ou attends la recharge de 2 h</Text>
+                <Text style={s.soloPackEntryHint}>{soloRechargeCopy(soloPacks?.packs, soloDailyStatus).hint}</Text>
               </TouchableOpacity>
             ) : null}
+            {soloQuotaCopy(soloDailyStatus)?.exhausted ? (() => { const info = soloRechargeCopy(soloPacks?.packs, soloDailyStatus); return <MoreInfoLine icon="ⓘ" short={info.short} full={info.full} />; })() : null}
             {(() => { const rule = soloPlanRuleCopy(soloDailyStatus); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
             <FreeEarnHelp highlight={insufficientForRoundCount(roundCount)} onShare={() => { void shareInvite(); }} onSolo={() => { void startSolo(); }} onOffers={onOpenOffers} />
           </View>

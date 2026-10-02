@@ -200,3 +200,30 @@ export function mascotLine(correct: number, total: number, allTimeouts = false):
   if (ratio >= 0.3) return { mood: 'cheer', text: 'Pas mal ! Écoute bien le début des chansons, tu vas y arriver !' };
   return { mood: 'oops', text: 'Ah zut, c’est dommage ! Un petit manque de concentration ? On réessaie ?' };
 }
+
+// Adel (02/10/2026) : « ou attends la recharge de 2 h, ça ne veut rien dire ».
+// Bouton RECHARGER MES SOLOS : sous le bouton, le contenu exact du pack
+// (réglé dans le Super Admin) ; « En savoir plus » explique le débit.
+// Valeurs par défaut identiques à la migration (10 Solos · 3 Free, 25 · 6).
+export type SoloPackLike = { code: 'SMALL' | 'LARGE'; solos: number; free: number };
+export const DEFAULT_SOLO_PACKS: SoloPackLike[] = [
+  { code: 'SMALL', solos: 10, free: 3 },
+  { code: 'LARGE', solos: 25, free: 6 },
+];
+
+export function soloRechargeCopy(packs: SoloPackLike[] | null | undefined, status: SoloDailyStatusLike | null): { hint: string; short: string; full: string } {
+  const list = packs && packs.length ? packs : DEFAULT_SOLO_PACKS;
+  const small = list.find((p) => p.code === 'SMALL') ?? list[0];
+  const large = list.find((p) => p.code === 'LARGE');
+  const daily = status && !status.unlimited && status.limit ? status.limit : null;
+  const freeWord = (n: number) => `${n} Free`;
+  const offers = [small, large].filter(Boolean).map((p) => `${p!.solos} Solos pour ${freeWord(p!.free)}`).join(', ou ');
+  return {
+    hint: `+${small.solos} Solos pour ${freeWord(small.free)}`,
+    short: 'En savoir plus sur la recharge',
+    full: `Recharger, c'est acheter des Solos tout de suite avec tes Free : ${offers}. `
+      + `Le prix est retiré de ton solde de Free au moment où tu confirmes l'achat, jamais avant. `
+      + `Les Solos achetés s'ajoutent à ceux du jour et restent sur ton compte jusqu'à ce que tu les joues. `
+      + `Tu ne veux rien payer ? ${daily ? `Tes ${daily} Solos gratuits reviennent` : 'Tes Solos gratuits reviennent'} automatiquement chaque nuit à 2 h (heure de Paris).`,
+  };
+}
