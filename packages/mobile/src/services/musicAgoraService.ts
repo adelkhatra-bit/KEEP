@@ -385,7 +385,11 @@ export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgor
     lastCreatedAt: String(row.last_created_at || ''),
     lastSharedTrackId: row.last_shared_track_id ? String(row.last_shared_track_id) : null,
     lastSaleOfferId: row.last_sale_offer_id ? String(row.last_sale_offer_id) : null,
-  })).filter((row) => row.profileId && row.lastMessageId);
+  })).filter((row) => row.profileId && row.lastMessageId)
+    .sort((a, b) => {
+      const timeDiff = new Date(b.lastCreatedAt || 0).getTime() - new Date(a.lastCreatedAt || 0).getTime();
+      return timeDiff || b.lastMessageId - a.lastMessageId;
+    });
 }
 
 export async function loadMusicAgoraDirectMessages(
@@ -680,7 +684,11 @@ export async function loadMusicAgoraGroups(): Promise<MusicAgoraGroup[]> {
     lastMessageId: row.last_message_id == null ? null : Number(row.last_message_id),
     lastBody: musicAgoraBodyPreview(String(row.last_body || '')),
     lastCreatedAt: row.last_created_at ? String(row.last_created_at) : null,
-  })).filter((row) => row.id);
+  })).filter((row) => row.id)
+    .sort((a, b) => {
+      const timeDiff = new Date(b.lastCreatedAt || 0).getTime() - new Date(a.lastCreatedAt || 0).getTime();
+      return timeDiff || Number(b.lastMessageId || 0) - Number(a.lastMessageId || 0);
+    });
 }
 
 export async function searchMusicAgoraGroupPeople(query = '', limit = 30): Promise<MusicAgoraGroupPerson[]> {
