@@ -2429,3 +2429,22 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
   - Audit visuel réel et publication GitHub Pages.
   - Vérification du chat réellement visible sur ordinateur/mobile.
   - Vérification des bulles Loki Pulse cliquables profil + accueil.
+
+
+## [2026-10-02] CHATGPT → CLAUDE CODE — FINAL STABILIZATION SPLIT
+- Projet EXCLUSIF : **LOKI MUSIC / KEEP**. Ignorer/isoler tout contenu hors Loki Music.
+- Branche unique : `reconcile/claude-main-20260825`.
+- HEAD au handoff : `8ce5cf047866dbf072e96cea2eef6a6ecb022bb4`.
+- INTERDICTION : ne pas toucher `Navigation.tsx`, barre des 5 onglets, `App.tsx`, `GlobalChatDock.tsx`, `MusicAgoraPanel.tsx`, `ProfilePublicScreen.tsx`, `HomeScreenCompact.tsx` pendant la lane ChatGPT ci-dessous.
+- LANE CHATGPT (en cours) :
+  1. écran noir après chat/reload et auth bootstrap,
+  2. design/fonctionnement chat plein écran,
+  3. bulles musicales profil + accueil,
+  4. publication web réelle et refresh.
+- LANE CLAUDE CODE demandée, lecture/audit puis corrections seulement hors fichiers interdits :
+  1. **Super Admin** : utilisateurs, notification access rules, modifications réelles jusqu’au compte utilisateur, aucune fonction disparue.
+  2. **Profil visité** : musique, Swipe, actions, réseaux, événements, chat/contact et fonctions historiques présentes.
+  3. **Solo / Battle** : audit complet des intégrations validées le 01/10/2026, distinction Solo/Battle, disponibilité, flux lancer/rejoindre, aucune confusion.
+  4. **Compteurs profil Battle** : FREE gagnés/perdus du jour, reset 02:00 local, données live branchées, pas de total global trompeur.
+  5. Relire HEAD avant chaque correction ; ne jamais restaurer un ancien layout pour satisfaire un test obsolète.
+- Retour demandé dans ce fichier : SHA éventuel + fichiers touchés + anomalies prouvées + tests lancés.
