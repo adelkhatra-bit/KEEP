@@ -30,6 +30,7 @@ export default function PayoutCheckoutSheet({
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
   const [proof, setProof] = useState<PlaylistPaymentProof | null>(null);
+  const [qrFullscreen, setQrFullscreen] = useState(false);
   const [error, setError] = useState('');
   const link = String(payoutLink || '').trim();
   const qr = String(payoutQrUrl || '').trim();
@@ -38,6 +39,7 @@ export default function PayoutCheckoutSheet({
   useEffect(() => {
     let live = true;
     setError('');
+    if (!visible) setQrFullscreen(false);
     if (!visible || !paymentId) {
       setProof(null);
       return () => { live = false; };
@@ -93,6 +95,7 @@ export default function PayoutCheckoutSheet({
   };
 
   return (
+    <>
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
@@ -118,7 +121,10 @@ export default function PayoutCheckoutSheet({
             {qr ? (
               <View style={s.qrBox}>
                 <Text style={s.qrTitle}>QR PAYPAL DU VENDEUR</Text>
-                <Image source={{ uri: qr }} style={s.qr} resizeMode="contain" />
+                <TouchableOpacity onPress={() => setQrFullscreen(true)} accessibilityRole="button" accessibilityLabel="Agrandir le QR PayPal en plein écran">
+                  <Image source={{ uri: qr }} style={s.qr} resizeMode="contain" />
+                </TouchableOpacity>
+                <Text style={s.qrTap}>TOUCHER LE QR POUR L’AGRANDIR</Text>
                 <Text style={s.qrHint}>Scanne ce QR avec PayPal ou depuis un autre appareil. Après le paiement, reviens ici et joins ta capture de confirmation.</Text>
               </View>
             ) : null}
@@ -153,6 +159,20 @@ export default function PayoutCheckoutSheet({
         </View>
       </View>
     </Modal>
+    <Modal visible={qrFullscreen && Boolean(qr)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
+      <View style={s.qrFullscreenBackdrop}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrFullscreen(false)} />
+        <View style={s.qrFullscreenCard}>
+          <TouchableOpacity style={s.qrFullscreenBack} onPress={() => setQrFullscreen(false)} accessibilityRole="button" accessibilityLabel="Retour au paiement">
+            <Text style={s.qrFullscreenBackText}>‹ RETOUR</Text>
+          </TouchableOpacity>
+          <Text style={s.qrFullscreenTitle}>QR PAYPAL</Text>
+          <Image source={{ uri: qr }} style={s.qrFullscreenImage} resizeMode="contain" />
+          <Text style={s.qrFullscreenHint}>Capture l’écran ou scanne ce QR. Aucun titre de musique n’est affiché ici.</Text>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -172,7 +192,15 @@ const s = StyleSheet.create({
   qrBox:{marginTop:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:12,alignItems:'center'},
   qrTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},
   qr:{width:190,height:190,marginTop:9,borderRadius:14,backgroundColor:'#FFF'},
+  qrTap:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.7,marginTop:7},
   qrHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,textAlign:'center',marginTop:8},
+  qrFullscreenBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,.96)',alignItems:'center',justifyContent:'center',padding:18},
+  qrFullscreenCard:{width:'100%',maxWidth:430,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},
+  qrFullscreenBack:{alignSelf:'flex-start',minHeight:42,justifyContent:'center',paddingHorizontal:4},
+  qrFullscreenBackText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
+  qrFullscreenTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:4},
+  qrFullscreenImage:{width:'100%',maxWidth:360,aspectRatio:1,marginTop:12,borderRadius:18,backgroundColor:'#FFF'},
+  qrFullscreenHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,textAlign:'center',marginTop:10},
   proofBox:{marginTop:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:12},
   proofEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},
   proofHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:5},

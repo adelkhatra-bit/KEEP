@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { clearMyPayoutQrUrl, pickAndUploadPayoutQr } from '../services/payoutLinkService';
 import { colors } from '../theme/colors';
@@ -13,6 +13,7 @@ type Props = {
 
 export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disabled = false }: Props) {
   const [busy, setBusy] = useState(false);
+  const [qrFullscreen, setQrFullscreen] = useState(false);
 
   const choose = async () => {
     if (busy || disabled) return;
@@ -49,13 +50,16 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.eyebrow}>QR PAYPAL · OPTIONNEL</Text>
           <Text style={s.title}>Ajoute ton QR en secours</Text>
-          <Text style={s.hint}>Le lien PayPal.Me reste recommandé sur le même téléphone. Le QR sert de solution visuelle complémentaire.</Text>
+          <Text style={s.hint}>Le lien PayPal.Me reste recommandé sur le même téléphone. À l’ajout du QR, tu peux le recadrer pour ne garder que le carré utile.</Text>
         </View>
         {busy ? <ActivityIndicator color={colors.primaryLight} /> : null}
       </View>
       {qrUrl ? (
         <View style={s.previewRow}>
-          <Image source={{ uri: qrUrl }} style={s.qr} resizeMode="contain" />
+          <TouchableOpacity onPress={() => setQrFullscreen(true)} accessibilityRole="button" accessibilityLabel="Agrandir mon QR PayPal">
+            <Image source={{ uri: qrUrl }} style={s.qr} resizeMode="contain" />
+            <Text style={s.qrTap}>AGRANDIR</Text>
+          </TouchableOpacity>
           <View style={s.actions}>
             <TouchableOpacity style={s.primary} disabled={busy || disabled} onPress={() => void choose()}>
               <Text style={s.primaryText}>REMPLACER LE QR</Text>
@@ -70,6 +74,15 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
           <Text style={s.primaryText}>AJOUTER UNE IMAGE DE MON QR PAYPAL</Text>
         </TouchableOpacity>
       )}
+      <Modal visible={qrFullscreen && Boolean(qrUrl)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
+        <View style={s.qrFullscreenBackdrop}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrFullscreen(false)} />
+          <View style={s.qrFullscreenCard}>
+            <TouchableOpacity style={s.qrFullscreenBack} onPress={() => setQrFullscreen(false)} accessibilityLabel="Retour au réglage QR"><Text style={s.qrFullscreenBackText}>‹ RETOUR</Text></TouchableOpacity>
+            <Image source={{ uri: qrUrl }} style={s.qrFullscreenImage} resizeMode="contain" />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -82,6 +95,12 @@ const s = StyleSheet.create({
   hint:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14,marginTop:4},
   previewRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},
   qr:{width:88,height:88,borderRadius:12,backgroundColor:'#FFF'},
+  qrTap:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textAlign:'center',marginTop:4},
+  qrFullscreenBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,.96)',alignItems:'center',justifyContent:'center',padding:18},
+  qrFullscreenCard:{width:'100%',maxWidth:430,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},
+  qrFullscreenBack:{alignSelf:'flex-start',minHeight:42,justifyContent:'center'},
+  qrFullscreenBackText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
+  qrFullscreenImage:{width:'100%',maxWidth:360,aspectRatio:1,marginTop:8,borderRadius:18,backgroundColor:'#FFF'},
   actions:{flex:1,gap:7},
   primary:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10,marginTop:10},
   primaryText:{color:'#FFF',fontSize:9,fontWeight:'900',textAlign:'center'},

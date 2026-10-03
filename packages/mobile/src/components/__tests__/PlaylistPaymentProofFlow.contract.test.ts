@@ -35,6 +35,9 @@ describe('Playlist payment proof and delivery contract', () => {
     expect(publicProfile).toContain('paymentId={payoutCheckout.paymentId}');
     expect(publicProfile).toContain('markPlaylistSaleBuyerPaid(payoutCheckout.paymentId)');
     expect(notifications).toContain("paymentId={paymentCheckoutItem ? (paymentIdOf(paymentCheckoutItem) ?? '') : ''}");
+    expect(checkout).toContain('Agrandir le QR PayPal en plein écran');
+    expect(checkout).toContain('TOUCHER LE QR POUR L’AGRANDIR');
+    expect(checkout).toContain('qrFullscreenImage');
   });
 
   it('requires the seller to verify PayPal before delivery and exposes the proof', () => {
