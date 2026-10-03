@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
-import { loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
+import { acceptMarketplacePaymentTerms, loadMusicAgoraSettings, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, type MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore, type GlobalChatTarget } from '../store/useGlobalChatStore';
 import { useUserStore } from '../store/useUserStore';
 import { loadCurrentPlanCode } from '../services/planService';
@@ -18,7 +18,10 @@ import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { isNewKeepNotification } from '../services/newKeepNotification';
 import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { supabase } from '../services/supabaseClient';
-import { loadPlaylistSalePaymentGuardStatus } from '../services/playlistSaleService';
+import { loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid, reportPlaylistSalePaymentProblem } from '../services/playlistSaleService';
+import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
+import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
+import PayoutCheckoutSheet from './PayoutCheckoutSheet';
 
 type Props = {
   visible: boolean;
@@ -136,7 +139,9 @@ function activityActionLabel(item: KeepNotification): string {
   if (type.includes('BATTLE')) return 'OUVRIR BATTLE';
   if (type.startsWith('EVENT_')) return 'VOIR L’ÉVÉNEMENT';
   if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
-  if (type.includes('PAYMENT')) return 'OUVRIR LE PAIEMENT';
+  if (type === 'PLAYLIST_SALE_PAYMENT_READY') return 'PAYER · QR / PREUVE';
+  if (type === 'PLAYLIST_SALE_BUYER_PAID' || type === 'PLAYLIST_SALE_PAYMENT_REMINDER') return 'VALIDER LE PAIEMENT';
+  if (type === 'PLAYLIST_SALE_WAITING_SELLER') return 'SUIVRE LE PAIEMENT';
   if (type.startsWith('PLAYLIST_SALE_')) return 'OUVRIR LA PÉPITE';
   const profileUsername = activityProfileUsername(item);
   if (profileUsername) return `VOIR @${profileUsername}`;
@@ -155,6 +160,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [followingProfileIds, setFollowingProfileIds] = useState<Set<string>>(new Set());
   const [followBusyProfileId, setFollowBusyProfileId] = useState<string | null>(null);
   const [lockedPopup, setLockedPopup] = useState<{ plan: string } | null>(null);
+  const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
+  const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
   const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
   const [accessRules, setAccessRules] = useState<NotificationAccessRule[]>([]);
@@ -469,6 +476,138 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     }
   };
 
+  const isBuyerPaymentReady = (item: KeepNotification) =>
+    String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
+
+  const isSellerPaymentAction = (item: KeepNotification) =>
+    ['PLAYLIST_SALE_BUYER_PAID', 'PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase())
+    && Boolean(paymentIdOf(item));
+
+  const isBuyerWaitingSeller = (item: KeepNotification) =>
+    String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_WAITING_SELLER' && Boolean(paymentIdOf(item));
+
+  const openPaymentCheckout = async (item: KeepNotification) => {
+    await markRead(item);
+    setPaymentCheckoutItem(item);
+    setExpandedId(item.id);
+  };
+
+  const signalPaymentSent = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    setPaymentBusyId(paymentId);
+    try {
+      await markPlaylistSaleBuyerPaid(paymentId);
+      await markRead(item);
+      setPaymentCheckoutItem(null);
+      Alert.alert('Paiement envoyé', 'Ta preuve a été transmise au vendeur. Il doit maintenant vérifier son compte PayPal puis valider la réception.');
+      await refresh();
+    } catch (error: any) {
+      const raw = String(error?.message || error || '');
+      Alert.alert('Paiement', raw.includes('PAYMENT_PROOF_REQUIRED')
+        ? 'Ajoute d’abord une capture ou un PDF comme preuve de paiement.'
+        : 'Impossible de signaler le paiement pour le moment.');
+    } finally {
+      setPaymentBusyId(null);
+    }
+  };
+
+  const openPaymentHistory = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId) return;
+    const data = item.data ?? {};
+    await markRead(item);
+    close();
+    if (navigationRef.isReady()) {
+      (navigationRef.navigate as any)('PlaylistSale', {
+        manageSaleOfferId: String(data.offerId ?? data.offer_id ?? '') || undefined,
+        manageSaleOfferName: String(data.playlistName ?? data.playlist_name ?? '') || undefined,
+        focusPaymentId: paymentId,
+        openPaymentHistory: true,
+        source: 'NOTIFICATION_PANEL_PAYMENT',
+      });
+    }
+  };
+
+  const openPaymentProof = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId) return;
+    try {
+      const url = await openPlaylistPaymentProof(paymentId);
+      await Linking.openURL(url);
+      await markRead(item);
+    } catch (error: any) {
+      Alert.alert('Preuve de paiement', error?.message || 'Impossible d’ouvrir la preuve pour le moment.');
+    }
+  };
+
+  const confirmPaymentReceived = (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    const data = item.data ?? {};
+    const amountCents = Number(data.amountCents ?? data.amount_cents ?? 0);
+    const currency = String(data.currencyCode ?? data.currency_code ?? 'EUR').toUpperCase();
+    const amount = amountCents > 0 ? `${(amountCents / 100).toFixed(2).replace('.', ',')} ${currency}` : 'le montant attendu';
+    Alert.alert(
+      'Validation irréversible',
+      `Vérifie TON compte PayPal et la preuve. Confirme uniquement si ${amount} sont réellement reçus. Le déblocage est immédiat. Une fausse validation peut entraîner avertissement, retrait de Free, suspension ou bannissement selon le règlement Loki Music.`,
+      [
+        { text: 'RETOUR', style: 'cancel' },
+        {
+          text: 'J’ACCEPTE · VALIDER',
+          onPress: () => {
+            setPaymentBusyId(paymentId);
+            void acceptMarketplacePaymentTerms('seller_payment_confirmation')
+              .then(() => markPlaylistSalePaid(paymentId))
+              .then(async (delivered) => {
+                await syncMarketplaceDelivery(paymentId).catch(() => null);
+                await markRead(item);
+                Alert.alert('Paiement validé', `${delivered.trackCount} morceau${delivered.trackCount > 1 ? 'x' : ''} débloqué${delivered.trackCount > 1 ? 's' : ''} pour l’acheteur.`);
+                await refresh();
+              })
+              .catch((error: any) => {
+                const raw = String(error?.message || error || '');
+                Alert.alert('Paiement', raw.includes('PAYMENT_PROOF_REQUIRED') || raw.includes('BUYER_HAS_NOT_MARKED_PAID')
+                  ? 'L’acheteur doit avoir signalé le paiement et joint une preuve.'
+                  : 'Impossible de valider ce paiement pour le moment.');
+              })
+              .finally(() => setPaymentBusyId(null));
+          },
+        },
+      ],
+    );
+  };
+
+  const reportPaymentProblem = (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    Alert.alert(
+      'Signaler une non-réponse ?',
+      'La transaction et sa référence seront transmises au Super Admin. Les sanctions éventuelles sont décidées après vérification.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        {
+          text: 'ENVOYER LA RÉCLAMATION',
+          onPress: () => {
+            setPaymentBusyId(paymentId);
+            void reportPlaylistSalePaymentProblem(paymentId, 'Absence de réponse ou de validation sur une transaction Loki Music.')
+              .then(() => Alert.alert('Réclamation envoyée', 'Le Super Admin a reçu la référence de cette transaction.'))
+              .catch((error: any) => {
+                const raw = String(error?.message || error || '');
+                Alert.alert('Réclamation',
+                  raw.includes('PAYMENT_REPORT_TOO_EARLY')
+                    ? 'La réclamation devient disponible après 4 h sans réponse.'
+                    : raw.includes('PAYMENT_NOT_REPORTED_YET')
+                      ? 'Le paiement doit d’abord être signalé avec une preuve.'
+                      : 'Impossible d’envoyer la réclamation pour le moment.');
+              })
+              .finally(() => setPaymentBusyId(null));
+          },
+        },
+      ],
+    );
+  };
+
   const openActivityNotification = async (item: KeepNotification) => {
     const type = String(item.type || '').toUpperCase();
     const data = item.data ?? {};
@@ -479,6 +618,15 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     const eventId = String(data.eventId ?? data.event_id ?? '').trim();
     const offerId = String(data.offerId ?? data.offer_id ?? '').trim();
     const playlistId = String(data.playlistId ?? data.playlist_id ?? '').trim();
+
+    if (isBuyerPaymentReady(item)) {
+      await openPaymentCheckout(item);
+      return;
+    }
+    if (isSellerPaymentAction(item) || isBuyerWaitingSeller(item)) {
+      setExpandedId(item.id);
+      return;
+    }
 
     onClose();
     if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') {
@@ -500,10 +648,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     }
     if (eventId) {
       navigateToEvent(eventId);
-      return;
-    }
-    if (type.includes('PAYMENT')) {
-      if (navigationRef.isReady()) (navigationRef.navigate as any)('Notifications');
       return;
     }
     if (type === 'PLAYLIST_SALE_DELIVERED' && playlistId) {
@@ -849,6 +993,59 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                           onOpenProfile={() => { void openActivityProfile(item); }}
                         />
                       </View>
+                    ) : !locked && isBuyerPaymentReady(item) ? (
+                      <View style={s.paymentActionRow}>
+                        <TouchableOpacity
+                          style={[s.paymentActionButton, s.paymentActionPrimary]}
+                          disabled={paymentBusyId === paymentIdOf(item)}
+                          onPress={() => { void openPaymentCheckout(item); }}
+                          accessibilityRole="button"
+                          accessibilityLabel="Payer avec le QR et joindre la preuve"
+                        >
+                          <Text style={s.paymentActionPrimaryText}>PAYER · QR / PREUVE</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : !locked && isSellerPaymentAction(item) ? (
+                      <>
+                        <View style={s.paymentActionRow}>
+                          <TouchableOpacity
+                            style={[s.paymentActionButton, s.paymentActionSecondary]}
+                            disabled={paymentBusyId === paymentIdOf(item)}
+                            onPress={() => { void openPaymentHistory(item); }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Voir l’historique de la transaction"
+                          >
+                            <Text style={s.paymentActionSecondaryText}>HISTORIQUE</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[s.paymentActionButton, s.paymentActionSecondary]}
+                            disabled={paymentBusyId === paymentIdOf(item)}
+                            onPress={() => { void openPaymentProof(item); }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Voir la preuve de paiement"
+                          >
+                            <Text style={s.paymentActionSecondaryText}>VOIR LA PREUVE</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          style={s.paymentValidateButton}
+                          disabled={paymentBusyId === paymentIdOf(item)}
+                          onPress={() => confirmPaymentReceived(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Valider le paiement réellement reçu"
+                        >
+                          <Text style={s.paymentValidateText}>{paymentBusyId === paymentIdOf(item) ? 'VALIDATION…' : 'VALIDER LE PAIEMENT'}</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : !locked && isBuyerWaitingSeller(item) ? (
+                      <View style={s.paymentActionRow}>
+                        <TouchableOpacity style={[s.paymentActionButton, s.paymentActionSecondary]} onPress={() => { void openPaymentHistory(item); }}>
+                          <Text style={s.paymentActionSecondaryText}>HISTORIQUE</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[s.paymentActionButton, s.paymentActionDanger]} disabled={paymentBusyId === paymentIdOf(item)} onPress={() => reportPaymentProblem(item)}>
+                          <Text style={s.paymentActionDangerText}>AUCUNE RÉPONSE</Text>
+                        </TouchableOpacity>
+                      </View>
                     ) : !locked ? (
                       <TouchableOpacity
                         style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]}
@@ -864,6 +1061,18 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               })}
             </ScrollView>
           )}
+
+          <PayoutCheckoutSheet
+            visible={Boolean(paymentCheckoutItem)}
+            paymentId={paymentCheckoutItem ? (paymentIdOf(paymentCheckoutItem) ?? '') : ''}
+            sellerUsername={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.sellerUsername ?? (paymentCheckoutItem.data as any)?.seller_username ?? '') : ''}
+            amountCents={paymentCheckoutItem ? Number((paymentCheckoutItem.data as any)?.amountCents ?? (paymentCheckoutItem.data as any)?.amount_cents ?? 0) : 0}
+            currencyCode={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.currencyCode ?? (paymentCheckoutItem.data as any)?.currency_code ?? 'EUR') : 'EUR'}
+            payoutLink={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutLink ?? (paymentCheckoutItem.data as any)?.payout_link ?? '') : ''}
+            payoutQrUrl={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutQrUrl ?? (paymentCheckoutItem.data as any)?.payout_qr_url ?? '') : ''}
+            onClose={() => setPaymentCheckoutItem(null)}
+            onPaid={paymentCheckoutItem ? async () => { await signalPaymentSent(paymentCheckoutItem); } : undefined}
+          />
 
           {lockedPopup ? (
             <View style={s.lockedOverlay}>
@@ -985,6 +1194,16 @@ const s = StyleSheet.create({
   inlineAction:{paddingHorizontal:12,paddingBottom:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
   notificationActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
+  paymentActionRow:{flexDirection:'row',gap:7,marginTop:8,marginHorizontal:12,marginBottom:4},
+  paymentActionButton:{flex:1,minHeight:40,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center',paddingHorizontal:7},
+  paymentActionPrimary:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
+  paymentActionSecondary:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
+  paymentActionDanger:{borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)'},
+  paymentActionPrimaryText:{color:colors.keep,fontSize:9,fontWeight:'900',textAlign:'center'},
+  paymentActionSecondaryText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',textAlign:'center'},
+  paymentActionDangerText:{color:colors.danger,fontSize:9,fontWeight:'900',textAlign:'center'},
+  paymentValidateButton:{minHeight:42,borderRadius:14,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center',marginHorizontal:12,marginTop:4,marginBottom:10},
+  paymentValidateText:{color:colors.background,fontSize:9.5,fontWeight:'900',letterSpacing:.4},
   lockedOverlay:{...StyleSheet.absoluteFillObject,zIndex:60,elevation:60,backgroundColor:'rgba(4,2,9,.72)',alignItems:'center',justifyContent:'center',padding:18},
   lockedPopupCard:{width:'100%',maxWidth:330,borderRadius:24,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:18,alignItems:'center',shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10}},
   lockedPopupIcon:{width:54,height:54,borderRadius:27,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
