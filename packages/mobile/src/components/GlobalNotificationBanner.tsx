@@ -8,6 +8,7 @@ import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleA
 import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
+import { speakLokiText } from '../services/lokiSpeechService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -289,7 +290,20 @@ export default function GlobalNotificationBanner() {
           }
         : notification;
       setCurrent(presentedNotification);
-      void playNotificationCue(isPaymentNotification(notification) ? 'MONEY' : 'DEFAULT');
+      if (isBuyerPaidNotification(notification)) {
+        // Message vocal court, sans montant ni identité : pas de donnée privée
+        // lue à haute voix, uniquement l'action attendue du vendeur.
+        void speakLokiText('Félicitations. Tu as un paiement à vérifier.', {
+          language: 'fr-FR',
+          rate: 0.96,
+          pitch: 1,
+        }).catch(() => {});
+      }
+      // Le Tchat possède son bip dédié dans GlobalChatDock : ne jamais jouer
+      // deux sons pour le même message entrant.
+      if (!isAgoraNotification(notification)) {
+        void playNotificationCue(isPaymentNotification(notification) ? 'MONEY' : 'DEFAULT');
+      }
 
       requestAnimationFrame(() => {
         Animated.parallel([
