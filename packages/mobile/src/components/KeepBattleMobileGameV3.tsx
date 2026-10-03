@@ -3047,7 +3047,27 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                   part après un refus, seul un × ou ‹ séparé s'en sortait. Un
                   refus est déjà une sortie explicite : on quitte directement
                   vers l'accueil Battle, pas besoin d'un second geste. */}
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false).then(() => { void stopTrackPreview(); setArena(null); }).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={rematchResponding} style={[s.no, rematchResponding && s.actionDisabled]} onPress={() => {
+                  if (rematchResponding) return;
+                  Alert.alert(
+                    'Refuser la revanche ?',
+                    'Confirme uniquement si tu veux réellement refuser cette revanche.',
+                    [
+                      { text: 'ANNULER', style: 'cancel' },
+                      {
+                        text: 'REFUSER',
+                        style: 'destructive',
+                        onPress: () => {
+                          setRematchResponding(true);
+                          void respondKeepBattleArenaRematch(arena.id, false)
+                            .then(() => { void stopTrackPreview(); setArena(null); })
+                            .catch(() => {})
+                            .finally(() => setRematchResponding(false));
+                        },
+                      },
+                    ],
+                  );
+                }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={rematchResponding} style={[s.yes, rematchResponding && s.actionDisabled]} onPress={() => { unlockWebAudioForGesture(); setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, true).then(setArena).catch(() => {}).finally(() => setRematchResponding(false)); }}><Text style={s.yesText}>{rematchResponding ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity>
               </View>
             </Animated.View>
