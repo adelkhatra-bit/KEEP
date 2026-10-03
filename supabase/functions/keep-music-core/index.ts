@@ -448,13 +448,28 @@ async function recordDecision(req: Request) {
     // à cause de l'index unique du ledger FREE.
     const sourceKey = `${sourceLabel}:${trackId}`;
 
-    const { data: committed, error: commitError } = await scoped.rpc("keep_commit_paid_decision", {
-      p_track_id: trackId,
-      p_visibility: visibility,
-      p_context: context,
-      p_source_profile_id: socialSource,
-      p_source_key: sourceKey,
-    });
+    const followNotificationId = validUuid((context as any)?.notificationId);
+    const socialNotificationFree = Boolean(
+      socialSource
+      && followNotificationId
+      && String((context as any)?.source || '') === 'follow_notification'
+      && String((context as any)?.creditPolicy || '') === 'SOCIAL_ZERO_CREDIT'
+    );
+
+    const { data: committed, error: commitError } = socialNotificationFree
+      ? await scoped.rpc("keep_commit_follow_notification_decision", {
+          p_notification_id: followNotificationId,
+          p_track_id: trackId,
+          p_visibility: visibility,
+          p_context: context,
+        })
+      : await scoped.rpc("keep_commit_paid_decision", {
+          p_track_id: trackId,
+          p_visibility: visibility,
+          p_context: context,
+          p_source_profile_id: socialSource,
+          p_source_key: sourceKey,
+        });
 
     if (commitError) {
       const message = String(commitError.message || "");
