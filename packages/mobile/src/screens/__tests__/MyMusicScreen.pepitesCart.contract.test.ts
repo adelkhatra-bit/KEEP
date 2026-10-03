@@ -8,7 +8,7 @@ const read = (...segments: string[]) =>
 describe('Pépites inline cart contract', () => {
   const salePanel = read(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx');
   const service = read(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
-  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001220000_playlist_sale_confirmed_duplicate_tracks.sql');
+  const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261003041000_unique_active_music_recording_per_profile.sql');
   const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
   it('does not redirect collection creation to Playlists/MyMusic', () => {
@@ -18,18 +18,18 @@ describe('Pépites inline cart contract', () => {
     expect(contract.pepitesCart.returnAfterPublish).toBe('stay-PlaylistSale');
   });
 
-  it('warns and requires explicit confirmation for an already-selling track', () => {
-    expect(salePanel).toContain('Cette musique est déjà en vente');
-    expect(salePanel).toContain('AJOUTER QUAND MÊME');
+  it('blocks an already-selling track instead of confirming a duplicate', () => {
+    expect(salePanel).toContain('Cette musique est déjà dans une collection active');
+    expect(salePanel).not.toContain('AJOUTER QUAND MÊME');
+    expect(salePanel).toContain('Doublon interdit');
     expect(salePanel).toContain('collectionCartDuplicateCount > 0');
   });
 
-  it('server keeps the old offer intact when the confirmed duplicate is published', () => {
+  it('server enforces one active commercial occurrence per recording', () => {
     expect(service).toContain("keep_playlist_sale_set_offer_for_selection_v5");
-    expect(service).toContain('p_allow_existing: allowExisting');
-    expect(migration).toContain('and not p_allow_existing');
-    expect(migration).not.toContain('delete from public.playlist_sale_offer_tracks');
-    expect(migration).toContain("'reusedTrackCount',cardinality(conflict_track_ids)");
+    expect(migration).toContain('keep_tracks_same_recording');
+    expect(migration).toContain('TRACK_ALREADY_IN_ACTIVE_OFFER');
+    expect(migration).toContain('trg_playlist_sale_unique_active_recording');
   });
 
   it('cart selection is local until publish', () => {
