@@ -771,12 +771,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (soloInProgress) {
       useGameSessionStore.getState().setGameInProgress(true, 'SOLO', soloQuitNotice(soloDailyStatus));
     } else if (onlineInProgress) {
-      useGameSessionStore.getState().setGameInProgress(true, 'EN_LIGNE', 'Tu es engagé dans ce Battle. Pour sortir, utilise QUITTER LE BATTLE.');
+      useGameSessionStore.getState().setGameInProgress(true, 'EN_LIGNE', 'Tu es engagé dans ce Battle. Pour sortir, utilise QUITTER LE BATTLE.', arena?.id);
     } else {
       useGameSessionStore.getState().clearGameSession();
     }
   }, [onlineInProgress, soloInProgress, soloDailyStatus]);
-  React.useEffect(() => () => useGameSessionStore.getState().clearGameSession(), []);
+  // Ne pas oublier un Battle EN LIGNE lors d'un démontage accidentel
+  // (changement d'onglet, retour système, reprise après background). Le siège
+  // reste ACTIVE côté serveur : garder l'identité de l'arène permet au shell
+  // global de remettre immédiatement le joueur dans le Battle. Le Solo garde
+  // l'ancien nettoyage local.
+  React.useEffect(() => () => {
+    const game = useGameSessionStore.getState();
+    if (game.gameMode !== 'EN_LIGNE') game.clearGameSession();
+  }, []);
   const quitRequest = useGameSessionStore((st) => st.quitRequest);
   const handledQuitRequest = React.useRef(quitRequest);
   React.useEffect(() => {
