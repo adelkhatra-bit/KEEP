@@ -18,8 +18,8 @@ function priceLabel(suggestion: ProfileSaleSuggestion): string {
   return `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`;
 }
 
-const DROP_MARKETING_HOOKS = [
-  'Ton prochain coup de cœur peut être dans ce drop.',
+const BOUTIQUE_MARKETING_HOOKS = [
+  'Ton prochain coup de cœur peut être dans cette boutique.',
   'Écoute l’aperçu, garde seulement ce qui te ressemble.',
   'Une sélection pensée pour te faire découvrir autre chose.',
   'Quelques titres, une ambiance, peut-être ta prochaine pépite.',
@@ -97,8 +97,8 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const genre = suggestion.genres?.[0] || 'Mix';
   const viewerName = String(viewerUsername || '').trim().replace(/^@+/, '');
   const marketingHook = viewerName
-    ? `${viewerName}, ${DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length].replace(/^./, (char) => char.toLowerCase())}`
-    : DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length];
+    ? `${viewerName}, ${BOUTIQUE_MARKETING_HOOKS[index % BOUTIQUE_MARKETING_HOOKS.length].replace(/^./, (char) => char.toLowerCase())}`
+    : BOUTIQUE_MARKETING_HOOKS[index % BOUTIQUE_MARKETING_HOOKS.length];
   const overlapLabel = suggestion.missingCount <= 0
     ? `Tu as déjà les ${suggestion.trackCount} titres`
     : suggestion.ownedCount > 0
@@ -108,9 +108,9 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const show = () => { setVisible(true); void AsyncStorage.setItem(storageKey, 'visible'); };
 
   if (!visible) {
-    return <TouchableOpacity style={s.reopen} onPress={show} accessibilityRole="button" accessibilityLabel="Afficher les Pépites recommandées pour toi">
+    return <TouchableOpacity style={s.reopen} onPress={show} accessibilityRole="button" accessibilityLabel="Afficher la Boutique musicale recommandée pour toi">
       <Text style={s.reopenIcon}>◆</Text>
-      <View style={s.reopenCopy}><Text style={s.reopenTitle}>PÉPITES POUR TOI</Text><Text style={s.reopenMeta}>Des collections d’autres utilisateurs recommandées selon ton univers</Text></View>
+      <View style={s.reopenCopy}><Text style={s.reopenTitle}>BOUTIQUE MUSICALE</Text><Text style={s.reopenMeta}>Profils suivis ou déjà aimés · sélection selon tes goûts</Text></View>
       <Text style={s.reopenArrow}>›</Text>
     </TouchableOpacity>;
   }
@@ -123,7 +123,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
       style={s.heroTouch}
       onPress={() => onSuggestionPress(suggestion)}
       accessibilityRole="button"
-      accessibilityLabel={`Écouter pendant 15 secondes le drop de ${suggestion.sellerUsername}`}
+      accessibilityLabel={`Ouvrir la Boutique musicale de ${suggestion.sellerUsername} et écouter un aperçu`}
     >
       <View style={s.hero}>
         <Animated.View
@@ -138,7 +138,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         />
 
         <View style={s.playerTop}>
-          <View style={s.liveBadge}><View style={s.liveDot}/><Text style={s.liveBadgeText}>PÉPITES POUR TOI</Text></View>
+          <View style={s.liveBadge}><View style={s.liveDot}/><Text style={s.liveBadgeText}>BOUTIQUE MUSICALE</Text></View>
           <Text style={s.position}>{index + 1}/{suggestions.length}</Text>
         </View>
 
@@ -209,7 +209,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
           </Animated.View>
           <View style={s.listenCopy}>
             <Text style={s.listenTitle}>1 TAP · ÉCOUTER 15 s</Text>
-            <Text style={s.listenHint}>Collection d’un autre utilisateur · aperçu avant FREE ou PayPal</Text>
+            <Text style={s.listenHint}>Selon tes goûts · écoute avant FREE ou PayPal</Text>
           </View>
           <Text style={s.listenArrow}>›</Text>
         </View>
@@ -222,9 +222,16 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
       </View>
     </TouchableOpacity>
 
-    <TouchableOpacity style={s.hide} onPress={hide} accessibilityLabel="Masquer les Pépites recommandées">
-      <Text style={s.hideText}>MASQUER</Text>
-    </TouchableOpacity>
+    <View style={s.footerActions}>
+      {onOpenSeller ? (
+        <TouchableOpacity style={s.shopButton} onPress={() => onOpenSeller(suggestion)} accessibilityRole="button" accessibilityLabel={`Voir toute la Boutique musicale de ${suggestion.sellerUsername}`}>
+          <Text style={s.shopButtonText}>VOIR SA BOUTIQUE</Text>
+        </TouchableOpacity>
+      ) : null}
+      <TouchableOpacity style={s.hide} onPress={hide} accessibilityLabel="Masquer la Boutique musicale">
+        <Text style={s.hideText}>MASQUER</Text>
+      </TouchableOpacity>
+    </View>
   </View>;
 }
 
@@ -264,7 +271,10 @@ const s=StyleSheet.create({
   progress:{height:4,flexDirection:'row',gap:4,marginTop:10},
   progressBar:{flex:1,height:3,borderRadius:2,backgroundColor:colors.border},
   progressBarOn:{backgroundColor:colors.keep},
-  hide:{alignSelf:'flex-end',minHeight:28,justifyContent:'center',paddingHorizontal:4},
+  footerActions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:6},
+  shopButton:{minHeight:34,paddingHorizontal:12,borderRadius:17,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  shopButtonText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.55},
+  hide:{minHeight:28,justifyContent:'center',paddingHorizontal:4},
   hideText:{color:colors.textMuted,fontSize:8,fontWeight:'900',letterSpacing:.5},
   reopen:{marginHorizontal:18,marginVertical:10,minHeight:58,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:10},
   reopenIcon:{color:colors.keep,fontSize:18,fontWeight:'900'},
