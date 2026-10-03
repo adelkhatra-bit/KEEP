@@ -1,4 +1,4 @@
 production
-requested_from_sha=a019f48509d4eb8c8b0a776f3c2abfa5eebf4101
-requested_at=2026-10-02T15:27:00+02:00
-reason=publish-mobile-chat-keyboard-stability-and-recognition-reliability
+requested_from_sha=328a18d95abdc9a1ca7c7e92254041845f346d42
+requested_at=2026-10-03T22:36:00+02:00
+reason=final-app-store-submission
