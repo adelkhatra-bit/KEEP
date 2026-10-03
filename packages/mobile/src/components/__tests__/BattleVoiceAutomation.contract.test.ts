@@ -39,4 +39,11 @@ describe('Battle result voice and Solo exit contract', () => {
     expect(battle).toContain("moodOverride={arena.lastResult.won ? 'party' : 'oops'}");
     expect(battle).toContain('compact');
   });
+
+  it('rotates online result phrases instead of repeating the same copy every match', () => {
+    expect(battle).toContain('BATTLE_RESULT_MESSAGE_USED');
+    expect(battle).toContain('BATTLE_RESULT_MESSAGE_CACHE');
+    expect(battle).toContain('used.has(index)');
+    expect(battle).toContain('BATTLE_RESULT_MESSAGE_LAST');
+  });
 });
