@@ -1,0 +1,151 @@
+name: Loki App Store Connect Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Audit App Store Connect
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+
+          const required = ['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing = required.filter(k => !process.env[k]?.trim());
+          if (missing.length) throw new Error('Missing secrets: ' + missing.join(', '));
+
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+          const enc = x => Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now = Math.floor(Date.now()/1000);
+          const unsigned = enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'}) + '.' +
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), {
+            key, dsaEncoding:'ieee-p1363'
+          }).toString('base64url');
+
+          async function api(path, options={}) {
+            const res = await fetch('https://api.appstoreconnect.apple.com' + path, {
+              method: options.method || 'GET',
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            if (options.allow404 && res.status === 404) return null;
+            if (!res.ok) {
+              const body = await res.text();
+              throw new Error((options.label || path) + ' HTTP ' + res.status + ' ' + body.slice(0,800));
+            }
+            return res.status === 204 ? null : res.json();
+          }
+
+          (async () => {
+            const appId = process.env.ASC_APP_ID.trim();
+            const report = { appId, checkedAt: new Date().toISOString() };
+
+            const app = await api('/v1/apps/' + appId + '?fields[apps]=name,bundleId,primaryLocale,contentRightsDeclaration');
+            report.app = {
+              name: app.data.attributes?.name,
+              bundleId: app.data.attributes?.bundleId,
+              primaryLocale: app.data.attributes?.primaryLocale,
+              contentRightsDeclaration: app.data.attributes?.contentRightsDeclaration || null
+            };
+
+            const bundleList = await api('/v1/bundleIds?filter[identifier]=' +
+              encodeURIComponent(report.app.bundleId) + '&limit=50');
+            const bundle = (bundleList.data || []).find(x => x.attributes?.identifier === report.app.bundleId);
+            report.bundleIdResourceId = bundle?.id || null;
+            report.bundleCapabilities = [];
+            if (bundle) {
+              const caps = await api('/v1/bundleIds/' + bundle.id + '/bundleIdCapabilities?limit=200');
+              report.bundleCapabilities = (caps.data || []).map(x => ({
+                id: x.id,
+                capabilityType: x.attributes?.capabilityType,
+                settings: x.attributes?.settings || []
+              }));
+            }
+
+            const versions = await api('/v1/apps/' + appId +
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=platform,versionString,appStoreState,appVersionState,createdDate&limit=50');
+            report.versions = [];
+
+            for (const v of (versions.data || [])) {
+              const item = {
+                id: v.id,
+                versionString: v.attributes?.versionString,
+                appStoreState: v.attributes?.appStoreState || v.attributes?.appVersionState || null,
+                createdDate: v.attributes?.createdDate || null
+              };
+
+              const gc = await api('/v1/appStoreVersions/' + v.id +
+                '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled', {allow404:true});
+              item.gameCenter = gc ? { id: gc.data.id, enabled: !!gc.data.attributes?.enabled } : null;
+
+              const review = await api('/v1/appStoreVersions/' + v.id +
+                '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountRequired,notes',
+                {allow404:true});
+              item.reviewContact = review ? {
+                resourceId: review.data.id,
+                firstNamePresent: !!review.data.attributes?.contactFirstName?.trim(),
+                lastNamePresent: !!review.data.attributes?.contactLastName?.trim(),
+                phonePresent: !!review.data.attributes?.contactPhone?.trim(),
+                emailPresent: !!review.data.attributes?.contactEmail?.trim(),
+                demoAccountRequired: !!review.data.attributes?.demoAccountRequired,
+                notesPresent: !!review.data.attributes?.notes?.trim()
+              } : null;
+
+              const locs = await api('/v1/appStoreVersions/' + v.id +
+                '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+              item.localizations = [];
+              for (const loc of (locs.data || [])) {
+                const sets = await api('/v1/appStoreVersionLocalizations/' + loc.id +
+                  '/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+                const locItem = { locale: loc.attributes?.locale, localizationId: loc.id, screenshotSets: [] };
+                for (const set of (sets.data || [])) {
+                  const shots = await api('/v1/appScreenshotSets/' + set.id +
+                    '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState,sourceFileChecksum&limit=200');
+                  locItem.screenshotSets.push({
+                    id: set.id,
+                    displayType: set.attributes?.screenshotDisplayType,
+                    count: (shots.data || []).length,
+                    files: (shots.data || []).map(s => s.attributes?.fileName).filter(Boolean)
+                  });
+                }
+                item.localizations.push(locItem);
+              }
+              report.versions.push(item);
+            }
+
+            const price = await api('/v1/apps/' + appId +
+              '/appPriceSchedule?fields[appPriceSchedules]=baseTerritory,manualPrices', {allow404:true});
+            report.priceSchedule = price ? { id: price.data.id, exists: true } : { exists: false };
+
+            console.log('=== LOKI APP STORE AUDIT ===');
+            console.log(JSON.stringify(report, null, 2));
+            console.log('=== END LOKI APP STORE AUDIT ===');
+          })().catch(err => {
+            console.error(err.stack || err.message || String(err));
+            process.exit(1);
+          });
+          NODE
