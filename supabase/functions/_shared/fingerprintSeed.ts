@@ -52,13 +52,25 @@ export async function seedFingerprintMemory(admin: any, rec: SeedableRecognition
 
   if (!rec.previewUrl) return;
   try {
-    const { data: existing } = await admin
-      .from("keep_fingerprint_tracks")
-      .select("id")
-      .ilike("title", rec.title)
-      .ilike("artist", rec.artist)
-      .maybeSingle();
-    if (existing?.id) return; // déjà ensemencé, pas besoin de refaire le calcul
+    // Un titre + artiste identiques ne prouvent JAMAIS qu'il s'agit du même
+    // contenu (live, remix, reprise, paroles différentes). On ne réutilise
+    // une empreinte existante qu'avec un identifiant fort ou la même preview.
+    let existingId: string | null = null;
+    if (rec.isrc) {
+      const { data } = await admin.from("keep_fingerprint_tracks").select("id").eq("isrc", rec.isrc.trim().toUpperCase()).maybeSingle();
+      existingId = data?.id ?? null;
+    }
+    for (const key of ["appleMusic", "spotify", "deezer", "itunes"]) {
+      const value = rec.providerIds?.[key];
+      if (existingId || !value) continue;
+      const { data } = await admin.from("keep_fingerprint_tracks").select("id").contains("provider_ids", { [key]: String(value) }).limit(1).maybeSingle();
+      existingId = data?.id ?? null;
+    }
+    if (!existingId && rec.previewUrl) {
+      const { data } = await admin.from("keep_fingerprint_tracks").select("id").eq("preview_url", rec.previewUrl).limit(1).maybeSingle();
+      existingId = data?.id ?? null;
+    }
+    if (existingId) return;
 
     const response = await fetch(rec.previewUrl, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) return;
@@ -94,6 +106,7 @@ export async function seedFingerprintMemory(admin: any, rec: SeedableRecognition
       .insert({
         title: rec.title,
         artist: rec.artist,
+        isrc: rec.isrc?.trim().toUpperCase() ?? null,
         album: rec.album ?? null,
         artwork_url: rec.artworkUrl ?? null,
         preview_url: rec.previewUrl,
