@@ -27,18 +27,14 @@ export type NotificationPreferences = {
   eventsSound: 'DEFAULT' | 'SILENT';
 };
 
-// Adel (03/09/2026) : "le Marketing devrait tout le temps rester activé,
-// hormis pour ceux qui payent au moins 9,99€" -- obligatoire par défaut pour
-// un nouveau profil (formule gratuite) ; NotificationsScreen le déverrouille
-// et laisse le choix uniquement à partir de Creator Pro/Venue Pro.
-// Adel (04/09/2026) : même mécanique pour "Événements" -- toujours activé et
-// verrouillé en formule gratuite, seule une formule payante (Creator Pro /
-// Venue Pro) peut réellement le désactiver.
+// Le contenu promotionnel est désactivé par défaut et nécessite un choix
+// explicite de l'utilisateur. Les plans payants débloquent d'autres fonctions,
+// jamais l'obligation de recevoir de la publicité.
 const DEFAULT_PREFS: NotificationPreferences = {
   systemEnabled: true,
   djEnabled: true,
   socialEnabled: true,
-  marketingEnabled: true,
+  marketingEnabled: false,
   eventsEnabled: true,
   moneyEnabled: true,
   battleEnabled: true,
