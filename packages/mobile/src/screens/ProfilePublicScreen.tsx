@@ -1891,6 +1891,25 @@ export default function ProfilePublicScreen({ navigation }: any) {
             overlaps={{}}
             unlockedOfferIds={new Set<string>()}
             ownerMode
+            onOpenAllOffers={(offers) => {
+              unlockWebAudioForGesture();
+              void Promise.all(offers.map((offer) => loadOwnPlaylistSaleOfferTracks(offer.offerId)))
+                .then((groups) => {
+                  const unique = new Map<string, CanonicalTrack>();
+                  groups.flat().forEach((track) => unique.set(track.id, track));
+                  const tracks = [...unique.values()];
+                  if (!tracks.length) {
+                    Alert.alert('Pépites', 'Aucun morceau accessible dans tes Pépites à la une.');
+                    return;
+                  }
+                  openSelectionSwipe({
+                    title: 'Mes Pépites à la une',
+                    subtitle: `${offers.length} collection${offers.length > 1 ? 's' : ''} · lecture continue.`,
+                    tracks,
+                  });
+                })
+                .catch(() => Alert.alert('Pépites', 'Impossible de lancer tes aperçus pour le moment.'));
+            }}
             onOpenOffer={(offer) => {
               unlockWebAudioForGesture();
               void loadOwnPlaylistSaleOfferTracks(offer.offerId)
