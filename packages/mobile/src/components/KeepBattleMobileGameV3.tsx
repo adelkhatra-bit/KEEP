@@ -334,10 +334,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const isDesktopBattle = windowWidth >= 900;
   // Même gabarit Solo/Battle : sur mobile le bloc de manche utilise presque
   // toute la hauteur utile, sans jamais déformer la jaquette.
-  const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(500, windowHeight - 140);
+  const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(520, windowHeight - 124);
   const arenaVisualMax = isDesktopBattle
     ? 480
-    : Math.max(250, Math.min(windowWidth - 18, roundCardMinHeight - 230));
+    : Math.max(260, Math.min(windowWidth - 10, roundCardMinHeight - 214));
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   // Adel (03/09/2026) : "pouvoir choisir 8, 15, 20 ou 30 morceaux avant de
@@ -3553,11 +3553,11 @@ const s = StyleSheet.create({
   // Battle/Solo actif : même gabarit strict. La jaquette reste carrée,
   // centrée et la plus grande possible ; les quatre réponses descendent
   // ensuite au bas du bloc, juste au-dessus de la navigation.
-  arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 },
-  soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 },
-  soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 },
+  arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingHorizontal: 3, paddingTop: 3, paddingBottom: 0 },
+  soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingHorizontal: 3, paddingTop: 3, paddingBottom: 0 },
+  soloAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 0 },
   arenaVisualActive: { width: '100%', aspectRatio: 1, height: undefined, alignSelf: 'center', flexGrow: 0, flexShrink: 0, minHeight: 0 },
-  arenaAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 },
+  arenaAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 0 },
   roundNoWinner: { color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '900', textAlign: 'center', marginTop: 9 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
