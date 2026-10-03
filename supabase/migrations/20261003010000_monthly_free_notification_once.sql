@@ -102,19 +102,10 @@ $function$;
 
 -- ADEL-APPROVED-DESTRUCTIVE: 2026-10-03 suppression uniquement des notifications mensuelles recréées tardivement, bug signalé explicitement par Adel.
 -- Nettoie uniquement les notifications mensuelles recréées un jour ultérieur
--- à l'attribution. Le test SQL minimal peut ne pas charger la table historique :
--- dans ce cas on saute ce nettoyage sans rendre la migration non reproductible.
-do $
-begin
-  if to_regclass('public.monthly_free_credit_awards') is not null then
-    execute $cleanup$
-      delete from public.notifications n
-      using public.monthly_free_credit_awards award
-      where n.type = 'MONTHLY_FREE_CREDIT'
-        and n.profile_id = award.profile_id
-        and n.data ->> 'creditMonth' = award.credit_month::text
-        and (n.created_at at time zone 'UTC')::date > (award.created_at at time zone 'UTC')::date
-    $cleanup$;
-  end if;
-end
-$;
+-- à l'attribution. Les crédits eux-mêmes ne sont jamais supprimés.
+delete from public.notifications n
+using public.monthly_free_credit_awards award
+where n.type = 'MONTHLY_FREE_CREDIT'
+  and n.profile_id = award.profile_id
+  and n.data ->> 'creditMonth' = award.credit_month::text
+  and (n.created_at at time zone 'UTC')::date > (award.created_at at time zone 'UTC')::date;
