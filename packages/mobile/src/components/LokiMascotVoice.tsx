@@ -20,11 +20,12 @@ type LokiMascotVoiceProps = {
   allTimeouts?: boolean;
   textOverride?: string;
   moodOverride?: MascotMood;
+  messageSeed?: string;
   compact?: boolean;
 };
 
-export default function LokiMascotVoice({ correct, total, allTimeouts = false, textOverride, moodOverride, compact = false }: LokiMascotVoiceProps) {
-  const defaultLine = mascotLine(correct, total, allTimeouts);
+export default function LokiMascotVoice({ correct, total, allTimeouts = false, textOverride, moodOverride, messageSeed = '', compact = false }: LokiMascotVoiceProps) {
+  const defaultLine = mascotLine(correct, total, allTimeouts, messageSeed);
   const line = textOverride ? { text: textOverride, mood: moodOverride ?? defaultLine.mood } : defaultLine;
   const [speaking, setSpeaking] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
