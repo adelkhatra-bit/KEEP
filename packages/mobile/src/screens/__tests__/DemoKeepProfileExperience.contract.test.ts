@@ -80,7 +80,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
     expect(boutique).toContain('★ PÉPITE À LA UNE');
-    expect(boutique).toContain('Boutique de @{sellerUsername}');
+    expect(boutique).toContain("ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'");
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
     expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
