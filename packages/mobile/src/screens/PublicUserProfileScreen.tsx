@@ -2038,20 +2038,28 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </View>
 
-        {(() => {
-          const configuredSocials = SOCIALS.filter((item) => profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim()));
-          if (!configuredSocials.length) return null;
-          return (
-            <View style={styles.socialHub}>
-              <Text style={styles.socialTitle}>{isOwner ? 'Mes réseaux' : 'Ses réseaux'}</Text>
-              <View style={styles.socialRow}>
-                {configuredSocials.map((item) => (
-                  <TouchableOpacity key={item.platform} style={[styles.socialButton, styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF'} /></TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          );
-        })()}
+        <View style={styles.socialHub}>
+          <Text style={styles.socialTitle}>{isOwner ? 'Mes réseaux' : 'Ses réseaux'}</Text>
+          <View style={styles.socialRow}>
+            {SOCIALS.map((item) => {
+              const configured = profile.socialLinks.some((link) => link.platform === item.platform && link.url.trim());
+              return (
+                <TouchableOpacity
+                  key={item.platform}
+                  style={[styles.socialButton, configured && styles.socialButtonConfigured]}
+                  onPress={() => openSocial(item.platform)}
+                  accessibilityLabel={configured ? item.label : `${item.label} non partagé`}
+                >
+                  <SocialPlatformIcon
+                    platform={item.platform}
+                    size={22}
+                    color={configured ? (SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF') : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Adel (02/09/2026) : "on me montrera pas le lien du site, on
             mettra un bouton" -- jamais l'URL affichée, juste le libellé
