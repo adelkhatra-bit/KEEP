@@ -85,7 +85,11 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           // TestFlight/iOS : laisser AVSpeechSynthesizer utiliser sa session
           // système dédiée. La preview Battle est déjà duckée ci-dessus ;
           // cette option évite que la voix soit étouffée par la session expo-av.
-          ...(Platform.OS === 'ios' ? { useApplicationAudioSession: false } : {}),
+          // L'audio Loki/Battle configure déjà playsInSilentModeIOS=true.
+          // Garder la voix dans cette session applicative évite le silence
+          // physique iPhone, tandis que la preview est duckée à 16 % juste
+          // avant et restaurée dans finish().
+          ...(Platform.OS === 'ios' ? { useApplicationAudioSession: true } : {}),
           onDone: finish,
           onStopped: finish,
           onError: finish,
