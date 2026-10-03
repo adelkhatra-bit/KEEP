@@ -114,7 +114,7 @@ function StyleBubble({ genre, count, index, size, onPress, reduceMotion }: { gen
         style={[s.bubble, { width: size, height: size, borderRadius: size / 2, backgroundColor: palette.bg, borderColor: palette.border }]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`Voir les ${count} collection${count > 1 ? 's' : ''} ${genre}`}
+        accessibilityLabel={`Écouter les collections ${genre}`}
       >
         <Text style={[s.bubbleGenre, { color: palette.text, fontSize: size >= 80 ? 14 : size >= 66 ? 12 : 11 }]} numberOfLines={1}>{genre}</Text>
         <Text style={[s.bubbleCount, { color: palette.text }]}>{size >= 66 ? `${count} drop${count > 1 ? 's' : ''}` : count}</Text>
@@ -206,10 +206,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     [visibleOffers, unlockedOfferIds, overlaps, ownerMode],
   );
   const openGenre = (genre: string) => {
-    setStoreFilter(`GENRE:${genre}`);
-    setStoreSort('FOR_YOU');
-    setStoreQuery('');
-    setStoreOpen(true);
+    // Un seul geste doit lancer l'écoute. Les bulles de style ne servent plus
+    // d'étape intermédiaire vers la boutique : elles ouvrent directement la
+    // première collection correspondante, dont l'aperçu démarre à l'ouverture.
+    const first = ranked.find((offer) => (offer.genres || []).includes(genre))
+      || visibleOffers.find((offer) => (offer.genres || []).includes(genre));
+    if (first) onOpenOffer(first);
   };
 
   const topGenres = useMemo(() => {
@@ -319,7 +321,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               {featured.length > 1 ? (
                 <View style={s.dots}>
                   {featured.map((row, dotIndex) => (
-                    <TouchableOpacity key={row.offerId} onPress={() => setDropIndex(dotIndex)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Afficher le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
+                    <TouchableOpacity key={row.offerId} onPress={() => { setDropIndex(dotIndex); onOpenOffer(row); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Écouter le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
                   ))}
                 </View>
               ) : null}
