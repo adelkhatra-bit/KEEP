@@ -123,7 +123,15 @@ assertIncludes(visitor, 'accessibilityLabel={`Swiper la musique de ${profile.use
 assertIncludes(visitor, 'accessibilityLabel={`Ouvrir le tchat avec ${profile.username}`}', 'Visited TCHAT action');
 assertIncludes(visitor, 'accessibilityLabel={`Défier ${profile.username} en Battle`}', 'Visited Battle action');
 assertIncludes(visitor, 'accessibilityLabel={`Partager le profil de ${profile.username}`}', 'Visited PARTAGER action');
-assertCount(visitor, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 4, 'Visited SWIPE / TCHAT / BATTLE / PARTAGER equal-width row');
+const visitorActionsStart = visitor.indexOf('{!isOwner ? (');
+const visitorActionsEnd = visitor.indexOf(') : (', visitorActionsStart);
+const visitorActions = visitor.slice(visitorActionsStart, visitorActionsEnd);
+assertCount(visitorActions, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 4, 'Visited SWIPE / TCHAT / BATTLE / PARTAGER equal-width row');
+
+const selfActionsStart = visitorActionsEnd;
+const selfActionsEnd = visitor.indexOf('</ProfileMotionReveal>', selfActionsStart);
+const selfActions = visitor.slice(selfActionsStart, selfActionsEnd);
+assertCount(selfActions, /variant="outline" size="medium" containerStyle=\{styles\.ownerQuickActionFull\}/g, 4, 'Canonical self-profile SWIPE / MODIFIER / PÉPITES / PARTAGER equal-width row');
 assertIncludes(visitor, "ownerQuickActions:{flexDirection:'row',flexWrap:'wrap',alignItems:'stretch',gap:8,marginTop:8,width:'100%'}", 'Visited quick actions wrapped two-column row');
 assertIncludes(visitor, "ownerQuickActionFull:{flexGrow:1,flexBasis:'47%',minWidth:0}", 'Visited quick actions equal-width two-column buttons');
 assertIncludes(visitor, 'const online = self || profilePresence.online;', 'Visited live-presence indicator');
