@@ -1,6 +1,6 @@
 import ChatDockHost from './ChatDockHost';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -94,35 +94,6 @@ const BUBBLE_COLORS: { bg: string; border: string; text: string }[] = [
   { bg: '#C2563A', border: '#FFB08F', text: '#FFFFFF' },
   { bg: '#2F5DA8', border: '#93C5FD', text: '#FFFFFF' },
 ];
-const BANNER_MAX_BUBBLES = 6;
-
-function StyleBubble({ genre, count, index, size, onPress, reduceMotion }: { genre: string; count: number; index: number; size: number; onPress: () => void; reduceMotion: boolean }) {
-  const float = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (reduceMotion) { float.setValue(0); return undefined; }
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(float, { toValue: 1, duration: 1600 + index * 230, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(float, { toValue: 0, duration: 1600 + index * 230, useNativeDriver: Platform.OS !== 'web' }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [float, index, reduceMotion]);
-  const palette = BUBBLE_COLORS[index % BUBBLE_COLORS.length];
-  return (
-    <Animated.View style={{ transform: [{ translateY: float.interpolate({ inputRange: [0, 1], outputRange: index % 2 ? [-4, 4] : [3, -5] }) }] }}>
-      <TouchableOpacity
-        style={[s.bubble, { width: size, height: size, borderRadius: size / 2, backgroundColor: palette.bg, borderColor: palette.border }]}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`Écouter les collections ${genre}`}
-      >
-        <Text style={[s.bubbleGenre, { color: palette.text, fontSize: size >= 80 ? 14 : size >= 66 ? 12 : 11 }]} numberOfLines={1}>{genre}</Text>
-        <Text style={[s.bubbleCount, { color: palette.text }]}>{size >= 66 ? `${count} drop${count > 1 ? 's' : ''}` : count}</Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-}
-
 function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unlocked: boolean }) {
   if (unlocked) return <View style={[s.token, s.tokenUnlocked]}><Text style={[s.tokenText, s.tokenTextUnlocked]}>✓ DÉBLOQUÉE</Text></View>;
   const free = offer.paymentMode === 'FREE';
@@ -174,45 +145,16 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   );
   const freeCount = visibleOffers.filter((offer) => offer.paymentMode === 'FREE').length;
   const moneyCount = visibleOffers.length - freeCount;
-  const [dropIndex, setDropIndex] = useState(0);
   const [shelfFilter, setShelfFilter] = useState<'ALL' | 'FREE' | 'MONEY' | 'NEW'>('ALL');
   const [storeOpen, setStoreOpen] = useState(false);
   const [storeFilter, setStoreFilter] = useState<FilterKey>('ALL');
   const [storeSort, setStoreSort] = useState<SortKey>('FOR_YOU');
   const [storeQuery, setStoreQuery] = useState('');
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let live = true;
-    AccessibilityInfo.isReduceMotionEnabled?.().then((value) => { if (live) setReduceMotion(Boolean(value)); }).catch(() => {});
-    return () => { live = false; };
-  }, []);
-
-  useEffect(() => { setDropIndex((value) => (featured.length ? value % featured.length : 0)); }, [featured.length]);
-
   const shelf = useMemo(() => {
     const base = shelfFilter === 'NEW' ? visibleOffers : ranked;
     const filtered = base.filter((offer) => shelfFilter === 'FREE' ? offer.paymentMode === 'FREE' : shelfFilter === 'MONEY' ? offer.paymentMode !== 'FREE' : true);
     return filtered.slice(0, SHELF_MAX);
   }, [ranked, visibleOffers, shelfFilter]);
-
-  // Styles de la bannière : nombre de collections par style principal.
-  const genreCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    visibleOffers.forEach((offer) => { const genre = offer.genres?.[0] || 'Mix'; counts.set(genre, (counts.get(genre) || 0) + 1); });
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  }, [visibleOffers]);
-  const newTracksForViewer = useMemo(
-    () => ownerMode ? 0 : visibleOffers.filter((offer) => !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId]).reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0),
-    [visibleOffers, unlockedOfferIds, overlaps, ownerMode],
-  );
-  const openGenre = (genre: string) => {
-    // Un seul geste doit lancer l'écoute. Les bulles de style ne servent plus
-    // d'étape intermédiaire vers la boutique : elles ouvrent directement la
-    // première collection correspondante, dont l'aperçu démarre à l'ouverture.
-    const first = ranked.find((offer) => (offer.genres || []).includes(genre))
-      || visibleOffers.find((offer) => (offer.genres || []).includes(genre));
-    if (first) onOpenOffer(first);
-  };
 
   const topGenres = useMemo(() => {
     const counts = new Map<string, number>();
@@ -238,12 +180,9 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   }, [ranked, visibleOffers, storeFilter, storeSort, storeQuery]);
 
   if (!visibleOffers.length) return null;
-  const drop = featured.length ? featured[dropIndex % featured.length] : null;
+  const drop = featured[0] ?? null;
   const dropNew = drop ? newForViewer(drop, overlaps) : 0;
   // 2 colonnes : largeur utile = fenêtre (640 max) - marges 16 - bordures - espace 10.
-  const maxGenreCount = genreCounts[0]?.[1] || 1;
-  const bannerGenres = genreCounts.slice(0, BANNER_MAX_BUBBLES);
-  const hiddenGenreCount = Math.max(0, genreCounts.length - BANNER_MAX_BUBBLES);
   const selectedGenre = storeFilter.startsWith('GENRE:') ? storeFilter.slice(6) : null;
   const selectedGenreNew = !ownerMode && selectedGenre
     ? visibleOffers.filter((offer) => (offer.genres || []).includes(selectedGenre) && !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId]).reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0)
@@ -258,25 +197,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <View style={s.liveDot} />
           <Text style={s.bannerKicker} numberOfLines={1}>{`LES PÉPITES DE @${sellerUsername.toUpperCase()}`}</Text>
         </View>
-        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à écouter avant de choisir`}</Text>
-        <View style={s.bubbles} accessibilityLabel="Styles des collections">
-          {bannerGenres.map(([genre, count], index) => (
-            <StyleBubble
-              key={genre}
-              genre={genre}
-              count={count}
-              index={index}
-              size={Math.round(54 + 30 * (count / maxGenreCount))}
-              reduceMotion={reduceMotion}
-              onPress={() => openGenre(genre)}
-            />
-          ))}
-          {hiddenGenreCount > 0 ? (
-            <TouchableOpacity style={[s.bubble, s.bubbleMore]} onPress={() => { setStoreFilter('ALL'); setStoreOpen(true); }} accessibilityRole="button" accessibilityLabel={`Voir les ${hiddenGenreCount} autres styles`}>
-              <Text style={s.bubbleMoreText}>+{hiddenGenreCount}</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
         <View style={s.bannerPills}>
           {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
           {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>€ {moneyCount}</Text></View> : null}
@@ -288,7 +209,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           accessibilityRole="button"
           accessibilityLabel="Écouter les aperçus des pépites"
         >
-          <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
+          <Text style={s.bannerCtaText}>▶ ÉCOUTER MAINTENANT</Text>
         </TouchableOpacity>
       </View>
 
@@ -300,7 +221,6 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
                 <View style={s.dropLiveDot} />
                 <Text style={s.dropKicker}>DROP DU MOMENT</Text>
               </View>
-              <Text style={s.dropPosition}>{(dropIndex % featured.length) + 1}/{featured.length}</Text>
             </View>
             <View style={s.dropMain}>
               <View style={s.dropCopy}>
@@ -422,12 +342,7 @@ const s = StyleSheet.create({
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
   bannerKicker: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
   bannerTitle: { color: colors.textPrimary, fontSize: 20, lineHeight: 26, fontWeight: '900' },
-  bubbles: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 6 },
-  bubble: { borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   bubbleGenre: { fontWeight: '900', textAlign: 'center' },
-  bubbleCount: { fontSize: 10, fontWeight: '800', marginTop: 1 },
-  bubbleMore: { width: 56, height: 56, borderRadius: 28, borderColor: colors.border, backgroundColor: colors.backgroundCard },
-  bubbleMoreText: { color: colors.textSecondary, fontSize: 12, fontWeight: '900' },
   bannerPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bannerPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   bannerPillText: { fontSize: 12, fontWeight: '900' },
@@ -453,14 +368,10 @@ const s = StyleSheet.create({
   dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: .45 },
   dropListenArrow: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 23 },
   dropKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  dropPosition: { color: colors.textSecondary, fontSize: 10, fontWeight: '800' },
   dropFeatured: { color: GOLD, fontSize: 10, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
   dropTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '900', marginTop: 4 },
   dropMeta: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 4 },
   dropFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
-  dotOn: { width: 18, backgroundColor: colors.primaryLight },
   shelfHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 },
   shelfTitle: { flex: 1, color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   seeAll: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
