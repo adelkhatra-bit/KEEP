@@ -18,6 +18,26 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
 const TOKEN_RE = /^(?:Exponent|Expo)PushToken\[.+\]$/;
 const MAX_ATTEMPTS = 3;
+const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
+  'BATTLE_CHALLENGE_ACCEPTED',
+  'BATTLE_CHALLENGE_DECLINED',
+  'BATTLE_INVITE',
+  'KEEP_BATTLE_INVITE',
+  'BATTLE_PLAYER_AVAILABLE',
+  'BATTLE_ARENA_WIN',
+  'BATTLE_ARENA_LOSS',
+  'BATTLE_ARENA_RESULT',
+  'BATTLE_ARENA_AFK_ELIMINATED',
+  'BATTLE_ARENA_FORFEIT',
+  'BATTLE_ARENA_REMATCH_MISSED',
+  'BATTLE_SOLO_PACK',
+  'BATTLE_SOLO_RANK_CHANGED',
+  'SOLO_RANK_UP',
+]);
+
+function isInAppOnlyNotification(type: unknown) {
+  return IN_APP_ONLY_NOTIFICATION_TYPES.has(String(type || '').trim().toUpperCase());
+}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -114,6 +134,17 @@ async function processPending() {
     const attemptNumber = Number(notification.push_attempt_count || 0) + 1;
     const now = new Date().toISOString();
     try {
+      // Battle: seules les demandes actionnables (défi direct / revanche)
+      // doivent réveiller le téléphone. Les statuts, résultats et invitations
+      // générales restent consultables dans Loki sans push externe.
+      if (isInAppOnlyNotification(notification.type)) {
+        await db.from("notifications").update({
+          push_delivery_status: "IN_APP_ONLY",
+          push_attempt_count: Number(notification.push_attempt_count || 0),
+          push_last_error: null,
+        }).eq("id", notification.id);
+        continue;
+      }
       const { data: rawTokens, error: tokenError } = await db.from("push_tokens").select("id,token").eq("profile_id", notification.profile_id);
       if (tokenError) throw tokenError;
       const all = (rawTokens || []) as PushTokenRow[];
