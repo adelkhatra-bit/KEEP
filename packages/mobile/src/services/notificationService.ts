@@ -66,9 +66,10 @@ function decodeVisibleEntities(value: string): string {
 
 export function normalizeNotificationVisibleText(value: unknown): string {
   return decodeVisibleEntities(String(value || ''))
+    .replace(/\bPAYPAL\s+(?:KEEP|LOKI)\s+PAYPAL\b/gi, 'PayPal')
     .replace(/\bKEEP\s+MUSIC\b/gi, APP_NAME)
     .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
-    .replace(/\bKEEP\b/g, 'Loki');
+    .replace(/\bKEEP\b/gi, 'Loki');
 }
 
 function mapNotificationRow(row: any): KeepNotification {
