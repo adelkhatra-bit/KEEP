@@ -64,6 +64,13 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('resolveNotificationProfileUsername');
   });
 
+  it('makes profile activity directly clickable from the global banner too', () => {
+    const banner = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'GlobalNotificationBanner.tsx'), 'utf8');
+    expect(banner).toContain('profileUsernameForNotification');
+    expect(banner).toContain('openProfileFromNotification');
+    expect(banner).toContain("profileUsername ? 'voir le profil' : 'toucher = lu'");
+  });
+
   it('keeps direct one-click actions for Battle and the profile notification panel', () => {
     expect(notifications).not.toContain('isSellerPaymentAction(item) || isBattleInvite(item)) return null');
     const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
