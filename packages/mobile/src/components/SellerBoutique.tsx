@@ -1,6 +1,6 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
@@ -382,19 +382,28 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               </View>
             ) : null}
             <Text style={s.storeCount}>{storeRows.length} collection{storeRows.length > 1 ? 's' : ''}</Text>
-            <ScrollView style={s.storeList} contentContainerStyle={s.grid}>
-              {storeRows.map((offer) => (
+            <FlatList
+              style={s.storeList}
+              contentContainerStyle={s.storeGridContent}
+              columnWrapperStyle={s.storeGridRow}
+              data={storeRows}
+              numColumns={2}
+              keyExtractor={(offer) => offer.offerId}
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS !== 'web'}
+              renderItem={({ item: offer }) => (
                 <OfferCard
-                  key={offer.offerId}
                   offer={offer}
                   overlaps={overlaps}
                   unlocked={unlockedOfferIds.has(offer.offerId)}
                   width={storeCardWidth}
                   onPress={() => { setStoreOpen(false); onOpenOffer(offer); }}
                 />
-              ))}
-              {!storeRows.length ? <Text style={s.empty}>Aucune collection ne correspond.</Text> : null}
-            </ScrollView>
+              )}
+              ListEmptyComponent={<Text style={s.empty}>Aucune collection ne correspond.</Text>}
+            />
           </View>
         </View>
         <ChatDockHost active={storeOpen} />
@@ -486,6 +495,7 @@ const s = StyleSheet.create({
   search: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, color: colors.textPrimary, paddingHorizontal: 12, fontSize: 15 },
   storeCount: { color: colors.textSecondary, fontSize: 12, fontWeight: '800' },
   storeList: { flexGrow: 0, flexShrink: 1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 24 },
+  storeGridContent: { gap: 10, paddingBottom: 24 },
+  storeGridRow: { gap: 10 },
   empty: { color: colors.textSecondary, fontSize: 13, paddingVertical: 20 },
 });
