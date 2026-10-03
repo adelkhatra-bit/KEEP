@@ -134,7 +134,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [items, setItems] = useState<KeepNotification[]>([]);
-  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: true, eventsEnabled: true, moneyEnabled: true, battleEnabled: true, musicEnabled: true, moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT' });
+  const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: false, eventsEnabled: true, moneyEnabled: true, battleEnabled: true, musicEnabled: true, moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
@@ -1195,9 +1195,9 @@ export default function NotificationsScreen({ navigation, route }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
           <Text style={styles.preferenceHint}>Active ou désactive ce que Loki Music peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
-          {/* Adel (01/09/2026) : "DJ & soirées" contrôlait les invitations
-              d'événements -- retiré volontairement, ce n'est plus un choix
-              laissé à l'utilisateur (pas de publicité sur Loki à équilibrer). */}
+          {/* Les événements et les contenus promotionnels restent des réglages
+              explicites de l'utilisateur. Les abonnements débloquent du confort
+              et des fonctions, jamais l'obligation de recevoir une publicité. */}
           {/* Adel (02/10/2026) : « rassemble-les ensemble, pas trop de choix ».
               5 interrupteurs regroupés ; mêmes colonnes en base (aucune
               préférence existante perdue). Le tchat (messages privés,
