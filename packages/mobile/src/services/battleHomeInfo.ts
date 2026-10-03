@@ -63,22 +63,24 @@ export function soloQuotaCopy(status: SoloDailyStatusLike | null): { headline: s
 // Règle par profil, affichée sous la recharge : combien de Solos par jour.
 // Adel (30/09/2026) : chaque formule garde sa limite, mais préparer un Solo
 // ne consomme rien. Le quota est engagé au premier extrait réellement joué.
-const PLAN_LABELS: Record<string, string> = { FREE: 'compte standard', PREMIUM: 'Premium', CREATOR_PRO: 'Créateur Pro', VENUE_PRO: 'Lieu Pro' };
-export function soloPlanRuleCopy(status: SoloDailyStatusLike | null, purchasedRemaining = 0): { short: string; full: string } | null {
+export function soloPlanRuleCopy(status: SoloDailyStatusLike | null, purchasedFallback = 0): { short: string; full: string } | null {
   if (!status) return null;
-  const account = PLAN_LABELS[String(status.plan || 'FREE').toUpperCase()] ?? 'ton compte';
   if (status.unlimited) return { short: 'Solos disponibles : illimités', full: 'Ton compte permet de lancer des parties Solo sans compteur à épuiser.' };
+
+  const purchased = Math.max(0, status.purchasedRemaining ?? purchasedFallback ?? 0);
   const totalLimit = Math.max(0, status.limit ?? 0);
-  const purchased = Math.max(0, purchasedRemaining);
-  const includedToday = Math.max(0, totalLimit - purchased);
+  const dailyIncluded = Math.max(0, status.dailyIncluded ?? (totalLimit - purchased));
   const remaining = Math.max(0, status.remaining ?? 0);
+
   return {
-    short: `${remaining} Solo${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} maintenant`,
-    full: `Compte ${account} : ${includedToday} Solo${includedToday > 1 ? 's' : ''} dans le quota de la journée Battle. `
-      + (purchased > 0 ? `Tu as aussi ${purchased} Solo${purchased > 1 ? 's' : ''} acheté${purchased > 1 ? 's' : ''} encore en réserve. ` : '')
-      + 'Les Solos achetés (packs de 10 ou 25) sont crédités immédiatement et restent jusqu’à utilisation. '
-      + 'Ils ne se rechargent jamais automatiquement : une fois consommés, il faut racheter un pack. '
-      + 'Un Solo est consommé lorsque la première musique de la partie démarre.',
+    short: purchased > 0
+      ? `Disponibles : ${remaining} · dont ${purchased} acheté${purchased > 1 ? 's' : ''}`
+      : `Disponibles : ${remaining} · quota du jour ${dailyIncluded}`,
+    full: `Quota du jour : ${dailyIncluded} Solo${dailyIncluded > 1 ? 's' : ''}. À 02:00, ce quota quotidien revient simplement à ${dailyIncluded} : ce n’est pas un achat et aucun pack n’est renouvelé automatiquement. `
+      + (purchased > 0
+        ? `Stock acheté restant : ${purchased} Solo${purchased > 1 ? 's' : ''}. Ce stock reste sur ton compte jusqu’à utilisation et s’ajoute au quota du jour. `
+        : '')
+      + 'Les deux packs disponibles créditent immédiatement 10 ou 25 Solos. Chaque partie consomme 1 Solo. Quand les Solos achetés sont épuisés, il faut acheter un nouveau pack.',
   };
 }
 
@@ -338,13 +340,10 @@ export function soloRechargeCopy(packs: SoloPackLike[] | null | undefined, _stat
   const small = list.find((p) => p.code === 'SMALL') ?? list[0];
   const large = list.find((p) => p.code === 'LARGE');
   const freeWord = (n: number) => `${n} Free`;
-  const offers = [small, large].filter(Boolean).map((p) => `${p!.solos} Solos pour ${freeWord(p!.free)}`).join(', ou ');
+  const offers = [small, large].filter(Boolean).map((p) => `+${p!.solos} Solos pour ${freeWord(p!.free)}`).join(' · ');
   return {
-    hint: `+${small.solos} Solos pour ${freeWord(small.free)}`,
-    short: 'Comment fonctionnent les packs ?',
-    full: `Deux packs sont disponibles : ${offers}. `
-      + 'Après confirmation, le nombre de Solos choisi est crédité immédiatement sur ton compte et le prix en Free est débité une seule fois. '
-      + 'Chaque Solo acheté reste disponible jusqu’à ce que tu le consommes. '
-      + 'Un pack ne se recharge jamais automatiquement : quand tes Solos achetés sont épuisés, tu rachètes le pack que tu veux.',
+    hint: offers,
+    short: 'Deux packs au choix',
+    full: `Packs disponibles : ${offers}. Le pack choisi est crédité immédiatement sur ton stock de Solos. Chaque partie consomme 1 Solo. Les Solos achetés restent sur ton compte jusqu’à utilisation. Aucun pack ne se renouvelle automatiquement : quand ce stock est épuisé, il faut acheter un nouveau pack.`,
   };
 }
