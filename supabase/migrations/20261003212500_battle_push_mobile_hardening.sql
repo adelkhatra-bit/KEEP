@@ -49,8 +49,9 @@ begin
 end;
 $function$;
 
-delete from public.notifications
-where type in ('BATTLE_CHALLENGE_ACCEPTED','BATTLE_CHALLENGE_DECLINED');
+-- Historique conservé : les anciennes notifications restent visibles dans le
+-- centre utilisateur. La fonction/trigger ci-dessus empêche uniquement la
+-- création de nouveaux doublons/statuts Battle inutiles.
 
 alter table public.push_tokens
   add column if not exists app_version text,
