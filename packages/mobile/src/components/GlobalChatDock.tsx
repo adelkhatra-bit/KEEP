@@ -5,7 +5,7 @@ import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface, subscribeMusicAgoraTyping } from '../services/musicAgoraService';
-import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
+import { KeepNotification, loadNotificationPreferences, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
@@ -91,6 +91,7 @@ export default function GlobalChatDock() {
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
   const [chatVoiceEnabled, setChatVoiceEnabled] = useState(false);
+  const [chatSoundEnabled, setChatSoundEnabled] = useState(true);
   const [chatSurfaces, setChatSurfaces] = useState<MusicAgoraSurface[]>(ALL_CHAT_SURFACES);
   const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
@@ -281,11 +282,13 @@ export default function GlobalChatDock() {
         bottomOffset: 88,
       })),
       loadNotifications(effectiveProfileId).catch(() => []),
-    ]).then(([settings, notifications]) => {
+      loadNotificationPreferences(effectiveProfileId).catch(() => null),
+    ]).then(([settings, notifications, notificationPrefs]) => {
       if (!live) return;
       setChatEnabled(Boolean(settings.homeEnabled));
       setChatNotificationsEnabled(Boolean(settings.notificationsEnabled));
       setChatVoiceEnabled(Boolean(settings.voiceAnnouncementsEnabled));
+      setChatSoundEnabled(notificationPrefs?.socialSound !== 'SILENT');
       setChatSurfaces(settings.surfaces?.length ? settings.surfaces : ALL_CHAT_SURFACES);
       setSide(settings.side);
       const legacyBottom = settings.bottomOffset <= 120;
@@ -360,7 +363,7 @@ export default function GlobalChatDock() {
         });
       }
     });
-  }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatVoiceEnabled]);
+  }, [accountReady, effectiveProfileId, chatEnabled, chatNotificationsEnabled, chatSoundEnabled, chatVoiceEnabled]);
 
   useEffect(() => {
     if (!accountReady || open || unreadCount <= 0 || !chatEnabled || !chatNotificationsEnabled || !chatVoiceEnabled) return undefined;

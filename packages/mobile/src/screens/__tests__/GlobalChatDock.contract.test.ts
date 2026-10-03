@@ -39,6 +39,13 @@ describe('global Loki messenger contract', () => {
     expect(dock).toContain('chatNotificationsEnabled');
   });
 
+  it('plays a recipient-side beep for each realtime chat message unless message sound is silent', () => {
+    expect(dock).toContain('loadNotificationPreferences');
+    expect(dock).toContain("notificationPrefs?.socialSound !== 'SILENT'");
+    expect(dock).toContain("playNotificationCue('DEFAULT')");
+    expect(dock).toContain('chatSoundEnabled');
+  });
+
   it('announces and previews the latest sender only after explicit voice opt-in', () => {
     expect(dock).toContain("void speakLokiText(`Message de ${sender}`");
     expect(dock).toContain('Message de');
@@ -141,6 +148,8 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('MESSAGERIE LOKI');
     expect(panel).toContain('Bouton flottant + plein écran');
     expect(panel).toContain('OUVRIR LA CONVERSATION');
+    expect(panel).toContain("value === 'AGORA_MUSIC_OFFER'");
+    expect(panel).toContain('item.data?.payoutQrUrl');
     expect(panel).not.toContain("navigationRef");
     expect(panel).toContain('useGlobalChatStore.getState().open(target)');
     expect(panel).not.toContain("navigation.navigate");

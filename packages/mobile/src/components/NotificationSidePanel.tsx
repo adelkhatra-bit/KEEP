@@ -37,6 +37,9 @@ const CHAT_SURFACE_OPTIONS: Array<{ key: MusicAgoraSurface; label: string }> = [
 
 function isChatNotificationType(type: string): boolean {
   const value = String(type || '').toUpperCase();
+  // Une proposition musicale / vente est une ACTIVITÉ : elle reste liée au
+  // Tchat mais ne doit pas être noyée avec les messages texte.
+  if (value === 'AGORA_MUSIC_OFFER' || value === 'AGORA_GROUP_MUSIC_OFFER') return false;
   return value.startsWith('AGORA') || value.startsWith('CHAT');
 }
 
@@ -754,8 +757,12 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 const linkedProfileUsername = activityProfileUsername(item);
                 const linkedProfileId = activityProfileId(item);
                 const hasLinkedProfile = Boolean(linkedProfileUsername || linkedProfileId);
-                const notificationImageUrl = !locked && item.data?.image_url ? String(item.data.image_url) : '';
-                const isPaypalQr = String(item.data?.contentKind || item.data?.content_kind || '').toUpperCase() === 'PAYPAL_QR';
+                const payoutQrUrl = String(item.data?.payoutQrUrl ?? item.data?.payout_qr_url ?? '').trim();
+                const notificationImageUrl = !locked
+                  ? String(item.data?.image_url ?? payoutQrUrl ?? '').trim()
+                  : '';
+                const isPaypalQr = String(item.data?.contentKind || item.data?.content_kind || '').toUpperCase() === 'PAYPAL_QR'
+                  || Boolean(payoutQrUrl);
                 return (
                   <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
                     <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
