@@ -8,6 +8,10 @@ describe('Loki Music push registration has no Render intermediary', () => {
     expect(source).toContain("rpc('keep_push_token_register'");
     expect(source).toContain('p_token: token');
     expect(source).toContain('p_platform: Platform.OS');
+    expect(source).toContain('getExpoPushTokenAsync({ projectId })');
+    expect(source).toContain('expoProjectId()');
+    expect(source).toContain('addPushTokenListener');
+    expect(source).toContain('registerExpoTokenWithSupabase');
     expect(source).not.toContain('EXPO_PUBLIC_API_URL');
     expect(source).not.toContain('/api/notifications/push-token');
     expect(source).not.toContain('getSupabaseAccessToken');
