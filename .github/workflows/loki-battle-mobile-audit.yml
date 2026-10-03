@@ -17,6 +17,9 @@ on:
       - 'packages/mobile/src/store/useGameSessionStore.ts'
       - 'packages/mobile/src/navigation/navigationRef.ts'
       - 'packages/mobile/src/services/pushNotificationService.ts'
+      - 'packages/mobile/src/components/__tests__/KeepBattleMobileGameV3.compact.test.ts'
+      - 'packages/mobile/src/services/__tests__/pushNotificationService.directSupabase.test.ts'
+      - 'packages/mobile/src/screens/__tests__/BattleNotificationActions.contract.test.ts'
 
 permissions:
   contents: read
