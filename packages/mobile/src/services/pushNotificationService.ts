@@ -181,6 +181,47 @@ async function reportPushRegistrationFailure(code: string, message: string): Pro
   }
 }
 
+function expoProjectId(): string | null {
+  try {
+    const constantsModule = require('expo-constants');
+    const Constants = constantsModule?.default ?? constantsModule;
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    return typeof projectId === 'string' && projectId.trim() ? projectId.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function registerExpoTokenWithSupabase(token: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
+  if (!token) return { ok: false, reason: 'empty_token' };
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
+    const { error } = await supabase.rpc('keep_push_token_register', {
+      p_token: token,
+      p_platform: Platform.OS,
+    });
+    if (error) {
+      void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
+      return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'network_error' };
+  }
+}
+
+export function listenForExpoPushTokenChanges(): () => void {
+  if (Platform.OS === 'web') return () => {};
+  const Notifications = getNativeNotifications();
+  const subscription = Notifications.addPushTokenListener((nextToken) => {
+    const token = typeof nextToken?.data === 'string' ? nextToken.data : '';
+    if (token) void registerExpoTokenWithSupabase(token);
+  });
+  return () => subscription.remove();
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
     return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
@@ -220,14 +261,16 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     });
   }
 
-  // Sans argument : expo-notifications résout automatiquement le projectId
-  // depuis app.json (extra.eas.projectId) -- convention SDK 49+.
-  // 02/10/2026 : 0 appareil enregistré en production malgré des comptes
-  // connectés sur iPhone. L'échec était silencieux ; la raison réelle est
-  // maintenant remontée dans client_diagnostics (une fois par lancement).
+  // Expo recommande de passer explicitement le EAS projectId.
+  const projectId = expoProjectId();
+  if (!projectId) {
+    void reportPushRegistrationFailure('expo_project_id_missing', 'EAS projectId introuvable dans expo-constants');
+    return { ok: false, reason: 'expo_project_id_missing' };
+  }
+
   let token: string;
   try {
-    const tokenResponse = await Notifications.getExpoPushTokenAsync();
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
     token = tokenResponse.data;
   } catch (error: any) {
     const detail = String(error?.message || error || 'unknown').slice(0, 300);
@@ -235,23 +278,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     return { ok: false, reason: 'expo_token_error' };
   }
 
-  if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
-
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
-    const { error } = await supabase.rpc('keep_push_token_register', {
-      p_token: token,
-      p_platform: Platform.OS,
-    });
-    if (error) {
-      void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
-      return { ok: false, reason: `supabase_${String(error.code || 'rpc_error')}` };
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: 'network_error' };
-  }
+  return registerExpoTokenWithSupabase(token);
 }
 
 export async function unregisterCurrentPushToken(): Promise<void> {
