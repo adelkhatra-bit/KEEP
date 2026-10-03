@@ -289,6 +289,24 @@ jobs:
               await page.waitForTimeout(180);
             }
 
+            // Tchat Loki : contrôle réel mini -> plein écran sur 390×844.
+            // Le plein écran doit être un vrai Modal, afficher la même liste
+            // de conversations, puis se fermer proprement avant de poursuivre.
+            const chatRobot=page.getByLabel(/Ouvrir le Tchat|Activer et ouvrir le Tchat/).last();
+            await chatRobot.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,chatRobot,'Open chat mini');
+            await page.getByTestId('loki-chat-mini').last().waitFor({state:'visible',timeout:15000});
+            const expandChat=page.getByLabel('Agrandir le tchat en plein écran').last();
+            await expandChat.waitFor({state:'visible',timeout:15000});
+            await clickRobust(page,expandChat,'Expand chat fullscreen');
+            const fullChat=page.getByTestId('loki-chat-fullscreen-modal').last();
+            await fullChat.waitFor({state:'visible',timeout:15000});
+            await page.getByLabel('Messagerie Loki plein écran').last().waitFor({state:'visible',timeout:15000});
+            await assertNoOverflow(page,'chat-fullscreen-390x844');
+            await page.screenshot({path:'artifacts/dual-viewport/01b-chat-fullscreen.png',fullPage:true});
+            await clickRobust(page,page.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
+            await fullChat.waitFor({state:'hidden',timeout:15000});
+
             const start=page.getByLabel(/Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,start,'Listen start');
@@ -411,7 +429,7 @@ jobs:
             if(pageErrors.length) throw new Error(`mobile page errors: ${pageErrors.join('\n')}`);
             await page.screenshot({path:'artifacts/dual-viewport/05-after-reload.png',fullPage:true});
 
-            report.push('mobile-390x844: PASS — listen/stop, discoveries, playlists, full-screen Battle V3, FREE aligned with profile type, profile edit, GPS city+country, date, save, profile menu social settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
+            report.push('mobile-390x844: PASS — chat mini→plein écran, listen/stop, discoveries, playlists, full-screen Battle V3, FREE aligned with profile type, profile edit, GPS city+country, date, save, profile menu social settings, Instagram, playlists return, reload username+bio+website+city+country+date+social, no overflow');
             fs.writeFileSync('artifacts/dual-viewport/report.txt',report.join('\n'));
             await context.close();
             await browser.close();
