@@ -197,7 +197,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       <View style={s.banner}>
         <View style={s.bannerHead}>
           <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{`LES PÉPITES DE @${sellerUsername.toUpperCase()}`}</Text>
+          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MES PÉPITES' : 'PÉPITES À DÉCOUVRIR'}</Text>
         </View>
         <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
         <View style={s.bannerPills}>
@@ -252,7 +252,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       ) : null}
 
       <View style={s.shelfHead}>
-        <Text style={s.shelfTitle} numberOfLines={1}>{`Boutique de @${sellerUsername}`}</Text>
+        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Mes collections' : 'Toutes les Pépites'}</Text>
         <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
@@ -277,7 +277,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             <View style={s.storeHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.storeKicker}>BOUTIQUE</Text>
-                <Text style={s.storeTitle} numberOfLines={1}>@{sellerUsername}</Text>
+                <Text style={s.storeTitle} numberOfLines={1}>{ownerMode ? 'MES COLLECTIONS' : 'PÉPITES LOKI'}</Text>
               </View>
               <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique">
                 <Text style={s.storeCloseText}>×</Text>
@@ -309,7 +309,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               <View style={s.universe}>
                 <View style={s.universeBubble}><Text style={s.universeBubbleText} numberOfLines={1}>{selectedGenre}</Text></View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={s.universeTitle} numberOfLines={1}>Univers {selectedGenre} de @{sellerUsername}</Text>
+                  <Text style={s.universeTitle} numberOfLines={1}>Univers {selectedGenre}</Text>
                   <Text style={s.universeMeta}>{selectedGenreCount} collection{selectedGenreCount > 1 ? 's' : ''}{selectedGenreNew > 0 ? ` · ${selectedGenreNew} nouveauté${selectedGenreNew > 1 ? 's' : ''} pour toi` : ''}</Text>
                 </View>
               </View>
