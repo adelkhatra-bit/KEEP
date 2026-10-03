@@ -442,9 +442,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
   useEffect(() => {
     if (accountRequired || !user?.id) return undefined;
     let live = true;
-    loadProfileSaleSuggestions(8).then((rows) => { if (live) { setProfileSaleSuggestions(rows); setProfileSaleSuggestionIndex(0); } }).catch(() => { if (live) setProfileSaleSuggestions([]); });
-    return () => { live = false; };
-  }, [accountRequired, user?.id]);
+    const refreshProfileSaleSuggestions = () => {
+      loadProfileSaleSuggestions(8)
+        .then((rows) => { if (live) { setProfileSaleSuggestions(rows); setProfileSaleSuggestionIndex(0); } })
+        .catch(() => { if (live) setProfileSaleSuggestions([]); });
+    };
+    refreshProfileSaleSuggestions();
+    const unsubscribe = navigation?.addListener?.('focus', refreshProfileSaleSuggestions);
+    return () => { live = false; unsubscribe?.(); };
+  }, [accountRequired, user?.id, navigation]);
   useEffect(() => {
     if (profileSaleSuggestions.length < 2) return undefined;
     const timer = setInterval(() => setProfileSaleSuggestionIndex((value) => (value + 1) % profileSaleSuggestions.length), 6500);
@@ -1187,11 +1193,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
   useEffect(() => {
     if (!marketplaceEnabled || !user || accountRequired) { setPlaylistSaleOffers([]); return undefined; }
     let live = true;
-    loadMyPlaylistSaleOffers()
-      .then((rows) => { if (live) setPlaylistSaleOffers(rows); })
-      .catch(() => { if (live) setPlaylistSaleOffers([]); });
-    return () => { live = false; };
-  }, [marketplaceEnabled, user?.id, accountRequired]);
+    const refreshOwnSaleOffers = () => {
+      loadMyPlaylistSaleOffers()
+        .then((rows) => { if (live) setPlaylistSaleOffers(rows); })
+        .catch(() => { if (live) setPlaylistSaleOffers([]); });
+    };
+    refreshOwnSaleOffers();
+    const unsubscribe = navigation?.addListener?.('focus', refreshOwnSaleOffers);
+    return () => { live = false; unsubscribe?.(); };
+  }, [marketplaceEnabled, user?.id, accountRequired, navigation]);
 
   const fallbackCertification: ProfileCertificationTier = accountRequired
     ? 'UNVERIFIED'
