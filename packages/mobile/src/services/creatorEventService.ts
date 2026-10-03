@@ -40,6 +40,9 @@ export type CreatorEvent = {
   photoNote?: string | null;
   textStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
   textNote?: string | null;
+  // Vrai uniquement pour l'aperçu PENDING destiné à l'audience potentielle :
+  // aucune coordonnée ni action ne doit être disponible avant validation.
+  pendingPreviewOnly?: boolean;
 };
 
 export type EventRsvpStatus = 'GOING' | 'MAYBE' | 'NOT_GOING';
@@ -211,6 +214,37 @@ export async function loadMyEventInvitationIds(): Promise<string[]> {
   const { data, error } = await supabase.rpc('keep_my_event_invitation_ids');
   if (error) throw error;
   return (data ?? []).map((row: any) => String(row.event_id ?? row.eventId ?? '')).filter(Boolean);
+}
+
+export async function loadPendingEventInvitePreviews(): Promise<CreatorEvent[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_pending_event_teasers_for_me', { p_limit: 50 });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: String(row.id),
+    creatorId: String(row.creator_id),
+    name: String(row.name || 'Événement'),
+    description: row.description_preview ?? null,
+    venueName: null,
+    startsAt: String(row.starts_at),
+    endsAt: null,
+    countryCode: null,
+    djArtistNames: [],
+    externalTicketUrl: null,
+    youtubeUrl: null,
+    imageUrl: row.image_url ?? null,
+    imageUrls: row.image_url ? [String(row.image_url)] : [],
+    requireQrCode: false,
+    audienceMode: (['ADULTS_18_PLUS','FAMILY'].includes(String(row.audience_mode)) ? String(row.audience_mode) : 'GENERAL') as EventAudienceMode,
+    ticketPriceCents: null,
+    organizerPhone: null,
+    moderationStatus: 'PENDING' as const,
+    photoStatus: 'PENDING' as const,
+    photoNote: null,
+    textStatus: 'PENDING' as const,
+    textNote: null,
+    pendingPreviewOnly: true,
+  }));
 }
 
 export async function loadMyRsvps(profileId: string): Promise<Record<string, EventRsvpStatus>> {
