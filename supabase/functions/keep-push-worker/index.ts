@@ -76,8 +76,13 @@ async function deliveryPreference(profileId: string, notification: PendingNotifi
   const soundPref = category === "money" ? data.money_sound : category === "battle" ? data.battle_sound : category === "music" ? data.music_sound : category === "events" ? data.events_sound : category === "social" ? data.social_sound : "DEFAULT";
   return { enabled, sound: soundPref === "SILENT" ? null : soundPref === "MONEY" ? "keep_money.wav" : "default", channelId: soundPref === "MONEY" ? "money" : "default" };
 }
-function invalidatesExpoToken(code: string, message: string) {
-  return code === "DeviceNotRegistered" || /BadEnvironmentKeyInToken/i.test(message);
+function invalidatesExpoToken(code: string, _message: string) {
+  // DeviceNotRegistered signifie réellement que CE token n'est plus valable.
+  // BadEnvironmentKeyInToken / InvalidCredentials signalent au contraire un
+  // problème APNs/EAS côté application : le token de l'iPhone reste valable
+  // et doit être conservé pour reprendre les push dès que les credentials
+  // sont corrigés.
+  return code === "DeviceNotRegistered";
 }
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
