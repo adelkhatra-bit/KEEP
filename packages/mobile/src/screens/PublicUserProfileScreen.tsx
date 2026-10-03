@@ -901,14 +901,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       const offers = await loadPlaylistSaleOffersForProfile(suggestion.sellerId);
       const offer = offers.find((row) => row.offerId === suggestion.offerId);
       if (!offer) {
-        Alert.alert('Drop du moment', 'Cette collection n’est plus disponible.');
+        Alert.alert('Boutique musicale', 'Cette collection n’est plus disponible.');
         setProfileSaleSuggestions((rows) => rows.filter((row) => row.offerId !== suggestion.offerId));
         return;
       }
       setImmersivePreviewSellerUsername(suggestion.sellerUsername);
       setImmersivePreviewOffer(offer);
     } catch {
-      Alert.alert('Drop du moment', 'Impossible de charger cet aperçu pour le moment.');
+      Alert.alert('Boutique musicale', 'Impossible de charger cet aperçu pour le moment.');
     }
   };
 
@@ -1272,12 +1272,6 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       }
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
       // playlist (qui peut être "keep-selection:...").
-      const termsAccepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
-      if (!termsAccepted) {
-        setPurchaseBusyId(null);
-        acceptMarketplaceTermsThen('profile_purchase', () => { void buyPlaylistOffer(offer); });
-        return;
-      }
       const request = await requestPlaylistPurchase(offer.offerId);
       if (!request.payoutLink && !request.payoutQrUrl) {
         Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n'a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
@@ -1749,7 +1743,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>{isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'} · {profile.username.replace(/^@+/, '')}</Text>
+                <Text style={styles.marketplaceKicker}>BOUTIQUE MUSICALE · {profile.username.replace(/^@+/, '')}</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
@@ -1775,7 +1769,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         ) : saleOffers.length > 0 ? (
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVEAU CHEZ LUI' : 'SON CLUB MUSICAL'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} drops · {visiblePublicVibes.length} vibes</Text></View>
+            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
         ) : null}
