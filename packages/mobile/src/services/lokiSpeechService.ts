@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from './audioPreviewService';
 
 type LokiSpeechOptions = {
@@ -8,10 +7,13 @@ type LokiSpeechOptions = {
   pitch?: number;
 };
 
-let activeSpeechToken = 0;
+let nativeSpeechModule: typeof import('expo-speech') | null = null;
+function getNativeSpeech() {
+  if (!nativeSpeechModule) nativeSpeechModule = require('expo-speech') as typeof import('expo-speech');
+  return nativeSpeechModule;
+}
 
 export async function stopLokiSpeech(): Promise<void> {
-  activeSpeechToken += 1;
   if (Platform.OS === 'web') {
     try {
       const synth = (globalThis as any)?.speechSynthesis;
@@ -20,14 +22,52 @@ export async function stopLokiSpeech(): Promise<void> {
     return;
   }
   try {
-    await Speech.stop();
+    await getNativeSpeech().stop();
   } catch {}
 }
 
-async function speakNative(clean: string, options: LokiSpeechOptions): Promise<void> {
-  const callToken = ++activeSpeechToken;
-  const duckToken = await duckActivePreviewForSpeech(0.18).catch(() => 0);
+export async function speakLokiText(text: string, options: LokiSpeechOptions = {}): Promise<void> {
+  const clean = String(text || '').trim();
+  if (!clean) return;
+
+  // Le robot doit rester audible pendant une preview : la musique descend
+  // temporairement, puis retrouve exactement son volume initial quand Loki
+  // termine ou est interrompu.
+  const duckToken = await duckActivePreviewForSpeech(0.16).catch(() => 0);
+  const restore = async () => {
+    if (duckToken) await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
+  };
+
+  if (Platform.OS === 'web') {
+    try {
+      const synth = (globalThis as any)?.speechSynthesis;
+      const Utterance = (globalThis as any)?.SpeechSynthesisUtterance;
+      if (synth && Utterance) {
+        synth.cancel?.();
+        synth.resume?.();
+        await new Promise<void>((resolve) => {
+          const utterance = new Utterance(clean);
+          utterance.lang = options.language || 'fr-FR';
+          utterance.rate = options.rate ?? 0.95;
+          utterance.pitch = options.pitch ?? 1;
+          utterance.volume = 1;
+          const done = () => resolve();
+          utterance.onend = done;
+          utterance.onerror = done;
+          synth.speak(utterance);
+        });
+        await restore();
+        return;
+      }
+    } catch {
+      // Repli silencieux ci-dessous.
+    }
+    await restore();
+    return;
+  }
+
   try {
+    const Speech = getNativeSpeech();
     await Speech.stop().catch(() => {});
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -36,70 +76,23 @@ async function speakNative(clean: string, options: LokiSpeechOptions): Promise<v
         settled = true;
         resolve();
       };
-      const timeout = setTimeout(finish, 12000);
-      const done = () => {
-        clearTimeout(timeout);
-        finish();
-      };
       try {
         Speech.speak(clean, {
           language: options.language || 'fr-FR',
-          rate: options.rate ?? 0.94,
+          rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
-          volume: 1,
-          // iOS/TestFlight: TTS must not fight the expo-av Battle preview
-          // for the same application audio session. The preview is already
-          // ducked above; use the system speech session, then restore it.
-          ...(Platform.OS === 'ios' ? { useApplicationAudioSession: false } : {}),
-          onDone: done,
-          onStopped: done,
-          onError: done,
+          onDone: finish,
+          onStopped: finish,
+          onError: finish,
         });
       } catch {
-        done();
+        finish();
       }
+      // Filet de sécurité : une callback TTS iOS ne doit jamais laisser la
+      // preview duckée indéfiniment.
+      setTimeout(finish, Math.max(5000, Math.min(18000, clean.length * 95)));
     });
   } finally {
-    // Si une autre phrase Loki a commencé entre-temps, elle possède son
-    // propre ducking et sa propre restauration.
-    if (callToken === activeSpeechToken && duckToken) {
-      await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
-    }
+    await restore();
   }
-}
-
-async function speakWeb(clean: string, options: LokiSpeechOptions): Promise<void> {
-  const callToken = ++activeSpeechToken;
-  const duckToken = await duckActivePreviewForSpeech(0.18).catch(() => 0);
-  try {
-    const synth = (globalThis as any)?.speechSynthesis;
-    const Utterance = (globalThis as any)?.SpeechSynthesisUtterance;
-    if (!synth || !Utterance) return;
-    synth.cancel?.();
-    synth.resume?.();
-    await new Promise<void>((resolve) => {
-      const utterance = new Utterance(clean);
-      utterance.lang = options.language || 'fr-FR';
-      utterance.rate = options.rate ?? 0.95;
-      utterance.pitch = options.pitch ?? 1;
-      utterance.volume = 1;
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      synth.speak(utterance);
-    });
-  } finally {
-    if (callToken === activeSpeechToken && duckToken) {
-      await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
-    }
-  }
-}
-
-export async function speakLokiText(text: string, options: LokiSpeechOptions = {}): Promise<void> {
-  const clean = String(text || '').trim();
-  if (!clean) return;
-  if (Platform.OS === 'web') {
-    await speakWeb(clean, options).catch(() => {});
-    return;
-  }
-  await speakNative(clean, options).catch(() => {});
 }
