@@ -1,33 +1,26 @@
 do $migration$
 declare
   ddl text;
-  start_pos integer;
-  end_rel integer;
-  tail text;
-  replacement text := $new$
+  old_block text := $old$
+  if not p_accept then
+    update public.keep_battle_challenges set status='DECLINED',updated_at=now() where id=c.id;
+    -- Pas de notification externe/inbox pour un refus : le challenger voit
+    -- simplement que le bouton redevient disponible. Évite le doublon avec
+    -- le feedback local et le bruit push.
+    return jsonb_build_object('id',c.id,'status','DECLINED');
+  end if;
+$old$;
+  new_block text := $new$
   if not p_accept then
     raise exception 'BATTLE_CHALLENGE_DECLINE_REQUIRES_CONFIRMED_ACTION';
   end if;
 $new$;
 begin
   select pg_get_functiondef('public.keep_battle_challenge_respond(uuid,boolean)'::regprocedure) into ddl;
-
-  -- Idempotent across the historical function variants: replace the first
-  -- p_accept=false branch by position instead of matching its exact body.
-  start_pos := strpos(ddl, 'if not p_accept then');
-  if start_pos = 0 then
-    raise exception 'DECLINE_BRANCH_NOT_FOUND';
+  if strpos(ddl, old_block) = 0 then
+    raise exception 'DECLINE_BLOCK_NOT_FOUND';
   end if;
-
-  tail := substr(ddl, start_pos);
-  end_rel := strpos(tail, 'end if;');
-  if end_rel = 0 then
-    raise exception 'DECLINE_BRANCH_END_NOT_FOUND';
-  end if;
-
-  ddl := substr(ddl, 1, start_pos - 1)
-      || replacement
-      || substr(tail, end_rel + length('end if;'));
+  ddl := replace(ddl, old_block, new_block);
   execute ddl;
 end;
 $migration$;
