@@ -27,7 +27,6 @@ import {
   acceptMarketplacePaymentTerms,
   extractMusicAgoraPayoutQrUrl,
   musicAgoraBodyPreview,
-  shareMyPayoutQrInAgora,
   loadMusicAgoraSharedTrack,
   MusicAgoraConversation,
   MusicAgoraGroup,
@@ -171,13 +170,11 @@ export default function MusicAgoraPanel({
   const [keepBusyId, setKeepBusyId] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const [paymentTermsAccepted, setPaymentTermsAccepted] = useState(false);
-  const [myPayoutQrUrl, setMyPayoutQrUrl] = useState('');
   const [paymentCheckout, setPaymentCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
   const [composerActionsOpen, setComposerActionsOpen] = useState(false);
   const [inboxQuery, setInboxQuery] = useState('');
   const [inboxFilter, setInboxFilter] = useState<'ALL' | 'GROUPS' | 'DIRECT' | 'INVITES'>('ALL');
-  const [showLatestJump, setShowLatestJump] = useState(false);
   const chatScrollRef = useRef<ScrollView | null>(null);
   const composerInputRef = useRef<TextInput | null>(null);
   const composerFocusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -309,11 +306,9 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!enabled) {
       setPaymentTermsAccepted(false);
-      setMyPayoutQrUrl('');
-      return;
+        return;
     }
     void loadMarketplacePaymentTermsAccepted().then(setPaymentTermsAccepted).catch(() => setPaymentTermsAccepted(false));
-    void getMyPayoutMethods().then((methods) => setMyPayoutQrUrl(methods.qrUrl)).catch(() => setMyPayoutQrUrl(''));
   }, [enabled]);
 
   const askPaymentTerms = (onAccepted?: () => void) => {
@@ -336,25 +331,9 @@ export default function MusicAgoraPanel({
     );
   };
 
-  const sharePayoutQr = async () => {
-    if (!replyTarget?.profileId || !roomSlug) return;
-    if (!myPayoutQrUrl) {
-      Alert.alert('QR PayPal', 'Ajoute d’abord ton QR PayPal dans les réglages de paiement de ton profil.');
-      return;
-    }
-    try {
-      await shareMyPayoutQrInAgora(roomSlug, replyTarget.profileId);
-      await refresh(roomSlug, true);
-      followChatBottom(true);
-    } catch (error) {
-      Alert.alert('QR PayPal', readableError(error));
-    }
-  };
-
   const followChatBottom = (animated = true) => {
     browsingHistoryRef.current = false;
     stickToBottomRef.current = true;
-    setShowLatestJump(false);
     forceBottomRef.current = true;
     bottomRetryTimersRef.current.forEach(clearTimeout);
     bottomRetryTimersRef.current = [];
@@ -521,7 +500,6 @@ export default function MusicAgoraPanel({
     stickToBottomRef.current = true;
     userDraggingChatRef.current = false;
     forceBottomRef.current = true;
-    setShowLatestJump(false);
     setChatMode('MESSAGES');
     setActiveGroup(null);
     setReplyTarget(target);
@@ -551,7 +529,6 @@ export default function MusicAgoraPanel({
     stickToBottomRef.current = true;
     userDraggingChatRef.current = false;
     forceBottomRef.current = true;
-    setShowLatestJump(false);
     setMessages([]);
     if (group.myStatus !== 'ACTIVE') return;
     requestAnimationFrame(() => focusComposer());
@@ -879,7 +856,6 @@ export default function MusicAgoraPanel({
         return;
       }
       if (browsingHistoryRef.current || !stickToBottomRef.current) {
-        setShowLatestJump(true);
         return;
       }
       followChatBottom(true);
@@ -1461,7 +1437,6 @@ export default function MusicAgoraPanel({
               stickToBottomRef.current = true;
               userDraggingChatRef.current = false;
               forceBottomRef.current = true;
-              setShowLatestJump(false);
               setChatMode('PLACE');
               setReplyTarget(null);
               setReplyingToMessage(null);
@@ -1600,15 +1575,12 @@ export default function MusicAgoraPanel({
           stickToBottomRef.current = !browsingHistoryRef.current;
           bottomRetryTimersRef.current.forEach(clearTimeout);
           bottomRetryTimersRef.current = [];
-          setShowLatestJump(browsingHistoryRef.current);
         } else if (userDraggingChatRef.current && ownSendPendingRef.current === null) {
           const browsingOlder = distanceFromBottom > 56;
           browsingHistoryRef.current = browsingOlder;
           stickToBottomRef.current = !browsingOlder;
-          setShowLatestJump(browsingOlder);
         } else if (distanceFromBottom <= 20 && !browsingHistoryRef.current) {
           stickToBottomRef.current = true;
-          setShowLatestJump(false);
         }
       }}
       onScrollEndDrag={(event) => {
@@ -1618,7 +1590,6 @@ export default function MusicAgoraPanel({
         const browsingOlder = distanceFromBottom > 56;
         browsingHistoryRef.current = browsingOlder;
         stickToBottomRef.current = !browsingOlder;
-        setShowLatestJump(browsingOlder);
         if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();
       }}
       onMomentumScrollEnd={(event) => {
@@ -1628,7 +1599,6 @@ export default function MusicAgoraPanel({
         const browsingOlder = distanceFromBottom > 56;
         browsingHistoryRef.current = browsingOlder;
         stickToBottomRef.current = !browsingOlder;
-        setShowLatestJump(browsingOlder);
         if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();
       }}
       onContentSizeChange={() => {
@@ -2070,14 +2040,7 @@ export default function MusicAgoraPanel({
             <Text style={[s.drawerActionIcon, s.drawerActionMusicText]}>♫</Text>
             <Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>
           </TouchableOpacity>
-          {replyTarget ? <TouchableOpacity
-            style={[s.drawerAction, !myPayoutQrUrl && s.shareQrOff]}
-            onPress={() => { setComposerActionsOpen(false); void sharePayoutQr(); }}
-            accessibilityLabel="Partager mon QR PayPal"
-          >
-            <Text style={s.drawerActionIcon}>▣</Text>
-            <Text style={s.drawerActionText}>QR PAYPAL</Text>
-          </TouchableOpacity> : null}
+          {replyTarget ? : null}
           {draft.length >= 1800 ? <Text style={s.counter}>{draft.length}/2000</Text> : null}
         </View>
       ) : null}
