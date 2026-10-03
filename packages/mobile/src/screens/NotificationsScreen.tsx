@@ -107,7 +107,6 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
   if (key === 'PLAYLIST_SALE_CANCELLED') return 'TRANSACTION ANNULÉE';
-  if (key === 'PLAYLIST_SALE_CANCELLED') return 'TRANSACTION ANNULÉE';
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
   if (key === 'ADMIN_USER_REPORT') return 'SIGNALEMENT';
   if (key === 'AGORA_GROUP_INVITE') return 'INVITATION GROUPE';
@@ -484,41 +483,6 @@ export default function NotificationsScreen({ navigation, route }: any) {
     if (profileUsername) return `VOIR @${profileUsername}`;
     if (notificationProfileId(item)) return 'VOIR LE PROFIL';
     return null;
-  };
-
-  const confirmCancelPayment = async (item: KeepNotification) => {
-    const paymentId = paymentIdOf(item);
-    if (!paymentId || paymentBusyId) return;
-    Alert.alert(
-      'Annuler la transaction ?',
-      'L’autre utilisateur sera prévenu immédiatement. Cette action n’est possible que tant qu’aucun paiement ni preuve n’a été signalé.',
-      [
-        { text: 'Garder la transaction', style: 'cancel' },
-        {
-          text: 'ANNULER LA TRANSACTION',
-          style: 'destructive',
-          onPress: async () => {
-            setPaymentBusyId(paymentId);
-            try {
-              await cancelPlaylistSalePayment(paymentId);
-              setNotice('Transaction annulée · l’autre utilisateur a été prévenu');
-              await refresh();
-            } catch (e: any) {
-              const message = String(e?.message || '');
-              setError(
-                message.includes('PAYMENT_ALREADY_REPORTED')
-                  ? 'Le paiement ou une preuve a déjà été signalé. Utilise la confirmation ou le litige au lieu d’annuler.'
-                  : message.includes('PAYMENT_NOT_PENDING')
-                    ? 'Cette transaction n’est plus en attente.'
-                    : 'Impossible d’annuler cette transaction pour le moment.',
-              );
-            } finally {
-              setPaymentBusyId(null);
-            }
-          },
-        },
-      ],
-    );
   };
 
   const openPaymentFromNotification = async (item: KeepNotification) => {
@@ -1069,15 +1033,6 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   >
                     <Text style={styles.paymentActionPrimaryText}>J’AI PAYÉ · JOINDRE PREUVE</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.paymentActionButton, styles.paymentCancelButton]}
-                    disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => void confirmCancelPayment(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Annuler cette transaction et prévenir l’autre utilisateur"
-                  >
-                    <Text style={styles.paymentCancelText}>ANNULER LA TRANSACTION</Text>
-                  </TouchableOpacity>
                 </View>
               ) : null}
               {notificationPrimaryActionLabel(item) ? (
@@ -1321,8 +1276,6 @@ const styles = StyleSheet.create({
   notificationActionButton: { minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   notificationActionButtonText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
   paymentActionRow: { flexDirection: 'row', gap: 7, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
-  paymentCancelButton: { width: '100%', borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.08)' },
-  paymentCancelText: { color: colors.danger, fontSize: 10, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
   paymentActionButton: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   paymentActionPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
   paymentActionPrimaryText: { color: colors.white, fontSize: 10, fontWeight: '900', textAlign: 'center' },

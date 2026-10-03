@@ -241,17 +241,6 @@ export async function cancelPlaylistSalePayment(paymentId: string, reason = 'USE
   };
 }
 
-export async function cancelPlaylistSalePayment(paymentId: string): Promise<{ paymentId: string; status: 'CANCELLED'; notifiedProfileId: string | null }> {
-  const { data, error } = await client().rpc('keep_playlist_sale_cancel_payment', { p_payment_id: paymentId });
-  if (error) throw new Error(String(error.message || 'PLAYLIST_PAYMENT_CANCEL_FAILED'));
-  const row = data as any;
-  return {
-    paymentId: String(row?.paymentId ?? paymentId),
-    status: 'CANCELLED',
-    notifiedProfileId: row?.notifiedProfileId ? String(row.notifiedProfileId) : null,
-  };
-}
-
 export async function markPlaylistSaleBuyerPaid(paymentId: string): Promise<PlaylistBuyerPaymentSignal> {
   const { data, error } = await client().rpc('keep_playlist_sale_buyer_mark_paid', { p_payment_id: paymentId });
   if (error) throw new Error(String(error.message || 'PLAYLIST_BUYER_MARK_PAID_FAILED'));
