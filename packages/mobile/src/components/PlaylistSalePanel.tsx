@@ -7,14 +7,12 @@ import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { cancelPlaylistSalePayment, getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, markPlaylistSalePaid, offerPlaylistSaleRequestSelectionWithFree, PlaylistOfferedTrack, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, updateOfferPaymentMode } from '../services/playlistSaleService';
+import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, offerPlaylistSaleRequestSelectionWithFree, PlaylistOfferedTrack, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, updateOfferPaymentMode } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
-import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import { splitSaleOffersByStatus } from '../services/saleListPaging';
 import { loadOwnPersistedKeeps } from '../services/keepMusicCoreRecognition';
 import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
-import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 import type { CanonicalTrack } from '@keep/music';
 import PayPalQrPayoutControl from './PayPalQrPayoutControl';
@@ -558,53 +556,6 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Adel (16-17/09/2026) : "l'utilisateur se fait payer directement" -- une
-  // fois payé sur SON lien perso (hors KEEP), le vendeur confirme ici -- ça
-  // débloque l'accès de CET acheteur précis (démasquage des morceaux).
-  const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
-    if (!transaction.buyerMarkedPaidAt || !transaction.paymentProofPath) {
-      Alert.alert(
-        'Confirmation impossible',
-        'Attends que l’acheteur clique sur « J’AI PAYÉ » et joigne sa preuve. Ensuite vérifie réellement ton compte PayPal avant de confirmer.',
-      );
-      return;
-    }
-    Alert.alert(
-      'Confirmer la réception du paiement',
-      `La preuve jointe est une aide, pas une validation bancaire. Confirme uniquement après avoir vérifié sur TON compte PayPal que ${(transaction.amountCents / 100).toFixed(2).replace('.', ',')} ${transaction.currencyCode} de @${transaction.counterpartUsername} sont réellement reçus. La Pépite "${transaction.playlistName}" sera alors débloquée automatiquement.`,
-      [
-        { text: 'Annuler', onPress: () => {} },
-        {
-          text: 'J’ai reçu les fonds',
-          onPress: async () => {
-            setBusy(true);
-            try {
-              const delivered = await markPlaylistSalePaid(transaction.id);
-              const providerSync = await syncMarketplaceDelivery(transaction.id).catch(() => null);
-              await loadData();
-              if (!providerSync?.connectedProviders) {
-                Alert.alert('Pépite débloquée', `« ${delivered.playlistName} » et ses ${delivered.trackCount} titre${delivered.trackCount > 1 ? 's' : ''} sont maintenant dans le Loki Music de @${transaction.counterpartUsername}. Il pourra choisir Public ou Privé.`);
-              } else {
-                const complete = providerSync.results.filter((row) => row.status === 'COMPLETE').map((row) => row.provider).join(', ');
-                Alert.alert('Pépite débloquée', `Livraison Loki Music terminée${complete ? ` et synchronisée vers ${complete}` : ''}. L’acheteur peut maintenant choisir Public ou Privé.`);
-              }
-            } catch (e: any) {
-              const message = String(e?.message || '');
-              Alert.alert(
-                'Erreur',
-                message.includes('BUYER_HAS_NOT_MARKED_PAID') || message.includes('PAYMENT_PROOF_REQUIRED')
-                  ? 'L’acheteur doit d’abord signaler son paiement et joindre une preuve.'
-                  : (e?.message || 'Impossible de confirmer ce paiement.'),
-              );
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ],
-    );
   };
 
   useEffect(() => {
