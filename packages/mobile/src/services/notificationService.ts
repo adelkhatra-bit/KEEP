@@ -46,8 +46,26 @@ const DEFAULT_PREFS: NotificationPreferences = {
   moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT',
 };
 
+function decodeVisibleEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
+    })
+    .replace(/&#([0-9]+);/g, (_match, dec) => {
+      const code = Number.parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
+    })
+    .replace(/&hearts?;/gi, '♥')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;|&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
 export function normalizeNotificationVisibleText(value: unknown): string {
-  return String(value || '')
+  return decodeVisibleEntities(String(value || ''))
     .replace(/\bKEEP\s+MUSIC\b/gi, APP_NAME)
     .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
     .replace(/\bKEEP\b/g, 'Loki');
