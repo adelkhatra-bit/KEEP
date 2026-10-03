@@ -72,7 +72,7 @@ jobs:
                   '/localizations?fields[subscriptionLocalizations]=name,locale,description&limit=50',
                   {allow404:true});
                 const images=await api('/v1/subscriptionVersions/'+v.id+
-                  '/images?fields[subscriptionImages]=fileName,state,imageAsset&limit=50',
+                  '/images?fields[subscriptionImages]=fileName,imageAsset&limit=50',
                   {allow404:true});
                 row.versionDetails.push({
                   id:v.id,
@@ -82,8 +82,7 @@ jobs:
                     descriptionPresent:Boolean(x.attributes?.description?.trim())
                   })),
                   images:(images?.data||[]).map(x=>({
-                    fileName:x.attributes?.fileName||null,
-                    state:x.attributes?.state||null
+                    fileName:x.attributes?.fileName||null
                   }))
                 });
               }
