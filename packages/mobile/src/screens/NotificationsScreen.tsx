@@ -142,6 +142,8 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
+  const [followingProfileIds, setFollowingProfileIds] = useState<Set<string>>(new Set());
+  const [followBusyProfileId, setFollowBusyProfileId] = useState<string | null>(null);
   const handledFocusNotificationId = useRef<string>('');
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
@@ -279,6 +281,37 @@ export default function NotificationsScreen({ navigation, route }: any) {
 
   const unread = useMemo(() => items.filter((item) => !item.readAt).length, [items]);
 
+  // Une seule requête pour tous les profils concernés par les notifications
+  // "Nouveau morceau" : scalable même avec un grand centre de notifications.
+  useEffect(() => {
+    if (!user || !supabase || isLocalGuest || isDemoMode) {
+      setFollowingProfileIds(new Set());
+      return;
+    }
+    const ownerIds = Array.from(new Set(
+      items
+        .filter((item) => isNewKeepNotification(item))
+        .map((item) => notificationProfileId(item))
+        .filter((id): id is string => Boolean(id && id !== user.id)),
+    ));
+    if (!ownerIds.length) {
+      setFollowingProfileIds(new Set());
+      return;
+    }
+    let live = true;
+    void supabase
+      .from('follows')
+      .select('followee_id')
+      .eq('follower_id', user.id)
+      .in('followee_id', ownerIds)
+      .then(({ data }) => {
+        if (!live) return;
+        setFollowingProfileIds(new Set((data ?? []).map((row: any) => String(row.followee_id))));
+      })
+      .catch(() => { if (live) setFollowingProfileIds(new Set()); });
+    return () => { live = false; };
+  }, [items, user?.id, isLocalGuest, isDemoMode]);
+
   // Ouvrir ce centre = les notifications ont été regardées. Une courte
   // temporisation laisse les cartes non lues visibles avant de remettre le
   // compteur global à zéro, sans imposer un second bouton.
@@ -372,6 +405,31 @@ export default function NotificationsScreen({ navigation, route }: any) {
     } catch {
       setPrefs(previous);
       setError('Impossible d’enregistrer les préférences.');
+    }
+  };
+
+  const followFromNotification = async (item: KeepNotification) => {
+    if (!user || !supabase || followBusyProfileId) return;
+    const targetId = notificationProfileId(item);
+    if (!targetId || targetId === user.id || followingProfileIds.has(targetId)) return;
+    setFollowBusyProfileId(targetId);
+    try {
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: targetId });
+      if (error) {
+        if (String(error.message || '').includes('FOLLOW_LIMIT')) {
+          setError('Ton offre actuelle limite le nombre de profils suivis.');
+          return;
+        }
+        throw error;
+      }
+      setFollowingProfileIds((current) => new Set(current).add(targetId));
+      setNotice('Abonnement activé · ses prochaines pépites pourront t’être signalées');
+      await readOne(item);
+    } catch {
+      setError('Impossible de s’abonner à ce profil pour le moment.');
+      throw new Error('FOLLOW_FAILED');
+    } finally {
+      setFollowBusyProfileId(null);
     }
   };
 
@@ -997,6 +1055,10 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   <NewKeepNotificationActions
                     notification={item}
                     onInteract={() => { if (!item.readAt) void readOne(item); }}
+                    isFollowing={Boolean(notificationProfileId(item) && followingProfileIds.has(notificationProfileId(item) as string))}
+                    onFollow={notificationProfileId(item) && notificationProfileId(item) !== user?.id
+                      ? () => followFromNotification(item)
+                      : undefined}
                     onOpenProfile={profileUsername ? () => navigation.navigate('PublicProfile', { username: profileUsername }) : undefined}
                   />
                 </View>

@@ -27,6 +27,8 @@ export default function NewKeepNotificationActions({
   onInteract,
   onKept,
   onOpenProfile,
+  isFollowing = false,
+  onFollow,
 }: {
   notification: KeepNotification;
   /** Appelé au premier geste (la bannière arrête alors de se refermer seule). */
@@ -34,6 +36,10 @@ export default function NewKeepNotificationActions({
   onKept?: () => void;
   /** Ouvre directement le profil qui a partagé le morceau. */
   onOpenProfile?: () => void;
+  /** Jamais de désabonnement depuis une notification : true transforme le CTA en VOIR LE PROFIL. */
+  isFollowing?: boolean;
+  /** Abonnement unidirectionnel depuis la notification. */
+  onFollow?: () => Promise<void> | void;
 }) {
   const [track, setTrack] = useState<CanonicalTrack | null>(null);
   const [owned, setOwned] = useState(false);
@@ -41,6 +47,8 @@ export default function NewKeepNotificationActions({
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followedHere, setFollowedHere] = useState(false);
   const [kept, setKept] = useState(false);
   const [cost, setCost] = useState(3);
   const [isFollowingOwner, setIsFollowingOwner] = useState(false);
@@ -175,6 +183,38 @@ export default function NewKeepNotificationActions({
       ],
     );
   };
+
+  const followingNow = isFollowing || followedHere;
+  const profileOrFollowAction = onFollow && !followingNow ? (
+    <TouchableOpacity
+      testID="new-keep-follow"
+      style={[s.profile, followBusy && s.disabled]}
+      disabled={followBusy}
+      onPress={() => {
+        if (followBusy) return;
+        onInteract?.();
+        setFollowBusy(true);
+        Promise.resolve(onFollow())
+          .then(() => { if (mounted.current) setFollowedHere(true); })
+          .catch(() => { if (mounted.current) Alert.alert('Abonnement', 'Impossible de s’abonner pour le moment.'); })
+          .finally(() => { if (mounted.current) setFollowBusy(false); });
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="S’abonner à ce profil depuis la notification"
+    >
+      <Text style={s.profileText}>{followBusy ? 'ABONNEMENT…' : '＋ S’ABONNER'}</Text>
+    </TouchableOpacity>
+  ) : onOpenProfile ? (
+    <TouchableOpacity
+      testID="new-keep-profile"
+      style={s.profile}
+      onPress={() => { onInteract?.(); onOpenProfile(); }}
+      accessibilityRole="button"
+      accessibilityLabel="Voir le profil qui a partagé ce morceau"
+    >
+      <Text style={s.profileText}>VOIR LE PROFIL</Text>
+    </TouchableOpacity>
+  ) : null;
 
   if (loading) {
     return <View style={s.row}><ActivityIndicator size="small" color="#B79CFF" /></View>;
