@@ -1895,16 +1895,16 @@ export default function ProfilePublicScreen({ navigation }: any) {
               unlockWebAudioForGesture();
               void Promise.all(offers.map((offer) => loadOwnPlaylistSaleOfferTracks(offer.offerId)))
                 .then((groups) => {
-                  const unique = new Map<string, CanonicalTrack>();
-                  groups.flat().forEach((track) => unique.set(track.id, track));
-                  const tracks = [...unique.values()];
+                  // "LES APERÇUS" = un extrait représentatif par collection,
+                  // pas tous les morceaux de la première collection.
+                  const tracks = groups.map((group) => group[0]).filter(Boolean) as CanonicalTrack[];
                   if (!tracks.length) {
                     Alert.alert('Pépites', 'Aucun morceau accessible dans tes Pépites à la une.');
                     return;
                   }
                   openSelectionSwipe({
                     title: 'Mes Pépites à la une',
-                    subtitle: `${offers.length} collection${offers.length > 1 ? 's' : ''} · lecture continue.`,
+                    subtitle: `${tracks.length} aperçu${tracks.length > 1 ? 's' : ''} · un par collection.`,
                     tracks,
                   });
                 })
