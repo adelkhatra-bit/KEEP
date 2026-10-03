@@ -31,7 +31,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, cancelPlaylistSalePayment, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
@@ -2159,6 +2159,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           payoutLink={payoutCheckout.payoutLink}
           payoutQrUrl={payoutCheckout.payoutQrUrl}
           onClose={() => setPayoutCheckout(null)}
+          onCancelTransaction={async () => {
+            await cancelPlaylistSalePayment(payoutCheckout.paymentId, 'BUYER_CANCELLED_BEFORE_PAYMENT');
+            Alert.alert('Transaction annulée', 'Le vendeur a été prévenu immédiatement. Il n’attendra plus ce paiement.');
+            setPayoutCheckout(null);
+          }}
           onPaid={async () => {
             const signal = await markPlaylistSaleBuyerPaid(payoutCheckout.paymentId);
             Alert.alert(
