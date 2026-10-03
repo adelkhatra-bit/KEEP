@@ -593,7 +593,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             })
             .catch((e: any) => {
               const message = String(e?.message || '');
-              Alert.alert('Recharger mes Solos', message.includes('NOT_ENOUGH_FREE') ? `Il te faut ${pack.free} Free pour ce pack.` : 'L’achat n’a pas abouti. Aucun Free n’a été débité, réessaie dans un instant.');
+              Alert.alert('Acheter des Solos', message.includes('NOT_ENOUGH_FREE') ? `Il te faut ${pack.free} Free pour ce pack.` : 'L’achat n’a pas abouti. Aucun Free n’a été débité, réessaie dans un instant.');
             })
             .finally(() => setSoloPackBusy(null));
         } },
