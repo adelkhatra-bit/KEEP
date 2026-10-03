@@ -22,6 +22,15 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(bellBlock).not.toContain("navigation.navigate('Notifications')");
   });
 
+  it('shows an explicit direct profile link inside activity notifications', () => {
+    expect(notificationPanel).toContain('linkedProfileUsername');
+    expect(notificationPanel).toContain('hasLinkedProfile');
+    expect(notificationPanel).toContain('Voir @${linkedProfileUsername} ›');
+    expect(notificationPanel).toContain('void openActivityProfile(item)');
+    expect(notificationPanel).toContain('activityProfileUsername(item)');
+    expect(notificationPanel).toContain('data.viewerUsername ?? data.viewer_username');
+  });
+
   it('keeps chat out of the hamburger and accessible from the bell message tab', () => {
     expect(profile).not.toContain("title: 'TCHAT'");
     expect(notificationPanel).toContain("activeTab === 'MESSAGES'");

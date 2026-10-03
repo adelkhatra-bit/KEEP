@@ -656,6 +656,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 const expanded = expandedId === item.id;
                 const type = String(item.type || '').toUpperCase();
                 const chatAction = type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' || type.startsWith('AGORA');
+                const linkedProfileUsername = activityProfileUsername(item);
+                const linkedProfileId = activityProfileId(item);
+                const hasLinkedProfile = Boolean(linkedProfileUsername || linkedProfileId);
                 return (
                   <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
                     <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
@@ -676,6 +679,19 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                         </TouchableOpacity>
                         <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
                       </View>
+                      {!locked && hasLinkedProfile ? (
+                        <TouchableOpacity
+                          style={s.profileDeepLink}
+                          onPress={(event) => {
+                            event.stopPropagation?.();
+                            void openActivityProfile(item);
+                          }}
+                          accessibilityRole="link"
+                          accessibilityLabel={linkedProfileUsername ? `Voir le profil de ${linkedProfileUsername}` : 'Voir le profil lié à cette activité'}
+                        >
+                          <Text style={s.profileDeepLinkText}>{linkedProfileUsername ? `Voir @${linkedProfileUsername} ›` : 'VOIR LE PROFIL ›'}</Text>
+                        </TouchableOpacity>
+                      ) : null}
                       {expanded ? (
                         <View style={s.details}>
                           {locked ? null : (
@@ -833,6 +849,8 @@ const s = StyleSheet.create({
   lockedHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:6},
   inlineProfileLink:{alignSelf:'flex-start',marginTop:8,paddingVertical:5,paddingHorizontal:2},
   inlineProfileLinkText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
+  profileDeepLink:{alignSelf:'flex-start',minHeight:30,marginTop:4,marginLeft:28,marginRight:12,paddingHorizontal:8,justifyContent:'center'},
+  profileDeepLinkText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,marginHorizontal:12,marginBottom:10},
   inlineAction:{paddingHorizontal:12,paddingBottom:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
