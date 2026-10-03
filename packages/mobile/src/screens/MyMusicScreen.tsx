@@ -453,6 +453,11 @@ export default function MyMusicScreen({ navigation, route }: any) {
   );
   const privateTracks = useMemo(() => privateEntries.map((entry) => entry.track), [privateEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
+  const privateOrProtectedEntries = useMemo(
+    () => localKeptEntries.filter((entry) => entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])),
+    [localKeptEntries, myOfferedTrackIds],
+  );
+  const privateOrProtectedTracks = useMemo(() => privateOrProtectedEntries.map((entry) => entry.track), [privateOrProtectedEntries]);
   const saleCartTracks = useMemo(
     () => localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id)),
     [localKeptTracks, selectedSaleTrackIds],
@@ -1209,7 +1214,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
 
   const localEntryForTrack = (track: CanonicalTrack) => localKeptEntries.find((item) => trackIdentity(item.track) === trackIdentity(track));
 
-  const toggleTrackVisibility = async (track: CanonicalTrack) => {
+  const toggleTrackVisibility = async (track: CanonicalTrack, saleVisibilityConfirmed = false) => {
     const entry = localEntryForTrack(track);
     if (!entry) return Alert.alert('Visibilité', 'Cette musique vient d’une Vibe ou d’un service connecté. Modifie la visibilité de sa collection.');
     const key = trackIdentity(track);
