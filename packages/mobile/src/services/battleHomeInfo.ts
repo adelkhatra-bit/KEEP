@@ -39,7 +39,7 @@ export function dedupeAnswerChoices(choices: string[], correctAnswer: string, la
   return Array.from(byLabel.values()).slice(0, max);
 }
 
-export type SoloDailyStatusLike = { limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string | null; plan?: string };
+export type SoloDailyStatusLike = { limit: number | null; remaining: number | null; unlimited: boolean; resetsAt?: string | null; plan?: string; dailyIncluded?: number | null; purchasedRemaining?: number | null };
 
 function hhmm(iso: string | null | undefined): string {
   if (!iso) return '00:00';
