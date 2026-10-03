@@ -37,6 +37,18 @@ jobs:
       - run: npm ci
       - name: TypeScript
         run: npm --workspace packages/mobile run type-check
+      - name: Desktop web export
+        working-directory: packages/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+          EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+          EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+          EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+        run: |
+          npx expo export --platform web --output-dir web-dist
+          test -s web-dist/index.html
+          grep -q '<div id="root"' web-dist/index.html
       - name: Battle and push regression tests
         run: |
           npm --workspace packages/mobile test -- --runInBand             KeepBattleMobileGameV3.compact.test.ts             BattleNotificationActions.contract.test.ts             pushNotificationService.directSupabase.test.ts
