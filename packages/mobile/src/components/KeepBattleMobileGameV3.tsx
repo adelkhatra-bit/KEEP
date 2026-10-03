@@ -992,19 +992,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // signalée du tout : rien d'actionnable pour l'utilisateur, contrairement
       // à un refus explicite (DECLINED), qui reste affiché une seule fois
       // (handledOutgoingIds) et jamais pendant une manche solo en cours.
-      const freshFeedback = outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id));
-      // Zéro popup pendant TOUTE la session Solo, y compris entre deux manches.
-      // Le refus reste non traité et sera affiché seulement après la sortie du Solo.
-      const gameplayInProgress = Boolean(solo) || Boolean(arena);
-      if (!gameplayInProgress) {
-        for (const feedback of freshFeedback) {
-          handledOutgoingIds.add(feedback.id);
-          Alert.alert(
-            'Battle refusé',
-            `${feedback.username} a refusé le Battle. Invite un autre joueur ou partage Loki Music à un ami.`,
-            [{ text: 'Continuer', style: 'cancel' }, { text: 'Inviter un ami', onPress: () => { void shareInvite(); } }],
-          );
-        }
+      // Refus/expiration = aucun popup ni notification supplémentaire.
+      // Le bouton redevient simplement disponible. Les décisions vraiment
+      // actionnables restent les invitations entrantes.
+      for (const feedback of outbox.filter((x) => x.status === 'DECLINED' && !handledOutgoingIds.has(x.id))) {
+        handledOutgoingIds.add(feedback.id);
       }
     } catch {}
   }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite, roundCount]);
