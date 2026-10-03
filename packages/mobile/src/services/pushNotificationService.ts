@@ -159,6 +159,27 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
 
 const reportedPushFailures = new Set<string>();
 
+function isExpoPushToken(token: unknown): token is string {
+  const value = String(token || '').trim();
+  return /^(?:Exponent|Expo)PushToken\[[^\]]+\]$/.test(value);
+}
+
+async function resolveExpoPushToken(projectId: string, devicePushToken?: import('expo-notifications').DevicePushToken): Promise<string> {
+  const Notifications = getNativeNotifications();
+  // La conversion explicite est utile après une rotation APNs/FCM, mais
+  // certaines versions iOS/Expo peuvent momentanément renvoyer un token natif.
+  // Dans ce cas on refait immédiatement la résolution canonique via projectId.
+  if (devicePushToken) {
+    try {
+      const converted = await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken });
+      if (isExpoPushToken(converted.data)) return converted.data.trim();
+    } catch {}
+  }
+  const fresh = await Notifications.getExpoPushTokenAsync({ projectId });
+  if (!isExpoPushToken(fresh.data)) throw new Error('EXPO_PUSH_TOKEN_INVALID');
+  return fresh.data.trim();
+}
+
 // Trace (une fois par lancement et par raison) pourquoi l'appareil ne reçoit
 // pas de notifications push. Lecture : table client_diagnostics, area
 // 'push_registration'. N'affiche rien à l'utilisateur.
@@ -250,10 +271,9 @@ export function listenForExpoPushTokenChanges(): () => void {
   if (!projectId) return () => {};
   const subscription = Notifications.addPushTokenListener((nextToken) => {
     // addPushTokenListener renvoie le token NATIF APNs/FCM. On le convertit
-    // en ExpoPushToken avant l'enregistrement, puisque le serveur envoie via
-    // l'Expo Push Service.
-    void Notifications.getExpoPushTokenAsync({ projectId, devicePushToken: nextToken })
-      .then((expoToken) => registerExpoTokenWithSupabase(expoToken.data))
+    // en ExpoPushToken et on refuse toute valeur brute avant le RPC.
+    void resolveExpoPushToken(projectId, nextToken)
+      .then((token) => registerExpoTokenWithSupabase(token))
       .catch((error) => {
         void reportPushRegistrationFailure('expo_token_rotation_error', String((error as any)?.message || error || 'unknown').slice(0, 300));
       });
@@ -324,8 +344,7 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
 
   let token: string;
   try {
-    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-    token = tokenResponse.data;
+    token = await resolveExpoPushToken(projectId);
   } catch (error: any) {
     const detail = String(error?.message || error || 'unknown').slice(0, 300);
     void reportPushRegistrationFailure('expo_token_error', detail);
@@ -341,7 +360,7 @@ export async function unregisterCurrentPushToken(): Promise<void> {
   try {
     const projectId = expoProjectId();
     if (!projectId) return;
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    const token = await resolveExpoPushToken(projectId);
     if (!token) return;
     await supabase.rpc('keep_push_token_unregister', { p_token: token });
   } catch {
