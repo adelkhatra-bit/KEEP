@@ -347,7 +347,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     : Math.max(500, Math.min(650, windowHeight - 248));
   const soloVisualMax = isDesktopBattle
     ? arenaVisualMax
-    : Math.max(250, Math.min(windowWidth - 34, soloRoundCardMinHeight - 242));
+    : Math.max(260, Math.min(windowWidth - 10, soloRoundCardMinHeight - 216));
   const [soloPlayersOpen, setSoloPlayersOpen] = React.useState(false);
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
