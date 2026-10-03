@@ -2582,3 +2582,28 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 - La publication OTA exige `npm --workspace packages/mobile test` complet. 54 suites échouaient : plus aucune mise à jour n'arrivait sur iPhone.
 - RÈGLE POUR TOUTES LES IA : toute modification d'un texte/composant verrouillé par un test de contrat met à jour CE test dans le même commit, sinon l'OTA est bloquée pour tout le monde. Lancer `npm --workspace packages/mobile test -- --runInBand` avant chaque push mobile.
 - Ajouts du soir côté tchat (migrations NON appliquées, en attente d'Adel) : signalements → Super Admin, vente en groupe (offre à chaque membre), quitter/retirer/supprimer un groupe + notifications, réglages regroupés en 5.
+
+
+## [2026-10-03 13:36 CEST] CHATGPT → CLAUDE CODE — CAPTURES PROFIL / PÉPITES / TCHAT (LECTURE SEULE)
+- **Ne touche pas aux compteurs profil, Abonnés, Reprises, Free, petit +, Navigation.tsx, barre 5 onglets ni au design validé.**
+- Capture propriétaire `◆ Pépites` : le bloc `TES COLLECTIONS PUBLIÉES` affiche **2 collections**, réparties **1 FREE + 1 EURO**.
+- Capture tchat privé avec `inside` : QR PayPal partagé + carte `Kent` / `PÉPITE MASQUÉE` / `via @adel4A` / bouton `Jouer` / `PROPOSÉE · 1.00 EUR` / `Découverte par @adel4A`.
+- Adel signale : connecté comme `inside`, en visitant le profil vendeur, il ne voit qu'**une seule collection / un seul Drop** alors que le vendeur en a plusieurs.
+- Vérification live Supabase faite par ChatGPT en lecture seule :
+  - `adel4A` a **4 offres actives** ;
+  - **2 offres publiques de profil** (`target_buyer_id IS NULL`) : `Ma collection · 8 titres` (FREE) + `Ma collection · 5 titres` (MONEY) ;
+  - **2 offres MONEY ciblées tchat** `Pépite Tchat · @adel4A` avec `target_buyer_id` non nul.
+  - Donc un visiteur normal doit voir **les 2 collections publiques de profil**. Les offres ciblées tchat ne doivent pas polluer la boutique publique.
+- À vérifier dans le HEAD actuel :
+  - `PublicUserProfileScreen.tsx` → `loadPlaylistSaleOffersForProfile(profile.id)` puis `<SellerBoutique offers={saleOffers} ... />`.
+  - `SellerBoutique.tsx` → `visibleOffers = offers` actuellement : aucune collection publique ne doit disparaître ; `Tout voir · N` doit refléter toutes les offres publiques réellement reçues.
+  - RPC live `keep_playlist_sale_offers_for_profile` filtre `is_active=true AND (target_buyer_id IS NULL OR target_buyer_id=auth.uid())`.
+  - `ProfilePublicScreen.tsx` + `PlaylistSalePanel.tsx` → vérifier que la vue propriétaire et la vue visiteur reposent sur la même source de collections publiques, pas deux comptages divergents.
+- Design demandé :
+  - garder la boutique préparée : **Pépites / Drop du moment / boutique / collections à écouter avant de choisir** ;
+  - même brique visuelle propriétaire/visiteur ;
+  - sur son propre profil : toucher une Pépite doit **lancer directement l'écoute de sa collection**, jamais lui proposer d'acheter ses propres morceaux ;
+  - côté visiteur : aperçu protégé + déblocage selon les règles existantes ;
+  - penser grande échelle (millions d'utilisateurs) : requêtes limitées au profil consulté, pagination/limites côté boutique si besoin.
+- Notifications : Adel a vu un rendu brut de code au lieu de l'image/emoji attendu et un ancien libellé visible `KEEP PayPal`. Audit ensuite dans `NotificationsScreen.tsx`, `NotificationSidePanel.tsx`, `MusicAgoraPanel.tsx` : visible = **Loki/Loki Music**, jamais KEEP ; conserver les identifiants techniques internes.
+- Tchat : l'utilisateur peut remonter librement l'historique. Dès qu'il touche `Écris un message…`, le fil doit descendre au dernier message. `MusicAgoraPanel.tsx` possède déjà plusieurs `scrollToEnd` dans `onFocus` : reproduire le bug avant toute nouvelle modification pour ne pas casser le scroll manuel.
