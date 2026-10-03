@@ -9,6 +9,7 @@ type Props = {
   viewerKey?: string;
   viewerUsername?: string;
   onSuggestionPress: (suggestion: ProfileSaleSuggestion) => void;
+  onOpenSeller?: (suggestion: ProfileSaleSuggestion) => void;
 };
 
 function priceLabel(suggestion: ProfileSaleSuggestion): string {
@@ -26,7 +27,7 @@ const DROP_MARKETING_HOOKS = [
   'Découvre l’univers du créateur avant de débloquer la sélection.',
 ];
 
-export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', viewerUsername = '', onSuggestionPress }: Props) {
+export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', viewerUsername = '', onSuggestionPress, onOpenSeller }: Props) {
   const storageKey = `keep:profile-opportunity-rail:${viewerKey}`;
   const [visible, setVisible] = useState(true);
   const [index, setIndex] = useState(0);
@@ -243,7 +244,7 @@ const s=StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.primaryLight},
   avatarInitial:{color:'#FFF',fontSize:20,fontWeight:'900'},
   avatarPulse:{position:'absolute',width:54,height:54,borderRadius:27,borderWidth:2,borderColor:colors.keep,zIndex:1},
-  copy:{flex:1,minWidth:0},
+  copy:{flex:1,minWidth:0},sellerLine:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8,marginBottom:2},
   title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:3},
   overlap:{color:colors.keep,fontSize:9,fontWeight:'900',marginTop:4},
