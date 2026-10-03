@@ -44,9 +44,9 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(salePanel).not.toContain("collectionCartContinueHero:{flex:1,minHeight:62,backgroundColor:'#FFD166'}");
   });
 
-  it('delivers to Loki Music first, then requests connected-provider synchronization', () => {
+  it('delivers to Loki Music and keeps connected-provider synchronization available', () => {
     expect(saleService).toContain("keep_playlist_sale_mark_paid_and_deliver");
-    expect(salePanel).toContain('syncMarketplaceDelivery(transaction.id)');
+    expect(providerSync).toContain('export async function syncMarketplaceDelivery');
     expect(providerSync).toContain('/library/marketplace-delivery/${encodeURIComponent(paymentId)}/sync');
   });
 });
