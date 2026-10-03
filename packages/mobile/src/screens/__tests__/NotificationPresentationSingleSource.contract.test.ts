@@ -28,6 +28,16 @@ describe('Single notification presentation contract', () => {
     expect(screen).toContain('sensitiveWithoutPaymentId');
   });
 
+  it('shows PayPal QR media in the quick notification panel and never exposes transport tokens', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    const agora = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'musicAgoraService.ts'), 'utf8');
+    expect(panel).toContain('notificationImageUrl');
+    expect(panel).toContain('QR PAYPAL');
+    expect(panel).toContain('notificationMediaImage');
+    expect(agora).toContain("PAYPAL_QR_PREFIXES.some((prefix) => raw.startsWith(prefix))");
+    expect(agora).toContain("return 'QR PayPal partagé'");
+  });
+
   it('always enters from the top and leaves through the top', () => {
     expect(banner).toContain('const OFFSCREEN_TOP = -260');
     expect(banner).toContain('new Animated.Value(OFFSCREEN_TOP)');
