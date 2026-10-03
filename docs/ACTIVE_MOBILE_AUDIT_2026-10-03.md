@@ -41,3 +41,19 @@ Branche unique : `reconcile/claude-main-20260825`
 
 ## À ne jamais oublier
 À chaque nouveau retour de test : ajouter le symptôme ici s'il n'est pas résolu dans le même passage, avec preuve serveur/CI lorsque possible.
+
+
+## Notifications : réduction du bruit
+- [x] Diagnostic volume 24 h : confirmations Battle ACCEPTED/DECLINED contribuaient au bruit sans action utile.
+- [x] Fonction Battle serveur actuelle : ne crée déjà plus de nouvelles notifications ACCEPTED/DECLINED.
+- [x] Worker push durci : `BATTLE_CHALLENGE_ACCEPTED` et `BATTLE_CHALLENGE_DECLINED` restent in-app-only si un ancien chemin les recrée.
+- [x] Anciennes entrées ACCEPTED/DECLINED nettoyées côté production (aucune restante au contrôle).
+- [ ] Conserver en push uniquement les événements Battle utiles : invitation/action requise, éventuellement fin de Battle/gain selon validation produit.
+
+## Audit TestFlight vs branche validée
+- [x] Production OTA active : plusieurs correctifs JS sont publiés sans nouveau binaire.
+- [x] Push externe TestFlight : blocage natif/credential confirmé par APNs `BadEnvironmentKeyInToken`.
+- [ ] Identifier le dernier binaire iOS réellement installé/TestFlight et son commit natif.
+- [ ] Comparer les modules natifs ajoutés/modifiés après ce binaire (notifications, TTS/audio, ShazamKit, StoreKit, partage, etc.).
+- [ ] Rebuild TestFlight de production une fois le snapshot mobile stabilisé.
+- [ ] Exécuter le parcours physique complet module par module sur ce nouveau binaire.
