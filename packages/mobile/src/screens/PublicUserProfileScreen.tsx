@@ -1727,6 +1727,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         {saleOffers.length === 0 && effectiveViewerId && profileSaleSuggestions.length > 0 ? (
           <ProfileOpportunityRail
             viewerKey={effectiveViewerId}
+            viewerUsername={viewer?.username || ''}
             suggestions={profileSaleSuggestions}
             onSuggestionPress={(suggestion) => { void openSuggestedSaleDrop(suggestion); }}
           />
