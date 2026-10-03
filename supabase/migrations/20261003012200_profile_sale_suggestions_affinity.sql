@@ -49,7 +49,7 @@ viewer_genres as (
 
     select unnest(coalesce(t.genres, '{}'::text[])) as g
     from public.keep_decisions kd
-    join public.tracks t on t.id = kd.track_id
+    join public.tracks t on t.id::text = kd.track_id::text
     join viewer v on v.uid = kd.profile_id
     where kd.decision = 'KEPT'
 
@@ -57,7 +57,7 @@ viewer_genres as (
 
     select unnest(coalesce(t.genres, '{}'::text[])) as g
     from public.track_likes tl
-    join public.tracks t on t.id = tl.track_id
+    join public.tracks t on t.id::text = tl.track_id::text
     join viewer v on v.uid = tl.profile_id
   ) source
   where nullif(trim(g), '') is not null
@@ -74,7 +74,7 @@ social_signals as (
 
   select fd.profile_id as seller_id, 0, 55, 0
   from public.track_likes tl
-  join public.keep_track_first_discoveries fd on fd.track_id = tl.track_id
+  join public.keep_track_first_discoveries fd on fd.track_id::text = tl.track_id::text
   join viewer v on v.uid = tl.profile_id
   where fd.profile_id <> v.uid
 
@@ -120,7 +120,7 @@ offer_agg as (
    and p.is_public = true
    and coalesce(p.discovery_hidden, false) = false
   left join public.playlist_sale_offer_tracks ot on ot.offer_id = o.id
-  left join public.tracks t on t.id = ot.track_id
+  left join public.tracks t on t.id::text = ot.track_id::text
   left join lateral (
     select unnest(coalesce(t.genres, '{}'::text[])) as genre
   ) g on true
