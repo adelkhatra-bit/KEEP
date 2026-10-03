@@ -331,7 +331,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Visuel de manche en ligne : sur téléphone il prend toute la hauteur
   // libre (réponses en bas, sous le pouce) ; sur ordinateur, plafonné.
   const { width: windowWidth } = useWindowDimensions();
-  const arenaVisualMax = windowWidth >= 900 ? 420 : undefined;
+  const isDesktopBattle = windowWidth >= 900;
+  const arenaVisualMax = isDesktopBattle ? 480 : undefined;
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
   // Adel (03/09/2026) : "pouvoir choisir 8, 15, 20 ou 30 morceaux avant de
@@ -2557,7 +2558,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const pct = audioReady && !incoming[0] ? (displayedSoloRemaining / ROUND_MS) * 100 : 100;
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
-      return <View style={s.root}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
         {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
             invitation ... la partie est terminée" -- vrai trou : incoming[0]
@@ -2625,7 +2626,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         </ScrollView>
       </View>;
     }
-    return <View style={s.root}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
       <View style={s.playHeader}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Quitter le solo" style={s.playBack} onPress={() => {
         // Adel (29/09/2026) : quitter en cours de partie ne rend PAS le Solo
         // (compté au démarrage, côté serveur). On le dit avant de sortir.
@@ -2689,7 +2690,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const specTeamA = spectating.seats.filter((_, index) => index % 2 === 0);
     const specTeamB = spectating.seats.filter((_, index) => index % 2 === 1);
     const canJoin = spectating.status !== 'CLOSED' && spectating.status !== 'EXPIRED';
-    return <View style={s.root}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
       <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
       {renderTeamSquares(specTeamA, specTeamB, canJoin ? { onPress: () => { void joinSpectatedMatch(); }, busy: spectateJoinBusy } : undefined)}
@@ -2799,7 +2800,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           ],
         );
       };
-      return <View style={s.root}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
         <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
@@ -2986,7 +2987,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }
     if (arena.status === 'ACTIVE' && arena.me && arena.me.status !== 'ACTIVE') {
       const missedRematch = arena.me.status === 'ELIMINATED';
-      return <View style={s.root}>
+      return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
         <View style={s.header}><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>{missedRematch ? 'LE BATTLE EST PARTI' : 'EN ATTENTE'}</Text></View></View>
         <View style={s.waiting}>
           <View style={s.waitingPulse}><Text style={s.trophy}>{missedRematch ? '⏱' : '⚡'}</Text></View>
@@ -2999,7 +3000,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
 
-    return <View style={s.root}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
       {/* Adel (03/09/2026) : "on est dans un Battle, pourquoi elle reste" --
           la croix de fermeture n'a plus lieu d'être une fois la manche
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
@@ -3064,7 +3065,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const selectedLiveBattlePlayers = livePlayers.filter((player) => selectedBattlePlayerIds.has(player.profileId) && isPlayerSelectable(player));
     const creditReady = Boolean(myCreditStatus);
     const canStartSelectedBattle = selectedLiveBattlePlayers.length >= 1 && creditReady && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
-    return <View style={s.root}>
+    return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
       {renderPlayerStatsModal()}
       <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>Choisis tes adversaires</Text></View><View style={s.headerCreditPill}><Text style={s.headerCreditText}>🎁 {myCreditStatus?.remainingFree ?? '…'}</Text></View></View>
       <View style={s.lobbySummary}>
@@ -3165,7 +3166,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Battle etait le seul ecran rendu sans ScrollView, donc sur un viewport
   // court le bouton "BATTLE EN LIGNE" passait sous la barre d'onglets. Meme
   // patron de secours que solo/arene/browse/finish : tout reste atteignable.
-  return <View style={s.root}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
+  return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
       {/* Adel (08/09/2026) : "mettre un ? avec un popup pour expliquer
           l'avantage de jouer en solo, l'avantage de jouer en Battle en ligne
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
@@ -3287,6 +3288,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' },
+  rootDesktop: { maxWidth: 760, alignSelf: 'center' },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
@@ -3419,16 +3421,17 @@ const s = StyleSheet.create({
   arenaScroll: { flex: 1 },
   arenaScrollContent: { paddingBottom: 96 },
   arenaScrollContentActive: { flexGrow: 1, paddingBottom: 2 },
-  // Battle mobile : la jaquette reste un vrai grand carré, jamais un rectangle
-  // étiré. Les réponses utilisent le bas de la carte pour supprimer le grand
-  // espace noir tout en restant au-dessus de la barre des 5 onglets.
+  // Battle/Solo actif : la jaquette utilise réellement toute la hauteur libre
+  // jusqu'au bloc de textes puis aux 4 réponses. Sur mobile elle peut devenir
+  // légèrement verticale (cover) plutôt que de laisser un grand vide noir ;
+  // sur ordinateur la surface reste plafonnée et centrée.
   arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start' },
   // Solo mobile = exactement le même gabarit que le Battle actif :
   // grande jaquette carrée et réponses poussées vers le bas.
   soloCardActive: { flexGrow: 1, justifyContent: 'flex-start' },
-  soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 },
-  arenaVisualActive: { width: '100%', aspectRatio: 1, height: undefined, flexGrow: 0, flexShrink: 0, minHeight: 0 },
-  arenaAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 },
+  soloAnswersActive: { paddingTop: 7, paddingBottom: 0 },
+  arenaVisualActive: { width: '100%', height: undefined, flexGrow: 1, flexShrink: 1, minHeight: 220 },
+  arenaAnswersActive: { paddingTop: 7, paddingBottom: 0 },
   roundNoWinner: { color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '900', textAlign: 'center', marginTop: 9 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
