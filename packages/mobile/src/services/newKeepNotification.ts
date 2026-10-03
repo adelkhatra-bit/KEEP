@@ -47,7 +47,7 @@ export function newKeepNotificationOwner(notification: KeepNotification): { prof
 export function maskedNewKeepCopy(notification: KeepNotification): { title: string; body: string } {
   const { username } = newKeepNotificationOwner(notification);
   return {
-    title: username ? `Nouveau morceau chez @${username}` : 'Nouveau morceau',
+    title: username ? `Nouveau morceau chez ${username.replace(/^@+/, '')}` : 'Nouveau morceau',
     body: 'Titre masqué · écoute l’extrait et garde-le pour découvrir le titre.',
   };
 }

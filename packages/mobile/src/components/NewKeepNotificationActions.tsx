@@ -167,7 +167,7 @@ export default function NewKeepNotificationActions({
 }
 
 const s = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' },
+  row: { flexDirection: 'column', gap: 8, marginTop: 8, alignItems: 'stretch', width: '100%' },
   listen: { width: '100%', minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   listenText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   keep: { width: '100%', minHeight: 42, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
