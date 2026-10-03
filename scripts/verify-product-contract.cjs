@@ -111,8 +111,8 @@ must(JSON.stringify(contract.marketplacePurchases?.sellerCollectionFilters) === 
 must(JSON.stringify(contract.marketplacePurchases?.creationWizardSteps) === JSON.stringify(['TRACKS','CART_REVIEW','MODE_PRICE_CURRENCY','PAYOUT_PUBLISH']), 'collection creation wizard contract changed');
 must(contract.marketplacePurchases?.cartReviewMustPrecedePricing === true, 'Pépites cart review must precede pricing');
 must(contract.marketplacePurchases?.savedPayoutLinkMustBeReused === true, 'saved payout link reuse contract missing');
-must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === false, 'confirmed duplicate-track policy changed');
-must(contract.marketplacePurchases?.existingOfferTrackPolicy === 'warn-and-allow-without-removing-existing-offer', 'confirmed duplicate-track policy missing');
+must(contract.marketplacePurchases?.preventTrackAcrossActiveOffers === true, 'duplicate-track blocking policy changed');
+must(contract.marketplacePurchases?.existingOfferTrackPolicy === 'block-and-keep-existing-offer', 'duplicate-track blocking policy missing');
 must(contract.marketplacePurchases?.collectionCreationMustRemainInPepites === true, 'Pépites inline creation contract missing');
 must(contract.marketplacePurchases?.cartSelectionReversible === true, 'Pépites reversible cart contract missing');
 must(contract.marketplacePurchases?.moneyPayoutConfiguredInline === true, 'inline payout setup contract missing');
@@ -149,8 +149,8 @@ must(
     && salePanel.includes('MARKETPLACE_CURRENCIES'),
   'inline Pépites cart steps disconnected',
 );
-must(myMusic.includes('Déjà dans une collection active') && myMusic.includes('Ajouter quand même') && myMusic.includes("selectedSaleTrackIds.has(track.id) ? '✓ RETIRER' : '+ PANIER'"), 'warn-and-allow Pépites cart guard disconnected');
-must(saleService.includes("keep_playlist_sale_set_offer_for_selection_v5") && saleService.includes('p_allow_existing: allowExisting'), 'confirmed duplicate sale RPC disconnected');
+must(salePanel.includes('Cette musique est déjà dans une collection active') && salePanel.includes('Un même enregistrement ne peut appartenir qu’à une seule collection active') && !salePanel.includes('AJOUTER QUAND MÊME'), 'duplicate-track blocking guard disconnected from Pépites');
+must(saleService.includes("keep_playlist_sale_set_offer_for_selection_v5") && saleService.includes('allowExisting = false') && saleService.includes('p_allow_existing: allowExisting'), 'duplicate sale RPC default-block disconnected');
 must(confirmedDuplicateSale.includes('and not p_allow_existing') && !confirmedDuplicateSale.includes('delete from public.playlist_sale_offer_tracks'), 'confirmed duplicate server policy disconnected');
 must(!salePanel.includes("createSaleCollection: true"), 'Pépites creation redirects to Playlists again');
 must(salePanel.includes('setMyPayoutLink(clean)') && salePanel.includes('ENREGISTRER PAYPAL') && salePanel.includes("host === 'paypal.me'") && salePanel.includes("Linking.openURL('https://www.paypal.com/paypalme/')"), 'direct payout setup disconnected from Pépites');
