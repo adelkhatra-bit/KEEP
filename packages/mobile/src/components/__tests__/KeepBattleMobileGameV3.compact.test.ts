@@ -8,6 +8,11 @@ describe('Loki Music Battle — compact current UX', () => {
   const source = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const mascot = read(__dirname, '..', 'LokiMascotVoice.tsx');
   const speech = read(__dirname, '..', '..', 'services', 'lokiSpeechService.ts');
+  const liveService = read(__dirname, '..', '..', 'services', 'keepBattleLiveService.ts');
+  const parties = read(__dirname, '..', '..', 'screens', 'PartiesScreen.tsx');
+  const exitGuard = read(__dirname, '..', '..', 'services', 'gameExitGuard.ts');
+  const gameSessionStore = read(__dirname, '..', '..', 'store', 'useGameSessionStore.ts');
+  const battleInfo = read(__dirname, '..', '..', 'services', 'battleHomeInfo.ts');
 
   it('keeps Solo and online mode as compact action buttons while information stays outside', () => {
     expect(source).toContain('<Text style={s.modeIconText}>◎</Text><Text style={s.modeTitle}>SOLO</Text>');
@@ -116,5 +121,31 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain('JOURNÉE BATTLE · RESET 02:00');
     expect(source).not.toContain('myPlayerStats?.freeWon ?? myCreditStatus?.won');
     expect(source).not.toContain('myPlayerStats?.freeLost ?? myCreditStatus?.lost');
+  });
+
+  it('cannot decline through the generic Battle response RPC anymore', () => {
+    expect(liveService).toContain("client().rpc('keep_battle_challenge_decline_confirmed'");
+    expect(liveService).toContain("client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: true })");
+    expect(liveService).not.toContain("p_accept: accept");
+    expect(source).toContain("Alert.alert(\n      'Refuser ce Battle ?'");
+  });
+
+  it('recovers the exact active online arena after an accidental screen exit', () => {
+    expect(parties).toContain('loadMyActiveKeepBattleArena');
+    expect(parties).toContain("setPartiesTab('BATTLE')");
+    expect(parties).toContain('setBattleOpen(true)');
+    expect(gameSessionStore).toContain('activeArenaId?: string');
+    expect(gameSessionStore).toContain("mode === 'EN_LIGNE' ? activeArenaId : undefined");
+    expect(exitGuard).toContain("'Battle en cours'");
+    expect(exitGuard).toContain("'RETOURNER AU BATTLE'");
+  });
+
+  it('rotates independent Solo result voice lines instead of one fixed sentence', () => {
+    expect(battleInfo).toContain('const SOLO_RESULT_LIBRARY');
+    expect(battleInfo).toContain('RESULT_USED_INDEXES');
+    expect(battleInfo).toContain('RESULT_LAST_INDEX');
+    expect(battleInfo).toContain('RESULT_LINE_CACHE');
+    expect(battleInfo).toContain('resultLibraryIndex(key, pool.length)');
+    expect(source).toContain('messageSeed={soloDailySessionTokenRef.current');
   });
 });
