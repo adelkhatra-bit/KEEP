@@ -132,7 +132,7 @@ describe('Notifications UX and routing contract', () => {
 
   it('shows the visited username directly in profile-activity actions', () => {
     expect(notifications).toContain("if (key === 'PROFILE_VIEW') return 'VISITE DE PROFIL'");
-    expect(notifications).toContain('linkedProfileUsername ? `Voir @${linkedProfileUsername} ›`');
+    expect(notifications).toContain('profileUsername ? <Text style={styles.cardProfileLink}>Actions avec @{profileUsername} ›</Text> : null');
     const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
     expect(sidePanel).toContain('return `VOIR @${profileUsername}`');
   });
