@@ -189,11 +189,11 @@
       "MODE_PRICE_CURRENCY",
       "PAYOUT_PUBLISH"
     ],
-    "preventTrackAcrossActiveOffers": false,
+    "preventTrackAcrossActiveOffers": true,
     "alreadyPublishedTrackMustBeExplained": true,
     "moneyPayoutConfiguredInline": true,
     "freeModeRequiresExternalPayout": false,
-    "existingOfferTrackPolicy": "warn-and-allow-without-removing-existing-offer",
+    "existingOfferTrackPolicy": "block-and-keep-existing-offer",
     "collectionCreationSurface": "PlaylistSale/Pépites-inline-cart",
     "collectionCreationMustRemainInPepites": true,
     "cartSelectionReversible": true,
@@ -322,7 +322,7 @@
     "persistent": false,
     "storageScope": "screen-session",
     "selectionSideEffects": "none-until-publish",
-    "alreadyForSale": "warn-and-allow-without-removing-existing-offer",
+    "alreadyForSale": "block-addition-until-removed-from-existing-offer",
     "actions": [
       "ADD_TO_CART",
       "REMOVE_FROM_CART",
