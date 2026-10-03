@@ -45,6 +45,14 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('ownerProfileId');
   });
 
+  it('turns profile-visit activity into a direct visible profile link', () => {
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(panel).toContain("type === 'PROFILE_VIEW'");
+    expect(panel).toContain('VOIR LE PROFIL @');
+    expect(panel).toContain('accessibilityRole="link"');
+    expect(panel).toContain('openActivityProfile(item)');
+  });
+
   it('routes group notifications to the exact group instead of opening a direct chat', () => {
     expect(notifications).toContain('const groupIdRaw = data?.groupId ?? data?.group_id;');
     expect(notifications).toContain('groupId,');

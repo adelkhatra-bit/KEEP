@@ -104,6 +104,8 @@ async function resolveActivityProfileUsername(item: KeepNotification): Promise<s
 
 function activityActionLabel(item: KeepNotification): string {
   const type = String(item.type || '').toUpperCase();
+  const directUsername = activityProfileUsername(item);
+  if (type === 'PROFILE_VIEW') return directUsername ? `VOIR LE PROFIL @${directUsername}` : 'VOIR LE PROFIL';
   if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') return 'VOIR MES FREE';
   if (type === 'LOKI_PULSE_NEW') return 'OUVRIR MON PULSE';
   if (type.includes('BATTLE')) return 'OUVRIR BATTLE';
@@ -680,6 +682,16 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                             <>
                               <Text style={s.body}>{item.body}</Text>
                               <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
+                              {type === 'PROFILE_VIEW' && activityProfileUsername(item) ? (
+                                <TouchableOpacity
+                                  style={s.inlineProfileLink}
+                                  onPress={(event) => { event.stopPropagation?.(); void openActivityProfile(item); }}
+                                  accessibilityRole="link"
+                                  accessibilityLabel={`Voir le profil de ${activityProfileUsername(item)}`}
+                                >
+                                  <Text style={s.inlineProfileLinkText}>Voir @{activityProfileUsername(item)} ›</Text>
+                                </TouchableOpacity>
+                              ) : null}
                               <TouchableOpacity style={s.deleteOneButton} onPress={() => deleteOne(item)} accessibilityLabel="Supprimer cette notification">
                                 <Text style={s.deleteOneText}>SUPPRIMER</Text>
                               </TouchableOpacity>
@@ -819,6 +831,8 @@ const s = StyleSheet.create({
   lockedPlan:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},
   lockedBody:{color:colors.textPrimary,fontSize:11,lineHeight:17,marginTop:5,fontWeight:'800'},
   lockedHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:6},
+  inlineProfileLink:{alignSelf:'flex-start',marginTop:8,paddingVertical:5,paddingHorizontal:2},
+  inlineProfileLinkText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,marginHorizontal:12,marginBottom:10},
   inlineAction:{paddingHorizontal:12,paddingBottom:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
