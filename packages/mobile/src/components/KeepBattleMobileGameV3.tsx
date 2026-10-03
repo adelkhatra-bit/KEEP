@@ -138,9 +138,11 @@ function hashSeed(seed: string): number {
   for (let i = 0; i < seed.length; i += 1) h = (Math.imul(h, 31) + seed.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
-function battleResultMessage(arenaId: string, won: boolean, bySpeed: boolean): string {
+function battleResultMessage(arenaId: string, matchNo: number, won: boolean, bySpeed: boolean): string {
   const pool = won ? (bySpeed ? BATTLE_WIN_MESSAGES_SPEED : BATTLE_WIN_MESSAGES_ACCURACY) : (bySpeed ? BATTLE_LOSE_MESSAGES_SPEED : BATTLE_LOSE_MESSAGES_ACCURACY);
-  return pool[hashSeed(`${arenaId}:${won ? 'W' : 'L'}`) % pool.length];
+  // Une revanche est une nouvelle partie : inclure matchNo pour que le texte
+  // ne soit pas figé pour toute la durée de vie d'une même arène.
+  return pool[hashSeed(`${arenaId}:${matchNo}:${won ? 'W' : 'L'}`) % pool.length];
 }
 function formatInviteCooldown(msRemaining: number): string {
   const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
@@ -2785,7 +2787,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <LokiMascotVoice
               correct={arena.lastResult.won ? arena.roundCount : 0}
               total={arena.roundCount}
-              textOverride={battleResultMessage(arena.id, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'))}
+              textOverride={battleResultMessage(arena.id, arena.lastResult.matchNo, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'))}
               moodOverride={arena.lastResult.won ? 'party' : 'oops'}
               compact
             />
