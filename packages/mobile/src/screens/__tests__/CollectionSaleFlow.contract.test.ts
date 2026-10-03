@@ -27,7 +27,7 @@ describe('Collection sale flow — no duplicates, mandatory payment mode', () =>
   it('forces mode selection, then distinguishes money from FREE', () => {
     expect(panel).toContain("setCollectionCartPaymentMode('FREE')");
     expect(panel).toContain("setCollectionCartPaymentMode('MONEY')");
-    expect(panel).toContain('PayPal · DEVISE');
+    expect(panel).toContain('<Text style={s.collectionCartFieldLabel}>DEVISE</Text>');
     expect(panel).toContain('PAYPAL DÉJÀ ENREGISTRÉ');
     expect(panel).toContain('FREE');
     expect(panel).toContain('collectionCartPayoutLink');
