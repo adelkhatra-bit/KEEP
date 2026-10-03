@@ -43,6 +43,14 @@ export function newKeepNotificationOwner(notification: KeepNotification): { prof
   };
 }
 
+export function newKeepNotificationOrigin(notification: KeepNotification): { profileId: string; username: string } {
+  const owner = newKeepNotificationOwner(notification);
+  return {
+    profileId: dataString(notification, 'sourceProfileId', 'source_profile_id') || owner.profileId,
+    username: dataString(notification, 'sourceUsername', 'source_username') || owner.username,
+  };
+}
+
 /** Texte masqué : jamais de titre, d'artiste ni de pochette. */
 export function maskedNewKeepCopy(notification: KeepNotification): { title: string; body: string } {
   const { username } = newKeepNotificationOwner(notification);
@@ -86,7 +94,7 @@ export async function keepFromNewKeepNotification(
   visibility: 'PUBLIC' | 'PRIVATE',
   freeCostPerKeep: number,
 ): Promise<{ ok: boolean; alreadyKept: boolean; error?: string }> {
-  const { profileId } = newKeepNotificationOwner(notification);
+  const { profileId } = newKeepNotificationOrigin(notification);
   try {
     const result = await commitKeep(track, [], undefined, {
       visibility,
