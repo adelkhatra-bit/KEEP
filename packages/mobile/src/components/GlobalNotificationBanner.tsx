@@ -19,7 +19,6 @@ import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { maskedNewKeepCopy } from '../services/newKeepNotification';
 import { loadCurrentPlanCode } from '../services/planService';
 import { isNotificationAccessLocked, loadNotificationAccessRules, normalizeNotificationPlanCode, notificationAccessRequiredPlan, notificationPlanLabel, type NotificationAccessRule, type NotificationPlanCode } from '../services/notificationAccessService';
-import { listenForExpoPushTokenChanges, registerForPushNotifications } from '../services/pushNotificationService';
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -174,30 +173,6 @@ export default function GlobalNotificationBanner() {
       sub.remove();
     };
   }, [isDemoMode, isLocalGuest, resumeActiveBattle, user?.id]);
-
-  // Push natif : après qu'un token APNs/Expo a été invalidé côté serveur,
-  // l'utilisateur ne doit jamais avoir à se déconnecter pour en obtenir un
-  // nouveau. Réinscription au montage, à chaque retour au premier plan et
-  // lors d'une rotation native du token.
-  useEffect(() => {
-    if (!user?.id || isDemoMode || isLocalGuest || Platform.OS === 'web') return undefined;
-    let alive = true;
-    const sync = () => {
-      if (!alive) return;
-      void registerForPushNotifications().catch(() => {});
-    };
-    const first = setTimeout(sync, 450);
-    const stopTokenListener = listenForExpoPushTokenChanges();
-    const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') sync();
-    });
-    return () => {
-      alive = false;
-      clearTimeout(first);
-      appState.remove();
-      stopTokenListener();
-    };
-  }, [isDemoMode, isLocalGuest, user?.id]);
 
   const refreshBlockingBattleDecision = useCallback(async () => {
     if (!user?.id || isDemoMode || isLocalGuest || battleDecisionPollBusy.current) {
