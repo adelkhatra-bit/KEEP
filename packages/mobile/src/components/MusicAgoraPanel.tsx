@@ -26,6 +26,7 @@ import {
   loadMarketplacePaymentTermsAccepted,
   acceptMarketplacePaymentTerms,
   extractMusicAgoraPayoutQrUrl,
+  musicAgoraBodyPreview,
   shareMyPayoutQrInAgora,
   loadMusicAgoraSharedTrack,
   MusicAgoraConversation,
@@ -1547,7 +1548,7 @@ export default function MusicAgoraPanel({
               {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
               <View style={s.conversationCopy}>
                 <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
-                <Text style={[s.conversationPreview, typingByKey[`p:${item.profileId}`] && s.typingPreview]} numberOfLines={1}>{typingByKey[`p:${item.profileId}`] ? 'écrit…' : <>{item.lastSharedTrackId ? '♫ ' : ''}{item.lastBody || 'Musique partagée'}</>}</Text>
+                <Text style={[s.conversationPreview, typingByKey[`p:${item.profileId}`] && s.typingPreview]} numberOfLines={1}>{typingByKey[`p:${item.profileId}`] ? 'écrit…' : <>{item.lastSharedTrackId ? '♫ ' : ''}{musicAgoraBodyPreview(item.lastBody || 'Musique partagée')}</>}</Text>
               </View>
               {unreadByTarget[`p:${item.profileId}`]?.length ? <View style={s.unreadPill}><Text style={s.unreadPillText}>{unreadByTarget[`p:${item.profileId}`].length > 9 ? '9+' : unreadByTarget[`p:${item.profileId}`].length}</Text></View> : null}
               <Text style={s.conversationArrow}>›</Text>
@@ -1663,7 +1664,7 @@ export default function MusicAgoraPanel({
           {message.replyToMessageId ? (
             <View style={s.quotedReply}>
               <Text style={s.quotedReplyAuthor} numberOfLines={1}>↪ @{message.replyToUsername || 'message'}</Text>
-              <Text style={s.quotedReplyBody} numberOfLines={2}>{message.replyToBody || 'Message précédent'}</Text>
+              <Text style={s.quotedReplyBody} numberOfLines={2}>{musicAgoraBodyPreview(message.replyToBody || 'Message précédent')}</Text>
             </View>
           ) : null}
           {(message.body === LOKI_REACTION_TOKEN || message.body === LEGACY_LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
@@ -1818,7 +1819,7 @@ export default function MusicAgoraPanel({
         <View style={s.replyTarget}>
           <View style={s.replyQuoteCopy}>
             <Text style={s.replyTargetText} numberOfLines={1}>↪ Réponse à @{replyingToMessage.username}</Text>
-            <Text style={s.replyQuoteBody} numberOfLines={1}>{replyingToMessage.body}</Text>
+            <Text style={s.replyQuoteBody} numberOfLines={1}>{musicAgoraBodyPreview(replyingToMessage.body)}</Text>
           </View>
           <TouchableOpacity onPress={() => setReplyingToMessage(null)} accessibilityLabel="Annuler la réponse au message">
             <Text style={s.replyTargetClose}>×</Text>

@@ -31,6 +31,13 @@ describe('Loki chat realtime + quoted replies', () => {
     expect(service).toContain('replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null');
   });
 
+  it('never exposes technical QR/reaction markers in quoted replies', () => {
+    expect(service).toContain("return 'QR PayPal partagé'");
+    expect(service).toContain("raw === '[[LOKI_REACTION]]'");
+    expect(panel).toContain("musicAgoraBodyPreview(message.replyToBody || 'Message précédent')");
+    expect(panel).toContain('musicAgoraBodyPreview(replyingToMessage.body)');
+  });
+
   it('renders a WhatsApp-like quoted message and exposes reply in direct chats too', () => {
     expect(panel).toContain('setReplyingToMessage(message);');
     expect(panel).toContain('replyToMessageId: replyingToMessage?.id ?? null');

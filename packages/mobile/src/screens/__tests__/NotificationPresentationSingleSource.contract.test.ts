@@ -19,6 +19,15 @@ describe('Single notification presentation contract', () => {
     expect(screen).toContain('dedupeNotifications([notification, ...current.filter');
   });
 
+  it('normalizes legacy KEEP wording and protects QR/payment notifications on delete', () => {
+    const service = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'notificationService.ts'), 'utf8');
+    expect(service).toContain('normalizeNotificationVisibleText');
+    expect(service).toContain(".replace(/\\bKEEP\\b/g, 'Loki')");
+    expect(screen).toContain('isSensitivePaymentNotification');
+    expect(screen).toContain("contentKind === 'PAYPAL_QR'");
+    expect(screen).toContain('sensitiveWithoutPaymentId');
+  });
+
   it('always enters from the top and leaves through the top', () => {
     expect(banner).toContain('const OFFSCREEN_TOP = -260');
     expect(banner).toContain('new Animated.Value(OFFSCREEN_TOP)');

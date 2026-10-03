@@ -46,12 +46,19 @@ const DEFAULT_PREFS: NotificationPreferences = {
   moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT',
 };
 
+export function normalizeNotificationVisibleText(value: unknown): string {
+  return String(value || '')
+    .replace(/\bKEEP\s+MUSIC\b/gi, APP_NAME)
+    .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
+    .replace(/\bKEEP\b/g, 'Loki');
+}
+
 function mapNotificationRow(row: any): KeepNotification {
   return {
     id: String(row.id),
     type: String(row.type || ''),
-    title: String(row.title || ''),
-    body: String(row.body || ''),
+    title: normalizeNotificationVisibleText(row.title),
+    body: normalizeNotificationVisibleText(row.body),
     data: row.data && typeof row.data === 'object' ? row.data : null,
     readAt: row.read_at ?? null,
     createdAt: String(row.created_at || new Date().toISOString()),

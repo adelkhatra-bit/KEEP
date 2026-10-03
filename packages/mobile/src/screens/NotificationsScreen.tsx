@@ -451,9 +451,24 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const isBuyerPaymentReady = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
   const isSellerPaymentAction = (item: KeepNotification) => ['PLAYLIST_SALE_BUYER_PAID','PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase()) && Boolean(paymentIdOf(item));
 
+  const isSensitivePaymentNotification = (item: KeepNotification): boolean => {
+    const type = String(item.type || '').trim().toUpperCase();
+    const event = String(item.data?.event || '').trim().toUpperCase();
+    const contentKind = String(item.data?.contentKind ?? item.data?.content_kind ?? '').trim().toUpperCase();
+    return contentKind === 'PAYPAL_QR'
+      || Boolean(item.data?.payoutQrUrl ?? item.data?.payout_qr_url)
+      || type === 'AGORA_MUSIC_OFFER'
+      || event === 'AGORA_MUSIC_OFFER'
+      || type.startsWith('PLAYLIST_SALE_');
+  };
+
   const pendingPaymentWarning = async (item: KeepNotification): Promise<string | null> => {
     const paymentId = paymentIdOf(item);
-    if (!paymentId) return null;
+    if (!paymentId) {
+      return isSensitivePaymentNotification(item)
+        ? 'ATTENTION : cette notification contient un QR PayPal, une Pépite ou une information de transaction qui peut encore être utile.'
+        : null;
+    }
     try {
       const status = await loadPlaylistSalePaymentGuardStatus(paymentId);
       if (!status?.pending) return null;
@@ -787,6 +802,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const confirmClearAll = async () => {
     if (!items.length || deleting) return;
     const paymentItems = items.filter((item) => Boolean(paymentIdOf(item)));
+    const sensitiveWithoutPaymentId = items.filter((item) => !paymentIdOf(item) && isSensitivePaymentNotification(item)).length;
     const pendingChecks = await Promise.all(paymentItems.map(async (item) => {
       try {
         const paymentId = paymentIdOf(item);
@@ -797,8 +813,9 @@ export default function NotificationsScreen({ navigation, route }: any) {
       }
     }));
     const pendingCount = pendingChecks.filter(Boolean).length;
-    const message = pendingCount > 0
-      ? `ATTENTION : ${pendingCount} notification${pendingCount > 1 ? 's sont' : ' est'} liée${pendingCount > 1 ? 's' : ''} à une transaction qui n’est pas terminée (paiement, preuve, QR ou déblocage encore en attente).\n\nTout supprimer enlèvera ces raccourcis du centre de notifications, même si les transactions restent enregistrées dans Loki. Continuer ?`
+    const sensitiveCount = pendingCount + sensitiveWithoutPaymentId;
+    const message = sensitiveCount > 0
+      ? `ATTENTION : ${sensitiveCount} notification${sensitiveCount > 1 ? 's contiennent' : ' contient'} un paiement, un QR PayPal, une Pépite ou une transaction encore utile.\n\nTout supprimer enlèvera seulement ces raccourcis. Les transactions restent enregistrées dans Loki Music et ne sont pas annulées automatiquement. Continuer ?`
       : 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte, tes transactions ni tes préférences.';
     Alert.alert(
       'Supprimer les notifications',

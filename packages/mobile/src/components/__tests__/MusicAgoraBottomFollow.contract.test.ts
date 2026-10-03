@@ -6,6 +6,10 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '..', 'MusicAgoraPanel.tsx'),
   'utf8',
 ).replace(/\r\n/g, '\n');
+const dock = fs.readFileSync(
+  path.resolve(__dirname, '..', 'GlobalChatDock.tsx'),
+  'utf8',
+).replace(/\r\n/g, '\n');
 
 describe('Loki chat latest-message visual follow', () => {
   it('opens direct, group and public threads pinned to the latest message', () => {
@@ -45,6 +49,14 @@ describe('Loki chat latest-message visual follow', () => {
     expect(sendBlock).toContain('stickToBottomRef.current = true;');
     expect(sendBlock).toContain('followChatBottom(false);');
     expect(sendBlock).toContain('void publish();');
+  });
+
+  it('uses the same MusicAgoraPanel in mini and full-screen chat', () => {
+    expect(dock).toContain('const chatPanel = (mini: boolean) => (');
+    expect(dock).toContain('{chatPanel(true)}');
+    expect(dock).toContain('{chatPanel(false)}');
+    expect(dock).toContain('testID="loki-chat-fullscreen-modal"');
+    expect(dock).toContain('presentationStyle="fullScreen"');
   });
 
   it('focuses the composer after opening a thread so the native mobile keyboard appears', () => {

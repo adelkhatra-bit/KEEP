@@ -143,7 +143,12 @@ export function extractMusicAgoraPayoutQrUrl(body: string): string | null {
 }
 
 export function musicAgoraBodyPreview(body: string): string {
-  return extractMusicAgoraPayoutQrUrl(body) ? 'QR PayPal partagé' : String(body || '');
+  const raw = String(body || '');
+  if (extractMusicAgoraPayoutQrUrl(raw)) return 'QR PayPal partagé';
+  if (raw === '[[LOKI_REACTION]]' || raw === '[[KEEP_LOKI_REACTION]]') return '◉ᴗ◉✦ · LOKI';
+  return raw
+    .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
+    .replace(/\bKEEP\b/g, 'Loki');
 }
 
 async function hydrateMusicAgoraPaymentStates(rows: MusicAgoraMessage[]): Promise<MusicAgoraMessage[]> {
