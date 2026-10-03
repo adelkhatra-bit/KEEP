@@ -4,7 +4,7 @@ import { AccessibilityInfo, Animated, Easing, Modal, Platform, ScrollView, Text,
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
-import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -186,16 +186,38 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   }, [visible, bars, secretPulse, revealGlow, ctaGlow]);
 
   function togglePlayPause() {
-    // Le déverrouillage web doit se produire synchroniquement dans le tap.
-    // Sans cela Safari/iOS peut refuser le premier play après le chargement async.
-    unlockWebAudioForGesture();
+    const available = tracksRef.current;
+    const currentTrack = available?.[trackIndex];
+    if (!currentTrack?.previewUrl) return;
+
     if (playing) {
       clearCountdown();
       void stopAntiShazamPreview(previewKeyRef.current);
       setPlaying(false);
       return;
     }
-    playTrackAt(trackIndex);
+
+    clearCountdown();
+    setPreviewError(null);
+    setSecondsLeft(Math.round(15000 / 1000));
+
+    // Le bouton ▶ est un vrai geste utilisateur : on appelle play() dans ce
+    // geste, sans attendre un loader/Promise qui ferait perdre l'autorisation
+    // autoplay sur Safari/iPhone.
+    void playTrackPreviewFromGesture(
+      previewKeyRef.current,
+      currentTrack.previewUrl,
+      (isPlaying) => setPlaying(isPlaying),
+      () => { clearCountdown(); setPlaying(false); setSecondsLeft(0); },
+      15000,
+    ).then(() => {
+      setPlaying(true);
+      countdownRef.current = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    }).catch(() => {
+      setPlaying(false);
+      setSecondsLeft(0);
+      setPreviewError('Lecture impossible. Appuie à nouveau sur ▶.');
+    });
   }
 
   const tracksLoading = tracks === null;
