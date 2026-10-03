@@ -30,6 +30,10 @@ export default function TeamPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [copiedGenerated, setCopiedGenerated] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [recoveryExpiresAt, setRecoveryExpiresAt] = useState('');
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [copiedRecovery, setCopiedRecovery] = useState(false);
 
   const load = async () => {
     setError('');
@@ -101,6 +105,31 @@ export default function TeamPage() {
       window.setTimeout(() => setCopiedGenerated(false), 1800);
     } catch {
       setError('Copie automatique impossible. Sélectionne le mot de passe affiché manuellement.');
+    }
+  };
+
+  const issueRecoveryCode = async () => {
+    setRecoveryBusy(true); setError(''); setMessage(''); setRecoveryCode(''); setRecoveryExpiresAt(''); setCopiedRecovery(false);
+    try {
+      const result = await invokeAdmin({ action: 'admins.issue_self_recovery' });
+      setRecoveryCode(String(result?.recoveryCode || ''));
+      setRecoveryExpiresAt(String(result?.expiresAt || ''));
+      setMessage('Code de secours créé. Copie-le maintenant : il est affiché une seule fois et pourra être utilisé dans le champ Mot de passe si tu perds l’accès.');
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible de générer le code de secours.');
+    } finally {
+      setRecoveryBusy(false);
+    }
+  };
+
+  const copyRecoveryCode = async () => {
+    if (!recoveryCode) return;
+    try {
+      await navigator.clipboard.writeText(recoveryCode);
+      setCopiedRecovery(true);
+      window.setTimeout(() => setCopiedRecovery(false), 1800);
+    } catch {
+      setError('Copie automatique impossible. Sélectionne le code affiché manuellement.');
     }
   };
 
@@ -184,6 +213,28 @@ export default function TeamPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 22 }} id="recovery-security">
+        <h3 style={{ marginTop: 0 }}>Code de secours sans e-mail</h3>
+        <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          À utiliser uniquement si tu oublies ton mot de passe et que les e-mails sont indisponibles. Le code est généré depuis ta session SUPER_ADMIN, stocké uniquement sous forme de hash, valable 7 jours et consommé à la première utilisation.
+        </p>
+        <button type="button" disabled={recoveryBusy} onClick={()=>void issueRecoveryCode()}>
+          {recoveryBusy ? 'Génération…' : 'GÉNÉRER UN CODE DE SECOURS'}
+        </button>
+        {recoveryCode && (
+          <div style={{ marginTop: 14, padding: 14, border: '1px solid #8b6bc2', borderRadius: 12, background: '#120e1b' }}>
+            <div style={{ fontWeight: 900 }}>Code de secours Super Admin</div>
+            <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 18, wordBreak: 'break-all' }}>{recoveryCode}</div>
+            <div style={{ marginTop: 8, display:'flex', gap:8, flexWrap:'wrap' }}>
+              <button type="button" onClick={()=>void copyRecoveryCode()}>{copiedRecovery ? 'Copié ✓' : 'Copier le code'}</button>
+            </div>
+            <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>
+              Expire : {recoveryExpiresAt ? new Date(recoveryExpiresAt).toLocaleString('fr-FR') : '—'}. Si tu dois l’utiliser, entre ce code directement dans le champ « Mot de passe » de la connexion Super Admin.
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card" id="password-security">
