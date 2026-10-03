@@ -446,7 +446,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 onPress={() => onConfirmPurchase(offer)}
                 accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Révéler cette collection et ajouter les nouveaux morceaux à mon Loki Music, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : !waiverAccepted ? 'ACCEPTE LES CONDITIONS POUR CONTINUER' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
               {!freeAccess ? <Text style={s.noRefund}>{expanded.refund ? NO_REFUND_FULL : 'Aucun remboursement après déblocage.'}<MoreToggle open={Boolean(expanded.refund)} onToggle={() => toggleMore('refund')} /></Text> : null}
@@ -550,10 +550,18 @@ const s = StyleSheet.create({
   moneyFlow:{marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:'rgba(167,139,250,.42)',backgroundColor:'rgba(124,92,252,.09)',paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},
   moneyFlowDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primaryLight,flexShrink:0},
   moneyFlowText:{flex:1,color:colors.textSecondary,fontSize:9.5,lineHeight:14,fontWeight:'800'},
-  waiverRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 7, padding: 8, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
-  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.backgroundElevated, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  waiverRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 7, padding: 9, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 2 },
+  waiverRowPending: { borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.08)' },
+  waiverRowAccepted: { borderColor: colors.success, backgroundColor: 'rgba(45,225,194,.08)' },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxPending: { borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.16)' },
+  checkboxOn: { backgroundColor: colors.success, borderColor: colors.success },
   checkboxMark: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  checkboxMarkPending: { color: colors.danger },
+  waiverCopy: { flex: 1, minWidth: 0 },
+  waiverState: { fontSize: 9, fontWeight: '900', letterSpacing: .5, marginBottom: 3 },
+  waiverStatePending: { color: colors.danger },
+  waiverStateAccepted: { color: colors.success },
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
   buyGlowShell: { width: '100%', borderWidth: 1, borderRadius: 18, padding: 2 },
   buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
