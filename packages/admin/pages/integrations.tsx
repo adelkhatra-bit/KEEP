@@ -294,7 +294,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>E-mails Loki Music</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
-          Les comptes utilisateurs Loki Music utilisent <strong>identifiant Loki Music + mot de passe + e-mail vérifié</strong> (obligatoire depuis le 01/09/2026, pour que « mot de passe oublié » fonctionne toujours). Les comptes créés avant cette date restent utilisables sans e-mail. Le Super Admin conserve sa connexion séparée et renforcée. Le partage d’un profil ouvre la messagerie de l’utilisateur et ne consomme aucun envoi Loki Music.
+          Les comptes utilisateurs Loki Music utilisent <strong>identifiant Loki Music + mot de passe + e-mail vérifié</strong>. Les e-mails transactionnels essaient automatiquement <strong>Resend</strong>, puis <strong>Mailjet</strong>, puis <strong>Brevo</strong>. Si un fournisseur tombe, Loki utilise le suivant et conserve les messages non livrés dans sa file de retry.
         </p>
         <a
           href="https://supabase.com/dashboard/project/rrhqsqzcplvmwxizqnla/auth/templates"
@@ -315,7 +315,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Tester l’envoi e-mail</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>
-          Nécessite au minimum BREVO_API_KEY et BREVO_SENDER_EMAIL (ou MAILJET_API_KEY + MAILJET_SECRET_KEY) configurés ci-dessous.
+          Priorité recommandée : RESEND_API_KEY + EMAIL_SENDER_ADDRESS. Mailjet et Brevo restent disponibles en secours automatique.
         </p>
         <a href="/email-test" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
           Ouvrir « Test e-mail »
