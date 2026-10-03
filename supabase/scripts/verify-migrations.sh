@@ -202,6 +202,61 @@ alter table public.track_likes
 SQL
   fi
 
+  # Drift historique confirmé avant 20261003223155 :
+  # trois migrations Battle silencieuses sont enregistrées sur le projet
+  # Supabase live (20261003211526/211544/212245) mais leurs fichiers SQL ne
+  # sont plus présents dans le dépôt. La migration 223155 patchait donc un
+  # corps de fonction qui existait bien en production, mais pas dans un replay
+  # GitHub neuf. Reproduire ici UNIQUEMENT l'état préexistant attendu afin que
+  # l'historique immuable puisse être rejoué; les migrations additives
+  # 230707/231500 imposent ensuite l'état final non destructif.
+  if [ "$name" = "20261003223155_battle_decline_requires_confirmed_action.sql" ]; then
+    pg -d "$DB" <<'SQL' >/dev/null
+do $compat$
+declare
+  ddl text;
+  guarded text := $guard$
+  if not p_accept then
+    raise exception 'BATTLE_CHALLENGE_DECLINE_REQUIRES_CONFIRMED_ACTION';
+  end if;
+$guard$;
+  legacy text := $legacy$
+  if not p_accept then
+    update public.keep_battle_challenges set status='DECLINED',updated_at=now() where id=c.id;
+    -- Pas de notification externe/inbox pour un refus : le challenger voit
+    -- simplement que le bouton redevient disponible. Évite le doublon avec
+    -- le feedback local et le bruit push.
+    return jsonb_build_object('id',c.id,'status','DECLINED');
+  end if;
+$legacy$;
+begin
+  select pg_get_functiondef('public.keep_battle_challenge_respond(uuid,boolean)'::regprocedure) into ddl;
+  if strpos(ddl, legacy) > 0 then
+    return;
+  end if;
+  if strpos(ddl, guarded) > 0 then
+    ddl := replace(ddl, guarded, legacy);
+    execute ddl;
+    return;
+  end if;
+
+  -- Le replay sans les trois fichiers live absents conserve encore la branche
+  -- de refus historique, mais avec un commentaire différent. Remplacer la
+  -- dernière branche p_accept=false située après le contrôle EXPIRED.
+  ddl := regexp_replace(
+    ddl,
+    E'if not p_accept then\\n[[:space:][:print:]]*?return jsonb_build_object\\(\\x27id\\x27,c.id,\\x27status\\x27,\\x27DECLINED\\x27\\);\\n[[:space:]]*end if;',
+    legacy
+  );
+  if strpos(ddl, legacy) = 0 then
+    raise exception 'VERIFY_BATTLE_DECLINE_COMPAT_FAILED';
+  end if;
+  execute ddl;
+end;
+$compat$;
+SQL
+  fi
+
   # Supabase fournit pg_cron/pg_net comme extensions managées. Le CI plain
   # PostgreSQL utilise les shims ci-dessus et retire uniquement les deux
   # instructions CREATE EXTENSION qui ne sont pas installables ici.
