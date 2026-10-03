@@ -1,0 +1,111 @@
+name: Loki App Review Contact Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-review-contact-sync.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Reuse TestFlight contact for App Store review
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing=required.filter(k=>!process.env[k]?.trim());
+          if(missing.length) throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(path,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+path,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+path+' HTTP '+res.status+' '+txt.slice(0,500));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const versions=await api('/v1/apps/'+appId+'/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.appStoreState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!version)throw new Error('No iOS version found');
+
+            const existing=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountRequired,notes',
+              {allow404:true});
+            if(existing?.data){
+              const a=existing.data.attributes||{};
+              const complete=Boolean(a.contactFirstName?.trim()&&a.contactLastName?.trim()&&a.contactPhone?.trim()&&a.contactEmail?.trim());
+              console.log('Existing App Review contact complete:',complete);
+              process.exit(complete?0:2);
+            }
+
+            const beta=await api('/v1/apps/'+appId+
+              '/betaAppReviewDetail?fields[betaAppReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail',
+              {allow404:true});
+            if(!beta?.data){
+              console.log('No reusable TestFlight contact found.');
+              process.exit(3);
+            }
+            const b=beta.data.attributes||{};
+            const contactComplete=['contactFirstName','contactLastName','contactPhone','contactEmail']
+              .every(k=>typeof b[k]==='string'&&b[k].trim());
+            console.log('Reusable TestFlight contact complete:',contactComplete);
+            if(!contactComplete)process.exit(4);
+
+            await api('/v1/appStoreReviewDetails',{
+              method:'POST',
+              body:{data:{
+                type:'appStoreReviewDetails',
+                attributes:{
+                  contactFirstName:b.contactFirstName.trim(),
+                  contactLastName:b.contactLastName.trim(),
+                  contactPhone:b.contactPhone.trim(),
+                  contactEmail:b.contactEmail.trim(),
+                  demoAccountRequired:false,
+                  notes:[
+                    'Loki Music identifie des morceaux avec le microphone après une action explicite.',
+                    'Le microphone peut être arrêté immédiatement et aucun enregistrement audio utilisateur n’est conservé.',
+                    'La localisation, avec consentement, sert à préremplir ville et pays.',
+                    'Un essai gratuit est disponible sans connexion obligatoire au lancement.',
+                    'La marketplace externe de contenu numérique est désactivée dans cette build iOS.'
+                  ].join('\n')
+                },
+                relationships:{appStoreVersion:{data:{type:'appStoreVersions',id:version.id}}}
+              }}
+            });
+
+            const verify=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,notes');
+            const a=verify.data?.attributes||{};
+            const verified=Boolean(a.contactFirstName?.trim()&&a.contactLastName?.trim()&&a.contactPhone?.trim()&&a.contactEmail?.trim());
+            console.log('App Review contact synchronized:',verified);
+            console.log('Review notes present:',Boolean(a.notes?.trim()));
+            console.log('Contact values intentionally not printed.');
+            if(!verified)process.exit(6);
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
