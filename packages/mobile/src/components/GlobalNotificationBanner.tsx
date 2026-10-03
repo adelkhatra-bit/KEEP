@@ -4,7 +4,7 @@ import { KeepNotification, loadNotificationPreferences, markNotificationRead, no
 import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
-import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
+import { KeepBattlePendingRematch, loadMyActiveKeepBattleArena, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
 import { navigateToBattleArena, navigateToBattleRanking, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
@@ -12,6 +12,7 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
 import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { maskedNewKeepCopy } from '../services/newKeepNotification';
@@ -113,6 +114,7 @@ export default function GlobalNotificationBanner() {
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
   const [blockingRematch, setBlockingRematch] = useState<KeepBattlePendingRematch | null>(null);
   const battleDecisionPollBusy = useRef(false);
+  const activeBattleResumeBusy = useRef(false);
   const OFFSCREEN_TOP = -260;
   const translateY = useRef(new Animated.Value(OFFSCREEN_TOP)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -129,6 +131,47 @@ export default function GlobalNotificationBanner() {
   // par une entrée/sortie verticale depuis le haut de l'écran, et le swipe de
   // fermeture latéral par un swipe vers le HAUT uniquement (le doigt ne peut
   // pas tirer le bandeau vers le bas au-delà de sa position posée).
+  const resumeActiveBattle = useCallback(async () => {
+    if (!user?.id || isDemoMode || isLocalGuest || activeBattleResumeBusy.current) return;
+    activeBattleResumeBusy.current = true;
+    try {
+      const active = await loadMyActiveKeepBattleArena().catch(() => null);
+      if (!active?.id || active.me?.status !== 'ACTIVE') {
+        const game = useGameSessionStore.getState();
+        if (game.gameMode === 'EN_LIGNE') game.clearGameSession();
+        return;
+      }
+      useGameSessionStore.getState().setGameInProgress(
+        true,
+        'EN_LIGNE',
+        'Tu es engagé dans ce Battle. Pour sortir, utilise QUITTER LE BATTLE.',
+        active.id,
+      );
+      if (!useBattleAvailabilityStore.getState().battleScreenOpen) {
+        navigateToBattleArena(active.id);
+      }
+    } finally {
+      activeBattleResumeBusy.current = false;
+    }
+  }, [isDemoMode, isLocalGuest, user?.id]);
+
+  // Source de vérité globale : à la connexion et à chaque retour au premier
+  // plan, reprendre immédiatement un Battle encore ACTIVE côté serveur.
+  useEffect(() => {
+    if (!user?.id || isDemoMode || isLocalGuest) return undefined;
+    let alive = true;
+    const resume = () => { if (alive) void resumeActiveBattle(); };
+    const first = setTimeout(resume, 180);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') resume();
+    });
+    return () => {
+      alive = false;
+      clearTimeout(first);
+      sub.remove();
+    };
+  }, [isDemoMode, isLocalGuest, resumeActiveBattle, user?.id]);
+
   const refreshBlockingBattleDecision = useCallback(async () => {
     if (!user?.id || isDemoMode || isLocalGuest || battleDecisionPollBusy.current) {
       if (!user?.id || isDemoMode || isLocalGuest) {
