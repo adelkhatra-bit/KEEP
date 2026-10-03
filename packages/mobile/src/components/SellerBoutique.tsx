@@ -1,6 +1,6 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
@@ -95,10 +95,11 @@ function rankForViewer(offers: PublicPlaylistSaleOffer[], overlaps: Record<strin
 function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unlocked: boolean }) {
   if (unlocked) return <View style={[s.token, s.tokenUnlocked]}><Text style={[s.tokenText, s.tokenTextUnlocked]}>✓ DÉBLOQUÉE</Text></View>;
   const free = offer.paymentMode === 'FREE';
+  const nativeMoneyProtected = !free && Platform.OS !== 'web';
   return (
     <View style={[s.token, free ? s.tokenFree : s.tokenMoney]}>
       <Text style={[s.tokenText, free ? s.tokenTextFree : s.tokenTextMoney]} numberOfLines={1}>
-        {free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
+        {nativeMoneyProtected ? 'PROTÉGÉE' : free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
       </Text>
     </View>
   );
@@ -114,7 +115,7 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
       onPressIn={unlockWebAudioForGesture}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Écouter l'aperçu de ${offer.playlistName}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : salePriceLabel(offer)}`}
+      accessibilityLabel={`Écouter l'aperçu de ${offer.playlistName}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : offer.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(offer)}`}
     >
       <LinearGradient colors={genreGradient(genre)} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cover}>
         {ownedAll ? <Text style={s.coverOwned}>✓ DÉJÀ CHEZ TOI</Text> : overlap && overlap.missingCount > 0 ? <Text style={s.coverNew}>{overlap.missingCount} NOUVEAU{overlap.missingCount > 1 ? 'X' : ''}</Text> : null}
@@ -149,18 +150,22 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     () => ownerMode ? [] : visibleOffers.filter((offer) => !unlockedOfferIds.has(offer.offerId)),
     [ownerMode, visibleOffers, unlockedOfferIds],
   );
-  const bundleFreeTotal = useMemo(
-    () => bundleOffers.filter((offer) => offer.paymentMode === 'FREE').reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0),
+  const actionableBundleOffers = useMemo(
+    () => Platform.OS === 'web' ? bundleOffers : bundleOffers.filter((offer) => offer.paymentMode === 'FREE'),
     [bundleOffers],
+  );
+  const bundleFreeTotal = useMemo(
+    () => actionableBundleOffers.filter((offer) => offer.paymentMode === 'FREE').reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0),
+    [actionableBundleOffers],
   );
   const bundleMoneyTotals = useMemo(() => {
     const totals = new Map<string, number>();
-    bundleOffers.filter((offer) => offer.paymentMode !== 'FREE').forEach((offer) => {
+    actionableBundleOffers.filter((offer) => offer.paymentMode !== 'FREE').forEach((offer) => {
       const currency = String(offer.currencyCode || 'EUR').toUpperCase();
       totals.set(currency, (totals.get(currency) || 0) + Math.max(0, Number(offer.priceCents || 0)));
     });
     return Array.from(totals.entries());
-  }, [bundleOffers]);
+  }, [actionableBundleOffers]);
   const bundleTotalLabel = useMemo(() => {
     const parts: string[] = [];
     if (bundleFreeTotal > 0) parts.push(`${bundleFreeTotal} FREE`);
@@ -240,7 +245,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         </Text>
         <View style={s.bannerPills}>
           {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
-          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>€ {moneyCount}</Text></View> : null}
+          {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>{Platform.OS === 'web' ? `€ ${moneyCount}` : `${moneyCount} PROTÉGÉE${moneyCount > 1 ? 'S' : ''}`}</Text></View> : null}
           {newTracksForViewer > 0 ? <View style={[s.bannerPill, s.bannerPillNew]}><Text style={[s.bannerPillText, s.bannerPillNewText]}>{newTracksForViewer} nouveauté{newTracksForViewer > 1 ? 's' : ''} pour toi</Text></View> : null}
         </View>
         <TouchableOpacity
@@ -260,7 +265,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       </View>
 
       {drop ? (
-        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
+        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${drop.playlistName}, ${drop.paymentMode !== 'FREE' && Platform.OS !== 'web' ? 'protégée' : salePriceLabel(drop)}`}>
           <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
             <View style={s.dropHead}>
               <View style={s.dropLive}>
@@ -296,25 +301,25 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         </TouchableOpacity>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-        {([['ALL', `Tout ${visibleOffers.length}`], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', `€ ${moneyCount}`]] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
+        {([['ALL', `Tout ${visibleOffers.length}`], ['FREE', `FREE ${freeCount}`], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? `€ ${moneyCount}` : `PROTÉGÉES ${moneyCount}`]] : []), ['NEW', 'Nouveautés']] as [typeof shelfFilter, string][]).map(([key, label]) => (
           <TouchableOpacity key={key} style={[s.chip, shelfFilter === key && s.chipOn]} onPress={() => setShelfFilter(key)} accessibilityRole="button" accessibilityState={{ selected: shelfFilter === key }}>
             <Text style={[s.chipText, shelfFilter === key && s.chipTextOn]}>{label}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
-      {!ownerMode && onBuyAllOffers && bundleOffers.length > 1 ? (
+      {!ownerMode && onBuyAllOffers && actionableBundleOffers.length > 1 ? (
         <View style={s.bundleBar}>
           <View style={s.bundleCopy}>
-            <Text style={s.bundleTitle}>TOTAL DES PÉPITES · {bundleOffers.length}</Text>
+            <Text style={s.bundleTitle}>TOTAL DES PÉPITES · {actionableBundleOffers.length}</Text>
             <Text style={s.bundleTotal}>{bundleTotalLabel || 'Prix à confirmer'}</Text>
-            <Text style={s.bundleHint}>Tu peux toujours acheter une collection seule.</Text>
+            <Text style={s.bundleHint}>Tu peux toujours débloquer une collection seule.</Text>
           </View>
           <TouchableOpacity
             style={[s.bundleButton, buyAllBusy && s.bundleButtonDisabled]}
             disabled={buyAllBusy}
-            onPress={() => onBuyAllOffers(bundleOffers)}
+            onPress={() => onBuyAllOffers(actionableBundleOffers)}
             accessibilityRole="button"
-            accessibilityLabel={`Tout prendre, ${bundleOffers.length} collections, total ${bundleTotalLabel}`}
+            accessibilityLabel={`Tout prendre, ${actionableBundleOffers.length} collections, total ${bundleTotalLabel}`}
           >
             <Text style={s.bundleButtonText}>{buyAllBusy ? 'EN COURS…' : 'TOUT PRENDRE'}</Text>
           </TouchableOpacity>
@@ -327,7 +332,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         ))}
       </ScrollView>
       <Text style={s.hint}>{ownerMode
-        ? 'Touche une collection pour l’écouter directement. Pour modifier une vente, utilise ◆ PÉPITES sur ton profil.'
+        ? 'Touche une collection pour l’écouter directement. Pour modifier une collection publiée, utilise ◆ PÉPITES sur ton profil.'
         : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
 
       <Modal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
@@ -358,7 +363,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               ))}
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipRow} contentContainerStyle={s.chips}>
-              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', '€']] : []), ...(selectedGenre && !topGenres.includes(selectedGenre) ? [selectedGenre, ...topGenres] : topGenres).map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
+              {([['ALL', 'Tout'], ['FREE', 'FREE'], ...(moneyCount > 0 ? [['MONEY', Platform.OS === 'web' ? '€' : 'PROTÉGÉES']] : []), ...(selectedGenre && !topGenres.includes(selectedGenre) ? [selectedGenre, ...topGenres] : topGenres).map((genre) => [`GENRE:${genre}`, genre])] as [FilterKey, string][]).map(([key, label]) => (
                 <TouchableOpacity key={key} style={[s.chip, storeFilter === key && s.chipOn]} onPress={() => setStoreFilter(key)} accessibilityRole="button" accessibilityState={{ selected: storeFilter === key }}>
                   <Text style={[s.chipText, storeFilter === key && s.chipTextOn]}>{label}</Text>
                 </TouchableOpacity>
