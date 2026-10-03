@@ -46,4 +46,10 @@ describe('Battle result voice and Solo exit contract', () => {
     expect(battle).toContain('used.has(index)');
     expect(battle).toContain('BATTLE_RESULT_MESSAGE_LAST');
   });
+
+  it('requires explicit confirmation before refusing an in-arena rematch', () => {
+    expect(battle).toContain("'Refuser la revanche ?'");
+    expect(battle).toContain('Confirme uniquement si tu veux réellement refuser cette revanche.');
+    expect(battle).not.toContain("onPress={() => { setRematchResponding(true); void respondKeepBattleArenaRematch(arena.id, false)");
+  });
 });
