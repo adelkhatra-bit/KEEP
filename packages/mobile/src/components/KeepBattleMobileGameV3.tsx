@@ -1107,6 +1107,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     return undefined;
   }, [Boolean(solo), Boolean(arena)]);
 
+  // Si l'écran Battle est démonté brutalement (navigation, OTA, retour
+  // système), ne jamais laisser Écouter suspendu définitivement.
+  React.useEffect(() => () => {
+    if (!battlePausedListeningRef.current) return;
+    battlePausedListeningRef.current = false;
+    const current = useSessionStore.getState();
+    if (current.isActive && current.micPaused) current.resumeListening();
+  }, []);
+
   React.useEffect(() => {
     const round = solo?.rounds[soloIndex];
     if (!round || pausedSoloRemaining !== null) return undefined;
