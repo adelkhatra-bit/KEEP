@@ -28,6 +28,8 @@ export default function TeamPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [copiedGenerated, setCopiedGenerated] = useState(false);
 
   const load = async () => {
     setError('');
@@ -77,6 +79,31 @@ export default function TeamPage() {
     }
   };
 
+  const generateStrongPassword = () => {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%*-_+';
+    const bytes = new Uint32Array(22);
+    crypto.getRandomValues(bytes);
+    const value = Array.from(bytes, (n) => alphabet[n % alphabet.length]).join('');
+    setGeneratedPassword(value);
+    setNewPassword(value);
+    setConfirmPassword(value);
+    setShowPassword(true);
+    setCopiedGenerated(false);
+    setError('');
+    setMessage('Mot de passe fort généré localement dans ton navigateur. Clique sur « Enregistrer mon mot de passe » pour l’activer.');
+  };
+
+  const copyGeneratedPassword = async () => {
+    if (!generatedPassword) return;
+    try {
+      await navigator.clipboard.writeText(generatedPassword);
+      setCopiedGenerated(true);
+      window.setTimeout(() => setCopiedGenerated(false), 1800);
+    } catch {
+      setError('Copie automatique impossible. Sélectionne le mot de passe affiché manuellement.');
+    }
+  };
+
   const changeOwnPassword = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase) return;
@@ -95,7 +122,7 @@ export default function TeamPage() {
       setError(updateError.message || 'Impossible de modifier le mot de passe.');
       return;
     }
-    setNewPassword(''); setConfirmPassword('');
+    setNewPassword(''); setConfirmPassword(''); setGeneratedPassword(''); setCopiedGenerated(false);
     setMessage('Ton mot de passe Super Admin a été modifié. Aucun e-mail n’a été envoyé.');
   };
 
@@ -159,9 +186,17 @@ export default function TeamPage() {
         </div>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginTop: 0 }}>Modifier mon mot de passe</h3>
+      <div className="card" id="password-security">
+        <h3 style={{ marginTop: 0 }}>Sécurité · Modifier mon mot de passe</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Modification directe du mot de passe de la session Super Admin actuelle, sans e-mail.</p>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', margin:'12px 0' }}>
+          <button type="button" onClick={generateStrongPassword}>Générer un mot de passe fort</button>
+          {generatedPassword && <button type="button" onClick={()=>void copyGeneratedPassword()}>{copiedGenerated ? 'Copié ✓' : 'Copier le mot de passe'}</button>}
+        </div>
+        {generatedPassword && <div style={{ marginBottom:12, padding:12, border:'1px solid #6d5a93', borderRadius:10, background:'#120e1b' }}>
+          <div style={{ color:'var(--text-muted)', fontSize:12 }}>Nouveau mot de passe généré</div>
+          <div style={{ marginTop:6, fontFamily:'monospace', fontSize:17, fontWeight:900, wordBreak:'break-all' }}>{generatedPassword}</div>
+        </div>}
         <form onSubmit={changeOwnPassword} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10 }}>
           <input type={showPassword ? 'text' : 'password'} placeholder="Nouveau mot de passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} />
           <input type={showPassword ? 'text' : 'password'} placeholder="Confirmer" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} />
