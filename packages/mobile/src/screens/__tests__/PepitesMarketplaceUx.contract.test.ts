@@ -6,7 +6,7 @@ describe('Pépites marketplace professional flow', () => {
 
   it('separates FREE and euro collections visibly', () => {
     expect(panel).toContain("offerFilter === 'FREE'");
-    expect(panel).toContain("offerFilter === 'MONEY'");
+    expect(panel).toContain("['MONEY', '€ EUROS', moneyPublished.length]");
     expect(panel).toContain('COLLECTIONS FREE');
     expect(panel).toContain('COLLECTIONS EN EUROS');
   });
