@@ -39,6 +39,24 @@ describe('Notification « nouveau morceau » masquée (Adel 02/10/2026)', () => 
     expect(options.context.sourceProfileId).toBe('owner-1');
   });
 
+  it('préserve le tout premier découvreur quand le morceau a déjà été repartagé', async () => {
+    mockCommitKeep.mockResolvedValueOnce({ alreadyKept: false });
+    const relayedNotif = {
+      ...oldNotif,
+      id: 'n-origin',
+      data: {
+        ...oldNotif.data,
+        ownerProfileId: 'relay-profile',
+        username: 'relay',
+        sourceProfileId: 'first-discoverer',
+        sourceUsername: 'origine',
+      },
+    };
+    await keepFromNewKeepNotification(relayedNotif, { id: 'track-1' }, 'PRIVATE', 3);
+    const [, , , options] = mockCommitKeep.mock.calls[mockCommitKeep.mock.calls.length - 1];
+    expect(options.context.sourceProfileId).toBe('first-discoverer');
+  });
+
   it('message clair quand les FREE manquent', async () => {
     mockCommitKeep.mockRejectedValueOnce(new Error('CREDITS_EXHAUSTED'));
     const res = await keepFromNewKeepNotification(oldNotif, { id: 'track-1' }, 'PRIVATE', 3);
@@ -62,5 +80,13 @@ describe('Notification « nouveau morceau » masquée (Adel 02/10/2026)', () => 
     expect(sql).toContain("'Nouveau morceau chez @'");
     expect(sql).not.toMatch(/'trackTitle'|'trackArtist'|'artworkUrl'|v_title|v_artist/);
     expect(sql).toContain("'trackId', new.track_id");
+  });
+
+  it('serveur : le fanout final reste asynchrone et transmet l’empreinte d’origine', () => {
+    const sql = read('supabase/migrations/20261003030000_public_track_fanout_origin_scale.sql');
+    expect(sql).toContain('public_track_notification_fanout_jobs');
+    expect(sql).toContain("'sourceProfileId'");
+    expect(sql).toContain('keep_process_public_track_notification_fanout(40, 2000)');
+    expect(sql).not.toContain('for v_follower in');
   });
 });
