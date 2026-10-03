@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import { Audio, InterruptionModeIOS } from 'expo-av';
+import { isNativeRecordingModeActive } from './micCapture';
 import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from './audioPreviewService';
 
 type LokiSpeechOptions = {
@@ -14,6 +16,23 @@ function getNativeSpeech() {
 }
 
 let activeSpeechSerial = 0;
+
+async function prepareNativeSpeechAudio(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  // iOS/TestFlight: AVSpeechSynthesizer can inherit an audio session that was
+  // previously configured by the microphone. Force a speaker-friendly mode
+  // before Loki speaks, while preserving recording if a real capture is
+  // currently active elsewhere in the app.
+  const recordingActive = isNativeRecordingModeActive();
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: recordingActive,
+    playsInSilentModeIOS: true,
+    staysActiveInBackground: recordingActive,
+    interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
+    shouldDuckAndroid: true,
+    playThroughEarpieceAndroid: false,
+  });
+}
 
 export async function stopLokiSpeech(): Promise<void> {
   activeSpeechSerial += 1;
@@ -66,6 +85,7 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
     }
 
     const Speech = getNativeSpeech();
+    await prepareNativeSpeechAudio().catch(() => {});
     await Speech.stop().catch(() => {});
     await new Promise<void>((resolve) => {
       let settled = false;
@@ -80,6 +100,7 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
           volume: 1,
+          onStart: () => {},
           onDone: finish,
           onStopped: finish,
           onError: finish,
