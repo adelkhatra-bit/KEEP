@@ -15,6 +15,7 @@ import { splitSaleOffersByStatus } from '../services/saleListPaging';
 import { loadOwnPersistedKeeps } from '../services/keepMusicCoreRecognition';
 import { getMyPayoutMethods, normalizePayoutLinkInput, setMyPayoutLink } from '../services/payoutLinkService';
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
+import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 import type { CanonicalTrack } from '@keep/music';
 import PayPalQrPayoutControl from './PayPalQrPayoutControl';
 
@@ -328,6 +329,33 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     addCollectionCartTrack(track.id);
   };
 
+  const chooseMoneyModeWithTerms = (onAccepted: () => void) => {
+    void loadMarketplacePaymentTermsAccepted()
+      .then((accepted) => {
+        if (accepted) {
+          onAccepted();
+          return;
+        }
+        Alert.alert(
+          'Conditions vendeur',
+          'Pour recevoir un paiement PayPal via Loki Music, tu dois accepter les règles : vérifier les fonds avant tout déblocage, conserver les preuves et ne jamais valider un paiement non reçu. Un abus peut entraîner un retrait de Free, une suspension ou un bannissement.',
+          [
+            { text: 'ANNULER', style: 'cancel' },
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            {
+              text: 'J’ACCEPTE',
+              onPress: () => {
+                void acceptMarketplacePaymentTerms('seller_collection')
+                  .then(() => onAccepted())
+                  .catch(() => Alert.alert('Conditions', 'Impossible d’enregistrer ton acceptation pour le moment.'));
+              },
+            },
+          ],
+        );
+      })
+      .catch(() => Alert.alert('Conditions', 'Impossible de vérifier ton acceptation pour le moment.'));
+  };
+
   const continueCollectionCart = () => {
     if (collectionCartIds.size < 2) {
       Alert.alert('Panier Pépites', 'Ajoute au moins 2 morceaux avant de continuer.');
@@ -427,6 +455,9 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       } else if (raw.includes('SELLER_PAYOUT_LINK_INSECURE')) {
         setCollectionCartStep('PRICE');
         Alert.alert('Lien PayPal', 'Ton lien PayPal doit être sécurisé en https://, ou utilise uniquement ton QR.');
+      } else if (raw.includes('TERMS_ACCEPTANCE_REQUIRED')) {
+        setCollectionCartStep('PRICE');
+        chooseMoneyModeWithTerms(() => { void publishCollectionCart(); });
       } else {
         Alert.alert('Publication', raw || 'Impossible de publier cette collection.');
       }
@@ -856,7 +887,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <Text style={s.collectionCartFieldLabel}>MODE DE PAIEMENT</Text>
                     <View style={s.collectionCartModeRow}>
                       <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'FREE' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('FREE')}><Text style={s.collectionCartModeText}>⚡ FREE</Text></TouchableOpacity>
-                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => setCollectionCartPaymentMode('MONEY')}><Text style={s.collectionCartModeText}>PayPal · DEVISE</Text></TouchableOpacity>
+                      <TouchableOpacity style={[s.collectionCartMode, collectionCartPaymentMode === 'MONEY' && s.collectionCartModeOn]} onPress={() => chooseMoneyModeWithTerms(() => setCollectionCartPaymentMode('MONEY'))}><Text style={s.collectionCartModeText}>PayPal · DEVISE</Text></TouchableOpacity>
                     </View>
                     {collectionCartPaymentMode === 'MONEY' ? (
                       <>
@@ -1282,7 +1313,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               <TouchableOpacity
                 style={[s.pricePreset, editing.paymentMode === 'MONEY' && s.pricePresetSelected]}
                 disabled={busy}
-                onPress={() => setEditing({ ...editing, paymentMode: 'MONEY' })}
+                onPress={() => chooseMoneyModeWithTerms(() => setEditing({ ...editing, paymentMode: 'MONEY' }))}
               >
                 <Text style={[s.pricePresetText, editing.paymentMode === 'MONEY' && s.pricePresetTextSelected]}>€ EUROS</Text>
               </TouchableOpacity>
