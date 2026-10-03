@@ -22,7 +22,12 @@ export type PlaylistSaleAccess = {
 // saisie libre, une liste fixe seulement (imposée aussi côté serveur).
 export const SALE_PRESET_PRICES_CENTS = [50, 100, 200, 300, 500, 1000] as const;
 export const SALE_PRESET_FREE = [1, 3, 5, 10, 20, 50, 100] as const;
-export type PlaylistSalePaymentMode = 'MONEY' | 'FREE';
+export type PlaylistSalePaymentMode = 'MONEY' | 'FREE' | 'BOTH';
+
+function normalizePlaylistSalePaymentMode(value: unknown): PlaylistSalePaymentMode {
+  const mode = String(value ?? 'MONEY').toUpperCase();
+  return mode === 'FREE' || mode === 'BOTH' ? mode : 'MONEY';
+}
 
 export type PlaylistSaleOffer = {
   offerId?: string;
@@ -123,7 +128,7 @@ export async function loadPlaylistSaleOffersForProfile(profileId: string): Promi
     offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
-    paymentMode: (String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY') as PlaylistSalePaymentMode,
+    paymentMode: normalizePlaylistSalePaymentMode(row.payment_mode ?? row.paymentMode),
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
     freePrice: row.free_price == null && row.freePrice == null ? null : Number(row.free_price ?? row.freePrice),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
@@ -574,14 +579,17 @@ export async function setPlaylistSaleOfferForSelection(
   amount: number,
   currencyCode = 'EUR',
   allowExisting = false,
+  bothFreePrice: number | null = null,
 ): Promise<PlaylistSaleOffer> {
-  const mode: PlaylistSalePaymentMode = paymentMode === 'FREE' ? 'FREE' : 'MONEY';
+  const mode = normalizePlaylistSalePaymentMode(paymentMode);
+  const moneyAmount = mode === 'FREE' ? 0 : Math.round(amount);
+  const freeAmount = mode === 'MONEY' ? null : Math.round(mode === 'BOTH' ? Number(bothFreePrice ?? 0) : amount);
   const { data, error } = await client().rpc('keep_playlist_sale_set_offer_for_selection_v5', {
     p_track_ids: trackIds,
     p_name: name,
     p_payment_mode: mode,
-    p_price_cents: mode === 'MONEY' ? Math.round(amount) : null,
-    p_free_price: mode === 'FREE' ? Math.round(amount) : null,
+    p_price_cents: mode === 'FREE' ? null : moneyAmount,
+    p_free_price: mode === 'MONEY' ? null : freeAmount,
     p_currency_code: currencyCode,
     p_cover_url: null,
     p_allow_existing: allowExisting,
@@ -592,9 +600,9 @@ export async function setPlaylistSaleOfferForSelection(
     offerId: String(row?.offerId ?? row?.id ?? ''),
     playlistId: String(row?.playlistId ?? ''),
     playlistName: String(row?.playlistName ?? name),
-    paymentMode: (String(row?.paymentMode ?? mode).toUpperCase() === 'FREE' ? 'FREE' : 'MONEY') as PlaylistSalePaymentMode,
-    priceCents: Number(row?.priceCents ?? (mode === 'MONEY' ? amount : 0)),
-    freePrice: row?.freePrice == null ? (mode === 'FREE' ? Math.round(amount) : null) : Number(row.freePrice),
+    paymentMode: normalizePlaylistSalePaymentMode(row?.paymentMode ?? mode),
+    priceCents: Number(row?.priceCents ?? moneyAmount),
+    freePrice: row?.freePrice == null ? freeAmount : Number(row.freePrice),
     currencyCode: String(row?.currencyCode ?? currencyCode),
     coverUrl: null,
     trackCount: Number(row?.trackCount ?? trackIds.length),
@@ -794,7 +802,7 @@ export async function loadMyPlaylistPurchaseLibrary(limit = 6): Promise<Playlist
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
     deliveredPlaylistId: String(row.delivered_playlist_id ?? row.deliveredPlaylistId ?? ''),
     trackCount: Number(row.track_count ?? row.trackCount ?? 0),
-    paymentMode: (String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY') as PlaylistSalePaymentMode,
+    paymentMode: normalizePlaylistSalePaymentMode(row.payment_mode ?? row.paymentMode),
     amountCents: Number(row.amount_cents ?? row.amountCents ?? 0),
     amountFree: Number(row.amount_free ?? row.amountFree ?? 0),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
@@ -876,7 +884,7 @@ export async function loadMyPlaylistSaleOffers(): Promise<PlaylistSaleOffer[]> {
     offerId: String(row.offer_id ?? row.offerId ?? ''),
     playlistId: String(row.playlist_id ?? row.playlistId ?? ''),
     playlistName: String(row.playlist_name ?? row.playlistName ?? ''),
-    paymentMode: (String(row.payment_mode ?? row.paymentMode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY') as PlaylistSalePaymentMode,
+    paymentMode: normalizePlaylistSalePaymentMode(row.payment_mode ?? row.paymentMode),
     priceCents: Number(row.price_cents ?? row.priceCents ?? 0),
     freePrice: row.free_price == null && row.freePrice == null ? null : Number(row.free_price ?? row.freePrice),
     currencyCode: String(row.currency_code ?? row.currencyCode ?? 'EUR'),
@@ -952,13 +960,14 @@ export async function updateOfferPaymentMode(
   offerId: string,
   paymentMode: PlaylistSalePaymentMode,
   amount: number,
+  bothFreePrice: number | null = null,
 ): Promise<void> {
-  const mode: PlaylistSalePaymentMode = paymentMode === 'FREE' ? 'FREE' : 'MONEY';
+  const mode = normalizePlaylistSalePaymentMode(paymentMode);
   const { error } = await client().rpc('keep_playlist_sale_update_payment_mode', {
     p_offer_id: offerId,
     p_payment_mode: mode,
-    p_price_cents: mode === 'MONEY' ? Math.round(amount) : null,
-    p_free_price: mode === 'FREE' ? Math.round(amount) : null,
+    p_price_cents: mode === 'FREE' ? null : Math.round(amount),
+    p_free_price: mode === 'MONEY' ? null : Math.round(mode === 'BOTH' ? Number(bothFreePrice ?? 0) : amount),
   });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_UPDATE_PAYMENT_MODE_FAILED'));
 }
