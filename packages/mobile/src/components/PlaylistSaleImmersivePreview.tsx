@@ -390,7 +390,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               <>
                 <Text style={s.unlockExplainText}>
                   {ownerMode
-                    ? 'Tu vois ici exactement l’aperçu proposé aux visiteurs. Ce sont tes morceaux : aucune action d’achat ou d’ajout n’est possible.'
+                    ? 'Tu vois ici exactement l’aperçu proposé aux visiteurs. Ce sont tes morceaux : aucun déblocage ni ajout n’est possible.'
                     : allAlreadyOwned
                       ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
                     : partiallyOwned
@@ -434,7 +434,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
           {ownerMode ? (
             <View style={[s.nativePreviewNotice, s.ownerPreviewNotice]}>
               <Text style={s.nativePreviewTitle}>TA COLLECTION · DÉJÀ CHEZ TOI</Text>
-              <Text style={s.nativePreviewText}>Tu peux écouter les aperçus et contrôler exactement ce que verra un visiteur. Achat et ajout sont bloqués parce que cette collection est la tienne.</Text>
+              <Text style={s.nativePreviewText}>Tu peux écouter les aperçus et contrôler exactement ce que verra un visiteur. Déblocage et ajout sont bloqués parce que cette collection est la tienne.</Text>
             </View>
           ) : purchaseEnabled ? (
             <>
