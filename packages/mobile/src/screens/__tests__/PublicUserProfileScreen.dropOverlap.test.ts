@@ -46,6 +46,10 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
     expect(boutique).toContain('dropPlay');
+    expect(boutique).toContain('1 clic pour écouter');
+    expect(boutique).toContain('▶ ÉCOUTER MAINTENANT');
+    expect(boutique).not.toContain('Afficher le drop');
+    expect(boutique).not.toContain('setDropIndex');
   });
 
   it('partage aussi exactement le même habillage de boutique entre propriétaire et visiteur', () => {
