@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -543,6 +543,12 @@ export default function NotificationsScreen({ navigation, route }: any) {
   };
 
   const openPaymentFromNotification = async (item: KeepNotification) => {
+    if (Platform.OS !== 'web') {
+      await readOne(item);
+      setPaymentCheckoutItem(null);
+      setError('Le déblocage en euros est disponible sur la version web de Loki Music. Sur mobile, tu peux écouter les aperçus et utiliser les FREE.');
+      return;
+    }
     const data = item.data as Record<string, unknown> | null;
     const payoutLink = typeof data?.payoutLink === 'string' ? data.payoutLink.trim() : '';
     const payoutQrUrl = typeof data?.payoutQrUrl === 'string'
