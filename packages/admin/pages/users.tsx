@@ -403,7 +403,7 @@ export default function Users() {
           {loading && <tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
           {!loading && filtered.length===0 && <tr><td colSpan={8} style={{textAlign:'center',padding:24,color:'var(--text-muted)'}}>Aucun utilisateur.</td></tr>}
           {filtered.map((u)=><tr key={u.id} onClick={()=>void openUser(u)} style={{ cursor:'pointer' }}>
-            <td><div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><strong style={{display:'block',overflow:'hidden',textOverflow:'ellipsis'}}>@{u.username}</strong><div style={{fontSize:10,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis'}}>{visibleEmail(u.email)}</div></div></div></td>
+            <td><div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{u.avatar_url?<img src={u.avatar_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><button type="button" onClick={(e)=>{e.stopPropagation();void openUser(u)}} title={`Ouvrir la fiche de @${u.username}`} style={{display:'block',maxWidth:'100%',padding:0,border:0,background:'transparent',color:'#b788ff',font: 'inherit',fontWeight:900,cursor:'pointer',overflow:'hidden',textOverflow:'ellipsis',textAlign:'left',textDecoration:'underline',textUnderlineOffset:3}}>@{u.username}</button><div style={{fontSize:10,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis'}}>{visibleEmail(u.email)}</div></div></div></td>
             <td><span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'4px 6px',borderRadius:999,border:`1px solid ${u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#6f6678'}`,color:u.account_verified ? planColor(u.certification_tier || u.plan_code) : '#9d94a8',fontWeight:800,fontSize:10}}>{u.account_verified?'●':'○'} {certificationLabel(u)}</span></td>
             <td>{u.recognized_count ?? 0}</td><td>{u.free_keeps_used ?? 0}</td><td>{u.social_keeps ?? 0}</td><td>{u.credit_remaining == null ? '∞' : u.credit_remaining}</td><td>{u.playlist_tracks ?? 0}</td>
             <td><button onClick={(e)=>{e.stopPropagation();void openUser(u)}} style={{padding:'7px 9px'}}>Gérer</button></td>
@@ -427,6 +427,29 @@ export default function Users() {
           <div style={{display:'flex',gap:12,alignItems:'center',minWidth:0}}>{snapshot?.profile.avatar_url?<img src={snapshot.profile.avatar_url} alt="" style={{width:56,height:56,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:56,height:56,borderRadius:'50%',background:'#251d32',flexShrink:0}}/>}<div style={{minWidth:0}}><div style={{fontSize:22,fontWeight:900,overflowWrap:'anywhere'}}>@{selected.username}</div><div style={{color:'var(--text-muted)',fontSize:12,overflowWrap:'anywhere'}}>{visibleEmail(selected.email)} · {memberNumber(selected.id)}</div><div style={{marginTop:5,color:selected.account_verified?planColor(selected.certification_tier || selected.plan_code):'#9d94a8',fontSize:11,fontWeight:900}}>● Certification Loki Music : {certificationLabel(selected)}</div></div></div>
           <button onClick={()=>setSelected(null)}>Fermer</button>
         </div>
+
+        {canDestruct && <div style={{marginTop:16,padding:16,border:'2px solid #7c5cfc',borderRadius:14,background:'linear-gradient(135deg,#171126,#101827)',boxShadow:'0 10px 30px rgba(124,92,252,.18)'}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:14,flexWrap:'wrap'}}>
+            <div style={{minWidth:220,flex:'1 1 360px'}}>
+              <div style={{fontSize:11,fontWeight:900,letterSpacing:1,color:'#b9a8ff'}}>ACCÈS UTILISATEUR</div>
+              <div style={{fontSize:20,fontWeight:900,marginTop:3}}>Mot de passe de @{selected.username}</div>
+              <div style={{fontSize:12,color:'var(--text-muted)',marginTop:4,lineHeight:1.45}}>Si l’utilisateur a oublié son mot de passe, génère-en un nouveau ici. L’ancien est remplacé immédiatement. Aucun e-mail n’est nécessaire.</div>
+            </div>
+            <button
+              onClick={()=>void resetPassword()}
+              disabled={busy!==null}
+              style={{minHeight:48,padding:'0 18px',border:0,borderRadius:12,background:'#7c5cfc',color:'#fff',fontWeight:900,fontSize:12,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1,boxShadow:'0 8px 24px rgba(124,92,252,.28)'}}
+            >{busy==='password'?'GÉNÉRATION…':'RÉGÉNÉRER LE MOT DE PASSE'}</button>
+          </div>
+          {temporaryPassword && <div style={{marginTop:14,padding:14,border:'1px solid #68f2b1',borderRadius:12,background:'#0d211a'}}>
+            <div style={{fontSize:11,color:'#68f2b1',fontWeight:900}}>✓ NOUVEAU MOT DE PASSE ACTIF — À COPIER MAINTENANT</div>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginTop:8,flexWrap:'wrap'}}>
+              <div style={{fontFamily:'monospace',fontSize:24,fontWeight:900,letterSpacing:.6,wordBreak:'break-all',flex:'1 1 320px',userSelect:'all'}}>{temporaryPassword}</div>
+              <button onClick={()=>void copyTemporaryPassword(temporaryPassword)} style={{minHeight:44,padding:'0 16px',flexShrink:0,background:copied?'#2e7d32':'#3a3450',fontWeight:900}}>{copied?'COPIÉ ✓':'COPIER'}</button>
+            </div>
+            <div style={{fontSize:11,color:'var(--text-muted)',marginTop:7}}>L’utilisateur peut se connecter avec son pseudo Loki Music ou son e-mail réel + ce nouveau mot de passe.</div>
+          </div>}
+        </div>}
 
         {busy==='load' || !snapshot ? <div style={{padding:30,textAlign:'center'}}>Chargement du profil réel…</div> : <>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(135px,1fr))',gap:8,marginTop:16}}>
@@ -507,19 +530,10 @@ export default function Users() {
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
-            <h3 style={{margin:'0 0 6px'}}>Accès au compte</h3>
-            <div style={{color:'var(--text-muted)',fontSize:12}}>Pas besoin d’attendre un e-mail : le Super Admin peut générer un mot de passe temporaire.</div>
-            <button style={{marginTop:10,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}} onClick={()=>void resetPassword()} disabled={busy!==null}>{busy==='password'?'Réinitialisation…':'Générer un mot de passe temporaire'}</button>
-            {temporaryPassword && <div style={{marginTop:10,padding:12,border:'1px solid #6f8cff',borderRadius:10,background:'#121728'}}>
-              <div style={{fontSize:11,color:'var(--text-muted)'}}>À copier maintenant — il ne sera pas renvoyé par e-mail</div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
-                <div style={{fontFamily:'monospace',fontSize:18,fontWeight:900,wordBreak:'break-all',flex:1}}>{temporaryPassword}</div>
-                <button onClick={()=>void copyTemporaryPassword(temporaryPassword)} style={{flexShrink:0,background:copied?'#2e7d32':'#3a3450'}}>{copied?'Copié ✓':'Copier'}</button>
-              </div>
-              <div style={{fontSize:11,color:'var(--text-muted)',marginTop:5}}>Connexion possible avec le pseudo Loki Music ou l’e-mail réel + ce mot de passe.</div>
-            </div>}
+            <h3 style={{margin:'0 0 6px'}}>Adresse e-mail du compte</h3>
+            <div style={{color:'var(--text-muted)',fontSize:12}}>Ajoute ou modifie l’adresse de connexion. La régénération du mot de passe est maintenant disponible tout en haut de cette fiche.</div>
 
-            <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+            <div style={{marginTop:12}}>
               <div style={{fontWeight:700,marginBottom:4}}>Attribuer une adresse e-mail</div>
               <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:8}}>Pour un compte créé avant le 01/09/2026 (proche, ami...) sans e-mail -- utile aussi pour que « mot de passe oublié » fonctionne pour lui.</div>
               {snapshot.auth.email && !editingEmail ? (
