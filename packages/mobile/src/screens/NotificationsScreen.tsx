@@ -167,9 +167,10 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [detailItem, setDetailItem] = useState<KeepNotification | null>(null);
   const [detailEvent, setDetailEvent] = useState<CreatorEvent | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  // Les plans payants débloquent des fonctions et des réglages avancés,
-  // jamais l'obligation de recevoir du contenu promotionnel.
+  // Confort d'abonnement : Free garde les offres ciblées actives ;
+  // Premium / Creator Pro / Venue Pro peuvent les masquer.
   const [planCode, setPlanCode] = useState('FREE');
+  const marketingLocked = planCode === 'FREE';
   const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
   useEffect(() => {
     if (!user) return;
@@ -1226,9 +1227,12 @@ export default function NotificationsScreen({ navigation, route }: any) {
           />
           <Preference
             label="Actualités & offres"
-            hint="Boutique musicale, nouveautés et contenus promotionnels. Désactivé par défaut : active-le seulement si tu veux les recevoir."
-            value={prefs.marketingEnabled}
-            onValueChange={(v) => updatePrefs({ marketingEnabled: v })}
+            hint={marketingLocked
+              ? 'Boutique musicale et offres ciblées · réglage de masquage disponible avec Premium, Creator Pro ou Venue Pro.'
+              : 'Boutique musicale, nouveautés et contenus promotionnels ciblés.'}
+            value={marketingLocked ? true : prefs.marketingEnabled}
+            onValueChange={(v) => { if (!marketingLocked) updatePrefs({ marketingEnabled: v }); }}
+            locked={marketingLocked}
           />
           <Preference
             label="Compte & sécurité"
