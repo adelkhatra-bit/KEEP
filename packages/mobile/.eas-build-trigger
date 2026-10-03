@@ -1,4 +1,4 @@
 production
-requested_from_sha=328a18d95abdc9a1ca7c7e92254041845f346d42
-requested_at=2026-10-03T22:36:00+02:00
-reason=final-app-store-submission
+requested_from_sha=64e9089234ac326829329456de3b426be7457016
+requested_at=2026-10-03T23:10:00+02:00
+reason=testflight-mobile-battle-solo-audio-push-voice-fix
