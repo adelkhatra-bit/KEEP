@@ -33,10 +33,15 @@ describe('audioPreviewService -- ne reste plus "en lecture" sur un extrait web p
   });
 });
 
-describe('KeepBattleMobileGameV3 -- une manche sautée (extrait mort) est maintenant visible pour le joueur', () => {
+describe('KeepBattleMobileGameV3 -- un extrait mort ne bloque plus le Solo', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const preview = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
-  it("affiche une alerte au lieu de sauter silencieusement la manche (avant : seulement un console.warn)", () => {
-    expect(battle).toContain("Alert.alert('Manche sautée', 'Ce morceau est momentanément indisponible -- passage à la manche suivante.');");
+  it('limite les retries natifs et remplace le morceau avant de rendre la main', () => {
+    expect(preview).toContain('const maxAttempts = 1;');
+    expect(battle).toContain('soloAudioReplacementRef');
+    expect(battle).toContain("recordSoloAnswer('__AUDIO_ERROR__')");
+    expect(battle).toContain("Alert.alert('Audio indisponible'");
+    expect(battle).not.toContain("Alert.alert('Manche sautée'");
   });
 });
