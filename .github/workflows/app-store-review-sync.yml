@@ -1,0 +1,123 @@
+name: Loki App Review Sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-review-sync.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync TestFlight review contact to App Store review
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing=required.filter(k=>!process.env[k]?.trim());
+          if(missing.length) throw new Error('Missing secrets: '+missing.join(', '));
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,800));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const beta=await api('/v1/apps/'+appId+
+              '/betaAppReviewDetail?fields[betaAppReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountName,demoAccountPassword,demoAccountRequired,notes');
+            if(!beta?.data) throw new Error('No Beta App Review detail found');
+
+            const b=beta.data.attributes||{};
+            for(const k of ['contactFirstName','contactLastName','contactPhone','contactEmail']){
+              if(!String(b[k]||'').trim()) throw new Error('Beta review contact incomplete: '+k);
+            }
+            if(b.demoAccountRequired && (!String(b.demoAccountName||'').trim() || !String(b.demoAccountPassword||'').trim())){
+              throw new Error('Beta review requires a demo account but credentials are incomplete');
+            }
+
+            const versions=await api('/v1/apps/'+appId+
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.appStoreState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!version) throw new Error('No iOS App Store version found');
+
+            const current=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountName,demoAccountPassword,demoAccountRequired,notes',
+              {allow404:true});
+
+            const existingNotes=current?.data?.attributes?.notes||null;
+            const attrs={
+              contactFirstName:b.contactFirstName,
+              contactLastName:b.contactLastName,
+              contactPhone:b.contactPhone,
+              contactEmail:b.contactEmail,
+              demoAccountRequired:!!b.demoAccountRequired,
+              ...(b.demoAccountRequired?{
+                demoAccountName:b.demoAccountName,
+                demoAccountPassword:b.demoAccountPassword
+              }:{})
+            };
+            if(existingNotes) attrs.notes=existingNotes;
+
+            let detailId;
+            if(current?.data){
+              detailId=current.data.id;
+              await api('/v1/appStoreReviewDetails/'+detailId,{
+                method:'PATCH',
+                body:{data:{type:'appStoreReviewDetails',id:detailId,attributes:attrs}}
+              });
+            }else{
+              const created=await api('/v1/appStoreReviewDetails',{
+                method:'POST',
+                body:{data:{
+                  type:'appStoreReviewDetails',
+                  attributes:attrs,
+                  relationships:{appStoreVersion:{data:{type:'appStoreVersions',id:version.id}}}
+                }}
+              });
+              detailId=created.data.id;
+            }
+
+            const verify=await api('/v1/appStoreReviewDetails/'+detailId+
+              '?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountName,demoAccountPassword,demoAccountRequired,notes');
+            const a=verify.data.attributes||{};
+            console.log(JSON.stringify({
+              synced:true,
+              versionString:version.attributes?.versionString,
+              firstNamePresent:!!a.contactFirstName?.trim(),
+              lastNamePresent:!!a.contactLastName?.trim(),
+              phonePresent:!!a.contactPhone?.trim(),
+              emailPresent:!!a.contactEmail?.trim(),
+              demoAccountRequired:!!a.demoAccountRequired,
+              demoAccountNamePresent:!!a.demoAccountName?.trim(),
+              demoAccountPasswordPresent:!!a.demoAccountPassword?.trim(),
+              notesPresent:!!a.notes?.trim()
+            },null,2));
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
