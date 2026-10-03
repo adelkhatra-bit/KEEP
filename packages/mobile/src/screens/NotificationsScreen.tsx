@@ -608,6 +608,22 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }
   };
 
+  const openPlaylistPaymentHistoryFromNotification = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId) return;
+    const data = item.data as Record<string, unknown> | null;
+    const offerId = String(data?.offerId ?? data?.offer_id ?? '').trim();
+    const playlistName = String(data?.playlistName ?? data?.playlist_name ?? '').trim();
+    await readOne(item);
+    navigation.navigate('PlaylistSale', {
+      manageSaleOfferId: offerId || undefined,
+      manageSaleOfferName: playlistName || undefined,
+      focusPaymentId: paymentId,
+      openPaymentHistory: true,
+      source: 'NOTIFICATION_PAYMENT',
+    });
+  };
+
   const cancelPlaylistPayment = (item: KeepNotification) => {
     const paymentId = paymentIdOf(item);
     if (!paymentId || paymentBusyId) return;
@@ -652,12 +668,12 @@ export default function NotificationsScreen({ navigation, route }: any) {
     const amountLabel = amountCents > 0 ? `${(amountCents / 100).toFixed(2).replace('.', ',')} ${currencyCode}` : 'le montant attendu';
 
     Alert.alert(
-      'Confirmer les fonds reçus',
-      `Vérifie d’abord TON compte PayPal. La capture jointe n’est qu’une preuve envoyée par l’acheteur. Confirme seulement si ${amountLabel}${buyerUsername ? ` de @${buyerUsername}` : ''} sont réellement crédités. La Pépite sera débloquée immédiatement.`,
+      'Validation irréversible',
+      `Vérifie d’abord TON compte PayPal. La capture jointe n’est qu’une preuve envoyée par l’acheteur. Confirme uniquement si ${amountLabel}${buyerUsername ? ` de @${buyerUsername}` : ''} sont réellement crédités. Après validation, la Pépite est débloquée immédiatement et cette action ne peut pas être annulée. En validant à tort ou en détournant le système, tu engages ta responsabilité et Loki Music pourra appliquer les sanctions prévues au règlement : avertissement, retrait de Free, suspension ou bannissement.`,
       [
-        { text: 'Annuler', onPress: () => {} },
+        { text: 'RETOUR', style: 'cancel' },
         {
-          text: 'J’ai reçu les fonds',
+          text: 'OUI · FONDS REÇUS',
           onPress: async () => {
             setPaymentBusyId(paymentId);
             try {
@@ -1107,18 +1123,13 @@ export default function NotificationsScreen({ navigation, route }: any) {
               {isBuyerPaymentReady(item) ? (
                 <View style={styles.paymentActionRow}>
                   <TouchableOpacity
-                    style={[styles.paymentActionButton, styles.paymentActionSecondary]}
-                    disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => void openPaymentFromNotification(item)}
-                  >
-                    <Text style={styles.paymentActionSecondaryText}>OUVRIR LE PAIEMENT</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
                     style={[styles.paymentActionButton, styles.paymentActionPrimary]}
                     disabled={paymentBusyId === paymentIdOf(item)}
                     onPress={() => void openPaymentFromNotification(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Payer avec le QR ou joindre une preuve de paiement"
                   >
-                    <Text style={styles.paymentActionPrimaryText}>J’AI PAYÉ · JOINDRE PREUVE</Text>
+                    <Text style={styles.paymentActionPrimaryText}>PAYER · QR / PREUVE</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1130,33 +1141,26 @@ export default function NotificationsScreen({ navigation, route }: any) {
                 </View>
               ) : null}
               {isSellerPaymentAction(item) ? (
-                <>
-                  <View style={styles.paymentActionRow}>
-                    <TouchableOpacity
-                      style={[styles.paymentActionButton, styles.paymentActionSecondary]}
-                      disabled={paymentBusyId === paymentIdOf(item)}
-                      onPress={() => void openPlaylistPaymentProofFromNotification(item)}
-                    >
-                      <Text style={styles.paymentActionSecondaryText}>VOIR LA PREUVE</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.paymentActionButton, styles.paymentActionConfirm]}
-                      disabled={paymentBusyId === paymentIdOf(item)}
-                      onPress={() => void confirmPlaylistPaymentReceived(item)}
-                    >
-                      <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'FONDS REÇUS · DÉBLOQUER'}</Text>
-                    </TouchableOpacity>
-                  </View>
+                <View style={styles.paymentActionRow}>
                   <TouchableOpacity
-                    style={styles.cancelPaymentButton}
+                    style={[styles.paymentActionButton, styles.paymentActionSecondary]}
                     disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => cancelPlaylistPayment(item)}
+                    onPress={() => void openPlaylistPaymentHistoryFromNotification(item)}
                     accessibilityRole="button"
-                    accessibilityLabel="Annuler cette transaction et prévenir l’autre utilisateur"
+                    accessibilityLabel="Voir l’historique de la transaction et la preuve de paiement"
                   >
-                    <Text style={styles.cancelPaymentButtonText}>ANNULER LA TRANSACTION</Text>
+                    <Text style={styles.paymentActionSecondaryText}>HISTORIQUE / PREUVE</Text>
                   </TouchableOpacity>
-                </>
+                  <TouchableOpacity
+                    style={[styles.paymentActionButton, styles.paymentActionConfirm]}
+                    disabled={paymentBusyId === paymentIdOf(item)}
+                    onPress={() => void confirmPlaylistPaymentReceived(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Valider le paiement reçu et débloquer la collection"
+                  >
+                    <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'VALIDER LE PAIEMENT'}</Text>
+                  </TouchableOpacity>
+                </View>
               ) : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
