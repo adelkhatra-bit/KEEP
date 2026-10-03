@@ -844,7 +844,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
     const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
     if (ownerViewingSelf) {
-      void openFolderSwipe(offer.playlistName, () => loadOwnPlaylistSaleOfferTracks(offer.offerId), `sale:${offer.offerId}`);
+      // Le propriétaire contrôle exactement l'expérience visiteur :
+      // même aperçu masqué 15 s, mais aucun achat possible sur sa propre offre.
+      unlockWebAudioForGesture();
+      setImmersivePreviewOffer(offer);
       return;
     }
     const unlock = saleUnlocks[offer.offerId];
@@ -1608,7 +1611,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               offers={saleOffers}
               sellerUsername={profile.username}
               overlaps={saleOfferOverlaps}
-              unlockedOfferIds={new Set(saleOffers.filter((offer) => Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId) || Boolean(viewer?.id && effectiveViewerId === profile.id)).map((offer) => offer.offerId))}
+              unlockedOfferIds={new Set(saleOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
+              ownerMode={isOwner}
               onOpenOffer={(offer) => openSaleFolder(offer)}
             />
           </ProfileMotionReveal>
@@ -2008,7 +2012,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           busy={purchaseBusyId === immersivePreviewOffer.offerId}
           onClose={() => setImmersivePreviewOffer(null)}
           onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
-          purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
+          purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled)}
+          ownerMode={isOwner}
           sourceUsername={profile.username}
           freeBalance={freeBalance}
           purchaseError={freePurchaseMessage}
@@ -2020,7 +2025,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             setImmersivePreviewOffer(null);
             navigation.navigate('Offers', { sourceFeature: 'PLAYLIST_FREE_SHORTFALL' });
           }}
-          onRequestMissingTracks={(offer) => { void requestOnlyMissingTracks(offer); }}
+          onRequestMissingTracks={isOwner ? undefined : (offer) => { void requestOnlyMissingTracks(offer); }}
           requestMissingBusy={missingRequestBusyId === immersivePreviewOffer.offerId}
         />
       ) : null}

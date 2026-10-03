@@ -52,6 +52,7 @@ interface Props {
   onConfirmPurchase: (offer: PublicPlaylistSaleOffer) => void;
   busy?: boolean;
   purchaseEnabled?: boolean;
+  ownerMode?: boolean;
   sourceUsername?: string;
   onOpenProfile?: () => void;
   freeBalance?: number | null;
@@ -61,7 +62,7 @@ interface Props {
   requestMissingBusy?: boolean;
 }
 
-export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
+export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, ownerMode = false, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const compact = windowHeight < 760 || windowWidth < 360;
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -209,12 +210,14 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const freeInsufficient = freeAccess && freeBalance != null && freeBalance < requiredFree;
   const freeBlocked = freeAccess && Boolean(purchaseError || freeInsufficient);
   const normalizedUsername = sourceUsername?.replace(/^@+/, '') || '';
-  const currentTrackOwned = Boolean(tracks?.[trackIndex]?.alreadyOwned);
-  const allAlreadyOwned = Boolean(overlap && overlap.totalCount > 0 && overlap.missingCount === 0);
+  const currentTrackOwned = ownerMode || Boolean(tracks?.[trackIndex]?.alreadyOwned);
+  const allAlreadyOwned = ownerMode || Boolean(overlap && overlap.totalCount > 0 && overlap.missingCount === 0);
   const partiallyOwned = Boolean(overlap && overlap.ownedCount > 0 && overlap.missingCount > 0);
 
-  const detailsTitle = allAlreadyOwned
-    ? 'TU AS DÉJÀ TOUTE CETTE COLLECTION'
+  const detailsTitle = ownerMode
+    ? 'TA COLLECTION · DÉJÀ CHEZ TOI'
+    : allAlreadyOwned
+      ? 'TU AS DÉJÀ TOUTE CETTE COLLECTION'
     : partiallyOwned
       ? `CE QUE TU OBTIENS · ${overlap?.missingCount ?? 0} NOUVEAU${(overlap?.missingCount ?? 0) > 1 ? 'X' : ''}`
       : `CE QUE TU OBTIENS · ${trackCountLabel} MORCEAU${trackCountLabel > 1 ? 'X' : ''}`;
@@ -338,8 +341,10 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             {detailsOpen ? (
               <>
                 <Text style={s.unlockExplainText}>
-                  {allAlreadyOwned
-                    ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
+                  {ownerMode
+                    ? 'Tu vois ici exactement l’aperçu proposé aux visiteurs. Ce sont tes morceaux : aucune action d’achat ou d’ajout n’est possible.'
+                    : allAlreadyOwned
+                      ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
                     : partiallyOwned
                       ? `Tu as déjà ${overlap?.ownedCount ?? 0} morceau${(overlap?.ownedCount ?? 0) > 1 ? 'x' : ''}. Ils ne seront jamais ajoutés en double. Le Drop sert à révéler uniquement ce qui te manque.`
                       : `Tu écoutes les extraits gratuitement. Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
@@ -378,7 +383,12 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {/* COUCHE 3 · toujours visible : confirmation + déblocage */}
           <View style={s.layerBottom}>
-          {purchaseEnabled ? (
+          {ownerMode ? (
+            <View style={[s.nativePreviewNotice, s.ownerPreviewNotice]}>
+              <Text style={s.nativePreviewTitle}>TA COLLECTION · DÉJÀ CHEZ TOI</Text>
+              <Text style={s.nativePreviewText}>Tu peux écouter les aperçus et contrôler exactement ce que verra un visiteur. Achat et ajout sont bloqués parce que cette collection est la tienne.</Text>
+            </View>
+          ) : purchaseEnabled ? (
             <>
               {freeBlocked ? (
                 <View style={s.creditError}>
@@ -530,6 +540,7 @@ const s = StyleSheet.create({
   buyButtonTextDisabled: { color: colors.textMuted },
   noRefund: { color: colors.textMuted, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 8 },
   nativePreviewNotice: { marginTop: 6, padding: 12, borderRadius: 16, backgroundColor: colors.primaryFaint, borderWidth: 1, borderColor: colors.primary },
+  ownerPreviewNotice: { borderColor: colors.keep, backgroundColor: 'rgba(229,242,102,.08)' },
   nativePreviewTitle: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   nativePreviewText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, marginTop: 4 },
 });

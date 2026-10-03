@@ -37,6 +37,13 @@ describe('seller boutique', () => {
     expect(boutique).toContain("offer.freePrice != null ? `${offer.freePrice} FREE` : 'FREE'");
   });
 
+  it('lets the owner preview the exact visitor experience without buying their own collection', () => {
+    expect(popup).toContain('ownerMode?: boolean');
+    expect(popup).toContain('TA COLLECTION · DÉJÀ CHEZ TOI');
+    expect(popup).toContain('Tu peux écouter les aperçus et contrôler exactement ce que verra un visiteur.');
+    expect(popup).toContain('const currentTrackOwned = ownerMode ||');
+  });
+
   it('shows the Pépites banner: one bubble per style, no artwork, no title, bubble opens the filtered store', () => {
     expect(boutique).toContain('LES PÉPITES DE @{sellerUsername.toUpperCase()}');
     expect(boutique).toContain('function StyleBubble(');
