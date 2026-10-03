@@ -6,6 +6,8 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(...parts), 'ut
 
 describe('Loki Music Battle — compact current UX', () => {
   const source = read(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const mascot = read(__dirname, '..', 'LokiMascotVoice.tsx');
+  const speech = read(__dirname, '..', '..', 'services', 'lokiSpeechService.ts');
 
   it('keeps Solo and online mode as compact action buttons while information stays outside', () => {
     expect(source).toContain('<Text style={s.modeIconText}>◎</Text><Text style={s.modeTitle}>SOLO</Text>');
@@ -95,6 +97,14 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain('ANNULER ·');
     expect(source).toContain("ANNULER L’INVITE");
     expect(source).toContain('outgoingPendingByTarget');
+  });
+
+  it('owns audio ducking in one place so Loki restores music volume after speaking', () => {
+    expect(speech).toContain('duckActivePreviewForSpeech');
+    expect(speech).toContain('restoreActivePreviewAfterSpeech');
+    expect(mascot).not.toContain('duckActivePreviewForSpeech');
+    expect(mascot).not.toContain('restoreActivePreviewAfterSpeech');
+    expect(mascot).toContain('await speakLokiText(line.text');
   });
 
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {
