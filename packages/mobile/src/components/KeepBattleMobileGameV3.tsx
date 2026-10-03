@@ -24,7 +24,7 @@ import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKee
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
