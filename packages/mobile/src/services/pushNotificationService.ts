@@ -293,7 +293,9 @@ export async function unregisterCurrentPushToken(): Promise<void> {
   if (Platform.OS === 'web' || !Device.isDevice || !supabase) return;
   const Notifications = getNativeNotifications();
   try {
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
+    const projectId = expoProjectId();
+    if (!projectId) return;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     if (!token) return;
     await supabase.rpc('keep_push_token_unregister', { p_token: token });
   } catch {
