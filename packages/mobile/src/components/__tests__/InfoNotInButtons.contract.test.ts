@@ -21,8 +21,10 @@ describe('Battle : infos hors des boutons, avertissements discrets', () => {
     expect(battle).not.toContain('s.themeShortWarning');
     expect(battle.match(/<MoreInfoLine tone="warn" icon="⚠" short="Free insuffisants"/g)?.length).toBe(2);
   });
-  it('même encouragement par morceau en Battle en ligne qu’en Solo', () => {
-    expect(battle).toContain('soloEncouragement(Math.max(0, (arena.currentRound || 1) - 1), arena.roundCount || 1)');
+  it('garde la manche en ligne compacte et réserve la phrase variable au résultat', () => {
+    expect(battle).not.toContain('soloEncouragement(Math.max(0, (arena.currentRound || 1) - 1), arena.roundCount || 1)');
+    expect(battle).toContain('textOverride={battleResultMessage(');
+    expect(battle).toContain("arenaVisualActive: { width: '100%', aspectRatio: 1");
   });
   it('la limite de 10 Solos/jour est réglable dans Super Admin', () => {
     expect(migration).toContain("'battle_solo_daily_limit_free',\n  '10'::jsonb");
