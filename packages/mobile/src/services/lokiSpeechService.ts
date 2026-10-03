@@ -6,19 +6,11 @@ type LokiSpeechOptions = {
   pitch?: number;
 };
 
-type SpeechModule = typeof import('expo-speech');
-let nativeSpeech: SpeechModule | null = null;
+let nativeSpeechModule: typeof import('expo-speech') | null = null;
 
-function getNativeSpeech(): SpeechModule | null {
-  if (Platform.OS === 'web') return null;
-  if (!nativeSpeech) {
-    try {
-      nativeSpeech = require('expo-speech') as SpeechModule;
-    } catch {
-      nativeSpeech = null;
-    }
-  }
-  return nativeSpeech;
+function nativeSpeech(): typeof import('expo-speech') {
+  if (!nativeSpeechModule) nativeSpeechModule = require('expo-speech') as typeof import('expo-speech');
+  return nativeSpeechModule;
 }
 
 export async function stopLokiSpeech(): Promise<void> {
@@ -29,9 +21,12 @@ export async function stopLokiSpeech(): Promise<void> {
     } catch {}
     return;
   }
+
   try {
-    await getNativeSpeech()?.stop?.();
-  } catch {}
+    await nativeSpeech().stop();
+  } catch {
+    // La voix reste optionnelle : un problème TTS ne doit jamais bloquer Loki.
+  }
 }
 
 export async function speakLokiText(text: string, options: LokiSpeechOptions = {}): Promise<void> {
@@ -45,26 +40,35 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
       if (synth && Utterance) {
         synth.cancel?.();
         synth.resume?.();
+        const utterance = new Utterance(clean);
+        utterance.lang = options.language || 'fr-FR';
+        utterance.rate = options.rate ?? 0.95;
+        utterance.pitch = options.pitch ?? 1;
+        utterance.volume = 1;
         await new Promise<void>((resolve) => {
-          const utterance = new Utterance(clean);
-          utterance.lang = options.language || 'fr-FR';
-          utterance.rate = options.rate ?? 0.95;
-          utterance.pitch = options.pitch ?? 1;
-          utterance.volume = 1;
-          utterance.onend = () => resolve();
-          utterance.onerror = () => resolve();
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          utterance.onend = finish;
+          utterance.onerror = finish;
           synth.speak(utterance);
+          setTimeout(finish, Math.max(2500, clean.length * 95));
         });
         return;
       }
     } catch {
       // Browser speech can be blocked until the first user gesture.
     }
-  }
-
-  const Speech = getNativeSpeech();
-  if (Speech) {
+  } else {
     try {
+      // BUG mobile confirmé le 03/10/2026 : l'ancien code n'utilisait jamais
+      // expo-speech sur iOS/Android. Il appelait seulement
+      // announceForAccessibility(), donc aucune vraie voix off Loki n'était
+      // garantie sur TestFlight. expo-speech est déjà embarqué dans le projet.
+      const Speech = nativeSpeech();
       await Speech.stop().catch(() => {});
       await new Promise<void>((resolve) => {
         let settled = false;
@@ -77,13 +81,14 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           language: options.language || 'fr-FR',
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
+          volume: 1,
           onDone: finish,
           onStopped: finish,
           onError: finish,
         });
-        // Filet de sécurité : ne jamais garder la musique duckée si iOS
-        // n'appelle pas le callback de synthèse pour une raison système.
-        setTimeout(finish, Math.min(12000, Math.max(2200, clean.length * 85)));
+        // Filet de sécurité : ne jamais laisser le ducking audio bloqué si
+        // l'OS ne renvoie pas de callback de fin.
+        setTimeout(finish, Math.max(3500, clean.length * 115));
       });
       return;
     } catch {
