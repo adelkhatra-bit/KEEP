@@ -242,15 +242,9 @@ jobs:
           });
           NODE
 
-      - name: 🔄 Synchroniser credentials iOS
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        working-directory: packages/mobile
-        run: |
-          set -euo pipefail
-          profile="${{ inputs.profile || 'production' }}"
-          eas credentials:configure-build --platform ios --profile "$profile" --non-interactive
-
+      # EAS 24.x ne supporte plus --non-interactive sur
+      # credentials:configure-build. Le build ci-dessous synchronise lui-même
+      # les credentials/provisioning iOS en mode non interactif.
       - name: 🏗️ Build iOS local (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
