@@ -12,6 +12,7 @@ import { getSupabaseAdminClient } from './supabaseAdmin';
 interface PendingNotification {
   id: string;
   profile_id: string;
+  type: string;
   title: string;
   body: string | null;
   data: Record<string, unknown> | null;
@@ -48,6 +49,18 @@ const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
 const EXPO_TOKEN_PATTERN = /^(?:Exponent|Expo)PushToken\[.+\]$/;
 const MAX_TRANSPORT_ATTEMPTS = 3;
 const RECEIPT_BATCH_SIZE = 300;
+
+// Événements d'état déjà visibles dans l'interface : ne jamais les pousser au
+// système iOS/Android. Ils restent éventuellement dans le centre interne, mais
+// ne réveillent pas le téléphone et ne multiplient pas les alertes Battle.
+const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
+  'BATTLE_CHALLENGE_ACCEPTED',
+  'BATTLE_CHALLENGE_DECLINED',
+]);
+
+function isInAppOnlyNotification(type: unknown): boolean {
+  return IN_APP_ONLY_NOTIFICATION_TYPES.has(String(type || '').trim().toUpperCase());
+}
 
 function errorMessage(value: unknown): string {
   if (value instanceof Error) return value.message.slice(0, 500);
@@ -193,7 +206,7 @@ export async function processPendingPushNotifications(): Promise<{ processed: nu
 
   const { data: pending, error: pendingError } = await client
     .from('notifications')
-    .select('id, profile_id, title, body, data, push_attempt_count')
+    .select('id, profile_id, type, title, body, data, push_attempt_count')
     .is('pushed_at', null)
     .order('created_at', { ascending: true })
     .limit(50);
@@ -207,6 +220,16 @@ export async function processPendingPushNotifications(): Promise<{ processed: nu
 
   for (const notification of pending as PendingNotification[]) {
     const previousAttempts = Number(notification.push_attempt_count ?? 0);
+    if (isInAppOnlyNotification(notification.type)) {
+      const now = new Date().toISOString();
+      await client.from('notifications').update({
+        pushed_at: now,
+        push_delivery_status: 'CREATED',
+        push_attempt_count: previousAttempts,
+        push_last_error: null,
+      }).eq('id', notification.id);
+      continue;
+    }
     const attemptNumber = previousAttempts + 1;
     try {
       const { data: rawTokenRows, error: tokenError } = await client
