@@ -7,7 +7,7 @@ import {
   loadNewKeepTrackState,
   revealedTrackLine,
 } from '../services/newKeepNotification';
-import { playAntiShazamPreviewSegment, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopTrackPreview } from '../services/audioPreviewService';
 import { getCommercialRules } from '../services/growthAccessService';
 import { Alert } from '../utils/keepAlert';
 
@@ -33,6 +33,7 @@ export default function NewKeepNotificationActions({
 }) {
   const [track, setTrack] = useState<CanonicalTrack | null>(null);
   const [owned, setOwned] = useState(false);
+  const [saleProtected, setSaleProtected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -47,12 +48,13 @@ export default function NewKeepNotificationActions({
       if (!mounted.current) return;
       setTrack(state.track);
       setOwned(state.owned);
+      setSaleProtected(state.saleProtected);
       setLoading(false);
     });
     void getCommercialRules().then((rules) => { if (mounted.current) setCost(rules.freeCostPerKeep); }).catch(() => {});
     return () => {
       mounted.current = false;
-      void stopAntiShazamPreview(previewKey).catch(() => {});
+      void stopTrackPreview(previewKey).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notification.id]);
@@ -61,16 +63,30 @@ export default function NewKeepNotificationActions({
     onInteract?.();
     if (!track?.previewUrl) return;
     if (playing) {
-      await stopAntiShazamPreview(previewKey).catch(() => {});
+      await stopTrackPreview(previewKey).catch(() => {});
       setPlaying(false);
       return;
     }
-    unlockWebAudioForGesture();
     try {
-      await playAntiShazamPreviewSegment(previewKey, track.previewUrl, (isPlaying) => { if (mounted.current) setPlaying(isPlaying); }, () => { if (mounted.current) setPlaying(false); });
+      if (saleProtected) {
+        await playAntiShazamPreviewSegment(
+          previewKey,
+          track.previewUrl,
+          (isPlaying) => { if (mounted.current) setPlaying(isPlaying); },
+          () => { if (mounted.current) setPlaying(false); },
+        );
+      } else {
+        await playTrackPreviewFromGesture(
+          previewKey,
+          track.previewUrl,
+          (isPlaying) => { if (mounted.current) setPlaying(isPlaying); },
+          () => { if (mounted.current) setPlaying(false); },
+          30000,
+        );
+      }
     } catch {
       setPlaying(false);
-      Alert.alert('Extrait', 'Impossible de lire l’extrait pour le moment.');
+      Alert.alert('Écoute', 'Impossible de lire ce morceau pour le moment.');
     }
   };
 
@@ -84,7 +100,7 @@ export default function NewKeepNotificationActions({
       Alert.alert('GARDER', result.error || 'Impossible d’ajouter ce morceau pour le moment.');
       return;
     }
-    await stopAntiShazamPreview(previewKey).catch(() => {});
+    await stopTrackPreview(previewKey).catch(() => {});
     setPlaying(false);
     setKept(true);
     if (result.alreadyKept) setOwned(true);
@@ -130,19 +146,19 @@ export default function NewKeepNotificationActions({
         disabled={!track.previewUrl}
         onPress={() => { void togglePreview(); }}
         accessibilityRole="button"
-        accessibilityLabel={playing ? 'Arrêter l’extrait masqué' : 'Écouter l’extrait masqué'}
+        accessibilityLabel={playing ? 'Arrêter l’écoute' : saleProtected ? 'Écouter l’extrait protégé' : 'Écouter le morceau'}
       >
-        <Text style={s.listenText}>{!track.previewUrl ? 'EXTRAIT INDISPONIBLE' : playing ? '■ STOP' : '▶ ÉCOUTER 15 s'}</Text>
+        <Text style={s.listenText}>{!track.previewUrl ? 'ÉCOUTE INDISPONIBLE' : playing ? '■ STOP' : saleProtected ? '▶ ÉCOUTER 15 s' : '▶ ÉCOUTER'}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         testID="new-keep-keep"
         style={[s.keep, busy && s.disabled]}
         disabled={busy}
-        onPress={askKeep}
+        onPress={saleProtected ? () => { onInteract?.(); onOpenProfile?.(); } : askKeep}
         accessibilityRole="button"
-        accessibilityLabel={`Garder ce morceau pour ${cost} FREE`}
+        accessibilityLabel={saleProtected ? 'Ouvrir la Pépite protégée' : `Garder ce morceau pour ${cost} FREE`}
       >
-        <Text style={s.keepText}>{busy ? 'AJOUT…' : `GARDER · ${cost} FREE`}</Text>
+        <Text style={s.keepText}>{saleProtected ? 'VOIR LA PÉPITE' : busy ? 'AJOUT…' : `GARDER · ${cost} FREE`}</Text>
       </TouchableOpacity>
       </View>
       {onOpenProfile ? <TouchableOpacity testID="new-keep-profile" style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }} accessibilityRole="button" accessibilityLabel="Voir le profil qui a partagé ce morceau"><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}
