@@ -31,7 +31,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
@@ -1049,13 +1049,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     const generation = ++salePreviewSequenceRef.current;
     unlockWebAudioForGesture();
     try {
-      const groups = await Promise.all(offers.map(async (offer) => ({
-        offer,
-        rows: await loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId),
-      })));
-      const queue = groups
-        .map(({ offer, rows }) => ({ offer, preview: rows.find((row) => Boolean(row.previewUrl)) }))
-        .filter((row): row is { offer: PublicPlaylistSaleOffer; preview: { trackId: string; previewUrl: string; alreadyOwned: boolean } } => Boolean(row.preview?.previewUrl));
+      const samples = profile?.id ? await loadPlaylistSaleProfilePreviewSampler(profile.id) : [];
+      const sampleByOffer = new Map(samples.map((sample) => [sample.offerId, sample]));
+      const queue = offers
+        .map((offer) => ({ offer, preview: sampleByOffer.get(offer.offerId) }))
+        .filter((row): row is { offer: PublicPlaylistSaleOffer; preview: { offerId: string; trackId: string; previewUrl: string } } => Boolean(row.preview?.previewUrl));
 
       if (!queue.length || generation !== salePreviewSequenceRef.current) {
         Alert.alert('Aperçus', 'Aucun extrait protégé n’est disponible pour ces Pépites.');
