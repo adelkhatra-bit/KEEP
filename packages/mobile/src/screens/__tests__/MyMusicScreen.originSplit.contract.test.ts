@@ -17,7 +17,7 @@ describe('MyMusicScreen — séparation écoute / utilisateurs', () => {
   it('garde des filtres courts sans compteurs dans les boutons', () => {
     expect(screen).toContain('Mes découvertes');
     expect(screen).toContain("🔒 Reprises d'autres utilisateurs");
-    expect(screen).toContain("useState<'ALL' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL')");
+    expect(screen).toContain("useState<'ALL' | 'PRIVATE' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL')");
     expect(screen).toContain("['ALL', 'TOUT']");
     expect(screen).toContain("['LISTEN', 'DÉCOUVERTE']");
     expect(screen).toContain("['SESSION', 'SESSION']");
