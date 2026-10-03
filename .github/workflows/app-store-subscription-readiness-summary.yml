@@ -1,0 +1,121 @@
+name: Loki Subscription Readiness Summary
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-readiness-summary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Summarize subscription readiness
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok) throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,900));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=name,productId,state,subscriptionPeriod&limit=200&limit[subscriptions]=50');
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions');
+            const report=[];
+
+            for(const s of subs){
+              const id=s.id;
+              const row={
+                id,
+                productId:s.attributes?.productId||null,
+                name:s.attributes?.name||null,
+                state:s.attributes?.state||null,
+                period:s.attributes?.subscriptionPeriod||null
+              };
+
+              const versions=await api('/v1/subscriptions/'+id+
+                '/versions?fields[subscriptionVersions]=version,state&limit=50',{allow404:true});
+              const version=(versions?.data||[]).find(v=>v.attributes?.state==='PREPARE_FOR_SUBMISSION')||(versions?.data||[])[0];
+              row.version=version?{id:version.id,number:version.attributes?.version||null,state:version.attributes?.state||null}:null;
+
+              if(version){
+                const locs=await api('/v1/subscriptionVersions/'+version.id+
+                  '/localizations?fields[subscriptionLocalizations]=name,locale,description&limit=50',{allow404:true});
+                const fr=(locs?.data||[]).find(x=>x.attributes?.locale==='fr-FR');
+                row.frLocalization=fr?{
+                  present:true,
+                  namePresent:Boolean(fr.attributes?.name?.trim()),
+                  descriptionPresent:Boolean(fr.attributes?.description?.trim())
+                }:{present:false,namePresent:false,descriptionPresent:false};
+
+                const imgs=await api('/v1/subscriptionVersions/'+version.id+
+                  '/images?fields[subscriptionImages]=fileName,imageAsset&limit=50',{allow404:true});
+                row.versionImageCount=(imgs?.data||[]).length;
+              } else {
+                row.frLocalization={present:false,namePresent:false,descriptionPresent:false};
+                row.versionImageCount=0;
+              }
+
+              const review=await api('/v1/subscriptions/'+id+
+                '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',{allow404:true});
+              row.reviewScreenshot=review?.data?{
+                present:true,
+                fileName:review.data.attributes?.fileName||null,
+                state:review.data.attributes?.assetDeliveryState?.state||null
+              }:{present:false};
+
+              const prices=await api('/v1/subscriptions/'+id+
+                '/prices?filter[territory]=FRA&include=subscriptionPricePoint,territory&fields[subscriptionPrices]=startDate,preserved,planType,territory,subscriptionPricePoint&fields[subscriptionPricePoints]=customerPrice,proceeds,territory&fields[territories]=currency&limit=50',
+                {allow404:true});
+              const active=(prices?.data||[]).find(p=>p.attributes?.startDate==null)||(prices?.data||[])[0];
+              const ppId=active?.relationships?.subscriptionPricePoint?.data?.id;
+              const pp=(prices?.included||[]).find(x=>x.type==='subscriptionPricePoints'&&x.id===ppId);
+              const territory=(prices?.included||[]).find(x=>x.type==='territories'&&x.id==='FRA');
+              row.frPrice=active?{
+                configured:true,
+                customerPrice:pp?.attributes?.customerPrice||null,
+                currency:territory?.attributes?.currency||'EUR',
+                planType:active.attributes?.planType||null,
+                startDate:active.attributes?.startDate||null
+              }:{configured:false};
+
+              const avail=await api('/v1/subscriptions/'+id+
+                '/planAvailabilities?fields[subscriptionPlanAvailabilities]=availableInNewTerritories,planType&limit=50',
+                {allow404:true});
+              row.planAvailabilities=(avail?.data||[]).map(a=>({
+                planType:a.attributes?.planType||null,
+                availableInNewTerritories:!!a.attributes?.availableInNewTerritories
+              }));
+
+              report.push(row);
+            }
+
+            console.log('=== LOKI SUBSCRIPTION READINESS ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI SUBSCRIPTION READINESS ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
