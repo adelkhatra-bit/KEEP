@@ -26,7 +26,7 @@ describe('notification Nouveau morceau — écoute, garder, abonnement', () => {
   });
 
   it('propose uniquement S’ABONNER tant que le profil n’est pas suivi', () => {
-    expect(actions).toContain('testID="new-keep-follow"');
+    expect(actions).toContain("testID={followingOwner || owner.profileId === currentUserId ? 'new-keep-profile' : 'new-keep-follow'}");
     expect(actions).toContain("'+ S’ABONNER'");
     expect(actions).toContain('followingOwner');
     expect(actions).not.toContain('Se désabonner');

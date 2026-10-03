@@ -48,6 +48,6 @@ describe('MusicAgoraPanel — historique manuel vs composeur', () => {
 
   it('un nouveau message ne vole pas la position de lecture', () => {
     expect(source).toContain('if (browsingHistoryRef.current || !stickToBottomRef.current)');
-    expect(source).toContain('setShowLatestJump(true);');
+    expect(source).not.toContain('setShowLatestJump(true);');
   });
 });

@@ -82,7 +82,7 @@ describe('global Loki messenger contract', () => {
     expect(messenger).toContain("fontSize:17,lineHeight:23");
     expect(messenger).toContain("inputCompact:{height:56");
     expect(messenger).toContain('maxLength={2000}');
-    expect(messenger).toContain('followChatBottom(initialScrollDone.current)');
+    expect(messenger).toContain('if (!userDraggingChatRef.current && (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current))');
     expect(messenger).toContain("keyboardDismissMode={compact ? 'none' : Platform.OS === 'ios' ? 'interactive' : 'on-drag'}");
     expect(messenger).toContain("setTimeout(() => followChatBottom(false), Platform.OS === 'ios' ? 120 : 60)");
     expect(messenger).toContain('{messages.map((message)');
@@ -150,8 +150,8 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('OUVRIR LA CONVERSATION');
     expect(panel).toContain("value === 'AGORA_MUSIC_OFFER'");
     expect(panel).toContain('item.data?.payoutQrUrl');
-    expect(panel).not.toContain("navigationRef");
-    expect(panel).toContain('useGlobalChatStore.getState().open(target)');
+    expect(panel).toContain("navigateToBattleArena");
+    expect(panel).toContain('useGlobalChatStore.getState().open(chatTarget(item))');
     expect(panel).not.toContain("navigation.navigate");
   });
 

@@ -24,7 +24,7 @@ describe('notification accordion and plan locks contract', () => {
     expect(panel).toContain("activeTab === 'ACTIVITY'");
     expect(panel).toContain("activeTab === 'SETTINGS'");
     expect(panel).not.toContain("sourceFeature: 'NOTIFICATION_ACCESS'");
-    expect(panel).toContain("useGlobalChatStore.getState().open(target)");
+    expect(panel).toContain("useGlobalChatStore.getState().open(chatTarget(item))");
     expect(panel).toContain('OUVRIR LA CONVERSATION');
     expect(ownerProfile).toContain('setNotificationPanelOpen(true)');
     expect(ownerProfile).not.toContain("onOpenAll={() => navigation.navigate('Notifications')}");

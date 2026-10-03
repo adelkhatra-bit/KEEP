@@ -23,7 +23,7 @@ describe('Loki chat latest-message visual follow', () => {
   it('keeps content-size and layout changes pinned while the user is at the bottom', () => {
     expect(source).toContain('key={activeThreadKey}');
     expect(source).toContain('onContentSizeChange={() => {');
-    expect(source).toContain('if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current');
+    expect(source).toContain('if (!userDraggingChatRef.current && (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current))');
     expect(source).toContain('onLayout={() => {');
     expect(source).toContain('chatScrollRef.current?.scrollToEnd({ animated: false })');
   });
@@ -71,7 +71,7 @@ describe('Loki chat latest-message visual follow', () => {
     expect(source).toContain("if (alreadyFocused && compact && Platform.OS !== 'web' && keyboardInset <= 0)");
     expect(source).toContain('input.blur();');
     expect(source).toContain('requestAnimationFrame(() => input.focus());');
-    expect(source).toContain('même si le champ était déjà focus');
+    expect(source).toContain("const alreadyFocused = typeof (input as any).isFocused === 'function' && (input as any).isFocused();");
     const composerPress = source.slice(source.indexOf('onPressIn={() => {'), source.indexOf('onFocus={() => {', source.indexOf('onPressIn={() => {')));
     expect(composerPress).toContain('followChatBottom(true);');
     expect(source).toContain('requestAnimationFrame(() => focusComposer());');

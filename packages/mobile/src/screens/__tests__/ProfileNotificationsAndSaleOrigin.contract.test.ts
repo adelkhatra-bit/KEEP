@@ -44,7 +44,7 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(notificationPanel).toContain('targetProfileId');
     expect(notificationPanel).toContain('targetUsername');
     expect(notificationPanel).toContain('messageId');
-    expect(notificationPanel).toContain('useGlobalChatStore.getState().open(target)');
+    expect(notificationPanel).toContain('useGlobalChatStore.getState().open(chatTarget(item))');
     expect(profile).toContain('}, 7000);');
   });
 
