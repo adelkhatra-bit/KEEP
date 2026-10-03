@@ -36,7 +36,7 @@ import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVi
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
-import { preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playAntiShazamPreviewSegment, preloadTrackPreview, stopAntiShazamPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
@@ -233,6 +233,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [inlineStylePlayingKey, setInlineStylePlayingKey] = useState<string | null>(null);
   const [inlineListenNotice, setInlineListenNotice] = useState<string | null>(null);
   const inlineQueueGenerationRef = useRef(0);
+  const salePreviewSequenceRef = useRef(0);
   const inlinePreviewUrlCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -851,6 +852,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [openSaleOfferId, saleOffers, navigation, viewer?.id, profile?.id, effectiveViewerId]);
 
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
+    salePreviewSequenceRef.current += 1;
+    void stopAntiShazamPreview().catch(() => {});
     const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
     if (ownerViewingSelf) {
       // Propriétaire : aucun tunnel d'achat, aucune condition inutile.
@@ -1006,6 +1009,57 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // dans la même interface sans redirection.
     unlockWebAudioForGesture();
     void playInlineQueueItem(label, candidates, 0, generation);
+  };
+
+  const playFeaturedSalePreviews = async (offers: PublicPlaylistSaleOffer[]) => {
+    if (!offers.length) return;
+    const generation = ++salePreviewSequenceRef.current;
+    unlockWebAudioForGesture();
+    try {
+      const groups = await Promise.all(offers.map(async (offer) => ({
+        offer,
+        rows: await loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId),
+      })));
+      const queue = groups
+        .map(({ offer, rows }) => ({ offer, preview: rows.find((row) => Boolean(row.previewUrl)) }))
+        .filter((row): row is { offer: PublicPlaylistSaleOffer; preview: { trackId: string; previewUrl: string; alreadyOwned: boolean } } => Boolean(row.preview?.previewUrl));
+
+      if (!queue.length || generation !== salePreviewSequenceRef.current) {
+        Alert.alert('Aperçus', 'Aucun extrait protégé n’est disponible pour ces Pépites.');
+        return;
+      }
+
+      await stopAntiShazamPreview().catch(() => {});
+
+      const playAt = async (index: number): Promise<void> => {
+        if (generation !== salePreviewSequenceRef.current) return;
+        const item = queue[index];
+        if (!item) {
+          setInlineListenNotice(`Fin des aperçus · ${queue.length} Pépite${queue.length > 1 ? 's' : ''} écoutée${queue.length > 1 ? 's' : ''}`);
+          return;
+        }
+        const key = `visitor-sale-sequence:${profile?.id ?? username ?? 'profile'}:${generation}:${index}`;
+        setInlineListenNotice(`▶ Aperçu ${index + 1}/${queue.length} · ${item.offer.playlistName}`);
+        try {
+          await playAntiShazamPreviewSegment(
+            key,
+            item.preview.previewUrl,
+            () => {},
+            () => {
+              if (generation === salePreviewSequenceRef.current) void playAt(index + 1);
+            },
+          );
+        } catch {
+          if (generation === salePreviewSequenceRef.current) void playAt(index + 1);
+        }
+      };
+
+      void playAt(0);
+    } catch {
+      if (generation === salePreviewSequenceRef.current) {
+        Alert.alert('Aperçus', 'Impossible de lancer les extraits protégés pour le moment.');
+      }
+    }
   };
 
   const playInlineSalePreview = async (offer: PublicPlaylistSaleOffer) => {
@@ -1627,6 +1681,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               unlockedOfferIds={new Set(saleOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
               ownerMode={isOwner}
               onOpenOffer={(offer) => openSaleFolder(offer)}
+              onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}
             />
           </ProfileMotionReveal>
         ) : saleOffers.length > 0 ? (
