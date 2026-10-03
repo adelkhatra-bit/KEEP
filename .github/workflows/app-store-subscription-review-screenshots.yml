@@ -1,0 +1,158 @@
+name: Loki Subscription Review Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-review-screenshots.yml'
+
+concurrency:
+  group: loki-subscription-review-screenshots
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  review-shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: true
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+
+      - name: Start Loki web runtime
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/loki-sub-review.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/loki-sub-review.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/loki-sub-review.log
+          exit 1
+
+      - name: Capture real subscription paywall
+        run: |
+          mkdir -p artifacts/subscription-review
+          cat > capture-subscriptions.cjs <<'JS'
+          const { chromium } = require('playwright');
+
+          async function enterGuest(page) {
+            const free=page.getByText('ESSAYER GRATUITEMENT',{exact:true}).last();
+            if(await free.isVisible().catch(()=>false)){
+              await free.click({force:true});
+              await page.waitForTimeout(1000);
+            }
+          }
+
+          async function closeCoach(page) {
+            const coach=page.getByLabel('Passer le mini-tour').last();
+            await coach.waitFor({state:'visible',timeout:3000}).catch(()=>{});
+            if(await coach.isVisible().catch(()=>false)){
+              await coach.click({force:true});
+              await coach.waitFor({state:'hidden',timeout:5000}).catch(()=>{});
+            }
+          }
+
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const context=await browser.newContext({
+              viewport:{width:428,height:926},
+              deviceScaleFactor:3,
+              locale:'fr-FR'
+            });
+            const page=await context.newPage();
+            page.on('dialog',d=>d.dismiss().catch(()=>{}));
+
+            await page.goto('http://127.0.0.1:8081/offers',{waitUntil:'domcontentloaded',timeout:60000});
+            await enterGuest(page);
+            await closeCoach(page);
+
+            if(!await page.getByText('Offre & crédits',{exact:true}).last().isVisible().catch(()=>false)){
+              await page.goto('http://127.0.0.1:8081/offers',{waitUntil:'domcontentloaded',timeout:60000});
+            }
+            await page.getByText('Offre & crédits',{exact:true}).last().waitFor({state:'visible',timeout:20000});
+            await page.waitForTimeout(1500);
+
+            const plans=[
+              ['PREMIUM','Premium'],
+              ['CREATOR_PRO','Creator Pro'],
+              ['VENUE_PRO','Venue Pro']
+            ];
+
+            for(const [code,label] of plans){
+              const plan=page.getByText(label,{exact:true}).last();
+              await plan.waitFor({state:'visible',timeout:20000});
+              await plan.evaluate(el=>el.scrollIntoView({block:'center',inline:'nearest'}));
+              await page.waitForTimeout(700);
+              await page.screenshot({
+                path:'artifacts/subscription-review/'+code+'.jpg',
+                type:'jpeg',
+                quality:94
+              });
+            }
+
+            console.log('Captured real Loki Offer & credits subscription cards.');
+            await context.close();
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node capture-subscriptions.cjs
+
+          python3 - <<'PY'
+          from pathlib import Path
+          def jpeg_size(raw):
+              if raw[:2] != b'\xff\xd8':
+                  raise SystemExit('Not JPEG')
+              i=2
+              sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+              while i+9 < len(raw):
+                  if raw[i] != 0xFF:
+                      i+=1
+                      continue
+                  marker=raw[i+1]
+                  if marker in sof:
+                      h=int.from_bytes(raw[i+5:i+7],'big')
+                      w=int.from_bytes(raw[i+7:i+9],'big')
+                      return w,h
+                  if marker in (0xD8,0xD9):
+                      i+=2
+                      continue
+                  seg=int.from_bytes(raw[i+2:i+4],'big')
+                  i+=2+seg
+              raise SystemExit('JPEG dimensions not found')
+          for p in sorted(Path('artifacts/subscription-review').glob('*.jpg')):
+              size=jpeg_size(p.read_bytes())
+              print(p.name,size)
+              if size != (1284,2778):
+                  raise SystemExit(f'Wrong size {p}: {size}')
+          PY
+
+      - name: Upload review screenshot pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: loki-subscription-review-${{ github.run_id }}
+          path: artifacts/subscription-review/*.jpg
+          if-no-files-found: error
+          retention-days: 14
