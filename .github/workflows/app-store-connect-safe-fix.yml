@@ -90,7 +90,58 @@ jobs:
               '/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50',
               {allow404:true});
             result.price = { scheduleExists: !!price?.data };
-            if (price?.data) {
+            if (!price?.data && result.freePricePoint?.id) {
+              const localPriceId = '
+              const baseRel = price.data.relationships?.baseTerritory?.data;
+              const manualRel = price.data.relationships?.manualPrices?.data || [];
+              result.price.baseTerritoryConfigured = !!baseRel;
+              result.price.baseTerritoryId = baseRel?.id || null;
+              result.price.manualPriceCount = manualRel.length;
+              result.price.included = (price.included || []).map(x => ({
+                type:x.type,id:x.id,
+                currency:x.attributes?.currency || null,
+                manual:x.attributes?.manual ?? null,
+                startDate:x.attributes?.startDate || null,
+                endDate:x.attributes?.endDate || null
+              }));
+            }
+
+            await new Promise(r => setTimeout(r, 2500));
+            const verifyGc = await api('/v1/appStoreVersions/' + version.id +
+              '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled', {allow404:true});
+            const verifyApp = await api('/v1/apps/' + appId + '?fields[apps]=contentRightsDeclaration');
+            result.verified = {
+              gameCenterEnabled: verifyGc?.data?.attributes?.enabled ?? null,
+              contentRightsDeclaration: verifyApp.data.attributes?.contentRightsDeclaration || null
+            };
+
+            console.log('=== LOKI SAFE FIX RESULT ===');
+            console.log(JSON.stringify(result,null,2));
+            console.log('=== END LOKI SAFE FIX RESULT ===');
+          })().catch(e=>{console.error(e.stack || e.message || String(e));process.exit(1);});
+          NODE
+ + '{free-price-fr}';
+              const created = await api('/v1/appPriceSchedules', {
+                method:'POST',
+                body:{
+                  data:{
+                    type:'appPriceSchedules',
+                    relationships:{
+                      app:{data:{type:'apps',id:appId}},
+                      baseTerritory:{data:{type:'territories',id:'FRA'}},
+                      manualPrices:{data:[{type:'appPrices',id:localPriceId}]}
+                    }
+                  },
+                  included:[{
+                    type:'appPrices',
+                    id:localPriceId,
+                    attributes:{startDate:null},
+                    relationships:{appPricePoint:{data:{type:'appPricePoints',id:result.freePricePoint.id}}}
+                  }]
+                }
+              });
+              result.price = { scheduleExists:true, created:true, scheduleId:created?.data?.id || null, baseTerritory:'FRA', customerPrice:'0.0' };
+            } else if (price?.data) {
               const baseRel = price.data.relationships?.baseTerritory?.data;
               const manualRel = price.data.relationships?.manualPrices?.data || [];
               result.price.baseTerritoryConfigured = !!baseRel;
