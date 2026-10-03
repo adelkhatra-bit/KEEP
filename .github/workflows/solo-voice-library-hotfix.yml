@@ -1,0 +1,107 @@
+name: Loki Solo Voice Library Hotfix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/solo-voice-library-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+
+      - name: Rotate result library without repeats
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p=Path('packages/mobile/src/services/battleHomeInfo.ts')
+          s=p.read_text()
+          anchor="""export function mascotLine(correct: number, total: number, allTimeouts = false, seed = ''): { mood: MascotMood; text: string } {
+  const ratio = total > 0 ? correct / total : 0;
+  const mood: MascotMood = allTimeouts || total <= 0
+    ? 'sleepy'
+    : ratio >= 1
+      ? 'party'
+      : ratio >= 0.6
+        ? 'happy'
+        : ratio >= 0.3
+          ? 'cheer'
+          : 'oops';
+  const pool = SOLO_RESULT_LIBRARY[mood];
+  const key = seed || `${correct}:${total}:${mood}`;
+  return { mood, text: pool[resultLibraryIndex(key, pool.length)] };
+}"""
+          if 'export function uniqueMascotLine' not in s:
+            if anchor not in s: raise SystemExit('mascotLine anchor missing')
+            addition=anchor+"""
+
+// Chaque partie reçoit une phrase indépendante. Pour chaque humeur, Loki
+// parcourt toute la bibliothèque avant de réutiliser une phrase. Le cache par
+// seed empêche un re-render du même résultat de changer le texte à l'écran.
+const UNIQUE_RESULT_CACHE = new Map<string, { mood: MascotMood; text: string }>();
+const USED_RESULT_LINES: Record<MascotMood, Set<string>> = {
+  party: new Set(), happy: new Set(), cheer: new Set(), oops: new Set(), sleepy: new Set(),
+};
+
+export function uniqueMascotLine(correct: number, total: number, allTimeouts = false, seed = ''): { mood: MascotMood; text: string } {
+  const cacheKey = `${seed || 'no-seed'}:${correct}:${total}:${allTimeouts ? 1 : 0}`;
+  const cached = UNIQUE_RESULT_CACHE.get(cacheKey);
+  if (cached) return cached;
+
+  const base = mascotLine(correct, total, allTimeouts, seed);
+  const pool = SOLO_RESULT_LIBRARY[base.mood];
+  const used = USED_RESULT_LINES[base.mood];
+  if (used.size >= pool.length) used.clear();
+
+  const start = resultLibraryIndex(cacheKey, pool.length);
+  let text = base.text;
+  for (let offset = 0; offset < pool.length; offset += 1) {
+    const candidate = pool[(start + offset) % pool.length];
+    if (!used.has(candidate)) { text = candidate; break; }
+  }
+  used.add(text);
+  const result = { mood: base.mood, text };
+  UNIQUE_RESULT_CACHE.set(cacheKey, result);
+  if (UNIQUE_RESULT_CACHE.size > 120) {
+    const oldest = UNIQUE_RESULT_CACHE.keys().next().value;
+    if (oldest) UNIQUE_RESULT_CACHE.delete(oldest);
+  }
+  return result;
+}"""
+            s=s.replace(anchor,addition,1)
+            p.write_text(s)
+
+          p=Path('packages/mobile/src/components/LokiMascotVoice.tsx')
+          s=p.read_text()
+          s=s.replace("import { mascotLine, type MascotMood } from '../services/battleHomeInfo';",
+                      "import { uniqueMascotLine, type MascotMood } from '../services/battleHomeInfo';")
+          s=s.replace("const defaultLine = mascotLine(correct, total, allTimeouts, messageSeed);",
+                      "const defaultLine = uniqueMascotLine(correct, total, allTimeouts, messageSeed);")
+          p.write_text(s)
+          PY
+
+      - name: Verify voice library contract
+        run: |
+          grep -q "uniqueMascotLine" packages/mobile/src/services/battleHomeInfo.ts
+          grep -q "USED_RESULT_LINES" packages/mobile/src/services/battleHomeInfo.ts
+          grep -q "uniqueMascotLine(correct" packages/mobile/src/components/LokiMascotVoice.tsx
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "Loki CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/mobile/src/services/battleHomeInfo.ts packages/mobile/src/components/LokiMascotVoice.tsx
+          git commit -m "fix(battle): rotate unique Loki result messages"
+          git push origin HEAD:reconcile/claude-main-20260825
