@@ -349,26 +349,18 @@ export default function PartiesScreen({ navigation, route }: any) {
       if (accept && result.arenaId) { setPendingArenaId(result.arenaId); setBattleOpen(true); }
     }).catch(() => {}).finally(() => setIncomingResponding(null));
   };
-  const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
-    if (accept) { commitIncomingBattleDecision(challenge, true); return; }
+  const requestIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+    if (incomingResponding) return;
+    if (accept) {
+      commitIncomingBattleDecision(challenge, true);
+      return;
+    }
     Alert.alert(
       'Refuser ce Battle ?',
       `Confirme uniquement si tu veux réellement refuser l’invitation de ${challenge.username}.`,
       [
         { text: 'ANNULER', style: 'cancel' },
         { text: 'REFUSER', style: 'destructive', onPress: () => commitIncomingBattleDecision(challenge, false) },
-      ],
-    );
-  };
-  const requestIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
-    if (accept) { respondIncomingBattle(challenge, true); return; }
-    if (incomingResponding) return;
-    Alert.alert(
-      'Refuser ce Battle ?',
-      `Confirme uniquement si tu veux réellement refuser l’invitation de ${challenge.username}.`,
-      [
-        { text: 'ANNULER', style: 'cancel' },
-        { text: 'REFUSER', style: 'destructive', onPress: () => respondIncomingBattle(challenge, false) },
       ],
     );
   };
@@ -398,14 +390,30 @@ export default function PartiesScreen({ navigation, route }: any) {
     const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
-  const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+  const commitPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+    if (rematchResponding) return;
     setRematchResponding(item.arenaId);
     respondKeepBattleArenaRematch(item.arenaId, accept).then(() => {
       setPendingRematchLB((rows) => rows.filter((r) => r.arenaId !== item.arenaId));
       if (accept) { setPendingArenaId(item.arenaId); setBattleOpen(true); }
     }).catch(() => {
-      setPendingRematchLB((rows) => rows.filter((r) => r.arenaId !== item.arenaId));
+      // Ne jamais faire disparaître la décision si le serveur ne l'a pas confirmée.
     }).finally(() => setRematchResponding(null));
+  };
+  const respondPendingRematchLB = (item: KeepBattlePendingRematch, accept: boolean) => {
+    if (rematchResponding) return;
+    if (accept) {
+      commitPendingRematchLB(item, true);
+      return;
+    }
+    Alert.alert(
+      'Refuser la revanche ?',
+      'Confirme uniquement si tu veux réellement refuser cette revanche.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => commitPendingRematchLB(item, false) },
+      ],
+    );
   };
   // Adel (02/09/2026) : "un pop-up qui me permette de voir son style musical
   // ... toutes les statistiques ... inspire-toi de TikTok" -- fiche joueur en
