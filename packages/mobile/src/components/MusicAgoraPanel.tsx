@@ -1768,17 +1768,6 @@ export default function MusicAgoraPanel({
     </ScrollView>
     )}
 
-    {showLatestJump && !(compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup) ? (
-      <TouchableOpacity
-        style={s.latestJump}
-        onPress={() => followChatBottom(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Revenir aux messages les plus récents"
-      >
-        <Text style={s.latestJumpText}>↓ PLUS RÉCENTS</Text>
-      </TouchableOpacity>
-    ) : null}
-
     {/* Adel (02/10/2026) : sur téléphone, un groupe ouvert n'a pas de
         replyTarget -- la condition « !replyTarget » masquait la zone d'écriture
         de TOUS les membres (même actifs). La liste des conversations reste
@@ -2427,8 +2416,6 @@ const s=StyleSheet.create({
   list:{gap:8,paddingVertical:4},
   listCompact:{gap:11,paddingHorizontal:14,paddingTop:12,paddingBottom:14},
   latestAnchor:{height:1,minHeight:1},
-  latestJump:{alignSelf:'center',minHeight:34,paddingHorizontal:16,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',marginVertical:4},
-  latestJumpText:{color:colors.primaryLight,fontSize:11.5,fontWeight:'900',letterSpacing:.8},
   message:{position:'relative',paddingHorizontal:12,paddingVertical:10,borderRadius:19,borderWidth:1,maxWidth:'88%',flexGrow:0,flexShrink:0},
   messageOwn:{alignSelf:'flex-end',backgroundColor:'rgba(124,92,252,.18)',borderColor:colors.primary},
   messageOther:{alignSelf:'flex-start',backgroundColor:colors.backgroundCard,borderColor:colors.border},
