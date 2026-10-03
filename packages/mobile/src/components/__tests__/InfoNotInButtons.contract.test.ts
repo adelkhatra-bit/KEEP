@@ -15,7 +15,7 @@ describe('Battle : infos hors des boutons, avertissements discrets', () => {
   it('quota Solo et règle par profil au-dessus des boutons, à côté de la recharge des Free', () => {
     expect(battle).toContain('<View style={s.quotaInfo}>');
     expect(battle).toContain('soloQuotaCopy(soloDailyStatus)');
-    expect(battle).toContain('soloPlanRuleCopy(soloDailyStatus)');
+    expect(battle).toContain('soloPlanRuleCopy(soloDailyStatus, soloPacks?.bonusRemaining ?? 0)');
   });
   it('plus de gros texte rouge : « Free insuffisants › » qui se déplie', () => {
     expect(battle).not.toContain('s.themeShortWarning');
