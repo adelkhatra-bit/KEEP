@@ -424,19 +424,26 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               ) : null}
 
               <TouchableOpacity
-                style={s.waiverRow}
+                style={[s.waiverRow, waiverAccepted ? s.waiverRowAccepted : s.waiverRowRequired]}
                 onPress={() => setWaiverAccepted((v) => !v)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: waiverAccepted }}
-                accessibilityLabel={freeAccess ? `Confirmer l'utilisation de ${priceLabel} pour toute la collection` : 'Renonciation au droit de rétractation'}
+                accessibilityLabel={freeAccess ? `Accepter les conditions pour utiliser ${priceLabel} sur toute la collection` : 'Accepter les conditions générales et la renonciation au droit de rétractation'}
               >
-                <View style={[s.checkbox, waiverAccepted && s.checkboxOn]}>{waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : null}</View>
-                <Text style={s.waiverText}>
-                  {freeAccess
-                    ? `Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.`
-                    : expanded.waiver ? MONEY_WAIVER_FULL : 'Accès dès confirmation du paiement, sans rétractation.'}
-                  {!freeAccess ? <MoreToggle open={Boolean(expanded.waiver)} onToggle={() => toggleMore('waiver')} /> : null}
-                </Text>
+                <View style={[s.checkbox, waiverAccepted ? s.checkboxOn : s.checkboxRequired]}>
+                  {waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : <Text style={s.checkboxRequiredMark}>!</Text>}
+                </View>
+                <View style={s.waiverCopy}>
+                  <Text style={[s.waiverStatus, waiverAccepted ? s.waiverStatusAccepted : s.waiverStatusRequired]}>
+                    {waiverAccepted ? '✓ CONDITIONS ACCEPTÉES' : 'CONDITIONS À ACCEPTER'}
+                  </Text>
+                  <Text style={s.waiverText}>
+                    {freeAccess
+                      ? `J’accepte d’utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.`
+                      : expanded.waiver ? MONEY_WAIVER_FULL : 'J’accepte les conditions générales et l’accès dès confirmation du paiement, sans rétractation après déblocage.'}
+                    {!freeAccess ? <MoreToggle open={Boolean(expanded.waiver)} onToggle={() => toggleMore('waiver')} /> : null}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <Animated.View style={[s.buyGlowShell,{ borderColor: ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}), transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }]}>

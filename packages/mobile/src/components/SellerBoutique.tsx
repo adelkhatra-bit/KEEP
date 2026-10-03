@@ -1,6 +1,6 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
@@ -124,11 +124,10 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
 
 export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, ownerMode = false }: Props) {
   const { width: windowWidth } = useWindowDimensions();
-  // Règle Apple 3.1.1 : pas de vente € de contenu numérique hors achat intégré.
-  const visibleOffers = useMemo(
-    () => (Platform.OS === 'ios' ? offers.filter((offer) => offer.paymentMode === 'FREE') : offers),
-    [offers],
-  );
+  // Le profil montre toujours l'intégralité du club musical. Sur iPhone,
+  // les éventuelles restrictions de paiement sont appliquées à l'étape
+  // d'achat ; elles ne doivent jamais faire disparaître des collections.
+  const visibleOffers = useMemo(() => offers, [offers]);
   const ranked = useMemo(
     () => ownerMode ? visibleOffers : rankForViewer(visibleOffers, overlaps, unlockedOfferIds),
     [visibleOffers, overlaps, unlockedOfferIds, ownerMode],

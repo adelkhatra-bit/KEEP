@@ -168,9 +168,9 @@ export default function NewKeepNotificationActions({
 
 const s = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, marginTop: 8, alignItems: 'center' },
-  listen: { flex: 1, minHeight: 38, borderRadius: 14, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  listen: { width: '100%', minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   listenText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  keep: { flex: 1, minHeight: 38, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  keep: { width: '100%', minHeight: 42, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   keepText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
   profile: { minHeight: 36, marginTop: 7, borderRadius: 14, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   profileText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .4 },

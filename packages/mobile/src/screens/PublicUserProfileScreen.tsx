@@ -340,7 +340,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   }, [profile?.id]);
 
   useEffect(() => {
-    if (!effectiveViewerId || !marketBannerOffersLoaded || saleOffers.length > 0) {
+    if (!effectiveViewerId || !marketBannerOffersLoaded) {
       setProfileSaleSuggestions([]);
       return undefined;
     }
@@ -1693,7 +1693,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>{isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'} · @{profile.username}</Text>
+                <Text style={styles.marketplaceKicker}>{isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'} · {profile.username.replace(/^@+/, '')}</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">
@@ -1724,7 +1724,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
 
-        {saleOffers.length === 0 && effectiveViewerId && profileSaleSuggestions.length > 0 ? (
+        {effectiveViewerId && profileSaleSuggestions.length > 0 && (isOwner || saleOffers.length === 0) ? (
           <ProfileOpportunityRail
             viewerKey={effectiveViewerId}
             viewerUsername={viewer?.username || ''}
