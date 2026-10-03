@@ -24,7 +24,7 @@ import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKee
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, soloEncouragement, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloCostNotice, soloIdleDetected, soloIdleNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -3144,8 +3144,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
       {false ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={s.duelName}>{first.username}</Text><Text style={s.duelPoints}></Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{`${Math.ceil(left / 1000)}s`}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={[s.duelName, { textAlign: 'right' }]}>{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}></Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
 
-      {/* Adel (29/09/2026) : « le design du Solo, pareil dans les Battle » : même encouragement par morceau. */}
-      <Text style={s.soloEncourage}>{soloEncouragement(Math.max(0, (arena.currentRound || 1) - 1), arena.roundCount || 1)}</Text>
       <Text style={s.question}>QUI CHANTE ?</Text>
       {/* Adel (02/09/2026) : "on a pas le même principe pour la mauvaise
           réponse qu'on ne la voit pas en rouge et en vert" -- en arène,
