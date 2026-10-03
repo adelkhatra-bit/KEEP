@@ -192,13 +192,89 @@ export function soloIdleDetected(responses: string[], resumeIndex: number): bool
 // tous les âges. Adel (29/09/2026) : « Ah zut, c'est dommage… manque de
 // concentration ».
 export type MascotMood = 'party' | 'happy' | 'cheer' | 'oops' | 'sleepy';
-export function mascotLine(correct: number, total: number, allTimeouts = false): { mood: MascotMood; text: string } {
-  if (allTimeouts || total <= 0) return { mood: 'sleepy', text: 'Hé ho ! Tu es parti ? Je t’attendais, moi !' };
-  const ratio = correct / total;
-  if (ratio >= 1) return { mood: 'party', text: 'Waouh ! Tout juste ! Tu es un champion de la musique !' };
-  if (ratio >= 0.6) return { mood: 'happy', text: 'Bravo ! Super oreille ! Encore un petit effort et c’est parfait !' };
-  if (ratio >= 0.3) return { mood: 'cheer', text: 'Pas mal ! Écoute bien le début des chansons, tu vas y arriver !' };
-  return { mood: 'oops', text: 'Ah zut, c’est dommage ! Un petit manque de concentration ? On réessaie ?' };
+
+const SOLO_RESULT_LIBRARY: Record<MascotMood, string[]> = {
+  party: [
+    'Incroyable ! Zéro faute, ton oreille était en feu !',
+    'Parfait du début à la fin. Là, tu maîtrises vraiment !',
+    'Tout juste ! Même Loki n’a rien à redire sur cette partie.',
+    'Sans faute. Tu viens de mettre la barre très haut !',
+    'Quelle partie ! Tu as reconnu absolument tout.',
+    'Carton plein ! Ton radar musical n’a rien laissé passer.',
+    'Magnifique sans-faute. Tu peux être fier de cette manche.',
+    'Tout bon, tout propre. Tu viens de dominer ce Solo.',
+    'Parfait ! Cette fois, chaque morceau était pour toi.',
+    'Aucune erreur. Ton oreille a fait le travail jusqu’au bout.',
+  ],
+  happy: [
+    'Très solide ! Tu étais vraiment proche du sans-faute.',
+    'Belle partie ! Ton oreille a répondu présente presque partout.',
+    'Ça devient sérieux : encore un peu et tu fais le carton plein.',
+    'Très bon score. Tu reconnais déjà beaucoup de choses très vite.',
+    'Bien joué ! Il ne manquait presque rien pour tout prendre.',
+    'Belle écoute. Tu as gardé le rythme jusqu’à la fin.',
+    'Solide ! La prochaine peut clairement être parfaite.',
+    'Tu chauffes ! Ton score montre que tu connais vraiment ta musique.',
+    'Très propre. Deux ou trois détails et tu passes au niveau au-dessus.',
+    'Bonne partie ! Tu étais dans le bon tempo presque tout le long.',
+  ],
+  cheer: [
+    'Tu avances. La prochaine partie peut déjà faire beaucoup mieux.',
+    'Pas mal du tout. Ton oreille commence à prendre les bons repères.',
+    'Tu as trouvé de bons morceaux. Continue, ça vient vite.',
+    'Il y a de bonnes réponses là-dedans. On affine et on repart.',
+    'Tu progresses : garde les bons réflexes de cette partie.',
+    'Quelques pièges t’ont eu, mais la base est là.',
+    'Tu tiens quelque chose. Une nouvelle partie et on monte le score.',
+    'Ça se construit. Écoute les premières secondes encore plus attentivement.',
+    'Tu as déjà les bons automatismes sur plusieurs morceaux.',
+    'Score honnête. Maintenant, va chercher les points qui manquent.',
+  ],
+  oops: [
+    'Cette partie t’a piégé. On repart et on change complètement le score.',
+    'Pas ta meilleure manche, mais elle te montre exactement quoi travailler.',
+    'Les morceaux étaient vicieux cette fois. La revanche est ouverte.',
+    'Ça arrive ! Fais table rase et repars avec les oreilles fraîches.',
+    'Partie compliquée. Une nouvelle série peut tout changer.',
+    'Loki a sorti les pièges aujourd’hui. À toi de répondre au prochain tour.',
+    'Tu t’es fait surprendre. Maintenant tu sais où être plus attentif.',
+    'On oublie ce score et on repart chercher mieux tout de suite.',
+    'Pas évident cette fois. Le prochain Solo est une nouvelle histoire.',
+    'Cette manche était dure. Ne lui laisse pas le dernier mot.',
+  ],
+  sleepy: [
+    'Hé ho ! Tu es parti ? Je t’attendais, moi !',
+    'Silence radio ! Loki a joué les morceaux tout seul.',
+    'Personne au casque ? Cette partie s’est jouée sans réponse.',
+    'Tu m’as laissé seul avec la playlist ! Reviens pour la prochaine.',
+    'On dirait que tu avais autre chose à faire. Aucun souci, on repart après.',
+    'Loki a attendu… et attendu. La prochaine, reste avec moi jusqu’au bout.',
+  ],
+};
+
+function resultLibraryIndex(seed: string, size: number): number {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0) % Math.max(1, size);
+}
+
+export function mascotLine(correct: number, total: number, allTimeouts = false, seed = ''): { mood: MascotMood; text: string } {
+  const ratio = total > 0 ? correct / total : 0;
+  const mood: MascotMood = allTimeouts || total <= 0
+    ? 'sleepy'
+    : ratio >= 1
+      ? 'party'
+      : ratio >= 0.6
+        ? 'happy'
+        : ratio >= 0.3
+          ? 'cheer'
+          : 'oops';
+  const pool = SOLO_RESULT_LIBRARY[mood];
+  const key = seed || `${correct}:${total}:${mood}`;
+  return { mood, text: pool[resultLibraryIndex(key, pool.length)] };
 }
 
 // Adel (02/10/2026) : « ou attends la recharge de 2 h, ça ne veut rien dire ».
