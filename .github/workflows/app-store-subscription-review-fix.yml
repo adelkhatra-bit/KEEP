@@ -53,7 +53,7 @@ jobs:
       - name: Capture real subscription screen
         run: |
           mkdir -p artifacts/subscription-review
-          cat > /tmp/capture-subscription-review.cjs <<'JS'
+          cat > capture-subscription-review.cjs <<'JS'
           const { chromium } = require('playwright');
 
           async function click(page, locator, label) {
@@ -101,7 +101,7 @@ jobs:
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1);});
           JS
-          node /tmp/capture-subscription-review.cjs
+          node capture-subscription-review.cjs
 
       - name: Complete subscription App Review metadata
         env:
