@@ -47,10 +47,10 @@ describe('Loki Music Battle challenge UX', () => {
 
   it('suppresses foreground Battle push and never bounces the user to Notifications/home', () => {
     expect(push).toContain("String(data.presentation || '') === 'battle_inline'");
-    // 29/09/2026 (doublons) : au premier plan, aucune bannière système ; la
-    // bannière interne affiche déjà la notification. Liste/badge restent.
+    // Au premier plan, Loki possède déjà sa bannière interne : aucune
+    // deuxième bannière ni entrée dans la liste système pour le même événement.
     expect(push).toContain('shouldShowBanner: false,');
-    expect(push).toContain('shouldShowList: !inlineBattle');
+    expect(push).toContain('shouldShowList: false,');
     expect(push).not.toContain("void Linking.openURL('keep://notifications')");
     expect(push).not.toContain(".then(() => Linking.openURL('keep://notifications'))");
   });
