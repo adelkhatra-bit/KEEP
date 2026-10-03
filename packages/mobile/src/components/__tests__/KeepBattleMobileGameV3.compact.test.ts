@@ -78,6 +78,17 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).not.toContain('testID="solo-leaderboard-mini"');
   });
 
+  it('uses the same artwork-first layout in Solo and Battle on mobile and bounds it on desktop', () => {
+    expect(source).toContain('const isDesktopBattle = windowWidth >= 900;');
+    expect(source).toContain("rootDesktop: { maxWidth: 760, alignSelf: 'center' }");
+    expect(source).toContain("soloVisual: { height: undefined, width: '100%', alignSelf: 'center', flexGrow: 1, flexShrink: 1, minHeight: 220 }");
+    expect(source).toContain("arenaVisualActive: { width: '100%', height: undefined, flexGrow: 1, flexShrink: 1, minHeight: 220 }");
+    expect(source).toContain("soloAnswersActive: { paddingTop: 7, paddingBottom: 0 }");
+    expect(source).toContain("arenaAnswersActive: { paddingTop: 7, paddingBottom: 0 }");
+    expect(source).not.toContain("soloAnswersActive: { marginTop: 'auto'");
+    expect(source).not.toContain("arenaAnswersActive: { marginTop: 'auto'");
+  });
+
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {
     expect(source).toContain('FREE gagnés aujourd’hui');
     expect(source).toContain('FREE perdus aujourd’hui');
