@@ -1242,6 +1242,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
+      else if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) Alert.alert('Première transaction en cours', 'Termine ou annule ton paiement actuel avant d’ouvrir une nouvelle demande. Après une première transaction réussie, ce verrou disparaît.');
       else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${immersivePreviewSellerUsername || profile?.username || 'Ce créateur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
       else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le créateur doit enregistrer un lien de paiement sécurisé avant de pouvoir proposer cette collection.');
       else Alert.alert('Erreur', 'Impossible de lancer le déblocage pour le moment.');

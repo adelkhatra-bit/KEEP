@@ -9,10 +9,10 @@ import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile } from 
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
 import { speakLokiText } from '../services/lokiSpeechService';
-import { speakLokiText } from '../services/lokiSpeechService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
 import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { maskedNewKeepCopy } from '../services/newKeepNotification';
 import { loadCurrentPlanCode } from '../services/planService';
@@ -548,28 +548,43 @@ export default function GlobalNotificationBanner() {
     }
   };
 
-  const confirmPaymentFromBanner = async () => {
+  const confirmPaymentFromBanner = () => {
     if (!paymentId || respondBusy || !current) return;
-    setRespondBusy(true);
-    try {
-      const result = await markPlaylistSalePaid(paymentId);
-      void markNotificationRead(user.id, current.id).catch(() => {});
-      animateOut();
-      Alert.alert(
-        'Paiement confirmé',
-        `Tu as confirmé la réception. « ${result.playlistName || 'La sélection'} » est maintenant débloquée pour l’acheteur.`,
-      );
-    } catch (error: any) {
-      const raw = String(error?.message || error || '');
-      const message = raw.includes('BUYER_HAS_NOT_MARKED_PAID')
-        ? 'L’acheteur doit d’abord signaler son paiement.'
-        : raw.includes('PAYMENT_PROOF_REQUIRED') || raw.includes('PAYMENT_PROOF_FILE_NOT_FOUND')
-          ? 'La preuve de paiement doit être présente avant confirmation.'
-          : 'Impossible de confirmer ce paiement pour le moment.';
-      Alert.alert('Paiement', message);
-    } finally {
-      setRespondBusy(false);
-    }
+    Alert.alert(
+      'Validation irréversible',
+      'Vérifie d’abord TON compte PayPal et la preuve. En validant, tu confirmes sous ta responsabilité que les fonds sont réellement reçus. La sélection sera débloquée immédiatement. Toute fausse validation peut entraîner un avertissement, un retrait de Free, une suspension ou un bannissement selon le règlement Loki Music.',
+      [
+        { text: 'RETOUR', style: 'cancel' },
+        {
+          text: 'J’ACCEPTE · VALIDER',
+          onPress: () => {
+            setRespondBusy(true);
+            void acceptMarketplacePaymentTerms('seller_payment_confirmation')
+              .then(() => markPlaylistSalePaid(paymentId))
+              .then((result) => {
+                void markNotificationRead(user.id, current.id).catch(() => {});
+                animateOut();
+                Alert.alert(
+                  'Paiement confirmé',
+                  `Tu as confirmé la réception. « ${result.playlistName || 'La sélection'} » est maintenant débloquée pour l’acheteur.`,
+                );
+              })
+              .catch((error: any) => {
+                const raw = String(error?.message || error || '');
+                const message = raw.includes('BUYER_HAS_NOT_MARKED_PAID')
+                  ? 'L’acheteur doit d’abord signaler son paiement.'
+                  : raw.includes('PAYMENT_PROOF_REQUIRED') || raw.includes('PAYMENT_PROOF_FILE_NOT_FOUND')
+                    ? 'La preuve de paiement doit être présente avant confirmation.'
+                    : raw.includes('TERMS')
+                      ? 'Les conditions marketplace doivent être acceptées avant validation.'
+                      : 'Impossible de confirmer ce paiement pour le moment.';
+                Alert.alert('Paiement', message);
+              })
+              .finally(() => setRespondBusy(false));
+          },
+        },
+      ],
+    );
   };
 
   if (eventInvite && eventId) {

@@ -27,7 +27,7 @@ import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
 import { cancelPlaylistSalePayment, loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid, reportPlaylistSalePaymentProblem } from '../services/playlistSaleService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
-import { extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
+import { acceptMarketplacePaymentTerms, extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
@@ -700,6 +700,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
           onPress: async () => {
             setPaymentBusyId(paymentId);
             try {
+              await acceptMarketplacePaymentTerms('seller_payment_confirmation');
               const delivered = await markPlaylistSalePaid(paymentId);
               await syncMarketplaceDelivery(paymentId).catch(() => null);
               await readOne(item);
@@ -710,7 +711,9 @@ export default function NotificationsScreen({ navigation, route }: any) {
               setError(
                 message.includes('BUYER_HAS_NOT_MARKED_PAID') || message.includes('PAYMENT_PROOF_REQUIRED')
                   ? 'L’acheteur doit d’abord signaler son paiement et joindre une preuve.'
-                  : 'Impossible de confirmer la réception et de débloquer la sélection.',
+                  : message.includes('TERMS')
+                    ? 'Les conditions marketplace doivent être acceptées avant validation.'
+                    : 'Impossible de confirmer la réception et de débloquer la sélection.',
               );
             } finally {
               setPaymentBusyId(null);

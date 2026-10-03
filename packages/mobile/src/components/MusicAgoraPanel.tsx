@@ -94,6 +94,7 @@ function readableError(error: unknown): string {
   if (message.includes('paid_share_requires_recipient')) return 'Pour faire payer une pépite, réponds directement à un utilisateur.';
   if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) return 'Ajoute d’abord ton lien de paiement dans ton profil.';
   if (message.includes('CHAT_TRACK_OFFER_ALREADY_PENDING')) return 'Une demande de paiement est déjà en cours pour cette pépite et cet utilisateur.';
+  if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) return 'Première transaction en cours : termine ou annule ce paiement avant d’ouvrir une autre demande. Après une première transaction réussie, ce verrou disparaît.';
   if (message.includes('PLAYLIST_SALE_LOCKED')) return 'Ton accès aux ventes de pépites n’est pas encore débloqué.';
   if (message.includes('CHAT_TRACK_RESALE_FORBIDDEN') || message.includes('TRACK_NOT_OWNED_FOR_SALE')) return 'Cette musique ne t’appartient pas : tu peux la partager et l’écouter, mais pas la remettre en vente.';
   if (message.includes('TARGET_ALREADY_OWNS_TRACK') || message.includes('CHAT_TARGET_ALREADY_OWNS_TRACK')) return 'Cet utilisateur a déjà cette musique. Aucune vente ni débit FREE n’est nécessaire.';
@@ -1138,21 +1139,32 @@ export default function MusicAgoraPanel({
     }
   };
 
-  const confirmSellerReceived = async (message: MusicAgoraMessage) => {
+  const confirmSellerReceived = (message: MusicAgoraMessage) => {
     if (!message.viewerPaymentId || !message.saleOfferId || offerBusyId) return;
-    setOfferBusyId(message.saleOfferId);
-    try {
-      const delivered = await markPlaylistSalePaid(message.viewerPaymentId);
-      Alert.alert(
-        'Paiement confirmé',
-        `Paiement reçu. ${delivered.trackCount || 1} morceau${(delivered.trackCount || 1) > 1 ? 'x' : ''} vient d’être débloqué pour l’acheteur.`,
-      );
-      await refresh(roomSlug, true);
-    } catch (error) {
-      Alert.alert('Paiement', readableError(error));
-    } finally {
-      setOfferBusyId(null);
-    }
+    Alert.alert(
+      'Validation irréversible',
+      'Vérifie TON compte PayPal et la preuve avant de continuer. En validant, tu confirmes sous ta responsabilité que les fonds sont réellement reçus. Une fausse validation peut entraîner un avertissement, un retrait de Free, une suspension ou un bannissement.',
+      [
+        { text: 'RETOUR', style: 'cancel' },
+        {
+          text: 'J’ACCEPTE · VALIDER',
+          onPress: () => {
+            setOfferBusyId(message.saleOfferId!);
+            void acceptMarketplacePaymentTerms('seller_payment_confirmation')
+              .then(() => markPlaylistSalePaid(message.viewerPaymentId!))
+              .then(async (delivered) => {
+                Alert.alert(
+                  'Paiement confirmé',
+                  `Paiement reçu. ${delivered.trackCount || 1} morceau${(delivered.trackCount || 1) > 1 ? 'x' : ''} vient d’être débloqué pour l’acheteur.`,
+                );
+                await refresh(roomSlug, true);
+              })
+              .catch((error) => Alert.alert('Paiement', readableError(error)))
+              .finally(() => setOfferBusyId(null));
+          },
+        },
+      ],
+    );
   };
 
   const moderate = (message: MusicAgoraMessage) => {
