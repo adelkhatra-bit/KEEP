@@ -252,3 +252,12 @@ Avant d'annoncer `PUSHED_REMOTE` ou plus, l'agent doit :
 Si une permission empêche le push, écrire explicitement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`. Il est interdit de dire « poussé », « intégré », « testé » ou « déployé » sans preuve correspondante.
 
 Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jamais être supprimée : elle passe à `VERIFIED` uniquement avec SHA + test/preuve.
+
+## 🔐 AUTHENTIFICATION — FRONTIÈRE USER / SUPER ADMIN
+
+- **Utilisateur Loki** : runtime `packages/mobile`; récupération utilisateur = `keep-auth-email`.
+- **Super Admin** : runtime `packages/admin`; autorité = `public.admin_users` + rôle actif; login principal = mot de passe Supabase; secours = `keep-admin-bootstrap` avec code à usage unique.
+- Il est **interdit** de brancher le Super Admin sur `keep-auth-email`, le magic-link utilisateur ou un écran mobile de récupération.
+- Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
+- Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
+- Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.
