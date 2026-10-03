@@ -95,8 +95,8 @@ assertOrdered(visitor, [
   '<View style={styles.collectionHeader}>',
   '<View style={styles.tabsRow}>',
   '<ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>',
-  '<Text style={styles.dnaTitle}>Son empreinte musicale</Text>',
-  '<Text style={styles.socialTitle}>Ses réseaux</Text>',
+  "<Text style={styles.dnaTitle}>{isOwner ? 'Mon empreinte musicale' : 'Son empreinte musicale'}</Text>",
+  "<Text style={styles.socialTitle}>{isOwner ? 'Mes réseaux' : 'Ses réseaux'}</Text>",
 ], 'Visited profile collective hierarchy');
 
 assertIncludes(visitor, 'testID="public-profile-loki-pulse-bubbles-card"', 'Visited Loki Pulse bubbles card');
