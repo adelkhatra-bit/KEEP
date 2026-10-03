@@ -100,6 +100,7 @@ begin
 end;
 $function$;
 
+-- ADEL-APPROVED-DESTRUCTIVE: 2026-10-03 suppression uniquement des notifications mensuelles recréées tardivement, bug signalé explicitement par Adel.
 -- Nettoie uniquement les notifications mensuelles recréées un jour ultérieur
 -- à l'attribution. Les crédits eux-mêmes ne sont jamais supprimés.
 delete from public.notifications n
