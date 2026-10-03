@@ -194,7 +194,7 @@ SQL
   # sur le projet live, alors que la migration 0013 l'avait créé en TEXT.
   # La migration d'affinité musicale s'appuie sur l'état live. On reproduit
   # ce drift dans le replay CI sans réécrire une ancienne migration.
-  if [ "$name" = "20261003012000_profile_sale_suggestions_affinity.sql" ]; then
+  if [ "$name" = "20261003012200_profile_sale_suggestions_affinity.sql" ]; then
     pg -d "$DB" <<'SQL' >/dev/null
 alter table public.track_likes
   alter column track_id type uuid
