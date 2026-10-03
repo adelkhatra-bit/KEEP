@@ -254,11 +254,9 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       <View style={s.banner}>
         <View style={s.bannerHead}>
           <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MES PÉPITES' : `LES PÉPITES DE @${sellerUsername.toUpperCase()}`}</Text>
+          <Text style={s.bannerKicker} numberOfLines={1}>{`LES PÉPITES DE @${sellerUsername.toUpperCase()}`}</Text>
         </View>
-        <Text style={s.bannerTitle}>{ownerMode
-          ? `${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} publiée${visibleOffers.length > 1 ? 's' : ''}`
-          : `${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à écouter avant de choisir`}</Text>
+        <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} à écouter avant de choisir`}</Text>
         <View style={s.bubbles} accessibilityLabel="Styles des collections">
           {bannerGenres.map(([genre, count], index) => (
             <StyleBubble
@@ -286,9 +284,9 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           style={s.bannerCta}
           onPress={() => { const first = featured[0] || ranked[0]; if (first) onOpenOffer(first); }}
           accessibilityRole="button"
-          accessibilityLabel={ownerMode ? 'Gérer mes collections' : 'Écouter les aperçus des pépites'}
+          accessibilityLabel="Écouter les aperçus des pépites"
         >
-          <Text style={s.bannerCtaText}>{ownerMode ? '◆ GÉRER MES COLLECTIONS' : '▶ ÉCOUTER LES APERÇUS'}</Text>
+          <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
         </TouchableOpacity>
       </View>
 
@@ -301,7 +299,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <Text style={s.dropFeatured}>★ À LA UNE</Text>
           <Text style={s.dropTitle} numberOfLines={1}>{drop.playlistName || 'Collection'}</Text>
           <Text style={s.dropMeta} numberOfLines={1}>
-            {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? ' · publication active' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
+            {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
           </Text>
           <View style={s.dropFoot}>
             <PriceToken offer={drop} unlocked={false} />
@@ -317,7 +315,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       ) : null}
 
       <View style={s.shelfHead}>
-        <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Mes collections' : `Boutique de @${sellerUsername}`}</Text>
+        <Text style={s.shelfTitle} numberOfLines={1}>{`Boutique de @${sellerUsername}`}</Text>
         <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
@@ -334,14 +332,14 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={142} />
         ))}
       </ScrollView>
-      <Text style={s.hint}>{ownerMode ? 'Même Drop que voient tes visiteurs · touche une collection pour la gérer' : 'Aperçu sans révéler les titres · une collection déjà acquise reste signalée'}</Text>
+      <Text style={s.hint}>{ownerMode ? 'Touche une collection pour l’écouter directement. Pour modifier une vente, utilise ◆ PÉPITES sur ton profil.' : 'Aperçu sans révéler les titres · une collection déjà acquise reste signalée'}</Text>
 
       <Modal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
           <View style={s.store}>
             <View style={s.storeHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.storeKicker}>{ownerMode ? 'MES COLLECTIONS' : 'BOUTIQUE'}</Text>
+                <Text style={s.storeKicker}>BOUTIQUE</Text>
                 <Text style={s.storeTitle} numberOfLines={1}>@{sellerUsername}</Text>
               </View>
               <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique">

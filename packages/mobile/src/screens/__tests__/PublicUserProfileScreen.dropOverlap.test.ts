@@ -49,11 +49,17 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(source).not.toContain("même aperçu masqué 15 s, mais aucun achat possible");
   });
 
+  it('garde la même configuration d’écoute côté vendeur et réserve la gestion au bouton PÉPITES du profil', () => {
+    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).not.toContain('◆ GÉRER MES COLLECTIONS');
+    expect(boutique).toContain('Pour modifier une vente, utilise ◆ PÉPITES');
+  });
+
   it('utilise exactement la même SellerBoutique sur le profil propriétaire', () => {
     expect(ownerSource).toContain("import SellerBoutique from '../components/SellerBoutique';");
     expect(ownerSource).toContain('<SellerBoutique');
     expect(ownerSource).toContain('ownerMode');
     expect(ownerSource).toContain("navigation.navigate('PlaylistSale'");
-    expect(boutique).toContain("ownerMode ? 'MES PÉPITES'");
+    expect(boutique).toContain('LES PÉPITES DE @');
   });
 });
