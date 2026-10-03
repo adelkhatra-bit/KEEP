@@ -167,18 +167,10 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [detailItem, setDetailItem] = useState<KeepNotification | null>(null);
   const [detailEvent, setDetailEvent] = useState<CreatorEvent | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  // Les notifications promotionnelles restent actives sur Free. Tout
-  // abonnement payant (Premium, Creator Pro, Venue Pro) débloque le choix
-  // de les couper sans toucher aux messages, paiements ou alertes sécurité.
+  // Les plans payants débloquent des fonctions et des réglages avancés,
+  // jamais l'obligation de recevoir du contenu promotionnel.
   const [planCode, setPlanCode] = useState('FREE');
   const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
-  const paidNotificationControls = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
-  const marketingLocked = !paidNotificationControls;
-  // Adel (04/09/2026) : "la seule chose qui ne pourra pas désactiver, c'est
-  // les événements ... ça lui demandera de passer en Pro pour avoir la
-  // possibilité de désactiver cette notification" -- même verrou que
-  // Marketing, catégorie séparée.
-  const eventsLocked = !paidNotificationControls;
   useEffect(() => {
     if (!user) return;
     let live = true;
@@ -204,16 +196,6 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }).catch(() => {});
     return () => { live = false; };
   }, [user?.id, isLocalGuest, isDemoMode]);
-  useEffect(() => {
-    if (marketingLocked && prefs.marketingEnabled === false && user) {
-      void updatePrefs({ marketingEnabled: true });
-    }
-    if (eventsLocked && prefs.eventsEnabled === false && user) {
-      void updatePrefs({ eventsEnabled: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketingLocked, prefs.marketingEnabled, eventsLocked, prefs.eventsEnabled, user?.id]);
-
   const refresh = async () => {
     if (!user) return;
     try {
@@ -1237,13 +1219,16 @@ export default function NotificationsScreen({ navigation, route }: any) {
           />
           <SoundPreference label="Son musique & Battle" value={prefs.musicSound} onChange={(v) => updatePrefs({ musicSound: v as NotificationPreferences['musicSound'], battleSound: v as NotificationPreferences['battleSound'] })} />
           <Preference
-            label="Événements & actualités"
-            hint={eventsLocked || marketingLocked
-              ? "Boutique musicale, événements et actualités Loki Music. Toujours activés en Free. Premium, Creator Pro ou Venue Pro permettent de couper cette catégorie."
-              : 'Boutique musicale, événements et actualités Loki Music. Tu peux couper cette catégorie avec ton abonnement.'}
-            value={eventsLocked || marketingLocked ? true : prefs.eventsEnabled && prefs.marketingEnabled}
-            onValueChange={(v) => { if (!eventsLocked && !marketingLocked) updatePrefs({ eventsEnabled: v, marketingEnabled: v }); }}
-            locked={eventsLocked || marketingLocked}
+            label="Événements"
+            hint="Invitations et rappels liés aux soirées et événements proposés dans Loki Music."
+            value={prefs.eventsEnabled}
+            onValueChange={(v) => updatePrefs({ eventsEnabled: v })}
+          />
+          <Preference
+            label="Actualités & offres"
+            hint="Boutique musicale, nouveautés et contenus promotionnels. Désactivé par défaut : active-le seulement si tu veux les recevoir."
+            value={prefs.marketingEnabled}
+            onValueChange={(v) => updatePrefs({ marketingEnabled: v })}
           />
           <Preference
             label="Compte & sécurité"
