@@ -24,6 +24,9 @@
         "UIBackgroundModes": [
           "audio"
         ]
+      },
+      "entitlements": {
+        "aps-environment": "production"
       }
     },
     "android": {
