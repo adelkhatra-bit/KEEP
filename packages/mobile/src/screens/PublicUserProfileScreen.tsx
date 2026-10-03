@@ -6,8 +6,8 @@ import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@k
 import { supabase } from '../services/supabaseClient';
 import { createProfileService } from '../services/profileService';
 import { createAuthService } from '../services/authService';
-import { requestSocialLink } from '../services/notificationService';
-import { DiscoveryImpact, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileSnapshot } from '../services/publicProfileStateService';
+import { loadUnreadNotificationCount, requestSocialLink, subscribeToNotificationChanges } from '../services/notificationService';
+import { DiscoveryImpact, loadOwnProfileKeeps, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -44,6 +44,10 @@ import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventById, loadEventRsvpCounts, loadMyRsvps, loadProfileEventTeaser, setEventRsvp } from '../services/creatorEventService';
 import { loadFreeCreditBreakdown } from '../services/creditService';
+import PublicProfilePanel from '../components/PublicProfilePanel';
+import CreatorToolsPanel from '../components/CreatorToolsPanel';
+import HelpLegalPanel from '../components/HelpLegalPanel';
+import NotificationSidePanel from '../components/NotificationSidePanel';
 
 type PublicKeepTrack = {
   id: string;
@@ -65,6 +69,7 @@ type PublicKeepTrack = {
   sourceCertificationTier?: ProfileCertificationTier;
   sourceIsFollowing?: boolean;
   keptAt?: string;
+  visibility?: 'PUBLIC' | 'PRIVATE';
 };
 type SocialPlatform = SocialLink['platform'];
 // (21/09/2026) refonte collection -- pas d'onglet "Vibes" ici : contrairement
@@ -104,6 +109,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [authenticatedViewerId, setAuthenticatedViewerId] = useState<string | null>(null);
+  const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
+  const [ownerMenuSection, setOwnerMenuSection] = useState<'ROOT' | 'NETWORKS' | 'CREATOR' | 'HELP'>('ROOT');
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Source de vérité : la session Supabase réelle. Après un changement de
   // compte / refresh / deep-link, Zustand peut rester brièvement sur l'ancien
@@ -167,6 +176,27 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const effectiveViewerId = authenticatedViewerId
     || (!isLocalGuest && !isDemoMode ? viewer?.id ?? null : null);
+
+  useEffect(() => {
+    let live = true;
+    if (!effectiveViewerId) {
+      setUnreadCount(0);
+      return () => { live = false; };
+    }
+    const refreshUnread = () => {
+      void loadUnreadNotificationCount(effectiveViewerId)
+        .then((count) => { if (live) setUnreadCount(count); })
+        .catch(() => { if (live) setUnreadCount(0); });
+    };
+    refreshUnread();
+    const unsubscribeChanges = subscribeToNotificationChanges(effectiveViewerId, refreshUnread);
+    const unsubscribeFocus = navigation?.addListener?.('focus', refreshUnread);
+    return () => {
+      live = false;
+      unsubscribeChanges();
+      unsubscribeFocus?.();
+    };
+  }, [effectiveViewerId, navigation]);
   const [profile, setProfile] = useState<User | null>(null);
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [tracks, setTracks] = useState<PublicKeepTrack[]>([]);
@@ -551,7 +581,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           setIsFollowing(false);
         }
 
-        const canonicalKeeps = await loadPublicProfileKeeps(result.id);
+        const ownerViewingSelf = Boolean(effectiveViewerId && effectiveViewerId === result.id);
+        const canonicalKeeps = ownerViewingSelf
+          ? await loadOwnProfileKeeps()
+          : await loadPublicProfileKeeps(result.id);
         if (cancelled) return;
         const normalized = canonicalKeeps.map((entry) => ({
           id: entry.decisionId,
@@ -573,6 +606,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           sourceCertificationTier: entry.sourceCertificationTier,
           sourceIsFollowing: entry.sourceIsFollowing,
           keptAt: entry.keptAt,
+          visibility: entry.visibility,
         } as PublicKeepTrack));
 
         if (cancelled) return;
@@ -582,7 +616,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         // débloquer en payant. Les morceaux d'une playlist en vente active
         // sont donc masqués de TOUTES les vues publiques gratuites (liste,
         // styles, artistes), jamais pour le propriétaire lui-même.
-        const isOwnProfile = Boolean(viewer?.id && viewer.id === result.id);
+        const isOwnProfile = ownerViewingSelf;
         const maskedIds = isOwnProfile ? [] : await loadMaskedPlaylistSaleTrackIds(result.id).catch(() => []);
         if (cancelled) return;
         const visible = maskedIds.length ? normalized.filter((t) => !maskedIds.includes(t.trackId)) : normalized;
@@ -654,7 +688,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       void load();
     });
     return () => { cancelled = true; unsubscribe?.(); };
-  }, [username, viewer?.id, isLocalGuest, isDemoMode, navigation]);
+  }, [username, viewer?.id, effectiveViewerId, isLocalGuest, isDemoMode, navigation]);
 
   const swipeSourceByTrack = useMemo(() => Object.fromEntries(tracks.map((track) => [track.trackId, {
     profileId: track.sourceProfileId || track.sourceUserId || profile?.id,
@@ -1421,6 +1455,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   if (loading) return <SafeAreaView style={styles.container}><View style={styles.center}><ActivityIndicator color={colors.primaryLight} /></View></SafeAreaView>;
   if (!profile || error) return <SafeAreaView style={styles.container}><View style={styles.topBar}><TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}><Text style={styles.back}>‹</Text></TouchableOpacity></View><View style={styles.center}><Text style={styles.muted}>{error ?? 'Profil introuvable.'}</Text></View></SafeAreaView>;
 
+  const isOwner = Boolean(effectiveViewerId && effectiveViewerId === profile.id);
   const certificationTier: ProfileCertificationTier = publicSnapshot?.certificationTier ?? 'UNVERIFIED';
   const followingCount = publicSnapshot?.following ?? profile.followingCount;
   const kindLabel = PROFILE_KIND_LABELS[profile.kind] ?? 'Fan';
@@ -1446,7 +1481,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <View style={styles.topSpacer} />
           {/* 29/09/2026 : arrivé par un lien partagé sans compte, on doit pouvoir se connecter tout de suite. */}
           {!effectiveViewerId ? <LoginPill /> : null}
-          {effectiveViewerId !== profile.id ? (
+          {isOwner ? (
+            <View style={styles.ownerTopActions}>
+              <TouchableOpacity style={styles.shareTopButton} onPress={() => setNotificationPanelOpen(true)} accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : ''}`}>
+                <Text style={styles.shareTopText}>♢</Text>
+                {unreadCount > 0 ? <View style={styles.ownerNotificationBadge}><Text style={styles.ownerNotificationBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareTopButton} onPress={() => { setOwnerMenuSection('ROOT'); setOwnerMenuOpen(true); }} accessibilityLabel="Menu du profil"><Text style={styles.shareTopText}>☰</Text></TouchableOpacity>
+            </View>
+          ) : effectiveViewerId ? (
             <TouchableOpacity style={styles.shareTopButton} onPress={() => setModerationMenuOpen(true)} accessibilityLabel="Signaler ou bloquer ce profil"><Text style={styles.shareTopText}>⋯</Text></TouchableOpacity>
           ) : null}
         </View>
@@ -1509,39 +1552,34 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </View>
           ) : null}
           {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-          {effectiveViewerId !== profile.id ? (
+          {!isOwner ? (
             <>
-            <TouchableOpacity
-              style={[styles.followPrimaryButton, isFollowing && styles.followPrimaryButtonOn]}
-              disabled={followBusy}
-              onPress={() => void toggleFollow()}
-              accessibilityRole="button"
-              accessibilityLabel={isFollowing ? `Se désabonner de ${profile.username}` : `S'abonner à ${profile.username}`}
-            >
-              <Text style={[styles.followPrimaryButtonText, isFollowing && styles.followPrimaryButtonTextOn]}>
-                {followBusy ? '…' : isFollowing ? '✓ ABONNÉ' : '+ S’ABONNER'}
-              </Text>
-            </TouchableOpacity>
-            {/* Même rangée d'actions que le profil propriétaire (ownerQuickActions :
-                3 boutons MotionActionButton « outline », même largeur). */}
-            <View style={styles.ownerQuickActions}>
-              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={tracks.length === 0} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Swiper la musique de ${profile.username}`}>
-                ▶ SWIPE
-              </MotionActionButton>
-              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={openProfileChat} accessibilityLabel={`Ouvrir le tchat avec ${profile.username}`}>
-                ◉ TCHAT
-              </MotionActionButton>
-              {battleFeatureEnabled ? (
-                <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={battleInviteBusy} onPress={() => void challengeProfileToBattle()} accessibilityLabel={`Défier ${profile.username} en Battle`}>
-                  {battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}
-                </MotionActionButton>
-              ) : null}
-              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>
-                ↗ PARTAGER
-              </MotionActionButton>
-            </View>
+              <TouchableOpacity
+                style={[styles.followPrimaryButton, isFollowing && styles.followPrimaryButtonOn]}
+                disabled={followBusy}
+                onPress={() => void toggleFollow()}
+                accessibilityRole="button"
+                accessibilityLabel={isFollowing ? `Se désabonner de ${profile.username}` : `S'abonner à ${profile.username}`}
+              >
+                <Text style={[styles.followPrimaryButtonText, isFollowing && styles.followPrimaryButtonTextOn]}>
+                  {followBusy ? '…' : isFollowing ? '✓ ABONNÉ' : '+ S’ABONNER'}
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.ownerQuickActions}>
+                <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={tracks.length === 0} onPress={() => openBrowseSwipe(null)} accessibilityLabel={`Swiper la musique de ${profile.username}`}>▶ SWIPE</MotionActionButton>
+                <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={openProfileChat} accessibilityLabel={`Ouvrir le tchat avec ${profile.username}`}>◉ TCHAT</MotionActionButton>
+                {battleFeatureEnabled ? <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={battleInviteBusy} onPress={() => void challengeProfileToBattle()} accessibilityLabel={`Défier ${profile.username} en Battle`}>{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}</MotionActionButton> : null}
+                <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => void shareProfile(profile.username)} accessibilityLabel={`Partager le profil de ${profile.username}`}>↗ PARTAGER</MotionActionButton>
+              </View>
             </>
-          ) : null}
+          ) : (
+            <View style={styles.ownerQuickActions}>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} disabled={tracks.length === 0} onPress={() => openBrowseSwipe(null)} accessibilityLabel="Swiper ma musique">▶ SWIPE</MotionActionButton>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => navigation.navigate('ProfileSettings')} accessibilityLabel="Modifier mon profil">✎ MODIFIER</MotionActionButton>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => navigation.navigate('PlaylistSale')} accessibilityLabel="Gérer mes collections">◆ PÉPITES</MotionActionButton>
+              <MotionActionButton variant="outline" size="medium" containerStyle={styles.ownerQuickActionFull} onPress={() => void shareProfile(profile.username)} accessibilityLabel="Partager mon profil Loki Music">↗ PARTAGER</MotionActionButton>
+            </View>
+          )}
         </ProfileMotionReveal>
 
 
@@ -1698,10 +1736,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 derrière un chevron. Toujours visible immédiatement
                 maintenant, plus d'accordéon fermé sur cette section. */}
             <View style={styles.musicSectionHeader}>
-              <Text style={styles.sectionTitle}>Morceaux publics</Text>
+              <Text style={styles.sectionTitle}>{isOwner ? 'Mes morceaux' : 'Morceaux publics'}</Text>
               <Text style={styles.publicCount}>{tracks.length}</Text>
             </View>
-            {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun morceau public sur ce profil.</Text></View> : null}
+            {tracks.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>{isOwner ? 'Aucun morceau sur ton profil.' : 'Aucun morceau public sur ce profil.'}</Text></View> : null}
             {tracks.length > 0 ? (
               <View style={styles.musicList}>{tracks.map((track) => {
                 const liked = likedTrackIds.has(track.trackId);
@@ -1744,6 +1782,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                     coverFallbackText={(profile.username?.slice(0, 1) ?? 'K').toUpperCase()}
                     title={track.title}
                     artist={track.artist}
+                    badge={isOwner && track.visibility === 'PRIVATE' ? { label: '🔒 PRIVÉ' } : undefined}
                     playSlot={<TrackPreviewButton trackKey={track.trackId} previewUrl={track.previewUrl} square />}
                     actions={[
                       {
@@ -1828,7 +1867,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <View style={styles.dnaHeader}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.dnaEyebrow}>LOKI PULSE</Text>
-              <Text style={styles.dnaTitle}>Son empreinte musicale</Text>
+              <Text style={styles.dnaTitle}>{isOwner ? 'Mon empreinte musicale' : 'Son empreinte musicale'}</Text>
               <Text style={styles.dnaCondensed}>
                 {visitorStyleBubbles.length > 0
                   ? `${visitorStyleBubbles.length} style${visitorStyleBubbles.length > 1 ? 's' : ''}`
@@ -1892,7 +1931,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           if (!configuredSocials.length) return null;
           return (
             <View style={styles.socialHub}>
-              <Text style={styles.socialTitle}>Ses réseaux</Text>
+              <Text style={styles.socialTitle}>{isOwner ? 'Mes réseaux' : 'Ses réseaux'}</Text>
               <View style={styles.socialRow}>
                 {configuredSocials.map((item) => (
                   <TouchableOpacity key={item.platform} style={[styles.socialButton, styles.socialButtonConfigured]} onPress={() => openSocial(item.platform)} accessibilityLabel={item.label}><SocialPlatformIcon platform={item.platform} size={22} color={SOCIAL_BRAND_COLORS[item.platform] ?? '#FFFFFF'} /></TouchableOpacity>
@@ -1916,6 +1955,51 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           return <TouchableOpacity style={styles.websiteButton} onPress={() => void openWebsite()} accessibilityLabel={websiteLink.label || 'Site web'}><Text style={styles.websiteButtonText}>🔗 {websiteLink.label || 'Site web'}</Text></TouchableOpacity>;
         })()}
       </ScrollView>
+
+      {isOwner ? (
+        <>
+          <NotificationSidePanel
+            visible={notificationPanelOpen}
+            profileId={profile.id}
+            onClose={() => setNotificationPanelOpen(false)}
+          />
+          <Modal visible={ownerMenuOpen} transparent animationType="fade" onRequestClose={() => ownerMenuSection === 'ROOT' ? setOwnerMenuOpen(false) : setOwnerMenuSection('ROOT')}>
+            <View style={styles.modalBackdrop}>
+              <View style={styles.editCard}>
+                {ownerMenuSection !== 'ROOT' ? <TouchableOpacity style={styles.ownerMenuBack} onPress={() => setOwnerMenuSection('ROOT')} accessibilityLabel="Retour au menu du profil"><Text style={styles.ownerMenuBackText}>‹ Menu</Text></TouchableOpacity> : null}
+                <Text style={styles.editTitle}>{ownerMenuSection === 'ROOT' ? 'Mon profil' : ownerMenuSection === 'NETWORKS' ? 'Réseaux & site web' : ownerMenuSection === 'CREATOR' ? 'Outils créateur' : 'Aide'}</Text>
+                {ownerMenuSection === 'ROOT' ? (
+                  <ScrollView style={styles.ownerMenuScroll} showsVerticalScrollIndicator={false}>
+                    {[
+                      ['✎', 'Modifier mon profil', 'Photo · pseudo · bio · ville · pays', () => { setOwnerMenuOpen(false); navigation.navigate('ProfileSettings'); }],
+                      ['◆', 'Mes collections', 'Créer · publier · gérer', () => { setOwnerMenuOpen(false); navigation.navigate('PlaylistSale'); }],
+                      ['◎', 'Réseaux & site web', 'Instagram · TikTok · Snapchat · YouTube · X · Facebook', () => setOwnerMenuSection('NETWORKS')],
+                      ['♫', 'Services musicaux', 'Spotify · Deezer · YouTube Music · SoundCloud', () => { setOwnerMenuOpen(false); navigation.navigate('MusicConnections'); }],
+                      ['🎁', 'Free & formules', 'Solde · avantages · abonnements', () => { setOwnerMenuOpen(false); navigation.navigate('Offers'); }],
+                      ['🪪', 'Créateur', 'Type de profil · événements · outils', () => setOwnerMenuSection('CREATOR')],
+                      ['💬', 'Messagerie', 'Position · taille · alertes', () => { setOwnerMenuOpen(false); useGlobalChatStore.getState().openSettings(); }],
+                      ['🆘', 'Aide', 'Support · légal · comptes bloqués', () => setOwnerMenuSection('HELP')],
+                    ].map(([icon, label, hint, onPress]: any) => (
+                      <TouchableOpacity key={label} style={styles.ownerMenuRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+                        <Text style={styles.ownerMenuIcon}>{icon}</Text>
+                        <View style={styles.ownerMenuCopy}><Text style={styles.ownerMenuLabel}>{label}</Text><Text style={styles.ownerMenuHint}>{hint}</Text></View>
+                        <Text style={styles.ownerMenuChevron}>›</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : ownerMenuSection === 'NETWORKS' ? (
+                  <ScrollView style={styles.ownerMenuScroll}><PublicProfilePanel navigation={navigation} /></ScrollView>
+                ) : ownerMenuSection === 'CREATOR' ? (
+                  <ScrollView style={styles.ownerMenuScroll}><CreatorToolsPanel navigation={navigation} /></ScrollView>
+                ) : (
+                  <ScrollView style={styles.ownerMenuScroll}><HelpLegalPanel profileId={profile.id} username={profile.username} enabled /></ScrollView>
+                )}
+                <TouchableOpacity style={styles.cancelButton} onPress={() => { setOwnerMenuOpen(false); setOwnerMenuSection('ROOT'); }}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        </>
+      ) : null}
 
       {immersivePreviewOffer ? (
         <PlaylistSaleImmersivePreview
@@ -2133,7 +2217,7 @@ const styles = StyleSheet.create({
   followNudgeClose:{width:28,height:36,alignItems:'center',justifyContent:'center'},followNudgeCloseText:{color:colors.textMuted,fontSize:22,lineHeight:24},
   container:{flex:1,backgroundColor:colors.background},scroll:{paddingBottom:spacing.xxl},center:{flex:1,alignItems:'center',justifyContent:'center',padding:spacing.xl},
   inlineListenNotice:{position:'absolute',top:54,left:18,right:18,zIndex:30,minHeight:42,borderRadius:21,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',paddingHorizontal:14},
-  inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  inlineListenNoticeText:{color:colors.keep,fontSize:11,fontWeight:'900',textAlign:'center'},topBar:{minHeight:48,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},ownerTopActions:{flexDirection:'row',alignItems:'center',gap:8},ownerNotificationBadge:{position:'absolute',top:-5,right:-5,minWidth:18,height:18,borderRadius:9,backgroundColor:colors.danger,alignItems:'center',justifyContent:'center',paddingHorizontal:4},ownerNotificationBadgeText:{color:'#FFF',fontSize:9,fontWeight:'900'},back:{width:44,height:44,color:colors.textPrimary,fontSize:32,lineHeight:44,textAlign:'center'},topSpacer:{flex:1},shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},shareTopText:{color:'#FFFFFF',fontSize:18,fontWeight:'900'},moderationOverlay:{flex:1,backgroundColor:'rgba(0,0,0,.72)',alignItems:'center',justifyContent:'center',padding:22},moderationCard:{width:'100%',maxWidth:360,borderRadius:18,backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',paddingVertical:6},moderationTitle:{color:'#F8F6FC',fontSize:13,fontWeight:'900',padding:14,paddingBottom:6},moderationRow:{minHeight:50,justifyContent:'center',paddingHorizontal:16,borderTopWidth:1,borderTopColor:'#2B2038'},moderationRowText:{color:'#F8F6FC',fontSize:14,fontWeight:'700'},moderationRowDanger:{color:'#FF5F83'},kindBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   hero:{paddingHorizontal:18,paddingBottom:16},identity:{flexDirection:'row',alignItems:'flex-start',paddingTop:16},avatar:{width:80,height:80,borderRadius:40,backgroundColor:colors.backgroundCard},avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:29,fontWeight:'800'},identityText:{flex:1,marginLeft:16,minWidth:0,paddingTop:1},usernameLine:{flexDirection:'row',alignItems:'center',gap:9,flexWrap:'wrap',minHeight:34},username:{...typography.h2,color:colors.textPrimary,flexShrink:1},profileMetaRow:{marginTop:10},profileMetaLeft:{alignItems:'flex-start',gap:9},identityMeta:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:5},location:{color:colors.textSecondary,fontSize:13,lineHeight:19,fontWeight:'800'},presencePill:{flexDirection:'row',alignItems:'center',gap:5,minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},presenceDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.textMuted},presenceDotOnline:{backgroundColor:colors.success},presenceText:{color:colors.textMuted,fontSize:10,fontWeight:'800'},presenceTextOnline:{color:colors.success},bio:{color:colors.textPrimary,fontSize:14,lineHeight:20,marginTop:11},
 visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipeButton:{minHeight:52,borderRadius:16,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:12,width:'100%'},visitorSwipeButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'900'},visitorBattleButton:{minHeight:46,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,width:'100%'},visitorBattleButtonText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
 
@@ -2267,7 +2351,7 @@ visitorSwipeMotion:{marginTop:12},visitorBattleMotion:{marginTop:8},visitorSwipe
   discoveryOriginRow:{flexDirection:'row',alignItems:'center',gap:4,flexWrap:'wrap'},discoveryOriginLabel:{color:'#FFFFFF',fontSize:12,fontWeight:'800'},discoveryOriginPill:{minHeight:22,paddingHorizontal:8,borderRadius:11,backgroundColor:'#10251B',borderWidth:1,borderColor:'#38D990',alignItems:'center',justifyContent:'center'},discoveryOriginUser:{color:'#7CF2B9',fontSize:12,fontWeight:'900'},discoveryOriginProtected:{color:'#7CF2B9',fontSize:12,fontWeight:'800'},
   muted:{color:colors.textMuted,fontSize:14,textAlign:'center'},
   modalBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,0.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
-  editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
+  editCard:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},ownerMenuScroll:{maxHeight:500,marginTop:12},ownerMenuRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:10,borderBottomWidth:1,borderBottomColor:colors.border,paddingVertical:9},ownerMenuIcon:{width:28,textAlign:'center',fontSize:17},ownerMenuCopy:{flex:1,minWidth:0},ownerMenuLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},ownerMenuHint:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14,marginTop:2},ownerMenuChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},ownerMenuBack:{alignSelf:'flex-start',minHeight:38,justifyContent:'center'},ownerMenuBackText:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},editTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},cancelButton:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:8},cancelText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},
   pickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:44,paddingHorizontal:10,borderBottomWidth:1,borderBottomColor:'#2B2238'},pickerRowText:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:14,fontWeight:'700'},pickerRowCount:{color:colors.textMuted,fontSize:12,fontWeight:'800',marginLeft:8},
   shareSheet:{width:'100%',maxWidth:520,backgroundColor:'#151020',borderRadius:26,borderWidth:1,borderColor:'#3F3154',padding:18,paddingBottom:24},
   sheetHandle:{width:44,height:4,borderRadius:2,backgroundColor:'#51445F',alignSelf:'center',marginBottom:16},
