@@ -409,6 +409,28 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
         setBusy(false);
       }
     }
+    if (collectionCartPaymentMode === 'MONEY') {
+      const accepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
+      if (!accepted) {
+        Alert.alert(
+          'Conditions des paiements entre utilisateurs',
+          'Loki Music ne reçoit pas l’argent. Le paiement est direct entre acheteur et vendeur. Le vendeur doit vérifier lui-même les fonds avant tout déblocage. Les abus peuvent entraîner retrait de Free, suspension ou bannissement.',
+          [
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            { text: 'ANNULER', style: 'cancel' },
+            {
+              text: 'J’ACCEPTE',
+              onPress: () => {
+                void acceptMarketplacePaymentTerms('playlist_sale_publish')
+                  .then(() => setCollectionCartStep('PUBLISH'))
+                  .catch(() => Alert.alert('Conditions', 'Impossible d’enregistrer ton acceptation pour le moment.'));
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
     setCollectionCartStep('PUBLISH');
   };
 

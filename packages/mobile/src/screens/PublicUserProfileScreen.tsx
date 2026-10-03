@@ -1250,6 +1250,26 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
     setPurchaseBusyId(offer.offerId);
     try {
+      const termsAccepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
+      if (!termsAccepted) {
+        Alert.alert(
+          'Conditions du paiement',
+          'Le paiement est direct entre toi et le vendeur. Tu dois vérifier le montant, envoyer une preuve après paiement et attendre la validation réelle du vendeur. Les fausses déclarations ou abus peuvent entraîner retrait de Free, suspension ou bannissement.',
+          [
+            { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+            { text: 'ANNULER', style: 'cancel' },
+            {
+              text: 'J’ACCEPTE',
+              onPress: () => {
+                void acceptMarketplacePaymentTerms('public_profile_purchase')
+                  .then(() => void buyPlaylistOffer(offer))
+                  .catch(() => Alert.alert('Conditions', 'Impossible d’enregistrer ton acceptation pour le moment.'));
+              },
+            },
+          ],
+        );
+        return;
+      }
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
       // playlist (qui peut être "keep-selection:...").
       const termsAccepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
