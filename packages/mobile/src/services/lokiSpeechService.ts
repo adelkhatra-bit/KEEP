@@ -81,6 +81,11 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           language: options.language || 'fr-FR',
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
+          volume: 1,
+          // TestFlight/iOS : laisser AVSpeechSynthesizer utiliser sa session
+          // système dédiée. La preview Battle est déjà duckée ci-dessus ;
+          // cette option évite que la voix soit étouffée par la session expo-av.
+          ...(Platform.OS === 'ios' ? { useApplicationAudioSession: false } : {}),
           onDone: finish,
           onStopped: finish,
           onError: finish,
