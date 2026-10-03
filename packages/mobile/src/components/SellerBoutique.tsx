@@ -50,6 +50,8 @@ type Props = {
   overlaps: Record<string, PlaylistSaleOverlap>;
   unlockedOfferIds: Set<string>;
   onOpenOffer: (offer: PublicPlaylistSaleOffer) => void;
+  /** Le gros CTA "LES APERÇUS" enchaîne les Pépites à la une en une seule action. */
+  onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
   /** Même composant pour le propriétaire et ses visiteurs : aucune deuxième version du Drop. */
   ownerMode?: boolean;
 };
@@ -130,7 +132,7 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
   );
 }
 
-export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, ownerMode = false }: Props) {
+export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, ownerMode = false }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   // Règle Apple 3.1.1 : pas de vente € de contenu numérique hors achat intégré.
   const visibleOffers = useMemo(
@@ -208,11 +210,16 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         <TouchableOpacity
           style={s.bannerCta}
           onPressIn={unlockWebAudioForGesture}
-          onPress={() => { const first = featured[0] || ranked[0]; if (first) onOpenOffer(first); }}
+          onPress={() => {
+            const queue = featured.length ? featured : ranked.slice(0, 1);
+            if (!queue.length) return;
+            if (onOpenAllOffers) onOpenAllOffers(queue);
+            else onOpenOffer(queue[0]);
+          }}
           accessibilityRole="button"
-          accessibilityLabel="Écouter les aperçus des pépites"
+          accessibilityLabel="Écouter tous les aperçus des pépites à la une"
         >
-          <Text style={s.bannerCtaText}>▶ ÉCOUTER MAINTENANT</Text>
+          <Text style={s.bannerCtaText}>▶ ÉCOUTER LES APERÇUS</Text>
         </TouchableOpacity>
       </View>
 
