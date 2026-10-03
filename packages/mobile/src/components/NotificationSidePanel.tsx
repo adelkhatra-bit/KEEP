@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
@@ -488,6 +488,11 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 
   const openPaymentCheckout = async (item: KeepNotification) => {
     await markRead(item);
+    if (Platform.OS !== 'web') {
+      setPaymentCheckoutItem(null);
+      Alert.alert('Déblocage', 'Le déblocage en euros est disponible sur la version web de Loki Music. Sur mobile, tu peux écouter les aperçus et utiliser les FREE.');
+      return;
+    }
     setPaymentCheckoutItem(item);
     setExpandedId(item.id);
   };
@@ -500,7 +505,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       await markPlaylistSaleBuyerPaid(paymentId);
       await markRead(item);
       setPaymentCheckoutItem(null);
-      Alert.alert('Paiement envoyé', 'Ta preuve a été transmise au vendeur. Il doit maintenant vérifier son compte PayPal puis valider la réception.');
+      Alert.alert('Paiement envoyé', 'Ta preuve a été transmise au propriétaire de la collection. Il doit maintenant vérifier son compte PayPal puis valider la réception.');
       await refresh();
     } catch (error: any) {
       const raw = String(error?.message || error || '');
