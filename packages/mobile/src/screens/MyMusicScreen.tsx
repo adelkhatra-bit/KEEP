@@ -1159,10 +1159,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const stableKey = sellTarget.kind === 'playlist' ? sellTarget.playlist.id : sellTarget.key;
     setSellBusy(true);
     try {
-      const allowExisting = sellTarget.kind === 'selection'
-        && sellTarget.trackIds.some((trackId) => Boolean(myOfferedTrackIds[trackId]));
       const offer = sellTarget.kind === 'selection'
-        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, sellCurrencyCode, allowExisting)
+        ? await setPlaylistSaleOfferForSelection(sellTarget.trackIds, sellTarget.name, sellPaymentMode, amount, sellCurrencyCode, false)
         : sellPaymentMode === 'MONEY'
           ? await setPlaylistSalePrice(sellTarget.playlist.id, sellTarget.playlist.name, sellPriceCents ?? 0, sellCurrencyCode)
           : (() => { throw new Error('FREE_REQUIRES_MULTI_TRACK_SELECTION'); })();
@@ -1185,6 +1183,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
       const raw = String(e?.message || e || '');
       if (raw.includes('FREE_REQUIRES_MULTI_TRACK_SELECTION')) {
         Alert.alert('Collection exclusive', 'Pour utiliser les FREE, crée une collection depuis la sélection multiple de morceaux.');
+      } else if (raw.includes('TRACK_ALREADY_IN_ACTIVE_OFFER')) {
+        Alert.alert('Morceau déjà proposé', 'Un même enregistrement ne peut apparaître que dans une seule collection active. Retire-le de l’ancienne collection ou choisis un autre morceau.');
       } else {
         Alert.alert('Collection', resolveSaleSaveError(raw, saleAccess?.followers, saleAccess?.threshold));
       }
