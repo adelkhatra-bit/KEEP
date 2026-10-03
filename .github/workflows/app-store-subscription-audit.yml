@@ -62,16 +62,28 @@ jobs:
                 productId:sub.attributes?.productId,
                 state:sub.attributes?.state,
                 attributes:sub.attributes,
-                localizations:slimError(loc),
-                prices:slimError(prices),
-                availability:slimError(availability),
-                appStoreReviewScreenshot:slimError(screenshot),
-                introductoryOffers:slimError(intro)
+                localizations:loc?.data ? loc.data.map(x=>({
+                  id:x.id, locale:x.attributes?.locale, name:x.attributes?.name,
+                  description:x.attributes?.description, state:x.attributes?.state
+                })) : slimError(loc),
+                priceCount:prices?.data?.length ?? 0,
+                francePricePresent:!!(prices?.data||[]).some(x=>x.relationships?.territory?.data?.id==='FRA'),
+                availability:availability?.data ? {
+                  id:availability.data.id,
+                  attributes:availability.data.attributes,
+                  relationships:availability.data.relationships
+                } : slimError(availability),
+                appStoreReviewScreenshot:screenshot?.data ? {
+                  id:screenshot.data.id,
+                  attributes:screenshot.data.attributes
+                } : slimError(screenshot),
+                introductoryOfferCount:intro?.data?.length ?? 0
               });
             }
 
             for(const g of (groups.data||[])){
-              g.localizations=slimError(await req('/v1/subscriptionGroups/'+g.id+'/subscriptionGroupLocalizations?limit=50'));
+              const gl=await req('/v1/subscriptionGroups/'+g.id+'/subscriptionGroupLocalizations?limit=50');
+              g.localizations=gl?.data ? gl.data.map(x=>({id:x.id,attributes:x.attributes})) : slimError(gl);
             }
             console.log('=== SUBSCRIPTION AUDIT ===');
             console.log(JSON.stringify(report,null,2));
