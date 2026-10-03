@@ -25,13 +25,13 @@ describe('battleHomeInfo — réponses Battle', () => {
 describe('battleHomeInfo — quota Solo et recharge Free', () => {
   it('dit combien de solos restent, sur combien, et quand ça se recharge', () => {
     const q = soloQuotaCopy({ limit: 3, remaining: 2, unlimited: false, resetsAt: '2026-09-30T00:00:00' })!;
-    expect(q.headline).toBe('Solos : 2 / 3 restants');
-    expect(q.detail).toBe('recharge à 00:00');
+    expect(q.headline).toBe('2 Solos disponibles');
+    expect(q.detail).toContain('journée Battle jusqu’à');
     expect(q.exhausted).toBe(false);
     const done = soloQuotaCopy({ limit: 3, remaining: 0, unlimited: false, resetsAt: null })!;
     expect(done.exhausted).toBe(true);
-    expect(done.headline).toBe('Solos : 0 / 3 restant');
-    expect(soloQuotaCopy({ limit: null, remaining: null, unlimited: true })!.headline).toBe('Solos : illimités');
+    expect(done.headline).toBe('0 Solo disponible');
+    expect(soloQuotaCopy({ limit: null, remaining: null, unlimited: true })!.headline).toBe('Solos disponibles : illimités');
     expect(soloQuotaCopy(null)).toBeNull();
   });
   it('recharge mensuelle = création du profil + tranches de 30 jours (miroir serveur)', () => {
@@ -50,9 +50,9 @@ describe('battleHomeInfo — quota Solo et recharge Free', () => {
   });
 
   it('règle par profil : 10 Solos par jour en gratuit, illimité avec une formule', () => {
-    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'FREE' })!.short).toBe('10 Solos par jour · formule gratuite');
-    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'PREMIUM' })!.short).toBe('10 Solos par jour · Premium');
-    expect(soloPlanRuleCopy({ limit: null, remaining: null, unlimited: true })!.short).toBe('Solos illimités avec ta formule');
+    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'FREE' })!.short).toBe('Disponibles : 9 · quota du jour 10');
+    expect(soloPlanRuleCopy({ limit: 10, remaining: 9, unlimited: false, plan: 'PREMIUM' })!.short).toBe('Disponibles : 9 · quota du jour 10');
+    expect(soloPlanRuleCopy({ limit: null, remaining: null, unlimited: true })!.short).toBe('Solos disponibles : illimités');
     expect(soloPlanRuleCopy(null)).toBeNull();
   });
 });
