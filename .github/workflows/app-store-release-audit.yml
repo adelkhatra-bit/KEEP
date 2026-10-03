@@ -122,14 +122,13 @@ jobs:
             report.pricing={configured:!!price?.data,baseTerritory:price?.data?.relationships?.baseTerritory?.data?.id||null,manualPriceCount:price?.data?.relationships?.manualPrices?.data?.length||0};
 
             const infos=await api('/v1/apps/'+appId+
-              '/appInfos?fields[appInfos]=appStoreState,state,appStoreAgeRating,kidsAgeBand,ageRatingDeclaration,appInfoLocalizations,primaryCategory,secondaryCategory&limit=50');
+              '/appInfos?fields[appInfos]=appStoreState,state,appStoreAgeRating,ageRatingDeclaration,appInfoLocalizations,primaryCategory,secondaryCategory&limit=50');
             report.appInfos=[];
             for(const info of (infos.data||[])){
               const row={
                 id:info.id,
                 state:info.attributes?.state||info.attributes?.appStoreState||null,
-                appStoreAgeRating:info.attributes?.appStoreAgeRating||null,
-                kidsAgeBand:info.attributes?.kidsAgeBand||null
+                appStoreAgeRating:info.attributes?.appStoreAgeRating||null
               };
               const primary=await api('/v1/appInfos/'+info.id+'/primaryCategory',{allow404:true});
               row.primaryCategory=primary?.data?.id||null;
