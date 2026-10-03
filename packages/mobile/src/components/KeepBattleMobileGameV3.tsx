@@ -553,7 +553,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       const packs = await loadKeepBattleSoloPacks();
       if (!packs) {
-        Alert.alert('Recharger mes Solos', 'Les packs de Solos arrivent très bientôt. En attendant, tes Solos se rechargent chaque nuit à 2 h et le Battle en ligne reste disponible.');
+        Alert.alert('Recharger mes Solos', 'Les packs de Solos arrivent très bientôt. Le Battle en ligne reste disponible avec tes Free.');
         return;
       }
       setSoloPacks(packs);
@@ -573,7 +573,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (soloPackBusy) return;
     Alert.alert(
       `${pack.solos} Solos`,
-      `${pack.free} Free seront retirés de ton solde pour ajouter ${pack.solos} Solos. Ils s’ajoutent à tes Solos du jour et restent sur ton compte jusqu’à ce que tu les joues.`,
+      `${pack.free} Free seront retirés une seule fois pour créditer ${pack.solos} Solos immédiatement. Chaque Solo acheté reste disponible jusqu’à utilisation. Quand le pack est épuisé, tu peux en racheter un.`,
       [
         { text: 'Annuler', style: 'cancel' },
         { text: `ACHETER · ${pack.free} FREE`, onPress: () => {
@@ -589,7 +589,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               if (credit) setMyCreditStatus(credit);
               if (packs) setSoloPacks(packs);
               setSoloPacksOpen(false);
-              Alert.alert('Solos rechargés', `+${result.solosAdded} Solos. Il te reste ${result.balance} Free.`);
+              Alert.alert('Pack Solo crédité', `+${result.solosAdded} Solos ajoutés immédiatement. Il te reste ${result.balance} Free.`);
             })
             .catch((e: any) => {
               const message = String(e?.message || '');
@@ -2088,7 +2088,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Recharger mes Solos</Text>
-            <Text style={s.prefsPickerHint}>Choisis un pack pour rejouer tout de suite : le prix est retiré de ton solde de Free quand tu confirmes. Les Solos achetés s’ajoutent et ne se perdent pas. Sans rien payer, tes Solos gratuits reviennent chaque nuit à 2 h.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
+            <Text style={s.prefsPickerHint}>Choisis un pack : 10 ou 25 Solos sont crédités immédiatement après confirmation. Chaque Solo acheté reste sur ton compte jusqu’à utilisation. Un pack ne se recharge jamais automatiquement.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
             {(soloPacks?.packs ?? []).map((pack) => {
               const short = (soloPacks?.balance ?? 0) < pack.free;
               return (
@@ -3231,7 +3231,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               </TouchableOpacity>
             ) : null}
             {soloQuotaCopy(soloDailyStatus)?.exhausted ? (() => { const info = soloRechargeCopy(soloPacks?.packs, soloDailyStatus); return <MoreInfoLine icon="ⓘ" short={info.short} full={info.full} />; })() : null}
-            {(() => { const rule = soloPlanRuleCopy(soloDailyStatus); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
+            {(() => { const rule = soloPlanRuleCopy(soloDailyStatus, soloPacks?.bonusRemaining ?? 0); return rule ? <MoreInfoLine icon="ⓘ" short={rule.short} full={rule.full} /> : null; })()}
             <FreeEarnHelp highlight={insufficientForRoundCount(roundCount)} onShare={() => { void shareInvite(); }} onSolo={() => { void startSolo(); }} onOffers={onOpenOffers} />
           </View>
           {statsExpanded && myPlayerStats ? (
