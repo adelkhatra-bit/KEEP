@@ -31,7 +31,7 @@ import LokiFinishBurst from './LokiFinishBurst';
 import WinnerTrophy3D from './WinnerTrophy3D';
 import FreeEarnHelp from './FreeEarnHelp';
 import LokiMascotVoice from './LokiMascotVoice';
-import { heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadMyMatchPreferences, loadOutgoingBattleChallenges, reportSoloBattleResult, respondBattleChallenge, saveMyMatchPreferences, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
+import { cancelBattleChallenge, heartbeatSoloBattle, KeepBattleIncomingChallenge, KeepBattleLivePlayer, KeepBattleOutgoingChallenge, leaveSoloBattle, loadIncomingBattleChallenges, loadLiveSoloPlayers, loadMyMatchPreferences, loadOutgoingBattleChallenges, reportSoloBattleResult, respondBattleChallenge, saveMyMatchPreferences, sendBattleArenaChallenge, sendBattleChallenge } from '../services/keepBattleLiveService';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUserStore } from '../store/useUserStore';
@@ -685,6 +685,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // bien partie et en attente d'une réponse. Dérivé du même sondage outbox
   // déjà utilisé pour les alertes refusé/expiré -- aucune requête en plus.
   const [outgoingPendingTargetIds, setOutgoingPendingTargetIds] = React.useState<Set<string>>(new Set());
+  const [outgoingPendingByTarget, setOutgoingPendingByTarget] = React.useState<Record<string, KeepBattleOutgoingChallenge>>({});
+  const [cancelChallengeBusyId, setCancelChallengeBusyId] = React.useState<string | null>(null);
   // Adel (03/09/2026) : "l'utilisateur verra dans combien de minutes il
   // pourra renvoyer une invite" -- profileId -> instant exact de déblocage
   // (ms epoch), lu depuis le message d'erreur serveur. Rendu vivant via
@@ -973,7 +975,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setIncoming(inbox);
       if (browseOnline) setOpenSalons(salons);
       setPendingRematch(pendingRematches);
-      setOutgoingPendingTargetIds(new Set(outbox.filter((x) => x.status === 'PENDING').map((x) => x.targetId)));
+      const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
+      setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
+      setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
       // Adel (03/09/2026) : "quand j'appuie sur la croix, ça revient
       // automatiquement ici" -- vrai bug trouvé : keep_battle_challenge_outgoing
       // renvoie l'historique des 10 dernières minutes, donc le DÉFI ACCEPTÉ qui a
