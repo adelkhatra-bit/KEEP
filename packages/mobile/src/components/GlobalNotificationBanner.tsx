@@ -111,6 +111,7 @@ export default function GlobalNotificationBanner() {
   const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
+  const [battleDecisionReady, setBattleDecisionReady] = useState(false);
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
   const [blockingRematch, setBlockingRematch] = useState<KeepBattlePendingRematch | null>(null);
   const battleDecisionPollBusy = useRef(false);
@@ -193,6 +194,16 @@ export default function GlobalNotificationBanner() {
       battleDecisionPollBusy.current = false;
     }
   }, [isDemoMode, isLocalGuest, user?.id]);
+
+  // Empêche un tap déjà en cours sur l'écran précédent de traverser la
+  // modale au moment précis où elle apparaît et de déclencher REFUSER/ACCEPTER.
+  // La décision reste entièrement humaine : boutons activés après 700 ms.
+  useEffect(() => {
+    setBattleDecisionReady(false);
+    if (!blockingChallenge && !blockingRematch) return undefined;
+    const timer = setTimeout(() => setBattleDecisionReady(true), 700);
+    return () => clearTimeout(timer);
+  }, [blockingChallenge?.id, blockingRematch?.arenaId]);
 
   useEffect(() => {
     if (!user?.id || isDemoMode || isLocalGuest) {
@@ -437,10 +448,10 @@ export default function GlobalNotificationBanner() {
             </Text>
             <Text style={styles.battleLockHint}>Cette invitation reste affichée tant que tu n’as pas choisi. Accepte ou refuse pour continuer dans l’application.</Text>
             <View style={styles.battleLockActions}>
-              <TouchableOpacity disabled={respondBusy} style={[styles.battleLockNo, respondBusy && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(false) : answerBlockingRematch(false)); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
+              <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleLockNo, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(false) : answerBlockingRematch(false)); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
                 <Text style={styles.battleLockNoText}>REFUSER</Text>
               </TouchableOpacity>
-              <TouchableOpacity disabled={respondBusy} style={[styles.battleLockYes, respondBusy && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(true) : answerBlockingRematch(true)); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
+              <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleLockYes, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(true) : answerBlockingRematch(true)); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
                 <Text style={styles.battleLockYesText}>{respondBusy ? 'CONNEXION…' : 'ACCEPTER'}</Text>
               </TouchableOpacity>
             </View>
