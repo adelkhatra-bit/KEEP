@@ -538,6 +538,25 @@ export type PlaylistSaleOverlap = {
   missingCount: number;
 };
 
+export type PlaylistSaleProfilePreviewSample = {
+  offerId: string;
+  trackId: string;
+  previewUrl: string;
+};
+
+export async function loadPlaylistSaleProfilePreviewSampler(sellerId: string): Promise<PlaylistSaleProfilePreviewSample[]> {
+  if (!supabase || !sellerId) return [];
+  const { data, error } = await supabase.rpc('keep_playlist_sale_profile_preview_sampler', { p_seller_id: sellerId });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : [])
+    .map((row: any) => ({
+      offerId: String(row.offer_id ?? ''),
+      trackId: String(row.track_id ?? ''),
+      previewUrl: String(row.preview_url ?? ''),
+    }))
+    .filter((row) => row.offerId && row.trackId && row.previewUrl);
+}
+
 export async function loadPlaylistSaleOfferPreviewTracks(playlistId: string, offerId?: string): Promise<PlaylistSalePreviewTrack[]> {
   if (!supabase || !playlistId) return [];
   const rpc = offerId ? 'keep_playlist_sale_offer_preview_tracks_v2' : 'keep_playlist_sale_offer_preview_tracks';
