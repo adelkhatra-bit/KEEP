@@ -1938,6 +1938,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           viewerUsername={user.username}
           suggestions={profileSaleSuggestions}
           onSuggestionPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
+          onOpenSeller={(suggestion) => navigation.navigate('PublicProfile', { username: suggestion.sellerUsername })}
         />
       ) : null}
 
