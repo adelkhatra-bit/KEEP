@@ -11,6 +11,8 @@
 // (identité, coordonnées bancaires/fiscales) qu'aucun outil tiers ne peut
 // faire à sa place -- seule la RECHERCHE de la bonne page est automatisée.
 export const INTEGRATION_PROVIDER_LINKS: Record<string, { label: string; url: string }> = {
+  RESEND_API_KEY: { label: 'Resend — clé API', url: 'https://resend.com/api-keys' },
+  EMAIL_SENDER_ADDRESS: { label: 'Resend — domaines / expéditeurs', url: 'https://resend.com/domains' },
   BREVO_API_KEY: { label: 'Brevo — clé API', url: 'https://app.brevo.com/settings/keys/api' },
   BREVO_SMTP_KEY: { label: 'Brevo — clé SMTP', url: 'https://app.brevo.com/settings/keys/smtp' },
   BREVO_SMTP_LOGIN: { label: 'Brevo — clé SMTP', url: 'https://app.brevo.com/settings/keys/smtp' },
