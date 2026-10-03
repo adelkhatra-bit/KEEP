@@ -127,7 +127,7 @@ function notificationTypeLabel(type: string) {
   return key.replace(/_/g, ' ');
 }
 
-export default function NotificationsScreen({ navigation }: any) {
+export default function NotificationsScreen({ navigation, route }: any) {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
@@ -141,6 +141,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
+  const handledFocusNotificationId = useRef<string>('');
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [chatNotificationsEnabled, setChatNotificationsEnabled] = useState(true);
@@ -658,6 +659,16 @@ export default function NotificationsScreen({ navigation }: any) {
       return;
     }
   };
+
+  useEffect(() => {
+    const focusId = String(route?.params?.focusNotificationId || '').trim();
+    if (!focusId || handledFocusNotificationId.current === focusId || !items.length) return;
+    const target = items.find((item) => item.id === focusId);
+    if (!target) return;
+    handledFocusNotificationId.current = focusId;
+    navigation.setParams?.({ focusNotificationId: undefined });
+    void openNotification(target);
+  }, [route?.params?.focusNotificationId, items]);
 
   const readAll = async () => {
     if (!user) return;
