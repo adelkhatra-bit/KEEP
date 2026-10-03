@@ -22,6 +22,9 @@ describe('Loki Music Swipe audio lifecycle', () => {
     expect(modal).toContain('if (isTrackPreviewActive(playbackKey)) return;');
     expect(modal).toContain('setAutoplayBlocked(true)');
     expect(modal).toContain('▶ ÉCOUTER L’EXTRAIT');
+    expect(modal).toContain('playTrackPreviewFromGesture');
+    expect(service).toContain('playTrackPreviewFromGesture');
+    expect(service).toContain('playPromise = element.play()');
   });
 
   it('invalidates the previous card and stops its audio before advancing', () => {
