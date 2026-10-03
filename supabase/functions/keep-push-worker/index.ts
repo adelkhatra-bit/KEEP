@@ -6,6 +6,7 @@ type PendingNotification = {
   profile_id: string;
   title: string;
   body: string | null;
+  type?: string | null;
   data: Record<string, unknown> | null;
   push_attempt_count: number | null;
 };
@@ -36,7 +37,7 @@ function isMoneyNotification(data: Record<string, unknown> | null) {
 }
 
 function notificationCategory(notification: PendingNotification) {
-  const type = String(notification.data?.type || notification.data?.event || "").toUpperCase();
+  const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
   if (isMoneyNotification(notification.data)) return "money";
   if (type.includes("BATTLE")) return "battle";
   if (type.includes("EVENT")) return "events";
@@ -102,6 +103,11 @@ async function processPending() {
   const { data, error } = await db.rpc("keep_push_claim_batch", { p_limit: 50 });
   if (error) throw error;
   const pending = (Array.isArray(data) ? data : []) as PendingNotification[];
+  if (pending.length) {
+    const { data: typedRows } = await db.from("notifications").select("id,type").in("id", pending.map((item) => item.id));
+    const typeById = new Map((typedRows || []).map((row: any) => [String(row.id), String(row.type || "")]));
+    pending.forEach((item) => { item.type = typeById.get(item.id) || null; });
+  }
   let sent = 0, noDevice = 0, errors = 0;
 
   for (const notification of pending) {
@@ -134,7 +140,12 @@ async function processPending() {
         to,
         title: notification.title,
         body: notification.body || "",
-        data: notification.data || {},
+        data: {
+          ...(notification.data || {}),
+          notificationId: notification.id,
+          notificationType: notification.type || notification.data?.type || notification.data?.event || "",
+          type: notification.type || notification.data?.type || notification.data?.event || "",
+        },
         ...(pref.sound ? { sound: pref.sound } : {}),
         priority: "high",
         channelId: pref.channelId,
