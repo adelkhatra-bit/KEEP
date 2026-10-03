@@ -16,9 +16,9 @@ describe('Battle result voice and Solo exit contract', () => {
 
   it('uses more of the Solo screen and lowers the answer grid', () => {
     expect(battle).toContain('style={[s.visual, s.soloVisual]}');
-    expect(battle).toContain('soloVisual: { height: 168 }');
-    expect(battle).toContain('soloQuestion: { marginTop: 14 }');
-    expect(battle).toContain('soloAnswers: { marginTop: 10 }');
+    expect(battle).toContain("soloVisual: { height: undefined, width: '100%', maxWidth: 330, aspectRatio: 1, alignSelf: 'center' }");
+    expect(battle).toContain('soloQuestion: { marginTop: 18 }');
+    expect(battle).toContain('soloAnswers: { marginTop: 14, paddingBottom: 4 }');
   });
 
   it('automatically ducks preview audio and uses a more natural French voice', () => {
