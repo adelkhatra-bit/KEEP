@@ -79,6 +79,26 @@ function isExplicitDeletionFlow(file, text) {
   return allowedPath && text.includes(CONFIG.explicitDeletionMarker);
 }
 
+function isExactMigrationRelocation(file, range) {
+  const base = String(range || '').split('..')[0];
+  if (!/^[0-9a-f]{40}$/i.test(base)) return false;
+  const oldContent = git(['show', base + ':' + file]);
+  if (!oldContent) return false;
+
+  const migrationDir = path.join(ROOT, 'supabase', 'migrations');
+  let names = [];
+  try { names = fs.readdirSync(migrationDir); } catch { return false; }
+  return names.some((name) => {
+    if (!name.endsWith('.sql')) return false;
+    const candidate = path.join(migrationDir, name);
+    try {
+      return fs.readFileSync(candidate, 'utf8') === oldContent;
+    } catch {
+      return false;
+    }
+  });
+}
+
 function findViolations(file, lines) {
   const text = lines.join('\n');
   if (!text.trim()) return [];
@@ -172,6 +192,10 @@ for (const entry of entries) {
   if (entry.file === 'scripts/verify-data-preservation.cjs') continue;
 
   if (/^supabase\/migrations\/.+\.sql$/i.test(entry.file) && !/^A/.test(entry.status)) {
+    // Renumbering an accidentally duplicated migration version is safe only
+    // when the exact SQL bytes are already preserved under another migration
+    // filename. Any real edit/removal remains blocked.
+    if (/^D/.test(entry.status) && isExactMigrationRelocation(entry.file, range)) continue;
     failures.push(entry.file + ': existing migration history is immutable; create a new additive migration');
     continue;
   }
