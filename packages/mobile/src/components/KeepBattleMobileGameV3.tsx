@@ -449,6 +449,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // si le réseau retry, une session ne peut jamais compter deux fois.
   const soloDailySessionTokenRef = React.useRef('');
   const soloDailyConsumedRef = React.useRef(false);
+  // Une URL audio iOS morte ne doit jamais laisser les quatre réponses
+  // bloquées. Une seule tentative de remplacement automatique par manche.
+  const soloAudioReplacementRef = React.useRef(new Set<string>());
   const [soloDailyStarted, setSoloDailyStarted] = React.useState(false);
   const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
@@ -920,9 +923,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }).catch(() => {});
   }, [enabled, initialArenaId, arena]);
 
-  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS, positionMillis = 0): Promise<boolean> => {
+  const playVerified = React.useCallback(async (key: string, url?: string | null, duration = ROUND_MS, positionMillis = 0, maxAttempts = 2): Promise<boolean> => {
     if (!url) return false;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < Math.max(1, maxAttempts); attempt += 1) {
       // Adel (22/09/2026, audit latence) : le premier essai garde `key` tel
       // quel (sans suffixe) pour pouvoir correspondre à un préchargement
       // lancé pendant la pause précédente (voir preloadTrackPreviewSegment /
@@ -1130,23 +1133,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       });
     }
     const start = async () => {
-      // Adel : "Battle solo, il n'y a pas de son" -- playVerified() épuise 4
-      // tentatives sur la MÊME URL avant d'échouer ; sans ce filet, un extrait
-      // mort (Apple peut invalider une previewUrl à tout moment, voir
-      // trackPreviewResolver.ts) bloquait la manche en silence pour toujours,
-      // le reste de l'UI étant verrouillé tant que audioReady est false.
+      // TestFlight : ne jamais multiplier les retries natifs. Un premier essai,
+      // puis une ré-résolution de l'URL ; si les deux échouent, on remplace le
+      // morceau au lieu de laisser les quatre réponses désactivées.
       let url = round.previewUrl;
-      for (let cycle = 0; alive && cycle < 3; cycle += 1) {
-        // Le cycle 0 (cas normal, pas de ré-résolution d'URL) garde la clé
-        // stable soloRoundPreviewKey(...) pour pouvoir consommer un
-        // préchargement lancé pendant la pause de la manche précédente.
-        const cycleKey = cycle === 0 ? soloRoundPreviewKey(round.trackId, soloIndex) : `solo:${round.trackId}:${soloIndex}:cycle${cycle}`;
-        const ok = await playVerified(cycleKey, url, ROUND_MS + 800);
+      for (let cycle = 0; alive && cycle < 2; cycle += 1) {
+        const cycleKey = cycle === 0 ? soloRoundPreviewKey(round.trackId, soloIndex) : `solo:${round.trackId}:${soloIndex}:fresh`;
+        const ok = await playVerified(cycleKey, url, ROUND_MS + 800, 0, 1);
         if (!alive) return;
         if (ok) {
           if (soloIndex === 0 && !soloDailyConsumedRef.current) {
-            // Lock before await so two overlapping React effects cannot both
-            // consume. Server token is the second idempotency barrier.
             soloDailyConsumedRef.current = true;
             try {
               const consumed = await consumeKeepBattleSoloDailyStart(soloDailySessionTokenRef.current);
@@ -1164,33 +1160,52 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             }
           }
           setAudioReady(true);
-          soloStartedAtRef.current = Date.now(); setSoloStartedAt(soloStartedAtRef.current);
+          soloStartedAtRef.current = Date.now();
+          setSoloStartedAt(soloStartedAtRef.current);
           return;
         }
-        if (cycle < 2) {
+        if (cycle === 0) {
           try {
             const fresh = await resolveTrackPreviewUrl(
               { id: round.trackId, title: round.title, artist: round.artist, previewUrl: url } as any,
               { forceRefresh: true },
             );
             if (fresh) url = fresh;
-          } catch { /* on retente avec l'URL déjà en main */ }
-          await wait(650);
+          } catch {}
+          await wait(250);
         }
       }
       if (!alive) return;
-      // BUG MINEUR trouvé en audit runtime (Adel, 22/09/2026) : cette manche
-      // disparaissait silencieusement (seulement un console.warn, invisible
-      // pour le joueur) -- vu depuis l'app, la manche saute sans explication,
-      // exactement ce qui ressemble à "l'app casse". On prévient maintenant
-      // clairement avant de passer à la suivante.
-      console.warn(`[Battle SOLO] extrait indisponible manche ${soloIndex + 1}/${solo?.rounds.length}, passage à la suivante`);
-      Alert.alert('Manche sautée', 'Ce morceau est momentanément indisponible -- passage à la manche suivante.');
-      setSoloIndex((v) => v + 1);
+
+      const replacementKey = `${soloDailySessionTokenRef.current}:${soloIndex}`;
+      if (!soloAudioReplacementRef.current.has(replacementKey)) {
+        soloAudioReplacementRef.current.add(replacementKey);
+        try {
+          const replacementPack = await loadKeepBattleSoloPack('MIX', roundCount, myPreferredThemes);
+          if (!alive) return;
+          const alreadyUsed = new Set((solo?.rounds || []).slice(0, soloIndex + 1).map((item) => item.trackId));
+          const replacement = replacementPack.rounds.find((item) => item.previewUrl && !alreadyUsed.has(item.trackId));
+          if (replacement) {
+            setSolo((previous) => previous ? {
+              ...previous,
+              rounds: previous.rounds.map((item, index) => index === soloIndex ? replacement : item),
+            } : previous);
+            return;
+          }
+        } catch {}
+      }
+
+      // Dernier filet : ne jamais incrémenter soloIndex directement (cela
+      // pouvait dépasser la dernière manche et casser le rendu). Le flux
+      // normal de fin de manche fait avancer proprement après ce verdict.
+      console.warn(`[Battle SOLO] audio indisponible manche ${soloIndex + 1}/${solo?.rounds.length}`);
+      Alert.alert('Audio indisponible', 'Loki n’arrive pas à lire ce morceau. La manche passe automatiquement sans bloquer la partie.');
+      recordSoloAnswer('__AUDIO_ERROR__');
+      animateResult();
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, playVerified, pausedSoloRemaining]);
+  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, playVerified, pausedSoloRemaining, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
   const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
@@ -1700,6 +1715,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }
       soloDailySessionTokenRef.current = `solo-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
       soloDailyConsumedRef.current = false;
+      soloAudioReplacementRef.current.clear();
       setSoloDailyStarted(false);
       answeredRoundRef.current = -1;
       setSaveSessionEnabled(saveSession);
@@ -2505,6 +2521,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   if (solo) {
     const round = solo.rounds[soloIndex];
     const timeout = soloAnswer === '__TIMEOUT__';
+    const audioError = soloAnswer === '__AUDIO_ERROR__';
     const answered = Boolean(soloAnswer);
     const correct = soloAnswer === 'CORRECT';
     const attempts = soloIndex + (answered ? 1 : 0);
@@ -2615,7 +2632,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       ) : null}
       <ScrollView scrollEnabled bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
       <Animated.View style={[s.card, s.soloCardActive, { transform: [{ scale: pulse }] }]}>
-        <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
+        <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{answered ? <View style={s.result}><Text style={audioError ? s.roundNoWinner : correct ? s.good : s.bad}>{audioError ? 'MANCHE ANNULÉE · AUDIO' : correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
         <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
         {!incoming[0] && pendingRematch[0] ? <Animated.View style={[s.invite, { transform: [{ scale: pulse }] }]}><View style={s.inviteHead}><View style={{ flex: 1 }}><Text style={s.inviteQuestion}>🔁 Revanche avec {pendingRematch[0].participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. On repart ?</Text><Text style={s.inviteLabel}>⚡ {themeLabel(pendingRematch[0].themeCode)} · RÉPONSE OBLIGATOIRE</Text></View></View><View style={s.inviteActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Refuser la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.no, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], false); }}><Text style={s.noText}>REFUSER</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="Accepter la revanche" hitSlop={10} disabled={Boolean(rematchBannerBusyId)} style={[s.yes, rematchBannerBusyId && s.actionDisabled]} onPress={() => { void respondPendingRematch(pendingRematch[0], true); }}><Text style={s.yesText}>{rematchBannerBusyId === pendingRematch[0].arenaId ? 'CONNEXION…' : 'ACCEPTER'}</Text></TouchableOpacity></View></Animated.View> : null}
