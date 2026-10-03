@@ -3144,7 +3144,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const rankBadge = rank === 1 ? '🏆' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank ? `#${rank}` : null;
         const preferredLabel = p.preferredThemeCodes.length === 1 && p.preferredThemeCodes[0] === 'MIX' ? 'Mix' : p.preferredThemeCodes.map((c) => themeLabel(c)).join(', ');
         const short = insufficientForOpponent(p);
-        const sent = outgoingPendingTargetIds.has(p.profileId);
+        const pendingInvite = outgoingPendingByTarget[p.profileId];
+        const sent = Boolean(pendingInvite);
+        const inviteRemaining = pendingInvite ? Math.max(0, new Date(pendingInvite.expiresAt).getTime() - now) : 0;
+        const cancelling = Boolean(pendingInvite && cancelChallengeBusyId === pendingInvite.id);
         const blockedMs = (inviteBlockedUntil[p.profileId] || 0) - now;
         const blocked = blockedMs > 0;
         const sending = challengeBusyId === p.profileId;
@@ -3157,8 +3160,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const inSolo = soloRemaining > 0;
         const approxSeconds = soloRemaining * Math.ceil((ROUND_MS + 800) / 1000);
         const waitLabel = approxSeconds >= 60 ? `~${Math.ceil(approxSeconds / 60)} min` : `~${approxSeconds}s`;
-        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : sent ? (inSolo ? `En attente · SOLO ${soloRemaining}` : 'En attente') : short ? 'Crédits insuffisants' : inSolo ? `SOLO · ${soloRemaining} restant${soloRemaining > 1 ? 's' : ''} · ${waitLabel}` : 'Disponible';
-        return <TouchableOpacity key={p.profileId} accessibilityRole="checkbox" accessibilityState={{ checked: selected, disabled: !selectable }} disabled={!selectable} activeOpacity={0.82} onPress={() => toggleBattlePlayerSelection(p)} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
+        const statusLabel = sending ? 'Envoi…' : blocked ? `Bloqué ${formatInviteCooldown(blockedMs)}` : pendingInvite ? `ANNULER · ${formatInviteCooldown(inviteRemaining)}` : short ? 'Crédits insuffisants' : inSolo ? `SOLO · ${soloRemaining} restant${soloRemaining > 1 ? 's' : ''} · ${waitLabel}` : 'Disponible';
+        return <TouchableOpacity key={p.profileId} accessibilityRole={sent ? 'button' : 'checkbox'} accessibilityState={{ checked: selected, disabled: !selectable && !sent }} disabled={!selectable && !sent} activeOpacity={0.82} onPress={() => { if (pendingInvite) requestCancelOutgoingChallenge(pendingInvite); else toggleBattlePlayerSelection(p); }} style={[s.browsePlayer, selected && s.browsePlayerSelected, short && s.browsePlayerIneligible]}>
           <TouchableOpacity
             accessibilityRole="checkbox"
             accessibilityState={{ checked: selected, disabled: !selectable }}
@@ -3176,7 +3179,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             {/* Adel (09/09/2026) : "j'ai envoye une invite a un utilisateur qui n'a pas assez de Free, pourquoi il est visible ?" -- averti ici, avant meme de cocher la case. */}
             <Text style={[s.browseMeta, short && s.browseMetaShort]}>{short ? `🎁 Pas assez de Free (${p.remainingFree}/${stakeForRounds(roundCount)})` : inSolo ? `🎧 Partie en cours · invitation après le Solo` : `🎯 Accepte : ${preferredLabel} · ${p.preferredRoundCount} morceaux`}</Text>
           </View>
-          <View style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted]}>{statusLabel}</Text></View>
+          <TouchableOpacity disabled={!pendingInvite || cancelling} onPress={(event) => { event.stopPropagation(); if (pendingInvite) requestCancelOutgoingChallenge(pendingInvite); }} style={[s.battleStatusBadge, (short || blocked) && s.battleStatusBadgeMuted, pendingInvite && s.battleStatusBadgeCancel]}><Text style={[s.battleStatusBadgeText, (short || blocked) && s.battleStatusBadgeTextMuted, pendingInvite && s.battleStatusBadgeCancelText]}>{cancelling ? 'ANNULATION…' : statusLabel}</Text></TouchableOpacity>
         </TouchableOpacity>;
       })}</View> : <View style={s.waiting}><Text style={s.trophy}>♫</Text><Text style={s.winner}>Aucun joueur solo visible</Text><Text style={s.waitText}>La liste se rafraîchit automatiquement.</Text><TouchableOpacity style={s.shareButton} onPress={() => { void shareInvite(); }}><Text style={s.shareButtonText}>INVITER UN AMI</Text></TouchableOpacity></View>}
       </ScrollView>
