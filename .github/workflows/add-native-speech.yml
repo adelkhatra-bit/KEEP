@@ -31,4 +31,6 @@ jobs:
           git add packages/mobile/package.json package-lock.json
           git diff --cached --quiet && exit 0
           git commit -m "fix(mobile): add native Loki speech"
+          git fetch origin reconcile/claude-main-20260825
+          git rebase origin/reconcile/claude-main-20260825
           git push origin HEAD:reconcile/claude-main-20260825
