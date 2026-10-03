@@ -5,7 +5,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
-import { analyzeLibrary, canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
+import { analyzeLibrary, canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, groupTracksByArtist, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
 import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';

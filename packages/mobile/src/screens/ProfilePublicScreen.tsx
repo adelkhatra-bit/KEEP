@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import QRCode from 'react-native-qrcode-svg';
-import { canonicalArtistIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
+import { canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
