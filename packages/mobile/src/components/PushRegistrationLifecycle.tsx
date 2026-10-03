@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppState } from 'react-native';
-import { registerForPushNotifications } from '../services/pushNotificationService';
+import { listenForExpoPushTokenChanges, registerForPushNotifications } from '../services/pushNotificationService';
 import { supabase } from '../services/supabaseClient';
 
 /**
@@ -36,6 +36,8 @@ export default function PushRegistrationLifecycle() {
     // iOS peut faire évoluer/régénérer le token après une mise à jour,
     // un changement de profil de provisioning ou un retour depuis Réglages.
     // À chaque retour au premier plan, republier le token réel au serveur.
+    const stopTokenListener = listenForExpoPushTokenChanges();
+
     const appState = AppState.addEventListener('change', (state) => {
       if (state !== 'active' || !alive) return;
       void supabase?.auth.getSession().then(({ data }) => {
@@ -47,6 +49,7 @@ export default function PushRegistrationLifecycle() {
       alive = false;
       if (retry) clearTimeout(retry);
       listener.subscription.unsubscribe();
+      stopTokenListener();
       appState.remove();
     };
   }, []);
