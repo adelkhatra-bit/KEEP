@@ -85,10 +85,18 @@ describe('Non-régression : les identifiants techniques internes gardent "KEEP"/
 describe('Branding produit visible -- Loki Music uniquement', () => {
   const appJson = JSON.parse(readNormalized(__dirname, '..', '..', '..', 'app.json'));
   const adminBrand = readNormalized(__dirname, '..', '..', '..', '..', 'admin', 'lib', 'brand.ts');
+  const adminUsers = readNormalized(__dirname, '..', '..', '..', '..', 'admin', 'pages', 'users.tsx');
 
   it("l'application visible reste Loki Music", () => {
     expect(appJson.expo.name).toBe('Loki Music');
     expect(adminBrand).toContain("export const APP_NAME = 'Loki Music'");
+  });
+
+  it('les libellés visibles Super Admin utilisent LOKI, jamais KEEP', () => {
+    expect(adminUsers).toContain('`LOKI-${id.replace(/-/g, \'\').slice(0, 12).toUpperCase()}`');
+    expect(adminUsers).toContain('n° LOKI…');
+    expect(adminUsers).not.toContain('`KEEP-${id.replace(/-/g, \'\').slice(0, 12).toUpperCase()}`');
+    expect(adminUsers).not.toContain('n° KEEP…');
   });
 
   it('KEEP reste uniquement un identifiant technique historique', () => {
