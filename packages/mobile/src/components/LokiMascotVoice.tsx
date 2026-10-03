@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { mascotLine, type MascotMood } from '../services/battleHomeInfo';
-import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from '../services/audioPreviewService';
 import { speakLokiText, stopLokiSpeech } from '../services/lokiSpeechService';
 
 // Adel (29/09/2026) : « un dessin animé avec une voix off, selon le score :
@@ -32,33 +31,20 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false, t
   const bounce = useRef(new Animated.Value(0)).current;
   const blink = useRef(new Animated.Value(1)).current;
   const mouth = useRef(new Animated.Value(0)).current;
-  const duckTokenRef = useRef<number | null>(null);
-
-  const releaseDuck = useCallback((token: number | null) => {
-    if (token === null) return;
-    void restoreActivePreviewAfterSpeech(token).catch(() => {});
-  }, []);
-
   const speak = useCallback(async () => {
-    let duckToken: number | null = null;
     try {
-      const previous = duckTokenRef.current;
-      duckTokenRef.current = null;
-      releaseDuck(previous);
       await stopLokiSpeech().catch(() => {});
-
-      duckToken = await duckActivePreviewForSpeech(0.14).catch(() => null);
-      duckTokenRef.current = duckToken;
       setSpeaking(true);
+      // Le service Loki est l'unique propriétaire du ducking/restauration.
+      // Éviter un deuxième jeton ici : deux duckings imbriqués pouvaient
+      // laisser la preview bloquée à faible volume après la voix.
       await speakLokiText(line.text, { language: 'fr-FR', pitch: 1.02, rate: 0.94 });
     } catch {
       // Voice is optional.
     } finally {
-      if (duckTokenRef.current === duckToken) duckTokenRef.current = null;
       setSpeaking(false);
-      releaseDuck(duckToken);
     }
-  }, [line.text, releaseDuck]);
+  }, [line.text]);
 
   useEffect(() => {
     let live = true;
@@ -68,11 +54,8 @@ export default function LokiMascotVoice({ correct, total, allTimeouts = false, t
       live = false;
       clearTimeout(t);
       void stopLokiSpeech().catch(() => {});
-      const token = duckTokenRef.current;
-      duckTokenRef.current = null;
-      releaseDuck(token);
     };
-  }, [speak, releaseDuck]);
+  }, [speak]);
 
   useEffect(() => {
     if (reduceMotion) return undefined;
