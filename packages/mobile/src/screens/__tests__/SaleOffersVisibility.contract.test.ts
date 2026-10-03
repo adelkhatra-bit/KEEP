@@ -30,6 +30,19 @@ describe('ventes : collections compactes, prix juste', () => {
     expect(panel).toContain('route?.params?.manageSaleOfferId');
   });
 
+  it('sépare les ventes privées du chat des Drops publics sur le profil propriétaire', () => {
+    const owner = read('ProfilePublicScreen.tsx');
+    expect(owner).toContain("!offer.playlistId.startsWith('keep-chat:')");
+    expect(owner).toContain("offer.playlistId.startsWith('keep-chat:')");
+    expect(owner).toContain('VENTES PRIVÉES DU CHAT');
+    expect(owner).toContain("setPlaylistSaleOffers(rows)");
+  });
+
+  it('le profil visité ne recommande jamais son propre vendeur une deuxième fois', () => {
+    const visitor = read('PublicUserProfileScreen.tsx');
+    expect(visitor).toContain("rows.filter((row) => row.sellerId !== profile?.id)");
+  });
+
   it('le vendeur ouvre sa propre Pépite directement, sans popup achat', () => {
     const owner = read('ProfilePublicScreen.tsx');
     expect(owner).toContain('loadOwnPlaylistSaleOfferTracks(offer.offerId)');

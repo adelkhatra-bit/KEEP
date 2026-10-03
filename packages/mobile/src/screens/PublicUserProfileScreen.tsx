@@ -347,7 +347,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     let live = true;
     loadProfileSaleSuggestions(8)
-      .then((rows) => { if (live) setProfileSaleSuggestions(rows); })
+      .then((rows) => { if (live) setProfileSaleSuggestions(rows.filter((row) => row.sellerId !== profile?.id)); })
       .catch(() => { if (live) setProfileSaleSuggestions([]); });
     return () => { live = false; };
   }, [effectiveViewerId, marketBannerOffersLoaded, saleOffers.length, profile?.id]);
