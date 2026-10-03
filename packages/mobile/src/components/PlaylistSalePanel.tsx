@@ -460,7 +460,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
         collectionCartPaymentMode,
         amount,
         collectionCartCurrencyCode,
-        collectionCartDuplicateCount > 0,
+        false,
       );
       await loadData();
       resetCollectionCart();
@@ -480,6 +480,9 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       } else if (raw.includes('TERMS_ACCEPTANCE_REQUIRED')) {
         setCollectionCartStep('PRICE');
         chooseMoneyModeWithTerms(() => { void publishCollectionCart(); });
+      } else if (raw.includes('TRACK_ALREADY_IN_ACTIVE_OFFER')) {
+        setCollectionCartStep('TRACKS');
+        Alert.alert('Morceau déjà dans une collection', 'Un même enregistrement ne peut pas être proposé dans deux collections actives. Les morceaux concernés restent dans leur collection actuelle.');
       } else {
         Alert.alert('Publication', raw || 'Impossible de publier cette collection.');
       }
