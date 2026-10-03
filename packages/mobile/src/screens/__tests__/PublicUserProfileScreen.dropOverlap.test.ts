@@ -30,6 +30,13 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(source).toContain("isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'");
   });
 
+  it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {
+    expect(boutique).toContain('onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;');
+    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
+    expect(boutique).toContain('if (onOpenAllOffers) onOpenAllOffers(queue);');
+    expect(source).toContain('onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}');
+  });
+
   it('lance l’écoute en un seul clic depuis les ronds de style et les points du Drop', () => {
     expect(boutique).toContain("const first = ranked.find((offer) => (offer.genres || []).includes(genre))");
     expect(boutique).toContain("if (first) onOpenOffer(first);");
