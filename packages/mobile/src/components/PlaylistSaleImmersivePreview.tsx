@@ -5,7 +5,7 @@ import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
-import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
+import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -140,11 +140,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     setPlaying(false);
     setPreviewError(null);
     let live = true;
-    if (!ownerMode) {
-      void loadMarketplacePaymentTermsAccepted()
-        .then((accepted) => { if (live) setWaiverAccepted(Boolean(accepted)); })
-        .catch(() => { if (live) setWaiverAccepted(false); });
-    }
+    // Toujours décochée à chaque ouverture : cette transaction exige un geste
+    // explicite, même si le compte avait accepté les CGU auparavant.
     Promise.all([
       loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId),
       loadPlaylistSaleOfferOverlap(offer.offerId).catch(() => null),
@@ -487,9 +484,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                 style={[s.buyButton, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}
                 onPress={() => onConfirmPurchase(offer)}
-                accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : `Révéler cette collection et ajouter les nouveaux morceaux à mon Loki Music, ${priceLabel}`}
+                accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : freeAccess ? `Débloquer la collection avec ${priceLabel}` : `Commencer ma transaction PayPal, ${priceLabel}`}
               >
-                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : !waiverAccepted ? 'ACCEPTE LES CONDITIONS POUR CONTINUER' : `RÉVÉLER + AJOUTER · ${priceLabel}`}</Text>
+                <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : !waiverAccepted ? 'ACCEPTE LES CONDITIONS POUR CONTINUER' : freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}` : `COMMENCER MA TRANSACTION · ${priceLabel}`}</Text>
               </TouchableOpacity>
               </Animated.View>
               {!freeAccess ? <Text style={s.noRefund}>{expanded.refund ? NO_REFUND_FULL : 'Aucun remboursement après déblocage.'}<MoreToggle open={Boolean(expanded.refund)} onToggle={() => toggleMore('refund')} /></Text> : null}

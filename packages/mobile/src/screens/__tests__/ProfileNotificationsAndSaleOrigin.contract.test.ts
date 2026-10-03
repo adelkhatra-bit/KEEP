@@ -58,6 +58,12 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(block).toContain('setExpandedMenuItem(key)');
   });
 
+  it('keeps transaction receipts reachable from the profile hamburger', () => {
+    expect(profile).toContain("key: 'receipts'");
+    expect(profile).toContain('Reçus & transactions');
+    expect(profile).toContain("openFromMenu('PlaylistSale', { openPaymentHistory: true })");
+  });
+
   it('shows social tracks as share-only and visibly locked for resale', () => {
     expect(myMusic).toContain('🔒 PARTAGE SEUL');
     expect(myMusic).toContain('Partage autorisé · vente FREE/€ bloquée');

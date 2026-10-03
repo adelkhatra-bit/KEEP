@@ -43,7 +43,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   it('keeps explicit confirmation but uses short FREE wording', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
     expect(source).toContain('setWaiverAccepted(false);');
-    expect(source).toContain("loadMarketplacePaymentTermsAccepted()");
+    expect(source).not.toContain("loadMarketplacePaymentTermsAccepted()");
     expect(source).toContain("acceptMarketplacePaymentTerms('playlist_sale')");
     expect(source).toContain('CONDITIONS À ACCEPTER');
     expect(source).toContain('CONDITIONS ACCEPTÉES');
@@ -64,7 +64,8 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   });
 
   it('uses a concise unlock CTA and never a generic purchase label', () => {
-    expect(source).toContain('RÉVÉLER + AJOUTER · ${priceLabel}');
+    expect(source).toContain('DÉBLOQUER LA COLLECTION · ${priceLabel}');
+    expect(source).toContain('COMMENCER MA TRANSACTION · ${priceLabel}');
     expect(source).toContain('FREE INSUFFISANTS');
     expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);

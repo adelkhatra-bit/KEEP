@@ -97,6 +97,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'music', icon: '🎧', label: 'Services', hint: 'Spotify · Deezer · YouTube Music · SoundCloud' },
       { key: 'offers', icon: '💳', label: 'Free', hint: 'Solde · formule · avantages' },
       { key: 'sellPlaylists', icon: '◆', label: 'Collections', hint: 'Créer · publier · gérer' },
+      { key: 'receipts', icon: '🧾', label: 'Reçus & transactions', hint: 'FREE · PayPal · références Loki' },
       { key: 'creator', icon: '🪪', label: 'Créateur', hint: 'Type · outils · événements' },
     ],
   },
@@ -1630,6 +1631,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <Text style={s.shareTitle}>Mes collections exclusives</Text>
       <Text style={s.shareSubtitle}>Un seul parcours : crée une collection de plusieurs morceaux, donne-lui un titre, puis choisis obligatoirement € ou FREE. En euros, ton mode de paiement personnel doit être configuré. En FREE, aucun lien bancaire n’est nécessaire et tu facilites les déblocages, les écoutes et la croissance de ta communauté.</Text>
       <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('PlaylistSale')} accessibilityLabel="Collections"><Text style={s.shareActionPrimaryText}>GÉRER MES COLLECTIONS</Text></MotionActionButton>
+    </>;
+
+    if (key === 'receipts') return <>
+      <Text style={s.shareTitle}>Reçus & transactions</Text>
+      <Text style={s.shareSubtitle}>Retrouve les transactions Loki Music : date, montant, statut et référence. Pour PayPal, le reçu bancaire officiel reste celui de PayPal ou du vendeur.</Text>
+      <MotionActionButton variant="primary" size="medium" onPress={() => openFromMenu('PlaylistSale', { openPaymentHistory: true })} accessibilityLabel="Ouvrir mes reçus et transactions"><Text style={s.shareActionPrimaryText}>OUVRIR MES REÇUS</Text></MotionActionButton>
     </>;
 
     if (key === 'publicProfile') return <>
