@@ -12,6 +12,8 @@ describe('Playlist payment proof and delivery contract', () => {
   const notifications = read(__dirname, '..', '..', 'screens', 'NotificationsScreen.tsx');
   const myMusic = read(__dirname, '..', '..', 'screens', 'MyMusicScreen.tsx');
   const proofService = read(__dirname, '..', '..', 'services', 'playlistPaymentProofService.ts');
+  const payoutService = read(__dirname, '..', '..', 'services', 'payoutLinkService.ts');
+  const qrControl = read(__dirname, '..', 'PayPalQrPayoutControl.tsx');
   const migration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002133000_playlist_sale_payment_proof.sql');
   const integrityMigration = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261002105200_playlist_payment_proof_integrity.sql');
 
@@ -38,6 +40,12 @@ describe('Playlist payment proof and delivery contract', () => {
     expect(checkout).toContain('Agrandir le QR PayPal en plein écran');
     expect(checkout).toContain('TOUCHER LE QR POUR L’AGRANDIR');
     expect(checkout).toContain('qrFullscreenImage');
+    expect(checkout).toContain('INTÉGRATION PAYPAL');
+    expect(checkout).toContain('rester appuyé sur le QR');
+    expect(qrControl).toContain('RECADRAGE DU QR');
+    expect(qrControl).toContain('déplacer l’image et zoomer');
+    expect(payoutService).toContain('allowsEditing: true');
+    expect(payoutService).toContain('aspect: [1, 1]');
   });
 
   it('requires the seller to verify PayPal before delivery and exposes the proof', () => {

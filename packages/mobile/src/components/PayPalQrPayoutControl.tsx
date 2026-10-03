@@ -14,6 +14,7 @@ type Props = {
 export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disabled = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [qrFullscreen, setQrFullscreen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const choose = async () => {
     if (busy || disabled) return;
@@ -50,7 +51,7 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={s.eyebrow}>QR PAYPAL · OPTIONNEL</Text>
           <Text style={s.title}>Ajoute ton QR en secours</Text>
-          <Text style={s.hint}>Le lien PayPal.Me reste recommandé sur le même téléphone. À l’ajout du QR, tu peux le recadrer pour ne garder que le carré utile.</Text>
+          <Text style={s.hint}>Le lien PayPal.Me reste recommandé. Sur mobile, AJOUTER ou REMPLACER ouvre l’éditeur de photo : recadre le QR, déplace-le et zoome avant d’enregistrer.</Text>
         </View>
         {busy ? <ActivityIndicator color={colors.primaryLight} /> : null}
       </View>
@@ -74,6 +75,21 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
           <Text style={s.primaryText}>AJOUTER UNE IMAGE DE MON QR PAYPAL</Text>
         </TouchableOpacity>
       )}
+      <TouchableOpacity
+        style={s.helpToggle}
+        onPress={() => setHelpOpen((value) => !value)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: helpOpen }}
+        accessibilityLabel="En savoir plus sur le cadrage du QR PayPal"
+      >
+        <Text style={s.helpToggleText}>RECADRAGE DU QR · {helpOpen ? 'MASQUER' : 'EN SAVOIR PLUS'} {helpOpen ? '˄' : '˅'}</Text>
+      </TouchableOpacity>
+      {helpOpen ? (
+        <View style={s.helpBox}>
+          <Text style={s.helpText}>Choisis ta capture PayPal, puis utilise l’éditeur natif du téléphone pour recadrer au format carré. Tu peux déplacer l’image et zoomer pour ne garder que le QR.</Text>
+          <Text style={s.helpText}>Le résultat enregistré sera exactement celui montré aux acheteurs dans Loki.</Text>
+        </View>
+      ) : null}
       <Modal visible={qrFullscreen && Boolean(qrUrl)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
         <View style={s.qrFullscreenBackdrop}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrFullscreen(false)} />
@@ -102,6 +118,10 @@ const s = StyleSheet.create({
   qrFullscreenBackText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
   qrFullscreenImage:{width:'100%',maxWidth:360,aspectRatio:1,marginTop:8,borderRadius:18,backgroundColor:'#FFF'},
   actions:{flex:1,gap:7},
+  helpToggle:{width:'100%',minHeight:34,marginTop:10,borderRadius:11,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(255,255,255,.03)',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
+  helpToggleText:{color:colors.primaryLight,fontSize:8.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+  helpBox:{marginTop:7,borderRadius:12,backgroundColor:'rgba(124,92,252,.08)',paddingHorizontal:10,paddingVertical:9,gap:5},
+  helpText:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14},
   primary:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10,marginTop:10},
   primaryText:{color:'#FFF',fontSize:9,fontWeight:'900',textAlign:'center'},
   secondary:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:10},

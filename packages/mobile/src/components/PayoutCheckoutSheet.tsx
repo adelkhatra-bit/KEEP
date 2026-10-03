@@ -34,6 +34,7 @@ export default function PayoutCheckoutSheet({
   const [proofBusy, setProofBusy] = useState(false);
   const [proof, setProof] = useState<PlaylistPaymentProof | null>(null);
   const [qrFullscreen, setQrFullscreen] = useState(false);
+  const [qrHelpOpen, setQrHelpOpen] = useState(false);
   const [error, setError] = useState('');
   const link = String(payoutLink || '').trim();
   const qr = String(payoutQrUrl || '').trim();
@@ -42,7 +43,10 @@ export default function PayoutCheckoutSheet({
   useEffect(() => {
     let live = true;
     setError('');
-    if (!visible) setQrFullscreen(false);
+    if (!visible) {
+      setQrFullscreen(false);
+      setQrHelpOpen(false);
+    }
     if (!visible || !paymentId) {
       setProof(null);
       return () => { live = false; };
@@ -158,7 +162,21 @@ export default function PayoutCheckoutSheet({
                   <Image source={{ uri: qr }} style={s.qr} resizeMode="contain" />
                 </TouchableOpacity>
                 <Text style={s.qrTap}>TOUCHER LE QR POUR L’AGRANDIR</Text>
-                <Text style={s.qrHint}>Scanne ce QR avec PayPal ou depuis un autre appareil. Après le paiement, reviens ici et joins ta capture de confirmation.</Text>
+                <TouchableOpacity
+                  style={s.qrHelpToggle}
+                  onPress={() => setQrHelpOpen((value) => !value)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: qrHelpOpen }}
+                  accessibilityLabel="En savoir plus sur l’utilisation du QR PayPal"
+                >
+                  <Text style={s.qrHelpToggleText}>INTÉGRATION PAYPAL · {qrHelpOpen ? 'MASQUER' : 'EN SAVOIR PLUS'} {qrHelpOpen ? '˄' : '˅'}</Text>
+                </TouchableOpacity>
+                {qrHelpOpen ? (
+                  <View style={s.qrHelpBox}>
+                    <Text style={s.qrHelpText}>Sur mobile, tu peux rester appuyé sur le QR pour afficher les actions proposées par ton téléphone et l’ouvrir ou le partager vers PayPal quand cette option est disponible.</Text>
+                    <Text style={s.qrHelpText}>Sinon, agrandis-le puis scanne-le depuis un autre appareil. Après paiement, reviens ici et joins ta preuve.</Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
 
@@ -206,7 +224,7 @@ export default function PayoutCheckoutSheet({
           </TouchableOpacity>
           <Text style={s.qrFullscreenTitle}>QR PAYPAL</Text>
           <Image source={{ uri: qr }} style={s.qrFullscreenImage} resizeMode="contain" />
-          <Text style={s.qrFullscreenHint}>Capture l’écran ou scanne ce QR. Aucun titre de musique n’est affiché ici.</Text>
+          <Text style={s.qrFullscreenHint}>Reste appuyé sur le QR pour utiliser les actions de ton téléphone vers PayPal, ou scanne-le depuis un autre appareil. Aucun titre de musique n’est affiché ici.</Text>
         </View>
       </View>
     </Modal>
@@ -232,6 +250,10 @@ const s = StyleSheet.create({
   qr:{width:190,height:190,marginTop:9,borderRadius:14,backgroundColor:'#FFF'},
   qrTap:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.7,marginTop:7},
   qrHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,textAlign:'center',marginTop:8},
+  qrHelpToggle:{width:'100%',minHeight:34,marginTop:8,borderRadius:11,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(255,255,255,.03)',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
+  qrHelpToggleText:{color:colors.primaryLight,fontSize:8.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+  qrHelpBox:{width:'100%',marginTop:7,borderRadius:12,backgroundColor:'rgba(124,92,252,.08)',paddingHorizontal:10,paddingVertical:9,gap:5},
+  qrHelpText:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14,textAlign:'left'},
   qrFullscreenBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,.96)',alignItems:'center',justifyContent:'center',padding:18},
   qrFullscreenCard:{width:'100%',maxWidth:430,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},
   qrFullscreenBack:{alignSelf:'flex-start',minHeight:42,justifyContent:'center',paddingHorizontal:4},

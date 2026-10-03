@@ -5,6 +5,10 @@ const source = fs.readFileSync(
   path.resolve(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx'),
   'utf8',
 ).replace(/\r\n/g, '\n');
+const dockSource = fs.readFileSync(
+  path.resolve(__dirname, '..', '..', 'components', 'GlobalChatDock.tsx'),
+  'utf8',
+).replace(/\r\n/g, '\n');
 
 describe('MusicAgoraPanel — historique manuel vs composeur', () => {
   it('annule les recentrages différés dès que l’utilisateur remonte', () => {
@@ -32,6 +36,14 @@ describe('MusicAgoraPanel — historique manuel vs composeur', () => {
     expect(source).toContain('followChatBottom(true);');
     expect(source).toContain('ownSendPendingRef.current = -1;');
     expect(source).toContain('followChatBottom(false);');
+  });
+
+  it('applique exactement le même moteur au mini-chat et au plein écran', () => {
+    expect(dockSource).toContain('{chatPanel(true)}');
+    expect(dockSource).toContain('{chatPanel(false)}');
+    expect(dockSource).toContain('testID="loki-chat-fullscreen-modal"');
+    expect(dockSource).toContain('presentationStyle="fullScreen"');
+    expect(dockSource).toContain('accessibilityLabel="Messagerie Loki plein écran"');
   });
 
   it('un nouveau message ne vole pas la position de lecture', () => {
