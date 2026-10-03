@@ -15,7 +15,7 @@ describe('public profile fast first paint contract', () => {
   it('ends the full-screen loading state immediately after safe public identity load', () => {
     const setProfileIndex = screen.indexOf('setProfile(result);');
     const firstPaintIndex = screen.indexOf('if (coldLoad) setLoading(false);');
-    const keepsIndex = screen.indexOf('const canonicalKeeps = await loadPublicProfileKeeps(result.id);');
+    const keepsIndex = screen.indexOf('await loadPublicProfileKeeps(result.id);');
     expect(setProfileIndex).toBeGreaterThan(-1);
     expect(firstPaintIndex).toBeGreaterThan(setProfileIndex);
     expect(keepsIndex).toBeGreaterThan(firstPaintIndex);
