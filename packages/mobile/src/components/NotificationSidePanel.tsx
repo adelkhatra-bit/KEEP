@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
@@ -708,6 +708,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 const linkedProfileUsername = activityProfileUsername(item);
                 const linkedProfileId = activityProfileId(item);
                 const hasLinkedProfile = Boolean(linkedProfileUsername || linkedProfileId);
+                const notificationImageUrl = !locked && item.data?.image_url ? String(item.data.image_url) : '';
+                const isPaypalQr = String(item.data?.contentKind || item.data?.content_kind || '').toUpperCase() === 'PAYPAL_QR';
                 return (
                   <View key={item.id} style={[s.card, !item.readAt && s.cardUnread, locked && s.cardLocked]}>
                     <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
@@ -739,6 +741,23 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                           accessibilityLabel={linkedProfileUsername ? `Voir le profil de ${linkedProfileUsername}` : 'Voir le profil lié à cette activité'}
                         >
                           <Text style={s.profileDeepLinkText}>{linkedProfileUsername ? `Voir @${linkedProfileUsername} ›` : 'VOIR LE PROFIL ›'}</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      {notificationImageUrl ? (
+                        <TouchableOpacity
+                          style={s.notificationMedia}
+                          onPress={(event) => {
+                            event.stopPropagation?.();
+                            void (chatAction ? prepareChatNotification(item) : openActivityNotification(item));
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={isPaypalQr ? 'Ouvrir le QR PayPal dans la conversation' : 'Ouvrir l’image de la notification'}
+                        >
+                          <Image source={{ uri: notificationImageUrl }} style={s.notificationMediaImage} resizeMode="contain" />
+                          <View style={s.notificationMediaCopy}>
+                            <Text style={s.notificationMediaTitle}>{isPaypalQr ? 'QR PAYPAL' : 'IMAGE'}</Text>
+                            <Text style={s.notificationMediaHint}>{isPaypalQr ? 'Le QR reçu est affiché ici. Touche pour ouvrir le Tchat.' : 'Touche pour ouvrir.'}</Text>
+                          </View>
                         </TouchableOpacity>
                       ) : null}
                       {expanded ? (
@@ -900,6 +919,11 @@ const s = StyleSheet.create({
   inlineProfileLinkText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
   profileDeepLink:{alignSelf:'flex-start',minHeight:30,marginTop:4,marginLeft:28,marginRight:12,paddingHorizontal:8,justifyContent:'center'},
   profileDeepLinkText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  notificationMedia:{marginHorizontal:12,marginTop:8,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:10,flexDirection:'row',alignItems:'center',gap:10},
+  notificationMediaImage:{width:78,height:78,borderRadius:12,backgroundColor:'#FFFFFF'},
+  notificationMediaCopy:{flex:1,minWidth:0},
+  notificationMediaTitle:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  notificationMediaHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:4},
   notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,marginHorizontal:12,marginBottom:10},
   inlineAction:{paddingHorizontal:12,paddingBottom:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
