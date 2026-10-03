@@ -553,13 +553,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     try {
       const packs = await loadKeepBattleSoloPacks();
       if (!packs) {
-        Alert.alert('Recharger mes Solos', 'Les packs de Solos arrivent très bientôt. Le Battle en ligne reste disponible avec tes Free.');
+        Alert.alert('Acheter des Solos', 'Les packs de Solos arrivent très bientôt. Le Battle en ligne reste disponible avec tes Free.');
         return;
       }
       setSoloPacks(packs);
       setSoloPacksOpen(true);
     } catch {
-      Alert.alert('Recharger mes Solos', 'Impossible de charger les packs pour le moment. Réessaie dans un instant.');
+      Alert.alert('Acheter des Solos', 'Impossible de charger les packs pour le moment. Réessaie dans un instant.');
     }
   }, []);
   const soloExhausted = Boolean(soloQuotaCopy(soloDailyStatus)?.exhausted);
@@ -1763,7 +1763,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`,
           [
             { text: 'OK', style: 'cancel' },
-            { text: 'Recharger mes Solos', onPress: () => { void openSoloPacks(); } },
+            { text: 'Acheter des Solos', onPress: () => { void openSoloPacks(); } },
             { text: 'Jouer en BATTLE', onPress: () => { void openOnline(); } },
           ],
         );
@@ -2087,8 +2087,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
             <TouchableOpacity style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
-            <Text style={s.statsUsername}>Recharger mes Solos</Text>
-            <Text style={s.prefsPickerHint}>Choisis un pack : 10 ou 25 Solos sont crédités immédiatement après confirmation. Chaque Solo acheté reste sur ton compte jusqu’à utilisation. Un pack ne se recharge jamais automatiquement.{soloPacks?.bonusRemaining ? ` Il t’en reste ${soloPacks.bonusRemaining} achetés.` : ''}</Text>
+            <Text style={s.statsUsername}>Acheter des Solos</Text>
+            <Text style={s.prefsPickerHint}>Deux packs au choix : +10 Solos ou +25 Solos. Le pack choisi est crédité immédiatement sur ton stock. Chaque partie consomme 1 Solo. Aucun pack ne se renouvelle automatiquement : quand ton stock acheté est épuisé, tu dois acheter un nouveau pack.{soloPacks?.bonusRemaining ? ` Stock acheté restant : ${soloPacks.bonusRemaining} Solo${soloPacks.bonusRemaining > 1 ? 's' : ''}.` : ''}</Text>
             {(soloPacks?.packs ?? []).map((pack) => {
               const short = (soloPacks?.balance ?? 0) < pack.free;
               return (
@@ -3222,11 +3222,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
                 recharge des Free à droite (« en face de prochaine recharge »). */}
             <View style={s.quotaRow}>
               {(() => { const q = soloQuotaCopy(soloDailyStatus); return q ? <View style={s.quotaCell}><Text style={[s.soloQuotaText, q.exhausted && s.soloQuotaExhausted]} numberOfLines={1}>🎯 {q.headline}</Text><Text style={s.quotaSub} numberOfLines={1}>{q.detail}</Text></View> : null; })()}
-              {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochaine recharge</Text></View> : null}
+              {freeRecharge ? <View style={s.quotaCell}><Text style={s.freeRechargeText} numberOfLines={1}>🔄 {freeRecharge}</Text><Text style={s.quotaSub} numberOfLines={1}>prochain crédit de Free</Text></View> : null}
             </View>
 {soloQuotaCopy(soloDailyStatus)?.exhausted ? (
-              <TouchableOpacity style={s.soloPackEntry} onPress={() => { void openSoloPacks(); }} accessibilityRole="button" accessibilityLabel="Recharger mes Solos">
-                <Text style={s.soloPackEntryText}>＋ RECHARGER MES SOLOS</Text>
+              <TouchableOpacity style={s.soloPackEntry} onPress={() => { void openSoloPacks(); }} accessibilityRole="button" accessibilityLabel="Acheter des Solos">
+                <Text style={s.soloPackEntryText}>＋ ACHETER DES SOLOS</Text>
                 <Text style={s.soloPackEntryHint}>{soloRechargeCopy(soloPacks?.packs, soloDailyStatus).hint}</Text>
               </TouchableOpacity>
             ) : null}
