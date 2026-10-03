@@ -19,8 +19,8 @@ describe('Battle result voice and Solo exit contract', () => {
     expect(battle).toContain('style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax, maxWidth: arenaVisualMax }]}');
     expect(battle).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
     expect(battle).not.toContain('maxWidth: 330');
-    expect(battle).toContain("soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 }");
-    expect(battle).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
+    expect(battle).toContain("soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingHorizontal: 3, paddingTop: 3, paddingBottom: 0 }");
+    expect(battle).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 0 }");
   });
 
   it('automatically ducks preview audio and uses a more natural French voice', () => {
