@@ -754,6 +754,10 @@
       {
         "file": "20261003038000_notification_creator_anti_spam_and_optout.sql",
         "reason": "Migration déjà appliquée et immuable. La migration additive 20261003043000_notification_history_preservation.sql désactive le trigger de suppression pour préserver l’historique utilisateur."
+      },
+      {
+        "file": "20261003211937_battle_notification_dedupe_and_reset_false_declines.sql",
+        "reason": "Migration déjà appliquée et immuable. La correction additive 20261003230707_battle_notification_dedupe_non_destructive.sql remplace son trigger par une version préventive qui ne supprime plus l’historique."
       }
     ],
     "protectedTables": [
