@@ -26,7 +26,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
 
   it('keeps the seller profile and total price aligned on one compact row', () => {
     expect(source).toContain('style={s.sellerPriceRow}');
-    expect(source).toContain('<Text style={s.profileLinkText}>@{normalizedUsername}</Text>');
+    expect(source).toContain('<Text style={s.profileLinkText}>{normalizedUsername}</Text>');
     expect(source).toContain("freeAccess ? 'FREE' : 'PAYPAL'");
     expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
   });
@@ -43,12 +43,15 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   it('keeps explicit confirmation but uses short FREE wording', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
     expect(source).toContain('setWaiverAccepted(false);');
+    expect(source).toContain("loadMarketplacePaymentTermsAccepted()");
+    expect(source).toContain("acceptMarketplacePaymentTerms('playlist_sale')");
     expect(source).toContain('CONDITIONS À ACCEPTER');
     expect(source).toContain('CONDITIONS ACCEPTÉES');
     expect(source).toContain('waiverRowPending');
     expect(source).toContain('waiverRowAccepted');
     expect(source).toContain('ACCEPTE LES CONDITIONS POUR CONTINUER');
-    expect(source).toContain(`J’accepte les conditions générales et l’utilisation de ${priceLabel} pour débloquer toute cette collection.`);
+    expect(source).toContain(`J’accepte les Conditions générales Loki Music et l’utilisation de ${priceLabel} pour débloquer toute cette collection.`);
+    expect(source).toContain('LIRE LES CONDITIONS GÉNÉRALES');
     expect(source).not.toContain('Aucun débit n’est effectué morceau par morceau.');
   });
 
@@ -65,6 +68,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).toContain('FREE INSUFFISANTS');
     expect(source).not.toContain('Acheter et ajouter à mon Loki Music');
     expect(source).not.toMatch(/buyButton:.*success/);
+    expect(source).toContain("buyButton: { width: '100%'");
   });
 
   it('is wired into the public profile boutique instead of purchasing on list-row tap', () => {
