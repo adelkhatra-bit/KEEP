@@ -56,6 +56,15 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('resolveNotificationProfileUsername');
   });
 
+  it('keeps direct one-click actions for Battle and the profile notification panel', () => {
+    expect(notifications).not.toContain('isSellerPaymentAction(item) || isBattleInvite(item)) return null');
+    const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(panel).toContain('resolveActivityProfileUsername');
+    expect(panel).toContain('<NewKeepNotificationActions');
+    expect(panel).toContain("onOpenProfile={() => { void openActivityProfile(item); }}");
+    expect(panel).toContain("chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)");
+  });
+
   it('keeps the compact profile notification panel actionable too', () => {
     const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
     expect(sidePanel).toContain('<NewKeepNotificationActions');
