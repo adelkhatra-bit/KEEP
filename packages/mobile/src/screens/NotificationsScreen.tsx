@@ -142,6 +142,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
+  const [genericDetailItem, setGenericDetailItem] = useState<KeepNotification | null>(null);
   const [followingProfileIds, setFollowingProfileIds] = useState<Set<string>>(new Set());
   const [followBusyProfileId, setFollowBusyProfileId] = useState<string | null>(null);
   const handledFocusNotificationId = useRef<string>('');
@@ -555,7 +556,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
     const profileUsername = notificationProfileUsername(item);
     if (profileUsername) return `VOIR @${profileUsername}`;
     if (notificationProfileId(item)) return 'VOIR LE PROFIL';
-    return null;
+    return 'LIRE EN ENTIER';
   };
 
   const openPaymentFromNotification = async (item: KeepNotification) => {
@@ -781,6 +782,8 @@ export default function NotificationsScreen({ navigation, route }: any) {
       navigation.navigate('Offers');
       return;
     }
+
+    setGenericDetailItem(item);
   };
 
   useEffect(() => {
@@ -1233,6 +1236,19 @@ export default function NotificationsScreen({ navigation, route }: any) {
           setPaymentCheckoutItem(null);
         } : undefined}
       />
+
+      <Modal visible={Boolean(genericDetailItem)} transparent animationType="fade" onRequestClose={() => setGenericDetailItem(null)}>
+        <View style={styles.detailBackdrop}>
+          <View style={styles.detailSheet}>
+            <TouchableOpacity style={styles.detailClose} onPress={() => setGenericDetailItem(null)} accessibilityLabel="Fermer"><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
+            {genericDetailItem ? <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.detailTitle}>{genericDetailItem.title}</Text>
+              <Text style={styles.detailMeta}>{notificationTypeLabel(genericDetailItem.type)} · {new Date(genericDetailItem.createdAt).toLocaleString('fr-FR')}</Text>
+              <Text style={styles.detailDescription}>{genericDetailItem.body}</Text>
+            </ScrollView> : null}
+          </View>
+        </View>
+      </Modal>
 
       {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
           explications, tenue exigee etc. ... un bouton en savoir plus ...

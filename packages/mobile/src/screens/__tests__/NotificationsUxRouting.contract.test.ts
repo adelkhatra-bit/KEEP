@@ -34,6 +34,12 @@ describe('Notifications UX and routing contract', () => {
     expect(myMusic).toContain('openPurchasedCollection(entry)');
   });
 
+  it('never leaves an informational notification as a dead end', () => {
+    expect(notifications).toContain("return 'LIRE EN ENTIER'");
+    expect(notifications).toContain('setGenericDetailItem(item)');
+    expect(notifications).toContain('genericDetailItem.body');
+  });
+
   it('offers one-tap actions for every major notification family and a profile action for music', () => {
     expect(notifications).toContain("return 'OUVRIR LE TCHAT'");
     expect(notifications).toContain("return 'VOIR MES FREE'");
