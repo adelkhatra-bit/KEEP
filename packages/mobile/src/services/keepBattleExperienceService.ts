@@ -130,8 +130,6 @@ export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDai
     resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
     dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
     purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
-    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
-    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
   };
 }
 
@@ -197,6 +195,8 @@ export async function consumeKeepBattleSoloDailyStart(sessionToken: string): Pro
     remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
     unlimited: raw.unlimited === true,
     resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
+    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
   };
 }
 
