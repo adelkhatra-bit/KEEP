@@ -1933,7 +1933,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
 
-        {effectiveViewerId && profileSaleSuggestions.length > 0 && (isOwner || profileBoutiqueOffers.length === 0) ? (
+        {/* Les recommandations multi-vendeurs restent uniquement sur le propre profil du viewer. Un profil visité n'affiche jamais la Pépite d'un autre vendeur à la place de sa boutique. */}
+        {effectiveViewerId && profileSaleSuggestions.length > 0 && isOwner ? (
           <ProfileOpportunityRail
             viewerKey={effectiveViewerId}
             viewerUsername={viewer?.username || ''}
