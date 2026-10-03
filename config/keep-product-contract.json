@@ -750,6 +750,12 @@
     "enforcedBy": "scripts/verify-product-contract.cjs (bloquant publication web + OTA)",
     "appliesToMigrationsFrom": "20261002180000",
     "approvalMarker": "-- ADEL-APPROVED-DESTRUCTIVE:",
+    "immutableHistoricalExceptions": [
+      {
+        "file": "20261003038000_notification_creator_anti_spam_and_optout.sql",
+        "reason": "Migration déjà appliquée et immuable. La migration additive 20261003043000_notification_history_preservation.sql désactive le trigger de suppression pour préserver l’historique utilisateur."
+      }
+    ],
     "protectedTables": [
       "profiles",
       "profile_private_info",

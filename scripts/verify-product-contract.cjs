@@ -270,12 +270,20 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
     `|\\balter\\s+table\\s+(?:if\\s+exists\\s+)?(?:only\\s+)?(?:public\\.)?"?(${tables})"?\\s+drop\\s+column`,
     'i',
   );
+  const immutableHistoricalExceptions = new Map(
+    (rule.immutableHistoricalExceptions || []).map((entry) => [entry.file, entry.reason]),
+  );
+  for (const [file, reason] of immutableHistoricalExceptions) {
+    must(typeof file === 'string' && file.endsWith('.sql') && typeof reason === 'string' && reason.length > 20,
+      'CONTENU: exception historique immuable invalide');
+  }
   const dir = path.join(root, 'supabase/migrations');
   for (const name of fs.readdirSync(dir).filter((f) => f.endsWith('.sql'))) {
     const version = (name.match(/^(\d{14})_/) || [])[1];
     const legacy = (rule.legacyUntimestampedMigrations || []).includes(name);
     if (!version && !legacy) failures.push(`CONTENU: migration ${name} sans horodatage AAAAMMJJHHMMSS_ -- nom interdit (contournement de l'ordre et des contrôles)`);
     if (legacy || (version && version < from)) continue;
+    if (immutableHistoricalExceptions.has(name)) continue;
     const sql = fs.readFileSync(path.join(dir, name), 'utf8').replace(/--[^\n]*/g, (c) => (c.startsWith(marker) ? c : ''));
     const hit = sql.match(destructive);
     if (hit && !sql.includes(marker)) {
