@@ -23,9 +23,9 @@ interface Props {
 }
 
 /**
- * Extrait 0/10/20s + ouverture du morceau, partagé entre la carte "vient
- * d'être détecté" (HomeScreenCompact) et les lignes d'historique (TrackRow) --
- * les deux endroits doivent proposer exactement la même expérience d'écoute.
+ * Durées d'écoute 10/20/25/30s + ouverture du morceau, partagées entre la carte
+ * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
+ * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
 export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -96,11 +96,11 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     if (session.micPaused) session.resumeListening();
   };
 
-  const playSnippetNow = async (positionMillis: number) => {
+  const playSnippetNow = async (durationMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
     setPreviewBusy(true);
     try {
-      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, positionMillis, 7000, resumeListeningOnStop, onPreviewFinished);
+      await playTrackPreviewSegment(previewKey, resolvedPreviewUrl, 0, durationMillis, resumeListeningOnStop, onPreviewFinished, true);
     } catch {
       Alert.alert('Extrait indisponible', 'Impossible de lire cet extrait pour le moment.');
     } finally {
@@ -108,12 +108,12 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     }
   };
 
-  const playSnippet = (positionMillis: number) => {
+  const playSnippet = (durationMillis: number) => {
     if (!resolvedPreviewUrl || previewBusy) return;
     unlockWebAudioForGesture();
     const session = useSessionStore.getState();
     if (session.isActive) session.pauseListening();
-    void playSnippetNow(positionMillis);
+    void playSnippetNow(durationMillis);
   };
 
   const openExternalNow = () => {
@@ -147,9 +147,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     <>
       <View style={styles.previewRow}>
         {resolvedPreviewUrl ? <>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(0)} disabled={previewBusy}><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 0s'}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 10s</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy}><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText}>▶ 25s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText}>▶ 30s</Text></TouchableOpacity>
         </> : null}
         {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
       </View>
