@@ -190,6 +190,18 @@ $function$;
 SQL
   fi
 
+  # Drift historique confirmé en production : track_likes.track_id est UUID
+  # sur le projet live, alors que la migration 0013 l'avait créé en TEXT.
+  # La migration d'affinité musicale s'appuie sur l'état live. On reproduit
+  # ce drift dans le replay CI sans réécrire une ancienne migration.
+  if [ "$name" = "20261003012000_profile_sale_suggestions_affinity.sql" ]; then
+    pg -d "$DB" <<'SQL' >/dev/null
+alter table public.track_likes
+  alter column track_id type uuid
+  using nullif(track_id, '')::uuid;
+SQL
+  fi
+
   # Supabase fournit pg_cron/pg_net comme extensions managées. Le CI plain
   # PostgreSQL utilise les shims ci-dessus et retire uniquement les deux
   # instructions CREATE EXTENSION qui ne sont pas installables ici.
