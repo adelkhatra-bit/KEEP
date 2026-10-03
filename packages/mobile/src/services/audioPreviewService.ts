@@ -16,6 +16,34 @@ let activeTimer: ReturnType<typeof setTimeout> | null = null;
 let activeStartTimer: ReturnType<typeof setTimeout> | null = null;
 let operation = Promise.resolve();
 
+const AUDIO_CREATE_TIMEOUT_MS = 3200;
+const AUDIO_CONTROL_TIMEOUT_MS = 1400;
+
+function withAudioTimeout<T>(promise: Promise<T>, label: string, timeoutMs = AUDIO_CONTROL_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`${label}_TIMEOUT`));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 // Préchargement de la manche suivante (Loki Battle solo). Distinct de
 // activeSound : le son en cours de lecture n'est jamais touché pendant
 // qu'un second son se charge en arrière-plan pendant la pause de 2,8s après
@@ -137,8 +165,8 @@ async function unloadActive() {
   listener?.(false);
   await stopWebAudio();
   if (!sound) return;
-  try { await sound.stopAsync(); } catch {}
-  try { await sound.unloadAsync(); } catch {}
+  try { await withAudioTimeout(sound.stopAsync(), 'AUDIO_STOP'); } catch {}
+  try { await withAudioTimeout(sound.unloadAsync(), 'AUDIO_UNLOAD'); } catch {}
 }
 
 function serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -152,8 +180,8 @@ async function discardPreloaded() {
   preloadedSound = null;
   preloadedKey = null;
   if (!stale) return;
-  try { await stale.stopAsync(); } catch {}
-  try { await stale.unloadAsync(); } catch {}
+  try { await withAudioTimeout(stale.stopAsync(), 'AUDIO_PRELOAD_STOP'); } catch {}
+  try { await withAudioTimeout(stale.unloadAsync(), 'AUDIO_PRELOAD_UNLOAD'); } catch {}
 }
 
 async function discardProfilePreloaded() {
@@ -161,8 +189,8 @@ async function discardProfilePreloaded() {
   profilePreloadedSound = null;
   profilePreloadedUrl = null;
   if (!stale) return;
-  try { await stale.stopAsync(); } catch {}
-  try { await stale.unloadAsync(); } catch {}
+  try { await withAudioTimeout(stale.stopAsync(), 'AUDIO_PRELOAD_STOP'); } catch {}
+  try { await withAudioTimeout(stale.unloadAsync(), 'AUDIO_PRELOAD_UNLOAD'); } catch {}
 }
 
 // BUG RÉEL trouvé en audit runtime (Adel, 22/09/2026, "beaucoup de bugs quand
@@ -180,23 +208,23 @@ async function discardProfilePreloaded() {
 async function configurePreviewAudio() {
   const { Audio, InterruptionModeIOS } = getNativeExpoAV();
   const recordingActive = isNativeRecordingModeActive();
-  await Audio.setAudioModeAsync({
+  await withAudioTimeout(Audio.setAudioModeAsync({
     allowsRecordingIOS: recordingActive,
     playsInSilentModeIOS: true,
     staysActiveInBackground: recordingActive,
     interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
     shouldDuckAndroid: true,
     playThroughEarpieceAndroid: false,
-  });
+  }), 'AUDIO_MODE', 1800);
 }
 
 async function ensurePlaying(sound: NativeSound): Promise<void> {
-  let status = await sound.getStatusAsync();
+  let status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS');
   if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
   if (!status.isPlaying) {
-    try { await sound.playAsync(); } catch {}
+    try { await withAudioTimeout(sound.playAsync(), 'AUDIO_PLAY', 1800); } catch {}
     await new Promise((resolve) => setTimeout(resolve, 90));
-    status = await sound.getStatusAsync();
+    status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS_CONFIRM');
   }
   if (!status.isLoaded || !status.isPlaying) throw new Error('AUDIO_PREVIEW_NOT_PLAYING');
 }
@@ -209,11 +237,12 @@ async function createSoundWithRetry(
 ): Promise<NativeSound> {
   const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const maxAttempts = autoPlay ? 3 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let createdSound: NativeSound | null = null;
     try {
       await configurePreviewAudio();
-      const created = await Audio.Sound.createAsync(
+      const created = await withAudioTimeout(Audio.Sound.createAsync(
         { uri: previewUrl },
         {
           shouldPlay: false,
@@ -224,7 +253,7 @@ async function createSoundWithRetry(
         (status: AVPlaybackStatus) => {
           if (createdSound) onStatus(status, createdSound);
         },
-      );
+      ), 'AUDIO_CREATE', autoPlay ? AUDIO_CREATE_TIMEOUT_MS : 2200);
       createdSound = created.sound;
       if (autoPlay) {
         await ensurePlaying(created.sound);
