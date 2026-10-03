@@ -1,0 +1,218 @@
+name: Loki App Store Screenshot Fix
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-screenshot-fix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install Chromium capture tool
+        run: |
+          mkdir -p /tmp/loki-shot
+          cd /tmp/loki-shot
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0 --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Capture and upload 6.5-inch screenshot
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          cd /tmp/loki-shot
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const { chromium } = require('playwright');
+
+          const required = ['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing = required.filter(k => !process.env[k]?.trim());
+          if (missing.length) throw new Error('Missing secrets: ' + missing.join(', '));
+
+          function makeToken() {
+            const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+            const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+            const now = Math.floor(Date.now()/1000);
+            const unsigned = enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'}) + '.' +
+              enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+            return unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), {
+              key, dsaEncoding:'ieee-p1363'
+            }).toString('base64url');
+          }
+
+          const token = makeToken();
+
+          async function api(path, options={}) {
+            const res = await fetch('https://api.appstoreconnect.apple.com' + path, {
+              method: options.method || 'GET',
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            const text = await res.text();
+            if (!res.ok) throw new Error((options.method || 'GET') + ' ' + path + ' HTTP ' + res.status + ' ' + text.slice(0,1500));
+            return text ? JSON.parse(text) : null;
+          }
+
+          async function capture(path) {
+            const browser = await chromium.launch({headless:true});
+            const context = await browser.newContext({
+              viewport: {width:414,height:896},
+              deviceScaleFactor: 3,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'fr-FR'
+            });
+            const page = await context.newPage();
+            await page.goto('https://adelkhatra-bit.github.io/KEEP/Main/Listen/', {
+              waitUntil:'domcontentloaded',
+              timeout:60000
+            });
+            await page.waitForTimeout(10000);
+            await page.screenshot({
+              path,
+              type:'jpeg',
+              quality:92,
+              fullPage:false
+            });
+            const info = await page.evaluate(() => ({
+              title: document.title,
+              width: window.innerWidth,
+              height: window.innerHeight,
+              text: (document.body?.innerText || '').slice(0,500)
+            }));
+            await browser.close();
+            if (!info.text.trim()) throw new Error('Captured page is blank');
+            return info;
+          }
+
+          (async () => {
+            const filePath = '/tmp/loki-shot/loki-music-iphone-65.jpg';
+            const pageInfo = await capture(filePath);
+            const file = fs.readFileSync(filePath);
+            if (file.length < 20000) throw new Error('Screenshot file unexpectedly small');
+
+            const appId = process.env.ASC_APP_ID.trim();
+            const versions = await api('/v1/apps/' + appId +
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version = (versions.data || []).find(v => v.attributes?.appStoreState === 'PREPARE_FOR_SUBMISSION') ||
+              (versions.data || [])[0];
+            if (!version) throw new Error('No iOS version found');
+
+            const locs = await api('/v1/appStoreVersions/' + version.id +
+              '/appStoreVersionLocalizations?filter[locale]=fr-FR&fields[appStoreVersionLocalizations]=locale&limit=50');
+            const loc = (locs.data || []).find(x => x.attributes?.locale === 'fr-FR');
+            if (!loc) throw new Error('fr-FR localization not found');
+
+            const sets = await api('/v1/appStoreVersionLocalizations/' + loc.id +
+              '/appScreenshotSets?filter[screenshotDisplayType]=APP_IPHONE_65&fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+            let set = (sets.data || [])[0];
+            if (!set) {
+              set = (await api('/v1/appScreenshotSets', {
+                method:'POST',
+                body:{
+                  data:{
+                    type:'appScreenshotSets',
+                    attributes:{screenshotDisplayType:'APP_IPHONE_65'},
+                    relationships:{
+                      appStoreVersionLocalization:{
+                        data:{type:'appStoreVersionLocalizations',id:loc.id}
+                      }
+                    }
+                  }
+                }
+              })).data;
+            }
+
+            const existing = await api('/v1/appScreenshotSets/' + set.id +
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+            if ((existing.data || []).length > 0) {
+              console.log('=== LOKI SCREENSHOT RESULT ===');
+              console.log(JSON.stringify({alreadyPresent:true,count:existing.data.length,displayType:'APP_IPHONE_65'},null,2));
+              console.log('=== END LOKI SCREENSHOT RESULT ===');
+              return;
+            }
+
+            const reservation = await api('/v1/appScreenshots', {
+              method:'POST',
+              body:{
+                data:{
+                  type:'appScreenshots',
+                  attributes:{
+                    fileName:'loki-music-iphone-65.jpg',
+                    fileSize:file.length
+                  },
+                  relationships:{
+                    appScreenshotSet:{
+                      data:{type:'appScreenshotSets',id:set.id}
+                    }
+                  }
+                }
+              }
+            });
+
+            const shot = reservation.data;
+            const operations = shot.attributes?.uploadOperations || [];
+            if (!operations.length) throw new Error('Apple returned no upload operations');
+
+            for (const op of operations) {
+              const headers = Object.fromEntries((op.requestHeaders || []).map(h => [h.name,h.value]));
+              const chunk = file.subarray(op.offset, op.offset + op.length);
+              const res = await fetch(op.url, {method:op.method || 'PUT',headers,body:chunk});
+              if (!res.ok) throw new Error('Apple asset upload failed HTTP ' + res.status);
+            }
+
+            const md5 = crypto.createHash('md5').update(file).digest('hex');
+            await api('/v1/appScreenshots/' + shot.id, {
+              method:'PATCH',
+              body:{
+                data:{
+                  type:'appScreenshots',
+                  id:shot.id,
+                  attributes:{uploaded:true,sourceFileChecksum:md5}
+                }
+              }
+            });
+
+            let state = null;
+            let errors = [];
+            for (let i=0;i<30;i++) {
+              const current = await api('/v1/appScreenshots/' + shot.id +
+                '?fields[appScreenshots]=fileName,fileSize,assetDeliveryState,imageAsset');
+              state = current.data.attributes?.assetDeliveryState?.state || null;
+              errors = current.data.attributes?.assetDeliveryState?.errors || [];
+              if (state === 'COMPLETE') break;
+              if (state === 'FAILED') throw new Error('Screenshot processing failed: ' + JSON.stringify(errors));
+              await new Promise(r => setTimeout(r,2000));
+            }
+            if (state !== 'COMPLETE') throw new Error('Screenshot did not reach COMPLETE state: ' + state);
+
+            console.log('=== LOKI SCREENSHOT RESULT ===');
+            console.log(JSON.stringify({
+              uploaded:true,
+              state,
+              displayType:'APP_IPHONE_65',
+              expectedPixels:'1242x2688',
+              capturedViewport:pageInfo.width + 'x' + pageInfo.height,
+              pageTitle:pageInfo.title,
+              fileBytes:file.length
+            }, null, 2));
+            console.log('=== END LOKI SCREENSHOT RESULT ===');
+          })().catch(error => {
+            console.error(error.stack || error.message || String(error));
+            process.exit(1);
+          });
+          NODE
