@@ -28,13 +28,13 @@ describe('Loki chat latest-message visual follow', () => {
     expect(source).toContain('chatScrollRef.current?.scrollToEnd({ animated: false })');
   });
 
-  it('only releases bottom-follow when the user deliberately drags up and offers the inverse action back to latest', () => {
+  it('releases bottom-follow only for deliberate history browsing and keeps the return-to-latest action invisible', () => {
     expect(source).toContain('onScrollBeginDrag={() => {');
     expect(source).toContain('userDraggingChatRef.current = true;');
     expect(source).toContain('stickToBottomRef.current = !browsingOlder;');
     expect(source).toContain('onMomentumScrollEnd={(event) => {');
-    expect(source).toContain('↓ PLUS RÉCENTS');
-    expect(source).toContain('accessibilityLabel="Revenir aux messages les plus récents"');
+    expect(source).not.toContain('↓ PLUS RÉCENTS');
+    expect(source).not.toContain('accessibilityLabel="Revenir aux messages les plus récents"');
     expect(source).not.toContain('↑ PLUS ANCIENS');
   });
 
