@@ -186,6 +186,7 @@ export default function MusicAgoraPanel({
   const forceBottomRef = useRef(false);
   const stickToBottomRef = useRef(true);
   const userDraggingChatRef = useRef(false);
+  const lastChatScrollYRef = useRef(0);
   const ownSendPendingRef = useRef<number | null>(null);
   const bottomRetryTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const threadRefreshInFlightKeysRef = useRef<Set<string>>(new Set());
@@ -1584,13 +1585,19 @@ export default function MusicAgoraPanel({
       onScroll={(event) => {
         const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
         const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-        if (userDraggingChatRef.current) {
+        const previousY = lastChatScrollYRef.current;
+        const movedUp = contentOffset.y < previousY - 2;
+        lastChatScrollYRef.current = contentOffset.y;
+
+        // Doigt ET souris/molette : dès que l'utilisateur remonte réellement,
+        // on verrouille sa position de lecture. Les scrolls programmatiques
+        // vers le bas restent autorisés uniquement après focus/envoi explicite.
+        if ((userDraggingChatRef.current || movedUp) && !forceBottomRef.current && ownSendPendingRef.current === null) {
           const browsingOlder = distanceFromBottom > 56;
           browsingHistoryRef.current = browsingOlder;
           stickToBottomRef.current = !browsingOlder;
           setShowLatestJump(browsingOlder);
-        } else if (distanceFromBottom <= 20) {
-          browsingHistoryRef.current = false;
+        } else if (distanceFromBottom <= 20 && !browsingHistoryRef.current) {
           stickToBottomRef.current = true;
           setShowLatestJump(false);
         }
