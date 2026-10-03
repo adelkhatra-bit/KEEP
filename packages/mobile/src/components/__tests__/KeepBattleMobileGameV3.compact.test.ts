@@ -67,6 +67,13 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).not.toContain('accessibilityLabel="Ouvrir le classement Battle"');
   });
 
+  it('shows a tiny Solo ranking button without moving the existing layout', () => {
+    expect(source).toContain('testID="solo-leaderboard-mini"');
+    expect(source).toContain('loadMyKeepBattleSoloRank');
+    expect(source).toContain('soloRankDelta');
+    expect(source).toContain("position:'absolute'");
+  });
+
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {
     expect(source).toContain('FREE gagnés aujourd’hui');
     expect(source).toContain('FREE perdus aujourd’hui');

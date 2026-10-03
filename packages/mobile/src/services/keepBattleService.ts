@@ -188,7 +188,7 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
   const { data, error } = await client().rpc('keep_battle_global_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
   return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
     profileId: String(row.profile_id ?? row.profileId ?? ''),
-    username: String(row.username ?? 'KEEP'),
+    username: String(row.username ?? 'Loki'),
     avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
     wins: Number(row.wins ?? 0),
     matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
@@ -201,6 +201,51 @@ export async function loadKeepBattleGlobalLeaderboard(limit = 20): Promise<KeepB
     presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
     abandons: row.abandons == null ? null : Number(row.abandons),
   })).filter((row) => row.profileId);
+}
+
+export type KeepBattleSoloRank = {
+  rank: number | null;
+  totalPlayers: number;
+  correct: number;
+  totalAnswers: number;
+  accuracy: number;
+  matches: number;
+  perfects: number;
+  abandons: number;
+};
+
+export async function loadKeepBattleSoloLeaderboard(limit = 20): Promise<KeepBattleGlobalLeaderboardEntry[]> {
+  const { data, error } = await client().rpc('keep_battle_solo_leaderboard', { p_limit: Math.max(1, Math.min(Math.round(limit), 50)) });
+  return (unwrap((data ?? []) as any[] | null, error)).map((row: any) => ({
+    profileId: String(row.profile_id ?? row.profileId ?? ''),
+    username: String(row.username ?? 'Loki'),
+    avatarUrl: row.avatar_url ?? row.avatarUrl ?? null,
+    wins: Number(row.wins ?? 0),
+    matchesPlayed: Number(row.matches_played ?? row.matchesPlayed ?? 0),
+    totalScore: Number(row.total_score ?? row.totalScore ?? 0),
+    totalCorrect: Number(row.total_correct ?? row.totalCorrect ?? 0),
+    avgResponseMs: row.avg_response_ms ?? row.avgResponseMs ?? null,
+    topThemeCode: row.top_theme_code ?? row.topThemeCode ?? null,
+    skillTier: row.skill_tier ?? row.skillTier ?? null,
+    isOnline: Boolean(row.is_online ?? row.isOnline ?? false),
+    presenceThemeCode: row.presence_theme_code ?? row.presenceThemeCode ?? null,
+    abandons: row.abandons == null ? null : Number(row.abandons),
+  })).filter((row) => row.profileId);
+}
+
+export async function loadMyKeepBattleSoloRank(): Promise<KeepBattleSoloRank> {
+  const { data, error } = await client().rpc('keep_battle_my_solo_rank');
+  const row = unwrap((data ?? {}) as any, error) as any;
+  return {
+    rank: row?.rank == null ? null : Number(row.rank),
+    totalPlayers: Number(row?.totalPlayers ?? row?.total_players ?? 0),
+    correct: Number(row?.correct ?? 0),
+    totalAnswers: Number(row?.totalAnswers ?? row?.total_answers ?? 0),
+    accuracy: Number(row?.accuracy ?? 0),
+    matches: Number(row?.matches ?? 0),
+    perfects: Number(row?.perfects ?? 0),
+    abandons: Number(row?.abandons ?? 0),
+  };
 }
 
 // Adel (03/09/2026) : "quand j'appuie sur revanche, pareil, ça me met une

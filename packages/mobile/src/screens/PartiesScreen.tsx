@@ -16,7 +16,7 @@ import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
-import { loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
+import { loadKeepBattleSoloLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
 import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
@@ -372,11 +372,11 @@ export default function PartiesScreen({ navigation, route }: any) {
   // figée), même RPC que le reste de l'app.
   const [leaderboardTiers, setLeaderboardTiers] = useState<Record<string, ProfileCertificationTier>>({});
   useEffect(() => {
-    if ((!battleSummaryOpen && eventTab !== 'CLASSEMENT') || !battleFeatureEnabled) return;
+    if (!battleSummaryOpen || !battleFeatureEnabled) return;
     let live = true;
     setLeaderboardLoading(true);
     Promise.all([
-      loadKeepBattleGlobalLeaderboard(20),
+      loadKeepBattleSoloLeaderboard(20),
       loadKeepBattleThemes().catch(() => []),
     ]).then(([rows, themes]) => {
       if (!live) return;
@@ -391,7 +391,7 @@ export default function PartiesScreen({ navigation, route }: any) {
       }
     }).catch(() => { if (live) setLeaderboard([]); }).finally(() => { if (live) setLeaderboardLoading(false); });
     return () => { live = false; };
-  }, [battleSummaryOpen, eventTab, battleFeatureEnabled]);
+  }, [battleSummaryOpen, battleFeatureEnabled]);
   const [createBusy, setCreateBusy] = useState(false);
   const [name, setName] = useState('');
   const [startsAt, setStartsAt] = useState('');
@@ -1048,10 +1048,10 @@ export default function PartiesScreen({ navigation, route }: any) {
       {leaderboardLoading ? <ActivityIndicator color={colors.primaryLight} /> : null}
       {!leaderboardLoading && leaderboard.length ? (
         <View style={styles.leaderboardPanel}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={leaderboardOpen ? "Masquer le classement global" : "Afficher le classement global"} style={styles.leaderboardHeader} onPress={() => setLeaderboardOpen((value) => !value)}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={leaderboardOpen ? "Masquer le classement Solo" : "Afficher le classement Solo"} style={styles.leaderboardHeader} onPress={() => setLeaderboardOpen((value) => !value)}>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.leaderboardTitle}>CLASSEMENT GLOBAL</Text>
-              <Text style={styles.leaderboardHint}>{leaderboardOpen ? 'Touche un joueur pour voir ses stats' : 'Podium et classement des joueurs'}</Text>
+              <Text style={styles.leaderboardTitle}>CLASSEMENT SOLO</Text>
+              <Text style={styles.leaderboardHint}>{leaderboardOpen ? 'Touche un joueur pour voir ses stats' : 'Podium et progression Solo'}</Text>
             </View>
             <Text style={styles.leaderboardChevron}>{leaderboardOpen ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
@@ -1096,14 +1096,14 @@ export default function PartiesScreen({ navigation, route }: any) {
                   <Text numberOfLines={1} style={styles.leaderboardSpecialty}>🎯 Incollable en {themeLabels[entry.topThemeCode]}</Text>
                 ) : null}
               </View>
-              <Text style={styles.leaderboardWins}>{entry.wins} victoire{entry.wins > 1 ? 's' : ''}</Text>
+              <Text style={styles.leaderboardWins}>{entry.wins} sans-faute</Text>
               <Text style={styles.leaderboardStats}>✓{entry.totalCorrect}{entry.avgResponseMs != null ? ` · ${(entry.avgResponseMs / 1000).toFixed(1)}s` : ''}{entry.abandons != null ? ` · ${entry.abandons} abandon${entry.abandons > 1 ? 's' : ''}` : ''}</Text>
               <Text style={styles.leaderboardChevron}>›</Text>
             </TouchableOpacity>
           ))}
           </> : null}
         </View>
-      ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Battle pour apparaître ici.</Text></View> : null}
+      ) : !leaderboardLoading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Aucun classement pour le moment.</Text><Text style={styles.meta}>Joue un Solo pour apparaître ici.</Text></View> : null}
     </>
   );
 
@@ -1121,7 +1121,7 @@ export default function PartiesScreen({ navigation, route }: any) {
               {statsLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 20 }} /> : (
                 <>
                   <View style={styles.statsBigRow}>
-                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
+                    <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.wins ?? statsEntry.wins}</Text><Text style={styles.statsBigLabel}>Sans-faute</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.matchesPlayed ?? statsEntry.matchesPlayed}</Text><Text style={styles.statsBigLabel}>Matchs</Text></View>
                     <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{statsData?.totalCorrect ?? statsEntry.totalCorrect}</Text><Text style={styles.statsBigLabel}>Bonnes rép.</Text></View>
                   </View>
@@ -1193,7 +1193,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             const mine = index >= 0 ? leaderboard[index] : null;
             return <>
               <View style={styles.statsBigRow}>
-                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang global</Text></View>
+                <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{index >= 0 ? `#${index + 1}` : '—'}</Text><Text style={styles.statsBigLabel}>Rang Solo</Text></View>
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{mine?.wins ?? 0}</Text><Text style={styles.statsBigLabel}>Victoires</Text></View>
                 <View style={styles.statsBigItem}><Text style={styles.statsBigValue}>{myFreeBreakdown?.remaining ?? 0}</Text><Text style={styles.statsBigLabel}>Free disponibles</Text></View>
               </View>
@@ -1282,7 +1282,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🏆 Classement Loki</Text>
+              <Text style={styles.modalTitle}>🏆 Classement Solo</Text>
               <TouchableOpacity onPress={() => setBattleSummaryOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer le classement"><Text style={styles.close}>Fermer</Text></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>

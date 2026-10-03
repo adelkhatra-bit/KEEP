@@ -20,7 +20,7 @@ async function loadBattleCreditStatusIfAuthenticated(): Promise<KeepBattleCredit
   return loadMyKeepBattleCreditStatus().catch(() => null);
 }
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
+import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleSoloRank, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleSoloRank, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
@@ -679,6 +679,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // sur son Design" -- petit badge de classement global à côté du joueur
   // dans "Joueurs disponibles", sans changer la mise en page existante.
   const [leaderboardRank, setLeaderboardRank] = React.useState<Record<string, number>>({});
+  const [mySoloRank, setMySoloRank] = React.useState<KeepBattleSoloRank | null>(null);
+  const [soloRankDelta, setSoloRankDelta] = React.useState(0);
   const arenaPlayedTracksRef = React.useRef<Map<string, ArenaPlayedTrack>>(new Map());
   const [arenaSessionId, setArenaSessionId] = React.useState<string | null>(null);
   const [rematchResponding, setRematchResponding] = React.useState(false);
@@ -1413,11 +1415,38 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     void refreshMyFreeCounters();
   }, [arena?.lastResult?.matchNo, refreshMyFreeCounters]);
 
+  const refreshMySoloRank = React.useCallback(async () => {
+    const state = useUserStore.getState();
+    if (!state.user?.id || state.isLocalGuest || state.isDemoMode) {
+      setMySoloRank(null);
+      return;
+    }
+    const next = await loadMyKeepBattleSoloRank().catch(() => null);
+    if (!next) return;
+    setMySoloRank((previous) => {
+      if (previous?.rank && next.rank && next.rank < previous.rank) {
+        setSoloRankDelta((current) => Math.max(current, previous.rank! - next.rank!));
+      }
+      return next;
+    });
+  }, []);
+
+  React.useEffect(() => {
+    void refreshMySoloRank();
+    const id = setInterval(() => { void refreshMySoloRank(); }, 8000);
+    return () => clearInterval(id);
+  }, [refreshMySoloRank]);
+
   // Rafraîchissement immédiat à la fin d'un Solo, sans attendre le polling.
   React.useEffect(() => {
     if (!soloFinished) return;
     void refreshMyFreeCounters();
   }, [soloFinished, soloFreeEarned, soloCreditPending, refreshMyFreeCounters]);
+  React.useEffect(() => {
+    if (!soloFinished) return undefined;
+    const id = setTimeout(() => { void refreshMySoloRank(); }, 900);
+    return () => clearTimeout(id);
+  }, [soloFinished, soloScore, refreshMySoloRank]);
 
   React.useEffect(() => {
     const round = arena?.round;
@@ -3068,6 +3097,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       />
       <View style={s.battleHeroCompact}>
         <Text style={s.homeSub}>⚡ Écoute · réponds · affronte</Text>
+        {onOpenLeaderboard ? (
+          <TouchableOpacity
+            testID="solo-leaderboard-mini"
+            style={s.soloLeaderboardMini}
+            onPress={() => { setSoloRankDelta(0); onOpenLeaderboard(); }}
+            accessibilityRole="button"
+            accessibilityLabel={mySoloRank?.rank ? `Classement Solo, rang ${mySoloRank.rank}` : 'Ouvrir le classement Solo'}
+          >
+            <Text style={s.soloLeaderboardMiniText}>{mySoloRank?.rank ? `🏆 #${mySoloRank.rank}` : '🏆 CL.'}</Text>
+            {soloRankDelta > 0 ? <View style={s.soloLeaderboardDelta}><Text style={s.soloLeaderboardDeltaText}>↑{soloRankDelta}</Text></View> : null}
+          </TouchableOpacity>
+        ) : null}
       </View></View>{myPlayerStats || myCreditStatus ? (
         // Adel (29/09/2026) : « les compteurs le plus important, c'est les
         // Free restants, les Free gagnés et les Free perdus ; tout le reste,
@@ -3181,7 +3222,12 @@ const s = StyleSheet.create({
   matchContextText: { flex: 1, color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', textAlign: 'center' },
   matchContextStake: { color: colors.success, fontSize: 11, fontWeight: '900' },
   battleHero: { minHeight: 76, marginHorizontal: 42, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  battleHeroCompact:{marginHorizontal:42,minHeight:30,alignItems:'center',justifyContent:'center'},
+  battleHeroCompact:{marginHorizontal:42,minHeight:30,alignItems:'center',justifyContent:'center',position:'relative'},
+  soloLeaderboardMini:{position:'absolute',right:-38,top:-2,minHeight:28,minWidth:54,paddingHorizontal:7,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  soloLeaderboardMiniText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.2},
+  soloLeaderboardDelta:{position:'absolute',right:-5,top:-7,minWidth:20,height:18,paddingHorizontal:4,borderRadius:9,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
+  soloLeaderboardDeltaText:{color:'#08110F',fontSize:9,fontWeight:'900'},
+
   battleHeroMark: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(124,92,252,.18)', borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   battleHeroCopy: { flex: 1, minWidth: 0 },
   homeCreditPill: { minHeight: 30, paddingHorizontal: 9, borderRadius: 15, backgroundColor: 'rgba(45,225,194,.10)', borderWidth: 1, borderColor: 'rgba(45,225,194,.45)', alignItems: 'center', justifyContent: 'center' },
