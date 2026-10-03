@@ -9,18 +9,18 @@ import {
   revealedTrackLine,
 } from '../services/newKeepNotification';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopTrackPreview } from '../services/audioPreviewService';
-import { getCommercialRules } from '../services/growthAccessService';
 import { Alert } from '../utils/keepAlert';
 import { supabase } from '../services/supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 
 /**
- * Actions de la notification « Nouveau morceau chez @x » : écouter un
- * extrait masqué (15 s) et GARDER sans quitter la notification. Le titre
- * n'apparaît qu'après l'ajout, ou tout de suite s'il est déjà dans la
- * collection. Utilisé par la bannière du haut ET l'écran Notifications
- * (une seule logique : services/newKeepNotification.ts).
+ * Nouvelle musique publique :
+ * - titre + artiste masqués avant l'ajout ;
+ * - écoute réécoutable directement dans la notification ;
+ * - ajout gratuit en Public ou Privé ;
+ * - attribution conservée au premier découvreur ;
+ * - si le morceau appartient à une Pépite en vente, le parcours protégé reste prioritaire.
  */
 export default function NewKeepNotificationActions({
   notification,
@@ -31,14 +31,12 @@ export default function NewKeepNotificationActions({
   onFollow,
 }: {
   notification: KeepNotification;
-  /** Appelé au premier geste (la bannière arrête alors de se refermer seule). */
   onInteract?: () => void;
   onKept?: () => void;
-  /** Ouvre directement le profil qui a partagé le morceau. */
   onOpenProfile?: () => void;
-  /** Jamais de désabonnement depuis une notification : true transforme le CTA en VOIR LE PROFIL. */
+  /** Une notification ne permet jamais de se désabonner. */
   isFollowing?: boolean;
-  /** Abonnement unidirectionnel depuis la notification. */
+  /** Si l'écran parent connaît déjà la logique de suivi, elle peut être réutilisée. */
   onFollow?: () => Promise<void> | void;
 }) {
   const [track, setTrack] = useState<CanonicalTrack | null>(null);
@@ -48,11 +46,8 @@ export default function NewKeepNotificationActions({
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
-  const [followedHere, setFollowedHere] = useState(false);
+  const [followingOwner, setFollowingOwner] = useState(isFollowing);
   const [kept, setKept] = useState(false);
-  const [cost, setCost] = useState(3);
-  const [isFollowingOwner, setIsFollowingOwner] = useState(false);
-  const [followBusy, setFollowBusy] = useState(false);
   const currentUserId = useUserStore((state) => state.user?.id || '');
   const isDemoMode = useUserStore((state) => state.isDemoMode);
   const isLocalGuest = useUserStore((state) => state.isLocalGuest);
@@ -62,6 +57,7 @@ export default function NewKeepNotificationActions({
 
   useEffect(() => {
     mounted.current = true;
+    setFollowingOwner(isFollowing);
     void loadNewKeepTrackState(notification).then((state) => {
       if (!mounted.current) return;
       setTrack(state.track);
@@ -69,25 +65,24 @@ export default function NewKeepNotificationActions({
       setSaleProtected(state.saleProtected);
       setLoading(false);
     });
-    void getCommercialRules().then((rules) => { if (mounted.current) setCost(rules.freeCostPerKeep); }).catch(() => {});
-    if (supabase && currentUserId && owner.profileId && currentUserId !== owner.profileId && !isDemoMode && !isLocalGuest) {
+
+    if (!isFollowing && supabase && currentUserId && owner.profileId && currentUserId !== owner.profileId && !isDemoMode && !isLocalGuest) {
       void supabase
         .from('follows')
         .select('follower_id')
         .eq('follower_id', currentUserId)
         .eq('followee_id', owner.profileId)
         .maybeSingle()
-        .then(({ data }) => { if (mounted.current) setIsFollowingOwner(Boolean(data)); })
+        .then(({ data }) => { if (mounted.current) setFollowingOwner(Boolean(data)); })
         .catch(() => {});
-    } else {
-      setIsFollowingOwner(false);
     }
+
     return () => {
       mounted.current = false;
       void stopTrackPreview(previewKey).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notification.id, currentUserId, isDemoMode, isLocalGuest, owner.profileId]);
+  }, [notification.id, currentUserId, isDemoMode, isFollowing, isLocalGuest, owner.profileId]);
 
   const togglePreview = async () => {
     onInteract?.();
@@ -121,13 +116,13 @@ export default function NewKeepNotificationActions({
   };
 
   const keep = async (visibility: 'PUBLIC' | 'PRIVATE') => {
-    if (!track || busy) return;
+    if (!track || busy || saleProtected) return;
     setBusy(true);
-    const result = await keepFromNewKeepNotification(notification, track, visibility, cost);
+    const result = await keepFromNewKeepNotification(notification, track, visibility);
     if (!mounted.current) return;
     setBusy(false);
     if (!result.ok) {
-      Alert.alert('GARDER', result.error || 'Impossible d’ajouter ce morceau pour le moment.');
+      Alert.alert('AJOUTER', result.error || 'Impossible d’ajouter ce morceau pour le moment.');
       return;
     }
     await stopTrackPreview(previewKey).catch(() => {});
@@ -139,7 +134,7 @@ export default function NewKeepNotificationActions({
 
   const subscribeOrOpenProfile = async () => {
     onInteract?.();
-    if (isFollowingOwner || !owner.profileId || owner.profileId === currentUserId) {
+    if (followingOwner || !owner.profileId || owner.profileId === currentUserId) {
       onOpenProfile?.();
       return;
     }
@@ -150,32 +145,31 @@ export default function NewKeepNotificationActions({
     if (followBusy) return;
     setFollowBusy(true);
     try {
-      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: owner.profileId });
-      if (error) {
-        if (String(error.message || '').includes('FOLLOW_LIMIT')) {
-          Alert.alert('Limite atteinte', 'Ton offre actuelle limite le nombre de profils que tu peux suivre.');
-        } else {
-          Alert.alert('Abonnement', 'Impossible de suivre ce profil pour le moment.');
-        }
-        return;
+      if (onFollow) {
+        await onFollow();
+      } else {
+        const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: owner.profileId });
+        if (error) throw error;
       }
-      if (mounted.current) setIsFollowingOwner(true);
+      if (mounted.current) setFollowingOwner(true);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      Alert.alert(
+        'Abonnement',
+        message.includes('FOLLOW_LIMIT')
+          ? 'Ton offre actuelle limite le nombre de profils que tu peux suivre.'
+          : 'Impossible de suivre ce profil pour le moment.',
+      );
     } finally {
       if (mounted.current) setFollowBusy(false);
     }
   };
 
-  const profileActionLabel = followBusy
-    ? 'ABONNEMENT…'
-    : isFollowingOwner || owner.profileId === currentUserId
-      ? 'VOIR LE PROFIL'
-      : '+ S’ABONNER';
-
   const askKeep = () => {
     onInteract?.();
     Alert.alert(
-      `GARDER · ${cost} FREE`,
-      `Le morceau rejoint ta collection et son titre se dévoile. ${cost} FREE seront débités (rien si tu l’as déjà).`,
+      'AJOUTER GRATUITEMENT',
+      'Le titre et l’artiste se dévoileront après l’ajout. Choisis Public pour l’afficher sur ton profil ou Privé pour le garder masqué. L’empreinte reste attribuée au premier découvreur.',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Privé', onPress: () => { void keep('PRIVATE'); } },
@@ -184,44 +178,35 @@ export default function NewKeepNotificationActions({
     );
   };
 
-  const followingNow = isFollowing || followedHere;
-  const profileOrFollowAction = onFollow && !followingNow ? (
+  const profileActionLabel = followBusy
+    ? 'ABONNEMENT…'
+    : followingOwner || owner.profileId === currentUserId
+      ? 'VOIR LE PROFIL'
+      : '+ S’ABONNER';
+
+  const profileAction = onOpenProfile ? (
     <TouchableOpacity
-      testID="new-keep-follow"
+      testID={followingOwner || owner.profileId === currentUserId ? 'new-keep-profile' : 'new-keep-follow'}
       style={[s.profile, followBusy && s.disabled]}
       disabled={followBusy}
-      onPress={() => {
-        if (followBusy) return;
-        onInteract?.();
-        setFollowBusy(true);
-        Promise.resolve(onFollow())
-          .then(() => { if (mounted.current) setFollowedHere(true); })
-          .catch(() => { if (mounted.current) Alert.alert('Abonnement', 'Impossible de s’abonner pour le moment.'); })
-          .finally(() => { if (mounted.current) setFollowBusy(false); });
-      }}
+      onPress={() => { void subscribeOrOpenProfile(); }}
       accessibilityRole="button"
-      accessibilityLabel="S’abonner à ce profil depuis la notification"
+      accessibilityLabel={followingOwner || owner.profileId === currentUserId
+        ? 'Voir le profil qui a partagé ce morceau'
+        : 'S’abonner au profil qui a partagé ce morceau'}
     >
-      <Text style={s.profileText}>{followBusy ? 'ABONNEMENT…' : '＋ S’ABONNER'}</Text>
-    </TouchableOpacity>
-  ) : onOpenProfile ? (
-    <TouchableOpacity
-      testID="new-keep-profile"
-      style={s.profile}
-      onPress={() => { onInteract?.(); onOpenProfile(); }}
-      accessibilityRole="button"
-      accessibilityLabel="Voir le profil qui a partagé ce morceau"
-    >
-      <Text style={s.profileText}>VOIR LE PROFIL</Text>
+      <Text style={s.profileText}>{profileActionLabel}</Text>
     </TouchableOpacity>
   ) : null;
 
   if (loading) {
     return <View style={s.row}><ActivityIndicator size="small" color="#B79CFF" /></View>;
   }
+
   if (!track) {
-    return <View><Text style={s.muted}>Morceau indisponible.</Text>{onOpenProfile ? <TouchableOpacity style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}</View>;
+    return <View><Text style={s.muted}>Morceau indisponible.</Text>{profileAction}</View>;
   }
+
   if (owned || kept) {
     return (
       <View>
@@ -229,35 +214,42 @@ export default function NewKeepNotificationActions({
           <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ DANS TA COLLECTION'}</Text>
           <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
         </View>
-        {onOpenProfile ? <TouchableOpacity style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }} accessibilityRole="button" accessibilityLabel={isFollowingOwner ? 'Voir le profil qui a partagé ce morceau' : 'S’abonner au profil qui a partagé ce morceau'}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}
+        <Text style={s.revealedHint}>Titre et artiste révélés · empreinte du premier découvreur conservée.</Text>
+        {profileAction}
       </View>
     );
   }
+
   return (
     <View>
       <View style={s.row}>
-      <TouchableOpacity
-        testID="new-keep-listen"
-        style={[s.listen, !track.previewUrl && s.disabled]}
-        disabled={!track.previewUrl}
-        onPress={() => { void togglePreview(); }}
-        accessibilityRole="button"
-        accessibilityLabel={playing ? 'Arrêter l’écoute' : saleProtected ? 'Écouter l’extrait protégé' : 'Écouter le morceau'}
-      >
-        <Text style={s.listenText}>{!track.previewUrl ? 'ÉCOUTE INDISPONIBLE' : playing ? '■ STOP' : saleProtected ? '▶ ÉCOUTER 15 s' : '▶ ÉCOUTER'}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        testID="new-keep-keep"
-        style={[s.keep, busy && s.disabled]}
-        disabled={busy}
-        onPress={saleProtected ? () => { onInteract?.(); onOpenProfile?.(); } : askKeep}
-        accessibilityRole="button"
-        accessibilityLabel={saleProtected ? 'Ouvrir la Pépite protégée' : `Garder ce morceau pour ${cost} FREE`}
-      >
-        <Text style={s.keepText}>{saleProtected ? 'VOIR LA PÉPITE' : busy ? 'AJOUT…' : `GARDER · ${cost} FREE`}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          testID="new-keep-listen"
+          style={[s.listen, !track.previewUrl && s.disabled]}
+          disabled={!track.previewUrl}
+          onPress={() => { void togglePreview(); }}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Arrêter l’écoute' : saleProtected ? 'Écouter l’extrait protégé' : 'Écouter le morceau'}
+        >
+          <Text style={s.listenText}>
+            {!track.previewUrl ? 'ÉCOUTE INDISPONIBLE' : playing ? '■ STOP' : saleProtected ? '▶ ÉCOUTER 15 s' : '▶ ÉCOUTER / RÉÉCOUTER'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          testID="new-keep-keep"
+          style={[s.keep, busy && s.disabled]}
+          disabled={busy}
+          onPress={saleProtected ? () => { onInteract?.(); onOpenProfile?.(); } : askKeep}
+          accessibilityRole="button"
+          accessibilityLabel={saleProtected ? 'Ouvrir la Pépite protégée' : 'Ajouter gratuitement ce morceau'}
+        >
+          <Text style={s.keepText}>{saleProtected ? 'VOIR LA PÉPITE' : busy ? 'AJOUT…' : 'AJOUTER GRATUITEMENT'}</Text>
+        </TouchableOpacity>
       </View>
-      {onOpenProfile ? <TouchableOpacity testID="new-keep-profile" style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }} accessibilityRole="button" accessibilityLabel={isFollowingOwner ? 'Voir le profil qui a partagé ce morceau' : 'S’abonner au profil qui a partagé ce morceau'}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}
+
+      {!saleProtected ? <Text style={s.maskedHint}>Titre + artiste masqués jusqu’à l’ajout.</Text> : null}
+      {profileAction}
     </View>
   );
 }
@@ -272,7 +264,9 @@ const s = StyleSheet.create({
   profileText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   disabled: { opacity: 0.55 },
   muted: { color: '#FFFFFF', fontSize: 11, marginTop: 6, opacity: 0.8 },
+  maskedHint: { color: '#AFA6BD', fontSize: 9, marginTop: 6, textAlign: 'center' },
   revealed: { marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', paddingHorizontal: 10, paddingVertical: 7 },
   revealedLabel: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   revealedTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', marginTop: 2 },
+  revealedHint: { color: '#AFA6BD', fontSize: 9, marginTop: 5, textAlign: 'center' },
 });
