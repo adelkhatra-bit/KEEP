@@ -87,16 +87,6 @@ function rankForViewer(offers: PublicPlaylistSaleOffer[], overlaps: Record<strin
     .map((row) => row.offer);
 }
 
-// Bannière Pépites (Adel, 02/10/2026, maquette validée) : une bulle par
-// style, comme Loki Pulse -- couleur + nom + nombre de drops, JAMAIS de
-// jaquette ni de titre. La taille suit le nombre de collections du style.
-const BUBBLE_COLORS: { bg: string; border: string; text: string }[] = [
-  { bg: '#7C5CFC', border: '#A78BFA', text: '#FFFFFF' },
-  { bg: '#E8C26A', border: '#F5DA97', text: '#2A2110' },
-  { bg: '#1B8F7D', border: '#7AF0DB', text: '#FFFFFF' },
-  { bg: '#C2563A', border: '#FFB08F', text: '#FFFFFF' },
-  { bg: '#2F5DA8', border: '#93C5FD', text: '#FFFFFF' },
-];
 function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unlocked: boolean }) {
   if (unlocked) return <View style={[s.token, s.tokenUnlocked]}><Text style={[s.tokenText, s.tokenTextUnlocked]}>✓ DÉBLOQUÉE</Text></View>;
   const free = offer.paymentMode === 'FREE';
@@ -149,6 +139,14 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   );
   const freeCount = visibleOffers.filter((offer) => offer.paymentMode === 'FREE').length;
   const moneyCount = visibleOffers.length - freeCount;
+  const newTracksForViewer = useMemo(
+    () => ownerMode
+      ? 0
+      : visibleOffers
+        .filter((offer) => !unlockedOfferIds.has(offer.offerId) && overlaps[offer.offerId])
+        .reduce((sum, offer) => sum + overlaps[offer.offerId].missingCount, 0),
+    [visibleOffers, unlockedOfferIds, overlaps, ownerMode],
+  );
   const [shelfFilter, setShelfFilter] = useState<'ALL' | 'FREE' | 'MONEY' | 'NEW'>('ALL');
   const [storeOpen, setStoreOpen] = useState(false);
   const [storeFilter, setStoreFilter] = useState<FilterKey>('ALL');
@@ -248,13 +246,6 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
             </View>
             <View style={s.dropFoot}>
               <PriceToken offer={drop} unlocked={false} />
-              {featured.length > 1 ? (
-                <View style={s.dots}>
-                  {featured.map((row, dotIndex) => (
-                    <TouchableOpacity key={row.offerId} onPressIn={unlockWebAudioForGesture} onPress={() => { setDropIndex(dotIndex); onOpenOffer(row); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Écouter le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
-                  ))}
-                </View>
-              ) : null}
             </View>
           </LinearGradient>
         </TouchableOpacity>
