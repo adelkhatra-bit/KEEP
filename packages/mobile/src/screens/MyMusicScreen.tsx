@@ -445,19 +445,17 @@ export default function MyMusicScreen({ navigation, route }: any) {
   );
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
-  const privateEntries = useMemo(
+  const privateOrProtectedEntries = useMemo(
     () => localKeptEntries.filter((entry) =>
       entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])
     ),
     [localKeptEntries, myOfferedTrackIds],
   );
-  const privateTracks = useMemo(() => privateEntries.map((entry) => entry.track), [privateEntries]);
-  const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
-  const privateOrProtectedEntries = useMemo(
-    () => localKeptEntries.filter((entry) => entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])),
-    [localKeptEntries, myOfferedTrackIds],
+  const privateOrProtectedTracks = useMemo(
+    () => privateOrProtectedEntries.map((entry) => entry.track),
+    [privateOrProtectedEntries],
   );
-  const privateOrProtectedTracks = useMemo(() => privateOrProtectedEntries.map((entry) => entry.track), [privateOrProtectedEntries]);
+  const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
   const saleCartTracks = useMemo(
     () => localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id)),
     [localKeptTracks, selectedSaleTrackIds],
@@ -1662,7 +1660,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks
-            : originFilter === 'PRIVATE' ? privateTracks
+            : originFilter === 'PRIVATE' ? privateOrProtectedTracks
             : originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)
             : originFilter === 'SESSION' ? sessionEntries.map((entry) => entry.track)
             : originFilter === 'IDENTIFIED' ? identifiedEntries.map((entry) => entry.track)
@@ -1714,7 +1712,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   {originFilter === 'USERS'
                     ? socialRepriseEntries.length
                     : originFilter === 'PRIVATE'
-                      ? privateEntries.length
+                      ? privateOrProtectedEntries.length
                     : originFilter === 'PULSE'
                       ? lokiPulseEntries.length
                       : originFilter === 'SESSION'

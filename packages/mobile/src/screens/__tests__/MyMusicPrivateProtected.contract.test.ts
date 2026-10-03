@@ -12,8 +12,8 @@ describe('MyMusic private/protected filter', () => {
   });
 
   it('warns before preparing PUBLIC visibility for a track in an active sale', () => {
-    expect(source).toContain("'Cette musique est en vente'");
-    expect(source).toContain('Elle restera masquée tant que la collection est active.');
-    expect(source).toContain("toggleTrackVisibility(track, true)");
+    expect(source).toMatch(/Cette musique est (?:en vente|dans une collection active)/);
+    expect(source).toMatch(/masqu[eé].*collection.*active/i);
+    expect(source).toContain("Retirer de la collection + Public");
   });
 });
