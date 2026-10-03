@@ -1099,7 +1099,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (freshArena) setArena(freshArena);
     };
     void syncWaitingInvites();
-    const timer = setInterval(() => { void syncWaitingInvites(); }, 2000);
+    // Les changements d'invitation arrivent déjà via Realtime. Ce polling
+    // ne sert que de filet de cohérence pour l'arène WAITING : jamais < 5 s.
+    const timer = setInterval(() => { void syncWaitingInvites(); }, 5000);
     return () => { alive = false; clearInterval(timer); };
   }, [arena?.id, arena?.status]);
 
