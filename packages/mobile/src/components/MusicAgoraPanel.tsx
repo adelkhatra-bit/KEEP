@@ -1586,13 +1586,21 @@ export default function MusicAgoraPanel({
         const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
         const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
         const previousY = lastChatScrollYRef.current;
-        const movedUp = contentOffset.y < previousY - 2;
+        const wheelMovedUp = Platform.OS === 'web' && contentOffset.y < previousY - 2;
         lastChatScrollYRef.current = contentOffset.y;
 
-        // Doigt ET souris/molette : dès que l'utilisateur remonte réellement,
-        // on verrouille sa position de lecture. Les scrolls programmatiques
-        // vers le bas restent autorisés uniquement après focus/envoi explicite.
-        if ((userDraggingChatRef.current || movedUp) && !forceBottomRef.current && ownSendPendingRef.current === null) {
+        // Doigt : onScrollBeginDrag verrouille déjà la lecture.
+        // Web : la molette/souris ne déclenche pas toujours onScrollBeginDrag.
+        // Une remontée réelle annule donc aussi les timers d'ouverture/focus,
+        // y compris dans le Modal plein écran.
+        if (wheelMovedUp && ownSendPendingRef.current === null) {
+          forceBottomRef.current = false;
+          browsingHistoryRef.current = distanceFromBottom > 56;
+          stickToBottomRef.current = !browsingHistoryRef.current;
+          bottomRetryTimersRef.current.forEach(clearTimeout);
+          bottomRetryTimersRef.current = [];
+          setShowLatestJump(browsingHistoryRef.current);
+        } else if (userDraggingChatRef.current && ownSendPendingRef.current === null) {
           const browsingOlder = distanceFromBottom > 56;
           browsingHistoryRef.current = browsingOlder;
           stickToBottomRef.current = !browsingOlder;
