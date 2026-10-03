@@ -107,7 +107,11 @@ jobs:
             }
 
             const snap = async (name) => {
-              await page.screenshot({path:'artifacts/app-store-65/'+name+'.png'});
+              await page.screenshot({
+                path:'artifacts/app-store-65/'+name+'.jpg',
+                type:'jpeg',
+                quality:94
+              });
             };
 
             await clickVisible(page,'Loki Music');
@@ -145,19 +149,39 @@ jobs:
           node capture-app-store.cjs
           python3 - <<'PY'
           from pathlib import Path
-          import struct
+
+          def jpeg_size(raw):
+              if raw[:2] != b'\xff\xd8':
+                  raise SystemExit('Not a JPEG')
+              i=2
+              sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+              while i+9 < len(raw):
+                  if raw[i] != 0xFF:
+                      i += 1
+                      continue
+                  marker=raw[i+1]
+                  if marker in sof:
+                      h=int.from_bytes(raw[i+5:i+7],'big')
+                      w=int.from_bytes(raw[i+7:i+9],'big')
+                      return w,h
+                  if marker in (0xD8,0xD9):
+                      i += 2
+                      continue
+                  if i+4 > len(raw):
+                      break
+                  seg=int.from_bytes(raw[i+2:i+4],'big')
+                  if seg < 2:
+                      break
+                  i += 2 + seg
+              raise SystemExit('JPEG dimensions not found')
+
           failed=[]
-          for p in sorted(Path('artifacts/app-store-65').glob('*.png')):
+          for p in sorted(Path('artifacts/app-store-65').glob('*.jpg')):
               raw=p.read_bytes()
-              if raw[:8] != bytes.fromhex('89504e470d0a1a0a'):
-                  raise SystemExit(f'Not a PNG: {p}')
-              w,h=struct.unpack('>II',raw[16:24])
-              color_type=raw[25]
-              print(p.name,(w,h),'PNG color type',color_type)
+              w,h=jpeg_size(raw)
+              print(p.name,(w,h),'JPEG')
               if (w,h)!=(1284,2778):
                   failed.append((p.name,(w,h)))
-              if color_type in (4,6):
-                  raise SystemExit(f'PNG contains alpha channel: {p} color_type={color_type}')
           if failed:
               raise SystemExit('Bad App Store screenshot dimensions: '+repr(failed))
           PY
@@ -256,7 +280,7 @@ jobs:
             const existingNames=new Set((existing.data||[]).map(x=>x.attributes?.fileName).filter(Boolean));
 
             const dir='artifacts/app-store-65';
-            const files=fs.readdirSync(dir).filter(n=>n.endsWith('.png')).sort();
+            const files=fs.readdirSync(dir).filter(n=>n.endsWith('.jpg')).sort();
             if(files.length<5) throw new Error('Expected at least five App Store screenshots; got '+files.length);
 
             for(const name of files){
@@ -298,6 +322,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: loki-app-store-65-${{ github.run_id }}
-          path: artifacts/app-store-65/*.png
+          path: artifacts/app-store-65/*.jpg
           if-no-files-found: warn
           retention-days: 14
