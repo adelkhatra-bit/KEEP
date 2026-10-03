@@ -27,6 +27,6 @@ describe('Soirées — aperçu PENDING sûr avant validation', () => {
     expect(migration).toContain('[contact masqué]');
     expect(migration).toContain('[lien masqué]');
     expect(migration).toContain('event_description_contact_forbidden');
-    expect(migration).toContain('event_recommendation_sends');
+    expect(migration).toContain('trg_event_block_contact_approval');
   });
 });
