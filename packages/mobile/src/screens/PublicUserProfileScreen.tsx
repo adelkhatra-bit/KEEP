@@ -1780,6 +1780,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             viewerUsername={viewer?.username || ''}
             suggestions={profileSaleSuggestions}
             onSuggestionPress={(suggestion) => { void openSuggestedSaleDrop(suggestion); }}
+            onOpenSeller={(suggestion) => navigation.navigate('PublicProfile', { username: suggestion.sellerUsername })}
           />
         ) : null}
 
