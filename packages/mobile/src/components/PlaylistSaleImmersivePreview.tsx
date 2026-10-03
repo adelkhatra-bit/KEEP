@@ -1,10 +1,11 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Linking, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -30,6 +31,7 @@ import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShaz
 const PAYPAL_FLOW_FULL = 'PAYPAL DIRECT · tu paies le créateur · il confirme la réception · Loki débloque la collection';
 const NO_REFUND_FULL = 'Après confirmation du paiement et déblocage du contenu, aucun remboursement possible sur cet accès numérique déjà fourni.';
 const MONEY_WAIVER_FULL = 'Je demande l’accès numérique dès confirmation du paiement par le créateur et je renonce à mon droit de rétractation une fois le contenu débloqué.';
+const MARKETPLACE_TERMS_URL = `${(process.env.EXPO_PUBLIC_WEB_URL || 'https://adelkhatra-bit.github.io/KEEP').replace(/\/$/, '')}/terms/`;
 
 function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
@@ -69,6 +71,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggleMore = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [termsBusy, setTermsBusy] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
   const [overlap, setOverlap] = useState<PlaylistSaleOverlap | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -125,6 +129,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       return undefined;
     }
     setWaiverAccepted(false);
+    setTermsBusy(false);
+    setTermsError(null);
     setDetailsOpen(false);
     setExpanded({});
     setTracks(null);
@@ -134,6 +140,11 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
     setPlaying(false);
     setPreviewError(null);
     let live = true;
+    if (!ownerMode) {
+      void loadMarketplacePaymentTermsAccepted()
+        .then((accepted) => { if (live) setWaiverAccepted(Boolean(accepted)); })
+        .catch(() => { if (live) setWaiverAccepted(false); });
+    }
     Promise.all([
       loadPlaylistSaleOfferPreviewTracks(offer.playlistId, offer.offerId),
       loadPlaylistSaleOfferOverlap(offer.offerId).catch(() => null),
@@ -246,6 +257,21 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const creditErrorFull = purchaseError || ('Tu as ' + (freeBalance ?? 0) + ' FREE, il en faut ' + requiredFree + '. Recharge tes FREE pour continuer.');
   const creditErrorShort = freeBalance != null ? `Tu as ${freeBalance} FREE, il en faut ${requiredFree}.` : 'Solde FREE insuffisant.';
 
+  const acceptTerms = async () => {
+    if (waiverAccepted || termsBusy) return;
+    setTermsBusy(true);
+    setTermsError(null);
+    try {
+      await acceptMarketplacePaymentTerms('playlist_sale');
+      setWaiverAccepted(true);
+    } catch {
+      setWaiverAccepted(false);
+      setTermsError('Impossible d’enregistrer ton acceptation. Réessaie avant de payer.');
+    } finally {
+      setTermsBusy(false);
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
@@ -268,7 +294,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             <View style={s.sellerPriceRow}>
               {normalizedUsername && onOpenProfile ? (
                 <TouchableOpacity style={s.profileLink} onPress={onOpenProfile} accessibilityLabel={'Voir le profil de ' + normalizedUsername}>
-                  <Text style={s.profileLinkText}>@{normalizedUsername}</Text>
+                  <Text style={s.profileLinkText}>{normalizedUsername}</Text>
                   <Text style={s.profileLinkArrow}>›</Text>
                 </TouchableOpacity>
               ) : <View />}
@@ -424,27 +450,37 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               ) : null}
 
               <TouchableOpacity
-                style={[s.waiverRow, waiverAccepted ? s.waiverRowAccepted : s.waiverRowRequired]}
-                onPress={() => setWaiverAccepted((v) => !v)}
+                style={[s.waiverRow, waiverAccepted ? s.waiverRowAccepted : s.waiverRowPending]}
+                onPress={() => { if (!waiverAccepted && !termsBusy) void acceptTerms(); }}
+                disabled={termsBusy}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: waiverAccepted }}
+                accessibilityState={{ checked: waiverAccepted, disabled: termsBusy }}
                 accessibilityLabel={freeAccess ? `Accepter les conditions pour utiliser ${priceLabel} sur toute la collection` : 'Accepter les conditions générales et la renonciation au droit de rétractation'}
               >
-                <View style={[s.checkbox, waiverAccepted ? s.checkboxOn : s.checkboxRequired]}>
-                  {waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : <Text style={s.checkboxRequiredMark}>!</Text>}
+                <View style={[s.checkbox, waiverAccepted ? s.checkboxOn : s.checkboxPending]}>
+                  {waiverAccepted ? <Text style={s.checkboxMark}>✓</Text> : <Text style={s.checkboxMarkPending}>{termsBusy ? '…' : '!'}</Text>}
                 </View>
                 <View style={s.waiverCopy}>
-                  <Text style={[s.waiverStatus, waiverAccepted ? s.waiverStatusAccepted : s.waiverStatusRequired]}>
-                    {waiverAccepted ? '✓ CONDITIONS ACCEPTÉES' : 'CONDITIONS À ACCEPTER'}
+                  <Text style={[s.waiverState, waiverAccepted ? s.waiverStateAccepted : s.waiverStatePending]}>
+                    {waiverAccepted ? '✓ CONDITIONS ACCEPTÉES' : termsBusy ? 'VALIDATION…' : 'CONDITIONS À ACCEPTER'}
                   </Text>
                   <Text style={s.waiverText}>
                     {freeAccess
-                      ? `J’accepte d’utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.`
-                      : expanded.waiver ? MONEY_WAIVER_FULL : 'J’accepte les conditions générales et l’accès dès confirmation du paiement, sans rétractation après déblocage.'}
+                      ? `J’accepte les Conditions générales Loki Music et l’utilisation de ${priceLabel} pour débloquer toute cette collection.`
+                      : expanded.waiver ? MONEY_WAIVER_FULL : 'J’accepte les Conditions générales Loki Music et l’accès dès confirmation du paiement, sans rétractation après déblocage.'}
                     {!freeAccess ? <MoreToggle open={Boolean(expanded.waiver)} onToggle={() => toggleMore('waiver')} /> : null}
                   </Text>
                 </View>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={s.termsLink}
+                onPress={() => { void Linking.openURL(MARKETPLACE_TERMS_URL); }}
+                accessibilityRole="link"
+                accessibilityLabel="Lire les Conditions générales Loki Music"
+              >
+                <Text style={s.termsLinkText}>LIRE LES CONDITIONS GÉNÉRALES</Text>
+              </TouchableOpacity>
+              {termsError ? <Text style={s.termsError}>{termsError}</Text> : null}
 
               <Animated.View style={[s.buyGlowShell,{ borderColor: ctaGlow.interpolate({inputRange:[0,1],outputRange:[colors.primary,colors.success]}), transform: [{ scale: waiverAccepted ? revealGlow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }) : 1 }] }]}>
               <TouchableOpacity
@@ -552,7 +588,7 @@ const s = StyleSheet.create({
   creditError: { marginTop: 9, padding: 10, borderRadius: 14, backgroundColor: 'rgba(255,92,114,0.10)', borderWidth: 1, borderColor: colors.danger },
   creditErrorTitle: { color: colors.danger, fontSize: 11, fontWeight: '900', letterSpacing: .8 },
   creditErrorText: { color: colors.danger, fontSize: 12, lineHeight: 17, fontWeight: '700', marginTop: 4 },
-  rechargeButton: { minHeight: 42, marginTop: 9, borderRadius: 21, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  rechargeButton: { width: '100%', minHeight: 42, marginTop: 9, borderRadius: 21, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   rechargeButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   moneyFlow:{marginTop:6,minHeight:38,borderRadius:12,borderWidth:1,borderColor:'rgba(167,139,250,.42)',backgroundColor:'rgba(124,92,252,.09)',paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},
   moneyFlowDot:{width:7,height:7,borderRadius:4,backgroundColor:colors.primaryLight,flexShrink:0},
@@ -570,8 +606,11 @@ const s = StyleSheet.create({
   waiverStatePending: { color: colors.danger },
   waiverStateAccepted: { color: colors.success },
   waiverText: { flex: 1, color: colors.textPrimary, fontSize: 11.5, lineHeight: 16 },
+  termsLink: { width: '100%', minHeight: 36, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  termsLinkText: { color: colors.primaryLight, fontSize: 9.5, fontWeight: '900', textDecorationLine: 'underline' },
+  termsError: { color: colors.danger, fontSize: 10, lineHeight: 14, textAlign: 'center', marginTop: 2 },
   buyGlowShell: { width: '100%', borderWidth: 1, borderRadius: 18, padding: 2 },
-  buyButton: { minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  buyButton: { width: '100%', minHeight: 46, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   buyButtonDisabled: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   buyButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', letterSpacing: 0.25 },
   buyButtonTextDisabled: { color: colors.textMuted },
