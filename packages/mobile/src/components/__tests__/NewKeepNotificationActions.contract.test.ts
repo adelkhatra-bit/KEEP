@@ -9,7 +9,7 @@ describe('notification Nouveau morceau — écoute, garder, abonnement', () => {
   it('cache totalement le bouton AJOUTER GRATUITEMENT si le morceau est déjà possédé', () => {
     expect(actions).toContain('if (owned || kept) {');
     const ownedBranch = actions.slice(actions.indexOf('if (owned || kept) {'), actions.indexOf('return (', actions.indexOf('if (owned || kept) {')) + 7);
-    expect(ownedBranch).toContain('✓ DÉJÀ DANS TA COLLECTION');
+    expect(ownedBranch).toContain('✓ DÉJÀ CHEZ TOI');
     expect(ownedBranch).not.toContain('testID="new-keep-keep"');
     expect(ownedBranch).not.toContain('AJOUTER GRATUITEMENT');
   });
