@@ -27,7 +27,9 @@ jobs:
           const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64||'','base64');
           const enc=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
           const now=Math.floor(Date.now()/1000);
-          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID,typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID,iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const keyId=(process.env.ASC_KEY_ID||'').trim();
+          const issuerId=(process.env.ASC_ISSUER_ID||'').trim();
+          const unsigned=enc({alg:'ES256',kid:keyId,typ:'JWT'})+'.'+enc({iss:issuerId,iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
           const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
           async function api(path,{method='GET',body}={}){
             const r=await fetch('https://api.appstoreconnect.apple.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
