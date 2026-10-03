@@ -149,8 +149,15 @@ jobs:
             }
 
             const price = await api('/v1/apps/' + appId +
-              '/appPriceSchedule?fields[appPriceSchedules]=baseTerritory,manualPrices', {allow404:true});
-            report.priceSchedule = price?.data ? { id: price.data.id, exists: true } : { exists: false };
+              '/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50',
+              {allow404:true});
+            report.priceSchedule = price?.data ? {
+              id: price.data.id,
+              exists: true,
+              baseTerritoryPresent: !!price.data.relationships?.baseTerritory?.data,
+              manualPriceCount: (price.data.relationships?.manualPrices?.data || []).length,
+              includedTypes: [...new Set((price.included || []).map(x => x.type))]
+            } : { exists: false };
 
             console.log('=== LOKI APP STORE AUDIT ===');
             console.log(JSON.stringify(report, null, 2));
