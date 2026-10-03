@@ -264,9 +264,9 @@ const s = StyleSheet.create({
   profileText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   disabled: { opacity: 0.55 },
   muted: { color: '#FFFFFF', fontSize: 11, marginTop: 6, opacity: 0.8 },
-  maskedHint: { color: '#AFA6BD', fontSize: 9, marginTop: 6, textAlign: 'center' },
+  maskedHint: { color: '#FFFFFF', opacity: 0.72, fontSize: 9, marginTop: 6, textAlign: 'center' },
   revealed: { marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', paddingHorizontal: 10, paddingVertical: 7 },
   revealedLabel: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   revealedTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', marginTop: 2 },
-  revealedHint: { color: '#AFA6BD', fontSize: 9, marginTop: 5, textAlign: 'center' },
+  revealedHint: { color: '#FFFFFF', opacity: 0.72, fontSize: 9, marginTop: 5, textAlign: 'center' },
 });
