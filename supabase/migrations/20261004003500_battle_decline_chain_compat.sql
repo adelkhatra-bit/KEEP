@@ -24,11 +24,16 @@ $old$;
     return jsonb_build_object('id',c.id,'status','DECLINED');
   end if;
 $new$;
+  confirmed_block text := $confirmed$
+  if not p_accept then
+    raise exception 'BATTLE_CHALLENGE_DECLINE_REQUIRES_CONFIRMED_ACTION';
+  end if;
+$confirmed$;
 begin
   select pg_get_functiondef('public.keep_battle_challenge_respond(uuid,boolean)'::regprocedure)
   into ddl;
 
-  if strpos(ddl,normalized_block)>0 then
+  if strpos(ddl,normalized_block)>0 or strpos(ddl,confirmed_block)>0 then
     return;
   end if;
 
