@@ -152,12 +152,146 @@ jobs:
               if raw[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
                   raise SystemExit(f'Not a PNG: {p}')
               w,h=struct.unpack('>II',raw[16:24])
-              print(p.name,(w,h))
+              color_type=raw[25]
+              print(p.name,(w,h),'PNG color type',color_type)
               if (w,h)!=(1284,2778):
                   failed.append((p.name,(w,h)))
+              if color_type in (4,6):
+                  raise SystemExit(f'PNG contains alpha channel: {p} color_type={color_type}')
           if failed:
               raise SystemExit('Bad App Store screenshot dimensions: '+repr(failed))
           PY
+
+
+      - name: Upload screenshots to App Store Connect
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const crypto=require('node:crypto');
+
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim())) throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          async function uploadBinary(operation, buffer){
+            const headers={};
+            for(const h of operation.requestHeaders||[]) headers[h.name]=h.value;
+            const body=buffer.subarray(operation.offset,operation.offset+operation.length);
+            const res=await fetch(operation.url,{method:operation.method||'PUT',headers,body});
+            if(!res.ok) throw new Error('Apple asset PUT failed HTTP '+res.status);
+          }
+
+          async function waitProcessed(id){
+            let last='UNKNOWN';
+            for(let i=0;i<30;i++){
+              const shot=await api('/v1/appScreenshots/'+id+'?fields[appScreenshots]=fileName,assetDeliveryState');
+              const state=shot.data?.attributes?.assetDeliveryState?.state||'UNKNOWN';
+              last=state;
+              if(['COMPLETE','UPLOAD_COMPLETE'].includes(state)) return state;
+              if(state==='FAILED'){
+                const errors=shot.data?.attributes?.assetDeliveryState?.errors||[];
+                throw new Error('Screenshot processing failed: '+JSON.stringify(errors));
+              }
+              await new Promise(r=>setTimeout(r,2000));
+            }
+            return last;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const versions=await api('/v1/apps/'+appId+
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=versionString,appStoreState&limit=50');
+            const version=(versions.data||[]).find(v=>v.attributes?.appStoreState==='PREPARE_FOR_SUBMISSION')||(versions.data||[])[0];
+            if(!version) throw new Error('No editable iOS App Store version found');
+
+            const locs=await api('/v1/appStoreVersions/'+version.id+
+              '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+            const loc=(locs.data||[]).find(x=>x.attributes?.locale==='fr-FR')||(locs.data||[])[0];
+            if(!loc) throw new Error('No App Store localization found');
+
+            const sets=await api('/v1/appStoreVersionLocalizations/'+loc.id+
+              '/appScreenshotSets?filter[screenshotDisplayType]=APP_IPHONE_65&fields[appScreenshotSets]=screenshotDisplayType&limit=50');
+            let set=(sets.data||[]).find(x=>x.attributes?.screenshotDisplayType==='APP_IPHONE_65');
+            if(!set){
+              const created=await api('/v1/appScreenshotSets',{
+                method:'POST',
+                body:{data:{
+                  type:'appScreenshotSets',
+                  attributes:{screenshotDisplayType:'APP_IPHONE_65'},
+                  relationships:{appStoreVersionLocalization:{data:{type:'appStoreVersionLocalizations',id:loc.id}}}
+                }}
+              });
+              set=created.data;
+              console.log('Created APP_IPHONE_65 screenshot set.');
+            } else {
+              console.log('Using existing APP_IPHONE_65 screenshot set.');
+            }
+
+            let existing=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+            const existingNames=new Set((existing.data||[]).map(x=>x.attributes?.fileName).filter(Boolean));
+
+            const dir='artifacts/app-store-65';
+            const files=fs.readdirSync(dir).filter(n=>n.endsWith('.png')).sort();
+            if(files.length<5) throw new Error('Expected at least five App Store screenshots; got '+files.length);
+
+            for(const name of files){
+              if(existingNames.has(name)){
+                console.log('Already present:',name);
+                continue;
+              }
+              const file=path.join(dir,name);
+              const buffer=fs.readFileSync(file);
+              const reservation=await api('/v1/appScreenshots',{
+                method:'POST',
+                body:{data:{
+                  type:'appScreenshots',
+                  attributes:{fileName:name,fileSize:buffer.length},
+                  relationships:{appScreenshotSet:{data:{type:'appScreenshotSets',id:set.id}}}
+                }}
+              });
+              const shot=reservation.data;
+              for(const op of shot.attributes?.uploadOperations||[]) await uploadBinary(op,buffer);
+              const md5=crypto.createHash('md5').update(buffer).digest('hex');
+              await api('/v1/appScreenshots/'+shot.id,{
+                method:'PATCH',
+                body:{data:{type:'appScreenshots',id:shot.id,attributes:{uploaded:true,sourceFileChecksum:md5}}}
+              });
+              const state=await waitProcessed(shot.id);
+              console.log('Uploaded',name,'state',state);
+            }
+
+            existing=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+            const total=(existing.data||[]).length;
+            console.log('APP_IPHONE_65 screenshots now present:',total);
+            if(total<5) throw new Error('Apple still has fewer than five 6.5-inch screenshots.');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
 
       - name: Upload screenshot pack
         uses: actions/upload-artifact@v4
