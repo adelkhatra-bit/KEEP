@@ -11,7 +11,7 @@ const ownerSource = fs.readFileSync(
 ).replace(/\r\n/g, '\n');
 const boutique = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'SellerBoutique.tsx'), 'utf8');
 
-describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un Drop', () => {
+describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () => {
   it('charge le chevauchement serveur sans révéler les titres masqués', () => {
     expect(source).toContain('loadPlaylistSaleOfferOverlap');
     expect(source).toContain('saleOfferOverlaps');
@@ -19,15 +19,16 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
   });
 
   it('affiche avant ouverture le nombre de titres réellement absents', () => {
-    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Boutique musicale + étagère + boutique).
     expect(source).toContain('overlaps={saleOfferOverlaps}');
     expect(boutique).toContain("NOUVEAU{overlap.missingCount > 1 ? 'X' : ''}");
     expect(boutique).toContain('✓ DÉJÀ CHEZ TOI');
     expect(boutique).toContain("nouveau${dropNew > 1 ? 'x' : ''} pour toi");
   });
 
-  it('affiche la bande club musical sans toucher au design du profil', () => {
-    expect(source).toContain("isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'");
+  it('affiche la Boutique musicale sans toucher aux compteurs du profil', () => {
+    expect(source).toContain('BOUTIQUE MUSICALE');
+    expect(boutique).toContain('BOUTIQUE MUSICALE');
   });
 
   it('le bouton pluriel enchaîne toutes les Pépites à la une', () => {
@@ -37,14 +38,14 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(source).toContain('onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}');
   });
 
-  it('lance l’écoute en un seul clic depuis les ronds de style et les points du Drop', () => {
+  it('lance l’écoute en un seul clic depuis les ronds de style et la Boutique', () => {
     expect(boutique).toContain("const first = ranked.find((offer) => (offer.genres || []).includes(genre))");
     expect(boutique).toContain("if (first) onOpenOffer(first);");
-    expect(boutique).toContain("Écouter le drop");
+    expect(boutique).toContain("Boutique musicale");
     expect(boutique).not.toContain("accessibilityLabel={`Afficher le drop");
   });
 
-  it('ne remplace pas le composant Drop existant ni son prix', () => {
+  it('conserve les prix unitaires dans la Boutique musicale', () => {
     expect(source).toContain('<SellerBoutique');
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
     expect(boutique).toContain('✓ DÉBLOQUÉE');
@@ -57,6 +58,16 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(boutique).toContain('▶ ÉCOUTER MAINTENANT');
     expect(boutique).not.toContain('Afficher le drop');
     expect(boutique).not.toContain('setDropIndex');
+  });
+
+  it('affiche le total et garde achat groupé + achat individuel', () => {
+    expect(boutique).toContain('TOTAL DES PÉPITES');
+    expect(boutique).toContain('TOUT PRENDRE');
+    expect(boutique).toContain('Tu peux toujours acheter une collection seule.');
+    expect(source).toContain('buyAllPlaylistOffers');
+    expect(source).toContain('requestPlaylistBundlePurchase');
+    expect(source).toContain('purchasePlaylistBundleWithFree');
+    expect(source).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
   });
 
   it('partage aussi exactement le même habillage de boutique entre propriétaire et visiteur', () => {
