@@ -278,9 +278,15 @@ jobs:
               throw new Error(`Chat drawer exists but is effectively outside viewport: ${JSON.stringify({ chatDrawerBox, chatVisibleWidth, chatVisibleHeight })}`);
             }
 
-            // Preuve visuelle réelle du design validé : ouvrir le même composant
-            // plein écran que la production, sans backend actif dans ce fixture.
-            await clickRobust(chatDrawer, 'Open full-screen messenger');
+            // Preuve visuelle réelle du design validé : le robot ouvre d'abord
+            // la mini-fenêtre, puis le bouton ⤢ ouvre le même composant plein
+            // écran que la production. Ne jamais réintroduire l'ouverture directe.
+            await clickRobust(chatDrawer, 'Open chat mini');
+            const miniChat = page.getByTestId('loki-chat-mini');
+            await miniChat.waitFor({ state: 'visible', timeout: 10000 });
+            const expandChat = page.getByLabel('Agrandir le tchat en plein écran').last();
+            await expandChat.waitFor({ state: 'visible', timeout: 10000 });
+            await clickRobust(expandChat, 'Expand chat fullscreen');
             const fullChat = page.getByTestId('loki-chat-fullscreen-modal');
             await fullChat.waitFor({ state: 'visible', timeout: 10000 });
             const fullChatBox = await fullChat.boundingBox();
