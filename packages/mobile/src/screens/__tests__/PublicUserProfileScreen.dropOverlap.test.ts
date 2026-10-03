@@ -30,6 +30,13 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(source).toContain("isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'");
   });
 
+  it('lance l’écoute en un seul clic depuis les ronds de style et les points du Drop', () => {
+    expect(boutique).toContain("const first = ranked.find((offer) => (offer.genres || []).includes(genre))");
+    expect(boutique).toContain("if (first) onOpenOffer(first);");
+    expect(boutique).toContain("Écouter le drop");
+    expect(boutique).not.toContain("accessibilityLabel={`Afficher le drop");
+  });
+
   it('ne remplace pas le composant Drop existant ni son prix', () => {
     expect(source).toContain('<SellerBoutique');
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
