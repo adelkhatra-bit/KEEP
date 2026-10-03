@@ -21,12 +21,13 @@ describe('Pépites collection creation UX', () => {
     expect(contract.marketplacePurchases.cartSelectionMustNotMutateVisibilityBeforePublish).toBe(true);
   });
 
-  it('warns but allows a track already on sale without removing the old offer', () => {
-    expect(panel).toContain('Cette musique est déjà en vente');
-    expect(panel).toContain('AJOUTER QUAND MÊME');
+  it('blocks a track already present in another active collection', () => {
+    expect(panel).toContain('Cette musique est déjà dans une collection active');
+    expect(panel).not.toContain('AJOUTER QUAND MÊME');
+    expect(panel).toContain('Un même enregistrement ne peut appartenir qu’à une seule collection active');
     expect(service).toContain("keep_playlist_sale_set_offer_for_selection_v5");
-    expect(service).toContain('p_allow_existing: allowExisting');
-    expect(contract.marketplacePurchases.preventTrackAcrossActiveOffers).toBe(false);
+    expect(contract.marketplacePurchases.preventTrackAcrossActiveOffers).toBe(true);
+    expect(contract.marketplacePurchases.existingOfferTrackPolicy).toBe('block-and-keep-existing-offer');
   });
 
   it('reviews the basket before price and payment', () => {
