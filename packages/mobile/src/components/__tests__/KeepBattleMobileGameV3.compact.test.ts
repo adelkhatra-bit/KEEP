@@ -82,12 +82,12 @@ describe('Loki Music Battle — compact current UX', () => {
 
   it('uses the same square artwork-first layout in Solo and Battle and pushes answers to the bottom', () => {
     expect(source).toContain('const { width: windowWidth, height: windowHeight } = useWindowDimensions();');
-    expect(source).toContain('const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(470, windowHeight - 210);');
+    expect(source).toContain('const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(500, windowHeight - 165);');
     expect(source).toContain("rootDesktop: { maxWidth: 760, alignSelf: 'center' }");
     expect(source).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
     expect(source).toContain("arenaVisualActive: { width: '100%', aspectRatio: 1");
-    expect(source).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 }");
-    expect(source).toContain("arenaAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 }");
+    expect(source).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
+    expect(source).toContain("arenaAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
     expect(source).toContain("answer: { width: '48%', height: 54");
   });
 
