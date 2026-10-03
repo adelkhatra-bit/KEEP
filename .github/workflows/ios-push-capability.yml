@@ -1,0 +1,55 @@
+name: Loki iOS Push Capability
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/ios-push-capability-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ensure Apple Push Notifications capability
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64||'','base64');
+          const enc=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID,typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID,iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(path,{method='GET',body}={}){
+            const r=await fetch('https://api.appstoreconnect.apple.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+            const t=await r.text();
+            if(!r.ok) throw new Error(method+' '+path+' HTTP '+r.status+' '+t.slice(0,1200));
+            return t?JSON.parse(t):null;
+          }
+          (async()=>{
+            const bundles=await api('/v1/bundleIds?filter[identifier]=com.adelkhatra.keep&limit=50');
+            const bundle=(bundles.data||[]).find(x=>x.attributes?.identifier==='com.adelkhatra.keep');
+            if(!bundle) throw new Error('Bundle com.adelkhatra.keep not found');
+            let caps=await api('/v1/bundleIds/'+bundle.id+'/bundleIdCapabilities');
+            const existing=(caps.data||[]).find(x=>x.attributes?.capabilityType==='PUSH_NOTIFICATIONS');
+            if(!existing){
+              const created=await api('/v1/bundleIdCapabilities',{method:'POST',body:{data:{type:'bundleIdCapabilities',attributes:{capabilityType:'PUSH_NOTIFICATIONS'},relationships:{bundleId:{data:{type:'bundleIds',id:bundle.id}}}}}});
+              console.log('PUSH_NOTIFICATIONS enabled:',created.data?.id||'ok');
+            } else {
+              console.log('PUSH_NOTIFICATIONS already enabled:',existing.id);
+            }
+            caps=await api('/v1/bundleIds/'+bundle.id+'/bundleIdCapabilities');
+            const types=(caps.data||[]).map(x=>x.attributes?.capabilityType);
+            console.log('Capabilities:',types.join(','));
+            if(!types.includes('PUSH_NOTIFICATIONS')) throw new Error('Push capability still missing');
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE
