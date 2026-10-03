@@ -6,6 +6,21 @@ type LokiSpeechOptions = {
   pitch?: number;
 };
 
+type SpeechModule = typeof import('expo-speech');
+let nativeSpeech: SpeechModule | null = null;
+
+function getNativeSpeech(): SpeechModule | null {
+  if (Platform.OS === 'web') return null;
+  if (!nativeSpeech) {
+    try {
+      nativeSpeech = require('expo-speech') as SpeechModule;
+    } catch {
+      nativeSpeech = null;
+    }
+  }
+  return nativeSpeech;
+}
+
 export async function stopLokiSpeech(): Promise<void> {
   if (Platform.OS === 'web') {
     try {
@@ -15,8 +30,7 @@ export async function stopLokiSpeech(): Promise<void> {
     return;
   }
   try {
-    const Speech = require('expo-speech') as typeof import('expo-speech');
-    await Speech.stop();
+    await getNativeSpeech()?.stop?.();
   } catch {}
 }
 
@@ -46,50 +60,34 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
     } catch {
       // Browser speech can be blocked until the first user gesture.
     }
-  } else {
-    // TestFlight/iOS + Android : utiliser une vraie synthèse vocale native.
-    // L'ancienne implémentation se contentait d'announceForAccessibility(),
-    // qui n'est pas une voix off fiable et rendait la promesse immédiatement :
-    // le volume musical était donc restauré avant même qu'une phrase puisse
-    // être prononcée. La promesse ci-dessous ne se résout qu'à la fin réelle
-    // de la phrase (ou si le moteur TTS échoue).
+  }
+
+  const Speech = getNativeSpeech();
+  if (Speech) {
     try {
-      // Chargement paresseux : le TestFlight actuellement installé a été
-      // compilé avant l'ajout du module natif expo-speech. Une OTA 1.0.0 doit
-      // donc rester compatible avec cet ancien binaire au lieu de planter au
-      // chargement du fichier. La prochaine build native embarque le module.
-      const Speech = require('expo-speech') as typeof import('expo-speech');
       await Speech.stop().catch(() => {});
       await new Promise<void>((resolve) => {
         let settled = false;
-        const done = () => {
+        const finish = () => {
           if (settled) return;
           settled = true;
           resolve();
         };
-        try {
-          Speech.speak(clean, {
-            language: options.language || 'fr-FR',
-            rate: options.rate ?? 0.95,
-            pitch: options.pitch ?? 1,
-            volume: 1,
-            // Sur iOS, laisser le système créer sa session TTS réduit les
-            // conflits avec expo-av et améliore le ducking/mixage.
-            useApplicationAudioSession: Platform.OS === 'ios' ? false : undefined,
-            onDone: done,
-            onStopped: done,
-            onError: done,
-          });
-          // Garde-fou : ne jamais garder la musique baissée indéfiniment si
-          // le moteur natif ne renvoie aucun callback.
-          setTimeout(done, Math.max(3500, Math.min(12000, clean.length * 105)));
-        } catch {
-          done();
-        }
+        Speech.speak(clean, {
+          language: options.language || 'fr-FR',
+          rate: options.rate ?? 0.95,
+          pitch: options.pitch ?? 1,
+          onDone: finish,
+          onStopped: finish,
+          onError: finish,
+        });
+        // Filet de sécurité : ne jamais garder la musique duckée si iOS
+        // n'appelle pas le callback de synthèse pour une raison système.
+        setTimeout(finish, Math.min(12000, Math.max(2200, clean.length * 85)));
       });
       return;
     } catch {
-      // Fallback accessibility below.
+      // Fallback accessibilité ci-dessous.
     }
   }
 
