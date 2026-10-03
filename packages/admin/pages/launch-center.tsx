@@ -66,36 +66,55 @@ export default function LaunchCenter() {
   const [manual, setManual] = useState<Record<ManualKey, boolean>>({ apple_membership: false, shazam_service: false, store_products: false, store_contracts: false, iphone_test: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [manualSavedAt, setManualSavedAt] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true); setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [integrationResult, runtimeResult] = await Promise.all([
+      const [integrationResult, runtimeResult, configResult] = await Promise.all([
         invokeAdmin({ action: 'integrations.list' }),
         supabase.rpc('admin_integration_runtime_status'),
+        supabase.rpc('admin_remote_config_list'),
       ]);
       if (runtimeResult.error) throw runtimeResult.error;
+      if (configResult.error) throw configResult.error;
       setIntegrations((integrationResult?.data ?? []) as IntegrationRow[]);
       setRuntime((runtimeResult.data ?? []) as RuntimeRow[]);
+      const persisted = ((configResult.data ?? []) as Array<{key:string;value:any;updated_at?:string}>).find((row) => row.key === 'admin_launch_manual_checks');
+      if (persisted?.value && typeof persisted.value === 'object') {
+        setManual((current) => ({ ...current, ...(persisted.value as Record<ManualKey, boolean>) }));
+        setManualSavedAt(persisted.updated_at || null);
+      } else {
+        try {
+          const saved = JSON.parse(localStorage.getItem('loki-launch-manual-v1') || '{}');
+          setManual((current) => ({ ...current, ...saved }));
+        } catch {}
+      }
     } catch (e: any) { setError(e?.message ?? 'Analyse impossible.'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('loki-launch-manual-v1') || '{}');
-      setManual((current) => ({ ...current, ...saved }));
-    } catch {}
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
-  const setManualState = (key: ManualKey, checked: boolean) => {
-    setManual((current) => {
-      const next = { ...current, [key]: checked };
+  const setManualState = async (key: ManualKey, checked: boolean) => {
+    if (!supabase) return setError('Supabase Super Admin non configuré.');
+    const next = { ...manual, [key]: checked };
+    setManual(next);
+    setError(null);
+    try {
+      const { error: saveError } = await supabase.rpc('admin_remote_config_set', {
+        p_key: 'admin_launch_manual_checks',
+        p_value: next,
+        p_description: 'Validations manuelles du Centre de lancement Loki Music, persistées pour tous les appareils Super Admin.',
+      });
+      if (saveError) throw saveError;
       localStorage.setItem('loki-launch-manual-v1', JSON.stringify(next));
-      return next;
-    });
+      setManualSavedAt(new Date().toISOString());
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible d’enregistrer cette validation dans Supabase.');
+      await load();
+    }
   };
 
   const configured = useMemo(() => new Set(integrations.filter((row) => row.configured).map((row) => row.key)), [integrations]);
@@ -155,9 +174,10 @@ export default function LaunchCenter() {
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Validations nécessitant ton compte</h3>
       {MANUAL.map((item) => <label key={item.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-        <input type="checkbox" checked={manual[item.key]} onChange={(event) => setManualState(item.key, event.target.checked)} style={{ width: 18, height: 18, marginTop: 2 }} />
+        <input type="checkbox" checked={manual[item.key]} onChange={(event) => void setManualState(item.key, event.target.checked)} style={{ width: 18, height: 18, marginTop: 2 }} />
         <span><strong>{item.label}</strong><span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{item.detail}</span></span>
       </label>)}
+      {manualSavedAt ? <p style={{ color: '#86efac', fontSize: 11, marginBottom: 8 }}>✓ Validations enregistrées dans Supabase · synchronisées entre tes appareils.</p> : null}
       <p style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.5, marginBottom: 0 }}>Sécurité : paiement, 2FA, CAPTCHA, création de clés permanentes et déclarations contractuelles restent validés par le titulaire. Toutes les autres étapes techniques peuvent être préparées et contrôlées par l’assistant.</p>
     </div>
   </AdminLayout>;
