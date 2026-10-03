@@ -1,6 +1,7 @@
 import { confirmLeaveGame } from '../services/gameExitGuard';
 import { createNavigationContainerRef } from '@react-navigation/native';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 
 // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
 // page" -- accepter un Battle depuis le bandeau global (GlobalNotificationBanner,
@@ -18,6 +19,14 @@ function guardedNavigate(...args: any[]) {
 
 export function navigateToBattleArena(arenaId: string) {
   if (!navigationRef.isReady()) return;
+  const game = useGameSessionStore.getState();
+  // Reprendre SON Battle actif n'est pas une tentative de quitter la partie :
+  // contourner la garde de sortie pour permettre le retour automatique depuis
+  // n'importe quel onglet / reprise d'application.
+  if (game.gameMode === 'EN_LIGNE' && game.activeArenaId === arenaId) {
+    (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { arenaId, openBattle: true, source: 'ACTIVE_BATTLE_RESUME' } });
+    return;
+  }
   guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
 }
 
