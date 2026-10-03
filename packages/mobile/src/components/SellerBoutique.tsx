@@ -200,7 +200,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       <View style={s.banner}>
         <View style={s.bannerHead}>
           <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MES PÉPITES' : 'PÉPITES À DÉCOUVRIR'}</Text>
+          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MON CLUB MUSICAL · MES PÉPITES' : 'PÉPITES À DÉCOUVRIR'}</Text>
         </View>
         <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
         <Text style={s.bannerPersonal} numberOfLines={2}>
