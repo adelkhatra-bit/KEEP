@@ -54,8 +54,23 @@ const RECEIPT_BATCH_SIZE = 300;
 // système iOS/Android. Ils restent éventuellement dans le centre interne, mais
 // ne réveillent pas le téléphone et ne multiplient pas les alertes Battle.
 const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
+  // Une notification externe doit demander une vraie action ou signaler un
+  // événement important hors app. Les états Battle ci-dessous sont déjà
+  // visibles dans l'écran Battle/centre interne et créaient trop de bruit.
   'BATTLE_CHALLENGE_ACCEPTED',
   'BATTLE_CHALLENGE_DECLINED',
+  'BATTLE_INVITE',
+  'KEEP_BATTLE_INVITE',
+  'BATTLE_PLAYER_AVAILABLE',
+  'BATTLE_ARENA_WIN',
+  'BATTLE_ARENA_LOSS',
+  'BATTLE_ARENA_RESULT',
+  'BATTLE_ARENA_AFK_ELIMINATED',
+  'BATTLE_ARENA_FORFEIT',
+  'BATTLE_ARENA_REMATCH_MISSED',
+  'BATTLE_SOLO_PACK',
+  'BATTLE_SOLO_RANK_CHANGED',
+  'SOLO_RANK_UP',
 ]);
 
 function isInAppOnlyNotification(type: unknown): boolean {
