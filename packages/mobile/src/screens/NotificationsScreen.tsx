@@ -550,7 +550,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
         ? data.payout_qr_url.trim()
         : '';
     if (!payoutLink && !payoutQrUrl) {
-      setError('Le vendeur n’a plus de PayPal.Me ni de QR PayPal disponible.');
+      setError('Le propriétaire de la collection n’a plus de PayPal.Me ni de QR PayPal disponible.');
       return;
     }
     await readOne(item);
@@ -568,7 +568,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
       if (result.alreadyDelivered) {
         setNotice('Cette sélection est déjà débloquée');
       } else {
-        setNotice('Paiement signalé au vendeur');
+        setNotice('Paiement signalé au propriétaire');
       }
       await refresh();
     } catch {
@@ -1209,8 +1209,8 @@ export default function NotificationsScreen({ navigation, route }: any) {
             onValueChange={(v) => updatePrefs({ socialEnabled: v })}
           />
           <SoundPreference label="Son messages" value={prefs.socialSound} onChange={(v) => updatePrefs({ socialSound: v as NotificationPreferences['socialSound'] })} />
-          <Preference label="Ventes & argent" hint="Paiements à faire, paiements reçus, ventes et validations." value={prefs.moneyEnabled} onValueChange={(v) => updatePrefs({ moneyEnabled: v })} />
-          <SoundPreference label="Son ventes" value={prefs.moneySound} money onChange={(v) => updatePrefs({ moneySound: v as NotificationPreferences['moneySound'] })} />
+          <Preference label="Accès & paiements" hint="Paiements à faire, paiements reçus, collections à débloquer et validations." value={prefs.moneyEnabled} onValueChange={(v) => updatePrefs({ moneyEnabled: v })} />
+          <SoundPreference label="Son paiements" value={prefs.moneySound} money onChange={(v) => updatePrefs({ moneySound: v as NotificationPreferences['moneySound'] })} />
           <Preference
             label="Musique & Battle"
             hint="Nouvelles pépites, reprises de tes découvertes, invitations et résultats Battle."
@@ -1252,7 +1252,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
           const paymentId = paymentIdOf(paymentCheckoutItem);
           if (!paymentId) return;
           await cancelPlaylistSalePayment(paymentId, 'BUYER_CANCELLED_FROM_NOTIFICATION');
-          setNotice('Transaction annulée · le vendeur a été prévenu');
+          setNotice('Transaction annulée · l’autre utilisateur a été prévenu');
           await refresh();
           setPaymentCheckoutItem(null);
         } : undefined}
