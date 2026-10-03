@@ -317,7 +317,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     const offered = collectionCartOffered[track.id];
     if (offered) {
       Alert.alert(
-        'Cette musique est déjà en vente',
+        'Cette musique est déjà dans une collection active',
         `« ${track.title} » est déjà présente dans « ${offered.playlistName} ». Souhaites-tu quand même l’ajouter à ce panier ?`,
         [
           { text: 'Non', style: 'cancel' },
@@ -337,7 +337,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
           return;
         }
         Alert.alert(
-          'Conditions vendeur',
+          'Conditions de déblocage',
           'Pour recevoir un paiement PayPal via Loki Music, tu dois accepter les règles : vérifier les fonds avant tout déblocage, conserver les preuves et ne jamais valider un paiement non reçu. Un abus peut entraîner un retrait de Free, une suspension ou un bannissement.',
           [
             { text: 'ANNULER', style: 'cancel' },
@@ -414,7 +414,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
       if (!accepted) {
         Alert.alert(
           'Conditions des paiements entre utilisateurs',
-          'Loki Music ne reçoit pas l’argent. Le paiement est direct entre acheteur et vendeur. Le vendeur doit vérifier lui-même les fonds avant tout déblocage. Les abus peuvent entraîner retrait de Free, suspension ou bannissement.',
+          'Loki Music ne reçoit pas l’argent. Le paiement est direct entre les deux utilisateurs. Le propriétaire de la collection doit vérifier lui-même les fonds avant tout déblocage. Les abus peuvent entraîner retrait de Free, suspension ou bannissement.',
           [
             { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
             { text: 'ANNULER', style: 'cancel' },
@@ -1036,7 +1036,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={s.modeDashboardHint}>{offerFilter === 'FREE' ? 'Collections débloquées avec des FREE Loki Music.' : offerFilter === 'MONEY' ? 'Collections en euros avec paiement direct sur le lien personnel du vendeur.' : 'Filtre tes collections sans mélanger FREE et argent réel.'}</Text>
+              <Text style={s.modeDashboardHint}>{offerFilter === 'FREE' ? 'Collections débloquées avec des FREE Loki Music.' : offerFilter === 'MONEY' ? 'Collections en euros avec paiement direct sur le lien personnel du propriétaire.' : 'Filtre tes collections sans mélanger FREE et argent réel.'}</Text>
             </View>
             {/* Adel (21/09/2026, décision 2) : encart permanent -- le
                 fonctionnement reste manuel tant que l'API de paiement
@@ -1269,7 +1269,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                   <View style={s.historyToggleCopy}>
                     <Text style={s.historyToggleKicker}>PÉPITES</Text>
                     <Text style={s.historyToggleTitle}>Voir l’historique</Text>
-                    <Text style={s.historyToggleMeta}>{sales.length} vente{sales.length > 1 ? 's' : ''} · {purchases.length} achat{purchases.length > 1 ? 's' : ''}</Text>
+                    <Text style={s.historyToggleMeta}>{sales.length} accès proposé{sales.length > 1 ? 's' : ''} · {purchases.length} accès obtenu{purchases.length > 1 ? 's' : ''}</Text>
                   </View>
                   <Text style={s.historyToggleIcon}>{historyOpen ? '˄' : '˅'}</Text>
                 </TouchableOpacity>
@@ -1310,7 +1310,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                         <Text style={s.historyDate}>{new Date(purchase.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
                         {transactionFreeBalanceLabel(purchase) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(purchase)}</Text> : null}
                         <Text style={[s.historyStatus, purchase.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
-                          {purchase.status === 'COMPLETED' ? '✓ Achat débloqué dans Loki Music' : '⏳ En attente de confirmation du vendeur'}
+                          {purchase.status === 'COMPLETED' ? '✓ Collection débloquée dans Loki Music' : '⏳ En attente de confirmation du propriétaire'}
                         </Text>
                       </View>
                     ))}
