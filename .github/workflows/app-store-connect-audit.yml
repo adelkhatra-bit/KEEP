@@ -85,6 +85,18 @@ jobs:
               }));
             }
 
+            const betaReview = await api('/v1/apps/' + appId +
+              '/betaAppReviewDetail?fields[betaAppReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountRequired,notes',
+              {allow404:true});
+            report.betaReviewContact = betaReview?.data ? {
+              firstNamePresent: !!betaReview.data.attributes?.contactFirstName?.trim(),
+              lastNamePresent: !!betaReview.data.attributes?.contactLastName?.trim(),
+              phonePresent: !!betaReview.data.attributes?.contactPhone?.trim(),
+              emailPresent: !!betaReview.data.attributes?.contactEmail?.trim(),
+              demoAccountRequired: !!betaReview.data.attributes?.demoAccountRequired,
+              notesPresent: !!betaReview.data.attributes?.notes?.trim()
+            } : null;
+
             const versions = await api('/v1/apps/' + appId +
               '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=platform,versionString,appStoreState,appVersionState,createdDate&limit=50');
             report.versions = [];
