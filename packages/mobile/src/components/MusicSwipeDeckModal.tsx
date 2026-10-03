@@ -4,7 +4,7 @@ import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Tex
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { isTrackPreviewActive, preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
@@ -331,7 +331,7 @@ export default function MusicSwipeDeckModal({
   const manualPlay = async () => {
     if (!current || !resolvedPreviewUrl) return;
     try {
-      await toggleTrackPreview(
+      await playTrackPreviewFromGesture(
         `swipe-${current.id}-${index}`,
         resolvedPreviewUrl,
         (playing) => {
