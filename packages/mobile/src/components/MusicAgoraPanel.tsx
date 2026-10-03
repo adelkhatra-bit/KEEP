@@ -227,7 +227,9 @@ export default function MusicAgoraPanel({
         const covered = Math.max(0, Math.round(win.innerHeight - viewport.height));
         setKeyboardInset(covered >= 80 ? covered : 0);
         if (covered < 80 && win.innerHeight > baseViewportHeightRef.current) baseViewportHeightRef.current = win.innerHeight;
-        setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
+        if (!userDraggingChatRef.current && (forceBottomRef.current || ownSendPendingRef.current !== null || (stickToBottomRef.current && !browsingHistoryRef.current))) {
+          setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 60);
+        }
       };
       viewport.addEventListener('resize', sync);
       viewport.addEventListener('scroll', sync);
@@ -246,8 +248,13 @@ export default function MusicAgoraPanel({
       const coveredByTop = reportedTop > 0 ? Math.max(0, baseViewportHeightRef.current - reportedTop) : 0;
       const nextInset = Math.max(reportedHeight, coveredByTop);
       setKeyboardInset(nextInset);
-      setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
-      setTimeout(() => followChatBottom(false), Platform.OS === 'ios' ? 260 : 140);
+      // Un changement de frame clavier ne doit jamais voler la position quand
+      // l'utilisateur relit l'historique. Le tap explicite sur le composeur
+      // réactive forceBottomRef avant l'arrivée de cet événement.
+      if (!userDraggingChatRef.current && (forceBottomRef.current || ownSendPendingRef.current !== null || (stickToBottomRef.current && !browsingHistoryRef.current))) {
+        setTimeout(() => followChatBottom(true), Platform.OS === 'ios' ? 80 : 40);
+        setTimeout(() => followChatBottom(false), Platform.OS === 'ios' ? 260 : 140);
+      }
     };
     const show = Keyboard.addListener(showEvent, applyKeyboardFrame);
     const frame = Platform.OS === 'ios'
@@ -1564,7 +1571,14 @@ export default function MusicAgoraPanel({
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={16}
       onScrollBeginDrag={() => {
+        // Priorité absolue au geste humain : annule tous les recentrages
+        // différés encore programmés par une ouverture/focus précédent.
         userDraggingChatRef.current = true;
+        browsingHistoryRef.current = true;
+        stickToBottomRef.current = false;
+        forceBottomRef.current = false;
+        bottomRetryTimersRef.current.forEach(clearTimeout);
+        bottomRetryTimersRef.current = [];
       }}
       onScroll={(event) => {
         const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -1601,7 +1615,7 @@ export default function MusicAgoraPanel({
         if (contentOffset.y <= 24 && hasMore && !olderBusy) void loadOlder();
       }}
       onContentSizeChange={() => {
-        if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current || !browsingHistoryRef.current) {
+        if (!userDraggingChatRef.current && (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current)) {
           requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
           if (ownSendPendingRef.current !== null || !initialScrollDone.current) {
             setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 120);
@@ -1610,7 +1624,7 @@ export default function MusicAgoraPanel({
         }
       }}
       onLayout={() => {
-        if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current) {
+        if (!userDraggingChatRef.current && (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current)) {
           requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
         }
       }}
@@ -1759,7 +1773,7 @@ export default function MusicAgoraPanel({
         testID="loki-chat-latest-anchor"
         style={s.latestAnchor}
         onLayout={() => {
-          if (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current) {
+          if (!userDraggingChatRef.current && (stickToBottomRef.current || ownSendPendingRef.current !== null || !initialScrollDone.current || forceBottomRef.current)) {
             requestAnimationFrame(() => chatScrollRef.current?.scrollToEnd({ animated: false }));
           }
         }}
