@@ -237,7 +237,7 @@ async function createSoundWithRetry(
 ): Promise<NativeSound> {
   const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
-  const maxAttempts = autoPlay ? 3 : 1;
+  const maxAttempts = 1;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let createdSound: NativeSound | null = null;
     try {
@@ -258,15 +258,15 @@ async function createSoundWithRetry(
       if (autoPlay) {
         await ensurePlaying(created.sound);
       } else {
-        const status = await created.sound.getStatusAsync();
+        const status = await withAudioTimeout(created.sound.getStatusAsync(), 'AUDIO_PRELOAD_STATUS');
         if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
       }
       return created.sound;
     } catch (error) {
       lastError = error;
       if (createdSound) {
-        try { await createdSound.stopAsync(); } catch {}
-        try { await createdSound.unloadAsync(); } catch {}
+        try { await withAudioTimeout(createdSound.stopAsync(), 'AUDIO_CREATE_STOP'); } catch {}
+        try { await withAudioTimeout(createdSound.unloadAsync(), 'AUDIO_CREATE_UNLOAD'); } catch {}
       }
       await configurePreviewAudio().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 160 + attempt * 120));
