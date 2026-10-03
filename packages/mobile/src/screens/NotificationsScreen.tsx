@@ -25,7 +25,7 @@ import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
-import { loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
+import { cancelPlaylistSalePayment, loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -106,6 +106,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'PLAYLIST_SALE_PAYMENT_REMINDER') return 'PAIEMENT À CONFIRMER';
   if (key === 'PLAYLIST_SALE_DELIVERED') return 'SÉLECTION DÉBLOQUÉE';
   if (key === 'PLAYLIST_SALE_COMPLETED') return 'VENTE TERMINÉE';
+  if (key === 'PLAYLIST_SALE_CANCELLED') return 'TRANSACTION ANNULÉE';
   if (key === 'LOKI_PULSE_NEW') return 'LOKI PULSE';
   if (key === 'ADMIN_USER_REPORT') return 'SIGNALEMENT';
   if (key === 'AGORA_GROUP_INVITE') return 'INVITATION GROUPE';
@@ -533,7 +534,41 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }
   };
 
-  const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
+  const cancelPlaylistPayment = (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    Alert.alert(
+      'Annuler cette transaction ?',
+      'L’autre utilisateur sera prévenu immédiatement qu’il ne doit plus attendre. Si un paiement a déjà été signalé ou une preuve jointe, Loki bloquera cette annulation.',
+      [
+        { text: 'GARDER LA TRANSACTION', style: 'cancel' },
+        {
+          text: 'ANNULER LA TRANSACTION',
+          style: 'destructive',
+          onPress: () => {
+            setPaymentBusyId(paymentId);
+            void cancelPlaylistSalePayment(paymentId, 'USER_CANCELLED_FROM_NOTIFICATION')
+              .then(async () => {
+                setNotice('Transaction annulée · l’autre utilisateur a été prévenu');
+                setPaymentCheckoutItem(null);
+                await refresh();
+              })
+              .catch((e: any) => {
+                const message = String(e?.message || '');
+                setError(
+                  message.includes('PAYMENT_ALREADY_REPORTED')
+                    ? 'Le paiement a déjà été signalé ou une preuve a été jointe. Cette transaction doit être traitée, pas annulée.'
+                    : 'Impossible d’annuler cette transaction pour le moment.',
+                );
+              })
+              .finally(() => setPaymentBusyId(null));
+          },
+        },
+      ],
+    );
+  };
+
+    const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
     const paymentId = paymentIdOf(item);
     if (!paymentId || paymentBusyId) return;
     const data = item.data as Record<string, unknown> | null;
@@ -1008,22 +1043,33 @@ export default function NotificationsScreen({ navigation, route }: any) {
                 </View>
               ) : null}
               {isSellerPaymentAction(item) ? (
-                <View style={styles.paymentActionRow}>
+                <>
+                  <View style={styles.paymentActionRow}>
+                    <TouchableOpacity
+                      style={[styles.paymentActionButton, styles.paymentActionSecondary]}
+                      disabled={paymentBusyId === paymentIdOf(item)}
+                      onPress={() => void openPlaylistPaymentProofFromNotification(item)}
+                    >
+                      <Text style={styles.paymentActionSecondaryText}>VOIR LA PREUVE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.paymentActionButton, styles.paymentActionConfirm]}
+                      disabled={paymentBusyId === paymentIdOf(item)}
+                      onPress={() => void confirmPlaylistPaymentReceived(item)}
+                    >
+                      <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'FONDS REÇUS · DÉBLOQUER'}</Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity
-                    style={[styles.paymentActionButton, styles.paymentActionSecondary]}
+                    style={styles.cancelPaymentButton}
                     disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => void openPlaylistPaymentProofFromNotification(item)}
+                    onPress={() => cancelPlaylistPayment(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Annuler cette transaction et prévenir l’autre utilisateur"
                   >
-                    <Text style={styles.paymentActionSecondaryText}>VOIR LA PREUVE</Text>
+                    <Text style={styles.cancelPaymentButtonText}>ANNULER LA TRANSACTION</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.paymentActionButton, styles.paymentActionConfirm]}
-                    disabled={paymentBusyId === paymentIdOf(item)}
-                    onPress={() => void confirmPlaylistPaymentReceived(item)}
-                  >
-                    <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'FONDS REÇUS · DÉBLOQUER'}</Text>
-                  </TouchableOpacity>
-                </View>
+                </>
               ) : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
@@ -1090,6 +1136,14 @@ export default function NotificationsScreen({ navigation, route }: any) {
         payoutLink={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutLink ?? (paymentCheckoutItem.data as any)?.payout_link ?? '') : ''}
         payoutQrUrl={paymentCheckoutItem ? String((paymentCheckoutItem.data as any)?.payoutQrUrl ?? (paymentCheckoutItem.data as any)?.payout_qr_url ?? '') : ''}
         onClose={() => setPaymentCheckoutItem(null)}
+        onCancelTransaction={paymentCheckoutItem ? async () => {
+          const paymentId = paymentIdOf(paymentCheckoutItem);
+          if (!paymentId) return;
+          await cancelPlaylistSalePayment(paymentId, 'BUYER_CANCELLED_FROM_NOTIFICATION');
+          setNotice('Transaction annulée · le vendeur a été prévenu');
+          await refresh();
+          setPaymentCheckoutItem(null);
+        } : undefined}
         onPaid={paymentCheckoutItem ? async () => {
           await signalPlaylistPaymentSent(paymentCheckoutItem);
           setPaymentCheckoutItem(null);
@@ -1228,6 +1282,8 @@ const styles = StyleSheet.create({
   paymentActionSecondary: { backgroundColor: colors.backgroundCard, borderColor: colors.primaryLight },
   paymentActionSecondaryText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', textAlign: 'center' },
   paymentActionConfirm: { backgroundColor: 'rgba(45,225,194,.16)', borderColor: colors.keep },
+  cancelPaymentButton:{width:'100%',minHeight:40,borderRadius:13,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',alignItems:'center',justifyContent:'center',marginTop:6,paddingHorizontal:10},
+  cancelPaymentButtonText:{color:colors.danger,fontSize:9,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
   paymentActionConfirmText: { color: colors.keep, fontSize: 9, fontWeight: '900', textAlign: 'center' },
   // Adel (08/09/2026) : "trois petits boutons en dessous bien aligné" --
   // même rangée, même hauteur, un seul en surbrillance (celui déjà choisi).
