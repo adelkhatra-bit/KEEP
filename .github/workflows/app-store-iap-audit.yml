@@ -68,6 +68,37 @@ jobs:
               });
             }
 
+            for(const sub of report.subscriptionGroups.flatMap(g=>g.subscriptions)){
+              const detail=await api('/v1/subscriptions/'+sub.id+
+                '?fields[subscriptions]=name,productId,state,reviewNote,subscriptionLocalizations,prices,appStoreReviewScreenshot');
+              sub.reviewScreenshotPresent=Boolean(detail.data?.relationships?.appStoreReviewScreenshot?.data);
+
+              const localizations=await api('/v1/subscriptions/'+sub.id+
+                '/subscriptionLocalizations?fields[subscriptionLocalizations]=name,locale,description,state&limit=200');
+              sub.localizations=(localizations.data||[]).map(x=>({
+                locale:x.attributes?.locale||null,
+                name:x.attributes?.name||null,
+                descriptionPresent:Boolean(x.attributes?.description?.trim()),
+                state:x.attributes?.state||null
+              }));
+
+              const prices=await api('/v1/subscriptions/'+sub.id+
+                '/prices?include=subscriptionPricePoint,territory&fields[subscriptionPrices]=startDate,preserved,territory,subscriptionPricePoint&fields[subscriptionPricePoints]=customerPrice,territory&fields[territories]=currency&limit=50');
+              sub.priceCount=(prices.data||[]).length;
+              sub.prices=(prices.data||[]).slice(0,10).map(x=>{
+                const pointId=x.relationships?.subscriptionPricePoint?.data?.id;
+                const territoryId=x.relationships?.territory?.data?.id;
+                const point=(prices.included||[]).find(y=>y.type==='subscriptionPricePoints'&&y.id===pointId);
+                const territory=(prices.included||[]).find(y=>y.type==='territories'&&y.id===territoryId);
+                return {
+                  territory:territoryId||null,
+                  customerPrice:point?.attributes?.customerPrice||null,
+                  currency:territory?.attributes?.currency||null,
+                  startDate:x.attributes?.startDate||null
+                };
+              });
+            }
+
             const iaps=await api('/v1/apps/'+appId+
               '/inAppPurchasesV2?fields[inAppPurchases]=name,productId,inAppPurchaseType,state,reviewNote,familySharable&limit=200',
               {allow404:true});
