@@ -248,7 +248,7 @@ export default function NewKeepNotificationActions({
         </TouchableOpacity>
       </View>
 
-      {!saleProtected ? <Text style={s.maskedHint}>Titre + artiste masqués jusqu’à l’ajout.</Text> : null}
+      {!saleProtected ? <Text style={s.maskedHint}>Titre + artiste masqués jusqu’à l’ajout · sans retirer de Free.</Text> : null}
       {profileAction}
     </View>
   );
