@@ -45,6 +45,14 @@ describe('notification accordion and plan locks contract', () => {
     expect(notifications).toContain('const eventsLocked = !paidNotificationControls;');
   });
 
+  it('never paywalls the right to disable promotional notifications', () => {
+    expect(notifications).not.toContain('const marketingLocked =');
+    expect(notifications).not.toContain('const eventsLocked =');
+    expect(notifications).toContain('label="Actualités & offres"');
+    expect(notifications).toContain('value={prefs.marketingEnabled}');
+    expect(notificationService).toContain('marketingEnabled: false');
+  });
+
   it('uses the same access rule in mobile surfaces', () => {
     expect(access).toContain('isNotificationAccessLocked');
     expect(access).toContain('notificationAccessRequiredPlan');
