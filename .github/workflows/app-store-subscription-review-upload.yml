@@ -1,0 +1,145 @@
+name: Loki Subscription Review Upload
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-review-upload.yml'
+
+concurrency:
+  group: loki-app-store-subscription-review-fix
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download validated reviewer screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: loki-subscription-review-37152322993
+          path: artifacts/subscription-review
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 37152322993
+
+      - name: Upload reviewer screenshots and verify subscriptions
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const path=require('node:path');
+          const crypto=require('node:crypto');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+900,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body,allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            const txt=await res.text();
+            if(allow404&&res.status===404)return null;
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,2500));
+            return txt?JSON.parse(txt):null;
+          }
+          async function put(op,bytes){
+            const headers={};
+            for(const h of op.requestHeaders||[])headers[h.name]=h.value;
+            const chunk=bytes.subarray(op.offset,op.offset+op.length);
+            const res=await fetch(op.url,{method:op.method||'PUT',headers,body:chunk});
+            if(!res.ok)throw new Error('Apple asset PUT HTTP '+res.status);
+          }
+          async function ensureScreenshot(subId,filePath){
+            const current=await api('/v1/subscriptions/'+subId+
+              '/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState',{allow404:true});
+            if(current?.data && ['COMPLETE','UPLOAD_COMPLETE'].includes(current.data.attributes?.assetDeliveryState?.state)){
+              console.log('Screenshot already complete for',subId,current.data.attributes?.fileName);
+              return;
+            }
+            if(current?.data){
+              await api('/v1/subscriptionAppStoreReviewScreenshots/'+current.data.id,{method:'DELETE'});
+            }
+            const bytes=fs.readFileSync(filePath);
+            const name=path.basename(filePath);
+            const reserved=await api('/v1/subscriptionAppStoreReviewScreenshots',{
+              method:'POST',
+              body:{data:{
+                type:'subscriptionAppStoreReviewScreenshots',
+                attributes:{fileName:name,fileSize:bytes.length},
+                relationships:{subscription:{data:{type:'subscriptions',id:subId}}}
+              }}
+            });
+            const shot=reserved.data;
+            for(const op of shot.attributes?.uploadOperations||[])await put(op,bytes);
+            await api('/v1/subscriptionAppStoreReviewScreenshots/'+shot.id,{
+              method:'PATCH',
+              body:{data:{type:'subscriptionAppStoreReviewScreenshots',id:shot.id,attributes:{
+                uploaded:true,
+                sourceFileChecksum:crypto.createHash('md5').update(bytes).digest('hex')
+              }}}
+            });
+            let state='UNKNOWN';
+            for(let i=0;i<30;i++){
+              await new Promise(r=>setTimeout(r,1500));
+              const check=await api('/v1/subscriptionAppStoreReviewScreenshots/'+shot.id+
+                '?fields[subscriptionAppStoreReviewScreenshots]=fileName,assetDeliveryState');
+              state=check.data.attributes?.assetDeliveryState?.state||state;
+              if(['COMPLETE','UPLOAD_COMPLETE'].includes(state))break;
+              if(state==='FAILED')throw new Error('Review screenshot failed '+name+': '+JSON.stringify(check.data.attributes?.assetDeliveryState?.errors||[]));
+            }
+            if(!['COMPLETE','UPLOAD_COMPLETE'].includes(state))throw new Error('Review screenshot did not complete: '+name+' '+state);
+            console.log('Uploaded reviewer screenshot:',name,state);
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=productId,state,reviewNote&limit=200&limit[subscriptions]=50');
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions');
+            const mapping={
+              'com.adelkhatra.keep.premium.monthly':'PREMIUM.jpg',
+              'com.adelkhatra.keep.creatorpro.monthly':'CREATOR_PRO.jpg',
+              'com.adelkhatra.keep.venuepro.monthly':'VENUE_PRO.jpg'
+            };
+            const note=[
+              'Pour tester : Profil > menu du profil > Offres & crédits > Voir les offres.',
+              'Les achats iOS utilisent StoreKit 2. Le bouton Restaurer mes achats est présent sur l’écran.'
+            ].join('\n');
+            for(const [productId,file] of Object.entries(mapping)){
+              const sub=subs.find(x=>x.attributes?.productId===productId);
+              if(!sub)throw new Error('Subscription missing: '+productId);
+              const full=path.join('artifacts/subscription-review',file);
+              if(!fs.existsSync(full))throw new Error('Artifact screenshot missing: '+full);
+              if(!sub.attributes?.reviewNote?.trim()){
+                await api('/v1/subscriptions/'+sub.id,{method:'PATCH',body:{data:{
+                  type:'subscriptions',id:sub.id,attributes:{reviewNote:note}
+                }}});
+              }
+              await ensureScreenshot(sub.id,full);
+            }
+            const refresh=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=productId,state,reviewNote&limit=200&limit[subscriptions]=50');
+            const final=(refresh.included||[]).filter(x=>x.type==='subscriptions'&&mapping[x.attributes?.productId])
+              .map(x=>({productId:x.attributes.productId,state:x.attributes.state,reviewNotePresent:Boolean(x.attributes?.reviewNote?.trim())}));
+            console.log('FINAL_SUBSCRIPTIONS',JSON.stringify(final));
+            if(final.some(x=>x.state==='MISSING_METADATA'))throw new Error('Subscriptions still MISSING_METADATA after reviewer screenshot upload');
+          })().catch(e=>{console.error(e.stack||e);process.exit(1);});
+          NODE
