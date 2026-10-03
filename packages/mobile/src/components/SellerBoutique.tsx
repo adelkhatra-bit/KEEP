@@ -263,7 +263,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 
       <View style={s.shelfHead}>
         <Text style={s.shelfTitle} numberOfLines={1}>{ownerMode ? 'Mes collections' : 'Toutes les Pépites'}</Text>
-        <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique, ${visibleOffers.length} collections`}>
+        <TouchableOpacity onPress={() => setStoreOpen(true)} accessibilityRole="button" accessibilityLabel={`Voir toute la boutique musicale, ${visibleOffers.length} collections`}>
           <Text style={s.seeAll}>Tout voir · {visibleOffers.length} ›</Text>
         </TouchableOpacity>
       </View>
@@ -288,10 +288,10 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <View style={s.store}>
             <View style={s.storeHead}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.storeKicker}>BOUTIQUE</Text>
+                <Text style={s.storeKicker}>BOUTIQUE MUSICALE</Text>
                 <Text style={s.storeTitle} numberOfLines={1}>{ownerMode ? 'MES COLLECTIONS' : 'PÉPITES LOKI'}</Text>
               </View>
-              <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique">
+              <TouchableOpacity style={s.storeClose} onPress={() => setStoreOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la boutique musicale">
                 <Text style={s.storeCloseText}>×</Text>
               </TouchableOpacity>
             </View>
