@@ -9,6 +9,7 @@ import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile } from 
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
 import { speakLokiText } from '../services/lokiSpeechService';
+import { speakLokiText } from '../services/lokiSpeechService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
