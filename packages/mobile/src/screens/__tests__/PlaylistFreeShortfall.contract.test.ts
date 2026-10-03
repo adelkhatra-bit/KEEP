@@ -26,9 +26,9 @@ describe('Playlist FREE shortfall UX', () => {
 
   it('aligns the profile link and price on one clean row', () => {
     expect(preview).toContain('sellerPriceRow');
-    expect(preview).toContain('<Text style={s.profileLinkText}>@{normalizedUsername}</Text>');
+    expect(preview).toContain('<Text style={s.profileLinkText}>{normalizedUsername}</Text>');
     expect(preview).toContain('totalPricePill');
-    expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
+    expect(profile).toContain("navigation.navigate('PublicProfile', { username: sellerUsername })");
   });
 
   it('normalizes Supabase shortage details', () => {
