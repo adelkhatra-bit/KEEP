@@ -145,6 +145,9 @@ export function extractMusicAgoraPayoutQrUrl(body: string): string | null {
 export function musicAgoraBodyPreview(body: string): string {
   const raw = String(body || '');
   if (extractMusicAgoraPayoutQrUrl(raw)) return 'QR PayPal partagé';
+  // Même si une ancienne URL QR n'est plus valide, ne jamais afficher le
+  // token technique [[LOKI_PAYPAL_QR]] / [[KEEP_PAYPAL_QR]] à l'utilisateur.
+  if (PAYPAL_QR_PREFIXES.some((prefix) => raw.startsWith(prefix))) return 'QR PayPal partagé';
   if (raw === '[[LOKI_REACTION]]' || raw === '[[KEEP_LOKI_REACTION]]') return '◉ᴗ◉✦ · LOKI';
   return raw
     .replace(/\bKEEP\s+PAYPAL\b/gi, 'Loki PayPal')
