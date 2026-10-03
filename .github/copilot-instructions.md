@@ -53,3 +53,12 @@ Logic fixes must stay logic fixes.
 7. Never report PASS when a required check has not actually passed.
 
 Never expose API secrets in `EXPO_PUBLIC_*`, client code, screenshots, logs or docs. Provider secrets stay server-side in Supabase Vault/Edge Secrets.
+
+## 🔐 AUTHENTIFICATION — FRONTIÈRE USER / SUPER ADMIN
+
+- **Utilisateur Loki** : runtime `packages/mobile`; récupération utilisateur = `keep-auth-email`.
+- **Super Admin** : runtime `packages/admin`; autorité = `public.admin_users` + rôle actif; login principal = mot de passe Supabase; secours = `keep-admin-bootstrap` avec code à usage unique.
+- Il est **interdit** de brancher le Super Admin sur `keep-auth-email`, le magic-link utilisateur ou un écran mobile de récupération.
+- Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
+- Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
+- Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.
