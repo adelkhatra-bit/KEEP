@@ -21,14 +21,14 @@ jobs:
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - name: Read latest iOS build
         run: |
           test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN missing"; exit 1; }
-          npx eas-cli@latest build:list --platform ios --limit 5 --json --non-interactive > /tmp/builds.json
+          npx eas-cli@24.6.0 build:list --platform ios --limit 5 --json --non-interactive > /tmp/builds.json
           node <<'NODE'
           const fs=require('fs');
           const rows=JSON.parse(fs.readFileSync('/tmp/builds.json','utf8'));
