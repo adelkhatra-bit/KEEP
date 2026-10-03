@@ -2,8 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 
-const mockRpc = jest.fn();
-jest.mock('../supabaseClient', () => ({ supabase: { rpc: (...args) => mockRpc(...args) } }));
+const mockCommitKeep = jest.fn();
+jest.mock('../keepTrackAction', () => ({ commitKeep: (...args) => mockCommitKeep(...args) }));
 jest.mock('../musicAgoraService', () => ({ loadMusicAgoraSharedTrack: jest.fn() }));
 jest.mock('../connectedMusicLibrary', () => ({ checkOwnKeepLibrary: jest.fn() }));
 jest.mock('../playlistSaleService', () => ({ loadMaskedPlaylistSaleTrackIds: jest.fn().mockResolvedValue([]) }));
@@ -26,6 +26,7 @@ const oldNotif = {
   data: {
     ownerProfileId: '22222222-2222-4222-8222-222222222222',
     username: 'adel',
+    sourceProfileId: '44444444-4444-4444-8444-444444444444',
     trackId: '33333333-3333-4333-8333-333333333333',
     trackTitle: 'Secret Song',
     trackArtist: 'Mystery Artist',
@@ -36,7 +37,7 @@ const oldNotif = {
 };
 
 describe('Notification nouveau morceau Loki', () => {
-  beforeEach(() => mockRpc.mockReset());
+  beforeEach(() => mockCommitKeep.mockReset());
 
   it('ne révèle jamais le titre ni l’artiste avant ajout, même pour une ancienne notification', () => {
     const copy = maskedNewKeepCopy(oldNotif as any);
@@ -47,18 +48,21 @@ describe('Notification nouveau morceau Loki', () => {
     expect(newKeepNotificationTrackId(oldNotif as any)).toBe('33333333-3333-4333-8333-333333333333');
   });
 
-  it('ajoute gratuitement via la RPC sécurisée et respecte Public/Privé', async () => {
-    mockRpc.mockResolvedValueOnce({ data: { ok: true, deduplicated: false, charged: 0 }, error: null });
+  it('ajoute gratuitement via le chemin canonique keep-music-core et respecte Public/Privé', async () => {
+    mockCommitKeep.mockResolvedValueOnce({ alreadyKept: false });
     const result = await keepFromNewKeepNotification(oldNotif as any, { id: '33333333-3333-4333-8333-333333333333' } as any, 'PUBLIC');
     expect(result).toEqual({ ok: true, alreadyKept: false });
-    expect(mockRpc).toHaveBeenCalledWith('keep_commit_public_notification_keep', {
-      p_notification_id: oldNotif.id,
-      p_visibility: 'PUBLIC',
-    });
+    const [, , , options] = mockCommitKeep.mock.calls[0];
+    expect(options.visibility).toBe('PUBLIC');
+    expect(options.consumeCredit).toBe(false);
+    expect(options.context.source).toBe('follow_notification');
+    expect(options.context.notificationId).toBe(oldNotif.id);
+    expect(options.context.creditPolicy).toBe('SOCIAL_ZERO_CREDIT');
+    expect(options.context.sourceProfileId).toBe('44444444-4444-4444-8444-444444444444');
   });
 
-  it('garde le parcours vente protégé côté serveur', async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'TRACK_SALE_PROTECTED' } });
+  it('garde le parcours vente protégé', async () => {
+    mockCommitKeep.mockRejectedValueOnce(new Error('SALE_PROTECTED'));
     const result = await keepFromNewKeepNotification(oldNotif as any, { id: '33333333-3333-4333-8333-333333333333' } as any, 'PRIVATE');
     expect(result.ok).toBe(false);
     expect(result.error).toContain('Pépite en vente');
@@ -79,7 +83,7 @@ describe('Notification nouveau morceau Loki', () => {
     expect(component).toContain('AJOUTER GRATUITEMENT');
     expect(component).toContain("{ text: 'Privé'");
     expect(component).toContain("{ text: 'Public'");
-    expect(component).toContain('Titre + artiste masqués jusqu’à l’ajout.');
+    expect(component).toContain('sans retirer de Free');
     expect(component).toContain('revealedTrackLine(track)');
   });
 
@@ -91,14 +95,16 @@ describe('Notification nouveau morceau Loki', () => {
     expect(banner).not.toContain("dataText(current, 'trackTitle')");
   });
 
-  it('serveur : l’ajout gratuit exige une vraie notification du compte et refuse les morceaux en vente', () => {
-    const sql = read('supabase/migrations/20261003031000_public_notification_free_keep.sql');
-    expect(sql).toContain("and n.profile_id = v_uid");
-    expect(sql).toContain("and upper(n.type) = 'NEW_PUBLIC_KEEP'");
-    expect(sql).toContain('keep_playlist_sale_masked_track_ids');
-    expect(sql).toContain("raise exception 'TRACK_SALE_PROTECTED'");
+  it('serveur : une vraie notification est requise, la vente reste protégée et aucun Free n’est débité', () => {
+    const sql = read('supabase/migrations/20261003033000_new_public_keep_free_social.sql');
+    expect(sql).toContain("n.profile_id = uid");
+    expect(sql).toContain("upper(n.type) = 'NEW_PUBLIC_KEEP'");
+    expect(sql).toContain("raise exception 'SALE_PROTECTED'");
     expect(sql).toContain("'charged',0");
-    expect(sql).toContain("'PUBLIC_NOTIFICATION_FREE'");
+    expect(sql).toContain("'SOCIAL_ZERO_CREDIT'");
+    const edge = read('supabase/functions/keep-music-core/index.ts');
+    expect(edge).toContain('keep_commit_follow_notification_decision');
+    expect(edge).toContain("String((context as any)?.source || '') === 'follow_notification'");
   });
 
   it('serveur : le fanout reste asynchrone et transmet l’empreinte du premier découvreur', () => {
