@@ -2527,9 +2527,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
             <LokiFinishBurst tone={soloScore >= Math.ceil(solo.rounds.length / 2) ? 'win' : 'try'} />
             {/* Adel (29/09/2026) : Loki, dessin animé avec voix off selon le score. */}
-            <LokiMascotVoice correct={soloScore} total={solo.rounds.length} allTimeouts={soloResponses.length > 0 && soloResponses.every((r) => r === '__TIMEOUT__')} />
+            <LokiMascotVoice
+              correct={soloScore}
+              total={solo.rounds.length}
+              allTimeouts={soloResponses.length > 0 && soloResponses.every((r) => r === '__TIMEOUT__')}
+              messageSeed={soloDailySessionTokenRef.current || `solo:${solo.themeCode}:${solo.rounds.length}:${soloScore}`}
+            />
             <Text style={s.finishTitle}>{perfect ? `PARFAIT · ${solo.rounds.length}/${solo.rounds.length}` : `${soloScore}/${solo.rounds.length}`}</Text>
-            <Text style={s.finishSub}>{perfect ? 'Aucune erreur. Loki Music BATTLE MASTER.' : soloScore >= 6 ? 'Très gros score.' : soloScore >= 4 ? 'Bien joué. Tu peux faire mieux.' : 'Repars immédiatement pour prendre ta revanche.'}</Text>
+            <Text style={s.finishSub}>Résultat final de cette partie</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
             {soloFreeEarned > 0 ? (
               <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
@@ -3361,13 +3366,13 @@ const s = StyleSheet.create({
   battleStartButtonTextDisabled: { color: colors.textMuted },
   arenaScroll: { flex: 1 },
   arenaScrollContent: { paddingBottom: 96 },
-  arenaScrollContentActive: { flexGrow: 1, paddingBottom: 6 },
+  arenaScrollContentActive: { flexGrow: 1, paddingBottom: 2 },
   // Battle mobile : la jaquette reste un vrai grand carré, jamais un rectangle
   // étiré. Les réponses utilisent le bas de la carte pour supprimer le grand
   // espace noir tout en restant au-dessus de la barre des 5 onglets.
   arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start' },
   arenaVisualActive: { width: '100%', aspectRatio: 1, height: undefined, flexGrow: 0, flexShrink: 0, minHeight: 0 },
-  arenaAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 2 },
+  arenaAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 },
   roundNoWinner: { color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '900', textAlign: 'center', marginTop: 9 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
