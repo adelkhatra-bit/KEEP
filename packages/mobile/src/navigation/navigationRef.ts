@@ -1,5 +1,6 @@
 import { confirmLeaveGame } from '../services/gameExitGuard';
 import { createNavigationContainerRef } from '@react-navigation/native';
+import { useGlobalChatStore } from '../store/useGlobalChatStore';
 
 // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe quelle
 // page" -- accepter un Battle depuis le bandeau global (GlobalNotificationBanner,
@@ -54,6 +55,43 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
     setTimeout(() => navigateFromNotificationData(payload, attempt + 1), 150);
     return;
   }
+  const type = String(payload.notificationType ?? payload.type ?? payload.event ?? payload.kind ?? '').trim().toUpperCase();
+  const notificationId = String(payload.notificationId ?? payload.notification_id ?? '').trim();
+
+  if (type === 'PROFILE_VIEW') {
+    const visitorUsername = String(payload.viewerUsername ?? payload.viewer_username ?? payload.username ?? '').trim().replace(/^@+/, '');
+    if (visitorUsername) {
+      guardedNavigate('PublicProfile', { username: visitorUsername });
+      return;
+    }
+  }
+
+  if (type.startsWith('AGORA_') || type.startsWith('CHAT_')) {
+    const groupId = String(payload.groupId ?? payload.group_id ?? '').trim();
+    const groupName = String(payload.groupName ?? payload.group_name ?? '').trim();
+    const senderId = String(payload.senderId ?? payload.sender_id ?? payload.actorId ?? payload.actor_id ?? '').trim();
+    const senderUsername = String(payload.senderUsername ?? payload.sender_username ?? payload.actorUsername ?? payload.actor_username ?? '').trim().replace(/^@+/, '');
+    const messageRaw = payload.messageId ?? payload.message_id;
+    const messageId = typeof messageRaw === 'number' ? messageRaw : Number(String(messageRaw || '')) || null;
+    if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
+      useGlobalChatStore.getState().openSettings();
+    } else {
+      useGlobalChatStore.getState().open({
+        groupId: groupId || null,
+        groupName: groupName || null,
+        targetProfileId: groupId ? null : (senderId || null),
+        targetUsername: groupId ? null : (senderUsername || null),
+        messageId,
+      });
+    }
+    return;
+  }
+
+  if (type === 'NEW_PUBLIC_KEEP' || type.startsWith('PLAYLIST_SALE_PAYMENT') || type === 'PLAYLIST_SALE_BUYER_PAID' || type === 'PLAYLIST_SALE_WAITING_SELLER') {
+    guardedNavigate('Notifications', notificationId ? { focusNotificationId: notificationId } : undefined);
+    return;
+  }
+
   const arenaId = String(payload.arenaId ?? payload.arena_id ?? '').trim();
   if (arenaId) {
     guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
