@@ -1,0 +1,59 @@
+name: Loki TestFlight Build Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/testflight-build-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read latest App Store/TestFlight builds
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const req=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const miss=req.filter(k=>!process.env[k]?.trim());
+          if(miss.length) throw new Error('Missing '+miss.join(','));
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(path){
+            const r=await fetch('https://api.appstoreconnect.apple.com'+path,{headers:{Authorization:'Bearer '+token}});
+            const t=await r.text();
+            if(!r.ok) throw new Error('HTTP '+r.status+' '+t.slice(0,800));
+            return JSON.parse(t);
+          }
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const b=await api('/v1/builds?filter[app]='+encodeURIComponent(appId)+'&sort=-uploadedDate&limit=20');
+            const rows=(b.data||[]).map(x=>({
+              id:x.id,
+              buildNumber:x.attributes?.version||null,
+              uploadedDate:x.attributes?.uploadedDate||null,
+              expirationDate:x.attributes?.expirationDate||null,
+              processingState:x.attributes?.processingState||null,
+              minOsVersion:x.attributes?.minOsVersion||null,
+              buildAudienceType:x.attributes?.buildAudienceType||null,
+              usesNonExemptEncryption:x.attributes?.usesNonExemptEncryption ?? null
+            }));
+            console.log('=== LOKI TESTFLIGHT BUILDS ===');
+            console.log(JSON.stringify(rows,null,2));
+            console.log('=== END LOKI TESTFLIGHT BUILDS ===');
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
