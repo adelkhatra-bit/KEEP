@@ -43,7 +43,16 @@ const DEFAULT_PREFS: NotificationPreferences = {
 };
 
 function decodeVisibleEntities(value: string): string {
-  return value
+  // Certains messages historiques arrivent doublement encodés
+  // (&amp;#10084;). On décode d'abord les entités de transport, puis les
+  // entités numériques / symboliques afin de ne jamais afficher le code brut.
+  const transported = value
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;|&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+  return transported
     .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => {
       const code = Number.parseInt(hex, 16);
       return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
@@ -52,12 +61,7 @@ function decodeVisibleEntities(value: string): string {
       const code = Number.parseInt(dec, 10);
       return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
     })
-    .replace(/&hearts?;/gi, '♥')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;|&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>');
+    .replace(/&hearts?;/gi, '♥');
 }
 
 export function normalizeNotificationVisibleText(value: unknown): string {
