@@ -27,7 +27,7 @@ const NAV: NavItem[] = [
   { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/team', label: 'Loki Super Admin', roles: ['SUPER_ADMIN'] },
+  { href: '/team', label: 'Sécurité & mot de passe', roles: ['SUPER_ADMIN'] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -149,7 +149,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ☰
           </button>
           <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
-          <div style={{ marginLeft: 'auto', position: 'relative' }}>
+          {role === 'SUPER_ADMIN' && (
+            <Link href="/team#password-security" style={{ marginLeft: 'auto', marginRight: 10, display: 'inline-flex', alignItems: 'center', minHeight: 38, padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none', fontSize: 12, fontWeight: 800 }}>
+              🔐 Mot de passe
+            </Link>
+          )}
+          <div style={{ marginLeft: role === 'SUPER_ADMIN' ? 0 : 'auto', position: 'relative' }}>
             <button
               type="button"
               onClick={() => setBellOpen((v) => !v)}
