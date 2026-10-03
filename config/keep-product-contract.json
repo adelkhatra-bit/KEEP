@@ -837,5 +837,24 @@
       "/rest/v1/tracks",
       "/rest/v1/rpc/keep_track_first_discoveries"
     ]
+  },
+  "authBoundary": {
+    "rule": "Loki user auth and Super Admin auth are two distinct security domains. Never reuse the mobile/user password-recovery flow for Super Admin, never infer admin authority from a normal user session, and never let an admin recovery path mutate the user-facing auth UX.",
+    "adminSurface": "packages/admin",
+    "userSurface": "packages/mobile",
+    "adminAuthorityTable": "public.admin_users",
+    "adminRequiredRole": "SUPER_ADMIN",
+    "adminPrimaryLogin": "supabase.auth.signInWithPassword + active admin_users role check",
+    "adminFallback": "keep-admin-bootstrap one-time recovery code only",
+    "userRecoveryService": "keep-auth-email",
+    "adminRecoveryMustNotUseUserEmailFlow": true,
+    "adminMustNotImportMobileAuthService": true,
+    "userRuntimeMustRemainUntouchedByAdminRecovery": true,
+    "forbiddenAdminMarkers": [
+      "keep-auth-email",
+      "signInWithOtp",
+      "emailRedirectTo"
+    ],
+    "enforcedBy": "scripts/verify-source-of-truth.cjs"
   }
 }
