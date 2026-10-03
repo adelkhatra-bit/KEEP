@@ -354,6 +354,19 @@ export default function PartiesScreen({ navigation, route }: any) {
       ],
     );
   };
+  const requestIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+    if (accept) { respondIncomingBattle(challenge, true); return; }
+    if (incomingResponding) return;
+    Alert.alert(
+      'Refuser ce Battle ?',
+      `Confirme uniquement si tu veux réellement refuser l’invitation de ${challenge.username}.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => respondIncomingBattle(challenge, false) },
+      ],
+    );
+  };
+
   // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la notification tu
   // l'intègres uniquement dans Profil/Playlists/Découvertes/Écoute" -- ce
   // flag reste vrai tant que cet écran est monté, quel que soit son
@@ -1473,7 +1486,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             variant="danger"
             size="small"
             disabled={!incomingDecisionReady || incomingResponding === challenge.id}
-            onPress={() => respondIncomingBattle(challenge, false)}
+            onPress={() => requestIncomingBattleDecision(challenge, false)}
             accessibilityLabel="Refuser le Battle"
           >
             REFUSER
@@ -1482,7 +1495,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             variant="success"
             size="small"
             disabled={!incomingDecisionReady || incomingResponding === challenge.id}
-            onPress={() => respondIncomingBattle(challenge, true)}
+            onPress={() => requestIncomingBattleDecision(challenge, true)}
             accessibilityLabel="Accepter le Battle"
           >
             {incomingResponding === challenge.id ? 'CONNEXION…' : 'ACCEPTER'}
