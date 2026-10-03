@@ -334,7 +334,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const isDesktopBattle = windowWidth >= 900;
   // Même gabarit Solo/Battle : sur mobile le bloc de manche utilise presque
   // toute la hauteur utile, sans jamais déformer la jaquette.
-  const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(500, windowHeight - 165);
+  const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(500, windowHeight - 140);
   const arenaVisualMax = isDesktopBattle
     ? 480
     : Math.max(250, Math.min(windowWidth - 18, roundCardMinHeight - 230));
