@@ -27,6 +27,12 @@ describe('profile FREE daily spend + visibility protection', () => {
     expect(spendMigration).toContain("amount integer not null check (amount > 0)");
   });
 
+  it('shows active sale tracks inside the PRIVÉ filter even if their saved visibility was public', () => {
+    expect(music).toContain("['PRIVATE', 'PRIVÉ']");
+    expect(music).toContain("entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])");
+    expect(music).toContain('Mes morceaux privés · ventes protégées');
+  });
+
   it('opens a clear visibility popup and keeps active sale tracks protected from TOUT PUBLIC', () => {
     expect(music).toContain('visibilityIntroOpen');
     expect(music).toContain('GÉRER MA VISIBILITÉ');

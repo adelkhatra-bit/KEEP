@@ -445,7 +445,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
   );
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
-  const privateEntries = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PRIVATE'), [localKeptEntries]);
+  const privateEntries = useMemo(
+    () => localKeptEntries.filter((entry) =>
+      entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])
+    ),
+    [localKeptEntries, myOfferedTrackIds],
+  );
   const privateTracks = useMemo(() => privateEntries.map((entry) => entry.track), [privateEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
   const saleCartTracks = useMemo(
@@ -1688,7 +1693,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                     {originFilter === 'USERS'
                       ? "🔒 Reprises d'autres utilisateurs"
                       : originFilter === 'PRIVATE'
-                        ? 'Mes morceaux privés'
+                        ? 'Mes morceaux privés · ventes protégées'
                       : originFilter === 'PULSE'
                         ? 'Loki Pulse'
                         : originFilter === 'SESSION'
