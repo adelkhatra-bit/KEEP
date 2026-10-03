@@ -59,6 +59,9 @@ describe('Loki chat latest-message visual follow', () => {
     expect(source).toContain("if (alreadyFocused && compact && Platform.OS !== 'web' && keyboardInset <= 0)");
     expect(source).toContain('input.blur();');
     expect(source).toContain('requestAnimationFrame(() => input.focus());');
+    expect(source).toContain('même si le champ était déjà focus');
+    const composerPress = source.slice(source.indexOf('onPressIn={() => {'), source.indexOf('onFocus={() => {', source.indexOf('onPressIn={() => {')));
+    expect(composerPress).toContain('followChatBottom(true);');
     expect(source).toContain('requestAnimationFrame(() => focusComposer());');
     expect(source).toContain("const compactBottom = 0;");
     expect(source).toContain("enabled={compact && Platform.OS === 'ios'}");

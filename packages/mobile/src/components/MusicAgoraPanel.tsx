@@ -2097,10 +2097,13 @@ export default function MusicAgoraPanel({
                 input.focus();
               }
             }
-            // Ne pas scroller ici : le recalage du fil se fait dans onFocus,
-            // une fois que le clavier est réellement engagé.
+            // Si l'utilisateur relisait l'historique plus haut, un tap dans
+            // « Écris un message » signifie qu'il veut répondre maintenant :
+            // on revient immédiatement aux messages les plus récents, même si
+            // le champ était déjà focus (dans ce cas onFocus ne se relance pas).
             stickToBottomRef.current = true;
             userDraggingChatRef.current = false;
+            followChatBottom(true);
           }}
           onFocus={() => {
             setComposerActionsOpen(false);
