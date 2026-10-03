@@ -43,7 +43,9 @@ begin
   set status='CANCELLED', updated_at=now()
   where id=c.id;
 
-  delete from public.notifications n
+  update public.notifications n
+  set read_at = coalesce(n.read_at, now()),
+      data = coalesce(n.data, '{}'::jsonb) || jsonb_build_object('cancelled', true, 'cancelledAt', now())
   where n.profile_id=c.target_id
     and n.type='BATTLE_CHALLENGE'
     and (
