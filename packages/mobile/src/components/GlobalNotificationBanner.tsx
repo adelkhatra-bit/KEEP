@@ -32,6 +32,26 @@ function dataText(notification: KeepNotification | null, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+function profileUsernameForNotification(notification: KeepNotification | null): string {
+  if (!notification) return '';
+  const keys = [
+    'username',
+    'actorUsername','actor_username',
+    'viewerUsername','viewer_username',
+    'requesterUsername','requester_username',
+    'followerUsername','follower_username',
+    'sellerUsername','seller_username',
+    'inviterUsername','inviter_username',
+    'originUsername','origin_username',
+    'senderUsername','sender_username',
+  ];
+  for (const key of keys) {
+    const value = dataText(notification, key).trim().replace(/^@+/, '');
+    if (value) return value;
+  }
+  return '';
+}
+
 function isBattleChallenge(notification: KeepNotification): boolean {
   const type = String(notification.type || '').toUpperCase();
   if (BATTLE_INLINE_TYPES.has(type)) return true;
@@ -412,6 +432,16 @@ export default function GlobalNotificationBanner() {
     animateOut();
   };
 
+  const openProfileFromNotification = () => {
+    if (!current) return;
+    const username = profileUsernameForNotification(current);
+    if (!username) return;
+    const id = current.id;
+    setCurrent((item) => item ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item);
+    void markNotificationRead(user.id, id).catch(() => {});
+    animateOut(() => navigateToSharedProfile(username));
+  };
+
   const openChatFromNotification = () => {
     if (!current) return;
     const roomSlug = dataText(current, 'roomSlug') || dataText(current, 'room_slug');
@@ -442,6 +472,7 @@ export default function GlobalNotificationBanner() {
   const rematchArenaId = dataText(current, 'arenaId');
   const eventInvite = isEventInvite(current);
   const agoraNotification = isAgoraNotification(current);
+  const profileUsername = profileUsernameForNotification(current);
   const buyerPaidNotification = isBuyerPaidNotification(current);
   const paymentId = dataText(current, 'paymentId') || dataText(current, 'payment_id');
   const eventId = dataText(current, 'event_id') || dataText(current, 'eventId');
@@ -713,9 +744,9 @@ export default function GlobalNotificationBanner() {
       <TouchableOpacity
         activeOpacity={0.94}
         style={styles.banner}
-        onPress={() => { if (agoraNotification) openChatFromNotification(); else void markReadAndHide(); }}
+        onPress={() => { if (agoraNotification) openChatFromNotification(); else if (profileUsername) openProfileFromNotification(); else void markReadAndHide(); }}
         accessibilityRole="button"
-        accessibilityLabel={agoraNotification ? `${current.title}. Ouvrir le Tchat.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
+        accessibilityLabel={agoraNotification ? `${current.title}. Ouvrir le Tchat.` : profileUsername ? `${current.title}. Voir le profil de ${profileUsername}.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
       >
         <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
         {artworkUrl ? (
@@ -726,7 +757,7 @@ export default function GlobalNotificationBanner() {
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
             <Text style={styles.eyebrow}>{isMusic ? 'Loki Music LIVE' : 'Loki Music'}</Text>
-            <Text style={styles.closeHint}>{agoraNotification ? 'ouvrir le tchat' : 'toucher = lu'}</Text>
+            <Text style={styles.closeHint}>{agoraNotification ? 'ouvrir le tchat' : profileUsername ? 'voir le profil' : 'toucher = lu'}</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
           <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
