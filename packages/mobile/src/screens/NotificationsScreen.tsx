@@ -144,6 +144,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const [paymentCheckoutItem, setPaymentCheckoutItem] = useState<KeepNotification | null>(null);
   const [genericDetailItem, setGenericDetailItem] = useState<KeepNotification | null>(null);
+  const [genericDetailProfileUsername, setGenericDetailProfileUsername] = useState<string | null>(null);
   const [followingProfileIds, setFollowingProfileIds] = useState<Set<string>>(new Set());
   const [followBusyProfileId, setFollowBusyProfileId] = useState<string | null>(null);
   const handledFocusNotificationId = useRef<string>('');
@@ -538,8 +539,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
     if (type === 'PLAN_GIFTED' || type.includes('PLAN')) return 'VOIR MON OFFRE';
     if (eventIdOf(item)) return 'VOIR L’ÉVÉNEMENT';
     const profileUsername = notificationProfileUsername(item);
-    if (profileUsername) return `VOIR @${profileUsername}`;
-    if (notificationProfileId(item)) return 'VOIR LE PROFIL';
+    if (profileUsername || notificationProfileId(item)) return 'OUVRIR ICI';
     return 'LIRE EN ENTIER';
   };
 
@@ -807,17 +807,21 @@ export default function NotificationsScreen({ navigation, route }: any) {
       return;
     }
 
-    const profileUsername = await resolveNotificationProfileUsername(item);
-    if (profileUsername) {
-      navigation.navigate('PublicProfile', { username: profileUsername });
-      return;
-    }
-
     if (type === 'PLAN_GIFTED' || type.includes('PLAN')) {
       navigation.navigate('Offers');
       return;
     }
 
+    const profileUsername = await resolveNotificationProfileUsername(item);
+    if (profileUsername) {
+      // Une notification sociale reste dans le centre : l'utilisateur peut
+      // lire et agir ici, puis ouvrir le profil seulement s'il le choisit.
+      setGenericDetailProfileUsername(profileUsername);
+      setGenericDetailItem(item);
+      return;
+    }
+
+    setGenericDetailProfileUsername(null);
     setGenericDetailItem(item);
   };
 
@@ -1090,7 +1094,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                 {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
-                  {profileUsername ? <Text style={styles.cardProfileLink}>Voir @{profileUsername} ›</Text> : null}
+                  {profileUsername ? <Text style={styles.cardProfileLink}>Actions avec @{profileUsername} ›</Text> : null}
                 </View>
               </TouchableOpacity>
               {isNewKeepNotification(item) ? (
@@ -1277,14 +1281,53 @@ export default function NotificationsScreen({ navigation, route }: any) {
         } : undefined}
       />
 
-      <Modal visible={Boolean(genericDetailItem)} transparent animationType="fade" onRequestClose={() => setGenericDetailItem(null)}>
+      <Modal
+        visible={Boolean(genericDetailItem)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setGenericDetailItem(null); setGenericDetailProfileUsername(null); }}
+      >
         <View style={styles.detailBackdrop}>
           <View style={styles.detailSheet}>
-            <TouchableOpacity style={styles.detailClose} onPress={() => setGenericDetailItem(null)} accessibilityLabel="Fermer"><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
+            <TouchableOpacity
+              style={styles.detailClose}
+              onPress={() => { setGenericDetailItem(null); setGenericDetailProfileUsername(null); }}
+              accessibilityLabel="Fermer"
+            ><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
             {genericDetailItem ? <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.detailTitle}>{genericDetailItem.title}</Text>
               <Text style={styles.detailMeta}>{notificationTypeLabel(genericDetailItem.type)} · {new Date(genericDetailItem.createdAt).toLocaleString('fr-FR')}</Text>
               <Text style={styles.detailDescription}>{genericDetailItem.body}</Text>
+              {genericDetailProfileUsername ? (
+                <View style={styles.notificationActionRow}>
+                  {notificationProfileId(genericDetailItem) && notificationProfileId(genericDetailItem) !== user?.id ? (
+                    <TouchableOpacity
+                      style={styles.notificationActionButton}
+                      disabled={followBusyProfileId === notificationProfileId(genericDetailItem) || followingProfileIds.has(notificationProfileId(genericDetailItem) as string)}
+                      onPress={() => { void followFromNotification(genericDetailItem); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={followingProfileIds.has(notificationProfileId(genericDetailItem) as string) ? 'Profil déjà suivi' : `Suivre @${genericDetailProfileUsername}`}
+                    >
+                      <Text style={styles.notificationActionButtonText}>
+                        {followingProfileIds.has(notificationProfileId(genericDetailItem) as string) ? '✓ DÉJÀ SUIVI' : followBusyProfileId === notificationProfileId(genericDetailItem) ? 'SUIVI…' : '+ SUIVRE'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={[styles.notificationActionButton, { marginTop: 8 }]}
+                    onPress={() => {
+                      const targetUsername = genericDetailProfileUsername;
+                      setGenericDetailItem(null);
+                      setGenericDetailProfileUsername(null);
+                      navigation.navigate('PublicProfile', { username: targetUsername });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Voir le profil de ${genericDetailProfileUsername}`}
+                  >
+                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · @{genericDetailProfileUsername}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </ScrollView> : null}
           </View>
         </View>
