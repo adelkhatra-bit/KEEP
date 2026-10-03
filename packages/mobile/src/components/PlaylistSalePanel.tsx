@@ -158,11 +158,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [editing, setEditing] = useState<PriceEditState>(null);
   const [error, setError] = useState('');
   const [retiredOpen, setRetiredOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  useEffect(() => {
-    if (openPaymentHistory || focusPaymentId) setHistoryOpen(true);
-  }, [openPaymentHistory, focusPaymentId]);
-  const [offerFilter, setOfferFilter] = useState<'ALL' | 'FREE' | 'MONEY'>('ALL');
+  const [manualInfoOpen, setManualInfoOpen] = useState(false);
+  const [offerFilter, setOfferFilter] = useState<'FREE' | 'MONEY'>('FREE');
   const [collectionCartOpen, setCollectionCartOpen] = useState(false);
   const [collectionCartStep, setCollectionCartStep] = useState<'TRACKS' | 'REVIEW' | 'PRICE' | 'PUBLISH'>('TRACKS');
   const [collectionCartLoading, setCollectionCartLoading] = useState(false);
@@ -218,7 +215,33 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const { published, retired } = useMemo(() => splitSaleOffersByStatus(offers, focusOfferId), [offers, focusOfferId]);
   const freePublished = useMemo(() => published.filter((item) => item.paymentMode === 'FREE' || item.paymentMode === 'BOTH'), [published]);
   const moneyPublished = useMemo(() => published.filter((item) => item.paymentMode === 'MONEY' || item.paymentMode === 'BOTH'), [published]);
-  const filteredPublished = useMemo(() => offerFilter === 'FREE' ? freePublished : offerFilter === 'MONEY' ? moneyPublished : published, [freePublished, moneyPublished, offerFilter, published]);
+  const filteredPublished = useMemo(() => offerFilter === 'FREE' ? freePublished : moneyPublished, [freePublished, moneyPublished, offerFilter]);
+  const transactionIsFree = (transaction: PlaylistSaleTransaction) => transaction.paymentMode === 'FREE' || Number(transaction.amountFree || 0) > 0;
+  const modeSales = useMemo(() => sales.filter((transaction) => offerFilter === 'FREE' ? transactionIsFree(transaction) : !transactionIsFree(transaction)), [sales, offerFilter]);
+  const modePurchases = useMemo(() => purchases.filter((transaction) => offerFilter === 'FREE' ? transactionIsFree(transaction) : !transactionIsFree(transaction)), [purchases, offerFilter]);
+  const modeHistory = useMemo(() => [
+    ...modeSales.map((transaction) => ({ direction: 'SALE' as const, transaction })),
+    ...modePurchases.map((transaction) => ({ direction: 'PURCHASE' as const, transaction })),
+  ].sort((a, b) => new Date(b.transaction.createdAt).getTime() - new Date(a.transaction.createdAt).getTime()), [modeSales, modePurchases]);
+  const modeRevenueLabel = useMemo(() => {
+    const completed = modeSales.filter((transaction) => transaction.status === 'COMPLETED');
+    if (offerFilter === 'FREE') return `${completed.reduce((sum, transaction) => sum + Math.max(0, Number(transaction.amountFree || 0)), 0)} FREE`;
+    const totals = new Map<string, number>();
+    completed.forEach((transaction) => {
+      const currency = String(transaction.currencyCode || 'EUR').toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + Math.max(0, Number(transaction.amountCents || 0)));
+    });
+    if (!totals.size) return '0 €';
+    return Array.from(totals.entries()).map(([currency, cents]) => {
+      const value = (cents / 100).toFixed(2).replace('.', ',');
+      return currency === 'EUR' ? `${value} €` : `${value} ${currency}`;
+    }).join(' · ');
+  }, [modeSales, offerFilter]);
+  useEffect(() => {
+    if (!focusPaymentId) return;
+    const focused = [...sales, ...purchases].find((transaction) => transaction.id === focusPaymentId);
+    if (focused) setOfferFilter(transactionIsFree(focused) ? 'FREE' : 'MONEY');
+  }, [focusPaymentId, sales, purchases]);
   const activeLimitReached = Boolean(access && access.activeOffers >= access.maxActiveOffers);
   // Adel (20/09/2026) : marketplace playlists en "coming soon" -- paiement
   // par lien externe, non conforme Apple IAP pour du contenu numérique
@@ -540,45 +563,6 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   // Adel (16-17/09/2026) : "l'utilisateur se fait payer directement" -- une
   // fois payé sur SON lien perso (hors KEEP), le vendeur confirme ici -- ça
   // débloque l'accès de CET acheteur précis (démasquage des morceaux).
-  const handleOpenPaymentProof = async (transaction: PlaylistSaleTransaction) => {
-    try {
-      const url = await openPlaylistPaymentProof(transaction.id);
-      await Linking.openURL(url);
-    } catch (e: any) {
-      Alert.alert('Preuve de paiement', e?.message || 'Impossible d’ouvrir la preuve pour le moment.');
-    }
-  };
-
-  const handleCancelPendingPayment = (transaction: PlaylistSaleTransaction) => {
-    if (transaction.buyerMarkedPaidAt || transaction.paymentProofPath) {
-      Alert.alert('Transaction déjà engagée', 'Un paiement ou une preuve a déjà été signalé. Tu dois confirmer, refuser ou traiter le litige ; l’annulation simple est bloquée.');
-      return;
-    }
-    Alert.alert(
-      'Annuler cette transaction ?',
-      `@${transaction.counterpartUsername} sera prévenu immédiatement que tu ne vas pas au bout de « ${transaction.playlistName} ».`,
-      [
-        { text: 'Garder', style: 'cancel' },
-        {
-          text: 'ANNULER ET PRÉVENIR',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy(true);
-            try {
-              await cancelPlaylistSalePayment(transaction.id);
-              await loadData();
-              Alert.alert('Transaction annulée', `@${transaction.counterpartUsername} a été prévenu.`);
-            } catch (e: any) {
-              Alert.alert('Annulation impossible', String(e?.message || 'Impossible d’annuler cette transaction pour le moment.'));
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ],
-    );
-  };
-
   const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
     if (!transaction.buyerMarkedPaidAt || !transaction.paymentProofPath) {
       Alert.alert(
@@ -1087,7 +1071,6 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
               <View style={s.modeTabs}>
                 {([
-                  ['ALL', 'TOUTES', published.length],
                   ['FREE', '⚡ FREE', freePublished.length],
                   ['MONEY', '€ EUROS', moneyPublished.length],
                 ] as const).map(([key, label, count]) => (
@@ -1096,29 +1079,42 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={s.modeDashboardHint}>{offerFilter === 'FREE' ? 'Collections débloquées avec des FREE Loki Music.' : offerFilter === 'MONEY' ? 'Collections en euros avec paiement direct sur le lien personnel du propriétaire.' : 'Filtre tes collections sans mélanger FREE et argent réel.'}</Text>
+              <View style={s.modeRevenue}>
+                <Text style={s.modeRevenueLabel}>TOTAL ENCAISSÉ</Text>
+                <Text style={s.modeRevenueValue}>{modeRevenueLabel}</Text>
+              </View>
+              <Text style={s.modeDashboardHint}>{offerFilter === 'FREE' ? 'Collections et transactions en FREE uniquement.' : 'Collections et transactions en paiement direct uniquement.'}</Text>
+              <View style={s.historyList}>
+                <Text style={s.modeHistoryTitle}>TRANSACTIONS · {offerFilter === 'FREE' ? 'FREE' : 'EUROS'}</Text>
+                {modeHistory.length ? modeHistory.map(({ direction, transaction }) => (
+                  <View key={`${direction}:${transaction.id}`} style={[s.offerCard, s.historyCard, focusPaymentId === transaction.id && s.historyCardFocused]}>
+                    <View style={s.historyTop}>
+                      <View style={s.offerInfo}>
+                        <Text style={s.historyDirection}>{direction === 'SALE' ? 'ENCAISSÉ' : 'UTILISÉ'} · @{transaction.counterpartUsername}</Text>
+                        <Text style={s.offerName}>{transaction.playlistName}</Text>
+                      </View>
+                      <View style={[s.offerBadge, transactionIsFree(transaction) ? s.offerBadgeFree : s.offerBadgeMoney]}>
+                        <Text style={s.offerBadgeText}>{transactionIsFree(transaction) ? '⚡ FREE' : '€'}</Text>
+                      </View>
+                    </View>
+                    <Text style={s.offerPrice}>{transactionAmountLabel(transaction, direction === 'SALE' ? 'RECEIVED' : 'SPENT')}</Text>
+                    <Text style={s.historyDate}>{new Date(transaction.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
+                    <Text style={s.historyDetail}>Reçu Loki · Réf. {transaction.id.slice(0, 8).toUpperCase()}</Text>
+                    {transactionFreeBalanceLabel(transaction) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(transaction)}</Text> : null}
+                    <Text style={[s.historyStatus, transaction.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
+                      {transaction.status === 'COMPLETED'
+                        ? direction === 'SALE' ? '✓ Transaction terminée · collection débloquée' : '✓ Collection reçue dans Loki Music'
+                        : direction === 'SALE' ? '⏳ À traiter dans Activité / Notifications' : '⏳ En attente du propriétaire'}
+                    </Text>
+                  </View>
+                )) : <View style={s.filterEmpty}><Text style={s.filterEmptyTitle}>Aucune transaction {offerFilter === 'FREE' ? 'FREE' : 'en euros'}</Text><Text style={s.filterEmptyText}>Tes reçus apparaîtront ici automatiquement.</Text></View>}
+              </View>
             </View>
-            {/* Adel (21/09/2026, décision 2) : encart permanent -- le
-                fonctionnement reste manuel tant que l'API de paiement
-                réelle n'est pas intégrée. Le vendeur doit comprendre AVANT
-                de confirmer un déblocage que c'est lui, et lui seul, qui
-                certifie avoir reçu l'argent. */}
-            {marketplaceTransactionEnabled ? (
-              <View style={s.manualNotice}>
-                <Text style={s.manualNoticeTitle}>ℹ️ Fonctionnement actuel : confirmation manuelle</Text>
-                <Text style={s.manualNoticeText}>Loki Music n'encaisse jamais et ne vérifie pas les paiements externes. Confirme « Paiement reçu » uniquement après avoir réellement reçu l'argent sur ton lien personnel : cette confirmation débloque toute la collection pour l'acheteur.</Text>
-              </View>
-            ) : (
-              <View style={s.manualNotice}>
-                <Text style={s.manualNoticeTitle}>GESTION DES COLLECTIONS ACTIVE</Text>
-                <Text style={s.manualNoticeText}>Tu peux créer et organiser tes collections, modifier les morceaux et choisir € / FREE. Les paiements externes restent désactivés dans cette version mobile.</Text>
-              </View>
-            )}
 
             {/* Offres Actives */}
             {published.length > 0 && (
               <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>{offerFilter === 'FREE' ? 'COLLECTIONS FREE' : offerFilter === 'MONEY' ? 'COLLECTIONS EN EUROS' : 'TOUTES LES COLLECTIONS'} ({filteredPublished.length})</Text>
+                <Text style={s.sectionTitle}>{offerFilter === 'FREE' ? 'COLLECTIONS FREE' : 'COLLECTIONS EN EUROS'} ({filteredPublished.length})</Text>
                 <Text style={s.sectionHint}>Chaque carte est un lot complet. FREE et euros sont séparés visuellement.</Text>
                 {filteredPublished.length ? <FlatList
                   scrollEnabled={false}
@@ -1168,7 +1164,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                             offerId: item.offerId || '',
                             playlistId: item.playlistId,
                             playlistName: item.playlistName,
-                            paymentMode: item.paymentMode === 'FREE' ? 'FREE' : 'MONEY',
+                            paymentMode: item.paymentMode ?? 'MONEY',
                             priceCents: item.priceCents,
                             freePrice: item.freePrice ?? null,
                           })}
@@ -1264,42 +1260,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
-            {/* Ventes en attente de confirmation -- l'acheteur a déjà cliqué
-                Acheter (payé ou en train de payer sur le lien du vendeur) */}
-            {marketplaceTransactionEnabled && sales.filter((s2) => s2.status === 'PENDING').length > 0 && (
-              <View style={s.offersSection}>
-                <Text style={s.sectionTitle}>DÉBLOCAGES EN ATTENTE ({sales.filter((s2) => s2.status === 'PENDING').length})</Text>
-                {sales.filter((s2) => s2.status === 'PENDING').map((sale) => (
-                  <View key={sale.id} style={s.offerCard}>
-                    <View style={s.offerTop}>
-                      <View style={s.offerInfo}>
-                        <Text style={s.offerName}>@{sale.counterpartUsername} · {sale.playlistName}</Text>
-                        <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'NEUTRAL')}</Text>
-                      </View>
-                    </View>
-                    <Text style={s.offerDate}>Demandé le {new Date(sale.createdAt).toLocaleDateString('fr-FR')}</Text>
-                    <Text style={[s.historyStatus, sale.buyerMarkedPaidAt ? s.historyStatusDone : s.historyStatusPending]}>
-                      {sale.buyerMarkedPaidAt
-                        ? `✓ @${sale.counterpartUsername} indique avoir payé${sale.paymentProofName ? ` · preuve : ${sale.paymentProofName}` : ''}`
-                        : `⏳ @${sale.counterpartUsername} n’a pas encore signalé son paiement`}
-                    </Text>
-                    {sale.paymentProofPath ? (
-                      <TouchableOpacity style={s.manageTracksBtn} disabled={busy} onPress={() => { void handleOpenPaymentProof(sale); }}>
-                        <Text style={s.manageTracksBtnText}>VOIR LA PREUVE DE PAIEMENT</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                    <TouchableOpacity style={[s.editBtn, (!sale.buyerMarkedPaidAt || !sale.paymentProofPath) && s.pendingConfirmDisabled]} disabled={busy || !sale.buyerMarkedPaidAt || !sale.paymentProofPath} onPress={() => handleMarkPaid(sale)}>
-                      <Text style={s.editBtnText}>{sale.buyerMarkedPaidAt && sale.paymentProofPath ? '✓ J’AI REÇU LES FONDS · DÉBLOQUER' : 'EN ATTENTE DE LA PREUVE ACHETEUR'}</Text>
-                    </TouchableOpacity>
-                    {!sale.buyerMarkedPaidAt && !sale.paymentProofPath ? (
-                      <TouchableOpacity style={s.removeBtn} disabled={busy} onPress={() => handleCancelPendingPayment(sale)} accessibilityLabel="Annuler cette transaction et prévenir l’acheteur">
-                        <Text style={s.removeBtnText}>ANNULER LA TRANSACTION · PRÉVENIR</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            )}
+            {/* Les validations de paiement vendeur vivent uniquement dans Activité / Notifications.
+                Pépites reste un tableau de collections et de reçus, sans doublon d'action. */}
 
             {/* Message si verrouillé */}
             {!access.unlocked && (
@@ -1319,67 +1281,18 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
               </View>
             )}
 
-            {(sales.length + purchases.length > 0) && (
-              <View style={s.offersSection}>
-                <TouchableOpacity
-                  style={s.historyToggle}
-                  onPress={() => setHistoryOpen((value) => !value)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: historyOpen }}
-                  accessibilityLabel={historyOpen ? 'Masquer l’historique Pépites' : 'Voir l’historique Pépites'}
-                >
-                  <View style={s.historyToggleCopy}>
-                    <Text style={s.historyToggleKicker}>PÉPITES</Text>
-                    <Text style={s.historyToggleTitle}>Voir l’historique</Text>
-                    <Text style={s.historyToggleMeta}>{sales.length} accès proposé{sales.length > 1 ? 's' : ''} · {purchases.length} accès obtenu{purchases.length > 1 ? 's' : ''}</Text>
-                  </View>
-                  <Text style={s.historyToggleIcon}>{historyOpen ? '˄' : '˅'}</Text>
-                </TouchableOpacity>
-
-                {historyOpen ? (
-                  <View style={s.historyList}>
-                    {sales.map((sale) => (
-                      <View key={`sale:${sale.id}`} style={[s.offerCard, s.historyCard, focusPaymentId === sale.id && s.historyCardFocused]}>
-                        <View style={s.historyTop}>
-                          <View style={s.offerInfo}>
-                            <Text style={s.historyDirection}>VENTE · @{sale.counterpartUsername}</Text>
-                            <Text style={s.offerName}>{sale.playlistName}</Text>
-                          </View>
-                          <View style={[s.offerBadge, sale.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
-                            <Text style={s.offerBadgeText}>{sale.paymentMode === 'FREE' ? '⚡ FREE' : '€'}</Text>
-                          </View>
-                        </View>
-                        <Text style={s.offerPrice}>{transactionAmountLabel(sale, 'RECEIVED')}</Text>
-                        <Text style={s.historyDate}>{new Date(sale.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
-                        {transactionFreeBalanceLabel(sale) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(sale)}</Text> : null}
-                        <Text style={[s.historyStatus, sale.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
-                          {sale.status === 'COMPLETED' ? '✓ Vente terminée · musique débloquée' : '⏳ Paiement à confirmer'}
-                        </Text>
-                      </View>
-                    ))}
-                    {purchases.map((purchase) => (
-                      <View key={`purchase:${purchase.id}`} style={[s.offerCard, s.historyCard, focusPaymentId === purchase.id && s.historyCardFocused]}>
-                        <View style={s.historyTop}>
-                          <View style={s.offerInfo}>
-                            <Text style={s.historyDirection}>ACHAT · @{purchase.counterpartUsername}</Text>
-                            <Text style={s.offerName}>{purchase.playlistName}</Text>
-                          </View>
-                          <View style={[s.offerBadge, purchase.paymentMode === 'FREE' ? s.offerBadgeFree : s.offerBadgeMoney]}>
-                            <Text style={s.offerBadgeText}>{purchase.paymentMode === 'FREE' ? '⚡ FREE' : '€'}</Text>
-                          </View>
-                        </View>
-                        <Text style={s.offerPrice}>{transactionAmountLabel(purchase, 'SPENT')}</Text>
-                        <Text style={s.historyDate}>{new Date(purchase.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</Text>
-                        {transactionFreeBalanceLabel(purchase) ? <Text style={s.historyDetail}>{transactionFreeBalanceLabel(purchase)}</Text> : null}
-                        <Text style={[s.historyStatus, purchase.status === 'COMPLETED' ? s.historyStatusDone : s.historyStatusPending]}>
-                          {purchase.status === 'COMPLETED' ? '✓ Collection débloquée dans Loki Music' : '⏳ En attente de confirmation du propriétaire'}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
+            <TouchableOpacity style={s.manualNotice} onPress={() => setManualInfoOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: manualInfoOpen }} accessibilityLabel="En savoir plus sur le fonctionnement des paiements Pépites">
+              <View style={s.manualNoticeHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={s.manualNoticeTitle}>EN SAVOIR PLUS · PAIEMENTS PÉPITES</Text>
+                  <Text style={s.manualNoticeSummary}>Les validations vendeur se font dans Activité / Notifications.</Text>
+                </View>
+                <Text style={s.manualNoticeChevron}>{manualInfoOpen ? '˄' : '˅'}</Text>
               </View>
-            )}
+              {manualInfoOpen ? <Text style={s.manualNoticeText}>{marketplaceTransactionEnabled
+                ? 'Loki Music ne reçoit pas l’argent PayPal. Le vendeur doit vérifier les fonds et la preuve dans Activité / Notifications avant de débloquer. Les reçus Loki restent visibles dans les rubriques FREE et € ci-dessus.'
+                : 'Tu peux créer et organiser tes collections et suivre les reçus. Les paiements externes restent désactivés dans cette version mobile.'}</Text> : null}
+            </TouchableOpacity>
             </> : null}
           </>
         )}
@@ -1484,8 +1397,8 @@ const s = StyleSheet.create({
   collectionCartCover:{width:48,height:48,borderRadius:12,backgroundColor:colors.background},collectionCartCoverEmpty:{alignItems:'center',justifyContent:'center'},collectionCartCoverText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
   collectionCartTrackCopy:{flex:1,minWidth:0},collectionCartTrackTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},collectionCartTrackArtist:{color:colors.textMuted,fontSize:10,marginTop:2},collectionCartAlready:{color:'#FFD166',fontSize:8,fontWeight:'900',marginTop:4},
   collectionCartAction:{minHeight:38,minWidth:74,paddingHorizontal:9,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartRemove:{borderColor:'#FF7885',backgroundColor:'#4A171B'},collectionCartActionText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},collectionCartEmpty:{color:colors.textMuted,fontSize:11,textAlign:'center',paddingVertical:18},
-  collectionCartFooter:{marginTop:'auto',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:52,paddingHorizontal:18,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueHero:{flex:1,minHeight:70,backgroundColor:colors.primary},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:.5},collectionCartContinueSubtext:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:3},
-  collectionCartReadyDock:{marginTop:'auto',borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,padding:14,gap:12,marginTop:2},
+  collectionCartFooter:{marginTop:'auto',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingTop:4},collectionCartCount:{color:colors.keep,fontSize:11,fontWeight:'900'},collectionCartContinue:{minHeight:52,paddingHorizontal:18,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},collectionCartContinueHero:{flex:1,minHeight:70,backgroundColor:colors.primary},collectionCartContinueDisabled:{opacity:.35},collectionCartContinueText:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:.5},collectionCartContinueSubtext:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:3},
+  collectionCartReadyDock:{marginTop:'auto',borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,padding:14,gap:12},
   collectionCartReadyCopy:{gap:3},collectionCartReadyEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.9},collectionCartReadyTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},collectionCartReadyHint:{color:colors.textSecondary,fontSize:10,lineHeight:15,fontWeight:'700'},
   collectionCartReadyButton:{minHeight:76,borderRadius:18,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:16,shadowColor:'#000',shadowOpacity:.22,shadowRadius:8,shadowOffset:{width:0,height:4},elevation:7},
   collectionCartReadyButtonTitle:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.5},collectionCartReadyButtonHint:{color:'#DCE7FF',fontSize:9,fontWeight:'900',marginTop:4,letterSpacing:.4},
@@ -1540,10 +1453,17 @@ const s = StyleSheet.create({
   modeDashboard:{borderRadius:radius.lg,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,padding:spacing.md},
   modeDashboardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},modeDashboardEyebrow:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:1},modeDashboardTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',marginTop:3},modeCounts:{alignItems:'flex-end',gap:3},modeCountFree:{color:colors.keep,fontSize:10,fontWeight:'900'},modeCountMoney:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
   modeTabs:{flexDirection:'row',gap:7,marginTop:14},modeTab:{flex:1,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:5},modeTabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},modeTabText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},modeTabTextOn:{color:colors.textPrimary},modeDashboardHint:{color:colors.textMutedGrey,fontSize:10,lineHeight:15,marginTop:9},
+  modeRevenue:{marginTop:12,borderRadius:16,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint,paddingHorizontal:12,paddingVertical:10},
+  modeRevenueLabel:{color:colors.textMuted,fontSize:8,fontWeight:'900',letterSpacing:.8},
+  modeRevenueValue:{color:colors.textPrimary,fontSize:21,fontWeight:'900',marginTop:3},
+  modeHistoryTitle:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.7,marginTop:12,marginBottom:8},
   filterEmpty:{borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},filterEmptyTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},filterEmptyText:{color:colors.textMuted,fontSize:10,marginTop:4,textAlign:'center'},
   manualNotice: { marginTop: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
-  manualNoticeTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
-  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 4 },
+  manualNoticeHeader:{flexDirection:'row',alignItems:'center',gap:8},
+  manualNoticeTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900' },
+  manualNoticeSummary:{color:colors.textMuted,fontSize:9,lineHeight:14,marginTop:3},
+  manualNoticeChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},
+  manualNoticeText: { color: colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 8 },
   offersSection: { marginTop: spacing.lg },
   requestCard:{borderColor:'rgba(167,139,250,.45)',padding:12},
   requestTop:{flexDirection:'row',alignItems:'flex-start',gap:8},
