@@ -336,9 +336,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   useEffect(() => {
     if (!profile?.id) { setSaleOffers([]); return undefined; }
     let live = true;
-    loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } }).catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
-    return () => { live = false; };
-  }, [profile?.id]);
+    const refreshProfileSaleOffers = () => {
+      loadPlaylistSaleOffersForProfile(profile.id)
+        .then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } })
+        .catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
+    };
+    refreshProfileSaleOffers();
+    const unsubscribe = navigation?.addListener?.('focus', refreshProfileSaleOffers);
+    return () => { live = false; unsubscribe?.(); };
+  }, [profile?.id, navigation]);
 
   useEffect(() => {
     if (!effectiveViewerId || !marketBannerOffersLoaded) {
@@ -346,11 +352,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return undefined;
     }
     let live = true;
-    loadProfileSaleSuggestions(8)
-      .then((rows) => { if (live) setProfileSaleSuggestions(rows.filter((row) => row.sellerId !== profile?.id)); })
-      .catch(() => { if (live) setProfileSaleSuggestions([]); });
-    return () => { live = false; };
-  }, [effectiveViewerId, marketBannerOffersLoaded, saleOffers.length, profile?.id]);
+    const refreshProfileSaleSuggestions = () => {
+      loadProfileSaleSuggestions(8)
+        .then((rows) => { if (live) setProfileSaleSuggestions(rows.filter((row) => row.sellerId !== profile?.id)); })
+        .catch(() => { if (live) setProfileSaleSuggestions([]); });
+    };
+    refreshProfileSaleSuggestions();
+    const unsubscribe = navigation?.addListener?.('focus', refreshProfileSaleSuggestions);
+    return () => { live = false; unsubscribe?.(); };
+  }, [effectiveViewerId, marketBannerOffersLoaded, saleOffers.length, profile?.id, navigation]);
 
   // Affiche AVANT d'ouvrir un Drop combien de titres sont réellement
   // nouveaux pour le visiteur. Le calcul reste côté serveur afin de ne jamais
