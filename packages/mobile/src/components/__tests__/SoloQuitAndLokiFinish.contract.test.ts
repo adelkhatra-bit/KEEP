@@ -108,6 +108,8 @@ describe('Solo : absence détectée + Loki qui parle', () => {
   it('les navigations hors écran (notifications, liens) passent par la garde', () => {
     const nav = src('navigation', 'navigationRef.ts');
     expect(nav).toContain('confirmLeaveGame(() => (navigationRef.navigate as any)(...args));');
-    expect(nav).not.toContain('(navigationRef.navigate as any)(\'');
+    expect(nav).toContain("game.gameMode === 'EN_LIGNE' && game.activeArenaId === arenaId");
+    expect(nav).toContain("source: 'ACTIVE_BATTLE_RESUME'");
+    expect(nav).toContain("guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });");
   });
 });
