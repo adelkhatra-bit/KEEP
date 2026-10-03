@@ -155,3 +155,5 @@ td input {
   .page-title { font-size: 22px; }
   th, td { padding: 8px 6px; font-size: 11px; }
 }
+
+/* SUPER_ADMIN_REDEPLOY_20261003: force GitHub Pages to rebuild admin-preview only. */
