@@ -47,6 +47,10 @@ async function speakNative(clean: string, options: LokiSpeechOptions): Promise<v
           rate: options.rate ?? 0.94,
           pitch: options.pitch ?? 1,
           volume: 1,
+          // iOS/TestFlight: TTS must not fight the expo-av Battle preview
+          // for the same application audio session. The preview is already
+          // ducked above; use the system speech session, then restore it.
+          ...(Platform.OS === 'ios' ? { useApplicationAudioSession: false } : {}),
           onDone: done,
           onStopped: done,
           onError: done,
