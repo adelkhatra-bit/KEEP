@@ -14,8 +14,10 @@ type Props = {
 
 function priceLabel(suggestion: ProfileSaleSuggestion): string {
   // Prix manquant : ne jamais inventer un montant (ancien « 3 FREE » par défaut).
+  const money = `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`;
   if (suggestion.paymentMode === 'FREE') return suggestion.freePrice != null ? `${suggestion.freePrice} FREE` : 'FREE';
-  return `${(suggestion.priceCents / 100).toFixed(2).replace('.', ',')}${suggestion.currencyCode === 'EUR' ? '€' : ` ${suggestion.currencyCode}`}`;
+  if (suggestion.paymentMode === 'BOTH') return `${suggestion.freePrice != null ? `${suggestion.freePrice} FREE` : 'FREE'} ou ${money}`;
+  return money;
 }
 
 const BOUTIQUE_MARKETING_HOOKS = [
@@ -110,7 +112,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   if (!visible) {
     return <TouchableOpacity style={s.reopen} onPress={show} accessibilityRole="button" accessibilityLabel="Afficher la Boutique musicale recommandée pour toi">
       <Text style={s.reopenIcon}>◆</Text>
-      <View style={s.reopenCopy}><Text style={s.reopenTitle}>BOUTIQUE MUSICALE</Text><Text style={s.reopenMeta}>Profils suivis ou déjà aimés · sélection selon tes goûts</Text></View>
+      <View style={s.reopenCopy}><Text style={s.reopenTitle}>BOUTIQUE MUSICALE</Text><Text style={s.reopenMeta}>Selon tes goûts · profils suivis ou nouvelles découvertes</Text></View>
       <Text style={s.reopenArrow}>›</Text>
     </TouchableOpacity>;
   }

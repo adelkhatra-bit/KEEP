@@ -10,7 +10,7 @@ export type ProfileSaleSuggestion = {
   ownedCount: number;
   missingCount: number;
   genres: string[];
-  paymentMode: 'FREE' | 'MONEY';
+  paymentMode: 'FREE' | 'MONEY' | 'BOTH';
   priceCents: number;
   freePrice: number | null;
   currencyCode: string;
@@ -31,7 +31,10 @@ export async function loadProfileSaleSuggestions(limit = 8): Promise<ProfileSale
     ownedCount: Number(row.owned_count ?? row.ownedCount ?? 0),
     missingCount: Number(row.missing_count ?? row.missingCount ?? row.track_count ?? 0),
     genres: Array.isArray(row.genres) ? row.genres.map(String).filter(Boolean).slice(0, 3) : [],
-    paymentMode: String(row.payment_mode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : 'MONEY',
+    paymentMode: (() => {
+      const mode = String(row.payment_mode ?? 'MONEY').toUpperCase();
+      return mode === 'FREE' || mode === 'BOTH' ? mode : 'MONEY';
+    })(),
     priceCents: Number(row.price_cents ?? 0),
     freePrice: row.free_price == null ? null : Number(row.free_price),
     currencyCode: String(row.currency_code ?? 'EUR'),
