@@ -9,7 +9,7 @@ describe('30/09 regression locks', () => {
     const panel = read('components/PlaylistSalePanel.tsx');
     expect(service).toContain('amountFree: number');
     expect(service).toContain('seller_free_balance_before');
-    expect(panel).toContain("transactionAmountLabel(sale, 'RECEIVED')");
+    expect(panel).toContain("transactionAmountLabel(transaction, direction === 'SALE' ? 'RECEIVED' : 'SPENT')");
     expect(panel).toContain('Solde FREE :');
   });
 
