@@ -7,6 +7,7 @@ import type { ProfileSaleSuggestion } from '../services/profileSaleSuggestionSer
 type Props = {
   suggestions?: ProfileSaleSuggestion[];
   viewerKey?: string;
+  viewerUsername?: string;
   onSuggestionPress: (suggestion: ProfileSaleSuggestion) => void;
 };
 
@@ -25,7 +26,7 @@ const DROP_MARKETING_HOOKS = [
   'Découvre l’univers du créateur avant de débloquer la sélection.',
 ];
 
-export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', onSuggestionPress }: Props) {
+export default function ProfileOpportunityRail({ suggestions = [], viewerKey = 'guest', viewerUsername = '', onSuggestionPress }: Props) {
   const storageKey = `keep:profile-opportunity-rail:${viewerKey}`;
   const [visible, setVisible] = useState(true);
   const [index, setIndex] = useState(0);
@@ -93,6 +94,10 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   if (!suggestions.length) return null;
   const suggestion = suggestions[index % suggestions.length];
   const genre = suggestion.genres?.[0] || 'Mix';
+  const viewerName = String(viewerUsername || '').trim().replace(/^@+/, '');
+  const marketingHook = viewerName
+    ? `${viewerName}, ${DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length].replace(/^./, (char) => char.toLowerCase())}`
+    : DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length];
   const overlapLabel = suggestion.missingCount <= 0
     ? `Tu as déjà les ${suggestion.trackCount} titres`
     : suggestion.ownedCount > 0
@@ -155,7 +160,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
 
           <View style={s.copy}>
             <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouvelle Pépite'}</Text>
-            <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
+            <Text style={s.meta} numberOfLines={1}>{suggestion.trackCount} titres · {genre} · sélection recommandée</Text>
             <Text style={s.overlap} numberOfLines={1}>{overlapLabel}</Text>
           </View>
         </View>
@@ -182,7 +187,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         </View>
 
         <View style={s.hookRow}>
-          <Text style={s.hook} numberOfLines={2}>{DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length]}</Text>
+          <Text style={s.hook} numberOfLines={2}>{marketingHook}</Text>
           <View style={s.priceChip}><Text style={s.priceChipText}>{priceLabel(suggestion)}</Text></View>
         </View>
 
