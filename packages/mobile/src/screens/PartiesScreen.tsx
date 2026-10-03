@@ -1253,7 +1253,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🏆 Classement Battle</Text>
+              <Text style={styles.modalTitle}>🏆 Classement Loki</Text>
               <TouchableOpacity onPress={() => setBattleSummaryOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer le classement"><Text style={styles.close}>Fermer</Text></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>

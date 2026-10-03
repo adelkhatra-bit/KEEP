@@ -1995,12 +1995,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         {/* Adel (02/10/2026) : un joueur ne savait pas que la case était cliquable. */}
         <Text style={s.prefsEditPill}>MODIFIER ›</Text>
       </TouchableOpacity>
-      {onOpenLeaderboard ? (
-        <TouchableOpacity style={s.leaderboardEntry} onPress={onOpenLeaderboard} accessibilityRole="button" accessibilityLabel="Ouvrir le classement Battle">
-          <Text style={s.leaderboardEntryText}>🏆 CLASSEMENT</Text>
-          <Text style={s.leaderboardEntryHint}>Podium, victoires, abandons</Text>
-        </TouchableOpacity>
-      ) : null}
       <Modal visible={soloPacksOpen} transparent animationType="fade" onRequestClose={() => setSoloPacksOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
@@ -2484,6 +2478,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
           <TouchableOpacity style={s.finishPrimary} onPress={() => { setSoloFinished(false); setSolo(null); void startSolo(); }}><Text style={s.finishPrimaryText}>REFAIRE UNE PARTIE</Text></TouchableOpacity>
+          {onOpenLeaderboard ? (
+            <TouchableOpacity testID="solo-leaderboard-entry" style={s.finishSecondary} onPress={onOpenLeaderboard} accessibilityRole="button" accessibilityLabel="Ouvrir le classement depuis le Solo">
+              <Text style={s.finishSecondaryText}>🏆 CLASSEMENT</Text>
+            </TouchableOpacity>
+          ) : null}
           {/* Adel (13/09/2026, viralité) : un score juste obtenu est le
               contenu le plus partageable de Loki -- jamais de sortie vers
               l'extérieur avant ce bouton, contrairement à INVITER UN AMI qui
