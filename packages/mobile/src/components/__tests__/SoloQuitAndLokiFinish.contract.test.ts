@@ -96,7 +96,8 @@ describe('Solo : absence détectée + Loki qui parle', () => {
   });
   it('Loki parle selon le score (voix expo-speech, pilote natif coupé sur le web)', () => {
     const { mascotLine } = require('../../services/battleHomeInfo');
-    expect(mascotLine(1, 8).text).toContain('Ah zut');
+    expect(mascotLine(1, 8).mood).toBe('oops');
+    expect(mascotLine(1, 8, false, 'partie-A').text).not.toBe(mascotLine(1, 8, false, 'partie-B').text);
     expect(mascotLine(8, 8).mood).toBe('party');
     expect(mascotLine(0, 8, true).mood).toBe('sleepy');
     expect(mascot).not.toContain("import * as Speech from 'expo-speech'");
