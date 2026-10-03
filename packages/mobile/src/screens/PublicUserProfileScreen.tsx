@@ -32,7 +32,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, cancelPlaylistSalePayment, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, cancelPlaylistSalePayment, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistBundleWithFree, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistBundlePurchase, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
@@ -1188,6 +1188,142 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     );
   };
 
+  const buyAllPlaylistOffers = async (offers: PublicPlaylistSaleOffer[]) => {
+    if (purchaseBusyId || !offers.length) return;
+    if (!effectiveViewerId) {
+      goToOwnProfile();
+      return;
+    }
+
+    const locked = offers.filter((offer) => !saleUnlocks[offer.offerId]?.deliveredPlaylistId);
+    if (!locked.length) {
+      Alert.alert('Boutique musicale', 'Tu as déjà débloqué toutes ces collections.');
+      return;
+    }
+
+    const freeOffers = locked.filter((offer) => offer.paymentMode === 'FREE');
+    const moneyOffers = locked.filter((offer) => offer.paymentMode !== 'FREE');
+
+    if (freeOffers.length && moneyOffers.length) {
+      const freeTotal = freeOffers.reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0);
+      const moneyGroups = new Map<string, number>();
+      moneyOffers.forEach((offer) => {
+        const currency = String(offer.currencyCode || 'EUR').toUpperCase();
+        moneyGroups.set(currency, (moneyGroups.get(currency) || 0) + Math.max(0, Number(offer.priceCents || 0)));
+      });
+      const moneyLabel = Array.from(moneyGroups.entries()).map(([currency, cents]) => {
+        const amount = (cents / 100).toFixed(2).replace('.', ',');
+        return currency === 'EUR' ? `${amount} €` : `${amount} ${currency}`;
+      }).join(' + ');
+      Alert.alert(
+        'Tout prendre',
+        `Cette Boutique mélange deux moyens de paiement : ${freeTotal} FREE et ${moneyLabel}. Choisis quelle partie débloquer maintenant.`,
+        [
+          { text: 'ANNULER', style: 'cancel' },
+          { text: `FREE · ${freeTotal}`, onPress: () => { void buyAllPlaylistOffers(freeOffers); } },
+          { text: `PAYPAL · ${moneyLabel}`, onPress: () => { void buyAllPlaylistOffers(moneyOffers); } },
+        ],
+      );
+      return;
+    }
+
+    if (freeOffers.length) {
+      const requiredFree = freeOffers.reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0);
+      setPurchaseBusyId('bundle');
+      setFreePurchaseMessage(null);
+      try {
+        const breakdown = await loadFreeCreditBreakdown().catch(() => null);
+        if (breakdown && breakdown.remaining < requiredFree) {
+          setFreeBalance(breakdown.remaining);
+          Alert.alert('FREE insuffisants', `Tu as ${breakdown.remaining} FREE, il en faut ${requiredFree} pour ces ${freeOffers.length} collections.`);
+          return;
+        }
+        const result = freeOffers.length === 1
+          ? await purchasePlaylistOfferWithFree(freeOffers[0].offerId).then((single) => ({
+              bundleCount: 1,
+              freeSpent: Number(single.freePrice ?? requiredFree),
+              remainingFree: single.remainingFree,
+            }))
+          : await purchasePlaylistBundleWithFree(freeOffers.map((offer) => offer.offerId));
+        setFreeBalance(result.remainingFree);
+        const unlocks = await loadMyPlaylistSaleUnlocks().catch(() => null);
+        if (unlocks) setSaleUnlocks(unlocks);
+        Alert.alert(
+          'Pépites débloquées',
+          `${result.bundleCount} collection${result.bundleCount > 1 ? 's' : ''} ajoutée${result.bundleCount > 1 ? 's' : ''} à ton Loki Music pour ${result.freeSpent} FREE. Il te reste ${result.remainingFree} FREE.`,
+        );
+      } catch (e: any) {
+        const message = String(e?.message || '');
+        const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
+        if (match) {
+          const remaining = Number(match[1]);
+          const required = Number(match[2]);
+          setFreeBalance(remaining);
+          Alert.alert('FREE insuffisants', `Tu as ${remaining} FREE, il en faut ${required}.`);
+        } else {
+          Alert.alert('Boutique musicale', 'Impossible de débloquer ces collections pour le moment.');
+        }
+      } finally {
+        setPurchaseBusyId(null);
+      }
+      return;
+    }
+
+    const currencies = Array.from(new Set(moneyOffers.map((offer) => String(offer.currencyCode || 'EUR').toUpperCase())));
+    if (currencies.length > 1) {
+      Alert.alert(
+        'Plusieurs devises',
+        'Le vendeur a publié des collections dans plusieurs devises. Loki les sépare pour éviter de mélanger des montants incompatibles.',
+        [
+          { text: 'ANNULER', style: 'cancel' },
+          ...currencies.slice(0, 3).map((currency) => ({
+            text: currency,
+            onPress: () => { void buyAllPlaylistOffers(moneyOffers.filter((offer) => String(offer.currencyCode || 'EUR').toUpperCase() === currency)); },
+          })),
+        ],
+      );
+      return;
+    }
+
+    if (!marketplacePurchaseEnabled) {
+      Alert.alert('Paiement externe indisponible', 'Les aperçus restent disponibles. Le paiement PayPal n’est pas activé sur cette version de l’application.');
+      return;
+    }
+
+    if (moneyOffers.length === 1) {
+      await buyPlaylistOffer(moneyOffers[0]);
+      return;
+    }
+
+    setPurchaseBusyId('bundle');
+    try {
+      const termsAccepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
+      if (!termsAccepted) {
+        setPurchaseBusyId(null);
+        acceptMarketplaceTermsThen('profile_bundle_purchase', () => { void buyAllPlaylistOffers(moneyOffers); });
+        return;
+      }
+      const request = await requestPlaylistBundlePurchase(moneyOffers.map((offer) => offer.offerId));
+      if (!request.payoutLink && !request.payoutQrUrl) {
+        Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n’a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
+        return;
+      }
+      setImmersivePreviewOffer(null);
+      setPayoutCheckout(request);
+    } catch (e: any) {
+      const message = String(e?.message || '');
+      if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) {
+        Alert.alert('Première transaction en cours', 'Termine ou annule d’abord ta première transaction avant de lancer un achat groupé.');
+      } else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) {
+        Alert.alert('Paiement pas encore prêt', 'Le vendeur doit ajouter son PayPal.Me ou son QR PayPal.');
+      } else {
+        Alert.alert('Boutique musicale', 'Impossible de préparer le paiement groupé pour le moment.');
+      }
+    } finally {
+      setPurchaseBusyId(null);
+    }
+  };
+
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
     if (!effectiveViewerId) {
@@ -1764,6 +1900,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               ownerMode={isOwner}
               onOpenOffer={(offer) => openSaleFolder(offer)}
               onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}
+              onBuyAllOffers={(offers) => { void buyAllPlaylistOffers(offers); }}
+              buyAllBusy={purchaseBusyId === 'bundle'}
             />
           </ProfileMotionReveal>
         ) : saleOffers.length > 0 ? (
