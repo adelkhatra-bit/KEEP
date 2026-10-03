@@ -57,6 +57,15 @@ describe('Notification « nouveau morceau » masquée (Adel 02/10/2026)', () => 
     expect(options.context.sourceProfileId).toBe('first-discoverer');
   });
 
+  it('notification : abonnement direct sans chemin de désabonnement', () => {
+    const component = read('packages/mobile/src/components/NewKeepNotificationActions.tsx');
+    expect(component).toContain("supabase.rpc('keep_follow_profile'");
+    expect(component).toContain("'+ S’ABONNER'");
+    expect(component).toContain("'VOIR LE PROFIL'");
+    expect(component).not.toContain('keep_unfollow_profile');
+    expect(component).not.toContain("from('follows').delete");
+  });
+
   it('message clair quand les FREE manquent', async () => {
     mockCommitKeep.mockRejectedValueOnce(new Error('CREDITS_EXHAUSTED'));
     const res = await keepFromNewKeepNotification(oldNotif, { id: 'track-1' }, 'PRIVATE', 3);
