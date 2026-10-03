@@ -149,7 +149,7 @@ jobs:
           failed=[]
           for p in sorted(Path('artifacts/app-store-65').glob('*.png')):
               raw=p.read_bytes()
-              if raw[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+              if raw[:8] != bytes.fromhex('89504e470d0a1a0a'):
                   raise SystemExit(f'Not a PNG: {p}')
               w,h=struct.unpack('>II',raw[16:24])
               color_type=raw[25]
