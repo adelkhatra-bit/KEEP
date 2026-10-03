@@ -281,9 +281,6 @@ export default function App() {
           });
         }
         void useBattleAvailabilityStore.getState().syncFromServer();
-        if (!session.isAnonymous) {
-          registerForPushNotifications().catch(() => {});
-        }
         return true;
       } catch (error) {
         if (__DEV__) console.error('[KEEP] profile load failed', error);
