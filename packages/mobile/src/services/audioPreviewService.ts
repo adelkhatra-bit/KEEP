@@ -562,14 +562,15 @@ export async function playTrackPreviewSegment(
   durationMillis = 8000,
   onStateChange?: (playing: boolean) => void,
   onEnded?: () => void,
+  startFromBeginning = false,
 ): Promise<void> {
   return serialize(async () => {
     if (canUseWebAudio()) {
-      await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange, onEnded);
+      await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange, onEnded, !startFromBeginning);
       return;
     }
 
-    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    const effectivePosition = startFromBeginning ? Math.max(0, positionMillis) : (positionMillis > 0 ? positionMillis : 9000);
     const onStatus = (status: AVPlaybackStatus, sound: NativeSound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);
