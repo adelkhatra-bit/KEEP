@@ -261,6 +261,20 @@ function resultLibraryIndex(seed: string, size: number): number {
   return Math.abs(hash >>> 0) % Math.max(1, size);
 }
 
+// Une partie = une phrase propre. Le seed de session garde la phrase stable
+// pendant les re-renders, tandis que la rotation évite de resservir une
+// phrase déjà utilisée tant que toute la bibliothèque de ce mood n'a pas été
+// parcourue. À l'épuisement on recommence un cycle sans répéter la dernière.
+const RESULT_LINE_CACHE = new Map<string, { mood: MascotMood; text: string }>();
+const RESULT_USED_INDEXES: Record<MascotMood, Set<number>> = {
+  party: new Set<number>(),
+  happy: new Set<number>(),
+  cheer: new Set<number>(),
+  oops: new Set<number>(),
+  sleepy: new Set<number>(),
+};
+const RESULT_LAST_INDEX: Partial<Record<MascotMood, number>> = {};
+
 export function mascotLine(correct: number, total: number, allTimeouts = false, seed = ''): { mood: MascotMood; text: string } {
   const ratio = total > 0 ? correct / total : 0;
   const mood: MascotMood = allTimeouts || total <= 0
@@ -272,9 +286,32 @@ export function mascotLine(correct: number, total: number, allTimeouts = false, 
         : ratio >= 0.3
           ? 'cheer'
           : 'oops';
-  const pool = SOLO_RESULT_LIBRARY[mood];
   const key = seed || `${correct}:${total}:${mood}`;
-  return { mood, text: pool[resultLibraryIndex(key, pool.length)] };
+  const cached = RESULT_LINE_CACHE.get(key);
+  if (cached) return cached;
+
+  const pool = SOLO_RESULT_LIBRARY[mood];
+  const used = RESULT_USED_INDEXES[mood];
+  if (used.size >= pool.length) {
+    const last = RESULT_LAST_INDEX[mood];
+    used.clear();
+    if (last != null && pool.length > 1) used.add(last);
+  }
+
+  let index = resultLibraryIndex(key, pool.length);
+  for (let offset = 0; offset < pool.length && used.has(index); offset += 1) {
+    index = (index + 1) % pool.length;
+  }
+  used.add(index);
+  RESULT_LAST_INDEX[mood] = index;
+
+  const result = { mood, text: pool[index] };
+  RESULT_LINE_CACHE.set(key, result);
+  if (RESULT_LINE_CACHE.size > 120) {
+    const oldest = RESULT_LINE_CACHE.keys().next().value;
+    if (oldest) RESULT_LINE_CACHE.delete(oldest);
+  }
+  return result;
 }
 
 // Adel (02/10/2026) : « ou attends la recharge de 2 h, ça ne veut rien dire ».
