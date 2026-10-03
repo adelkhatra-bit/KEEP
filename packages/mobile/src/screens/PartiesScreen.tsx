@@ -191,7 +191,13 @@ export default function PartiesScreen({ navigation, route }: any) {
   // se déclenchait jamais sur un changement d'onglet et marquait « partie en
   // cours » dès l'ouverture de Battle. On nettoie seulement à la fermeture.
   useEffect(() => {
-    if (!battleOpen) useGameSessionStore.getState().clearGameSession();
+    if (battleOpen) return;
+    const game = useGameSessionStore.getState();
+    // Fermer l'écran ne signifie pas quitter un Battle EN LIGNE. Le siège
+    // reste ACTIVE côté serveur et le shell global doit pouvoir rouvrir
+    // automatiquement cette arène. Seul QUITTER LE BATTLE libère réellement
+    // la session. Le Solo conserve l'ancien nettoyage local.
+    if (game.gameMode !== 'EN_LIGNE') game.clearGameSession();
   }, [battleOpen]);
   // PHASE 2 FIX (28/09/2026) : Reset tous les modales au montage du composant.
   // Élimine les modales "fantômes" après un refresh ou une navigation.
