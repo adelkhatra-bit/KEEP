@@ -3,7 +3,7 @@ import type { KeepNotification } from './notificationService';
 import { loadMusicAgoraSharedTrack } from './musicAgoraService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
 import { loadMaskedPlaylistSaleTrackIds } from './playlistSaleService';
-import { supabase } from './supabaseClient';
+import { commitKeep } from './keepTrackAction';
 
 /**
  * Notification « Nouveau morceau chez @x » (NEW_PUBLIC_KEEP).
@@ -84,31 +84,34 @@ export async function loadNewKeepTrackState(notification: KeepNotification): Pro
 }
 
 /**
- * Ajout depuis une notification publique : gratuit, mais validé côté serveur.
- * La RPC vérifie que la notification appartient au compte, correspond bien
- * au morceau et qu'aucune offre de vente active ne le protège.
+ * Ajout gratuit depuis une notification publique.
+ * Le mobile réutilise le chemin canonique keep-music-core ; le serveur
+ * reconnaît uniquement une vraie notification NEW_PUBLIC_KEEP du compte,
+ * refuse les morceaux protégés par une vente active et conserve l'origine.
  */
 export async function keepFromNewKeepNotification(
   notification: KeepNotification,
   track: CanonicalTrack,
   visibility: 'PUBLIC' | 'PRIVATE',
 ): Promise<{ ok: boolean; alreadyKept: boolean; error?: string }> {
-  if (!supabase) return { ok: false, alreadyKept: false, error: 'Service indisponible.' };
+  const origin = newKeepNotificationOrigin(notification);
   try {
-    const { data, error } = await supabase.rpc('keep_commit_public_notification_keep', {
-      p_notification_id: notification.id,
-      p_visibility: visibility,
+    const result = await commitKeep(track, [], undefined, {
+      visibility,
+      consumeCredit: false,
+      context: {
+        source: 'follow_notification',
+        notificationId: notification.id,
+        creditPolicy: 'SOCIAL_ZERO_CREDIT',
+        ...(origin.profileId ? { sourceProfileId: origin.profileId } : {}),
+      },
     });
-    if (error) {
-      const message = String(error.message || '');
-      if (message.includes('TRACK_SALE_PROTECTED')) {
-        return { ok: false, alreadyKept: false, error: 'Cette musique fait partie d’une Pépite en vente. Ouvre le profil pour continuer.' };
-      }
-      throw error;
+    return { ok: true, alreadyKept: result.alreadyKept };
+  } catch (error: any) {
+    const message = String(error?.message || '');
+    if (message.includes('SALE_PROTECTED') || message.includes('TRACK_SALE_PROTECTED')) {
+      return { ok: false, alreadyKept: false, error: 'Cette musique fait partie d’une Pépite en vente. Ouvre le profil pour continuer.' };
     }
-    const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
-    return { ok: true, alreadyKept: Boolean(payload.deduplicated) };
-  } catch {
     return { ok: false, alreadyKept: false, error: 'Impossible d’ajouter ce morceau pour le moment.' };
   }
 }
