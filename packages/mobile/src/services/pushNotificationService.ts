@@ -215,9 +215,17 @@ async function registerExpoTokenWithSupabase(token: string): Promise<{ ok: boole
 export function listenForExpoPushTokenChanges(): () => void {
   if (Platform.OS === 'web') return () => {};
   const Notifications = getNativeNotifications();
+  const projectId = expoProjectId();
+  if (!projectId) return () => {};
   const subscription = Notifications.addPushTokenListener((nextToken) => {
-    const token = typeof nextToken?.data === 'string' ? nextToken.data : '';
-    if (token) void registerExpoTokenWithSupabase(token);
+    // addPushTokenListener renvoie le token NATIF APNs/FCM. On le convertit
+    // en ExpoPushToken avant l'enregistrement, puisque le serveur envoie via
+    // l'Expo Push Service.
+    void Notifications.getExpoPushTokenAsync({ projectId, devicePushToken: nextToken })
+      .then((expoToken) => registerExpoTokenWithSupabase(expoToken.data))
+      .catch((error) => {
+        void reportPushRegistrationFailure('expo_token_rotation_error', String((error as any)?.message || error || 'unknown').slice(0, 300));
+      });
   });
   return () => subscription.remove();
 }
