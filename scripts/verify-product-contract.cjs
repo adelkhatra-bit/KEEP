@@ -132,7 +132,12 @@ must(saleService.includes('keep_playlist_sale_my_purchase_library'), 'purchase l
 must(saleService.includes('keep_playlist_sale_request_missing_tracks'), 'partial request service RPC missing');
 must(notifications.includes("'PLAYLIST_SALE_PARTIAL_OFFER'") && notifications.includes('includes(type)'), 'private offer notification routing missing');
 must(notifications.includes('openSaleOfferId: offerId'), 'private offer deep-link missing');
-must(salePanel.includes("offerFilter === 'FREE'") && salePanel.includes("offerFilter === 'MONEY'"), 'Pépites FREE/euro filters disconnected');
+must(
+  salePanel.includes("offerFilter === 'FREE'")
+    && salePanel.includes('const moneyPublished = useMemo')
+    && salePanel.includes("offerFilter === 'FREE' ? freePublished : moneyPublished"),
+  'Pépites FREE/euro filters disconnected',
+);
 must(
   salePanel.includes("collectionCartStep === 'TRACKS'")
     && salePanel.includes("collectionCartStep === 'REVIEW'")
