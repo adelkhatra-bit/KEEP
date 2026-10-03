@@ -50,6 +50,7 @@ import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
 import LoginPill from '../components/LoginPill';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
+import SellerBoutique from '../components/SellerBoutique';
 import { buildPayoutCheckoutUrl } from '../services/payoutLinkService';
 import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
@@ -326,6 +327,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(3);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
+  // Une seule présentation du Drop : le propriétaire et les visiteurs rendent
+  // SellerBoutique. Ainsi tout changement de design reste automatiquement lié.
+  const ownerBoutiqueOffers = useMemo<PublicPlaylistSaleOffer[]>(() => playlistSaleOffers
+    .filter((offer) => offer.isActive && Boolean(offer.offerId))
+    .map((offer) => ({
+      offerId: String(offer.offerId),
+      playlistId: offer.playlistId,
+      playlistName: offer.playlistName,
+      paymentMode: offer.paymentMode ?? 'MONEY',
+      priceCents: offer.priceCents,
+      freePrice: offer.freePrice ?? null,
+      currencyCode: offer.currencyCode,
+      coverUrl: offer.coverUrl ?? null,
+      trackCount: offer.trackCount ?? 0,
+      genres: offer.genres ?? [],
+    })), [playlistSaleOffers]);
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [opportunityPreviewOffer, setOpportunityPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const [opportunityPreviewSuggestion, setOpportunityPreviewSuggestion] = useState<ProfileSaleSuggestion | null>(null);
@@ -1865,6 +1882,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
 
       </ProfileMotionReveal>
+
+      {!accountRequired && ownerBoutiqueOffers.length ? (
+        <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={s.sectionMargin}>
+          <SellerBoutique
+            offers={ownerBoutiqueOffers}
+            sellerUsername={user.username}
+            overlaps={{}}
+            unlockedOfferIds={new Set<string>()}
+            ownerMode
+            onOpenOffer={(offer) => navigation.navigate('PlaylistSale', {
+              manageSaleOfferId: offer.offerId,
+              manageSaleOfferName: offer.playlistName,
+            })}
+          />
+        </ProfileMotionReveal>
+      ) : null}
 
       {!accountRequired ? (
         <ProfileOpportunityRail
