@@ -7,7 +7,7 @@ import { useUserStore } from '../store/useUserStore';
 import { loadMusicAgoraSettings, loadMusicAgoraShareableTracks, saveMusicAgoraPosition, saveMusicAgoraSettings, saveMusicAgoraVoiceAnnouncements, MusicAgoraSurface, subscribeMusicAgoraTyping } from '../services/musicAgoraService';
 import { KeepNotification, loadNotifications, subscribeToNotifications } from '../services/notificationService';
 import { speakLokiText } from '../services/lokiSpeechService';
-import { primeNotificationAudio } from '../services/notificationSoundService';
+import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -345,6 +345,11 @@ export default function GlobalChatDock() {
       setLatestChatPreview(chatNotificationPreview(item));
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
+      if (chatEnabled && chatNotificationsEnabled) {
+        // Un seul bip court pour le destinataire. Les messages émis par
+        // l'utilisateur courant ne créent pas de notification pour lui-même.
+        void playNotificationCue('DEFAULT').catch(() => {});
+      }
       if (chatEnabled && chatNotificationsEnabled && chatVoiceEnabled && !chatState.isOpen) {
         void speakLokiText(`Message de ${sender}`, {
           language: 'fr-FR',

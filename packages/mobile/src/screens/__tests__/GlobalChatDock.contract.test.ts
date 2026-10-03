@@ -34,6 +34,11 @@ describe('global Loki messenger contract', () => {
     expect(panel).toContain('accessibilityRole="checkbox"');
   });
 
+  it('plays one short incoming-message beep and keeps voice announcements opt-in', () => {
+    expect(dock).toContain("playNotificationCue('DEFAULT')");
+    expect(dock).toContain('chatNotificationsEnabled');
+  });
+
   it('announces and previews the latest sender only after explicit voice opt-in', () => {
     expect(dock).toContain("void speakLokiText(`Message de ${sender}`");
     expect(dock).toContain('Message de');
