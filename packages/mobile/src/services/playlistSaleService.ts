@@ -227,6 +227,15 @@ export async function loadPlaylistSalePaymentGuardStatus(paymentId: string): Pro
   };
 }
 
+export async function reportPlaylistSalePaymentProblem(paymentId: string, details?: string): Promise<string> {
+  const { data, error } = await client().rpc('keep_playlist_sale_report_problem', {
+    p_payment_id: paymentId,
+    p_details: details ?? null,
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_PAYMENT_REPORT_FAILED'));
+  return String(data ?? '');
+}
+
 export async function cancelPlaylistSalePayment(paymentId: string, reason = 'USER_CANCELLED'): Promise<{ paymentId: string; status: 'FAILED'; alreadyCancelled: boolean }> {
   const { data, error } = await client().rpc('keep_playlist_sale_cancel_payment', {
     p_payment_id: paymentId,
