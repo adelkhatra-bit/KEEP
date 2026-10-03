@@ -480,7 +480,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     const type = String(item.type || '').toUpperCase();
     const target = type === 'CHAT_ACTIVATION_AVAILABLE'
       || type === 'AGORA_ACTIVATE'
-      || type.startsWith('AGORA_GROUP_')
       ? null
       : chatTarget(item);
     setPreparedChatId(item.id);
