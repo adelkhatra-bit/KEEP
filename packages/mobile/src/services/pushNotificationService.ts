@@ -192,15 +192,45 @@ function expoProjectId(): string | null {
   }
 }
 
+function pushClientMetadata(): {
+  appVersion: string | null;
+  buildNumber: string | null;
+  deviceModel: string | null;
+  osVersion: string | null;
+  expoProjectId: string | null;
+} {
+  let appVersion: string | null = null;
+  let buildNumber: string | null = null;
+  try {
+    const constantsModule = require('expo-constants');
+    const Constants = constantsModule?.default ?? constantsModule;
+    appVersion = typeof Constants?.nativeAppVersion === 'string' ? Constants.nativeAppVersion : null;
+    buildNumber = typeof Constants?.nativeBuildVersion === 'string' ? Constants.nativeBuildVersion : null;
+  } catch {}
+  return {
+    appVersion,
+    buildNumber,
+    deviceModel: Device.modelName ?? null,
+    osVersion: Device.osVersion ?? null,
+    expoProjectId: expoProjectId(),
+  };
+}
+
 async function registerExpoTokenWithSupabase(token: string): Promise<{ ok: boolean; reason?: string }> {
   if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
   if (!token) return { ok: false, reason: 'empty_token' };
   try {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
-    const { error } = await supabase.rpc('keep_push_token_register', {
+    const meta = pushClientMetadata();
+    const { error } = await supabase.rpc('keep_push_token_register_v2', {
       p_token: token,
       p_platform: Platform.OS,
+      p_app_version: meta.appVersion,
+      p_build_number: meta.buildNumber,
+      p_device_model: meta.deviceModel,
+      p_os_version: meta.osVersion,
+      p_expo_project_id: meta.expoProjectId,
     });
     if (error) {
       void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
