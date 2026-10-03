@@ -205,22 +205,52 @@ SQL
   # Drift historique confirmé avant 20261003223155 :
   # trois migrations Battle silencieuses sont enregistrées sur le projet
   # Supabase live (20261003211526/211544/212245) mais leurs fichiers SQL ne
-  # sont plus présents dans le dépôt. La migration 223155 patchait donc un
-  # corps de fonction qui existait bien en production, mais pas dans un replay
-  # GitHub neuf. Reproduire ici UNIQUEMENT l'état préexistant attendu afin que
-  # l'historique immuable puisse être rejoué; les migrations additives
-  # 230707/231500 imposent ensuite l'état final non destructif.
+  # sont plus présents dans le dépôt. Reproduire ici l'état exact de
+  # keep_battle_challenge_respond attendu par la migration historique 223155.
+  # Ce shim n'écrit jamais en production : il sert uniquement au PostgreSQL
+  # éphémère du replay CI; l'historique SQL appliqué reste immuable.
   if [ "$name" = "20261003223155_battle_decline_requires_confirmed_action.sql" ]; then
     pg -d "$DB" <<'SQL' >/dev/null
-do $compat$
+create or replace function public.keep_battle_challenge_respond(p_challenge_id uuid, p_accept boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
 declare
-  ddl text;
-  guarded text := $guard$
-  if not p_accept then
-    raise exception 'BATTLE_CHALLENGE_DECLINE_REQUIRES_CONFIRMED_ACTION';
+  uid uuid:=auth.uid();
+  c public.keep_battle_challenges%rowtype;
+  a public.keep_battle_arenas%rowtype;
+  created jsonb;
+  started jsonb;
+  aid uuid;
+  acode text;
+  min_free integer:=3;
+  active_count integer:=0;
+begin
+  if uid is null then raise exception 'AUTH_REQUIRED'; end if;
+  select * into c from public.keep_battle_challenges where id=p_challenge_id for update;
+  if not found or c.target_id<>uid then raise exception 'BATTLE_CHALLENGE_FORBIDDEN'; end if;
+
+  if c.status='ACCEPTED' then
+    if not p_accept then raise exception 'BATTLE_CHALLENGE_ALREADY_ACCEPTED'; end if;
+    if c.arena_id is null then raise exception 'BATTLE_ARENA_NOT_FOUND'; end if;
+    select * into a from public.keep_battle_arenas where id=c.arena_id;
+    if not found then raise exception 'BATTLE_ARENA_NOT_FOUND'; end if;
+    return jsonb_build_object('id',c.id,'status','ACCEPTED','arenaId',a.id,'arenaCode',a.arena_code,'themeCode',a.theme_code,'idempotent',true,'arenaState',public.keep_battle_arena_state(a.id));
   end if;
-$guard$;
-  legacy text := $legacy$
+
+  if c.status='DECLINED' then
+    if p_accept then raise exception 'BATTLE_CHALLENGE_ALREADY_DECLINED'; end if;
+    return jsonb_build_object('id',c.id,'status','DECLINED','idempotent',true);
+  end if;
+
+  if c.status in ('EXPIRED','CANCELLED') then raise exception 'BATTLE_CHALLENGE_EXPIRED'; end if;
+  if c.status<>'PENDING' or c.expires_at<=now() then
+    update public.keep_battle_challenges set status='EXPIRED',updated_at=now() where id=c.id and status='PENDING';
+    raise exception 'BATTLE_CHALLENGE_EXPIRED';
+  end if;
+
   if not p_accept then
     update public.keep_battle_challenges set status='DECLINED',updated_at=now() where id=c.id;
     -- Pas de notification externe/inbox pour un refus : le challenger voit
@@ -228,32 +258,56 @@ $guard$;
     -- le feedback local et le bruit push.
     return jsonb_build_object('id',c.id,'status','DECLINED');
   end if;
-$legacy$;
-begin
-  select pg_get_functiondef('public.keep_battle_challenge_respond(uuid,boolean)'::regprocedure) into ddl;
-  if strpos(ddl, legacy) > 0 then
-    return;
-  end if;
-  if strpos(ddl, guarded) > 0 then
-    ddl := replace(ddl, guarded, legacy);
-    execute ddl;
-    return;
+
+  min_free:=public.keep_battle_stake_for_rounds(c.round_count);
+  if not public.keep_profile_has_paid_battle_access(c.challenger_id)
+     and public.keep_theoretical_free_credit_remaining_for_profile(c.challenger_id)<min_free
+  then raise exception 'BATTLE_CHALLENGER_NO_CREDIT:%', min_free; end if;
+  if not public.keep_profile_has_paid_battle_access(uid)
+     and public.keep_theoretical_free_credit_remaining_for_profile(uid)<min_free
+  then raise exception 'BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED:%', min_free; end if;
+
+  if c.arena_id is not null then
+    select * into a from public.keep_battle_arenas where id=c.arena_id for update;
+    if not found then raise exception 'BATTLE_ARENA_NOT_FOUND'; end if;
+    if a.status<>'WAITING' or a.expires_at<=now() then raise exception 'BATTLE_ARENA_NOT_OPEN_FOR_INVITES'; end if;
+    select count(*) into active_count from public.keep_battle_arena_members where arena_id=a.id and seat_status='ACTIVE';
+    if active_count>=a.max_players then raise exception 'BATTLE_ARENA_FULL'; end if;
+    if not exists(select 1 from public.keep_battle_arena_members where arena_id=a.id and profile_id=uid and seat_status='ACTIVE') then
+      insert into public.keep_battle_arena_members(arena_id,profile_id,seat_status)
+      values(a.id,uid,'ACTIVE')
+      on conflict(arena_id,profile_id) do update set seat_status='ACTIVE',score=0,correct_predictions=0,total_response_ms=0,placement=null;
+      if not public.keep_battle_arena_lock_stake(a.id,a.match_no,uid) then
+        update public.keep_battle_arena_members set seat_status='ELIMINATED' where arena_id=a.id and profile_id=uid;
+        raise exception 'BATTLE_ARENA_MINIMUM_THREE_FREE_REQUIRED:%', min_free;
+      end if;
+      perform public.keep_battle_arena_seed_rounds(a.id,a.match_no);
+    end if;
+    update public.keep_battle_challenges set status='ACCEPTED',updated_at=now() where id=c.id;
+    update public.keep_battle_solo_presence set status='SOLO' where profile_id=uid;
+    return jsonb_build_object('id',c.id,'status','ACCEPTED','arenaId',a.id,'arenaCode',a.arena_code,'themeCode',a.theme_code,'joinedExistingArena',true,'arenaState',public.keep_battle_arena_state(a.id));
   end if;
 
-  -- Le replay sans les trois fichiers live absents conserve encore la branche
-  -- de refus historique, mais avec un commentaire différent. Remplacer la
-  -- dernière branche p_accept=false située après le contrôle EXPIRED.
-  ddl := regexp_replace(
-    ddl,
-    E'if not p_accept then\\n[[:space:][:print:]]*?return jsonb_build_object\\(\\x27id\\x27,c.id,\\x27status\\x27,\\x27DECLINED\\x27\\);\\n[[:space:]]*end if;',
-    legacy
-  );
-  if strpos(ddl, legacy) = 0 then
-    raise exception 'VERIFY_BATTLE_DECLINE_COMPAT_FAILED';
+  created:=public.keep_battle_arena_create(c.theme_code,c.round_count);
+  aid:=(created->>'id')::uuid;
+  acode:=created->>'arenaCode';
+
+  insert into public.keep_battle_arena_members(arena_id,profile_id,seat_status)
+  values(aid,c.challenger_id,'ACTIVE')
+  on conflict(arena_id,profile_id) do update set seat_status='ACTIVE';
+
+  if not public.keep_battle_arena_lock_stake(aid,1,c.challenger_id) then
+    raise exception 'BATTLE_CHALLENGER_NO_CREDIT:%', min_free;
   end if;
-  execute ddl;
+
+  perform public.keep_battle_arena_seed_rounds(aid,1);
+  update public.keep_battle_challenges set status='ACCEPTED',arena_id=aid,updated_at=now() where id=c.id;
+  update public.keep_battle_solo_presence set status='SOLO' where profile_id in(uid,c.challenger_id);
+  started:=public.keep_battle_arena_start(aid);
+
+  return jsonb_build_object('id',c.id,'status','ACCEPTED','arenaId',aid,'arenaCode',acode,'themeCode',c.theme_code,'joinedExistingArena',false,'started',true,'arenaState',started);
 end;
-$compat$;
+$function$;
 SQL
   fi
 
