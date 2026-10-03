@@ -1,0 +1,34 @@
+name: Loki Add Native Speech
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/add-native-speech.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: reconcile/claude-main-20260825
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Expo Speech for SDK 54
+        run: npm install expo-speech@~14.0.8 --workspace=packages/mobile --save
+      - name: Commit dependency lock
+        run: |
+          git config user.name "Loki CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add packages/mobile/package.json package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(mobile): add native Loki speech"
+          git push origin HEAD:reconcile/claude-main-20260825
