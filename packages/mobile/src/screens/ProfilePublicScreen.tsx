@@ -1930,7 +1930,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </ProfileMotionReveal>
       ) : null}
 
-      {!accountRequired ? (
+      {!accountRequired && ownerBoutiqueOffers.length === 0 ? (
         <ProfileOpportunityRail
           viewerKey={user.id}
           suggestions={profileSaleSuggestions}
