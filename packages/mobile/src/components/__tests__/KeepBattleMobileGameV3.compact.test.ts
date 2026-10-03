@@ -91,7 +91,10 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain("rootDesktop: { maxWidth: 760, alignSelf: 'center' }");
     expect(source).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
     expect(source).toContain("arenaVisualActive: { width: '100%', aspectRatio: 1");
-    expect(source).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 0 }");
+    expect(source).toContain("soloQuestionBlock: { marginTop: 'auto', paddingTop: 8 }");
+    expect(source).toContain("soloAnswersActive: { marginTop: 8, paddingTop: 0, paddingBottom: 0 }");
+    expect(source).toContain("const soloVisualMax = isDesktopBattle");
+    expect(source).toContain("Math.max(260, Math.min(windowWidth - 10, soloRoundCardMinHeight - 216))");
     expect(source).toContain("arenaAnswersActive: { marginTop: 'auto', paddingTop: 8, paddingBottom: 0 }");
     expect(source).toContain("answer: { width: '48%', height: 54");
     expect(source).not.toContain('<Text style={s.soloEncourage}>{soloEncouragement');
