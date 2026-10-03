@@ -15,8 +15,8 @@ describe('Loki Music Battle challenge UX', () => {
 
   it('keeps incoming decisions inside Battle rather than redirecting the user', () => {
     expect(battle).toContain('loadIncomingBattleChallenges()');
-    expect(battle).toContain('void respond(incoming[0], false)');
-    expect(battle).toContain('void respond(incoming[0], true)');
+    expect(battle).toContain('requestBattleChallengeDecision(incoming[0], false)');
+    expect(battle).toContain('requestBattleChallengeDecision(incoming[0], true)');
     expect(battle).toContain('REFUSER');
     expect(battle).toContain('ACCEPTER');
     expect(battle).toContain("Les invitations restent en file d'attente pendant le Solo");
@@ -63,7 +63,7 @@ describe('Loki Music Battle challenge UX', () => {
     expect(push).not.toContain('KEEP_BATTLE_REFUSE');
     expect(push).not.toContain('KEEP_BATTLE_ACCEPT');
     expect(backendPush).not.toContain('categoryId: BATTLE_CATEGORY');
-    expect(battle).toContain('void respond(incoming[0], false)');
-    expect(battle).toContain('void respond(incoming[0], true)');
+    expect(battle).toContain('requestBattleChallengeDecision(incoming[0], false)');
+    expect(battle).toContain('requestBattleChallengeDecision(incoming[0], true)');
   });
 });
