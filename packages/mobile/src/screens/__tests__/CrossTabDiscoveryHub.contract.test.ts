@@ -36,7 +36,7 @@ describe('Cross-tab People / Events / Collections integration', () => {
   });
 
   it('keeps one collection manager and uses Playlists only as its track selector', () => {
-    for (const marker of ['TOUTES LES COLLECTIONS', '✎ MODIFIER', '€ / FREE', '＋ CRÉER UNE COLLECTION']) {
+    for (const marker of ['TES COLLECTIONS PUBLIÉES', '✎ MODIFIER', '€ / FREE', '＋ CRÉER UNE COLLECTION']) {
       expect(salePanel).toContain(marker);
     }
     // 1d1ecb70 / 0e5272a1 : la création reste dans Pépites (contrat collectionCreationMustRemainInPepites).
