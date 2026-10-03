@@ -96,7 +96,7 @@ function formatElapsed(startedAt: string | null) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function HomeScreenCompact({ navigation }: any) {
+export default function HomeScreenCompact({ navigation, route }: any) {
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
@@ -137,6 +137,32 @@ export default function HomeScreenCompact({ navigation }: any) {
     setHomePulseOpen(true);
     void getDownloadCreditStatus().then((status) => { if (status.costPerKeep) setHomePulseFreeCost(status.costPerKeep); }).catch(() => {});
   };
+
+  // Push "nouvelle musique" : réutilise exactement le lecteur Loki Pulse déjà
+  // présent sur Écouter. Le payload serveur fournit trackId (pas entryId).
+  // On recharge un lot plus large, ouvre le morceau visé puis consomme le
+  // paramètre pour éviter une réouverture à chaque focus.
+  const notifiedPulseTrackId = String(route?.params?.pulseTrackId || '').trim();
+  useEffect(() => {
+    if (!notifiedPulseTrackId || !user?.id || isDemoMode || musicEngine.isDemoMode) return undefined;
+    let live = true;
+    void loadLokiPulse(60, user.id)
+      .then((items) => {
+        if (!live) return;
+        setHomePulseItems(items);
+        if (items.some((item) => item.track.id === notifiedPulseTrackId)) {
+          setHomePulseSelectedTrackId(notifiedPulseTrackId);
+          setHomePulseOpen(true);
+          void getDownloadCreditStatus()
+            .then((status) => { if (status.costPerKeep) setHomePulseFreeCost(status.costPerKeep); })
+            .catch(() => {});
+        }
+      })
+      .finally(() => {
+        if (live) navigation?.setParams?.({ pulseTrackId: undefined, source: undefined });
+      });
+    return () => { live = false; };
+  }, [isDemoMode, navigation, notifiedPulseTrackId, user?.id]);
 
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
