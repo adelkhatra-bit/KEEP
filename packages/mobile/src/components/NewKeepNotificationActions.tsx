@@ -22,11 +22,14 @@ export default function NewKeepNotificationActions({
   notification,
   onInteract,
   onKept,
+  onOpenProfile,
 }: {
   notification: KeepNotification;
   /** Appelé au premier geste (la bannière arrête alors de se refermer seule). */
   onInteract?: () => void;
   onKept?: () => void;
+  /** Ouvre directement le profil qui a partagé le morceau. */
+  onOpenProfile?: () => void;
 }) {
   const [track, setTrack] = useState<CanonicalTrack | null>(null);
   const [owned, setOwned] = useState(false);
@@ -105,18 +108,22 @@ export default function NewKeepNotificationActions({
     return <View style={s.row}><ActivityIndicator size="small" color="#B79CFF" /></View>;
   }
   if (!track) {
-    return <Text style={s.muted}>Morceau indisponible.</Text>;
+    return <View><Text style={s.muted}>Morceau indisponible.</Text>{onOpenProfile ? <TouchableOpacity style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }}><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}</View>;
   }
   if (owned || kept) {
     return (
-      <View testID="new-keep-revealed" style={s.revealed}>
-        <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ DANS TA COLLECTION'}</Text>
-        <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
+      <View>
+        <View testID="new-keep-revealed" style={s.revealed}>
+          <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ DANS TA COLLECTION'}</Text>
+          <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
+        </View>
+        {onOpenProfile ? <TouchableOpacity style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }} accessibilityRole="button" accessibilityLabel="Voir le profil qui a partagé ce morceau"><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}
       </View>
     );
   }
   return (
-    <View style={s.row}>
+    <View>
+      <View style={s.row}>
       <TouchableOpacity
         testID="new-keep-listen"
         style={[s.listen, !track.previewUrl && s.disabled]}
@@ -137,6 +144,8 @@ export default function NewKeepNotificationActions({
       >
         <Text style={s.keepText}>{busy ? 'AJOUT…' : `GARDER · ${cost} FREE`}</Text>
       </TouchableOpacity>
+      </View>
+      {onOpenProfile ? <TouchableOpacity testID="new-keep-profile" style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }} accessibilityRole="button" accessibilityLabel="Voir le profil qui a partagé ce morceau"><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}
     </View>
   );
 }
@@ -147,6 +156,8 @@ const s = StyleSheet.create({
   listenText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   keep: { flex: 1, minHeight: 38, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   keepText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
+  profile: { minHeight: 36, marginTop: 7, borderRadius: 14, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  profileText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .4 },
   disabled: { opacity: 0.55 },
   muted: { color: '#FFFFFF', fontSize: 11, marginTop: 6, opacity: 0.8 },
   revealed: { marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', paddingHorizontal: 10, paddingVertical: 7 },

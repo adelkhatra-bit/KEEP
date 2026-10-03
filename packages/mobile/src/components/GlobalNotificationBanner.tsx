@@ -5,7 +5,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
-import { navigateToBattleArena, navigateToEvent } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
 import { Alert } from '../utils/keepAlert';
@@ -656,6 +656,7 @@ export default function GlobalNotificationBanner() {
             <Text style={styles.body} numberOfLines={2}>{masked.body}</Text>
             <NewKeepNotificationActions
               notification={current}
+              onOpenProfile={dataText(current, 'username') ? () => navigateToSharedProfile(dataText(current, 'username')) : undefined}
               onInteract={() => {
                 // L'abonné écoute ou garde : la bannière ne se referme plus seule.
                 if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null; }

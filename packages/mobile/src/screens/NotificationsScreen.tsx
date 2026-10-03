@@ -65,7 +65,8 @@ function notificationProfileId(item: KeepNotification): string | null {
     ?? data.sellerId ?? data.seller_id
     ?? data.referrerId ?? data.referrer_id
     ?? data.sourceProfileId ?? data.source_profile_id
-    ?? data.originProfileId ?? data.origin_profile_id;
+    ?? data.originProfileId ?? data.origin_profile_id
+    ?? data.ownerProfileId ?? data.owner_profile_id;
   return typeof candidate === 'string' && /^[0-9a-f-]{36}$/i.test(candidate) ? candidate : null;
 }
 
@@ -447,6 +448,23 @@ export default function NotificationsScreen({ navigation }: any) {
   const isBuyerPaymentReady = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
   const isSellerPaymentAction = (item: KeepNotification) => ['PLAYLIST_SALE_BUYER_PAID','PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase()) && Boolean(paymentIdOf(item));
 
+  const notificationPrimaryActionLabel = (item: KeepNotification): string | null => {
+    const type = String(item.type || '').toUpperCase();
+    if (isNewKeepNotification(item) || isEventInvite(item) || isBuyerPaymentReady(item) || isSellerPaymentAction(item) || isBattleInvite(item)) return null;
+    if (type.startsWith('AGORA')) return 'OUVRIR LE TCHAT';
+    if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') return 'RÉGLER LE TCHAT';
+    if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') return 'VOIR MES FREE';
+    if (type === 'LOKI_PULSE_NEW') return 'OUVRIR MON PULSE';
+    if (type.includes('BATTLE')) return 'OUVRIR BATTLE';
+    if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
+    if (['PLAYLIST_SALE_PARTIAL_OFFER','PLAYLIST_SALE_NEW_OFFER','PLAYLIST_SALE_OFFER_CREATED'].includes(type)) return 'VOIR LA PÉPITE';
+    if (type === 'PLAYLIST_SALE_COMPLETED') return 'GÉRER LA PÉPITE';
+    if (type === 'PLAN_GIFTED' || type.includes('PLAN')) return 'VOIR MON OFFRE';
+    if (eventIdOf(item)) return 'VOIR L’ÉVÉNEMENT';
+    if (notificationProfileUsername(item) || notificationProfileId(item)) return 'VOIR LE PROFIL';
+    return null;
+  };
+
   const openPaymentFromNotification = async (item: KeepNotification) => {
     const data = item.data as Record<string, unknown> | null;
     const payoutLink = typeof data?.payoutLink === 'string' ? data.payoutLink.trim() : '';
@@ -574,7 +592,7 @@ export default function NotificationsScreen({ navigation }: any) {
       return;
     }
 
-    if (type === 'MONTHLY_FREE_CREDIT') {
+    if (type === 'MONTHLY_FREE_CREDIT' || type.startsWith('FREE_')) {
       navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' });
       return;
     }
@@ -855,7 +873,11 @@ export default function NotificationsScreen({ navigation }: any) {
               </TouchableOpacity>
               {isNewKeepNotification(item) ? (
                 <View style={styles.newKeepActions}>
-                  <NewKeepNotificationActions notification={item} onInteract={() => { if (!item.readAt) void readOne(item); }} />
+                  <NewKeepNotificationActions
+                    notification={item}
+                    onInteract={() => { if (!item.readAt) void readOne(item); }}
+                    onOpenProfile={profileUsername ? () => navigation.navigate('PublicProfile', { username: profileUsername }) : undefined}
+                  />
                 </View>
               ) : null}
               {isEventInvite(item) && eventIdOf(item) ? (() => {
@@ -906,6 +928,13 @@ export default function NotificationsScreen({ navigation }: any) {
                     onPress={() => void openPaymentFromNotification(item)}
                   >
                     <Text style={styles.paymentActionPrimaryText}>J’AI PAYÉ · JOINDRE PREUVE</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              {notificationPrimaryActionLabel(item) ? (
+                <View style={styles.notificationActionRow}>
+                  <TouchableOpacity style={styles.notificationActionButton} onPress={() => { void openNotification(item); }} accessibilityRole="button" accessibilityLabel={notificationPrimaryActionLabel(item) || 'Ouvrir la notification'}>
+                    <Text style={styles.notificationActionButtonText}>{notificationPrimaryActionLabel(item)}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1120,6 +1149,9 @@ const styles = StyleSheet.create({
   battleThemeLabel: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   battleThemeValue: { color: colors.warning, fontSize: 12, fontWeight: '900' },
   battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
+  notificationActionRow: { paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
+  notificationActionButton: { minHeight: 42, borderRadius: 13, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  notificationActionButtonText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
   paymentActionRow: { flexDirection: 'row', gap: 7, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
   paymentActionButton: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   paymentActionPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },

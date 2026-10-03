@@ -34,6 +34,17 @@ describe('Notifications UX and routing contract', () => {
     expect(myMusic).toContain('openPurchasedCollection(entry)');
   });
 
+  it('offers one-tap actions for every major notification family and a profile action for music', () => {
+    expect(notifications).toContain("return 'OUVRIR LE TCHAT'");
+    expect(notifications).toContain("return 'VOIR MES FREE'");
+    expect(notifications).toContain("return 'OUVRIR BATTLE'");
+    expect(notifications).toContain("return 'OUVRIR LA COLLECTION'");
+    expect(notifications).toContain("return 'VOIR LA PÉPITE'");
+    expect(notifications).toContain("return 'VOIR LE PROFIL'");
+    expect(notifications).toContain("type === 'MONTHLY_FREE_CREDIT' || type.startsWith('FREE_')");
+    expect(notifications).toContain('ownerProfileId');
+  });
+
   it('resolves old social notifications even when only a profile id exists', () => {
     expect(notifications).toContain('notificationProfileId');
     expect(notifications).toContain('resolveNotificationProfileUsername');
