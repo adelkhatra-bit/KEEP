@@ -202,7 +202,7 @@ export type PlaylistBuyerPaymentSignal = {
 
 export type PlaylistSalePaymentGuardStatus = {
   paymentId: string;
-  status: 'PENDING' | 'COMPLETED';
+  status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'REFUNDED';
   buyerMarkedPaidAt: string | null;
   proofUploadedAt: string | null;
   deliveredPlaylistId: string | null;
@@ -217,11 +217,27 @@ export async function loadPlaylistSalePaymentGuardStatus(paymentId: string): Pro
   const row = data as any;
   return {
     paymentId: String(row?.paymentId ?? paymentId),
-    status: String(row?.status ?? 'PENDING').toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+    status: (['COMPLETED','FAILED','REFUNDED'].includes(String(row?.status ?? '').toUpperCase())
+      ? String(row?.status).toUpperCase()
+      : 'PENDING') as PlaylistSalePaymentGuardStatus['status'],
     buyerMarkedPaidAt: row?.buyerMarkedPaidAt ? String(row.buyerMarkedPaidAt) : null,
     proofUploadedAt: row?.proofUploadedAt ? String(row.proofUploadedAt) : null,
     deliveredPlaylistId: row?.deliveredPlaylistId ? String(row.deliveredPlaylistId) : null,
     pending: Boolean(row?.pending ?? String(row?.status ?? 'PENDING').toUpperCase() !== 'COMPLETED'),
+  };
+}
+
+export async function cancelPlaylistSalePayment(paymentId: string, reason = 'USER_CANCELLED'): Promise<{ paymentId: string; status: 'FAILED'; alreadyCancelled: boolean }> {
+  const { data, error } = await client().rpc('keep_playlist_sale_cancel_payment', {
+    p_payment_id: paymentId,
+    p_reason: reason,
+  });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_PAYMENT_CANCEL_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? paymentId),
+    status: 'FAILED',
+    alreadyCancelled: Boolean(row?.alreadyCancelled),
   };
 }
 
