@@ -66,6 +66,7 @@ export default function LaunchCenter() {
   const [manual, setManual] = useState<Record<ManualKey, boolean>>({ apple_membership: false, shazam_service: false, store_products: false, store_contracts: false, iphone_test: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Persisted admin launch checklist: shared through Supabase across browsers/devices.
   const [manualSavedAt, setManualSavedAt] = useState<string | null>(null);
 
   const load = async () => {
