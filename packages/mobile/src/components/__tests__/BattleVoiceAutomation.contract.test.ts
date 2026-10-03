@@ -16,10 +16,10 @@ describe('Battle result voice and Solo exit contract', () => {
   });
 
   it('uses more of the Solo screen and lowers the answer grid', () => {
-    expect(battle).toContain('style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax }]}');
+    expect(battle).toContain('style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax, maxWidth: arenaVisualMax }]}');
     expect(battle).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
     expect(battle).not.toContain('maxWidth: 330');
-    expect(battle).toContain("soloCardActive: { flexGrow: 1, justifyContent: 'flex-start' }");
+    expect(battle).toContain("soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 }");
     expect(battle).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
   });
 
