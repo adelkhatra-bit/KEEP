@@ -242,6 +242,15 @@ jobs:
           });
           NODE
 
+      - name: 🔄 Synchroniser credentials iOS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        working-directory: packages/mobile
+        run: |
+          set -euo pipefail
+          profile="${{ inputs.profile || 'production' }}"
+          eas credentials:configure-build --platform ios --profile "$profile" --non-interactive
+
       - name: 🏗️ Build iOS local (${{ inputs.profile || 'production' }})
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -249,11 +258,9 @@ jobs:
         run: |
           set -euo pipefail
           profile="${{ inputs.profile || 'production' }}"
-          # Conserver EXPO_ASC_* + EXPO_APPLE_TEAM_ID : ils authentifient
-          # précisément la validation Apple non interactive. Les retirer
-          # forçait EAS à retomber sur sa clé distante incomplète et à demander
-          # "Apple Team ID" sur stdin.
-          eas build --local --platform ios --profile "$profile" --non-interactive --freeze-credentials --clear-cache --output "$RUNNER_TEMP/loki.ipa"
+          # Ne pas geler les credentials : le provisioning doit être régénéré
+          # si l'entitlement Push Notifications vient d'être activé/corrigé.
+          eas build --local --platform ios --profile "$profile" --non-interactive --clear-cache --output "$RUNNER_TEMP/loki.ipa"
 
       - name: 📤 Soumettre a TestFlight
         if: ${{ (inputs.profile || 'production') == 'production' }}
