@@ -11,6 +11,7 @@ import { RootChatDock } from './src/components/ChatDockHost';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
+import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
 import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
@@ -486,6 +487,7 @@ export default function App() {
       )}
       {authReady && user ? <GlobalNotificationBanner /> : null}
       {authReady && user ? <RootChatDock /> : null}
+      {authReady && user ? <PushRegistrationLifecycle /> : null}
       <AppUpdateBanner authReady={authReady} />
       <AlertHost />
       <AccountGateModal />
