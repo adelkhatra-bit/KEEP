@@ -107,19 +107,10 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
   }
 
   if (type === 'NEW_PUBLIC_KEEP') {
-    // Une notification "nouvelle musique" est faite pour écouter : si le
-    // serveur fournit l'entrée détectée, ouvrir directement Écouter. Repli
-    // vers le centre de notifications uniquement pour les anciennes lignes
-    // qui ne possèdent pas encore entryId.
-    const newMusicEntryId = String(payload.entryId ?? payload.entry_id ?? '').trim();
-    const newMusicTrackId = String(payload.trackId ?? payload.track_id ?? '').trim();
-    if (newMusicEntryId) {
-      guardedNavigate('Main', { screen: 'Listen', params: { entryId: newMusicEntryId, source: 'NEW_PUBLIC_KEEP' } });
-    } else if (newMusicTrackId) {
-      guardedNavigate('Main', { screen: 'Listen', params: { pulseTrackId: newMusicTrackId, source: 'NEW_PUBLIC_KEEP' } });
-    } else {
-      guardedNavigate('Notifications', notificationId ? { focusNotificationId: notificationId } : undefined);
-    }
+    // Cette surface possède déjà ÉCOUTER / RÉÉCOUTER + AJOUTER GRATUITEMENT
+    // avec titre/artiste masqués avant l'ajout. Ne pas contourner ce contrat
+    // en ouvrant un lecteur générique qui révélerait la musique trop tôt.
+    guardedNavigate('Notifications', notificationId ? { focusNotificationId: notificationId } : undefined);
     return;
   }
 
