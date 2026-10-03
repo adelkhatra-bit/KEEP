@@ -56,7 +56,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         storageKey: SUPER_ADMIN_STORAGE_KEY,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        // Requis pour le callback Google OAuth et le lien « mot de passe oublié »
+        // du Super Admin. La session reste isolée de l'app mobile via storageKey.
+        detectSessionInUrl: true,
       },
       global: {
         fetch: adminSupabaseFetch,
