@@ -38,3 +38,5 @@ jobs:
           eas channel:view production --json --non-interactive || true
           echo "=== EAS UPDATES PRODUCTION BRANCH ==="
           eas update:list --branch production --limit 10 --json --non-interactive || true
+
+# audit-trigger: 2026-10-03-mobile-divergence
