@@ -59,14 +59,15 @@ if (Platform.OS !== 'web') {
       // Adel (29/09/2026) : doublons. Ce gestionnaire ne s'exécute que quand
       // l'appli est AU PREMIER PLAN ; la bannière interne
       // (GlobalNotificationBanner) affiche déjà la même notification. Au
-      // premier plan : pas de bannière ni de son système en plus (le badge
-      // reste à jour). Appli en arrière-plan : le système affiche la push.
+      // premier plan : pas de bannière, pas de son ET pas de deuxième entrée
+      // dans la liste système. La bannière Loki interne est l'unique rendu.
+      // Appli fermée / en arrière-plan : iOS/Android affiche la push normale.
       return {
         shouldShowAlert: false,
         shouldPlaySound: false,
         shouldSetBadge: !inlineBattle,
         shouldShowBanner: false,
-        shouldShowList: !inlineBattle,
+        shouldShowList: false,
       };
     },
   });
