@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import bcrypt from "npm:bcryptjs@2.4.3";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
 
@@ -1022,6 +1023,33 @@ Deno.serve(async (req) => {
       if (insertError) throw insertError;
       await audit(actor.id, "notifications.broadcast", "profiles", usernames.length ? usernames.join(",") : "ALL", { title, body: message, recipientCount: targets.length });
       return json(200, { ok: true, recipientCount: targets.length });
+    }
+
+    if (action === "admins.issue_self_recovery") {
+      assertRole(actor, ["SUPER_ADMIN"]);
+      const { data: authData, error: authError } = await admin.auth.admin.getUserById(actor.id);
+      if (authError || !authData.user?.email) return json(409, { error: "super_admin_email_required" });
+
+      const recoveryCode = generateTemporaryPassword();
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const passwordHash = bcrypt.hashSync(recoveryCode, 12);
+      const email = String(authData.user.email).trim().toLowerCase();
+
+      const { error: tokenError } = await admin.from("admin_bootstrap_tokens").upsert({
+        email,
+        password_hash: passwordHash,
+        expires_at: expiresAt,
+        used_at: null,
+        created_at: now.toISOString(),
+      }, { onConflict: "email" });
+      if (tokenError) throw tokenError;
+
+      await audit(actor.id, "admin.self_recovery_issued", "admin_user", actor.id, {
+        expiresAt,
+        emailHint: email.replace(/^(.{2}).*(@.*)$/, "$1•••$2"),
+      });
+      return json(200, { ok: true, recoveryCode, expiresAt });
     }
 
     if (action === "admins.list") {
