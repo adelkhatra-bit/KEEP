@@ -7,7 +7,7 @@ const visitor = fs.readFileSync(path.resolve(__dirname, '..', 'PublicUserProfile
 describe('visited profile Loki Pulse gauge contract', () => {
   it('keeps the same compact Pulse logic as the owner profile', () => {
     expect(visitor).toContain('const [visitorPulseExpanded, setVisitorPulseExpanded] = useState(false);');
-    expect(visitor).toContain('<Text style={styles.dnaTitle}>Son empreinte musicale</Text>');
+    expect(visitor).toContain("isOwner ? 'Mon empreinte musicale' : 'Son empreinte musicale'");
     expect(visitor).toContain('visitorStyleCoveragePercent');
     expect(visitor).toContain('<Text style={styles.visitorDnaSummaryScore}>{visitorStyleCoveragePercent}%</Text>');
   });
