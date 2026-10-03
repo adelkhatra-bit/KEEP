@@ -71,17 +71,13 @@ from public,anon,authenticated;
 do $migration$
 declare
   ddl text;
-  anchor text := $anchor$
-  select * into a from public.keep_battle_arenas where id=p_arena_id;
+  marker text := $marker$
   if not found then raise exception 'BATTLE_ARENA_NOT_FOUND'; end if;
+$marker$;
+  insertion text := $insert$
 
-  delete from public.keep_battle_arena_rounds where arena_id=a.id and match_no=p_match_no;
-  multi := a.theme_codes is not null and cardinality(a.theme_codes)>0;
-$anchor$;
-  replacement text := $replacement$
-  select * into a from public.keep_battle_arenas where id=p_arena_id;
-  if not found then raise exception 'BATTLE_ARENA_NOT_FOUND'; end if;
-
+  -- Équité multi : le serveur recalcule les styles à partir des joueurs
+  -- réellement présents AVANT chaque génération de manches.
   a.theme_codes := public.keep_battle_arena_fair_theme_codes(a.id,p_match_no);
   if a.theme_codes is null or cardinality(a.theme_codes)=0 then
     a.theme_code := 'MIX';
@@ -95,14 +91,20 @@ $anchor$;
       theme_codes=a.theme_codes,
       updated_at=now()
   where id=a.id;
-
-  delete from public.keep_battle_arena_rounds where arena_id=a.id and match_no=p_match_no;
-  multi := a.theme_codes is not null and cardinality(a.theme_codes)>0;
-$replacement$;
+$insert$;
+  pos integer;
 begin
   select pg_get_functiondef('public.keep_battle_arena_seed_rounds(uuid,integer)'::regprocedure) into ddl;
-  if strpos(ddl,anchor)=0 then raise exception 'FAIR_THEME_SEED_ANCHOR_NOT_FOUND'; end if;
-  ddl := replace(ddl,anchor,replacement);
+
+  if strpos(ddl,'keep_battle_arena_fair_theme_codes')>0 then
+    return;
+  end if;
+
+  pos := strpos(ddl,marker);
+  if pos=0 then raise exception 'FAIR_THEME_SEED_ANCHOR_NOT_FOUND'; end if;
+  pos := pos + length(marker);
+
+  ddl := substring(ddl from 1 for pos-1) || insertion || substring(ddl from pos);
   execute ddl;
 end;
 $migration$;
