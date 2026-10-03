@@ -5,11 +5,15 @@ import type { KeepNotification } from '../services/notificationService';
 import {
   keepFromNewKeepNotification,
   loadNewKeepTrackState,
+  newKeepNotificationOwner,
   revealedTrackLine,
 } from '../services/newKeepNotification';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopTrackPreview } from '../services/audioPreviewService';
 import { getCommercialRules } from '../services/growthAccessService';
 import { Alert } from '../utils/keepAlert';
+import { supabase } from '../services/supabaseClient';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 
 /**
  * Actions de la notification « Nouveau morceau chez @x » : écouter un
@@ -39,6 +43,12 @@ export default function NewKeepNotificationActions({
   const [busy, setBusy] = useState(false);
   const [kept, setKept] = useState(false);
   const [cost, setCost] = useState(3);
+  const [isFollowingOwner, setIsFollowingOwner] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const currentUserId = useUserStore((state) => state.user?.id || '');
+  const isDemoMode = useUserStore((state) => state.isDemoMode);
+  const isLocalGuest = useUserStore((state) => state.isLocalGuest);
+  const owner = newKeepNotificationOwner(notification);
   const previewKey = `new-keep-notif:${notification.id}`;
   const mounted = useRef(true);
 
@@ -52,12 +62,24 @@ export default function NewKeepNotificationActions({
       setLoading(false);
     });
     void getCommercialRules().then((rules) => { if (mounted.current) setCost(rules.freeCostPerKeep); }).catch(() => {});
+    if (supabase && currentUserId && owner.profileId && currentUserId !== owner.profileId && !isDemoMode && !isLocalGuest) {
+      void supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', currentUserId)
+        .eq('followee_id', owner.profileId)
+        .maybeSingle()
+        .then(({ data }) => { if (mounted.current) setIsFollowingOwner(Boolean(data)); })
+        .catch(() => {});
+    } else {
+      setIsFollowingOwner(false);
+    }
     return () => {
       mounted.current = false;
       void stopTrackPreview(previewKey).catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notification.id]);
+  }, [notification.id, currentUserId, isDemoMode, isLocalGuest, owner.profileId]);
 
   const togglePreview = async () => {
     onInteract?.();
@@ -107,6 +129,40 @@ export default function NewKeepNotificationActions({
     onKept?.();
   };
 
+  const subscribeOrOpenProfile = async () => {
+    onInteract?.();
+    if (isFollowingOwner || !owner.profileId || owner.profileId === currentUserId) {
+      onOpenProfile?.();
+      return;
+    }
+    if (!currentUserId || isDemoMode || isLocalGuest || !supabase) {
+      useAccountGateStore.getState().requestAccount('create', owner.username || undefined);
+      return;
+    }
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: owner.profileId });
+      if (error) {
+        if (String(error.message || '').includes('FOLLOW_LIMIT')) {
+          Alert.alert('Limite atteinte', 'Ton offre actuelle limite le nombre de profils que tu peux suivre.');
+        } else {
+          Alert.alert('Abonnement', 'Impossible de suivre ce profil pour le moment.');
+        }
+        return;
+      }
+      if (mounted.current) setIsFollowingOwner(true);
+    } finally {
+      if (mounted.current) setFollowBusy(false);
+    }
+  };
+
+  const profileActionLabel = followBusy
+    ? 'ABONNEMENT…'
+    : isFollowingOwner || owner.profileId === currentUserId
+      ? 'VOIR LE PROFIL'
+      : '+ S’ABONNER';
+
   const askKeep = () => {
     onInteract?.();
     Alert.alert(
@@ -124,7 +180,7 @@ export default function NewKeepNotificationActions({
     return <View style={s.row}><ActivityIndicator size="small" color="#B79CFF" /></View>;
   }
   if (!track) {
-    return <View><Text style={s.muted}>Morceau indisponible.</Text>{onOpenProfile ? <TouchableOpacity style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }}><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}</View>;
+    return <View><Text style={s.muted}>Morceau indisponible.</Text>{onOpenProfile ? <TouchableOpacity style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}</View>;
   }
   if (owned || kept) {
     return (
@@ -133,7 +189,7 @@ export default function NewKeepNotificationActions({
           <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ DANS TA COLLECTION'}</Text>
           <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
         </View>
-        {onOpenProfile ? <TouchableOpacity style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }} accessibilityRole="button" accessibilityLabel="Voir le profil qui a partagé ce morceau"><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}
+        {onOpenProfile ? <TouchableOpacity style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }} accessibilityRole="button" accessibilityLabel={isFollowingOwner ? 'Voir le profil qui a partagé ce morceau' : 'S’abonner au profil qui a partagé ce morceau'}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}
       </View>
     );
   }
@@ -161,7 +217,7 @@ export default function NewKeepNotificationActions({
         <Text style={s.keepText}>{saleProtected ? 'VOIR LA PÉPITE' : busy ? 'AJOUT…' : `GARDER · ${cost} FREE`}</Text>
       </TouchableOpacity>
       </View>
-      {onOpenProfile ? <TouchableOpacity testID="new-keep-profile" style={s.profile} onPress={() => { onInteract?.(); onOpenProfile(); }} accessibilityRole="button" accessibilityLabel="Voir le profil qui a partagé ce morceau"><Text style={s.profileText}>VOIR LE PROFIL</Text></TouchableOpacity> : null}
+      {onOpenProfile ? <TouchableOpacity testID="new-keep-profile" style={s.profile} disabled={followBusy} onPress={() => { void subscribeOrOpenProfile(); }} accessibilityRole="button" accessibilityLabel={isFollowingOwner ? 'Voir le profil qui a partagé ce morceau' : 'S’abonner au profil qui a partagé ce morceau'}><Text style={s.profileText}>{profileActionLabel}</Text></TouchableOpacity> : null}
     </View>
   );
 }
