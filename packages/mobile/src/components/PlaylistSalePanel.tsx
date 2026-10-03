@@ -7,7 +7,7 @@ import { createProfileService } from '../services/profileService';
 import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
-import { getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, markPlaylistSalePaid, offerPlaylistSaleRequestSelectionWithFree, PlaylistOfferedTrack, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, updateOfferPaymentMode } from '../services/playlistSaleService';
+import { cancelPlaylistSalePayment, getPlaylistSaleAccess, PlaylistSaleAccess, PlaylistSaleOffer, clearPlaylistSalePrice, declinePlaylistSaleTrackRequest, loadMyOfferedTrackIds, loadMyPlaylistSaleOffers, loadMyPlaylistSales, loadMyPlaylistPurchases, loadMyPlaylistSaleTrackRequests, loadPlaylistSaleTrackRequestTracks, markPlaylistSalePaid, offerPlaylistSaleRequestSelectionWithFree, PlaylistOfferedTrack, PlaylistSalePaymentMode, PlaylistSaleSellerRequestTrack, PlaylistSaleSellerTrackRequest, PlaylistSaleTransaction, SALE_PRESET_FREE, SALE_PRESET_PRICES_CENTS, setPlaylistSaleOfferForSelection, updateOfferPaymentMode } from '../services/playlistSaleService';
 import { Alert } from '../utils/keepAlert';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
@@ -472,6 +472,36 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     } catch (e: any) {
       Alert.alert('Preuve de paiement', e?.message || 'Impossible d’ouvrir la preuve pour le moment.');
     }
+  };
+
+  const handleCancelPendingPayment = (transaction: PlaylistSaleTransaction) => {
+    if (transaction.buyerMarkedPaidAt || transaction.paymentProofPath) {
+      Alert.alert('Transaction déjà engagée', 'Un paiement ou une preuve a déjà été signalé. Tu dois confirmer, refuser ou traiter le litige ; l’annulation simple est bloquée.');
+      return;
+    }
+    Alert.alert(
+      'Annuler cette transaction ?',
+      `@${transaction.counterpartUsername} sera prévenu immédiatement que tu ne vas pas au bout de « ${transaction.playlistName} ».`,
+      [
+        { text: 'Garder', style: 'cancel' },
+        {
+          text: 'ANNULER ET PRÉVENIR',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await cancelPlaylistSalePayment(transaction.id);
+              await loadData();
+              Alert.alert('Transaction annulée', `@${transaction.counterpartUsername} a été prévenu.`);
+            } catch (e: any) {
+              Alert.alert('Annulation impossible', String(e?.message || 'Impossible d’annuler cette transaction pour le moment.'));
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleMarkPaid = (transaction: PlaylistSaleTransaction) => {
@@ -1141,6 +1171,11 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                     <TouchableOpacity style={[s.editBtn, (!sale.buyerMarkedPaidAt || !sale.paymentProofPath) && s.pendingConfirmDisabled]} disabled={busy || !sale.buyerMarkedPaidAt || !sale.paymentProofPath} onPress={() => handleMarkPaid(sale)}>
                       <Text style={s.editBtnText}>{sale.buyerMarkedPaidAt && sale.paymentProofPath ? '✓ J’AI REÇU LES FONDS · DÉBLOQUER' : 'EN ATTENTE DE LA PREUVE ACHETEUR'}</Text>
                     </TouchableOpacity>
+                    {!sale.buyerMarkedPaidAt && !sale.paymentProofPath ? (
+                      <TouchableOpacity style={s.removeBtn} disabled={busy} onPress={() => handleCancelPendingPayment(sale)} accessibilityLabel="Annuler cette transaction et prévenir l’acheteur">
+                        <Text style={s.removeBtnText}>ANNULER LA TRANSACTION · PRÉVENIR</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ))}
               </View>
