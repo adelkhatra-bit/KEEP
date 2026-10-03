@@ -10,7 +10,8 @@ interface GameSessionState {
   gameMode: 'SOLO' | 'EN_LIGNE' | undefined;
   quitNotice: string;
   quitRequest: number;
-  setGameInProgress: (inProgress: boolean, mode?: 'SOLO' | 'EN_LIGNE', quitNotice?: string) => void;
+  activeArenaId?: string;
+  setGameInProgress: (inProgress: boolean, mode?: 'SOLO' | 'EN_LIGNE', quitNotice?: string, activeArenaId?: string) => void;
   requestQuit: () => void;
   clearGameSession: () => void;
 }
@@ -20,8 +21,14 @@ export const useGameSessionStore = create<GameSessionState>((set) => ({
   gameMode: undefined,
   quitNotice: '',
   quitRequest: 0,
-  setGameInProgress: (inProgress, mode, quitNotice = '') =>
-    set({ isGameInProgress: inProgress, gameMode: inProgress ? mode : undefined, quitNotice: inProgress ? quitNotice : '' }),
-  requestQuit: () => set((s) => ({ quitRequest: s.quitRequest + 1, isGameInProgress: false, gameMode: undefined, quitNotice: '' })),
-  clearGameSession: () => set({ isGameInProgress: false, gameMode: undefined, quitNotice: '' }),
+  activeArenaId: undefined,
+  setGameInProgress: (inProgress, mode, quitNotice = '', activeArenaId) =>
+    set({
+      isGameInProgress: inProgress,
+      gameMode: inProgress ? mode : undefined,
+      quitNotice: inProgress ? quitNotice : '',
+      activeArenaId: inProgress && mode === 'EN_LIGNE' ? activeArenaId : undefined,
+    }),
+  requestQuit: () => set((s) => ({ quitRequest: s.quitRequest + 1, isGameInProgress: false, gameMode: undefined, quitNotice: '', activeArenaId: undefined })),
+  clearGameSession: () => set({ isGameInProgress: false, gameMode: undefined, quitNotice: '', activeArenaId: undefined }),
 }));
