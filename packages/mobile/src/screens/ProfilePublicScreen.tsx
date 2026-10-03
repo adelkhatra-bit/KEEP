@@ -2439,7 +2439,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
             {user.bio ? <Text style={s.qrBio} numberOfLines={3}>{user.bio}</Text> : <Text style={s.qrBio}>Mon univers musical, mes découvertes, mon identité.</Text>}
             {identityGenrePreview.length ? <View style={s.qrGenres}>{identityGenrePreview.map((genre) => <View key={genre} style={s.qrGenre}><Text style={s.qrGenreText}>{genre}</Text></View>)}</View> : null}
             <View style={s.qrStats}>
-              <View style={s.qrStat}><Text style={s.qrStatValue}>{profileTotalKeepCount}</Text><Text style={s.qrStatLabel}>KEEPS</Text></View>
+              <View style={s.qrStat}><Text style={s.qrStatValue}>{profileTotalKeepCount}</Text><Text style={s.qrStatLabel}>GARDÉS</Text></View>
               <View style={s.qrStatDivider}/>
               <View style={s.qrStat}><Text style={s.qrStatValue}>{profileFollowerCount}</Text><Text style={s.qrStatLabel}>ABONNÉS</Text></View>
               <View style={s.qrStatDivider}/>

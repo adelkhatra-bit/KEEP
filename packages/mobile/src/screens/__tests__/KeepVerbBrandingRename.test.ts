@@ -107,3 +107,18 @@ describe('Branding produit visible -- Loki Music uniquement', () => {
     expect(appJson.expo.android.package).toBe('com.adelkhatra.keep');
   });
 });
+
+
+describe('Loki visible copy — no legacy KEEP wording', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const chat = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'MusicAgoraPanel.tsx'), 'utf8');
+  const profile = fs.readFileSync(path.resolve(__dirname, '..', 'ProfilePublicScreen.tsx'), 'utf8');
+
+  it('uses Loki in moderation copy and Gardés in visible profile stats', () => {
+    expect(chat).toContain('mot interdit sur Loki');
+    expect(chat).not.toContain('mot interdit sur KEEP');
+    expect(profile).toContain('>GARDÉS</Text>');
+    expect(profile).not.toContain('>KEEPS</Text>');
+  });
+});
