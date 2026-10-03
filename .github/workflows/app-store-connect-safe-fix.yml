@@ -83,6 +83,9 @@ jobs:
               result.contentRightsDeclaration = app.data.attributes.contentRightsDeclaration;
             }
 
+            const freePoints = await api('/v1/apps/' + appId + '/appPricePoints?filter[territory]=FRA&fields[appPricePoints]=customerPrice,proceeds,territory&include=territory&fields[territories]=currency&limit=200');
+            result.freePricePoint = (freePoints.data || []).filter(p => Number(p.attributes?.customerPrice) === 0).map(p => ({id:p.id,customerPrice:p.attributes?.customerPrice,proceeds:p.attributes?.proceeds}))[0] || null;
+
             const price = await api('/v1/apps/' + appId +
               '/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50',
               {allow404:true});
@@ -102,6 +105,7 @@ jobs:
               }));
             }
 
+            await new Promise(r => setTimeout(r, 2500));
             const verifyGc = await api('/v1/appStoreVersions/' + version.id +
               '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled', {allow404:true});
             const verifyApp = await api('/v1/apps/' + appId + '?fields[apps]=contentRightsDeclaration');
