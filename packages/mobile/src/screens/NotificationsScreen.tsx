@@ -1013,12 +1013,17 @@ export default function NotificationsScreen({ navigation, route }: any) {
               );
             }
             const profileUsername = notificationProfileUsername(item);
-            const payoutQrUrl = extractMusicAgoraPayoutQrUrl(item.body);
-            const notificationImageUrl = item.data?.image_url ? String(item.data.image_url) : payoutQrUrl;
+            const payoutQrUrl = String(
+              item.data?.payoutQrUrl
+              ?? item.data?.payout_qr_url
+              ?? extractMusicAgoraPayoutQrUrl(item.body)
+              ?? '',
+            ).trim();
+            const notificationImageUrl = item.data?.image_url ? String(item.data.image_url) : payoutQrUrl || null;
             const notificationBody = isNewKeepNotification(item)
               ? maskedNewKeepCopy(item).body
               : payoutQrUrl
-                ? 'QR PayPal partagé · ouvre le Tchat pour l’afficher.'
+                ? 'QR PayPal partagé · ouvre le paiement ou le Tchat pour l’utiliser.'
                 : item.body;
             return (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>

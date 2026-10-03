@@ -93,6 +93,20 @@ describe('Notifications UX and routing contract', () => {
     expect(panel).toContain("chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)");
   });
 
+  it('renders PayPal QR from payment data as an image instead of a technical token', () => {
+    expect(notifications).toContain('item.data?.payoutQrUrl');
+    expect(notifications).toContain('item.data?.payout_qr_url');
+    expect(notifications).toContain('notificationImageUrl');
+  });
+
+  it('keeps subscribe-only behavior in both notification surfaces', () => {
+    const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(notifications).toContain("supabase.rpc('keep_follow_profile'");
+    expect(sidePanel).toContain("supabase.rpc('keep_follow_profile'");
+    expect(notifications).not.toContain("keep_unfollow_profile");
+    expect(sidePanel).not.toContain("keep_unfollow_profile");
+  });
+
   it('keeps the compact profile notification panel actionable too', () => {
     const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
     expect(sidePanel).toContain('<NewKeepNotificationActions');

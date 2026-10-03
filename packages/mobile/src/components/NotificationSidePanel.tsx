@@ -149,6 +149,8 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const [activeTab, setActiveTab] = useState<'MESSAGES' | 'ACTIVITY' | 'SETTINGS'>('ACTIVITY');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [preparedChatId, setPreparedChatId] = useState<string | null>(null);
+  const [followingProfileIds, setFollowingProfileIds] = useState<Set<string>>(new Set());
+  const [followBusyProfileId, setFollowBusyProfileId] = useState<string | null>(null);
   const [lockedPopup, setLockedPopup] = useState<{ plan: string } | null>(null);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
   const [notificationPrefsSaving, setNotificationPrefsSaving] = useState(false);
@@ -516,6 +518,50 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (navigationRef.isReady()) (navigationRef.navigate as any)('Notifications');
   };
 
+  useEffect(() => {
+    if (!profileId || !supabase || isDemoMode) {
+      setFollowingProfileIds(new Set());
+      return;
+    }
+    const targetIds = Array.from(new Set(
+      items
+        .filter((item) => isNewKeepNotification(item))
+        .map((item) => activityProfileId(item))
+        .filter((id): id is string => Boolean(id && id !== profileId)),
+    ));
+    if (!targetIds.length) {
+      setFollowingProfileIds(new Set());
+      return;
+    }
+    let live = true;
+    void supabase
+      .from('follows')
+      .select('followee_id')
+      .eq('follower_id', profileId)
+      .in('followee_id', targetIds)
+      .then(({ data }) => {
+        if (!live) return;
+        setFollowingProfileIds(new Set((data ?? []).map((row: any) => String(row.followee_id))));
+      })
+      .catch(() => { if (live) setFollowingProfileIds(new Set()); });
+    return () => { live = false; };
+  }, [items, profileId, isDemoMode]);
+
+  const followFromActivity = async (item: KeepNotification) => {
+    if (!supabase || isDemoMode || followBusyProfileId) return;
+    const targetId = activityProfileId(item);
+    if (!targetId || targetId === profileId || followingProfileIds.has(targetId)) return;
+    setFollowBusyProfileId(targetId);
+    try {
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: targetId });
+      if (error) throw error;
+      setFollowingProfileIds((current) => new Set(current).add(targetId));
+      if (!item.readAt) await markNotificationRead(profileId, item.id).catch(() => {});
+    } finally {
+      setFollowBusyProfileId(null);
+    }
+  };
+
   const openActivityProfile = async (item: KeepNotification) => {
     if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
     const username = await resolveActivityProfileUsername(item);
@@ -789,6 +835,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                         <NewKeepNotificationActions
                           notification={item}
                           onInteract={() => { if (!item.readAt) void markNotificationRead(profileId, item.id).catch(() => {}); }}
+                          isFollowing={Boolean(activityProfileId(item) && followingProfileIds.has(activityProfileId(item) as string))}
+                          onFollow={activityProfileId(item) && activityProfileId(item) !== profileId
+                            ? () => followFromActivity(item)
+                            : undefined}
                           onOpenProfile={() => { void openActivityProfile(item); }}
                         />
                       </View>
