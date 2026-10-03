@@ -61,6 +61,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
+import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
