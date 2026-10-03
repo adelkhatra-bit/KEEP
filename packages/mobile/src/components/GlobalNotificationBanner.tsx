@@ -417,6 +417,8 @@ export default function GlobalNotificationBanner() {
     const roomSlug = dataText(current, 'roomSlug') || dataText(current, 'room_slug');
     const targetProfileId = dataText(current, 'senderId') || dataText(current, 'sender_id') || dataText(current, 'profileId');
     const targetUsername = dataText(current, 'senderUsername') || dataText(current, 'sender_username') || dataText(current, 'username');
+    const groupId = dataText(current, 'groupId') || dataText(current, 'group_id');
+    const groupName = dataText(current, 'groupName') || dataText(current, 'group_name');
     const messageIdRaw = dataText(current, 'messageId') || dataText(current, 'message_id');
     const messageId = Number(messageIdRaw || 0) || undefined;
     const id = current.id;
@@ -425,8 +427,10 @@ export default function GlobalNotificationBanner() {
     animateOut(() => {
       useGlobalChatStore.getState().open({
         roomSlug: roomSlug || undefined,
-        targetProfileId: targetProfileId || undefined,
-        targetUsername: targetUsername || undefined,
+        targetProfileId: groupId ? undefined : (targetProfileId || undefined),
+        targetUsername: groupId ? undefined : (targetUsername || undefined),
+        groupId: groupId || undefined,
+        groupName: groupName || undefined,
         messageId,
       });
     });

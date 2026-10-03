@@ -580,11 +580,16 @@ export default function NotificationsScreen({ navigation }: any) {
       const roomRaw = data?.roomSlug ?? data?.room_slug;
       const senderIdRaw = data?.senderId ?? data?.sender_id ?? data?.actorId ?? data?.actor_id ?? data?.profileId ?? data?.profile_id;
       const senderUsernameRaw = data?.senderUsername ?? data?.sender_username ?? data?.actorUsername ?? data?.actor_username ?? data?.username;
+      const groupIdRaw = data?.groupId ?? data?.group_id;
+      const groupNameRaw = data?.groupName ?? data?.group_name;
+      const groupId = typeof groupIdRaw === 'string' && groupIdRaw ? groupIdRaw : null;
       const messageIdRaw = data?.messageId ?? data?.message_id;
       useGlobalChatStore.getState().open({
         roomSlug: typeof roomRaw === 'string' && roomRaw ? roomRaw : null,
-        targetProfileId: typeof senderIdRaw === 'string' && senderIdRaw ? senderIdRaw : null,
-        targetUsername: typeof senderUsernameRaw === 'string' && senderUsernameRaw ? senderUsernameRaw : null,
+        targetProfileId: groupId ? null : (typeof senderIdRaw === 'string' && senderIdRaw ? senderIdRaw : null),
+        targetUsername: groupId ? null : (typeof senderUsernameRaw === 'string' && senderUsernameRaw ? senderUsernameRaw : null),
+        groupId,
+        groupName: typeof groupNameRaw === 'string' && groupNameRaw ? groupNameRaw : null,
         messageId: typeof messageIdRaw === 'number'
           ? messageIdRaw
           : typeof messageIdRaw === 'string' && messageIdRaw ? Number(messageIdRaw) || null : null,

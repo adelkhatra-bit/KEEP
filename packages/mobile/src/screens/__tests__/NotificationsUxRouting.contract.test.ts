@@ -45,6 +45,12 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('ownerProfileId');
   });
 
+  it('routes group notifications to the exact group instead of opening a direct chat', () => {
+    expect(notifications).toContain('const groupIdRaw = data?.groupId ?? data?.group_id;');
+    expect(notifications).toContain('groupId,');
+    expect(notifications).toContain('targetProfileId: groupId ? null');
+  });
+
   it('resolves old social notifications even when only a profile id exists', () => {
     expect(notifications).toContain('notificationProfileId');
     expect(notifications).toContain('resolveNotificationProfileUsername');

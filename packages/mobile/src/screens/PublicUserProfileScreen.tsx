@@ -836,10 +836,19 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!openSaleOfferId || !saleOffers.length) return;
     const offer = saleOffers.find((row) => row.offerId === openSaleOfferId);
     if (!offer) return;
+    const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
     unlockWebAudioForGesture();
-    setImmersivePreviewOffer(offer);
+    if (ownerViewingSelf) {
+      void openFolderSwipe(
+        offer.playlistName,
+        () => loadOwnPlaylistSaleOfferTracks(offer.offerId),
+        `sale-owner-notification:${offer.offerId}`,
+      );
+    } else {
+      setImmersivePreviewOffer(offer);
+    }
     navigation?.setParams?.({ openSaleOfferId: undefined });
-  }, [openSaleOfferId, saleOffers, navigation]);
+  }, [openSaleOfferId, saleOffers, navigation, viewer?.id, profile?.id, effectiveViewerId]);
 
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
     const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
