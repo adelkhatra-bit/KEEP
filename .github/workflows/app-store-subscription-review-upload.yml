@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Download validated reviewer screenshots
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16
         with:
           name: loki-subscription-review-37152322993
           path: artifacts/subscription-review
