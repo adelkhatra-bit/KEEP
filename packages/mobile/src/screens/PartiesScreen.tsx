@@ -314,6 +314,13 @@ export default function PartiesScreen({ navigation, route }: any) {
   // KeepBattleMobileGameV3 une fois qu'on y est).
   const [incomingBattle, setIncomingBattle] = useState<KeepBattleIncomingChallenge[]>([]);
   const [incomingResponding, setIncomingResponding] = useState<string | null>(null);
+  const [incomingDecisionReady, setIncomingDecisionReady] = useState(false);
+  useEffect(() => {
+    setIncomingDecisionReady(false);
+    if (!incomingBattle[0]?.id) return undefined;
+    const timer = setTimeout(() => setIncomingDecisionReady(true), 700);
+    return () => clearTimeout(timer);
+  }, [incomingBattle[0]?.id]);
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
   useEffect(() => {
     // Adel (03/09/2026) : "il doit être en soirée, il doit être dans Battle,
@@ -1447,14 +1454,14 @@ export default function PartiesScreen({ navigation, route }: any) {
           rester visibles que l'utilisateur soit sur SOIRÉES (événements) ou
           BATTLE (classement) -- ils vivaient uniquement dans la branche
           BATTLE avant, invisibles sur le sous-onglet SOIRÉES. */}
-      {incomingBattle.map((challenge) => (
+      {incomingBattle.slice(0, 1).map((challenge) => (
         <View key={challenge.id} style={styles.incomingBanner}>
           <Text style={styles.incomingText}><Text style={styles.incomingName}>{challenge.username}</Text> souhaite faire un Battle avec toi ({themeLabels[challenge.themeCode] || challenge.themeCode} · {challenge.roundCount} morceaux). Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
             <MotionActionButton
             variant="danger"
             size="small"
-            disabled={incomingResponding === challenge.id}
+            disabled={!incomingDecisionReady || incomingResponding === challenge.id}
             onPress={() => respondIncomingBattle(challenge, false)}
             accessibilityLabel="Refuser le Battle"
           >
@@ -1463,7 +1470,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             <MotionActionButton
             variant="success"
             size="small"
-            disabled={incomingResponding === challenge.id}
+            disabled={!incomingDecisionReady || incomingResponding === challenge.id}
             onPress={() => respondIncomingBattle(challenge, true)}
             accessibilityLabel="Accepter le Battle"
           >
@@ -1472,7 +1479,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           </View>
         </View>
       ))}
-      {!incomingBattle.length ? pendingRematchLB.map((item) => (
+      {!incomingBattle.length ? pendingRematchLB.slice(0, 1).map((item) => (
         <View key={item.arenaId} style={styles.incomingBanner}>
           <Text style={styles.incomingText}>🔁 Revanche proposée avec {item.participantUsernames.map((u) => `${u}`).join(', ') || 'le groupe'}. Acceptes-tu ?</Text>
           <View style={styles.incomingActions}>
