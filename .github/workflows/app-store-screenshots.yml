@@ -8,6 +8,10 @@ on:
     paths:
       - '.github/workflows/app-store-screenshots.yml'
 
+concurrency:
+  group: loki-app-store-screenshots
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -277,6 +281,22 @@ jobs:
 
             let existing=await api('/v1/appScreenshotSets/'+set.id+
               '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
+
+            // Two previous CI runs could overlap and reserve the same screenshot
+            // names at the same time. Keep one copy of each file and delete only
+            // exact duplicate names before uploading the missing screens.
+            const seen=new Set();
+            for(const shot of (existing.data||[])){
+              const name=shot.attributes?.fileName||'';
+              if(!name || !seen.has(name)){
+                if(name) seen.add(name);
+                continue;
+              }
+              await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
+              console.log('Deleted duplicate screenshot:',name);
+            }
+            existing=await api('/v1/appScreenshotSets/'+set.id+
+              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
             const existingNames=new Set((existing.data||[]).map(x=>x.attributes?.fileName).filter(Boolean));
 
             const dir='artifacts/app-store-65';
@@ -313,7 +333,7 @@ jobs:
               '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
             const total=(existing.data||[]).length;
             console.log('APP_IPHONE_65 screenshots now present:',total);
-            if(total<5) throw new Error('Apple still has fewer than five 6.5-inch screenshots.');
+            if(total<6) throw new Error('Apple still has fewer than six unique 6.5-inch screenshots.');
           })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
           NODE
 
