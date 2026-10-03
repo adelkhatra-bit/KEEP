@@ -61,7 +61,7 @@ jobs:
                   frames.extend(struct.pack('<h', int(0.30*32767*math.sin(2*math.pi*440*i/rate))))
               out.writeframes(frames)
           PY
-          cat > /tmp/capture-app-store.cjs <<'JS'
+          cat > capture-app-store.cjs <<'JS'
           const { chromium } = require('playwright');
 
           async function clickVisible(page, text) {
@@ -142,18 +142,19 @@ jobs:
             await browser.close();
           })().catch(err=>{console.error(err);process.exit(1)});
           JS
-          node /tmp/capture-app-store.cjs
+          node capture-app-store.cjs
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
+          import struct
           failed=[]
           for p in sorted(Path('artifacts/app-store-65').glob('*.png')):
-              im=Image.open(p)
-              print(p.name, im.size, im.mode)
-              if im.size != (1284,2778):
-                  failed.append((p.name,im.size))
-              if im.mode not in ('RGB','L'):
-                  im.convert('RGB').save(p)
+              raw=p.read_bytes()
+              if raw[:8] != b'\\x89PNG\\r\\n\\x1a\\n':
+                  raise SystemExit(f'Not a PNG: {p}')
+              w,h=struct.unpack('>II',raw[16:24])
+              print(p.name,(w,h))
+              if (w,h)!=(1284,2778):
+                  failed.append((p.name,(w,h)))
           if failed:
               raise SystemExit('Bad App Store screenshot dimensions: '+repr(failed))
           PY
