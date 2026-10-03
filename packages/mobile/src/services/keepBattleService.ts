@@ -234,8 +234,12 @@ export async function loadKeepBattleSoloLeaderboard(limit = 20): Promise<KeepBat
 }
 
 export async function loadMyKeepBattleSoloRank(): Promise<KeepBattleSoloRank> {
-  const { data, error } = await client().rpc('keep_battle_my_solo_rank');
-  const row = unwrap((data ?? {}) as any, error) as any;
+  // Synchronise le dernier rang connu pour notifier aussi les mouvements
+  // provoqués par les résultats des autres joueurs. Fallback compatible tant
+  // que la nouvelle RPC n'est pas encore visible dans le cache PostgREST.
+  const primary = await client().rpc('keep_battle_sync_my_solo_rank');
+  const response = primary.error ? await client().rpc('keep_battle_my_solo_rank') : primary;
+  const row = unwrap((response.data ?? {}) as any, response.error) as any;
   return {
     rank: row?.rank == null ? null : Number(row.rank),
     totalPlayers: Number(row?.totalPlayers ?? row?.total_players ?? 0),
@@ -308,6 +312,9 @@ export type KeepBattlePlayerStats = {
   freeWon: number;
   freeLost: number;
   freeNet: number;
+  battleAbandons: number;
+  soloAbandons: number;
+  abandons: number;
   freePeriod: 'TODAY_2AM' | string;
   freePeriodTimezone: string;
   freePeriodStartedAt: string | null;
@@ -345,6 +352,9 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
     freeWon: Number(row.freeWon ?? 0),
     freeLost: Number(row.freeLost ?? 0),
     freeNet: Number(row.freeNet ?? 0),
+    battleAbandons: Number(row.battleAbandons ?? 0),
+    soloAbandons: Number(row.soloAbandons ?? 0),
+    abandons: Number(row.abandons ?? 0),
     freePeriod: String(row.freePeriod ?? 'TODAY_2AM'),
     freePeriodTimezone: String(row.freePeriodTimezone ?? deviceTimeZone()),
     freePeriodStartedAt: row.freePeriodStartedAt ? String(row.freePeriodStartedAt) : null,

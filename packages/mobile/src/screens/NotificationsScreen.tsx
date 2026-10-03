@@ -113,6 +113,7 @@ function notificationTypeLabel(type: string) {
   if (key === 'AGORA_GROUP_REMOVED' || key === 'AGORA_GROUP_DELETED' || key === 'AGORA_GROUP_MEMBER_LEFT') return 'GROUPE';
   if (key === 'CHAT_ACTIVATION_AVAILABLE' || key === 'AGORA_ACTIVATE') return 'ACTIVE TON CHAT';
   if (key === 'BATTLE_CHALLENGE' || key === 'KEEP_BATTLE_CHALLENGE' || key === 'BATTLE_INVITE' || key === 'KEEP_BATTLE_INVITE') return 'INVITATION BATTLE';
+  if (key === 'SOLO_RANK_UP' || key === 'BATTLE_SOLO_RANK_CHANGED') return 'CLASSEMENT SOLO';
   // Adel (08/09/2026) : "je veux pas qu'il y ait marque invitation soiree ...
   // ca peut etre une invitation pour une soiree, ca peut etre un evenement,
   // une porte ouverte, ca peut etre 1000 choses en meme temps" -- libelle
@@ -761,6 +762,10 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }
     if (type === 'LOKI_PULSE_NEW') {
       navigation.navigate('Main', { screen: 'Profile' });
+      return;
+    }
+    if (type === 'SOLO_RANK_UP' || type === 'BATTLE_SOLO_RANK_CHANGED') {
+      navigation.navigate('Main', { screen: 'Parties', params: { openBattle: true, openBattleRanking: true, source: 'NOTIFICATION_RANK' } });
       return;
     }
     if (type === 'PLAYLIST_SALE_PAYMENT_READY') {

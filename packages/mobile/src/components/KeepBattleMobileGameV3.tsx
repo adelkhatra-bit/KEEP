@@ -3097,18 +3097,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       />
       <View style={s.battleHeroCompact}>
         <Text style={s.homeSub}>⚡ Écoute · réponds · affronte</Text>
-        {onOpenLeaderboard ? (
-          <TouchableOpacity
-            testID="solo-leaderboard-mini"
-            style={s.soloLeaderboardMini}
-            onPress={() => { setSoloRankDelta(0); onOpenLeaderboard(); }}
-            accessibilityRole="button"
-            accessibilityLabel={mySoloRank?.rank ? `Classement Solo, rang ${mySoloRank.rank}` : 'Ouvrir le classement Solo'}
-          >
-            <Text style={s.soloLeaderboardMiniText}>{mySoloRank?.rank ? `🏆 #${mySoloRank.rank}` : '🏆 CL.'}</Text>
-            {soloRankDelta > 0 ? <View style={s.soloLeaderboardDelta}><Text style={s.soloLeaderboardDeltaText}>↑{soloRankDelta}</Text></View> : null}
-          </TouchableOpacity>
-        ) : null}
       </View></View>{myPlayerStats || myCreditStatus ? (
         // Adel (29/09/2026) : « les compteurs le plus important, c'est les
         // Free restants, les Free gagnés et les Free perdus ; tout le reste,
@@ -3156,23 +3144,28 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <FreeEarnHelp highlight={insufficientForRoundCount(roundCount)} onShare={() => { void shareInvite(); }} onSolo={() => { void startSolo(); }} onOffers={onOpenOffers} />
           </View>
           {statsExpanded && myPlayerStats ? (
-            <View style={s.playerStatsSmallRow}>
-              <View style={s.playerStatsSmallItem}>
-                <Text style={s.playerStatsSmallValue}>{myPlayerStats.wins}</Text>
-                <Text style={s.playerStatsSmallLabel}>Victoires</Text>
+            <View>
+              <View style={s.playerStatsSmallRow}>
+                <View style={s.playerStatsSmallItem}><Text style={s.playerStatsSmallValue}>{myPlayerStats.wins}</Text><Text style={s.playerStatsSmallLabel}>Victoires</Text></View>
+                <View style={s.playerStatsSmallItem}><Text style={s.playerStatsSmallValue}>{myPlayerStats.matchesPlayed}</Text><Text style={s.playerStatsSmallLabel}>Matchs</Text></View>
+                <View style={s.playerStatsSmallItem}><Text style={s.playerStatsSmallValue}>{myPlayerStats.totalCorrect}</Text><Text style={s.playerStatsSmallLabel}>Bonnes rép.</Text></View>
+                <View style={s.playerStatsSmallItem}><Text style={s.playerStatsSmallValue}>{myPlayerStats.followers}</Text><Text style={s.playerStatsSmallLabel}>Abonnés</Text></View>
               </View>
-              <View style={s.playerStatsSmallItem}>
-                <Text style={s.playerStatsSmallValue}>{myPlayerStats.matchesPlayed}</Text>
-                <Text style={s.playerStatsSmallLabel}>Matchs</Text>
+              <View style={s.abandonStatsRow}>
+                <View style={s.abandonStatsItem}><Text style={s.abandonStatsValue}>{myPlayerStats.soloAbandons ?? mySoloRank?.abandons ?? 0}</Text><Text style={s.abandonStatsLabel}>Abandons Solo</Text></View>
+                <View style={s.abandonStatsItem}><Text style={s.abandonStatsValue}>{myPlayerStats.battleAbandons ?? 0}</Text><Text style={s.abandonStatsLabel}>Abandons Battle</Text></View>
+                <View style={s.abandonStatsItem}><Text style={s.abandonStatsValue}>{myPlayerStats.abandons ?? ((myPlayerStats.soloAbandons ?? 0) + (myPlayerStats.battleAbandons ?? 0))}</Text><Text style={s.abandonStatsLabel}>Total</Text></View>
               </View>
-              <View style={s.playerStatsSmallItem}>
-                <Text style={s.playerStatsSmallValue}>{myPlayerStats.totalCorrect}</Text>
-                <Text style={s.playerStatsSmallLabel}>Bonnes rép.</Text>
-              </View>
-              <View style={s.playerStatsSmallItem}>
-                <Text style={s.playerStatsSmallValue}>{myPlayerStats.followers}</Text>
-                <Text style={s.playerStatsSmallLabel}>Abonnés</Text>
-              </View>
+              {onOpenLeaderboard ? (
+                <TouchableOpacity testID="solo-leaderboard-more" style={s.rankingMoreAction} onPress={() => { setSoloRankDelta(0); onOpenLeaderboard(); }} accessibilityRole="button" accessibilityLabel="Ouvrir le classement Solo depuis Plus">
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={s.rankingMoreTitle}>🏆 CLASSEMENT SOLO</Text>
+                    <Text style={s.rankingMoreMeta}>{mySoloRank?.rank ? '#' + mySoloRank.rank + (mySoloRank.totalPlayers ? ' sur ' + mySoloRank.totalPlayers : '') : 'Voir le classement des utilisateurs'}</Text>
+                  </View>
+                  {soloRankDelta > 0 ? <View style={s.rankingMoreDelta}><Text style={s.rankingMoreDeltaText}>↑{soloRankDelta}</Text></View> : null}
+                  <Text style={s.rankingMoreChevron}>›</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -3269,6 +3262,7 @@ const s = StyleSheet.create({
   battleSelectionHint: { color: colors.textMutedGrey, fontSize: 11, lineHeight: 13, fontWeight: '700', marginTop: 3 },
   statsBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 18 }, statsCard: { width: '100%', maxWidth: 400, borderRadius: 26, padding: 20, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' }, statsClose: { position: 'absolute', top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: '#1F1830', alignItems: 'center', justifyContent: 'center', zIndex: 2 }, statsCloseText: { color: '#FFF', fontSize: 20, lineHeight: 22, fontWeight: '700' }, statsUsername: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 14, paddingRight: 40 }, statsBigRow: { flexDirection: 'row', gap: 8 }, statsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: '#1B1422' }, statsBigValue: { color: '#E5F266', fontSize: 22, fontWeight: '900' }, statsBigLabel: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, statsSmallRow: { flexDirection: 'row', gap: 6, marginTop: 6 }, statsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 12, backgroundColor: '#17121D' }, statsSmallValue: { color: '#FFF', fontSize: 13, fontWeight: '900' }, statsSmallValueLost: { color: colors.danger }, statsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' }, statsAvg: { color: '#FFF', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12 }, statsSectionTitle: { color: '#E5F266', fontSize: 11, fontWeight: '900', letterSpacing: .8, marginTop: 20, marginBottom: 8 }, statsThemeRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 12, borderRadius: 14, backgroundColor: '#1B1422', marginBottom: 6 }, statsThemeLabel: { color: '#FFF', fontSize: 12, fontWeight: '900' }, statsThemeValue: { color: '#B79CFF', fontSize: 11, fontWeight: '800' }, statsThemeEmpty: { color: '#B79CFF', fontSize: 12, lineHeight: 16, fontWeight: '700' }, statsActionsRow: { flexDirection: 'row', gap: 8, marginTop: 18 }, statsFollowButton: { flex: 1, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsFollowButtonText: { color: '#8B5CF6', fontSize: 11, fontWeight: '900' }, statsProfileButtonSmall: { flex: 1, minHeight: 48, borderRadius: 24, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center' }, statsProfileButtonText: { color: '#FFF', fontSize: 11, fontWeight: '900' }, statsChallengeDisabled: { opacity: 0.5 }, statsChallengeDisabledText: { color: colors.warning },
   playerStatsContainer: { marginVertical: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 16, backgroundColor: '#17121D', borderWidth: 1, borderColor: '#30273A' }, playerStatsBigRow: { flexDirection: 'row', gap: 6, marginBottom: 8 }, playerStatsBigItem: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: '#1B1422' }, playerStatsBigValue: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' }, playerStatsBigLabel: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '800', marginTop: 2, textAlign: 'center' }, playerStatsSmallRow: { flexDirection: 'row', gap: 5 }, playerStatsSmallItem: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, backgroundColor: '#1B1422' }, playerStatsSmallValue: { color: '#FFF', fontSize: 12, fontWeight: '900' }, playerStatsSmallLabel: { color: '#8F879D', fontSize: 11, fontWeight: '800', marginTop: 1, textAlign: 'center' },
+  abandonStatsRow: { flexDirection: 'row', gap: 5, marginTop: 6 }, abandonStatsItem: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 10, backgroundColor: '#1B1422', borderWidth: 1, borderColor: colors.border }, abandonStatsValue: { color: colors.warning, fontSize: 12, fontWeight: '900' }, abandonStatsLabel: { color: '#8F879D', fontSize: 10, fontWeight: '800', marginTop: 1, textAlign: 'center' }, rankingMoreAction: { minHeight: 48, marginTop: 7, paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,.10)', flexDirection: 'row', alignItems: 'center', gap: 8 }, rankingMoreTitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: .5 }, rankingMoreMeta: { color: colors.textMutedGrey, fontSize: 10, fontWeight: '800', marginTop: 2 }, rankingMoreDelta: { minWidth: 24, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: colors.keep, alignItems: 'center', justifyContent: 'center' }, rankingMoreDeltaText: { color: '#08110F', fontSize: 10, fontWeight: '900' }, rankingMoreChevron: { color: colors.primaryLight, fontSize: 20, fontWeight: '900' },
   dailyFreeReset:{color:colors.textMuted,fontSize:9,fontWeight:'900',letterSpacing:.7,textAlign:'center',marginTop:6},
   soloPackEntry: { minHeight: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.14)', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingVertical: 6 }, soloPackEntryText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: .4 }, soloPackEntryHint: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', marginTop: 1 }, soloPackRow: { minHeight: 54, borderRadius: 16, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.backgroundElevated, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 10 }, soloPackSolos: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' }, soloPackPrice: { color: '#FFFFFF', backgroundColor: colors.primary, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 13, fontWeight: '900' }, soloPackBalance: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 12 },
   prefsEditPill: { color: '#FFFFFF', backgroundColor: colors.primary, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '900', letterSpacing: .4 }, leaderboardEntry: { minHeight: 48, borderRadius: 16, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(255,180,84,.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, marginBottom: 10 }, leaderboardEntryText: { color: colors.warning, fontSize: 13, fontWeight: '900', letterSpacing: .5 }, leaderboardEntryHint: { color: colors.textMutedGrey, fontSize: 11, fontWeight: '700' },

@@ -578,12 +578,18 @@ export default function PartiesScreen({ navigation, route }: any) {
 
   useEffect(() => { void reload(); }, [user?.id, isLocalGuest, isDemoMode]);
   useEffect(() => {
-    if (!route?.params?.openBattle) return;
+    const openBattle = Boolean(route?.params?.openBattle);
+    const openRanking = Boolean(route?.params?.openBattleRanking);
+    if (!openBattle && !openRanking) return;
     setPendingArenaId(route?.params?.arenaId);
     setBattleOpen(true);
-    navigation.setParams?.({ openBattle: undefined, source: undefined, arenaId: undefined });
+    if (openRanking) {
+      setLeaderboardOpen(true);
+      setBattleSummaryOpen(true);
+    }
+    navigation.setParams?.({ openBattle: undefined, openBattleRanking: undefined, source: undefined, arenaId: undefined });
     stripBattleUrlParams();
-  }, [navigation, route?.params?.openBattle]);
+  }, [navigation, route?.params?.openBattle, route?.params?.openBattleRanking]);
   // Adel (15/09/2026) : "comment ça se fait qu'on n'a pas le même pop-up
   // que dans la rubrique Soirée ... je veux le même des deux côtés" --
   // Réglages avancés (CreatorToolsPanel) avait sa propre création
@@ -1274,7 +1280,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           )}
           onExit={() => { setBattleOpen(false); setPendingArenaId(undefined); useGameSessionStore.getState().clearGameSession(); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); }}
           onOpenOffers={() => navigation.navigate('Offers', { sourceFeature: 'BATTLE_FREE' })}
-          onOpenLeaderboard={() => setBattleSummaryOpen(true)}
+          onOpenLeaderboard={() => { setLeaderboardOpen(true); setBattleSummaryOpen(true); }}
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>

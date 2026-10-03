@@ -21,6 +21,11 @@ export function navigateToBattleArena(arenaId: string) {
   guardedNavigate('Main', { screen: 'Parties', params: { arenaId, openBattle: true } });
 }
 
+export function navigateToBattleRanking() {
+  if (!navigationRef.isReady()) return;
+  guardedNavigate('Main', { screen: 'Parties', params: { openBattle: true, openBattleRanking: true, source: 'NOTIFICATION_RANK' } });
+}
+
 export function navigateToEvent(eventId: string) {
   if (!eventId || !navigationRef.isReady()) return;
   guardedNavigate('Main', { screen: 'Parties', params: { openEventId: eventId, source: 'EVENT_BANNER' } });
@@ -84,6 +89,11 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
         messageId,
       });
     }
+    return;
+  }
+
+  if (type === 'SOLO_RANK_UP' || type === 'BATTLE_SOLO_RANK_CHANGED') {
+    guardedNavigate('Main', { screen: 'Parties', params: { openBattle: true, openBattleRanking: true, source: 'NOTIFICATION_RANK' } });
     return;
   }
 

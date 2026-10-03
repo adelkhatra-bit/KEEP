@@ -67,11 +67,14 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).not.toContain('accessibilityLabel="Ouvrir le classement Battle"');
   });
 
-  it('shows a tiny Solo ranking button without moving the existing layout', () => {
-    expect(source).toContain('testID="solo-leaderboard-mini"');
+  it('keeps the Solo ranking and abandon counters hidden behind PLUS to save mobile space', () => {
+    expect(source).toContain('testID="solo-leaderboard-more"');
+    expect(source).toContain('accessibilityLabel="Ouvrir le classement Solo depuis Plus"');
+    expect(source).toContain('Abandons Solo');
+    expect(source).toContain('Abandons Battle');
     expect(source).toContain('loadMyKeepBattleSoloRank');
     expect(source).toContain('soloRankDelta');
-    expect(source).toContain("position:'absolute'");
+    expect(source).not.toContain('testID="solo-leaderboard-mini"');
   });
 
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {

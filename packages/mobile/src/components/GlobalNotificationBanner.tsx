@@ -5,7 +5,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
-import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
+import { navigateToBattleArena, navigateToBattleRanking, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
 import { speakLokiText } from '../services/lokiSpeechService';
@@ -68,6 +68,11 @@ function isBattleChallenge(notification: KeepNotification): boolean {
 // keep_battle_challenges.
 function isBattleRematch(notification: KeepNotification): boolean {
   return String(notification.type || '').toUpperCase() === 'BATTLE_ARENA_REMATCH';
+}
+
+function isSoloRankNotification(notification: KeepNotification): boolean {
+  const type = String(notification.type || '').toUpperCase();
+  return type === 'SOLO_RANK_UP' || type === 'BATTLE_SOLO_RANK_CHANGED';
 }
 
 function isEventInvite(notification: KeepNotification): boolean {
@@ -481,8 +486,17 @@ export default function GlobalNotificationBanner() {
     });
   };
 
+  const openRankFromNotification = () => {
+    if (!current) return;
+    const id = current.id;
+    setCurrent((item) => item ? { ...item, readAt: item.readAt ?? new Date().toISOString() } : item);
+    void markNotificationRead(user.id, id).catch(() => {});
+    animateOut(() => navigateToBattleRanking());
+  };
+
   const battleChallenge = isBattleChallenge(current);
   const battleRematch = isBattleRematch(current);
+  const soloRankNotification = isSoloRankNotification(current);
   const challengeId = dataText(current, 'challengeId');
   const rematchArenaId = dataText(current, 'arenaId');
   const eventInvite = isEventInvite(current);
@@ -774,9 +788,9 @@ export default function GlobalNotificationBanner() {
       <TouchableOpacity
         activeOpacity={0.94}
         style={styles.banner}
-        onPress={() => { if (agoraNotification) openChatFromNotification(); else if (profileUsername) openProfileFromNotification(); else void markReadAndHide(); }}
+        onPress={() => { if (soloRankNotification) openRankFromNotification(); else if (agoraNotification) openChatFromNotification(); else if (profileUsername) openProfileFromNotification(); else void markReadAndHide(); }}
         accessibilityRole="button"
-        accessibilityLabel={agoraNotification ? `${current.title}. Ouvrir le Tchat.` : profileUsername ? `${current.title}. Voir le profil de ${profileUsername}.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
+        accessibilityLabel={soloRankNotification ? `${current.title}. Ouvrir le classement Solo.` : agoraNotification ? `${current.title}. Ouvrir le Tchat.` : profileUsername ? `${current.title}. Voir le profil de ${profileUsername}.` : `${current.title}. ${displayBody}. Toucher pour marquer comme lu.`}
       >
         <TouchableOpacity style={styles.closeButton} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={styles.closeButtonText}>×</Text></TouchableOpacity>
         {artworkUrl ? (
@@ -787,7 +801,7 @@ export default function GlobalNotificationBanner() {
         <View style={styles.copy}>
           <View style={styles.eyebrowRow}>
             <Text style={styles.eyebrow}>{isMusic ? 'Loki Music LIVE' : 'Loki Music'}</Text>
-            <Text style={styles.closeHint}>{agoraNotification ? 'ouvrir le tchat' : profileUsername ? 'voir le profil' : 'toucher = lu'}</Text>
+            <Text style={styles.closeHint}>{soloRankNotification ? 'voir le classement' : agoraNotification ? 'ouvrir le tchat' : profileUsername ? 'voir le profil' : 'toucher = lu'}</Text>
           </View>
           <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
           <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
