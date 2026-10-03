@@ -548,7 +548,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       setPurchaseTracks(await loadDeliveredPlaylistSaleTracks(entry.deliveredPlaylistId));
     } catch {
       setPurchaseTracks([]);
-      Alert.alert('Mes achats', 'Impossible de charger cette collection pour le moment.');
+      Alert.alert('Mes collections', 'Impossible de charger cette collection pour le moment.');
     } finally {
       setPurchaseTracksLoading(false);
     }
@@ -935,7 +935,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
     if (alreadySoldElsewhere) {
       const title = localKeptTracks.find((item) => item.id === trackId)?.title || 'Ce morceau';
       Alert.alert(
-        'Déjà en vente',
+        'Déjà dans une collection active',
         `« ${title} » est déjà publié dans « ${offered?.playlistName || 'une collection'} ». Souhaites-tu quand même l’ajouter à ce panier ?`,
         [
           { text: 'Annuler', style: 'cancel' },
@@ -1223,12 +1223,12 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const offered = myOfferedTrackIds[track.id];
     if (next === 'PUBLIC' && offered) {
       Alert.alert(
-        'Cette musique est en vente',
+        'Cette musique est dans une collection active',
         `« ${track.title} » fait partie de « ${offered.playlistName} ». Tant que la collection est active, Loki la masque aux visiteurs. Si tu la rends publique, elle doit d’abord être retirée de cette collection.`,
         [
           { text: 'Annuler', style: 'cancel' },
           { text: 'Gérer la collection', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered.offerId, manageSaleOfferName: offered.playlistName }) },
-          { text: 'Retirer de la vente + Public', style: 'destructive', onPress: () => {
+          { text: 'Retirer de la collection + Public', style: 'destructive', onPress: () => {
             setTrackVisibilityBusy(key);
             void (async () => {
               try {
@@ -1237,9 +1237,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 setMyOfferedTrackIds((prev) => { const nextOffers = { ...prev }; delete nextOffers[track.id]; return nextOffers; });
                 await refreshSaleState();
                 await refreshLibrary();
-                Alert.alert('Musique publique', 'Le morceau a été retiré de la collection en vente et est maintenant public sur ton profil.');
+                Alert.alert('Musique publique', 'Le morceau a été retiré de la collection active et est maintenant public sur ton profil.');
               } catch (e: any) {
-                Alert.alert('Visibilité', e?.message ?? 'Impossible de retirer ce morceau de la vente pour le moment.');
+                Alert.alert('Visibilité', e?.message ?? 'Impossible de retirer ce morceau de la collection active pour le moment.');
               } finally {
                 setTrackVisibilityBusy(null);
               }
@@ -1371,7 +1371,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             : selectedSaleTrackIds.has(track.id)
               ? `Retirer ${track.title} du panier`
               : offeredElsewhere
-                ? `${track.title} est déjà en vente, ajouter quand même au panier`
+                ? `${track.title} est déjà dans une collection active, ajouter quand même au panier`
                 : `Ajouter ${track.title} au panier`}
         ><Text style={styles.selectionCheckText}>{notOwnDiscovery ? '🔒' : selectedSaleTrackIds.has(track.id) ? '✓ RETIRER' : '+ PANIER'}</Text></TouchableOpacity> : null}
         <View style={styles.trackRowGrid}>
@@ -1698,7 +1698,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
                     {originFilter === 'USERS'
                       ? "🔒 Reprises d'autres utilisateurs"
                       : originFilter === 'PRIVATE'
-                        ? 'Mes morceaux privés · ventes protégées'
+                        ? 'Mes morceaux privés · collections protégées'
                       : originFilter === 'PULSE'
                         ? 'Loki Pulse'
                         : originFilter === 'SESSION'
@@ -1841,7 +1841,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           { title: 'Choisir Public ou Privé', text: 'Public apparaît sur ton profil. Privé reste uniquement dans ta bibliothèque.' },
           { title: 'Trier automatiquement', text: 'Loki range les morceaux par styles et artistes pour que tu les retrouves vite.' },
           { title: 'Créer une collection', text: 'Sélectionne plusieurs morceaux, vérifie ton panier, choisis FREE ou monnaie quand la fonction est disponible, puis publie.' },
-          { title: 'Gérer tes achats', text: 'Les collections déjà obtenues restent dans Playlists et ne disparaissent pas si la marketplace est masquée.' },
+          { title: 'Gérer tes collections débloquées', text: 'Les collections déjà obtenues restent dans Playlists et ne disparaissent pas si la marketplace est masquée.' },
           { title: 'Connecter tes services', text: 'Utilise tes services musicaux compatibles pour écouter ou exporter tes playlists.' },
         ]}
         onClose={() => setPlaylistHelpOpen(false)}
@@ -2034,10 +2034,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <View style={styles.modalBackdrop}><View style={[styles.editCard, styles.purchaseModalCard]}>
           <View style={styles.purchaseModalHead}>
             <View style={styles.purchaseModalHeadCopy}>
-              <Text style={styles.editTitle}>{purchaseOpen?.playlistName || 'Mon achat'}</Text>
+              <Text style={styles.editTitle}>{purchaseOpen?.playlistName || 'Ma collection'}</Text>
               <Text style={styles.purchaseModalSeller}>{purchaseOpen?.sellerUsername ? `@${purchaseOpen.sellerUsername}` : ''}</Text>
             </View>
-            <TouchableOpacity style={styles.purchaseModalClose} onPress={() => setPurchaseOpen(null)} accessibilityLabel="Fermer mes achats"><Text style={styles.purchaseModalCloseText}>×</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.purchaseModalClose} onPress={() => setPurchaseOpen(null)} accessibilityLabel="Fermer mes collections"><Text style={styles.purchaseModalCloseText}>×</Text></TouchableOpacity>
           </View>
           {purchaseTracksLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginVertical: 24 }} /> : (
             <ScrollView style={styles.purchaseTracksScroll} contentContainerStyle={styles.purchaseTracksContent}>
