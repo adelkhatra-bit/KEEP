@@ -108,7 +108,7 @@ describe('Notification nouveau morceau Loki', () => {
   });
 
   it('serveur : le fanout reste asynchrone et transmet l’empreinte du premier découvreur', () => {
-    const sql = read('supabase/migrations/20261003030000_public_track_fanout_origin_scale.sql');
+    const sql = read('supabase/migrations/20261003030100_public_track_fanout_origin_scale.sql');
     expect(sql).toContain('public_track_notification_fanout_jobs');
     expect(sql).toContain("'sourceProfileId'");
     expect(sql).toContain('keep_process_public_track_notification_fanout(40, 2000)');

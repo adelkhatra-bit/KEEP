@@ -16,7 +16,7 @@ describe('Global notification scalability', () => {
 
   it('fans out public-track notifications asynchronously instead of looping followers inside the KEEP trigger', () => {
     const sql = fs.readFileSync(
-      path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261003011000_public_track_notification_fanout_queue.sql'),
+      path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261003011100_public_track_notification_fanout_queue.sql'),
       'utf8',
     );
     expect(sql).toContain('public_track_notification_fanout_jobs');

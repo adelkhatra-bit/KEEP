@@ -53,7 +53,7 @@ describe('Notifications UX and routing contract', () => {
 
   it('routes native pushes to their exact in-app action using notification type and id', () => {
     const nav = fs.readFileSync(path.resolve(__dirname, '..', '..', 'navigation', 'navigationRef.ts'), 'utf8');
-    const worker = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'functions', 'keep-push-worker', 'index.ts'), 'utf8');
+    const worker = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-push-worker', 'index.ts'), 'utf8');
     expect(worker).toContain('notificationId: notification.id');
     expect(worker).toContain('notificationType: notification.type');
     expect(nav).toContain("type === 'PROFILE_VIEW'");
