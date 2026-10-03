@@ -1,5 +1,4 @@
 import { AccessibilityInfo, Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 
 type LokiSpeechOptions = {
   language?: string;
@@ -16,6 +15,7 @@ export async function stopLokiSpeech(): Promise<void> {
     return;
   }
   try {
+    const Speech = require('expo-speech') as typeof import('expo-speech');
     await Speech.stop();
   } catch {}
 }
@@ -54,6 +54,11 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
     // être prononcée. La promesse ci-dessous ne se résout qu'à la fin réelle
     // de la phrase (ou si le moteur TTS échoue).
     try {
+      // Chargement paresseux : le TestFlight actuellement installé a été
+      // compilé avant l'ajout du module natif expo-speech. Une OTA 1.0.0 doit
+      // donc rester compatible avec cet ancien binaire au lieu de planter au
+      // chargement du fichier. La prochaine build native embarque le module.
+      const Speech = require('expo-speech') as typeof import('expo-speech');
       await Speech.stop().catch(() => {});
       await new Promise<void>((resolve) => {
         let settled = false;
