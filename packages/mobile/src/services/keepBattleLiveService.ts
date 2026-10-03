@@ -221,9 +221,18 @@ export async function cancelBattleChallenge(challengeId: string): Promise<{ stat
 }
 
 export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null; arenaState?: any | null }> {
+  // Un refus est volontairement séparé de l'ancienne RPC générique.
+  // Les anciennes builds qui envoient accidentellement p_accept=false ne
+  // peuvent ainsi plus transformer une invitation PENDING en DECLINED.
+  if (!accept) {
+    const { data, error } = await client().rpc('keep_battle_challenge_decline_confirmed', { p_challenge_id: challengeId });
+    if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_DECLINE_FAILED'));
+    return { status: String((data as any)?.status || 'DECLINED') };
+  }
+
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: accept });
+    const { data, error } = await client().rpc('keep_battle_challenge_respond', { p_challenge_id: challengeId, p_accept: true });
     if (!error) {
       return {
         status: String((data as any)?.status || ''),
