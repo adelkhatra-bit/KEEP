@@ -21,11 +21,14 @@ $old$;
 $new$;
 begin
   select pg_get_functiondef('public.keep_battle_challenge_respond(uuid,boolean)'::regprocedure) into ddl;
-  if strpos(ddl, old_block) = 0 then
+  if strpos(ddl, new_block) > 0 then
+    null;
+  elsif strpos(ddl, old_block) > 0 then
+    ddl := replace(ddl, old_block, new_block);
+    execute ddl;
+  else
     raise exception 'DECLINE_BLOCK_NOT_FOUND';
   end if;
-  ddl := replace(ddl, old_block, new_block);
-  execute ddl;
 end;
 $migration$;
 
