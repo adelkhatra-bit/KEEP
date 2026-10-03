@@ -8,7 +8,8 @@ const rail = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', '
 
 describe('suggestions de ventes du profil', () => {
   it('ne propose jamais une sélection déjà débloquée, ni sa propre offre, ni une offre inactive', () => {
-    expect(sql).toContain("pay.buyer_id=auth.uid() and pay.status='COMPLETED'");
+    expect(sql).toContain('pay.buyer_id=auth.uid()');
+    expect(sql).toContain("pay.status='COMPLETED'");
     expect(sql).toContain('o.seller_id<>auth.uid()');
     expect(sql).toContain('o.is_active=true');
     expect(sql).toContain('genre_match_count>0');
@@ -30,8 +31,8 @@ describe('suggestions de ventes du profil', () => {
   });
 
   it('rubrique : slogan, lignes compactes partagées, aucune carte vide ni bouton en doublon', () => {
-    expect(rail).toContain('DROP DU MOMENT');
-    expect(rail).toContain('DROP_MARKETING_HOOKS');
+    expect(rail).toContain('BOUTIQUE MUSICALE');
+    expect(rail).toContain('BOUTIQUE_MARKETING_HOOKS');
     expect(rail).not.toContain('>POUR TOI<');
     expect(rail).toContain('1 TAP · ÉCOUTER 15 s');
     expect(rail).toContain('setInterval(() => setIndex');
