@@ -300,11 +300,11 @@ export default function NotificationsScreen({ navigation, route }: any) {
       return;
     }
     let live = true;
-    void supabase
+    void Promise.resolve(supabase
       .from('follows')
       .select('followee_id')
       .eq('follower_id', user.id)
-      .in('followee_id', ownerIds)
+      .in('followee_id', ownerIds))
       .then(({ data }) => {
         if (!live) return;
         setFollowingProfileIds(new Set((data ?? []).map((row: any) => String(row.followee_id))));

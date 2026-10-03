@@ -534,11 +534,11 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       return;
     }
     let live = true;
-    void supabase
+    void Promise.resolve(supabase
       .from('follows')
       .select('followee_id')
       .eq('follower_id', profileId)
-      .in('followee_id', targetIds)
+      .in('followee_id', targetIds))
       .then(({ data }) => {
         if (!live) return;
         setFollowingProfileIds(new Set((data ?? []).map((row: any) => String(row.followee_id))));

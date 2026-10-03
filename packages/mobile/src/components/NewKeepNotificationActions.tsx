@@ -67,12 +67,12 @@ export default function NewKeepNotificationActions({
     });
 
     if (!isFollowing && supabase && currentUserId && owner.profileId && currentUserId !== owner.profileId && !isDemoMode && !isLocalGuest) {
-      void supabase
+      void Promise.resolve(supabase
         .from('follows')
         .select('follower_id')
         .eq('follower_id', currentUserId)
         .eq('followee_id', owner.profileId)
-        .maybeSingle()
+        .maybeSingle())
         .then(({ data }) => { if (mounted.current) setFollowingOwner(Boolean(data)); })
         .catch(() => {});
     }
