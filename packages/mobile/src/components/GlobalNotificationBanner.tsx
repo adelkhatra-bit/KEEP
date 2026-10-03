@@ -456,7 +456,7 @@ export default function GlobalNotificationBanner() {
     );
   };
 
-  const answerBlockingRematch = async (accept: boolean) => {
+  const commitBlockingRematchDecision = async (accept: boolean) => {
     if (!blockingRematch || respondBusy) return;
     const item = blockingRematch;
     setRespondBusy(true);
@@ -465,11 +465,23 @@ export default function GlobalNotificationBanner() {
       setBlockingRematch(null);
       if (accept) navigateToBattleArena(item.arenaId);
     } catch {
-      // Same rule for rematches.
+      // Never dismiss a mandatory decision unless the server confirms it.
     } finally {
       setRespondBusy(false);
       setTimeout(() => { void refreshBlockingBattleDecision(); }, 250);
     }
+  };
+  const answerBlockingRematch = (accept: boolean) => {
+    if (accept) { void commitBlockingRematchDecision(true); return; }
+    if (!blockingRematch || respondBusy) return;
+    Alert.alert(
+      'Refuser la revanche ?',
+      'Confirme uniquement si tu veux réellement refuser cette revanche.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => { void commitBlockingRematchDecision(false); } },
+      ],
+    );
   };
 
   if ((blockingChallenge || blockingRematch) && !partiesTabOpen) {
@@ -641,7 +653,7 @@ export default function GlobalNotificationBanner() {
   // une notif" -- même geste que `respondFromBanner`, mais via l'arène (pas
   // via keep_battle_challenges) : accepter charge et ouvre directement
   // l'arène.
-  const respondRematchFromBanner = async (accept: boolean) => {
+  const commitRematchFromBanner = async (accept: boolean) => {
     if (!rematchArenaId || respondBusy) return;
     setRespondBusy(true);
     try {
@@ -651,10 +663,22 @@ export default function GlobalNotificationBanner() {
         if (accept) navigateToBattleArena(rematchArenaId);
       });
     } catch {
-      animateOut();
+      // Keep the invitation visible if the server did not confirm the action.
     } finally {
       setRespondBusy(false);
     }
+  };
+  const respondRematchFromBanner = (accept: boolean) => {
+    if (accept) { void commitRematchFromBanner(true); return; }
+    if (!rematchArenaId || respondBusy) return;
+    Alert.alert(
+      'Refuser la revanche ?',
+      'Confirme uniquement si tu veux réellement refuser cette revanche.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => { void commitRematchFromBanner(false); } },
+      ],
+    );
   };
 
   const respondEventFromBanner = async (accept: boolean) => {
