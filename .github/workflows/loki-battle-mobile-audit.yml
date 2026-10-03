@@ -11,6 +11,7 @@ on:
       - 'packages/mobile/src/components/GlobalNotificationBanner.tsx'
       - 'packages/mobile/src/screens/PartiesScreen.tsx'
       - 'packages/mobile/src/services/battleHomeInfo.ts'
+      - 'packages/mobile/src/services/keepBattleExperienceService.ts'
       - 'packages/mobile/src/services/lokiSpeechService.ts'
       - 'packages/mobile/src/services/gameExitGuard.ts'
       - 'packages/mobile/src/store/useGameSessionStore.ts'
