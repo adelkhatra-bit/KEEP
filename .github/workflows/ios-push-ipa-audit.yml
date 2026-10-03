@@ -1,0 +1,71 @@
+name: Loki iOS Push IPA Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/ios-push-ipa-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read latest iOS build
+        run: |
+          test -n "$EXPO_TOKEN" || { echo "EXPO_TOKEN missing"; exit 1; }
+          npx eas-cli@latest build:list --platform ios --limit 5 --json --non-interactive > /tmp/builds.json
+          node <<'NODE'
+          const fs=require('fs');
+          const rows=JSON.parse(fs.readFileSync('/tmp/builds.json','utf8'));
+          const build=rows.find(x=>x.status==='FINISHED' && x.artifacts?.buildUrl);
+          if(!build) throw new Error('No finished iOS build with buildUrl');
+          fs.writeFileSync('/tmp/build-url.txt',build.artifacts.buildUrl);
+          console.log(JSON.stringify({
+            id:build.id,
+            status:build.status,
+            distribution:build.distribution,
+            appVersion:build.appVersion,
+            buildNumber:build.appBuildVersion,
+            createdAt:build.createdAt
+          },null,2));
+          NODE
+      - name: Inspect embedded provisioning profile
+        run: |
+          curl -fL --retry 3 "$(cat /tmp/build-url.txt)" -o /tmp/loki.ipa
+          rm -rf /tmp/loki-ipa && mkdir /tmp/loki-ipa
+          unzip -q /tmp/loki.ipa -d /tmp/loki-ipa
+          APP_DIR="$(find /tmp/loki-ipa/Payload -maxdepth 1 -type d -name '*.app' | head -1)"
+          test -n "$APP_DIR" || { echo "No .app in IPA"; exit 1; }
+          test -f "$APP_DIR/embedded.mobileprovision" || { echo "No embedded.mobileprovision"; exit 1; }
+          openssl smime -inform der -verify -noverify -in "$APP_DIR/embedded.mobileprovision" -out /tmp/profile.plist 2>/dev/null
+          python3 - <<'PY'
+          import plistlib
+          with open('/tmp/profile.plist','rb') as f:
+              p=plistlib.load(f)
+          e=p.get('Entitlements') or {}
+          print('=== LOKI IOS PUSH ENTITLEMENTS ===')
+          print('aps-environment:', e.get('aps-environment'))
+          print('application-identifier:', e.get('application-identifier'))
+          print('team-identifier:', e.get('com.apple.developer.team-identifier'))
+          print('get-task-allow:', e.get('get-task-allow'))
+          print('provisions-all-devices:', p.get('ProvisionsAllDevices'))
+          print('provisioned-devices-count:', len(p.get('ProvisionedDevices') or []))
+          print('=== END LOKI IOS PUSH ENTITLEMENTS ===')
+          if e.get('aps-environment') != 'production':
+              raise SystemExit('Latest store/TestFlight IPA does not have production aps-environment')
+          PY
