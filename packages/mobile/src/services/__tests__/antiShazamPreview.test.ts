@@ -27,7 +27,7 @@ describe('audioPreviewService -- masked collection preview', () => {
     expect(modal).toContain('PÉPITES À DÉCOUVRIR');
     expect(modal).toContain('Extrait masqué');
     expect(modal).toContain('mysteryLock');
-    expect(modal).toContain('RÉVÉLER + AJOUTER');
+    expect(modal).toContain('DÉBLOQUER LA COLLECTION');
   });
 
   it('stopping the masked preview cleans the shared audio preview without a new native speech module', () => {
