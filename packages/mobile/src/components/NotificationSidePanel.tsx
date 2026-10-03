@@ -107,10 +107,12 @@ function activityActionLabel(item: KeepNotification): string {
   const directUsername = activityProfileUsername(item);
   if (type === 'PROFILE_VIEW') return directUsername ? `VOIR LE PROFIL @${directUsername}` : 'VOIR LE PROFIL';
   if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') return 'VOIR MES FREE';
+  if (type === 'PLAN_GIFTED' || type.includes('PLAN')) return 'VOIR MON OFFRE';
   if (type === 'LOKI_PULSE_NEW') return 'OUVRIR MON PULSE';
   if (type.includes('BATTLE')) return 'OUVRIR BATTLE';
   if (type.startsWith('EVENT_')) return 'VOIR L’ÉVÉNEMENT';
   if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
+  if (type.includes('PAYMENT')) return 'OUVRIR LE PAIEMENT';
   if (type.startsWith('PLAYLIST_SALE_')) return 'OUVRIR LA PÉPITE';
   const profileUsername = activityProfileUsername(item);
   if (profileUsername) return `VOIR @${profileUsername}`;
@@ -439,6 +441,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       if (navigationRef.isReady()) (navigationRef.navigate as any)('Offers', { sourceFeature: 'PROFILE_FREE' });
       return;
     }
+    if (type === 'PLAN_GIFTED' || type.includes('PLAN')) {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('Offers');
+      return;
+    }
     if (type === 'LOKI_PULSE_NEW') {
       if (navigationRef.isReady()) (navigationRef.navigate as any)('Main', { screen: 'Profile' });
       return;
@@ -450,6 +456,10 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     }
     if (eventId) {
       navigateToEvent(eventId);
+      return;
+    }
+    if (type.includes('PAYMENT')) {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('Notifications');
       return;
     }
     if (type === 'PLAYLIST_SALE_DELIVERED' && playlistId) {
@@ -478,12 +488,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const prepareChatNotification = async (item: KeepNotification) => {
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
-    const target = type === 'CHAT_ACTIVATION_AVAILABLE'
-      || type === 'AGORA_ACTIVATE'
-      ? null
-      : chatTarget(item);
     setPreparedChatId(item.id);
-    useGlobalChatStore.getState().open(target);
+    if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') {
+      useGlobalChatStore.getState().openSettings();
+      close();
+      return;
+    }
+    useGlobalChatStore.getState().open(chatTarget(item));
     close();
   };
 
@@ -728,9 +739,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                         style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]}
                         onPress={() => { void (chatAction ? prepareChatNotification(item) : openActivityNotification(item)); }}
                         accessibilityRole="button"
-                        accessibilityLabel={chatAction ? 'Ouvrir la conversation' : activityActionLabel(item)}
+                        accessibilityLabel={chatAction ? (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' ? 'Régler le tchat' : 'Ouvrir la conversation') : activityActionLabel(item)}
                       >
-                        <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)}</Text>
+                        <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : chatAction ? (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE' ? 'RÉGLER LE TCHAT' : 'OUVRIR LA CONVERSATION') : activityActionLabel(item)}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
