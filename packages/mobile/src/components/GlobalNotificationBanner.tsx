@@ -212,7 +212,8 @@ export default function GlobalNotificationBanner() {
     // notification visuelle, elle ne dépend d'aucune préférence utilisateur :
     // une invitation PENDING doit apparaître immédiatement depuis Profil,
     // Écouter, Découvertes, Playlists ou Soirées.
-    const channel = supabase
+    const client = supabase;
+    const channel = client
       .channel(`battle-decision:${user.id}`)
       .on(
         'postgres_changes',
@@ -225,7 +226,7 @@ export default function GlobalNotificationBanner() {
         () => { void refreshBlockingBattleDecision(); },
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    return () => { void client.removeChannel(channel); };
   }, [isDemoMode, isLocalGuest, refreshBlockingBattleDecision, user?.id]);
 
   useEffect(() => {
