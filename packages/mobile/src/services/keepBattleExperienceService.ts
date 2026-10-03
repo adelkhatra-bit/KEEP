@@ -110,7 +110,7 @@ function simplifyArtistCredit(raw: string): string {
 // etiquette generique des qu'il y a 2+ styles coches (voir KeepBattleMobileGameV3),
 // mais themeCodes porte la selection reelle pour que le serveur restreigne le
 // tirage a l'UNION exacte de ces styles au lieu de tout le catalogue.
-export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt: string | null };
+export type KeepBattleSoloDailyStatus = { plan: string; used: number; limit: number | null; remaining: number | null; unlimited: boolean; resetsAt: string | null; dailyIncluded: number | null; purchasedRemaining: number | null };
 
 function deviceTimeZone(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris'; }
@@ -128,6 +128,10 @@ export async function loadKeepBattleSoloDailyStatus(): Promise<KeepBattleSoloDai
     remaining: raw.remaining == null ? null : Math.max(0, Number(raw.remaining)),
     unlimited: raw.unlimited === true,
     resetsAt: raw.resetsAt ? String(raw.resetsAt) : null,
+    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
+    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
+    dailyIncluded: raw.dailyIncluded == null ? null : Math.max(0, Number(raw.dailyIncluded)),
+    purchasedRemaining: raw.purchasedRemaining == null ? null : Math.max(0, Number(raw.purchasedRemaining)),
   };
 }
 
