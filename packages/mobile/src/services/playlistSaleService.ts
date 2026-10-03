@@ -200,6 +200,31 @@ export type PlaylistBuyerPaymentSignal = {
   alreadyDelivered: boolean;
 };
 
+export type PlaylistSalePaymentGuardStatus = {
+  paymentId: string;
+  status: 'PENDING' | 'COMPLETED';
+  buyerMarkedPaidAt: string | null;
+  proofUploadedAt: string | null;
+  deliveredPlaylistId: string | null;
+  pending: boolean;
+};
+
+export async function loadPlaylistSalePaymentGuardStatus(paymentId: string): Promise<PlaylistSalePaymentGuardStatus | null> {
+  if (!paymentId) return null;
+  const { data, error } = await client().rpc('keep_playlist_sale_payment_guard_status', { p_payment_id: paymentId });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_PAYMENT_STATUS_FAILED'));
+  if (!data) return null;
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? paymentId),
+    status: String(row?.status ?? 'PENDING').toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+    buyerMarkedPaidAt: row?.buyerMarkedPaidAt ? String(row.buyerMarkedPaidAt) : null,
+    proofUploadedAt: row?.proofUploadedAt ? String(row.proofUploadedAt) : null,
+    deliveredPlaylistId: row?.deliveredPlaylistId ? String(row.deliveredPlaylistId) : null,
+    pending: Boolean(row?.pending ?? String(row?.status ?? 'PENDING').toUpperCase() !== 'COMPLETED'),
+  };
+}
+
 export async function markPlaylistSaleBuyerPaid(paymentId: string): Promise<PlaylistBuyerPaymentSignal> {
   const { data, error } = await client().rpc('keep_playlist_sale_buyer_mark_paid', { p_payment_id: paymentId });
   if (error) throw new Error(String(error.message || 'PLAYLIST_BUYER_MARK_PAID_FAILED'));
