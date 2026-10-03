@@ -167,19 +167,18 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [detailItem, setDetailItem] = useState<KeepNotification | null>(null);
   const [detailEvent, setDetailEvent] = useState<CreatorEvent | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  // Adel (03/09/2026) : "le Marketing devrait toujours rester activé, sauf
-  // pour ceux qui payent au moins 9,99€ (Creator Pro) ou 29,99€ (Venue
-  // Pro) -- eux n'ont pas d'obligation" -- gratuit : notifications
-  // Marketing obligatoires (interrupteur verrouillé sur activé). Payant :
-  // libre de les désactiver.
+  // Les notifications promotionnelles restent actives sur Free. Tout
+  // abonnement payant (Premium, Creator Pro, Venue Pro) débloque le choix
+  // de les couper sans toucher aux messages, paiements ou alertes sécurité.
   const [planCode, setPlanCode] = useState('FREE');
   const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
-  const marketingLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  const paidNotificationControls = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  const marketingLocked = !paidNotificationControls;
   // Adel (04/09/2026) : "la seule chose qui ne pourra pas désactiver, c'est
   // les événements ... ça lui demandera de passer en Pro pour avoir la
   // possibilité de désactiver cette notification" -- même verrou que
   // Marketing, catégorie séparée.
-  const eventsLocked = !['CREATOR_PRO', 'VENUE_PRO'].includes(planCode);
+  const eventsLocked = !paidNotificationControls;
   useEffect(() => {
     if (!user) return;
     let live = true;
@@ -1240,8 +1239,8 @@ export default function NotificationsScreen({ navigation, route }: any) {
           <Preference
             label="Événements & actualités"
             hint={eventsLocked || marketingLocked
-              ? "Invitations aux événements et actualités Loki Music. Toujours activé sur la formule gratuite. Passe en Creator Pro (9,99 €) ou Venue Pro (29,99 €) pour pouvoir le désactiver."
-              : 'Invitations aux événements et actualités Loki Music. Tu peux le désactiver, ta formule te le permet.'}
+              ? "Boutique musicale, événements et actualités Loki Music. Toujours activés en Free. Premium, Creator Pro ou Venue Pro permettent de couper cette catégorie."
+              : 'Boutique musicale, événements et actualités Loki Music. Tu peux couper cette catégorie avec ton abonnement.'}
             value={eventsLocked || marketingLocked ? true : prefs.eventsEnabled && prefs.marketingEnabled}
             onValueChange={(v) => { if (!eventsLocked && !marketingLocked) updatePrefs({ eventsEnabled: v, marketingEnabled: v }); }}
             locked={eventsLocked || marketingLocked}

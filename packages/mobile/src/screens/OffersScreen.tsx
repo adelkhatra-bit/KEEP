@@ -122,6 +122,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Music Vibes.`,
+    'Réglages avancés : possibilité de couper les notifications promotionnelles de la Boutique musicale et des actualités.',
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
@@ -129,6 +130,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
+    'Réglages avancés : possibilité de couper les notifications promotionnelles de la Boutique musicale et des actualités.',
   ];
   if (planCode === 'VENUE_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
@@ -136,6 +138,7 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
     `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
     'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki Music, personne ne peut désactiver la notification.',
     'QR, communauté et analytics avancés.',
+    'Réglages avancés : possibilité de couper les notifications promotionnelles de la Boutique musicale et des actualités.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
   return [];

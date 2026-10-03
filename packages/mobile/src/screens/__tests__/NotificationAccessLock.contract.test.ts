@@ -38,6 +38,13 @@ describe('notification accordion and plan locks contract', () => {
     expect(admin).toContain('VENUE_PRO');
   });
 
+  it('lets every paid formula control promotional notification noise', () => {
+    const notifications = read(__dirname, '..', 'NotificationsScreen.tsx');
+    expect(notifications).toContain("['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'].includes(planCode)");
+    expect(notifications).toContain('const marketingLocked = !paidNotificationControls;');
+    expect(notifications).toContain('const eventsLocked = !paidNotificationControls;');
+  });
+
   it('uses the same access rule in mobile surfaces', () => {
     expect(access).toContain('isNotificationAccessLocked');
     expect(access).toContain('notificationAccessRequiredPlan');
