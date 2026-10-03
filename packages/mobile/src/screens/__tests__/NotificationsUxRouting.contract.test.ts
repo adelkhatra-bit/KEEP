@@ -49,4 +49,13 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('notificationProfileId');
     expect(notifications).toContain('resolveNotificationProfileUsername');
   });
+
+  it('keeps the compact profile notification panel actionable too', () => {
+    const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(sidePanel).toContain('<NewKeepNotificationActions');
+    expect(sidePanel).toContain("return 'VOIR MES FREE'");
+    expect(sidePanel).toContain("return 'OUVRIR BATTLE'");
+    expect(sidePanel).toContain("return 'VOIR LE PROFIL'");
+    expect(sidePanel).toContain('openActivityNotification');
+  });
 });

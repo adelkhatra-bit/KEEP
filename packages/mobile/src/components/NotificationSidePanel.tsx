@@ -14,6 +14,9 @@ import {
   notificationPlanLabel,
   type NotificationAccessRule,
 } from '../services/notificationAccessService';
+import NewKeepNotificationActions from './NewKeepNotificationActions';
+import { isNewKeepNotification } from '../services/newKeepNotification';
+import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 
 type Props = {
   visible: boolean;
@@ -67,6 +70,26 @@ function chatTarget(item: KeepNotification): GlobalChatTarget {
         ? Number(messageIdRaw) || null
         : null,
   };
+}
+
+function activityProfileUsername(item: KeepNotification): string | null {
+  const data = item.data ?? {};
+  const raw = data.username ?? data.actorUsername ?? data.actor_username ?? data.viewerUsername ?? data.viewer_username
+    ?? data.requesterUsername ?? data.requester_username ?? data.sellerUsername ?? data.seller_username
+    ?? data.inviterUsername ?? data.inviter_username ?? data.originUsername ?? data.origin_username;
+  return typeof raw === 'string' && raw.trim() ? raw.trim().replace(/^@+/, '') : null;
+}
+
+function activityActionLabel(item: KeepNotification): string {
+  const type = String(item.type || '').toUpperCase();
+  if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') return 'VOIR MES FREE';
+  if (type === 'LOKI_PULSE_NEW') return 'OUVRIR MON PULSE';
+  if (type.includes('BATTLE')) return 'OUVRIR BATTLE';
+  if (type.startsWith('EVENT_')) return 'VOIR L’ÉVÉNEMENT';
+  if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
+  if (type.startsWith('PLAYLIST_SALE_')) return 'OUVRIR LA PÉPITE';
+  if (activityProfileUsername(item)) return 'VOIR LE PROFIL';
+  return 'OUVRIR / AGIR';
 }
 
 export default function NotificationSidePanel({ visible, profileId, onClose }: Props) {
@@ -374,6 +397,50 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     }
   };
 
+  const openActivityNotification = async (item: KeepNotification) => {
+    const type = String(item.type || '').toUpperCase();
+    const data = item.data ?? {};
+    if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
+    setItems((rows) => rows.map((row) => row.id === item.id ? { ...row, readAt: row.readAt || new Date().toISOString() } : row));
+    const username = activityProfileUsername(item);
+    const arenaId = String(data.arenaId ?? data.arena_id ?? '').trim();
+    const eventId = String(data.eventId ?? data.event_id ?? '').trim();
+    const offerId = String(data.offerId ?? data.offer_id ?? '').trim();
+    const playlistId = String(data.playlistId ?? data.playlist_id ?? '').trim();
+
+    onClose();
+    if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('Offers', { sourceFeature: 'PROFILE_FREE' });
+      return;
+    }
+    if (type === 'LOKI_PULSE_NEW') {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('Main', { screen: 'Profile' });
+      return;
+    }
+    if (type.includes('BATTLE')) {
+      if (arenaId) navigateToBattleArena(arenaId);
+      else if (navigationRef.isReady()) (navigationRef.navigate as any)('Main', { screen: 'Parties', params: { openBattle: true, source: 'NOTIFICATION_PANEL' } });
+      return;
+    }
+    if (eventId) {
+      navigateToEvent(eventId);
+      return;
+    }
+    if (type === 'PLAYLIST_SALE_DELIVERED' && playlistId) {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('Main', { screen: 'MyMusic', params: { openPurchasePlaylistId: playlistId, source: 'NOTIFICATION_PANEL' } });
+      return;
+    }
+    if (type.startsWith('PLAYLIST_SALE_') && username && offerId) {
+      if (navigationRef.isReady()) (navigationRef.navigate as any)('PublicProfile', { username, openSaleOfferId: offerId, source: 'NOTIFICATION_PANEL' });
+      return;
+    }
+    if (username) {
+      navigateToSharedProfile(username);
+      return;
+    }
+    if (navigationRef.isReady()) (navigationRef.navigate as any)('Notifications');
+  };
+
   const prepareChatNotification = async (item: KeepNotification) => {
     await markRead(item);
     const type = String(item.type || '').toUpperCase();
@@ -585,7 +652,17 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                                 <TouchableOpacity style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]} onPress={() => void prepareChatNotification(item)}>
                                   <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : 'OUVRIR LA CONVERSATION'}</Text>
                                 </TouchableOpacity>
-                              ) : null}
+                              ) : isNewKeepNotification(item) ? (
+                                <NewKeepNotificationActions
+                                  notification={item}
+                                  onInteract={() => { if (!item.readAt) void markNotificationRead(profileId, item.id).catch(() => {}); }}
+                                  onOpenProfile={activityProfileUsername(item) ? () => { onClose(); navigateToSharedProfile(activityProfileUsername(item) as string); } : undefined}
+                                />
+                              ) : (
+                                <TouchableOpacity style={s.notificationAction} onPress={() => void openActivityNotification(item)}>
+                                  <Text style={s.notificationActionText}>{activityActionLabel(item)}</Text>
+                                </TouchableOpacity>
+                              )}
                               <TouchableOpacity style={s.deleteOneButton} onPress={() => deleteOne(item)} accessibilityLabel="Supprimer cette notification">
                                 <Text style={s.deleteOneText}>SUPPRIMER</Text>
                               </TouchableOpacity>
