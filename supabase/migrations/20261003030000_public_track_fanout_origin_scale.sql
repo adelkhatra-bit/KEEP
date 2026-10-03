@@ -7,15 +7,25 @@ alter table public.public_track_notification_fanout_jobs
   add column if not exists source_username text;
 
 update public.public_track_notification_fanout_jobs j
-set source_profile_id = coalesce(origin.profile_id, j.owner_profile_id),
-    source_username = coalesce(origin.username, j.owner_username)
-from lateral (
-  select d.profile_id, p.username
-  from public.keep_track_first_discoveries d
-  left join public.profiles p on p.id = d.profile_id
-  where d.track_id = j.track_id::uuid
-  limit 1
-) origin
+set source_profile_id = coalesce(
+      (
+        select d.profile_id
+        from public.keep_track_first_discoveries d
+        where d.track_id = nullif(j.track_id,'')::uuid
+        limit 1
+      ),
+      j.owner_profile_id
+    ),
+    source_username = coalesce(
+      (
+        select p.username
+        from public.keep_track_first_discoveries d
+        join public.profiles p on p.id = d.profile_id
+        where d.track_id = nullif(j.track_id,'')::uuid
+        limit 1
+      ),
+      j.owner_username
+    )
 where j.source_profile_id is null;
 
 create or replace function public.notify_followers_on_public_keep()
