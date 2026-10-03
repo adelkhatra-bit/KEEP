@@ -8,7 +8,7 @@ describe('MyMusic private/protected filter', () => {
     expect(source).toContain("['PRIVATE', 'PRIVÉ']");
     expect(source).toContain("entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])");
     expect(source).toContain("originFilter === 'PRIVATE' ? privateOrProtectedTracks");
-    expect(source).toContain("'Privés et protégés'");
+    expect(source).toContain("'Mes morceaux privés · collections protégées'");
   });
 
   it('warns before preparing PUBLIC visibility for a track in an active sale', () => {
