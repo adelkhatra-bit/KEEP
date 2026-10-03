@@ -359,6 +359,68 @@ async function playWebSegment(
  * ne stocke jamais le fichier audio. Un seul extrait peut jouer à la fois :
  * lancer un autre morceau coupe automatiquement le précédent.
  */
+export function playTrackPreviewFromGesture(
+  key: string,
+  previewUrl: string,
+  onStateChange: (playing: boolean) => void,
+  onEnded?: () => void,
+  durationMillis = 30000,
+): Promise<void> {
+  if (!canUseWebAudio()) {
+    return toggleTrackPreview(key, previewUrl, onStateChange, onEnded);
+  }
+
+  const element = getWebAudio();
+  if (!element) return Promise.reject(new Error('WEB_AUDIO_UNAVAILABLE'));
+
+  clearActiveTimer();
+  try { element.pause(); } catch {}
+  webAudioKey = key;
+  webAudioListener = onStateChange;
+
+  if (element.src !== previewUrl) {
+    element.src = previewUrl;
+    try { element.load(); } catch {}
+  }
+  try { element.currentTime = 0; } catch {}
+
+  // IMPORTANT Safari/iOS : play() est appelé SYNCHRONIQUEMENT dans le vrai
+  // onPress. On ne fait aucun await avant cet appel, sinon le navigateur peut
+  // perdre l'activation utilisateur et produire un silence sans erreur visible.
+  let playPromise: Promise<void> | void;
+  try {
+    playPromise = element.play();
+  } catch (error) {
+    webAudioKey = null;
+    webAudioListener = null;
+    return Promise.reject(error);
+  }
+
+  const started = Promise.resolve(playPromise).then(() => {
+    if (webAudioKey !== key) return;
+    onStateChange(true);
+    const finish = () => {
+      if (webAudioKey !== key) return;
+      clearActiveTimer();
+      try { element.pause(); } catch {}
+      webAudioKey = null;
+      webAudioListener = null;
+      onStateChange(false);
+      onEnded?.();
+    };
+    element.addEventListener('ended', finish, { once: true });
+    activeTimer = setTimeout(finish, Math.max(700, Math.round(durationMillis)));
+  }).catch((error) => {
+    if (webAudioKey === key) {
+      webAudioKey = null;
+      webAudioListener = null;
+    }
+    throw error;
+  });
+
+  return started;
+}
+
 export async function toggleTrackPreview(
   key: string,
   previewUrl: string,
