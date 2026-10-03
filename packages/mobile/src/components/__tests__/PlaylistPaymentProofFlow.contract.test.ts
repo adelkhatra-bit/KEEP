@@ -40,6 +40,12 @@ describe('Playlist payment proof and delivery contract', () => {
     expect(checkout).toContain('Agrandir le QR PayPal en plein écran');
     expect(checkout).toContain('TOUCHER LE QR POUR L’AGRANDIR');
     expect(checkout).toContain('qrFullscreenImage');
+    expect(checkout).toContain('ASTUCE QR');
+    expect(checkout).toContain('reste appuyé sur l’image');
+    expect(qrControl).toContain('RECADRER / ZOOMER');
+    expect(qrControl).toContain('Pince pour zoomer');
+    expect(payoutService).toContain('allowsEditing: true');
+    expect(payoutService).toContain('aspect: [1, 1]');
     expect(checkout).toContain('INTÉGRATION PAYPAL');
     expect(checkout).toContain('rester appuyé sur le QR');
     expect(qrControl).toContain('RECADRAGE DU QR');

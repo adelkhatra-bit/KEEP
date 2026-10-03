@@ -14,6 +14,7 @@ type Props = {
 export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disabled = false }: Props) {
   const [busy, setBusy] = useState(false);
   const [qrFullscreen, setQrFullscreen] = useState(false);
+  const [editHelpOpen, setEditHelpOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const choose = async () => {
@@ -109,6 +110,9 @@ const s = StyleSheet.create({
   eyebrow:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},
   title:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:3},
   hint:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14,marginTop:4},
+  editHelpToggle:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',marginTop:3},
+  editHelpToggleText:{color:colors.primaryLight,fontSize:8.5,fontWeight:'900',letterSpacing:.5},
+  editHelpText:{color:colors.textSecondary,fontSize:9,lineHeight:14,marginTop:1},
   previewRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},
   qr:{width:88,height:88,borderRadius:12,backgroundColor:'#FFF'},
   qrTap:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textAlign:'center',marginTop:4},
