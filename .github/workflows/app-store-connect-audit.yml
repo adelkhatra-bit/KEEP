@@ -101,12 +101,12 @@ jobs:
 
               const gc = await api('/v1/appStoreVersions/' + v.id +
                 '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled', {allow404:true});
-              item.gameCenter = gc ? { id: gc.data.id, enabled: !!gc.data.attributes?.enabled } : null;
+              item.gameCenter = gc?.data ? { id: gc.data.id, enabled: !!gc.data.attributes?.enabled } : null;
 
               const review = await api('/v1/appStoreVersions/' + v.id +
                 '/appStoreReviewDetail?fields[appStoreReviewDetails]=contactFirstName,contactLastName,contactPhone,contactEmail,demoAccountRequired,notes',
                 {allow404:true});
-              item.reviewContact = review ? {
+              item.reviewContact = review?.data ? {
                 resourceId: review.data.id,
                 firstNamePresent: !!review.data.attributes?.contactFirstName?.trim(),
                 lastNamePresent: !!review.data.attributes?.contactLastName?.trim(),
@@ -140,7 +140,7 @@ jobs:
 
             const price = await api('/v1/apps/' + appId +
               '/appPriceSchedule?fields[appPriceSchedules]=baseTerritory,manualPrices', {allow404:true});
-            report.priceSchedule = price ? { id: price.data.id, exists: true } : { exists: false };
+            report.priceSchedule = price?.data ? { id: price.data.id, exists: true } : { exists: false };
 
             console.log('=== LOKI APP STORE AUDIT ===');
             console.log(JSON.stringify(report, null, 2));
