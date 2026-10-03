@@ -1,4 +1,3 @@
 production
-requested_from_sha=64e9089234ac326829329456de3b426be7457016
-requested_at=2026-10-03T23:10:00+02:00
-reason=testflight-mobile-battle-solo-audio-push-voice-fix
+requested_from_sha=e3317bdb6980fdd2c613cce87f56646c04f6ee60
+reason=testflight-mobile-battle-solo-push-native-voice
