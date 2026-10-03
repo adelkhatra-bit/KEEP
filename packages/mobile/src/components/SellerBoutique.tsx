@@ -7,7 +7,7 @@ import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 
 // Adel (02/10/2026) : « boutique vendeur » validée (maquette Boutique Pépites
-// Loki). Le Drop du moment ne montre plus que 3 collections « à la une » ;
+// Loki). La Boutique musicale met en avant 3 collections « à la une » ;
 // toutes les autres vont dans une étagère (10 max) puis une boutique complète,
 // filtrable (Tout / FREE / € / styles) et triable, sans limite de nombre.
 // Deux identités : FREE = pièce ronde violette, € = ticket doré.
@@ -52,7 +52,7 @@ type Props = {
   onOpenOffer: (offer: PublicPlaylistSaleOffer) => void;
   /** Le gros CTA "LES APERÇUS" enchaîne les Pépites à la une en une seule action. */
   onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
-  /** Même composant pour le propriétaire et ses visiteurs : aucune deuxième version du Drop. */
+  /** Même composant pour le propriétaire et ses visiteurs : aucune deuxième version de la Boutique musicale. */
   ownerMode?: boolean;
   /** Nom naturel du visiteur pour une personnalisation légère, jamais affiché avec @. */
   viewerUsername?: string;
