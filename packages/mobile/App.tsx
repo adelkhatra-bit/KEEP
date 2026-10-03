@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, AppState, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ import { supabase, isSupabaseConfigured } from './src/services/supabaseClient';
 import { createAuthService, KeepAuthSession } from './src/services/authService';
 import { createProfileService } from './src/services/profileService';
 import { importStagedGuestCreditsForAuthenticatedAccount } from './src/services/creditService';
-import { registerForPushNotifications } from './src/services/pushNotificationService';
+import { listenForExpoPushTokenChanges, registerForPushNotifications } from './src/services/pushNotificationService';
 import { syncCurrentEntitlements } from './src/services/iapService';
 import {
   clearLocalGuestMarker,
@@ -93,6 +93,32 @@ export default function App() {
     const state = useUserStore.getState();
     if (!state.user) state.enterDemoMode();
   }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !authReady || !user?.id || isDemoMode) return undefined;
+    let live = true;
+    const syncPush = () => {
+      if (!live) return;
+      void registerForPushNotifications().catch(() => {});
+    };
+
+    // L'enregistrement initial au login reste en place plus bas, mais iOS peut
+    // faire tourner le token APNs et un appareil peut revenir au premier plan
+    // plusieurs jours après. Réenregistrer à chaque reprise évite les profils
+    // NO_DEVICE tant que l'utilisateur est toujours connecté.
+    const timer = setTimeout(syncPush, 500);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncPush();
+    });
+    const unsubscribeToken = listenForExpoPushTokenChanges();
+
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      appState.remove();
+      unsubscribeToken();
+    };
+  }, [authReady, isDemoMode, user?.id]);
 
   // Adel (02/09/2026) : "quand je réfraîchis ... faut que je le remette avec
   // mes doigts" -- sur iPhone Safari uniquement (jamais reproduit sur
