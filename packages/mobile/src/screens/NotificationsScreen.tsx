@@ -25,7 +25,7 @@ import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
-import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
+import { loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -450,6 +450,21 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const isBuyerPaymentReady = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
   const isSellerPaymentAction = (item: KeepNotification) => ['PLAYLIST_SALE_BUYER_PAID','PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase()) && Boolean(paymentIdOf(item));
 
+  const pendingPaymentWarning = async (item: KeepNotification): Promise<string | null> => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId) return null;
+    try {
+      const status = await loadPlaylistSalePaymentGuardStatus(paymentId);
+      if (!status?.pending) return null;
+      if (status.proofUploadedAt || status.buyerMarkedPaidAt) {
+        return 'ATTENTION : cette transaction n’est pas terminée. Un paiement a déjà été signalé ou une preuve a été envoyée, mais la collection n’est pas encore débloquée.';
+      }
+      return 'ATTENTION : cette transaction n’est pas terminée. Le QR/lien de paiement et les informations de déblocage peuvent encore être nécessaires.';
+    } catch {
+      return 'Cette notification est liée à un paiement. Loki n’a pas pu confirmer que la transaction est terminée.';
+    }
+  };
+
   const notificationPrimaryActionLabel = (item: KeepNotification): string | null => {
     const type = String(item.type || '').toUpperCase();
     if (isNewKeepNotification(item) || isEventInvite(item) || isBuyerPaymentReady(item) || isSellerPaymentAction(item)) return null;
@@ -702,6 +717,21 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }
   };
 
+  const confirmRemoveOne = async (item: KeepNotification) => {
+    if (!user || deletingId) return;
+    const paymentWarning = await pendingPaymentWarning(item);
+    Alert.alert(
+      'Supprimer cette notification ?',
+      paymentWarning
+        ? `${paymentWarning}\n\nSi tu la supprimes maintenant, la transaction reste enregistrée dans Loki, mais tu perds ce raccourci depuis les notifications.`
+        : 'Elle disparaîtra de cette liste. Le message, la transaction ou l’activité d’origine ne seront pas supprimés.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'SUPPRIMER', style: 'destructive', onPress: () => void removeOne(item) },
+      ],
+    );
+  };
+
   const clearAll = async () => {
     if (!user || deleting) return;
     setDeleting(true);
@@ -719,15 +749,28 @@ export default function NotificationsScreen({ navigation, route }: any) {
     }
   };
 
-  const confirmClearAll = () => {
+  const confirmClearAll = async () => {
     if (!items.length || deleting) return;
-    const message = 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte ni tes préférences.';
+    const paymentItems = items.filter((item) => Boolean(paymentIdOf(item)));
+    const pendingChecks = await Promise.all(paymentItems.map(async (item) => {
+      try {
+        const paymentId = paymentIdOf(item);
+        if (!paymentId) return false;
+        return Boolean((await loadPlaylistSalePaymentGuardStatus(paymentId))?.pending);
+      } catch {
+        return true;
+      }
+    }));
+    const pendingCount = pendingChecks.filter(Boolean).length;
+    const message = pendingCount > 0
+      ? `ATTENTION : ${pendingCount} notification${pendingCount > 1 ? 's sont' : ' est'} liée${pendingCount > 1 ? 's' : ''} à une transaction qui n’est pas terminée (paiement, preuve, QR ou déblocage encore en attente).\n\nTout supprimer enlèvera ces raccourcis du centre de notifications, même si les transactions restent enregistrées dans Loki. Continuer ?`
+      : 'Supprimer toutes les notifications de ce centre ? Cette action n’efface pas ton compte, tes transactions ni tes préférences.';
     Alert.alert(
       'Supprimer les notifications',
       message,
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Tout supprimer', style: 'destructive', onPress: () => void clearAll() },
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'TOUT SUPPRIMER', style: 'destructive', onPress: () => void clearAll() },
       ],
     );
   };
@@ -984,7 +1027,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
               ) : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
-                <TouchableOpacity onPress={() => { void removeOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
+                <TouchableOpacity onPress={() => { void confirmRemoveOne(item); }} disabled={deletingId === item.id} accessibilityLabel={`Supprimer ${item.title}`}>
                   <Text style={styles.deleteOneText}>{deletingId === item.id ? 'Suppression…' : 'Supprimer'}</Text>
                 </TouchableOpacity>
               </View>
