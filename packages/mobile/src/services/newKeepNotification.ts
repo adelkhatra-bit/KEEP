@@ -3,6 +3,7 @@ import type { KeepNotification } from './notificationService';
 import { loadMusicAgoraSharedTrack } from './musicAgoraService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
 import { commitKeep } from './keepTrackAction';
+import { loadMaskedPlaylistSaleTrackIds } from './playlistSaleService';
 import { lokiPulseKeepErrorMessage } from './lokiPulseKeep';
 
 /**
@@ -55,16 +56,24 @@ export function revealedTrackLine(track: Pick<CanonicalTrack, 'title' | 'artist'
   return [track.title, track.artist].filter(Boolean).join(' — ');
 }
 
-export type NewKeepTrackState = { track: CanonicalTrack | null; owned: boolean };
+export type NewKeepTrackState = { track: CanonicalTrack | null; owned: boolean; saleProtected: boolean };
 
 /** Charge le morceau (pour l'extrait et le GARDER) et dit s'il est déjà dans la collection. */
 export async function loadNewKeepTrackState(notification: KeepNotification): Promise<NewKeepTrackState> {
   const trackId = newKeepNotificationTrackId(notification);
-  if (!trackId) return { track: null, owned: false };
+  if (!trackId) return { track: null, owned: false, saleProtected: false };
   const track = await loadMusicAgoraSharedTrack(trackId).catch(() => null);
-  if (!track) return { track: null, owned: false };
-  const existing = await checkOwnKeepLibrary(track).catch(() => null);
-  return { track, owned: Boolean(existing?.exists) };
+  if (!track) return { track: null, owned: false, saleProtected: false };
+  const { profileId } = newKeepNotificationOwner(notification);
+  const [existing, maskedIds] = await Promise.all([
+    checkOwnKeepLibrary(track).catch(() => null),
+    profileId ? loadMaskedPlaylistSaleTrackIds(profileId).catch(() => []) : Promise.resolve([] as string[]),
+  ]);
+  return {
+    track,
+    owned: Boolean(existing?.exists),
+    saleProtected: maskedIds.includes(track.id),
+  };
 }
 
 /**
