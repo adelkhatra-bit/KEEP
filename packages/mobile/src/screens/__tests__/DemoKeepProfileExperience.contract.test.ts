@@ -55,7 +55,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(profile).toContain('<SellerBoutique');
     expect(boutique).toContain('accessibilityLabel="Collections à débloquer"');
-    expect(boutique).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(profile).not.toContain("mode={unlocked ? 'UNLOCKED' : 'LOCKED'}");
     expect(styleCard).toContain('<ImageBackground');
     expect(styleCard).toContain('const PUBLIC_GRADIENTS');
@@ -78,7 +78,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
-    expect(profile).toContain('À ÉCOUTER · @{profile.username}');
+    expect(profile).toContain('offers={profileBoutiqueOffers}');
     expect(boutique).toContain('DROP DU MOMENT');
     expect(boutique).toContain('Boutique de @{sellerUsername}');
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');

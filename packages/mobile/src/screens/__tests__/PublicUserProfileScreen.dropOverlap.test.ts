@@ -39,8 +39,8 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   });
 
   it('lance l’écoute en un seul clic depuis les ronds de style et la Boutique', () => {
-    expect(boutique).toContain("const first = ranked.find((offer) => (offer.genres || []).includes(genre))");
-    expect(boutique).toContain("if (first) onOpenOffer(first);");
+    expect(boutique).toContain('onOpenOffer: (offer: PublicPlaylistSaleOffer) => void;');
+    expect(boutique).toContain('onPress={() => onOpenOffer(offer)}');
     expect(boutique).toContain("Boutique musicale");
     expect(boutique).not.toContain("accessibilityLabel={`Afficher le drop");
   });
@@ -55,7 +55,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
     expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
     expect(boutique).toContain('dropPlay');
     expect(boutique).toContain('1 clic pour écouter');
-    expect(boutique).toContain('▶ ÉCOUTER MAINTENANT');
+    expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).not.toContain('Afficher le drop');
     expect(boutique).not.toContain('setDropIndex');
   });
@@ -63,7 +63,7 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   it('affiche le total et garde achat groupé + achat individuel', () => {
     expect(boutique).toContain('TOTAL DES PÉPITES');
     expect(boutique).toContain('TOUT PRENDRE');
-    expect(boutique).toContain('Tu peux toujours acheter une collection seule.');
+    expect(boutique).toContain('onOpenOffer(drop)');
     expect(source).toContain('buyAllPlaylistOffers');
     expect(source).toContain('requestPlaylistBundlePurchase');
     expect(source).toContain('purchasePlaylistBundleWithFree');
@@ -85,11 +85,11 @@ describe('PublicUserProfileScreen — Boutique musicale et titres nouveaux', () 
   it('garde la même configuration d’écoute côté vendeur et réserve la gestion au bouton PÉPITES du profil', () => {
     expect(boutique).toContain('▶ ÉCOUTER LES APERÇUS');
     expect(boutique).not.toContain('◆ GÉRER MES COLLECTIONS');
-    expect(boutique).toContain('Pour modifier une vente, utilise ◆ PÉPITES');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
   });
 
   it('utilise exactement la même SellerBoutique sur le profil propriétaire', () => {
-    expect(ownerSource).toContain("import SellerBoutique from '../components/SellerBoutique';");
+    expect(ownerSource).toContain("import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';");
     expect(ownerSource).toContain('<SellerBoutique');
     expect(ownerSource).toContain('ownerMode');
     expect(ownerSource).toContain("navigation.navigate('PlaylistSale'");

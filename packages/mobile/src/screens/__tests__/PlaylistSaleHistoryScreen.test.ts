@@ -44,6 +44,6 @@ describe('PlaylistSaleHistoryScreen (Adel, 21/09/2026, mission 3/3 : historique 
     expect(nav).toContain("import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';");
     expect(nav).toContain('<RootStack.Screen name="PlaylistSaleHistory" component={PlaylistSaleHistoryScreen} />');
     // 4e65462c refactor(pepites): l'historique s'ouvre en ligne dans le panneau vendeur, sans redirection (la route reste enregistrée).
-    expect(panel).toContain('setHistoryOpen((value) => !value)');
+    expect(panel).toContain('TRANSACTIONS · {offerFilter === \'FREE\' ? \'FREE\' : \'EUROS\'}');
   });
 });

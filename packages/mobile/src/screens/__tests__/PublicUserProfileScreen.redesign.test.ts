@@ -28,7 +28,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
 
 
   it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
-    expect(source).toContain("À ÉCOUTER · @{profile.username}");
+    expect(source).toContain('offers={profileBoutiqueOffers}');
     // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
     expect(source).toContain('pépite');
     expect(source).toContain('<SellerBoutique');
@@ -71,7 +71,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
   });
 
   it('sources the track list exclusively from loadPublicProfileKeeps -- a visitor never sees private tracks', () => {
-    expect(source).toContain('const canonicalKeeps = await loadPublicProfileKeeps(result.id);');
+    expect(source).toContain("const canonicalKeeps = ownerViewingSelf");
+    expect(source).toContain(': await loadPublicProfileKeeps(result.id);');
     expect(source).toContain('setTracks(visible);');
     // Aucune deuxième requête ne vient élargir `tracks` avec des morceaux non publics.
     expect(source.match(/setTracks\(/g)?.length).toBe(1);

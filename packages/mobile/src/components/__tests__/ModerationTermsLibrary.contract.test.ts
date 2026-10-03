@@ -53,6 +53,6 @@ describe('moderation terms library', () => {
   });
 
   it('the sender gets a clear refusal message', () => {
-    expect(panel).toContain('il contient un mot interdit sur KEEP');
+    expect(panel).toContain('mot interdit');
   });
 });

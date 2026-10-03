@@ -40,7 +40,7 @@ describe('Pépites collection creation UX', () => {
 
   it('keeps FREE, currencies and reusable PayPal setup in the same Pépites flow', () => {
     expect(panel).toContain('⚡ FREE');
-    expect(panel).toContain("PayPal · DEVISE");
+    expect(panel).toContain('<Text style={s.collectionCartFieldLabel}>DEVISE</Text>');
     expect(panel).toContain('MARKETPLACE_CURRENCIES');
     expect(panel).toContain('collectionCartCurrencyCode');
     expect(panel).toContain('OUVRIR PAYPAL.ME');

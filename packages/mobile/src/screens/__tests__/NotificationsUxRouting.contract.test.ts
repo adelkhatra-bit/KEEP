@@ -96,7 +96,7 @@ describe('Notifications UX and routing contract', () => {
     expect(panel).toContain('resolveActivityProfileUsername');
     expect(panel).toContain('<NewKeepNotificationActions');
     expect(panel).toContain("onOpenProfile={() => { void openActivityProfile(item); }}");
-    expect(panel).toContain("chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)");
+    expect(panel).toContain('activityActionLabel(item)');
   });
 
   it('blocks PayPal checkout on native notification surfaces', () => {

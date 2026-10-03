@@ -22,8 +22,8 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(myMusic).toContain('const notOwnDiscovery = Boolean(localEntry?.sourceProfileId);');
     expect(myMusic).toContain('notOwnDiscovery && styles.selectionCheckLocked');
     expect(myMusic).toContain("? Alert.alert('Non éligible'");
-    expect(myMusic).toContain('const offeredElsewhere = Boolean(offered && (!saleEditOfferTarget || !includedInEditedOffer));');
-    expect(myMusic).toContain("Alert.alert(\n        'Déjà en vente'");
+    expect(myMusic).toContain('const alreadySoldElsewhere = Boolean(offered && !includedInEditedOffer);');
+    expect(myMusic).toContain("Alert.alert(\n        'Déjà dans une collection active'");
     expect(myMusic).toContain("{ text: 'Ajouter quand même', onPress: () => { void applySaleTrackToggle(trackId); } }");
     expect(myMusic).toContain('disabled: Boolean(notOwnDiscovery)');
   });
@@ -74,7 +74,7 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(saleService).toContain('purchasePlaylistOfferWithFree');
     expect(publicProfile).toContain("if (offer.paymentMode === 'FREE')");
     expect(publicProfile).toContain('purchasePlaylistOfferWithFree(offer.offerId)');
-    expect(publicProfile).toContain("purchaseEnabled={immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}");
+    expect(publicProfile).toContain("purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode !== 'MONEY' || marketplacePurchaseEnabled)}");
     expect(freeMigration).toContain('keep_playlist_sale_purchase_with_free');
     expect(freeMigration).toContain('keep_playlist_sale_deliver_payment_core');
     expect(freeMigration).toContain('unique (offer_id, buyer_id)');
@@ -106,9 +106,9 @@ describe('Exclusive collection privacy + ownership contracts', () => {
   });
 
   it('requires an explicit confirmation before debiting FREE for a collection', () => {
-    expect(immersivePreview).toContain("const freeAccess = offer.paymentMode === 'FREE';");
-    expect(immersivePreview).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
-    expect(immersivePreview).toContain("Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.");
+    expect(immersivePreview).toContain("const freeAccess = selectedPaymentMode === 'FREE';");
+    expect(immersivePreview).toContain("acceptMarketplacePaymentTerms('playlist_sale')");
+    expect(immersivePreview).toContain("freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}`");
     expect(immersivePreview).toContain('FREE INSUFFISANTS');
     expect(immersivePreview).toContain('RECHARGER MES FREE');
     expect(immersivePreview).toContain('disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}');
@@ -119,17 +119,17 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(salePanel).toContain('Mode de déblocage');
     expect(salePanel).toContain('€ EUROS');
     expect(salePanel).toContain('⚡ FREE');
-    expect(salePanel).toContain('updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount)');
+    expect(salePanel).toContain("updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount, editing.paymentMode === 'BOTH' ? editing.freePrice : null)");
   });
 
   it('keeps native collection management visible while external checkout remains gated', () => {
     expect(salePanel).toContain('isPlaylistMarketplaceVisible()');
     expect(salePanel).toContain('setMarketplaceTransactionEnabled(transactionEnabled)');
-    expect(salePanel).toContain('GESTION DES COLLECTIONS ACTIVE');
-    expect(salePanel).toContain('modifier les morceaux');
-    expect(salePanel).toContain('choisir € / FREE');
+    expect(salePanel).toContain('TES COLLECTIONS PUBLIÉES');
+    expect(salePanel).toContain('✎ MODIFIER');
+    expect(salePanel).toContain('€ / FREE');
     expect(immersivePreview).toContain('PÉPITES À DÉCOUVRIR');
-    expect(immersivePreview).toContain('RÉVÉLER + AJOUTER · ${priceLabel}');
+    expect(immersivePreview).toContain("freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}` : `COMMENCER MA TRANSACTION · ${priceLabel}`");
   });
 
   it('keeps sale access refresh reactive when marketplace visibility changes', () => {

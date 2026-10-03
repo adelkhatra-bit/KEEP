@@ -44,7 +44,7 @@ describe('ProfilePublicScreen — owner actions stay together in the hero', () =
   it('owner profile: no duplicate « Mes sélections » card, the PÉPITES button shows the published count (Adel 29/09/2026)', () => {
     expect(source).not.toContain('style={s.ownerCollectionRail}');
     expect(source).not.toContain('Mes sélections');
-    expect(source).toContain('<Text style={s.ownerQuickActionBadgeText}>{playlistSaleOffers.length}</Text>');
+    expect(source).toContain('<Text style={s.ownerQuickActionBadgeText}>{ownerBoutiqueOffers.length}</Text>');
   });
 
   it('keeps style listening directly on the immersive style card', () => {

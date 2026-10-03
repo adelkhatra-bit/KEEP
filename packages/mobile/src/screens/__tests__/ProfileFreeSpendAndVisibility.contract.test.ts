@@ -30,7 +30,7 @@ describe('profile FREE daily spend + visibility protection', () => {
   it('shows active sale tracks inside the PRIVÉ filter even if their saved visibility was public', () => {
     expect(music).toContain("['PRIVATE', 'PRIVÉ']");
     expect(music).toContain("entry.visibility === 'PRIVATE' || Boolean(myOfferedTrackIds[entry.track.id])");
-    expect(music).toContain('Mes morceaux privés · ventes protégées');
+    expect(music).toContain('Mes morceaux privés · collections protégées');
   });
 
   it('opens a clear visibility popup and keeps active sale tracks protected from TOUT PUBLIC', () => {
@@ -45,7 +45,7 @@ describe('profile FREE daily spend + visibility protection', () => {
 
   it('exposes a dedicated private filter and warns before publishing a track that is on sale', () => {
     expect(music).toContain("['PRIVATE', 'PRIVÉ']");
-    expect(music).toContain("originFilter === 'PRIVATE' ? privateTracks");
+    expect(music).toContain("originFilter === 'PRIVATE' ? privateOrProtectedTracks");
     expect(music).toContain("'Cette musique est en vente'");
     expect(music).toContain("'Retirer de la vente + Public'");
     expect(music).toContain("await removeTrackFromOffer(offered.offerId, track.id)");
