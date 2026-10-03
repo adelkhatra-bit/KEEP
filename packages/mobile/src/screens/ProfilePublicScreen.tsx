@@ -1886,7 +1886,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired && ownerBoutiqueOffers.length ? (
         <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
-          <Text style={s.ownerClubKicker}>MON CLUB MUSICAL · {user.username.replace(/^@+/, '')}</Text>
+          <Text style={s.ownerClubKicker}>MA BOUTIQUE MUSICALE · {user.username.replace(/^@+/, '')}</Text>
           <SellerBoutique
             offers={ownerBoutiqueOffers}
             sellerUsername={user.username}
