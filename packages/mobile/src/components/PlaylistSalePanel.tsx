@@ -318,11 +318,8 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
     if (offered) {
       Alert.alert(
         'Cette musique est déjà dans une collection active',
-        `« ${track.title} » est déjà présente dans « ${offered.playlistName} ». Souhaites-tu quand même l’ajouter à ce panier ?`,
-        [
-          { text: 'Non', style: 'cancel' },
-          { text: 'AJOUTER QUAND MÊME', onPress: () => addCollectionCartTrack(track.id) },
-        ],
+        `« ${track.title} » est déjà présente dans « ${offered.playlistName} ». Un même enregistrement ne peut appartenir qu’à une seule collection active. Retire-le d’abord de l’ancienne collection si tu veux le déplacer.`,
+        [{ text: 'OK', style: 'cancel' }],
       );
       return;
     }
@@ -367,6 +364,14 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
 
   const confirmCollectionCartReview = () => {
     if (collectionCartIds.size < 2) {
+      setCollectionCartStep('TRACKS');
+      return;
+    }
+    if (collectionCartDuplicateCount > 0) {
+      Alert.alert(
+        'Doublon interdit',
+        'Retire les morceaux marqués DÉJÀ EN VENTE avant de continuer. Un même enregistrement ne peut être proposé que dans une seule collection active.',
+      );
       setCollectionCartStep('TRACKS');
       return;
     }
@@ -897,7 +902,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       {selectedCollectionCartTracks.length > 8 ? <Text style={s.collectionCartReviewMore}>+ {selectedCollectionCartTracks.length - 8} autre{selectedCollectionCartTracks.length - 8 > 1 ? 's' : ''}</Text> : null}
                     </View>
 
-                    {collectionCartDuplicateCount > 0 ? <View style={s.collectionCartReviewNotice}><Text style={s.collectionCartReviewNoticeTitle}>AUCUN DOUBLON CRÉÉ</Text><Text style={s.collectionCartReviewNoticeText}>Les morceaux déjà proposés ailleurs restent référencés une seule fois dans Loki. Ils peuvent appartenir à plusieurs Pépites sans dupliquer la musique.</Text></View> : null}
+                    {collectionCartDuplicateCount > 0 ? <View style={s.collectionCartReviewNotice}><Text style={s.collectionCartReviewNoticeTitle}>DOUBLON À RETIRER</Text><Text style={s.collectionCartReviewNoticeText}>Un même enregistrement ne peut pas appartenir à deux collections actives. Retourne au panier et retire les morceaux marqués DÉJÀ EN VENTE.</Text></View> : null}
 
                     <TouchableOpacity style={s.collectionCartReviewConfirm} onPress={confirmCollectionCartReview}>
                       <Text style={s.collectionCartReviewConfirmTitle}>OUI, MA SÉLECTION EST TERMINÉE</Text>
@@ -955,7 +960,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       <Text style={s.collectionCartReviewTitle}>{collectionCartName.trim() || `Ma collection · ${collectionCartIds.size} titres`}</Text>
                       <Text style={s.collectionCartReviewLine}>{collectionCartIds.size} morceaux</Text>
                       <Text style={s.collectionCartReviewLine}>{collectionCartPaymentMode === 'FREE' ? `${collectionCartFreePrice} FREE` : `${((collectionCartPriceCents || 0)/100).toFixed(2).replace('.',',')} ${collectionCartCurrencyCode}`}</Text>
-                      {collectionCartDuplicateCount ? <Text style={s.collectionCartReviewWarn}>{collectionCartDuplicateCount} morceau{collectionCartDuplicateCount > 1 ? 'x' : ''} déjà en vente resteront aussi dans leurs collections actuelles.</Text> : null}
+                      {collectionCartDuplicateCount ? <Text style={s.collectionCartReviewWarn}>{collectionCartDuplicateCount} morceau{collectionCartDuplicateCount > 1 ? 'x' : ''} déjà en vente doivent être retirés avant publication.</Text> : null}
                     </View>
                     <View style={s.collectionCartFooter}>
                       <TouchableOpacity style={s.collectionCartBackStep} disabled={busy} onPress={() => setCollectionCartStep('PRICE')}><Text style={s.collectionCartBackStepText}>MODIFIER</Text></TouchableOpacity>
