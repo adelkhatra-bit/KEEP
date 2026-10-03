@@ -98,7 +98,7 @@ jobs:
             } : null;
 
             const versions = await api('/v1/apps/' + appId +
-              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=platform,versionString,appStoreState,appVersionState,createdDate&limit=50');
+              '/appStoreVersions?filter[platform]=IOS&fields[appStoreVersions]=platform,versionString,appStoreState,appVersionState,createdDate,copyright,reviewType,releaseType,usesIdfa&limit=50');
             report.versions = [];
 
             for (const v of (versions.data || [])) {
@@ -106,8 +106,20 @@ jobs:
                 id: v.id,
                 versionString: v.attributes?.versionString,
                 appStoreState: v.attributes?.appStoreState || v.attributes?.appVersionState || null,
-                createdDate: v.attributes?.createdDate || null
+                createdDate: v.attributes?.createdDate || null,
+                copyrightPresent: !!String(v.attributes?.copyright || '').trim(),
+                reviewType: v.attributes?.reviewType || null,
+                releaseType: v.attributes?.releaseType || null,
+                usesIdfa: v.attributes?.usesIdfa ?? null
               };
+
+              const build = await api('/v1/appStoreVersions/' + v.id +
+                '/build?fields[builds]=version,uploadedDate,processingState,minOsVersion', {allow404:true});
+              item.build = build?.data ? {
+                selected: true,
+                versionPresent: !!String(build.data.attributes?.version || '').trim(),
+                processingState: build.data.attributes?.processingState || null
+              } : { selected: false };
 
               const gc = await api('/v1/appStoreVersions/' + v.id +
                 '/gameCenterAppVersion?fields[gameCenterAppVersions]=enabled', {allow404:true});
@@ -127,12 +139,22 @@ jobs:
               } : null;
 
               const locs = await api('/v1/appStoreVersions/' + v.id +
-                '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale&limit=50');
+                '/appStoreVersionLocalizations?fields[appStoreVersionLocalizations]=locale,description,keywords,marketingUrl,promotionalText,supportUrl,whatsNew&limit=50');
               item.localizations = [];
               for (const loc of (locs.data || [])) {
                 const sets = await api('/v1/appStoreVersionLocalizations/' + loc.id +
                   '/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=50');
-                const locItem = { locale: loc.attributes?.locale, localizationId: loc.id, screenshotSets: [] };
+                const locItem = {
+                  locale: loc.attributes?.locale,
+                  localizationId: loc.id,
+                  descriptionPresent: !!String(loc.attributes?.description || '').trim(),
+                  keywordsPresent: !!String(loc.attributes?.keywords || '').trim(),
+                  supportUrlPresent: !!String(loc.attributes?.supportUrl || '').trim(),
+                  marketingUrlPresent: !!String(loc.attributes?.marketingUrl || '').trim(),
+                  promotionalTextPresent: !!String(loc.attributes?.promotionalText || '').trim(),
+                  whatsNewPresent: !!String(loc.attributes?.whatsNew || '').trim(),
+                  screenshotSets: []
+                };
                 for (const set of (sets.data || [])) {
                   const shots = await api('/v1/appScreenshotSets/' + set.id +
                     '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState,sourceFileChecksum&limit=200');
