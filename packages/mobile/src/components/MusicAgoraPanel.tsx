@@ -2041,7 +2041,7 @@ export default function MusicAgoraPanel({
             <Text style={[s.drawerActionIcon, s.drawerActionMusicText]}>♫</Text>
             <Text style={[s.drawerActionText, s.drawerActionMusicText]}>MORCEAU</Text>
           </TouchableOpacity>
-          {replyTarget ? : null}
+          
           {draft.length >= 1800 ? <Text style={s.counter}>{draft.length}/2000</Text> : null}
         </View>
       ) : null}
