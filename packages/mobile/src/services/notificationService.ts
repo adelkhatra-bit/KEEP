@@ -43,25 +43,31 @@ const DEFAULT_PREFS: NotificationPreferences = {
 };
 
 function decodeVisibleEntities(value: string): string {
-  // Certains messages historiques arrivent doublement encodés
-  // (&amp;#10084;). On décode d'abord les entités de transport, puis les
-  // entités numériques / symboliques afin de ne jamais afficher le code brut.
-  const transported = value
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&apos;|&#39;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>');
-  return transported
-    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => {
-      const code = Number.parseInt(hex, 16);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
-    })
-    .replace(/&#([0-9]+);/g, (_match, dec) => {
-      const code = Number.parseInt(dec, 10);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : _match;
-    })
-    .replace(/&hearts?;/gi, '♥');
+  // Décode chaque entité visible en UNE seule passe. Les anciens cœurs
+  // doublement encodés (&amp;#10084;) sont reconnus comme une entité complète :
+  // on ne fabrique jamais une seconde entité qui serait ensuite redécodée.
+  return value.replace(
+    /&amp;#x([0-9a-f]+);|&amp;#([0-9]+);|&amp;(hearts?);|&#x([0-9a-f]+);|&#([0-9]+);|&(amp|quot|apos|lt|gt|hearts?);/gi,
+    (match, escapedHex, escapedDec, escapedNamed, hex, dec, named) => {
+      const hexValue = escapedHex ?? hex;
+      const decValue = escapedDec ?? dec;
+      if (hexValue !== undefined || decValue !== undefined) {
+        const code = Number.parseInt(String(hexValue ?? decValue), hexValue !== undefined ? 16 : 10);
+        return Number.isInteger(code) && code >= 0 && code <= 0x10ffff
+          ? String.fromCodePoint(code)
+          : match;
+      }
+
+      const entity = String(escapedNamed ?? named ?? '').toLowerCase();
+      if (entity === 'heart' || entity === 'hearts') return '♥';
+      if (entity === 'amp') return '&';
+      if (entity === 'quot') return '"';
+      if (entity === 'apos') return "'";
+      if (entity === 'lt') return '<';
+      if (entity === 'gt') return '>';
+      return match;
+    },
+  );
 }
 
 export function normalizeNotificationVisibleText(value: unknown): string {
