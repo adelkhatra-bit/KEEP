@@ -292,25 +292,39 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
 
       {drop ? (
         <TouchableOpacity style={s.drop} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Drop du moment : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
-          <View style={s.dropHead}>
-            <Text style={s.dropKicker}>DROP DU MOMENT</Text>
-            <Text style={s.dropPosition}>{(dropIndex % featured.length) + 1}/{featured.length}</Text>
-          </View>
-          <Text style={s.dropFeatured}>★ À LA UNE</Text>
-          <Text style={s.dropTitle} numberOfLines={1}>{drop.playlistName || 'Collection'}</Text>
-          <Text style={s.dropMeta} numberOfLines={1}>
-            {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
-          </Text>
-          <View style={s.dropFoot}>
-            <PriceToken offer={drop} unlocked={false} />
-            {featured.length > 1 ? (
-              <View style={s.dots}>
-                {featured.map((row, dotIndex) => (
-                  <TouchableOpacity key={row.offerId} onPress={() => setDropIndex(dotIndex)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Afficher le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
-                ))}
+          <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
+            <View style={s.dropHead}>
+              <View style={s.dropLive}>
+                <View style={s.dropLiveDot} />
+                <Text style={s.dropKicker}>DROP DU MOMENT</Text>
               </View>
-            ) : null}
-          </View>
+              <Text style={s.dropPosition}>{(dropIndex % featured.length) + 1}/{featured.length}</Text>
+            </View>
+            <View style={s.dropMain}>
+              <View style={s.dropCopy}>
+                <Text style={s.dropFeatured}>★ PÉPITE À LA UNE</Text>
+                <Text style={s.dropTitle} numberOfLines={1}>{drop.playlistName || 'Collection'}</Text>
+                <Text style={s.dropMeta} numberOfLines={1}>
+                  {drop.trackCount} titres · {drop.genres?.[0] || 'Mix'}{ownerMode ? '' : dropNew > 0 ? ` · ${dropNew} nouveau${dropNew > 1 ? 'x' : ''} pour toi` : ' · déjà chez toi'}
+                </Text>
+              </View>
+              <View style={s.dropPlay}><Text style={s.dropPlayText}>▶</Text></View>
+            </View>
+            <View style={s.dropListenStrip}>
+              <Text style={s.dropListenText}>{ownerMode ? 'TOUCHE POUR ÉCOUTER TA COLLECTION' : 'TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS'}</Text>
+              <Text style={s.dropListenArrow}>›</Text>
+            </View>
+            <View style={s.dropFoot}>
+              <PriceToken offer={drop} unlocked={false} />
+              {featured.length > 1 ? (
+                <View style={s.dots}>
+                  {featured.map((row, dotIndex) => (
+                    <TouchableOpacity key={row.offerId} onPress={() => setDropIndex(dotIndex)} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Afficher le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       ) : null}
 

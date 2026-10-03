@@ -35,6 +35,10 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
     expect(boutique).toContain('✓ DÉBLOQUÉE');
     expect(source).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
+    expect(boutique).toContain('PÉPITE À LA UNE');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER TA COLLECTION');
+    expect(boutique).toContain('dropPlay');
   });
 
   it('partage aussi exactement le même habillage de boutique entre propriétaire et visiteur', () => {
