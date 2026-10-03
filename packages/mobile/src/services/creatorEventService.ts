@@ -206,6 +206,13 @@ export async function loadEventPlaylist(eventId: string): Promise<EventTrack[]> 
   }));
 }
 
+export async function loadMyEventInvitationIds(): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_my_event_invitation_ids');
+  if (error) throw error;
+  return (data ?? []).map((row: any) => String(row.event_id ?? row.eventId ?? '')).filter(Boolean);
+}
+
 export async function loadMyRsvps(profileId: string): Promise<Record<string, EventRsvpStatus>> {
   if (!supabase) return {};
   const { data, error } = await supabase.from('event_rsvps').select('event_id,status').eq('profile_id', profileId);
