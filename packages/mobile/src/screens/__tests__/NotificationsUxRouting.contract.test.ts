@@ -46,7 +46,7 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain("return 'OUVRIR BATTLE'");
     expect(notifications).toContain("return 'OUVRIR LA COLLECTION'");
     expect(notifications).toContain("return 'VOIR LA PÉPITE'");
-    expect(notifications).toContain("return 'VOIR LE PROFIL'");
+    expect(notifications).toContain("return 'OUVRIR ICI'");
     expect(notifications).toContain("type === 'MONTHLY_FREE_CREDIT' || type.startsWith('FREE_')");
     expect(notifications).toContain('ownerProfileId');
   });
@@ -132,7 +132,7 @@ describe('Notifications UX and routing contract', () => {
 
   it('shows the visited username directly in profile-activity actions', () => {
     expect(notifications).toContain("if (key === 'PROFILE_VIEW') return 'VISITE DE PROFIL'");
-    expect(notifications).toContain('return `VOIR @${profileUsername}`');
+    expect(notifications).toContain('linkedProfileUsername ? `Voir @${linkedProfileUsername} ›`');
     const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
     expect(sidePanel).toContain('return `VOIR @${profileUsername}`');
   });
