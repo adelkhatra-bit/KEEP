@@ -290,6 +290,16 @@ async function playWebSegment(
   const element = getWebAudio();
   if (!element) throw new Error('WEB_AUDIO_UNAVAILABLE');
 
+  // Le même élément audio est partagé entre Swipe, Battle et voix Loki.
+  // Réinitialiser explicitement son état évite un "play" silencieux après
+  // un duck/mute laissé par une interaction précédente.
+  try {
+    element.muted = false;
+    element.volume = 1;
+    element.playbackRate = 1;
+    element.defaultPlaybackRate = 1;
+  } catch {}
+
   clearActiveTimer();
   try { element.pause(); } catch {}
   webAudioKey = key;
@@ -372,6 +382,15 @@ export function playTrackPreviewFromGesture(
 
   const element = getWebAudio();
   if (!element) return Promise.reject(new Error('WEB_AUDIO_UNAVAILABLE'));
+
+  // Geste manuel = priorité absolue au son audible. Le lecteur partagé peut
+  // avoir été ducké/muté par une voix ou un ancien aperçu.
+  try {
+    element.muted = false;
+    element.volume = 1;
+    element.playbackRate = 1;
+    element.defaultPlaybackRate = 1;
+  } catch {}
 
   clearActiveTimer();
   try { element.pause(); } catch {}
@@ -866,6 +885,12 @@ export function unlockWebAudioForGesture(): void {
   const element = getWebAudio();
   if (!element) return;
   try {
+    try {
+      element.muted = false;
+      element.volume = 1;
+      element.playbackRate = 1;
+      element.defaultPlaybackRate = 1;
+    } catch {}
     // Un élément <audio> neuf n'a aucune source : `play()` rejetait donc la
     // promesse et ne déverrouillait rien. Une très courte piste silencieuse
     // permet d'acquérir l'autorisation pendant le tap qui ouvre Loki Swipe ;
