@@ -8,7 +8,9 @@ const notifications = fs.readFileSync(path.resolve(__dirname, '..', '..', 'scree
 describe('notification Nouveau morceau — écoute, garder, abonnement', () => {
   it('cache totalement le bouton AJOUTER GRATUITEMENT si le morceau est déjà possédé', () => {
     expect(actions).toContain('if (owned || kept) {');
-    const ownedBranch = actions.slice(actions.indexOf('if (owned || kept) {'), actions.indexOf('return (', actions.indexOf('if (owned || kept) {')) + 7);
+    const ownedStart = actions.indexOf('if (owned || kept) {');
+    const regularActionsStart = actions.indexOf("\n  return (\n    <View>\n      <View style={s.row}>", ownedStart);
+    const ownedBranch = actions.slice(ownedStart, regularActionsStart);
     expect(ownedBranch).toContain('✓ DÉJÀ CHEZ TOI');
     expect(ownedBranch).not.toContain('testID="new-keep-keep"');
     expect(ownedBranch).not.toContain('AJOUTER GRATUITEMENT');
