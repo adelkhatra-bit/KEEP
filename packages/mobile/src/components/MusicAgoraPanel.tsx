@@ -1675,7 +1675,7 @@ export default function MusicAgoraPanel({
               <Image source={{ uri: extractMusicAgoraPayoutQrUrl(message.body)! }} style={s.qrMessageImage} resizeMode="contain" />
               <Text style={s.qrMessageHint}>QR partagé depuis le profil Loki Music du vendeur.</Text>
             </View>
-          ) : <Text style={s.body}>{message.body}</Text>}
+          ) : <Text style={s.body}>{musicAgoraBodyPreview(message.body)}</Text>}
 
           {message.sharedTrackId ? <Animated.View style={[s.musicCard, {
             transform: [{ scale: musicAura.interpolate({ inputRange: [0, 1], outputRange: [1, 1.008] }) }],
