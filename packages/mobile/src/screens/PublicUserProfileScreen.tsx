@@ -12,6 +12,7 @@ import CommunityConnectionsPanel, { CommunityMode } from '../components/Communit
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
 import { KeepVisibility, ProfileKind, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
@@ -1168,6 +1169,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
   };
 
+  const acceptMarketplaceTermsThen = (source: string, onAccepted: () => void) => {
+    Alert.alert(
+      'Conditions des paiements entre utilisateurs',
+      'Loki Music met en relation l’acheteur et le vendeur mais ne détient pas l’argent PayPal. Chacun doit vérifier les informations, conserver les preuves et respecter le règlement. Une fausse déclaration peut entraîner un retrait de Free, une suspension ou un bannissement.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'LIRE LES CONDITIONS', onPress: () => { void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/'); } },
+        {
+          text: 'J’ACCEPTE',
+          onPress: () => {
+            void acceptMarketplacePaymentTerms(source)
+              .then(() => onAccepted())
+              .catch(() => Alert.alert('Conditions', 'Impossible d’enregistrer ton acceptation pour le moment.'));
+          },
+        },
+      ],
+    );
+  };
+
   const buyPlaylistOffer = async (offer: PublicPlaylistSaleOffer) => {
     if (purchaseBusyId) return;
     if (!effectiveViewerId) {
@@ -1232,6 +1252,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     try {
       // La RPC attend l'UUID de l'offre, jamais l'identifiant technique de
       // playlist (qui peut être "keep-selection:...").
+      const termsAccepted = await loadMarketplacePaymentTermsAccepted().catch(() => false);
+      if (!termsAccepted) {
+        setPurchaseBusyId(null);
+        acceptMarketplaceTermsThen('profile_purchase', () => { void buyPlaylistOffer(offer); });
+        return;
+      }
       const request = await requestPlaylistPurchase(offer.offerId);
       if (!request.payoutLink && !request.payoutQrUrl) {
         Alert.alert('Paiement pas encore prêt', `${request.sellerUsername || 'Ce créateur'} n'a pas encore ajouté de PayPal.Me ni de QR PayPal.`);
@@ -1242,7 +1268,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
-      else if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) Alert.alert('Première transaction en cours', 'Termine ou annule ton paiement actuel avant d’ouvrir une nouvelle demande. Après une première transaction réussie, ce verrou disparaît.');
+      else if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) Alert.alert(
+        'Première transaction en cours',
+        'Pour sécuriser ton premier achat, termine ou annule la transaction déjà ouverte avant d’en lancer une autre. Après une première transaction réellement terminée, tu pourras faire de nouvelles demandes normalement.',
+        [
+          { text: 'OK', style: 'cancel' },
+          { text: 'VOIR MES TRANSACTIONS', onPress: () => navigation.navigate('PlaylistSale', { openPaymentHistory: true, source: 'FIRST_PAYMENT_GUARD' }) },
+        ],
+      );
+      else if (message.includes('TERMS_ACCEPTANCE_REQUIRED')) acceptMarketplaceTermsThen('profile_purchase', () => { void buyPlaylistOffer(offer); });
+      else if (message.includes('SELLER_TERMS_ACCEPTANCE_REQUIRED')) Alert.alert('Paiement temporairement indisponible', 'Le vendeur doit accepter les conditions des paiements Loki Music avant de recevoir une nouvelle demande.');
       else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${immersivePreviewSellerUsername || profile?.username || 'Ce créateur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
       else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le créateur doit enregistrer un lien de paiement sécurisé avant de pouvoir proposer cette collection.');
       else Alert.alert('Erreur', 'Impossible de lancer le déblocage pour le moment.');
