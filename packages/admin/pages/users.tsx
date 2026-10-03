@@ -63,7 +63,7 @@ function visibleEmail(email: string | null) {
   if (!email || email.endsWith('@keep.local')) return 'Sans e-mail';
   return email;
 }
-function memberNumber(id: string) { return `KEEP-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`; }
+function memberNumber(id: string) { return `LOKI-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`; }
 function durationLabel(months: number) { return months === 0 ? 'Illimité' : months === 12 ? '1 an' : months === 24 ? '2 ans' : `${months} mois`; }
 function isBanned(until: string | null | undefined) { return Boolean(until && new Date(until).getTime() > Date.now()); }
 function planColor(plan: string) {
@@ -389,7 +389,7 @@ export default function Users() {
     {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
 
     <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-      <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Rechercher pseudo, e-mail, n° KEEP…" style={{ flex:'1 1 320px', minWidth:220, background:'var(--bg-card)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, padding:'11px 14px' }}/>
+      <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Rechercher pseudo, e-mail, n° LOKI…" style={{ flex:'1 1 320px', minWidth:220, background:'var(--bg-card)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, padding:'11px 14px' }}/>
       <select value={planFilter} onChange={(e)=>setPlanFilter(e.target.value as PlanFilter)} style={{ background:'var(--bg-card)', border:'1px solid var(--border)', color:'var(--text)', borderRadius:10, padding:'11px 14px' }}>
         {PLAN_OPTIONS.map((p)=><option key={p} value={p}>{p==='ALL'?'Tous les plans':p}</option>)}
       </select>
