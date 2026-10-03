@@ -1,0 +1,38 @@
+name: Loki TestFlight State Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/testflight-state-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@24.6.0
+      - name: Read production build/update state
+        working-directory: packages/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "=== EAS WHOAMI ==="
+          eas whoami
+          echo "=== EAS BUILDS IOS ==="
+          eas build:list --platform ios --limit 10 --json --non-interactive
+          echo "=== EAS CHANNEL PRODUCTION ==="
+          eas channel:view production --json --non-interactive || true
+          echo "=== EAS UPDATES PRODUCTION BRANCH ==="
+          eas update:list --branch production --limit 10 --json --non-interactive || true
