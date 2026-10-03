@@ -1,0 +1,100 @@
+name: Loki App Store IAP Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-iap-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Audit subscriptions and IAP
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          if(required.some(k=>!process.env[k]?.trim()))throw new Error('Missing App Store Connect configuration');
+
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{allow404=false}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+            if(allow404&&res.status===404)return null;
+            const txt=await res.text();
+            if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,1000));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const report={subscriptionGroups:[],inAppPurchases:[]};
+
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel&limit=200&limit[subscriptions]=50');
+            for(const g of (groups.data||[])){
+              const ids=(g.relationships?.subscriptions?.data||[]).map(x=>x.id);
+              const included=(groups.included||[]).filter(x=>x.type==='subscriptions'&&ids.includes(x.id));
+              report.subscriptionGroups.push({
+                id:g.id,
+                referenceName:g.attributes?.referenceName||null,
+                subscriptions:included.map(s=>({
+                  id:s.id,
+                  name:s.attributes?.name||null,
+                  productId:s.attributes?.productId||null,
+                  state:s.attributes?.state||null,
+                  period:s.attributes?.subscriptionPeriod||null,
+                  reviewNotePresent:Boolean(s.attributes?.reviewNote?.trim()),
+                  familySharable:!!s.attributes?.familySharable,
+                  groupLevel:s.attributes?.groupLevel??null
+                }))
+              });
+            }
+
+            const iaps=await api('/v1/apps/'+appId+
+              '/inAppPurchasesV2?fields[inAppPurchases]=name,productId,inAppPurchaseType,state,reviewNote,familySharable&limit=200',
+              {allow404:true});
+            report.inAppPurchases=(iaps?.data||[]).map(x=>({
+              id:x.id,
+              name:x.attributes?.name||null,
+              productId:x.attributes?.productId||null,
+              type:x.attributes?.inAppPurchaseType||null,
+              state:x.attributes?.state||null,
+              reviewNotePresent:Boolean(x.attributes?.reviewNote?.trim()),
+              familySharable:!!x.attributes?.familySharable
+            }));
+
+            const expected=[
+              'com.adelkhatra.keep.premium.monthly',
+              'com.adelkhatra.keep.creatorpro.monthly',
+              'com.adelkhatra.keep.venuepro.monthly'
+            ];
+            const actual=report.subscriptionGroups.flatMap(g=>g.subscriptions.map(s=>s.productId));
+            report.expectedProducts=expected.map(productId=>({
+              productId,
+              found:actual.includes(productId),
+              state:report.subscriptionGroups.flatMap(g=>g.subscriptions).find(s=>s.productId===productId)?.state||null
+            }));
+
+            console.log('=== LOKI IAP AUDIT ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI IAP AUDIT ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
