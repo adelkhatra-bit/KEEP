@@ -50,7 +50,7 @@ begin
       values (
         v_follower.follower_id,
         'NEW_PUBLIC_KEEP',
-        'Nouveau morceau chez @' || coalesce(v_username, 'KEEP'),
+        'Nouveau morceau chez @' || coalesce(v_username, 'Loki'),
         'Titre masqué · écoute l’extrait et garde-le pour découvrir le titre.',
         jsonb_build_object(
           'ownerProfileId', new.profile_id,
