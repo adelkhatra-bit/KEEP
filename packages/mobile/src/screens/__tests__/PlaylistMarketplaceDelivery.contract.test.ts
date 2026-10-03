@@ -22,7 +22,7 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(myMusic).toContain("(sellPaymentMode === 'FREE' ? SALE_PRESET_FREE : SALE_PRESET_PRICES_CENTS).map");
     expect(salePanel).toContain('SALE_PRESET_PRICES_CENTS');
     expect(salePanel).toContain('SALE_PRESET_FREE');
-    expect(salePanel).toContain('updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount)');
+    expect(salePanel).toContain("updateOfferPaymentMode(editing.offerId, editing.paymentMode, amount, editing.paymentMode === 'BOTH' ? editing.freePrice : null)");
     expect(myMusic).toContain("if (saleCartTracks.length < 2)");
   });
 
@@ -33,7 +33,7 @@ describe('Loki Music playlist marketplace delivery contract', () => {
     expect(salePanel).toContain("J’AI FINI MA SÉLECTION");
     expect(salePanel).toContain('OUVRIR MON PANIER →');
     expect(salePanel).toContain('OUI, MA SÉLECTION EST TERMINÉE');
-    expect(salePanel).toContain('PayPal · DEVISE');
+    expect(salePanel).toContain('<Text style={s.collectionCartFieldLabel}>DEVISE</Text>');
     expect(salePanel).toContain("host === 'paypal.me'");
     expect(salePanel).toContain('PAYPAL DÉJÀ ENREGISTRÉ');
   });
