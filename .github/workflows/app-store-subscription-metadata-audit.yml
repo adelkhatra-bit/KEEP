@@ -69,7 +69,7 @@ jobs:
               row.versionDetails=[];
               for(const v of (versions?.data||[])){
                 const locs=await api('/v1/subscriptionVersions/'+v.id+
-                  '/localizations?fields[subscriptionLocalizations]=name,locale,description,state&limit=50',
+                  '/localizations?fields[subscriptionLocalizations]=name,locale,description&limit=50',
                   {allow404:true});
                 const images=await api('/v1/subscriptionVersions/'+v.id+
                   '/images?fields[subscriptionImages]=fileName,state,imageAsset&limit=50',
@@ -79,8 +79,7 @@ jobs:
                   localizations:(locs?.data||[]).map(x=>({
                     locale:x.attributes?.locale||null,
                     namePresent:Boolean(x.attributes?.name?.trim()),
-                    descriptionPresent:Boolean(x.attributes?.description?.trim()),
-                    state:x.attributes?.state||null
+                    descriptionPresent:Boolean(x.attributes?.description?.trim())
                   })),
                   images:(images?.data||[]).map(x=>({
                     fileName:x.attributes?.fileName||null,
