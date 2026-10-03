@@ -78,15 +78,23 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).not.toContain('testID="solo-leaderboard-mini"');
   });
 
-  it('uses the same artwork-first layout in Solo and Battle on mobile and bounds it on desktop', () => {
-    expect(source).toContain('const isDesktopBattle = windowWidth >= 900;');
+  it('uses the same square artwork-first layout in Solo and Battle and pushes answers to the bottom', () => {
+    expect(source).toContain('const { width: windowWidth, height: windowHeight } = useWindowDimensions();');
+    expect(source).toContain('const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(470, windowHeight - 210);');
     expect(source).toContain("rootDesktop: { maxWidth: 760, alignSelf: 'center' }");
-    expect(source).toContain("soloVisual: { height: undefined, width: '100%', alignSelf: 'center', flexGrow: 1, flexShrink: 1, minHeight: 220 }");
-    expect(source).toContain("arenaVisualActive: { width: '100%', height: undefined, flexGrow: 1, flexShrink: 1, minHeight: 220 }");
-    expect(source).toContain("soloAnswersActive: { paddingTop: 7, paddingBottom: 0 }");
-    expect(source).toContain("arenaAnswersActive: { paddingTop: 7, paddingBottom: 0 }");
-    expect(source).not.toContain("soloAnswersActive: { marginTop: 'auto'");
-    expect(source).not.toContain("arenaAnswersActive: { marginTop: 'auto'");
+    expect(source).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
+    expect(source).toContain("arenaVisualActive: { width: '100%', aspectRatio: 1");
+    expect(source).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 }");
+    expect(source).toContain("arenaAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 }");
+    expect(source).toContain("answer: { width: '48%', height: 54");
+  });
+
+  it('keeps sent Battle invitations cancellable with a live countdown until acceptance', () => {
+    expect(source).toContain('cancelBattleChallenge(item.id)');
+    expect(source).toContain('requestCancelOutgoingChallenge');
+    expect(source).toContain('ANNULER ·');
+    expect(source).toContain("ANNULER L’INVITE");
+    expect(source).toContain('outgoingPendingByTarget');
   });
 
   it('shows only daily FREE gain/loss counters with the 02:00 Battle reset', () => {
