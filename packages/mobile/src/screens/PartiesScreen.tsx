@@ -336,12 +336,23 @@ export default function PartiesScreen({ navigation, route }: any) {
     const id = setInterval(poll, 8000);
     return () => { live = false; clearInterval(id); };
   }, [battleFeatureEnabled, battleOpen, user, isLocalGuest, isDemoMode]);
-  const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+  const commitIncomingBattleDecision = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
     setIncomingResponding(challenge.id);
     respondBattleChallenge(challenge.id, accept).then((result) => {
       setIncomingBattle((rows) => rows.filter((r) => r.id !== challenge.id));
       if (accept && result.arenaId) { setPendingArenaId(result.arenaId); setBattleOpen(true); }
     }).catch(() => {}).finally(() => setIncomingResponding(null));
+  };
+  const respondIncomingBattle = (challenge: KeepBattleIncomingChallenge, accept: boolean) => {
+    if (accept) { commitIncomingBattleDecision(challenge, true); return; }
+    Alert.alert(
+      'Refuser ce Battle ?',
+      `Confirme uniquement si tu veux réellement refuser l’invitation de ${challenge.username}.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => commitIncomingBattleDecision(challenge, false) },
+      ],
+    );
   };
   // Adel (03/09/2026) : "dans Soirées tu mets que du fixe, la notification tu
   // l'intègres uniquement dans Profil/Playlists/Découvertes/Écoute" -- ce
