@@ -99,6 +99,14 @@ describe('Notifications UX and routing contract', () => {
     expect(panel).toContain("chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)");
   });
 
+  it('blocks PayPal checkout on native notification surfaces', () => {
+    const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(notifications).toContain("if (Platform.OS !== 'web')");
+    expect(notifications).toContain('Le déblocage en euros est disponible sur la version web de Loki Music');
+    expect(sidePanel).toContain("if (Platform.OS !== 'web')");
+    expect(sidePanel).toContain('Le déblocage en euros est disponible sur la version web de Loki Music');
+  });
+
   it('renders PayPal QR from payment data as an image instead of a technical token', () => {
     expect(notifications).toContain('item.data?.payoutQrUrl');
     expect(notifications).toContain('item.data?.payout_qr_url');
