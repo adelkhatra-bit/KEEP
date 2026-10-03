@@ -220,6 +220,12 @@ export async function cancelBattleChallenge(challengeId: string): Promise<{ stat
   };
 }
 
+export async function cancelBattleChallenge(challengeId: string): Promise<{ status: string }> {
+  const { data, error } = await client().rpc('keep_battle_challenge_cancel', { p_challenge_id: challengeId });
+  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_CANCEL_FAILED'));
+  return { status: String((data as any)?.status || 'CANCELLED') };
+}
+
 export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null; arenaState?: any | null }> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
