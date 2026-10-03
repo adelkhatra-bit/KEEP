@@ -200,7 +200,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       <View style={s.banner}>
         <View style={s.bannerHead}>
           <View style={s.liveDot} />
-          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MON CLUB MUSICAL · MES PÉPITES' : 'PÉPITES À DÉCOUVRIR'}</Text>
+          <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MA BOUTIQUE MUSICALE · MES PÉPITES' : 'BOUTIQUE MUSICALE · SES PÉPITES'}</Text>
         </View>
         <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
         <Text style={s.bannerPersonal} numberOfLines={2}>
@@ -232,12 +232,12 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       </View>
 
       {drop ? (
-        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Drop du moment : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
+        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Pépite à la une : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
           <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
             <View style={s.dropHead}>
               <View style={s.dropLive}>
                 <View style={s.dropLiveDot} />
-                <Text style={s.dropKicker}>DROP DU MOMENT</Text>
+                <Text style={s.dropKicker}>BOUTIQUE MUSICALE</Text>
               </View>
             </View>
             <View style={s.dropMain}>
