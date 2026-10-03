@@ -1410,7 +1410,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     setModerationBusy(true);
     try {
       await reportUser(profile.id, reason, undefined, { source: 'public_profile' });
-      Alert.alert('Signalement envoyé', 'Merci, notre équipe va l’examiner.');
+      Alert.alert('Signalement envoyé', 'Merci, Loki va l’examiner.');
     } catch {
       Alert.alert('Envoi impossible', 'Réessaie dans un instant.');
     } finally {

@@ -373,7 +373,7 @@ Deno.serve(async (req) => {
       const { error: grantError } = await admin.from("admin_credit_grants").insert({ profile_id: profileId, amount, reason, granted_by: actor.id });
       if (grantError) throw grantError;
       const title = amount > 0 ? `🎁 Loki Music t'offre ${amount} Free` : `Ajustement de ton solde Free`;
-      const notifBody = reason || (amount > 0 ? "Un petit geste de l'équipe Loki Music -- profites-en !" : "Ton solde Free a été ajusté par l'équipe Loki Music.");
+      const notifBody = reason || (amount > 0 ? "Un petit geste de Loki Music -- profites-en !" : "Ton solde Free a été ajusté par Loki Music.");
       await admin.from("notifications").insert({ profile_id: profileId, type: "ADMIN_CREDIT_GRANT", title, body: notifBody, data: { amount, reason } });
       await audit(actor.id, "user.credits.granted", profileId, { amount, reason });
       const { data: creditRemaining } = await admin.rpc("keep_theoretical_free_credit_remaining_for_profile", { p_uid: profileId });
