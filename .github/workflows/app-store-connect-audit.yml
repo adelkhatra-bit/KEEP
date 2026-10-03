@@ -78,7 +78,7 @@ jobs:
             report.bundleIdResourceId = bundle?.id || null;
             report.bundleCapabilities = [];
             if (bundle) {
-              const caps = await api('/v1/bundleIds/' + bundle.id + '/bundleIdCapabilities?limit=200');
+              const caps = await api('/v1/bundleIds/' + bundle.id + '/bundleIdCapabilities');
               report.bundleCapabilities = (caps.data || []).map(x => ({
                 id: x.id,
                 capabilityType: x.attributes?.capabilityType,
