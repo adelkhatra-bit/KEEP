@@ -14,6 +14,22 @@ describe('Global notification scalability', () => {
     expect(source).not.toContain('setInterval(tick, BATTLE_DECISION_POLL_MS)');
   });
 
+  it('fans out public-track notifications asynchronously instead of looping followers inside the KEEP trigger', () => {
+    const sql = fs.readFileSync(
+      path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261003011000_public_track_notification_fanout_queue.sql'),
+      'utf8',
+    );
+    expect(sql).toContain('public_track_notification_fanout_jobs');
+    expect(sql).toContain('keep_process_public_track_notification_fanout');
+    expect(sql).toContain('for update skip locked');
+    expect(sql).toContain("'loki-public-track-fanout'");
+    const triggerBody = sql.slice(
+      sql.indexOf('create or replace function public.notify_followers_on_public_keep()'),
+      sql.indexOf('create or replace function public.keep_process_public_track_notification_fanout'),
+    );
+    expect(triggerBody).not.toContain('for v_follower in');
+  });
+
   it('refreshes battle server truth on mount, foreground and realtime notification', () => {
     expect(source).toContain('tick();');
     expect(source).toContain("AppState.addEventListener('change'");
