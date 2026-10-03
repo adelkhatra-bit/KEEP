@@ -144,7 +144,7 @@ must(
     && salePanel.includes('MARKETPLACE_CURRENCIES'),
   'inline Pépites cart steps disconnected',
 );
-must(salePanel.includes('Cette musique est déjà en vente') && salePanel.includes('AJOUTER QUAND MÊME') && salePanel.includes("selected ? 'RETIRER' : '+ PANIER'"), 'warn-and-allow Pépites cart guard disconnected');
+must(myMusic.includes('Déjà dans une collection active') && myMusic.includes('Ajouter quand même') && myMusic.includes("selectedSaleTrackIds.has(track.id) ? '✓ RETIRER' : '+ PANIER'"), 'warn-and-allow Pépites cart guard disconnected');
 must(saleService.includes("keep_playlist_sale_set_offer_for_selection_v5") && saleService.includes('p_allow_existing: allowExisting'), 'confirmed duplicate sale RPC disconnected');
 must(confirmedDuplicateSale.includes('and not p_allow_existing') && !confirmedDuplicateSale.includes('delete from public.playlist_sale_offer_tracks'), 'confirmed duplicate server policy disconnected');
 must(!salePanel.includes("createSaleCollection: true"), 'Pépites creation redirects to Playlists again');

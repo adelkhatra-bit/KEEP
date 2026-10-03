@@ -189,11 +189,11 @@
       "MODE_PRICE_CURRENCY",
       "PAYOUT_PUBLISH"
     ],
-    "preventTrackAcrossActiveOffers": true,
+    "preventTrackAcrossActiveOffers": false,
     "alreadyPublishedTrackMustBeExplained": true,
     "moneyPayoutConfiguredInline": true,
     "freeModeRequiresExternalPayout": false,
-    "existingOfferTrackPolicy": "block-and-keep-existing-offer",
+    "existingOfferTrackPolicy": "warn-and-allow-without-removing-existing-offer",
     "collectionCreationSurface": "PlaylistSale/Pépites-inline-cart",
     "collectionCreationMustRemainInPepites": true,
     "cartSelectionReversible": true,
