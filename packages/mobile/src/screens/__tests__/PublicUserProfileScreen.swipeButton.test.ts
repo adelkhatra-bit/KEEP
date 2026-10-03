@@ -23,7 +23,7 @@ describe('PublicUserProfileScreen — bouton SWIPE aussi visible que sur le prof
   it('is placed right after identity/bio, before the collection section, not buried in a small pill next to Follow', () => {
     const bioIdx = source.indexOf('{!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}');
     const swipeIdx = source.indexOf('▶ SWIPE');
-    const collectionIdx = source.indexOf('style={styles.marketplaceSection}');
+    const collectionIdx = source.indexOf('<SellerBoutique');
     expect(bioIdx).toBeGreaterThan(-1);
     expect(swipeIdx).toBeGreaterThan(bioIdx);
     expect(collectionIdx).toBeGreaterThan(swipeIdx);
