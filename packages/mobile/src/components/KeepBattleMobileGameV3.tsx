@@ -138,11 +138,52 @@ function hashSeed(seed: string): number {
   for (let i = 0; i < seed.length; i += 1) h = (Math.imul(h, 31) + seed.charCodeAt(i)) | 0;
   return Math.abs(h);
 }
+type BattleResultMessageBucket = 'WIN_SPEED' | 'WIN_ACCURACY' | 'LOSE_SPEED' | 'LOSE_ACCURACY';
+const BATTLE_RESULT_MESSAGE_USED: Record<BattleResultMessageBucket, Set<number>> = {
+  WIN_SPEED: new Set<number>(),
+  WIN_ACCURACY: new Set<number>(),
+  LOSE_SPEED: new Set<number>(),
+  LOSE_ACCURACY: new Set<number>(),
+};
+const BATTLE_RESULT_MESSAGE_LAST: Partial<Record<BattleResultMessageBucket, number>> = {};
+const BATTLE_RESULT_MESSAGE_CACHE = new Map<string, string>();
+
 function battleResultMessage(arenaId: string, matchNo: number, won: boolean, bySpeed: boolean): string {
-  const pool = won ? (bySpeed ? BATTLE_WIN_MESSAGES_SPEED : BATTLE_WIN_MESSAGES_ACCURACY) : (bySpeed ? BATTLE_LOSE_MESSAGES_SPEED : BATTLE_LOSE_MESSAGES_ACCURACY);
-  // Une revanche est une nouvelle partie : inclure matchNo pour que le texte
-  // ne soit pas figé pour toute la durée de vie d'une même arène.
-  return pool[hashSeed(`${arenaId}:${matchNo}:${won ? 'W' : 'L'}`) % pool.length];
+  const bucket: BattleResultMessageBucket = won
+    ? (bySpeed ? 'WIN_SPEED' : 'WIN_ACCURACY')
+    : (bySpeed ? 'LOSE_SPEED' : 'LOSE_ACCURACY');
+  const pool = won
+    ? (bySpeed ? BATTLE_WIN_MESSAGES_SPEED : BATTLE_WIN_MESSAGES_ACCURACY)
+    : (bySpeed ? BATTLE_LOSE_MESSAGES_SPEED : BATTLE_LOSE_MESSAGES_ACCURACY);
+  // Une revanche est une nouvelle partie. La phrase reste stable pour CE
+  // résultat précis, mais une autre partie ne réutilise pas une phrase du
+  // même pool tant que toutes n'ont pas été servies. À l'épuisement, on
+  // recommence sans répéter immédiatement la dernière.
+  const cacheKey = `${arenaId}:${matchNo}:${bucket}`;
+  const cached = BATTLE_RESULT_MESSAGE_CACHE.get(cacheKey);
+  if (cached) return cached;
+
+  const used = BATTLE_RESULT_MESSAGE_USED[bucket];
+  if (used.size >= pool.length) {
+    const last = BATTLE_RESULT_MESSAGE_LAST[bucket];
+    used.clear();
+    if (last != null && pool.length > 1) used.add(last);
+  }
+
+  let index = hashSeed(cacheKey) % pool.length;
+  for (let offset = 0; offset < pool.length && used.has(index); offset += 1) {
+    index = (index + 1) % pool.length;
+  }
+  used.add(index);
+  BATTLE_RESULT_MESSAGE_LAST[bucket] = index;
+
+  const text = pool[index];
+  BATTLE_RESULT_MESSAGE_CACHE.set(cacheKey, text);
+  if (BATTLE_RESULT_MESSAGE_CACHE.size > 160) {
+    const oldest = BATTLE_RESULT_MESSAGE_CACHE.keys().next().value;
+    if (oldest) BATTLE_RESULT_MESSAGE_CACHE.delete(oldest);
+  }
+  return text;
 }
 function formatInviteCooldown(msRemaining: number): string {
   const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
