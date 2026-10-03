@@ -39,6 +39,12 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(boutique).toContain("export const SELLER_BOUTIQUE_SECTION_STYLE");
   });
 
+  it('le propriétaire lance directement sa collection sans popup achat', () => {
+    expect(source).toContain('loadOwnPlaylistSaleOfferTracks(offer.offerId)');
+    expect(source).toContain('sale-owner:');
+    expect(source).not.toContain("même aperçu masqué 15 s, mais aucun achat possible");
+  });
+
   it('utilise exactement la même SellerBoutique sur le profil propriétaire', () => {
     expect(ownerSource).toContain("import SellerBoutique from '../components/SellerBoutique';");
     expect(ownerSource).toContain('<SellerBoutique');

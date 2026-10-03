@@ -844,10 +844,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const openSaleFolder = (offer: PublicPlaylistSaleOffer) => {
     const ownerViewingSelf = Boolean(viewer?.id && profile?.id && effectiveViewerId === profile.id);
     if (ownerViewingSelf) {
-      // Le propriétaire contrôle exactement l'expérience visiteur :
-      // même aperçu masqué 15 s, mais aucun achat possible sur sa propre offre.
+      // Propriétaire : aucun tunnel d'achat, aucune condition inutile.
+      // Un tap sur sa Pépite ouvre directement sa propre collection en lecture.
       unlockWebAudioForGesture();
-      setImmersivePreviewOffer(offer);
+      void openFolderSwipe(
+        offer.playlistName,
+        () => loadOwnPlaylistSaleOfferTracks(offer.offerId),
+        `sale-owner:${offer.offerId}`,
+      );
       return;
     }
     const unlock = saleUnlocks[offer.offerId];
