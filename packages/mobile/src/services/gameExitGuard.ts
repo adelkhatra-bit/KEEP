@@ -8,6 +8,17 @@ import { useGameSessionStore } from '../store/useGameSessionStore';
 export function confirmLeaveGame(onLeave: () => void): boolean {
   const state = useGameSessionStore.getState();
   if (!state.isGameInProgress) { onLeave(); return true; }
+  // Un Battle en ligne ne doit jamais être perdu par un tap accidentel sur
+  // un autre onglet. La seule vraie sortie reste le bouton QUITTER LE BATTLE,
+  // qui libère le siège côté serveur. Ici on bloque simplement la navigation.
+  if (state.gameMode === 'EN_LIGNE') {
+    Alert.alert(
+      'Battle en cours',
+      'Tu es toujours dans ce Battle. Pour quitter réellement, utilise QUITTER LE BATTLE dans l’écran du match.',
+      [{ text: 'RETOURNER AU BATTLE', style: 'cancel' }],
+    );
+    return false;
+  }
   Alert.alert('Quitter la partie ?', state.quitNotice || 'Ta partie en cours sera perdue.', [
     { text: 'Continuer à jouer', style: 'cancel' },
     { text: 'Quitter', style: 'destructive', onPress: () => { useGameSessionStore.getState().requestQuit(); onLeave(); } },
@@ -34,6 +45,14 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
 // - Android : bouton retour physique.
 function askFromSystemBack() {
   const state = useGameSessionStore.getState();
+  if (state.gameMode === 'EN_LIGNE') {
+    Alert.alert(
+      'Battle en cours',
+      'Le Battle continue. Utilise QUITTER LE BATTLE dans le match si tu veux vraiment abandonner.',
+      [{ text: 'RETOURNER AU BATTLE', style: 'cancel' }],
+    );
+    return;
+  }
   Alert.alert('Quitter la partie ?', state.quitNotice || 'Ta partie en cours sera perdue.', [
     { text: 'Continuer à jouer', style: 'cancel' },
     { text: 'Quitter', style: 'destructive', onPress: () => useGameSessionStore.getState().requestQuit() },
