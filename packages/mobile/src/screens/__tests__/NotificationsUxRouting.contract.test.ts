@@ -45,6 +45,19 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain('ownerProfileId');
   });
 
+  it('routes native pushes to their exact in-app action using notification type and id', () => {
+    const nav = fs.readFileSync(path.resolve(__dirname, '..', '..', 'navigation', 'navigationRef.ts'), 'utf8');
+    const worker = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'supabase', 'functions', 'keep-push-worker', 'index.ts'), 'utf8');
+    expect(worker).toContain('notificationId: notification.id');
+    expect(worker).toContain('notificationType: notification.type');
+    expect(nav).toContain("type === 'PROFILE_VIEW'");
+    expect(nav).toContain('payload.viewerUsername ?? payload.viewer_username');
+    expect(nav).toContain("type === 'NEW_PUBLIC_KEEP'");
+    expect(nav).toContain('focusNotificationId');
+    expect(notifications).toContain('route?.params?.focusNotificationId');
+    expect(notifications).toContain('void openNotification(target)');
+  });
+
   it('turns profile-visit activity into a direct visible profile link', () => {
     const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
     expect(panel).toContain("type === 'PROFILE_VIEW'");
