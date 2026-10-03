@@ -271,6 +271,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // possible (Stripe Connect pas branché) : jamais un CTA qui prétend
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
+  // Conserve les offres ciblées du chat dans la source brute pour les deep-links
+  // adressés au destinataire, mais ne les expose jamais dans la boutique publique.
+  const profileBoutiqueOffers = useMemo(
+    () => saleOffers.filter((offer) => !String(offer.playlistId || '').startsWith('keep-chat:')),
+    [saleOffers],
+  );
   const [saleOfferOverlaps, setSaleOfferOverlaps] = useState<Record<string, PlaylistSaleOverlap>>({});
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
@@ -360,18 +366,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     refreshProfileSaleSuggestions();
     const unsubscribe = navigation?.addListener?.('focus', refreshProfileSaleSuggestions);
     return () => { live = false; unsubscribe?.(); };
-  }, [effectiveViewerId, marketBannerOffersLoaded, saleOffers.length, profile?.id, navigation]);
+  }, [effectiveViewerId, marketBannerOffersLoaded, profileBoutiqueOffers.length, profile?.id, navigation]);
 
   // Affiche AVANT d'ouvrir un Drop combien de titres sont réellement
   // nouveaux pour le visiteur. Le calcul reste côté serveur afin de ne jamais
   // révéler les titres masqués de la collection.
   useEffect(() => {
-    if (!effectiveViewerId || saleOffers.length === 0) {
+    if (!effectiveViewerId || profileBoutiqueOffers.length === 0) {
       setSaleOfferOverlaps({});
       return undefined;
     }
     let live = true;
-    Promise.all(saleOffers.map(async (offer) => {
+    Promise.all(profileBoutiqueOffers.map(async (offer) => {
       try {
         const overlap = await loadPlaylistSaleOfferOverlap(offer.offerId);
         return [offer.offerId, overlap] as const;
@@ -385,7 +391,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setSaleOfferOverlaps(next);
     });
     return () => { live = false; };
-  }, [effectiveViewerId, saleOffers]);
+  }, [effectiveViewerId, profileBoutiqueOffers]);
   useEffect(() => {
     if (!profile?.id) {
       setMarketBannerEventIds([]);
@@ -484,7 +490,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     if (!profile?.id || !marketBannerOffersLoaded || !marketBannerEventsLoaded) return;
     const viewerKey = viewer?.id || 'guest';
     const key = `keep:profile-market-banner:${viewerKey}:${profile.id}`;
-    const playlistSignature = saleOffers.map((row) => row.offerId).sort().join(',');
+    const playlistSignature = profileBoutiqueOffers.map((row) => row.offerId).sort().join(',');
     const eventSignature = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     let live = true;
     AsyncStorage.getItem(key).then((raw) => {
@@ -502,12 +508,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       } catch { setMarketBannerVisible(true); setMarketBannerHasNew(false); }
     }).catch(() => { setMarketBannerVisible(true); setMarketBannerHasNew(false); });
     return () => { live = false; };
-  }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, saleOffers, marketBannerEventIds, marketBannerPendingEventCount]);
+  }, [profile?.id, viewer?.id, marketBannerOffersLoaded, marketBannerEventsLoaded, profileBoutiqueOffers, marketBannerEventIds, marketBannerPendingEventCount]);
 
   const hideMarketBanner = () => {
     if (!profile?.id) return;
     const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
-    const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
+    const playlists = profileBoutiqueOffers.map((row) => row.offerId).sort().join(',');
     const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     setMarketBannerVisible(false);
     setMarketBannerHasNew(false);
@@ -517,7 +523,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const reopenMarketBanner = () => {
     if (!profile?.id) return;
     const key = `keep:profile-market-banner:${viewer?.id || 'guest'}:${profile.id}`;
-    const playlists = saleOffers.map((row) => row.offerId).sort().join(',');
+    const playlists = profileBoutiqueOffers.map((row) => row.offerId).sort().join(',');
     const events = `${marketBannerEventIds.join(',')}|pending:${marketBannerPendingEventCount}`;
     setMarketBannerVisible(true);
     setMarketBannerHasNew(false);
@@ -535,7 +541,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     let live = true;
     loadMyPlaylistSaleUnlocks().then((rows) => { if (live) setSaleUnlocks(rows); }).catch(() => { if (live) setSaleUnlocks({}); });
     return () => { live = false; };
-  }, [effectiveViewerId, saleOffers.length]);
+  }, [effectiveViewerId, profileBoutiqueOffers.length]);
 
   // Une Vibe KEEP_SMART mise en vente ne doit jamais apparaître deux fois :
   // une fois gratuitement comme Vibe publique ET une fois verrouillée comme
@@ -543,12 +549,12 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // déblocage. Cela protège aussi le contenu : aucun accès indirect au Swipe
   // gratuit de la même sélection avant achat.
   const saleProtectedSmartAlbumIds = useMemo(() => new Set(
-    saleOffers
+    profileBoutiqueOffers
       .map((offer) => String(offer.playlistId || '').trim())
       .filter((id) => id.startsWith('keep-smart:'))
       .map((id) => id.slice('keep-smart:'.length))
       .filter(Boolean),
-  ), [saleOffers]);
+  ), [profileBoutiqueOffers]);
   const visiblePublicVibes = useMemo(
     () => publicVibes.filter((vibe) => !saleProtectedSmartAlbumIds.has(vibe.id)),
     [publicVibes, saleProtectedSmartAlbumIds],
@@ -1890,8 +1896,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
 
 
-        {saleOffers.length > 0 && marketBannerVisible ? (
-          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
+        {profileBoutiqueOffers.length > 0 && marketBannerVisible ? (
+          <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${profileBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.marketplaceKicker}>BOUTIQUE MUSICALE · {profile.username.replace(/^@+/, '')}</Text>
@@ -1908,10 +1914,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 Toucher une carte = même parcours qu'avant (openSaleFolder :
                 aperçu anonyme, ou collection si déjà débloquée). */}
             <SellerBoutique
-              offers={saleOffers}
+              offers={profileBoutiqueOffers}
               sellerUsername={profile.username}
               overlaps={saleOfferOverlaps}
-              unlockedOfferIds={new Set(saleOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
+              unlockedOfferIds={new Set(profileBoutiqueOffers.filter((offer) => !isOwner && Boolean(saleUnlocks[offer.offerId]?.deliveredPlaylistId)).map((offer) => offer.offerId))}
               ownerMode={isOwner}
               onOpenOffer={(offer) => openSaleFolder(offer)}
               onOpenAllOffers={(offers) => { void playFeaturedSalePreviews(offers); }}
@@ -1919,15 +1925,15 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
               buyAllBusy={purchaseBusyId === 'bundle'}
             />
           </ProfileMotionReveal>
-        ) : saleOffers.length > 0 ? (
+        ) : profileBoutiqueOffers.length > 0 ? (
           <TouchableOpacity style={styles.marketplaceReopenBar} onPress={reopenMarketBanner} accessibilityLabel="Afficher les collections et nouveautés de ce profil">
             <Text style={styles.marketplaceReopenIcon}>✦</Text>
-            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{saleOffers.length} collection{saleOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
+            <View style={styles.marketplaceReopenCopy}><Text style={styles.marketplaceReopenTitle}>{marketBannerHasNew ? 'NOUVELLE PÉPITE' : 'BOUTIQUE MUSICALE'}</Text><Text style={styles.marketplaceReopenMeta}>{profileBoutiqueOffers.length} collection{profileBoutiqueOffers.length > 1 ? 's' : ''} · {visiblePublicVibes.length} vibe{visiblePublicVibes.length > 1 ? 's' : ''}</Text></View>
             <Text style={styles.marketplaceReopenArrow}>›</Text>
           </TouchableOpacity>
         ) : null}
 
-        {effectiveViewerId && profileSaleSuggestions.length > 0 && (isOwner || saleOffers.length === 0) ? (
+        {effectiveViewerId && profileSaleSuggestions.length > 0 && (isOwner || profileBoutiqueOffers.length === 0) ? (
           <ProfileOpportunityRail
             viewerKey={effectiveViewerId}
             viewerUsername={viewer?.username || ''}

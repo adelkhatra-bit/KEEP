@@ -47,6 +47,13 @@ describe('Exclusive collection privacy + ownership contracts', () => {
     expect(publicProfile).not.toContain('sale-style:');
   });
 
+  it('keeps targeted chat sales out of the public visitor boutique without breaking addressed deep-links', () => {
+    expect(publicProfile).toContain('const profileBoutiqueOffers = useMemo(');
+    expect(publicProfile).toContain("!String(offer.playlistId || '').startsWith('keep-chat:')");
+    expect(publicProfile).toContain('offers={profileBoutiqueOffers}');
+    expect(publicProfile).toContain('const offer = saleOffers.find((row) => row.offerId === openSaleOfferId);');
+  });
+
   it('never exposes title, artist or artwork through the anonymous preview RPC', () => {
     expect(saleService).toContain('export type PlaylistSalePreviewTrack = {');
     expect(saleService).toContain('trackId: string;');
