@@ -261,6 +261,20 @@ export function listenForExpoPushTokenChanges(): () => void {
   return () => subscription.remove();
 }
 
+function notificationPermissionGranted(
+  Notifications: NotificationsModule,
+  permission: Awaited<ReturnType<NotificationsModule['getPermissionsAsync']>>,
+): boolean {
+  if (permission.granted || permission.status === 'granted') return true;
+  if (Platform.OS !== 'ios') return false;
+  const iosStatus = permission.ios?.status;
+  return [
+    Notifications.IosAuthorizationStatus.AUTHORIZED,
+    Notifications.IosAuthorizationStatus.PROVISIONAL,
+    Notifications.IosAuthorizationStatus.EPHEMERAL,
+  ].includes(iosStatus as any);
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
     return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
@@ -271,14 +285,15 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     return { ok: false, reason: 'simulator_no_push' };
   }
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  let permission = await Notifications.getPermissionsAsync();
+  if (!notificationPermissionGranted(Notifications, permission)) {
+    permission = await Notifications.requestPermissionsAsync();
   }
-  if (finalStatus !== 'granted') {
-    void reportPushRegistrationFailure('permission_denied', String(finalStatus));
+  if (!notificationPermissionGranted(Notifications, permission)) {
+    const detail = Platform.OS === 'ios'
+      ? `${permission.status}:${String(permission.ios?.status ?? 'unknown')}`
+      : String(permission.status);
+    void reportPushRegistrationFailure('permission_denied', detail);
     return { ok: false, reason: 'permission_denied' };
   }
 
