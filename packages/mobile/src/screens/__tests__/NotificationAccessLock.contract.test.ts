@@ -38,18 +38,13 @@ describe('notification accordion and plan locks contract', () => {
     expect(admin).toContain('VENUE_PRO');
   });
 
-  it('lets every paid formula control promotional notification noise', () => {
+  it('keeps targeted offers mandatory on Free and user-controlled on paid plans', () => {
     const notifications = read(__dirname, '..', 'NotificationsScreen.tsx');
-    expect(notifications).toContain("['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'].includes(planCode)");
-    expect(notifications).toContain('const marketingLocked = !paidNotificationControls;');
-    expect(notifications).toContain('const eventsLocked = !paidNotificationControls;');
-  });
-
-  it('never paywalls the right to disable promotional notifications', () => {
-    expect(notifications).not.toContain('const marketingLocked =');
-    expect(notifications).not.toContain('const eventsLocked =');
+    const notificationService = read(__dirname, '..', '..', 'services', 'notificationService.ts');
+    expect(notifications).toContain("const marketingLocked = planCode === 'FREE';");
     expect(notifications).toContain('label="Actualités & offres"');
-    expect(notifications).toContain('value={prefs.marketingEnabled}');
+    expect(notifications).toContain('value={marketingLocked ? true : prefs.marketingEnabled}');
+    expect(notifications).toContain('if (!marketingLocked) updatePrefs({ marketingEnabled: v });');
     expect(notificationService).toContain('marketingEnabled: false');
   });
 
