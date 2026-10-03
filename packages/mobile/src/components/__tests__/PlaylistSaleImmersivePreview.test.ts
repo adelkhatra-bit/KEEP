@@ -43,8 +43,12 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
   it('keeps explicit confirmation but uses short FREE wording', () => {
     expect(source).toContain('const [waiverAccepted, setWaiverAccepted] = useState(false);');
     expect(source).toContain('setWaiverAccepted(false);');
-    expect(source).toContain("Confirmer l'utilisation de ${priceLabel} pour toute la collection");
-    expect(source).toContain('Utiliser ${priceLabel} pour révéler et ajouter cette collection à mon Loki Music.');
+    expect(source).toContain('CONDITIONS À ACCEPTER');
+    expect(source).toContain('CONDITIONS ACCEPTÉES');
+    expect(source).toContain('waiverRowPending');
+    expect(source).toContain('waiverRowAccepted');
+    expect(source).toContain('ACCEPTE LES CONDITIONS POUR CONTINUER');
+    expect(source).toContain(`J’accepte les conditions générales et l’utilisation de ${priceLabel} pour débloquer toute cette collection.`);
     expect(source).not.toContain('Aucun débit n’est effectué morceau par morceau.');
   });
 
