@@ -27,7 +27,7 @@ import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
 import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
-import { loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
+import { extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
@@ -860,6 +860,13 @@ export default function NotificationsScreen({ navigation, route }: any) {
               );
             }
             const profileUsername = notificationProfileUsername(item);
+            const payoutQrUrl = extractMusicAgoraPayoutQrUrl(item.body);
+            const notificationImageUrl = item.data?.image_url ? String(item.data.image_url) : payoutQrUrl;
+            const notificationBody = isNewKeepNotification(item)
+              ? maskedNewKeepCopy(item).body
+              : payoutQrUrl
+                ? 'QR PayPal partagé · ouvre le Tchat pour l’afficher.'
+                : item.body;
             return (
             <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
               <TouchableOpacity
@@ -876,11 +883,11 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     mis le logo de la photo" -- vignette de l'evenement quand
                     l'organisateur en a ajoute une. */}
                 <View style={styles.cardBodyRow}>
-                  {item.data?.image_url ? <Image source={{ uri: String(item.data.image_url) }} style={styles.cardThumbnail} /> : null}
+                  {notificationImageUrl ? <Image source={{ uri: notificationImageUrl }} style={styles.cardThumbnail} /> : null}
                   <View style={styles.cardTextColumn}>
                     {/* Nouveau morceau d'un profil suivi : titre masqué jusqu'au GARDER (Adel 02/10/2026). */}
                     <Text style={styles.cardTitle}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).title : item.title}</Text>
-                    <Text style={styles.cardBody} numberOfLines={3}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).body : item.body}</Text>
+                    <Text style={styles.cardBody} numberOfLines={3}>{notificationBody}</Text>
                   </View>
                 </View>
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
