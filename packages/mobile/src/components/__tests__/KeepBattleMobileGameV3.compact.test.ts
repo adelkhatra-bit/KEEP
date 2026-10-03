@@ -89,6 +89,9 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
     expect(source).toContain("arenaAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
     expect(source).toContain("answer: { width: '48%', height: 54");
+    expect(source).not.toContain('<Text style={s.soloEncourage}>{soloEncouragement');
+    expect(source).toContain("soloScroll: { flexGrow: 1, paddingBottom: 0 }");
+    expect(source).toContain("arenaScrollContentActive: { flexGrow: 1, paddingBottom: 0 }");
   });
 
   it('keeps sent Battle invitations cancellable with a live countdown until acceptance', () => {
