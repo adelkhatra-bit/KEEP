@@ -1522,7 +1522,7 @@ export default function MusicAgoraPanel({
           return (
             <TouchableOpacity
               key={`direct:${item.profileId}`}
-              testID={unreadByTarget[`p:${item.profileId}`]?.length ? 'chat-row-unread' : undefined}
+              testID={`loki-chat-direct-row:${item.profileId}`}
               style={[s.conversationRow, Boolean(unreadByTarget[`p:${item.profileId}`]?.length) && s.rowUnread]}
               onPress={() => {
                 void openDirectThread(
