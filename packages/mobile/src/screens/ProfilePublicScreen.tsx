@@ -28,7 +28,7 @@ import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
-import { loadMyPlaylistSaleOffers, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadMyPlaylistSaleOffers, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -345,7 +345,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
     })), [playlistSaleOffers]);
   const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [opportunityPreviewOffer, setOpportunityPreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
-  const [ownerBoutiquePreviewOffer, setOwnerBoutiquePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
   const [opportunityPreviewSuggestion, setOpportunityPreviewSuggestion] = useState<ProfileSaleSuggestion | null>(null);
   const [opportunityPurchaseBusy, setOpportunityPurchaseBusy] = useState(false);
   const [opportunityMissingBusy, setOpportunityMissingBusy] = useState(false);
@@ -1894,7 +1893,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
             ownerMode
             onOpenOffer={(offer) => {
               unlockWebAudioForGesture();
-              setOwnerBoutiquePreviewOffer(offer);
+              void loadOwnPlaylistSaleOfferTracks(offer.offerId)
+                .then((tracks) => {
+                  if (!tracks.length) {
+                    Alert.alert('Pépite', 'Cette collection ne contient aucun morceau accessible pour le moment.');
+                    return;
+                  }
+                  openSelectionSwipe({
+                    title: offer.playlistName,
+                    subtitle: 'Ta collection publiée · lecture directe.',
+                    tracks,
+                  });
+                })
+                .catch(() => Alert.alert('Pépite', 'Impossible d’ouvrir cette collection pour le moment.'));
             }}
           />
         </ProfileMotionReveal>
@@ -1905,19 +1916,6 @@ export default function ProfilePublicScreen({ navigation }: any) {
           viewerKey={user.id}
           suggestions={profileSaleSuggestions}
           onSuggestionPress={(suggestion) => { void openOpportunityPreview(suggestion); }}
-        />
-      ) : null}
-
-      {ownerBoutiquePreviewOffer ? (
-        <PlaylistSaleImmersivePreview
-          offer={ownerBoutiquePreviewOffer}
-          visible
-          busy={false}
-          onClose={() => setOwnerBoutiquePreviewOffer(null)}
-          onConfirmPurchase={() => {}}
-          purchaseEnabled={false}
-          ownerMode
-          sourceUsername={user.username}
         />
       ) : null}
 

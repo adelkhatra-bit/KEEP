@@ -30,6 +30,14 @@ describe('ventes : collections compactes, prix juste', () => {
     expect(panel).toContain('route?.params?.manageSaleOfferId');
   });
 
+  it('le vendeur ouvre sa propre Pépite directement, sans popup achat', () => {
+    const owner = read('ProfilePublicScreen.tsx');
+    expect(owner).toContain('loadOwnPlaylistSaleOfferTracks(offer.offerId)');
+    expect(owner).toContain("subtitle: 'Ta collection publiée · lecture directe.'");
+    expect(owner).not.toContain('ownerBoutiquePreviewOffer');
+    expect(owner).toContain("navigation.navigate('PlaylistSale')");
+  });
+
   it('le gestionnaire affiche FREE ou un prix PayPal lisible sans doublonner EUR', () => {
     const panel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'PlaylistSalePanel.tsx'), 'utf8');
     expect(panel).toContain("item.paymentMode === 'FREE'");
