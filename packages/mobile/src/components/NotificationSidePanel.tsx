@@ -17,6 +17,7 @@ import {
 import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { isNewKeepNotification } from '../services/newKeepNotification';
 import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
+import { supabase } from '../services/supabaseClient';
 
 type Props = {
   visible: boolean;
@@ -75,9 +76,30 @@ function chatTarget(item: KeepNotification): GlobalChatTarget {
 function activityProfileUsername(item: KeepNotification): string | null {
   const data = item.data ?? {};
   const raw = data.username ?? data.actorUsername ?? data.actor_username ?? data.viewerUsername ?? data.viewer_username
-    ?? data.requesterUsername ?? data.requester_username ?? data.sellerUsername ?? data.seller_username
-    ?? data.inviterUsername ?? data.inviter_username ?? data.originUsername ?? data.origin_username;
+    ?? data.requesterUsername ?? data.requester_username ?? data.followerUsername ?? data.follower_username
+    ?? data.sellerUsername ?? data.seller_username ?? data.inviterUsername ?? data.inviter_username
+    ?? data.originUsername ?? data.origin_username ?? data.senderUsername ?? data.sender_username;
   return typeof raw === 'string' && raw.trim() ? raw.trim().replace(/^@+/, '') : null;
+}
+
+function activityProfileId(item: KeepNotification): string | null {
+  const data = item.data ?? {};
+  const raw = data.actorId ?? data.actor_id ?? data.viewerId ?? data.viewer_id
+    ?? data.requesterId ?? data.requester_id ?? data.followerId ?? data.follower_id
+    ?? data.sellerId ?? data.seller_id ?? data.inviterId ?? data.inviter_id
+    ?? data.originProfileId ?? data.origin_profile_id ?? data.sourceProfileId ?? data.source_profile_id
+    ?? data.senderId ?? data.sender_id;
+  return typeof raw === 'string' && /^[0-9a-f-]{36}$/i.test(raw.trim()) ? raw.trim() : null;
+}
+
+async function resolveActivityProfileUsername(item: KeepNotification): Promise<string | null> {
+  const direct = activityProfileUsername(item);
+  if (direct) return direct;
+  const id = activityProfileId(item);
+  if (!id || !supabase) return null;
+  const { data } = await supabase.from('profiles').select('username').eq('id', id).maybeSingle();
+  const username = String((data as any)?.username || '').trim();
+  return username ? username.replace(/^@+/, '') : null;
 }
 
 function activityActionLabel(item: KeepNotification): string {
@@ -88,7 +110,7 @@ function activityActionLabel(item: KeepNotification): string {
   if (type.startsWith('EVENT_')) return 'VOIR L’ÉVÉNEMENT';
   if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
   if (type.startsWith('PLAYLIST_SALE_')) return 'OUVRIR LA PÉPITE';
-  if (activityProfileUsername(item)) return 'VOIR LE PROFIL';
+  if (activityProfileUsername(item) || activityProfileId(item)) return 'VOIR LE PROFIL';
   return 'OUVRIR / AGIR';
 }
 
@@ -402,7 +424,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     const data = item.data ?? {};
     if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
     setItems((rows) => rows.map((row) => row.id === item.id ? { ...row, readAt: row.readAt || new Date().toISOString() } : row));
-    const username = activityProfileUsername(item);
+    const username = await resolveActivityProfileUsername(item);
     const arenaId = String(data.arenaId ?? data.arena_id ?? '').trim();
     const eventId = String(data.eventId ?? data.event_id ?? '').trim();
     const offerId = String(data.offerId ?? data.offer_id ?? '').trim();
@@ -439,6 +461,14 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
       return;
     }
     if (navigationRef.isReady()) (navigationRef.navigate as any)('Notifications');
+  };
+
+  const openActivityProfile = async (item: KeepNotification) => {
+    if (!isDemoMode) await markNotificationRead(profileId, item.id).catch(() => {});
+    const username = await resolveActivityProfileUsername(item);
+    if (!username) return;
+    onClose();
+    navigateToSharedProfile(username);
   };
 
   const prepareChatNotification = async (item: KeepNotification) => {
@@ -648,21 +678,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                             <>
                               <Text style={s.body}>{item.body}</Text>
                               <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
-                              {chatAction ? (
-                                <TouchableOpacity style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]} onPress={() => void prepareChatNotification(item)}>
-                                  <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : 'OUVRIR LA CONVERSATION'}</Text>
-                                </TouchableOpacity>
-                              ) : isNewKeepNotification(item) ? (
-                                <NewKeepNotificationActions
-                                  notification={item}
-                                  onInteract={() => { if (!item.readAt) void markNotificationRead(profileId, item.id).catch(() => {}); }}
-                                  onOpenProfile={activityProfileUsername(item) ? () => { onClose(); navigateToSharedProfile(activityProfileUsername(item) as string); } : undefined}
-                                />
-                              ) : (
-                                <TouchableOpacity style={s.notificationAction} onPress={() => void openActivityNotification(item)}>
-                                  <Text style={s.notificationActionText}>{activityActionLabel(item)}</Text>
-                                </TouchableOpacity>
-                              )}
                               <TouchableOpacity style={s.deleteOneButton} onPress={() => deleteOne(item)} accessibilityLabel="Supprimer cette notification">
                                 <Text style={s.deleteOneText}>SUPPRIMER</Text>
                               </TouchableOpacity>
@@ -671,6 +686,24 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                         </View>
                       ) : null}
                     </TouchableOpacity>
+                    {!locked && isNewKeepNotification(item) ? (
+                      <View style={s.inlineAction}>
+                        <NewKeepNotificationActions
+                          notification={item}
+                          onInteract={() => { if (!item.readAt) void markNotificationRead(profileId, item.id).catch(() => {}); }}
+                          onOpenProfile={() => { void openActivityProfile(item); }}
+                        />
+                      </View>
+                    ) : !locked ? (
+                      <TouchableOpacity
+                        style={[s.notificationAction, preparedChatId === item.id && s.notificationActionReady]}
+                        onPress={() => { void (chatAction ? prepareChatNotification(item) : openActivityNotification(item)); }}
+                        accessibilityRole="button"
+                        accessibilityLabel={chatAction ? 'Ouvrir la conversation' : activityActionLabel(item)}
+                      >
+                        <Text style={s.notificationActionText}>{preparedChatId === item.id ? 'OUVERTURE…' : chatAction ? 'OUVRIR LA CONVERSATION' : activityActionLabel(item)}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 );
               })}
@@ -784,7 +817,8 @@ const s = StyleSheet.create({
   lockedPlan:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},
   lockedBody:{color:colors.textPrimary,fontSize:11,lineHeight:17,marginTop:5,fontWeight:'800'},
   lockedHint:{color:colors.textMutedGrey,fontSize:9,lineHeight:14,marginTop:6},
-  notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10},
+  notificationAction:{minHeight:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:8,marginHorizontal:12,marginBottom:10},
+  inlineAction:{paddingHorizontal:12,paddingBottom:10},
   notificationActionReady:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.14)'},
   notificationActionText:{color:'#FFF',fontSize:9,fontWeight:'900'},
   lockedOverlay:{...StyleSheet.absoluteFillObject,zIndex:60,elevation:60,backgroundColor:'rgba(4,2,9,.72)',alignItems:'center',justifyContent:'center',padding:18},
