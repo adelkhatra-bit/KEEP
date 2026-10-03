@@ -3407,7 +3407,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 }
 
 const s = StyleSheet.create({
-  root: { width: '100%', flex: 1, paddingBottom: 4, position: 'relative' },
+  root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
   rootDesktop: { maxWidth: 760, alignSelf: 'center' },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
@@ -3553,11 +3553,11 @@ const s = StyleSheet.create({
   // Battle/Solo actif : même gabarit strict. La jaquette reste carrée,
   // centrée et la plus grande possible ; les quatre réponses descendent
   // ensuite au bas du bloc, juste au-dessus de la navigation.
-  arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 4 },
-  soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 4 },
-  soloAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 },
+  arenaCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 },
+  soloCardActive: { flexGrow: 1, justifyContent: 'flex-start', paddingBottom: 0 },
+  soloAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 0 },
   arenaVisualActive: { width: '100%', aspectRatio: 1, height: undefined, alignSelf: 'center', flexGrow: 0, flexShrink: 0, minHeight: 0 },
-  arenaAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 2 },
+  arenaAnswersActive: { marginTop: 'auto', paddingTop: 10, paddingBottom: 0 },
   roundNoWinner: { color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '900', textAlign: 'center', marginTop: 9 },
   squareGrid: { flexDirection: 'row', gap: 6, marginTop: 6 }, squareCol: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   squareTile: { width: 56, height: 64, borderRadius: 13, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard },
