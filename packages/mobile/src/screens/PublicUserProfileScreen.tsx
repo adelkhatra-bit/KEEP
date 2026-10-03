@@ -35,6 +35,7 @@ import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMy
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
+import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { playAntiShazamPreviewSegment, preloadTrackPreview, stopAntiShazamPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -44,6 +45,7 @@ import { sendBattleChallenge } from '../services/keepBattleLiveService';
 import { formatProfilePresence, loadProfilePresence } from '../services/profilePresenceService';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventById, loadEventRsvpCounts, loadMyRsvps, loadProfileEventTeaser, setEventRsvp } from '../services/creatorEventService';
 import { loadFreeCreditBreakdown } from '../services/creditService';
+import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
@@ -269,6 +271,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // encaisser tant que ce n'est pas vrai.
   const [saleOffers, setSaleOffers] = useState<PublicPlaylistSaleOffer[]>([]);
   const [saleOfferOverlaps, setSaleOfferOverlaps] = useState<Record<string, PlaylistSaleOverlap>>({});
+  const [profileSaleSuggestions, setProfileSaleSuggestions] = useState<ProfileSaleSuggestion[]>([]);
   const [marketBannerVisible, setMarketBannerVisible] = useState(true);
   const [marketBannerHasNew, setMarketBannerHasNew] = useState(false);
 
@@ -335,6 +338,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     loadPlaylistSaleOffersForProfile(profile.id).then((rows) => { if (live) { setSaleOffers(rows); setMarketBannerOffersLoaded(true); } }).catch(() => { if (live) { setSaleOffers([]); setMarketBannerOffersLoaded(true); } });
     return () => { live = false; };
   }, [profile?.id]);
+
+  useEffect(() => {
+    if (!effectiveViewerId || !marketBannerOffersLoaded || saleOffers.length > 0) {
+      setProfileSaleSuggestions([]);
+      return undefined;
+    }
+    let live = true;
+    loadProfileSaleSuggestions(8)
+      .then((rows) => { if (live) setProfileSaleSuggestions(rows); })
+      .catch(() => { if (live) setProfileSaleSuggestions([]); });
+    return () => { live = false; };
+  }, [effectiveViewerId, marketBannerOffersLoaded, saleOffers.length, profile?.id]);
 
   // Affiche AVANT d'ouvrir un Drop combien de titres sont réellement
   // nouveaux pour le visiteur. Le calcul reste côté serveur afin de ne jamais
@@ -875,7 +890,25 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     // déverrouille l'audio ici pour que l'aperçu puisse partir dès l'ouverture,
     // sans imposer un second bouton "Écouter".
     unlockWebAudioForGesture();
+    setImmersivePreviewSellerUsername(profile?.username ?? null);
     setImmersivePreviewOffer(offer);
+  };
+
+  const openSuggestedSaleDrop = async (suggestion: ProfileSaleSuggestion) => {
+    unlockWebAudioForGesture();
+    try {
+      const offers = await loadPlaylistSaleOffersForProfile(suggestion.sellerId);
+      const offer = offers.find((row) => row.offerId === suggestion.offerId);
+      if (!offer) {
+        Alert.alert('Drop du moment', 'Cette collection n’est plus disponible.');
+        setProfileSaleSuggestions((rows) => rows.filter((row) => row.offerId !== suggestion.offerId));
+        return;
+      }
+      setImmersivePreviewSellerUsername(suggestion.sellerUsername);
+      setImmersivePreviewOffer(offer);
+    } catch {
+      Alert.alert('Drop du moment', 'Impossible de charger cet aperçu pour le moment.');
+    }
   };
 
   const openBrowseSwipe = (filter: { type: 'genre' | 'artist'; value: string; label: string } | null) => {
@@ -1092,6 +1125,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [payoutCheckout, setPayoutCheckout] = useState<PlaylistPurchaseRequest | null>(null);
   const [missingRequestBusyId, setMissingRequestBusyId] = useState<string | null>(null);
   const [immersivePreviewOffer, setImmersivePreviewOffer] = useState<PublicPlaylistSaleOffer | null>(null);
+  const [immersivePreviewSellerUsername, setImmersivePreviewSellerUsername] = useState<string | null>(null);
   const [freeBalance, setFreeBalance] = useState<number | null>(null);
   const [freePurchaseMessage, setFreePurchaseMessage] = useState<string | null>(null);
 
@@ -1210,7 +1244,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     } catch (e: any) {
       const message = String(e?.message || '');
       if (message.includes('authentication_required')) goToOwnProfile();
-      else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${profile?.username || 'Ce créateur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
+      else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) Alert.alert('Paiement pas encore prêt', `${immersivePreviewSellerUsername || profile?.username || 'Ce créateur'} n’a pas encore configuré son lien PayPal ou son lien de paiement.`);
       else if (message.includes('SELLER_PAYOUT_LINK_INSECURE')) Alert.alert('Paiement temporairement indisponible', 'Le créateur doit enregistrer un lien de paiement sécurisé avant de pouvoir proposer cette collection.');
       else Alert.alert('Erreur', 'Impossible de lancer le déblocage pour le moment.');
     } finally {
@@ -1692,6 +1726,14 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ) : null}
 
+        {saleOffers.length === 0 && effectiveViewerId && profileSaleSuggestions.length > 0 ? (
+          <ProfileOpportunityRail
+            viewerKey={effectiveViewerId}
+            suggestions={profileSaleSuggestions}
+            onSuggestionPress={(suggestion) => { void openSuggestedSaleDrop(suggestion); }}
+          />
+        ) : null}
+
         {marketBannerEventIds.length > 0 || marketBannerPendingEventCount > 0 ? (
           <Animated.View
             style={{
@@ -2078,16 +2120,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           offer={immersivePreviewOffer}
           visible
           busy={purchaseBusyId === immersivePreviewOffer.offerId}
-          onClose={() => setImmersivePreviewOffer(null)}
+          onClose={() => { setImmersivePreviewOffer(null); setImmersivePreviewSellerUsername(null); }}
           onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
           purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled)}
           ownerMode={isOwner}
-          sourceUsername={profile.username}
+          sourceUsername={immersivePreviewSellerUsername || profile.username}
           freeBalance={freeBalance}
           purchaseError={freePurchaseMessage}
           onOpenProfile={() => {
+            const sellerUsername = immersivePreviewSellerUsername || profile.username;
             setImmersivePreviewOffer(null);
-            navigation.navigate('PublicProfile', { username: profile.username });
+            setImmersivePreviewSellerUsername(null);
+            navigation.navigate('PublicProfile', { username: sellerUsername });
           }}
           onRechargeFree={() => {
             setImmersivePreviewOffer(null);
