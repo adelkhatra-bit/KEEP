@@ -22,6 +22,8 @@ describe('Single notification presentation contract', () => {
   it('normalizes legacy KEEP wording and protects QR/payment notifications on delete', () => {
     const service = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'notificationService.ts'), 'utf8');
     expect(service).toContain('normalizeNotificationVisibleText');
+    expect(service).toContain('decodeVisibleEntities');
+    expect(service).toContain(".replace(/&hearts?;/gi, '♥')");
     expect(service).toContain(".replace(/\\bKEEP\\b/g, 'Loki')");
     expect(screen).toContain('isSensitivePaymentNotification');
     expect(screen).toContain("contentKind === 'PAYPAL_QR'");
