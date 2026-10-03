@@ -83,13 +83,11 @@ jobs:
             const coachClose=page.getByLabel(/Fermer.*guide|Fermer.*bienvenue|Fermer/i).last();
             if(await coachClose.isVisible().catch(()=>false)) await coachClose.click({force:true}).catch(()=>{});
 
-            await click(page,page.getByText('Profil',{exact:true}).last(),'profile');
-            const menu=page.getByLabel('Menu du profil').last();
-            await click(page,menu,'profile menu');
-
-            await click(page,page.getByText('Offres & crédits',{exact:true}).last(),'offers accordion');
-            await click(page,page.getByLabel('Voir les offres').last(),'open offers');
-
+            // Offers possède une route React Navigation officielle. En mode
+            // invité le menu Profil masque volontairement l'entrée payante ;
+            // charger la route produit directement permet de capturer le même
+            // écran réel sans modifier le runtime ni contourner StoreKit.
+            await page.goto('http://127.0.0.1:8081/offers',{waitUntil:'domcontentloaded',timeout:60000});
             await page.getByText('Offre & crédits',{exact:true}).last().waitFor({state:'visible',timeout:20000});
             await page.getByText('Premium',{exact:true}).last().waitFor({state:'visible',timeout:20000});
             await page.getByText('Creator Pro',{exact:true}).last().waitFor({state:'visible',timeout:20000});
