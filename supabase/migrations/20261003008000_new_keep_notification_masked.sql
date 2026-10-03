@@ -70,3 +70,72 @@ $$;
 
 revoke all on function public.notify_followers_on_public_keep() from public, anon, authenticated;
 grant execute on function public.notify_followers_on_public_keep() to service_role;
+
+
+-- Branding visible Loki Music : nettoie les anciennes notifications visibles
+-- et remplace les derniers libellés KEEP dans les générateurs Battle existants.
+-- Les identifiants techniques keep_* / NEW_PUBLIC_KEEP restent inchangés.
+update public.notifications
+set
+  title = case
+    when coalesce(data->>'username','') <> '' then 'Nouveau morceau chez @' || (data->>'username')
+    else 'Nouveau morceau'
+  end,
+  body = 'Titre masqué · écoute l’extrait et garde-le pour découvrir le titre.',
+  data = coalesce(data,'{}'::jsonb) || '{"masked":true}'::jsonb
+where type = 'NEW_PUBLIC_KEEP'
+  and (
+    title ilike '%KEEP%'
+    or body not ilike 'Titre masqué%'
+    or coalesce(data->>'masked','false') <> 'true'
+  );
+
+update public.notifications
+set
+  title = replace(replace(title, 'KEEP Battle', 'Loki Music Battle'), 'Battle KEEP', 'Loki Music Battle'),
+  body = replace(
+           replace(
+             replace(body, 'groupe KEEP Battle', 'groupe Loki Music Battle'),
+             'partage KEEP à un ami', 'partage Loki Music à un ami'
+           ),
+           'Battle KEEP', 'Loki Music Battle'
+         )
+where type like 'BATTLE_%'
+  and (title ilike '%KEEP%' or body ilike '%KEEP%');
+
+do $branding$
+declare
+  r record;
+  original_def text;
+  new_def text;
+begin
+  for r in
+    select p.oid
+    from pg_proc p
+    join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname in (
+        'keep_apply_battle_free_credit_result',
+        'keep_battle_arena_challenge_send',
+        'keep_battle_challenge_respond',
+        'keep_battle_challenge_send',
+        'keep_battle_matchmake',
+        'keep_battle_matchmake_v2',
+        'notify_followers_on_public_keep'
+      )
+  loop
+    original_def := pg_get_functiondef(r.oid);
+    new_def := original_def;
+    new_def := replace(new_def, 'Nouveau KEEP de @', 'Nouveau morceau chez @');
+    new_def := replace(new_def, 'groupe KEEP Battle', 'groupe Loki Music Battle');
+    new_def := replace(new_def, 'KEEP Battle', 'Loki Music Battle');
+    new_def := replace(new_def, 'Battle KEEP', 'Loki Music Battle');
+    new_def := replace(new_def, 'partage KEEP à un ami', 'partage Loki Music à un ami');
+    new_def := replace(new_def, 'coalesce(v_username, ''KEEP'')', 'coalesce(v_username, ''Loki'')');
+    new_def := replace(new_def, 'coalesce(nullif(username,''''),''KEEP'')', 'coalesce(nullif(username,''''),''Loki'')');
+    if new_def <> original_def then
+      execute new_def;
+    end if;
+  end loop;
+end
+$branding$;
