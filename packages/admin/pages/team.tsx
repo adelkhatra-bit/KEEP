@@ -35,7 +35,7 @@ export default function TeamPage() {
       const result = await invokeAdmin({ action: 'admins.list' });
       setMembers((result?.data ?? []) as AdminMember[]);
     } catch (e: any) {
-      setError(e?.message ?? 'Impossible de charger l’équipe Super Admin.');
+      setError(e?.message ?? 'Impossible de charger Loki Super Admin.');
     }
   };
 
@@ -101,7 +101,7 @@ export default function TeamPage() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Équipe Super Admin</div>
+      <div className="page-title">Loki Super Admin</div>
       <div className="page-subtitle">Accès nominatifs, rôles séparés et désactivation sans supprimer les comptes Loki Music.</div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}

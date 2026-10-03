@@ -27,7 +27,7 @@ const NAV: NavItem[] = [
   { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/team', label: 'Équipe Super Admin', roles: ['SUPER_ADMIN'] },
+  { href: '/team', label: 'Loki Super Admin', roles: ['SUPER_ADMIN'] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
