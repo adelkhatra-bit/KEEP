@@ -2708,11 +2708,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.finishSub}>Résultat final de cette partie</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{soloScore}</Animated.Text><Text style={s.finishScoreSlash}> / {solo.rounds.length}</Text></View>
             {soloFreeEarned > 0 ? (
-              <Text style={s.finishReward}>🎁 Tu as gagné {soloFreeEarned} Free{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → +${soloFreeEarned} → ${soloAfter})` : ''}</Text>
+              <Text style={s.finishReward}>🎁 +{soloFreeEarned} Free crédités{soloBefore !== null && soloAfter !== null ? ` (${soloBefore} → ${soloAfter})` : ''}</Text>
             ) : soloCreditPending ? (
-              <Text style={s.finishReward}>Score parfait ! Ton crédit Free est en cours de confirmation -- vérifie ton solde dans un instant.</Text>
+              <Text style={s.finishReward}>🎁 Crédit Free en cours de confirmation.</Text>
             ) : (
-              <Text style={s.finishReward}>Oups. Malheureusement tu n’as pas gagné cette fois. Refais une partie pour gagner jusqu’à {maxRewardForRounds(solo.rounds.length)} Free</Text>
+              <Text style={s.finishReward}>🎁 Aucun Free crédité sur cette partie.</Text>
             )}
           </Animated.View>
           <Text style={s.finishQuestion}>Que souhaites-tu faire ?</Text>
