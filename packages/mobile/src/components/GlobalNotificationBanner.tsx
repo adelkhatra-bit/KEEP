@@ -107,6 +107,7 @@ export default function GlobalNotificationBanner() {
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
+  const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
@@ -379,7 +380,7 @@ export default function GlobalNotificationBanner() {
     }
   };
 
-  if (blockingChallenge || blockingRematch) {
+  if ((blockingChallenge || blockingRematch) && !partiesTabOpen) {
     const challenge = blockingChallenge;
     const rematch = blockingRematch;
     return (
@@ -407,6 +408,10 @@ export default function GlobalNotificationBanner() {
   }
 
   if (!current) return null;
+  // Sur Soirées/Battle, l'écran local possède déjà les boutons de décision.
+  // Ne jamais superposer un second bandeau/bouton pour la même invitation :
+  // c'était une source de taps parasites et de refus involontaires.
+  if (partiesTabOpen && (isBattleChallenge(current) || isBattleRematch(current))) return null;
 
   const notificationAccessLockedBanner = current.data?.__notificationAccessLocked === true;
   const notificationRequiredPlan = normalizeNotificationPlanCode(current.data?.__requiredPlanCode);
