@@ -11,14 +11,14 @@ describe('notification Nouveau morceau — écoute, garder, abonnement', () => {
     expect(actions).toContain('testID="new-keep-keep"');
     expect(actions).toContain("{ text: 'Privé'");
     expect(actions).toContain("{ text: 'Public'");
-    expect(actions).toContain('GARDER GRATUITEMENT');
+    expect(actions).toContain('AJOUTER GRATUITEMENT');
     expect(actions).toContain('sans retirer de Free');
   });
 
   it('propose uniquement S’ABONNER tant que le profil n’est pas suivi', () => {
     expect(actions).toContain('testID="new-keep-follow"');
-    expect(actions).toContain('＋ S’ABONNER');
-    expect(actions).toContain('isFollowing || followedHere');
+    expect(actions).toContain("'+ S’ABONNER'");
+    expect(actions).toContain('followingOwner');
     expect(actions).not.toContain('Se désabonner');
   });
 
