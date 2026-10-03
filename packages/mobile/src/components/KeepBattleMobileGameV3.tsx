@@ -1023,6 +1023,47 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } catch {}
   }, [enabled, solo, soloAnswer, browseOnline, animateVersus, shareInvite, roundCount]);
 
+  const cancelOutgoingChallenge = React.useCallback(async (item: KeepBattleOutgoingChallenge) => {
+    if (!item?.id || cancelChallengeBusyId) return;
+    setCancelChallengeBusyId(item.id);
+    try {
+      await cancelBattleChallenge(item.id);
+      setOutgoingPendingTargetIds((current) => {
+        const next = new Set(current);
+        next.delete(item.targetId);
+        return next;
+      });
+      setOutgoingPendingByTarget((current) => {
+        const next = { ...current };
+        delete next[item.targetId];
+        return next;
+      });
+      await refreshSocial();
+    } catch (error: any) {
+      const message = String(error?.message || error || '');
+      await refreshSocial();
+      if (message.includes('BATTLE_CHALLENGE_ALREADY_ACCEPTED')) {
+        Alert.alert('Battle', `${item.username} a déjà accepté. Le Battle va s’ouvrir automatiquement.`);
+      } else if (!message.includes('NOT_CANCELLABLE')) {
+        Alert.alert('Battle', 'Impossible d’annuler cette invitation pour le moment.');
+      }
+    } finally {
+      setCancelChallengeBusyId(null);
+    }
+  }, [cancelChallengeBusyId, refreshSocial]);
+
+  const requestCancelOutgoingChallenge = React.useCallback((item: KeepBattleOutgoingChallenge) => {
+    const remaining = Math.max(0, new Date(item.expiresAt).getTime() - Date.now());
+    Alert.alert(
+      'Annuler cette invitation ?',
+      `L’invitation envoyée à ${item.username} expire dans ${formatInviteCooldown(remaining)}. Tu peux l’annuler maintenant tant qu’elle n’a pas été acceptée.`,
+      [
+        { text: 'GARDER', style: 'cancel' },
+        { text: 'ANNULER L’INVITE', style: 'destructive', onPress: () => { void cancelOutgoingChallenge(item); } },
+      ],
+    );
+  }, [cancelOutgoingChallenge]);
+
   React.useEffect(() => {
     if (!solo || arena) return;
     // Server truth for opponent cards: keep the current SOLO round fresh.
