@@ -16,9 +16,10 @@ describe('MusicAgoraPanel — historique manuel vs composeur', () => {
 
   it('détecte aussi la molette/souris comme une vraie remontée de lecture', () => {
     expect(source).toContain('const lastChatScrollYRef = useRef(0);');
-    expect(source).toContain('const movedUp = contentOffset.y < previousY - 2;');
-    expect(source).toContain('(userDraggingChatRef.current || movedUp)');
-    expect(source).toContain('!forceBottomRef.current && ownSendPendingRef.current === null');
+    expect(source).toContain("const wheelMovedUp = Platform.OS === 'web' && contentOffset.y < previousY - 2;");
+    expect(source).toContain('if (wheelMovedUp && ownSendPendingRef.current === null)');
+    expect(source).toContain('bottomRetryTimersRef.current.forEach(clearTimeout)');
+    expect(source).toContain('forceBottomRef.current = false;');
   });
 
   it('ne recentre pas un fil pendant un drag manuel', () => {
