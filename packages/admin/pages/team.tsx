@@ -34,6 +34,7 @@ export default function TeamPage() {
   const [recoveryExpiresAt, setRecoveryExpiresAt] = useState('');
   const [recoveryBusy, setRecoveryBusy] = useState(false);
   const [copiedRecovery, setCopiedRecovery] = useState(false);
+  const autoRecoveryStarted = React.useRef(false);
 
   const load = async () => {
     setError('');
@@ -121,6 +122,20 @@ export default function TeamPage() {
       setRecoveryBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || autoRecoveryStarted.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('issueRecovery') !== '1') return;
+    autoRecoveryStarted.current = true;
+    void issueRecoveryCode().finally(() => {
+      try {
+        const clean = new URL(window.location.href);
+        clean.searchParams.delete('issueRecovery');
+        window.history.replaceState({}, document.title, clean.pathname + clean.search + '#recovery-security');
+      } catch {}
+    });
+  }, []);
 
   const copyRecoveryCode = async () => {
     if (!recoveryCode) return;
