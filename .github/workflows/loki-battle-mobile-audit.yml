@@ -7,6 +7,15 @@ on:
       - reconcile/claude-main-20260825
     paths:
       - '.github/workflows/loki-battle-mobile-audit.yml'
+      - 'packages/mobile/src/components/KeepBattleMobileGameV3.tsx'
+      - 'packages/mobile/src/components/GlobalNotificationBanner.tsx'
+      - 'packages/mobile/src/screens/PartiesScreen.tsx'
+      - 'packages/mobile/src/services/battleHomeInfo.ts'
+      - 'packages/mobile/src/services/lokiSpeechService.ts'
+      - 'packages/mobile/src/services/gameExitGuard.ts'
+      - 'packages/mobile/src/store/useGameSessionStore.ts'
+      - 'packages/mobile/src/navigation/navigationRef.ts'
+      - 'packages/mobile/src/services/pushNotificationService.ts'
 
 permissions:
   contents: read
