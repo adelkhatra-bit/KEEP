@@ -348,7 +348,7 @@ export default function GlobalChatDock() {
       setLatestChatPreview(chatNotificationPreview(item));
       const chatState = useGlobalChatStore.getState();
       if (!chatState.isOpen) chatState.prime(chatNotificationTarget(item));
-      if (chatEnabled && chatNotificationsEnabled) {
+      if (chatEnabled && chatNotificationsEnabled && chatSoundEnabled) {
         // Un seul bip court pour le destinataire. Les messages émis par
         // l'utilisateur courant ne créent pas de notification pour lui-même.
         void playNotificationCue('DEFAULT').catch(() => {});
