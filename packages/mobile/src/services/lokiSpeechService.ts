@@ -82,6 +82,12 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
           volume: 1,
+          // iOS : réutiliser la session audio Loki déjà configurée avec
+          // playsInSilentModeIOS=true par le lecteur Battle. Sans cela,
+          // AVSpeechSynthesizer peut rester muet sur un iPhone physique alors
+          // que la preview musicale fonctionne. Cette même session permet
+          // aussi au ducking appliqué juste avant de rester cohérent.
+          useApplicationAudioSession: Platform.OS === 'ios' ? true : undefined,
           onDone: finish,
           onStopped: finish,
           onError: finish,
