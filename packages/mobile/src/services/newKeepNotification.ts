@@ -2,9 +2,8 @@ import type { CanonicalTrack } from '@keep/music';
 import type { KeepNotification } from './notificationService';
 import { loadMusicAgoraSharedTrack } from './musicAgoraService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
-import { commitKeep } from './keepTrackAction';
 import { loadMaskedPlaylistSaleTrackIds } from './playlistSaleService';
-import { lokiPulseKeepErrorMessage } from './lokiPulseKeep';
+import { supabase } from './supabaseClient';
 
 /**
  * Notification « Nouveau morceau chez @x » (NEW_PUBLIC_KEEP).
@@ -56,7 +55,7 @@ export function maskedNewKeepCopy(notification: KeepNotification): { title: stri
   const { username } = newKeepNotificationOwner(notification);
   return {
     title: username ? `Nouveau morceau chez ${username.replace(/^@+/, '')}` : 'Nouveau morceau',
-    body: 'Titre masqué · écoute l’extrait et garde-le pour découvrir le titre.',
+    body: 'Titre et artiste masqués · écoute le morceau puis ajoute-le gratuitement pour les découvrir.',
   };
 }
 
@@ -85,28 +84,31 @@ export async function loadNewKeepTrackState(notification: KeepNotification): Pro
 }
 
 /**
- * GARDER depuis la notification : même chemin que partout (débit FREE
- * serveur, anti-doublon par morceau, provenance sociale tracée).
+ * Ajout depuis une notification publique : gratuit, mais validé côté serveur.
+ * La RPC vérifie que la notification appartient au compte, correspond bien
+ * au morceau et qu'aucune offre de vente active ne le protège.
  */
 export async function keepFromNewKeepNotification(
   notification: KeepNotification,
   track: CanonicalTrack,
   visibility: 'PUBLIC' | 'PRIVATE',
-  freeCostPerKeep: number,
 ): Promise<{ ok: boolean; alreadyKept: boolean; error?: string }> {
-  const { profileId } = newKeepNotificationOrigin(notification);
+  if (!supabase) return { ok: false, alreadyKept: false, error: 'Service indisponible.' };
   try {
-    const result = await commitKeep(track, [], undefined, {
-      visibility,
-      consumeCredit: true,
-      context: {
-        source: 'follow_notification',
-        notificationId: notification.id,
-        ...(profileId ? { sourceProfileId: profileId } : {}),
-      },
+    const { data, error } = await supabase.rpc('keep_commit_public_notification_keep', {
+      p_notification_id: notification.id,
+      p_visibility: visibility,
     });
-    return { ok: true, alreadyKept: result.alreadyKept };
-  } catch (e: any) {
-    return { ok: false, alreadyKept: false, error: lokiPulseKeepErrorMessage(String(e?.message || ''), freeCostPerKeep) };
+    if (error) {
+      const message = String(error.message || '');
+      if (message.includes('TRACK_SALE_PROTECTED')) {
+        return { ok: false, alreadyKept: false, error: 'Cette musique fait partie d’une Pépite en vente. Ouvre le profil pour continuer.' };
+      }
+      throw error;
+    }
+    const payload = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+    return { ok: true, alreadyKept: Boolean(payload.deduplicated) };
+  } catch {
+    return { ok: false, alreadyKept: false, error: 'Impossible d’ajouter ce morceau pour le moment.' };
   }
 }
