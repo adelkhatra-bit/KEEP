@@ -298,24 +298,30 @@ async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: stri
   return String(existing.id);
 }
 
-async function findExistingTrack(title: string, artist: string, isrc: string): Promise<any | null> {
+async function findExistingTrack(track: TrackInput, isrc: string): Promise<any | null> {
+  const selectFields = "id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids,title,artist";
   if (isrc) {
-    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids").eq("isrc", isrc).maybeSingle();
+    const { data } = await admin.from("tracks").select(selectFields).eq("isrc", isrc).maybeSingle();
     if (data?.id) return data;
   }
-  const normalizedSearchTitle = normalizeText(title);
-  const normalizedSearchArtist = normalizeText(artist);
-  const { data: matches, error } = await admin
-    .from("tracks")
-    .select("id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids,title,artist")
-    .ilike("title", title)
-    .limit(20);
-  if (error) throw error;
-  for (const track of matches ?? []) {
-    if (normalizeText(track.title) === normalizedSearchTitle && normalizeText(track.artist) === normalizedSearchArtist) {
-      return track;
-    }
+
+  const providerIds = track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {};
+  const providerKeys = ["appleMusic", "spotify", "deezer"] as const;
+  for (const key of providerKeys) {
+    const value = String(providerIds[key] ?? "").trim();
+    if (!value) continue;
+    const { data, error } = await admin
+      .from("tracks")
+      .select(selectFields)
+      .eq(`provider_ids->>${key}`, value)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.id) return data;
   }
+
+  // IMPORTANT : titre + artiste n'est jamais une preuve de doublon.
+  // Deux versions peuvent partager les mêmes métadonnées tout en ayant
+  // un enregistrement, un mix ou des paroles différents.
   return null;
 }
 
@@ -325,7 +331,7 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
   const isrc = String(track.isrc ?? "").trim().toUpperCase();
   if (!title || !artist) throw new Error("invalid_track");
 
-  const existing = await findExistingTrack(title, artist, isrc);
+  const existing = await findExistingTrack(track, isrc);
   if (existing?.id) return refreshTrackMetadata(existing, track, isrc);
 
   const { data, error } = await admin.from("tracks").insert({
@@ -348,7 +354,7 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
   // instant. L'index unique PostgreSQL gagne la course ; le perdant recharge
   // simplement le track déjà créé au lieu de fabriquer un doublon ou une 500.
   if ((error as any)?.code === "23505") {
-    const raced = await findExistingTrack(title, artist, isrc);
+    const raced = await findExistingTrack(track, isrc);
     if (raced?.id) return refreshTrackMetadata(raced, track, isrc);
   }
   throw error;
