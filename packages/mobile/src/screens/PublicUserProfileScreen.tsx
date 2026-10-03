@@ -1598,7 +1598,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           <ProfileMotionReveal motionKey={`visitor-market:${profile.id}:${saleOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
             <View style={styles.marketplaceHeaderRow}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.marketplaceKicker}>À ÉCOUTER · @{profile.username}</Text>
+                <Text style={styles.marketplaceKicker}>{isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'} · @{profile.username}</Text>
               </View>
               <View style={styles.marketplaceHeaderActions}>
                 <TouchableOpacity style={styles.marketplaceHideButton} onPress={hideMarketBanner} accessibilityLabel="Masquer les collections de ce profil">

@@ -26,6 +26,10 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(boutique).toContain("nouveau${dropNew > 1 ? 'x' : ''} pour toi");
   });
 
+  it('affiche la bande club musical sans toucher au design du profil', () => {
+    expect(source).toContain("isOwner ? 'MON CLUB MUSICAL' : 'SON CLUB MUSICAL'");
+  });
+
   it('ne remplace pas le composant Drop existant ni son prix', () => {
     expect(source).toContain('<SellerBoutique');
     expect(boutique).toContain("const free = offer.paymentMode === 'FREE';");
