@@ -859,12 +859,20 @@ export default function MusicAgoraPanel({
   useEffect(() => {
     if (!messages.length) return;
     const timer = setTimeout(() => {
-      // Même comportement pour La Place, les messages directs et les groupes :
-      // à l'ouverture / après un nouveau message, la conversation se cale sur
-      // le plus récent. L’historique plus ancien se charge seulement quand
-      // l’utilisateur remonte volontairement tout en haut du fil.
-      followChatBottom(initialScrollDone.current);
-      initialScrollDone.current = true;
+      // À l'ouverture on se place sur le dernier message. Ensuite, si
+      // l'utilisateur est remonté pour relire l'historique, un nouveau message
+      // NE DOIT JAMAIS lui voler sa position. Il redescendra volontairement en
+      // touchant « Écris un message » ou via le bouton "dernier message".
+      if (!initialScrollDone.current) {
+        followChatBottom(false);
+        initialScrollDone.current = true;
+        return;
+      }
+      if (browsingHistoryRef.current || !stickToBottomRef.current) {
+        setShowLatestJump(true);
+        return;
+      }
+      followChatBottom(true);
     }, 40);
     return () => clearTimeout(timer);
   }, [messages[messages.length - 1]?.id, roomSlug, replyTarget?.profileId, activeGroup?.id, chatMode]);
