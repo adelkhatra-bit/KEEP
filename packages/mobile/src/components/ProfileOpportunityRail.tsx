@@ -107,9 +107,9 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
   const show = () => { setVisible(true); void AsyncStorage.setItem(storageKey, 'visible'); };
 
   if (!visible) {
-    return <TouchableOpacity style={s.reopen} onPress={show} accessibilityRole="button" accessibilityLabel="Afficher le drop musical du moment">
+    return <TouchableOpacity style={s.reopen} onPress={show} accessibilityRole="button" accessibilityLabel="Afficher les Pépites recommandées pour toi">
       <Text style={s.reopenIcon}>◆</Text>
-      <View style={s.reopenCopy}><Text style={s.reopenTitle}>DROP DU MOMENT</Text><Text style={s.reopenMeta}>Une nouvelle sélection t’attend</Text></View>
+      <View style={s.reopenCopy}><Text style={s.reopenTitle}>PÉPITES POUR TOI</Text><Text style={s.reopenMeta}>Des collections d’autres utilisateurs recommandées selon ton univers</Text></View>
       <Text style={s.reopenArrow}>›</Text>
     </TouchableOpacity>;
   }
@@ -137,7 +137,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
         />
 
         <View style={s.playerTop}>
-          <View style={s.liveBadge}><View style={s.liveDot}/><Text style={s.liveBadgeText}>DROP DU MOMENT</Text></View>
+          <View style={s.liveBadge}><View style={s.liveDot}/><Text style={s.liveBadgeText}>PÉPITES POUR TOI</Text></View>
           <Text style={s.position}>{index + 1}/{suggestions.length}</Text>
         </View>
 
@@ -160,7 +160,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
 
           <View style={s.copy}>
             <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouvelle Pépite'}</Text>
-            <Text style={s.meta} numberOfLines={1}>{suggestion.trackCount} titres · {genre} · sélection recommandée</Text>
+            <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername.replace(/^@+/, '')} · {suggestion.trackCount} titres · {genre}</Text>
             <Text style={s.overlap} numberOfLines={1}>{overlapLabel}</Text>
           </View>
         </View>
@@ -208,7 +208,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
           </Animated.View>
           <View style={s.listenCopy}>
             <Text style={s.listenTitle}>1 TAP · ÉCOUTER 15 s</Text>
-            <Text style={s.listenHint}>Aperçu d’abord · déblocage seulement si tu le choisis</Text>
+            <Text style={s.listenHint}>Collection d’un autre utilisateur · aperçu avant FREE ou PayPal</Text>
           </View>
           <Text style={s.listenArrow}>›</Text>
         </View>
@@ -221,7 +221,7 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
       </View>
     </TouchableOpacity>
 
-    <TouchableOpacity style={s.hide} onPress={hide} accessibilityLabel="Masquer le drop musical">
+    <TouchableOpacity style={s.hide} onPress={hide} accessibilityLabel="Masquer les Pépites recommandées">
       <Text style={s.hideText}>MASQUER</Text>
     </TouchableOpacity>
   </View>;
