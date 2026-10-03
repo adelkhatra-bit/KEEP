@@ -25,7 +25,7 @@ import { EventRsvpStatus, loadMyRsvps, setEventRsvp, loadEventById, CreatorEvent
 import { createProfileService } from '../services/profileService';
 import { stageGuestProfileForUpgrade } from '../services/guestUpgradeService';
 import { supabase } from '../services/supabaseClient';
-import { cancelPlaylistSalePayment, loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid } from '../services/playlistSaleService';
+import { cancelPlaylistSalePayment, loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlaylistSalePaid, reportPlaylistSalePaymentProblem } from '../services/playlistSaleService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import { extractMusicAgoraPayoutQrUrl, loadMusicAgoraSettings, saveMusicAgoraSettings, MusicAgoraSurface } from '../services/musicAgoraService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -509,6 +509,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   };
   const isBuyerPaymentReady = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_PAYMENT_READY' && Boolean(paymentIdOf(item));
   const isSellerPaymentAction = (item: KeepNotification) => ['PLAYLIST_SALE_BUYER_PAID','PLAYLIST_SALE_PAYMENT_REMINDER'].includes(String(item.type || '').toUpperCase()) && Boolean(paymentIdOf(item));
+  const isBuyerWaitingSeller = (item: KeepNotification) => String(item.type || '').toUpperCase() === 'PLAYLIST_SALE_WAITING_SELLER' && Boolean(paymentIdOf(item));
 
   const isSensitivePaymentNotification = (item: KeepNotification): boolean => {
     const type = String(item.type || '').trim().toUpperCase();
@@ -658,7 +659,29 @@ export default function NotificationsScreen({ navigation, route }: any) {
     );
   };
 
-    const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
+    const reportPaymentProblem = async (item: KeepNotification) => {
+    const paymentId = paymentIdOf(item);
+    if (!paymentId || paymentBusyId) return;
+    setPaymentBusyId(paymentId);
+    try {
+      await reportPlaylistSalePaymentProblem(paymentId, 'Aucune réponse ou problème de transaction signalé depuis les notifications.');
+      setNotice('Réclamation envoyée au Super Admin avec la référence de transaction');
+      await readOne(item);
+    } catch (e: any) {
+      const raw = String(e?.message || '');
+      setError(
+        raw.includes('PAYMENT_REPORT_TOO_EARLY')
+          ? 'La réclamation devient disponible après 4 h sans réponse.'
+          : raw.includes('PAYMENT_NOT_REPORTED_YET')
+            ? 'Le paiement doit d’abord être signalé avec une preuve.'
+            : 'Impossible d’envoyer la réclamation pour le moment.',
+      );
+    } finally {
+      setPaymentBusyId(null);
+    }
+  };
+
+  const confirmPlaylistPaymentReceived = async (item: KeepNotification) => {
     const paymentId = paymentIdOf(item);
     if (!paymentId || paymentBusyId) return;
     const data = item.data as Record<string, unknown> | null;
@@ -1161,6 +1184,17 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <Text style={styles.paymentActionConfirmText}>{paymentBusyId === paymentIdOf(item) ? 'DÉBLOCAGE…' : 'VALIDER LE PAIEMENT'}</Text>
                   </TouchableOpacity>
                 </View>
+              ) : null}
+              {isSellerPaymentAction(item) || isBuyerWaitingSeller(item) ? (
+                <TouchableOpacity
+                  style={styles.cancelPaymentButton}
+                  disabled={paymentBusyId === paymentIdOf(item)}
+                  onPress={() => void reportPaymentProblem(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Signaler un problème ou une absence de réponse"
+                >
+                  <Text style={styles.cancelPaymentButtonText}>RÉCLAMATION / AUCUNE RÉPONSE</Text>
+                </TouchableOpacity>
               ) : null}
               <View style={styles.cardFooter}>
                 {!item.readAt ? <TouchableOpacity onPress={() => { void readOne(item); }}><Text style={styles.readAction}>Marquer comme lu</Text></TouchableOpacity> : <View />}
