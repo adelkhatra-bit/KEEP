@@ -256,6 +256,32 @@ jobs:
           # si l'entitlement Push Notifications vient d'être activé/corrigé.
           eas build --local --platform ios --profile "$profile" --non-interactive --clear-cache --output "$RUNNER_TEMP/loki.ipa"
 
+      - name: 🔔 Vérifier entitlement Push signé
+        if: ${{ (inputs.profile || 'production') == 'production' }}
+        run: |
+          set -euo pipefail
+          check_dir="$RUNNER_TEMP/loki-ipa-check"
+          rm -rf "$check_dir"
+          mkdir -p "$check_dir"
+          unzip -q "$RUNNER_TEMP/loki.ipa" -d "$check_dir"
+          app_path="$(find "$check_dir/Payload" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          test -n "$app_path"
+          codesign -d --entitlements :- "$app_path" > "$check_dir/app-entitlements.plist" 2>/dev/null
+          app_aps="$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$check_dir/app-entitlements.plist")"
+          test "$app_aps" = "production"
+
+          test -f "$app_path/embedded.mobileprovision"
+          security cms -D -i "$app_path/embedded.mobileprovision" > "$check_dir/profile.plist"
+          profile_aps="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$check_dir/profile.plist")"
+          test "$profile_aps" = "production"
+
+          application_id="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$check_dir/profile.plist")"
+          case "$application_id" in
+            *.com.adelkhatra.keep) ;;
+            *) echo "Unexpected provisioning application-identifier"; exit 1 ;;
+          esac
+          echo "Signed app + provisioning profile: aps-environment=production"
+
       - name: 📤 Soumettre a TestFlight
         if: ${{ (inputs.profile || 'production') == 'production' }}
         env:
