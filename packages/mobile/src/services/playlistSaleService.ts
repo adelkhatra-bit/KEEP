@@ -578,7 +578,7 @@ export async function setPlaylistSaleOfferForSelection(
   paymentMode: PlaylistSalePaymentMode,
   amount: number,
   currencyCode = 'EUR',
-  allowExisting = false,
+  _allowExisting = false,
   bothFreePrice: number | null = null,
 ): Promise<PlaylistSaleOffer> {
   const mode = normalizePlaylistSalePaymentMode(paymentMode);
@@ -592,7 +592,7 @@ export async function setPlaylistSaleOfferForSelection(
     p_free_price: mode === 'MONEY' ? null : freeAmount,
     p_currency_code: currencyCode,
     p_cover_url: null,
-    p_allow_existing: allowExisting,
+    p_allow_existing: false,
   });
   if (error) throw new Error(String(error.message || 'PLAYLIST_SALE_SELECTION_FAILED'));
   const row = data as any;
