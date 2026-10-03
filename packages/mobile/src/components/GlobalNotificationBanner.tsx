@@ -12,6 +12,7 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { Alert } from '../utils/keepAlert';
 import { setEventRsvp } from '../services/creatorEventService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
+import { supabase } from '../services/supabaseClient';
 import { useGameSessionStore } from '../store/useGameSessionStore';
 import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
 import NewKeepNotificationActions from './NewKeepNotificationActions';
@@ -229,6 +230,28 @@ export default function GlobalNotificationBanner() {
     const timer = setTimeout(() => setBattleDecisionReady(true), 700);
     return () => clearTimeout(timer);
   }, [blockingChallenge?.id, blockingRematch?.arenaId]);
+
+  useEffect(() => {
+    if (!user?.id || isDemoMode || isLocalGuest || !supabase) return undefined;
+    // Source temps réel dédiée aux décisions Battle. Contrairement à la
+    // notification visuelle, elle ne dépend d'aucune préférence utilisateur :
+    // une invitation PENDING doit apparaître immédiatement depuis Profil,
+    // Écouter, Découvertes, Playlists ou Soirées.
+    const channel = supabase
+      .channel(`battle-decision:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'keep_battle_challenges',
+          filter: `target_id=eq.${user.id}`,
+        },
+        () => { void refreshBlockingBattleDecision(); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [isDemoMode, isLocalGuest, refreshBlockingBattleDecision, user?.id]);
 
   useEffect(() => {
     if (!user?.id || isDemoMode || isLocalGuest) {
