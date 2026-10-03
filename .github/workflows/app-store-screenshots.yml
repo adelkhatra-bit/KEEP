@@ -100,12 +100,21 @@ jobs:
               await page.waitForTimeout(1200);
             }
 
-            const coach = page.getByLabel('Passer le mini-tour').last();
-            await coach.waitFor({state:'visible',timeout:5000}).catch(()=>{});
-            if (await coach.isVisible().catch(()=>false)) {
-              await coach.click({force:true});
-              await coach.waitFor({state:'hidden',timeout:5000}).catch(()=>{});
-              await page.waitForTimeout(300);
+            // Fermer complètement le mini-tour avant toute capture App Store.
+            for (let i=0;i<7;i++) {
+              const byLabel = page.getByLabel('Passer le mini-tour').last();
+              const byText = page.getByText('Passer',{exact:true}).last();
+              if (await byLabel.isVisible().catch(()=>false)) {
+                await byLabel.click({force:true});
+                await page.waitForTimeout(250);
+                continue;
+              }
+              if (await byText.isVisible().catch(()=>false)) {
+                await byText.click({force:true});
+                await page.waitForTimeout(250);
+                continue;
+              }
+              break;
             }
 
             for (const tab of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) {
@@ -284,33 +293,28 @@ jobs:
             let existing=await api('/v1/appScreenshotSets/'+set.id+
               '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
 
-            // Two previous CI runs could overlap and reserve the same screenshot
-            // names at the same time. Keep one copy of each file and delete only
-            // exact duplicate names before uploading the missing screens.
-            const seen=new Set();
-            for(const shot of (existing.data||[])){
-              const name=shot.attributes?.fileName||'';
-              if(!name || !seen.has(name)){
-                if(name) seen.add(name);
-                continue;
-              }
-              await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
-              console.log('Deleted duplicate screenshot:',name);
-            }
-            existing=await api('/v1/appScreenshotSets/'+set.id+
-              '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
-            const existingNames=new Set((existing.data||[]).map(x=>x.attributes?.fileName).filter(Boolean));
+            const oldShots=[...(existing.data||[])];
 
             const dir='artifacts/app-store-65';
-            const files=fs.readdirSync(dir).filter(n=>n.endsWith('.jpg')).sort();
+            // Le profil invité affiche un identifiant technique : garder le
+            // fichier dans l'artefact de contrôle mais ne pas l'envoyer au Store.
+            const files=fs.readdirSync(dir)
+              .filter(n=>n.endsWith('.jpg') && !n.startsWith('06-profil'))
+              .sort();
             if(files.length<5) throw new Error('Expected at least five App Store screenshots; got '+files.length);
 
-            for(const name of files){
-              if(existingNames.has(name)){
-                console.log('Already present:',name);
-                continue;
-              }
-              const file=path.join(dir,name);
+            // Le set Apple est limité à 10. Libérer uniquement les places
+            // nécessaires avant l'upload afin de ne jamais laisser la fiche vide.
+            const needSlots=Math.max(0, oldShots.length+files.length-10);
+            for(const shot of oldShots.slice(0,needSlots)){
+              await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
+              console.log('Freed old slot:',shot.attributes?.fileName||shot.id);
+            }
+
+            const uploadedIds=[];
+            for(const originalName of files){
+              const name='loki-clean-'+originalName;
+              const file=path.join(dir,originalName);
               const buffer=fs.readFileSync(file);
               const reservation=await api('/v1/appScreenshots',{
                 method:'POST',
@@ -328,14 +332,30 @@ jobs:
                 body:{data:{type:'appScreenshots',id:shot.id,attributes:{uploaded:true,sourceFileChecksum:md5}}}
               });
               const state=await waitProcessed(shot.id);
-              console.log('Uploaded',name,'state',state);
+              if(!['COMPLETE','UPLOAD_COMPLETE'].includes(state)) throw new Error(name+' did not complete: '+state);
+              uploadedIds.push(shot.id);
+              console.log('Uploaded clean screenshot:',name,'state',state);
+            }
+
+            // Les nouvelles captures sont chez Apple : retirer maintenant tout
+            // l'ancien lot (doublons et images de première installation).
+            for(const shot of oldShots){
+              if(uploadedIds.includes(shot.id)) continue;
+              const current=await api('/v1/appScreenshots/'+shot.id+'?fields[appScreenshots]=fileName',{allow404:true});
+              if(current?.data){
+                await api('/v1/appScreenshots/'+shot.id,{method:'DELETE'});
+                console.log('Removed superseded screenshot:',shot.attributes?.fileName||shot.id);
+              }
             }
 
             existing=await api('/v1/appScreenshotSets/'+set.id+
               '/appScreenshots?fields[appScreenshots]=fileName,assetDeliveryState&limit=200');
-            const total=(existing.data||[]).length;
-            console.log('APP_IPHONE_65 screenshots now present:',total);
-            if(total<6) throw new Error('Apple still has fewer than six unique 6.5-inch screenshots.');
+            const finalShots=(existing.data||[]);
+            console.log('APP_IPHONE_65 final screenshots:',finalShots.map(x=>x.attributes?.fileName));
+            if(finalShots.length!==files.length) throw new Error('Unexpected final screenshot count: '+finalShots.length);
+            if(finalShots.some(x=>!String(x.attributes?.fileName||'').startsWith('loki-clean-'))) {
+              throw new Error('Old screenshots still present after cleanup');
+            }
           })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
           NODE
 
