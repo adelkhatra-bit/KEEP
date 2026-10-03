@@ -50,7 +50,7 @@ import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
 import LoginPill from '../components/LoginPill';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
-import SellerBoutique from '../components/SellerBoutique';
+import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
 import { buildPayoutCheckoutUrl } from '../services/payoutLinkService';
 import { loadProfileSaleSuggestions, ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
@@ -1884,7 +1884,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </ProfileMotionReveal>
 
       {!accountRequired && ownerBoutiqueOffers.length ? (
-        <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={s.sectionMargin}>
+        <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
           <SellerBoutique
             offers={ownerBoutiqueOffers}
             sellerUsername={user.username}

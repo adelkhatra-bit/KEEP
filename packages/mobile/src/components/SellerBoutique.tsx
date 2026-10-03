@@ -1,6 +1,6 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
@@ -31,6 +31,17 @@ const GENRE_GRADIENTS: [string, string][] = [
 
 type SortKey = 'FOR_YOU' | 'NEW' | 'PRICE';
 type FilterKey = 'ALL' | 'FREE' | 'MONEY' | `GENRE:${string}`;
+
+export const SELLER_BOUTIQUE_SECTION_STYLE: ViewStyle = {
+  marginHorizontal: 18,
+  marginTop: 14,
+  paddingVertical: 14,
+  paddingHorizontal: 14,
+  borderRadius: 22,
+  backgroundColor: colors.backgroundElevated,
+  borderWidth: 1,
+  borderColor: colors.primary,
+};
 
 type Props = {
   offers: PublicPlaylistSaleOffer[];

@@ -33,6 +33,12 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(source).toContain('onOpenOffer={(offer) => openSaleFolder(offer)}');
   });
 
+  it('partage aussi exactement le même habillage de boutique entre propriétaire et visiteur', () => {
+    expect(source).toContain("SELLER_BOUTIQUE_SECTION_STYLE");
+    expect(ownerSource).toContain("SELLER_BOUTIQUE_SECTION_STYLE");
+    expect(boutique).toContain("export const SELLER_BOUTIQUE_SECTION_STYLE");
+  });
+
   it('utilise exactement la même SellerBoutique sur le profil propriétaire', () => {
     expect(ownerSource).toContain("import SellerBoutique from '../components/SellerBoutique';");
     expect(ownerSource).toContain('<SellerBoutique');
