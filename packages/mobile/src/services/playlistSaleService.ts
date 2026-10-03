@@ -193,6 +193,43 @@ export async function requestPlaylistPurchase(offerId: string): Promise<Playlist
   };
 }
 
+export type PlaylistBundleFreePurchaseResult = {
+  bundleCount: number;
+  freeSpent: number;
+  remainingFree: number;
+};
+
+export async function requestPlaylistBundlePurchase(offerIds: string[]): Promise<PlaylistPurchaseRequest & { bundleCount: number }> {
+  const ids = Array.from(new Set(offerIds.filter(Boolean)));
+  if (ids.length < 2) throw new Error('BUNDLE_REQUIRES_MULTIPLE_OFFERS');
+  const { data, error } = await client().rpc('keep_playlist_sale_request_bundle_purchase', { p_offer_ids: ids });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_BUNDLE_PURCHASE_REQUEST_FAILED'));
+  const row = data as any;
+  return {
+    paymentId: String(row?.paymentId ?? ''),
+    status: (row?.status ?? 'PENDING') as 'PENDING' | 'COMPLETED',
+    amountCents: Number(row?.amountCents ?? 0),
+    currencyCode: String(row?.currencyCode ?? 'EUR'),
+    sellerUsername: String(row?.sellerUsername ?? ''),
+    payoutLink: String(row?.payoutLink ?? ''),
+    payoutQrUrl: String(row?.payoutQrUrl ?? row?.payout_qr_url ?? ''),
+    bundleCount: Number(row?.bundleCount ?? ids.length),
+  };
+}
+
+export async function purchasePlaylistBundleWithFree(offerIds: string[]): Promise<PlaylistBundleFreePurchaseResult> {
+  const ids = Array.from(new Set(offerIds.filter(Boolean)));
+  if (!ids.length) throw new Error('BUNDLE_EMPTY');
+  const { data, error } = await client().rpc('keep_playlist_sale_purchase_bundle_with_free', { p_offer_ids: ids });
+  if (error) throw new Error(String(error.message || 'PLAYLIST_BUNDLE_FREE_PURCHASE_FAILED'));
+  const row = data as any;
+  return {
+    bundleCount: Number(row?.bundleCount ?? ids.length),
+    freeSpent: Number(row?.freeSpent ?? 0),
+    remainingFree: Number(row?.remainingFree ?? 0),
+  };
+}
+
 export type PlaylistBuyerPaymentSignal = {
   paymentId: string;
   status: 'PENDING' | 'COMPLETED';
