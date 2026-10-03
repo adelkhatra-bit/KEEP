@@ -36,4 +36,12 @@ describe('profile FREE daily spend + visibility protection', () => {
     expect(privacyMigration).toContain("p_visibility='PUBLIC'");
     expect(contract.marketplacePurchases.bulkPublicMustNeverExposeActiveSaleTracks).toBe(true);
   });
+
+  it('exposes a dedicated private filter and warns before publishing a track that is on sale', () => {
+    expect(music).toContain("['PRIVATE', 'PRIVÉ']");
+    expect(music).toContain("originFilter === 'PRIVATE' ? privateTracks");
+    expect(music).toContain("'Cette musique est en vente'");
+    expect(music).toContain("'Retirer de la vente + Public'");
+    expect(music).toContain("await removeTrackFromOffer(offered.offerId, track.id)");
+  });
 });

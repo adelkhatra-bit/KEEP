@@ -169,7 +169,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [mobileSection, setMobileSection] = useState<'HOME' | 'TRACKS' | 'EDIT' | 'ORGANIZE'>('HOME');
   const [visibilityIntroOpen, setVisibilityIntroOpen] = useState(false);
   const [socialSectionExpanded, setSocialSectionExpanded] = useState(true);
-  const [originFilter, setOriginFilter] = useState<'ALL' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL');
+  const [originFilter, setOriginFilter] = useState<'ALL' | 'PRIVATE' | 'LISTEN' | 'SESSION' | 'USERS' | 'IDENTIFIED' | 'PULSE'>('ALL');
   const [serverKeeps, setServerKeeps] = useState<PersistedKeepDecision[]>([]);
   // Adel (14/09/2026) : "chaque utilisateur ... vendre leur playlist ...
   // pour le debloquer il faut un certain nombre d'abonnes" -- construit
@@ -445,6 +445,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
   );
   const ownDiscoveryTracks = useMemo(() => ownDiscoveryEntries.map((entry) => entry.track), [ownDiscoveryEntries]);
   const socialRepriseTracks = useMemo(() => socialRepriseEntries.map((entry) => entry.track), [socialRepriseEntries]);
+  const privateEntries = useMemo(() => localKeptEntries.filter((entry) => entry.visibility === 'PRIVATE'), [localKeptEntries]);
+  const privateTracks = useMemo(() => privateEntries.map((entry) => entry.track), [privateEntries]);
   const localKeptTracks = useMemo(() => localKeptEntries.map((entry) => entry.track), [localKeptEntries]);
   const saleCartTracks = useMemo(
     () => localKeptTracks.filter((track) => selectedSaleTrackIds.has(track.id)),
@@ -1208,6 +1210,35 @@ export default function MyMusicScreen({ navigation, route }: any) {
     const key = trackIdentity(track);
     if (trackVisibilityBusy === key || trackDeleteBusy === key) return;
     const next = entry.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+    const offered = myOfferedTrackIds[track.id];
+    if (next === 'PUBLIC' && offered) {
+      Alert.alert(
+        'Cette musique est en vente',
+        `« ${track.title} » fait partie de « ${offered.playlistName} ». Tant que la collection est active, Loki la masque aux visiteurs. Si tu la rends publique, elle doit d’abord être retirée de cette collection.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Gérer la collection', onPress: () => navigation.navigate('PlaylistSale', { manageSaleOfferId: offered.offerId, manageSaleOfferName: offered.playlistName }) },
+          { text: 'Retirer de la vente + Public', style: 'destructive', onPress: () => {
+            setTrackVisibilityBusy(key);
+            void (async () => {
+              try {
+                await removeTrackFromOffer(offered.offerId, track.id);
+                await setSaleTrackVisibility(track.id, 'PUBLIC');
+                setMyOfferedTrackIds((prev) => { const nextOffers = { ...prev }; delete nextOffers[track.id]; return nextOffers; });
+                await refreshSaleState();
+                await refreshLibrary();
+                Alert.alert('Musique publique', 'Le morceau a été retiré de la collection en vente et est maintenant public sur ton profil.');
+              } catch (e: any) {
+                Alert.alert('Visibilité', e?.message ?? 'Impossible de retirer ce morceau de la vente pour le moment.');
+              } finally {
+                setTrackVisibilityBusy(null);
+              }
+            })();
+          } },
+        ],
+      );
+      return;
+    }
     setTrackVisibilityBusy(key);
     try {
       if (isLocalGuest || isDemoMode) {
@@ -1568,6 +1599,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.originFilters}>
           {([
             ['ALL', 'TOUT'],
+            ['PRIVATE', 'PRIVÉ'],
             ['LISTEN', 'DÉCOUVERTE'],
             ['SESSION', 'SESSION'],
             ['USERS', '🔒 REPRISE'],
@@ -1620,6 +1652,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {mobileSection === 'HOME' ? null : activeTab === 'MUSIQUES' ? (
         <FlatList
           data={originFilter === 'USERS' ? socialRepriseTracks
+            : originFilter === 'PRIVATE' ? privateTracks
             : originFilter === 'PULSE' ? lokiPulseEntries.map((entry) => entry.track)
             : originFilter === 'SESSION' ? sessionEntries.map((entry) => entry.track)
             : originFilter === 'IDENTIFIED' ? identifiedEntries.map((entry) => entry.track)
@@ -1654,6 +1687,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
                   <Text style={[styles.originSectionTitle, originFilter === 'USERS' ? styles.originSectionTitleSocial : styles.originSectionTitleOwn]}>
                     {originFilter === 'USERS'
                       ? "🔒 Reprises d'autres utilisateurs"
+                      : originFilter === 'PRIVATE'
+                        ? 'Mes morceaux privés'
                       : originFilter === 'PULSE'
                         ? 'Loki Pulse'
                         : originFilter === 'SESSION'
@@ -1668,6 +1703,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
                 <Text style={[styles.originSectionCount, originFilter === 'USERS' ? styles.originSectionCountSocial : styles.originSectionCountOwn]}>
                   {originFilter === 'USERS'
                     ? socialRepriseEntries.length
+                    : originFilter === 'PRIVATE'
+                      ? privateEntries.length
                     : originFilter === 'PULSE'
                       ? lokiPulseEntries.length
                       : originFilter === 'SESSION'
