@@ -151,7 +151,18 @@ for (const expected of ['{APP_NAME} LIVE · RECONCILE', 'admin_users', 'signInWi
   if (!admin.includes(expected)) failures.push(`ADMIN LOGIN MARKER MISSING: ${expected}`);
 }
 if (/signInWithOtp|Recevoir un lien de secours|emailRedirectTo/i.test(admin)) failures.push('BROKEN ADMIN MAGIC-LINK FLOW REINTRODUCED');
+
 if (admin.includes("const DEMO_PASSWORD = '1234'")) failures.push('DEMO ADMIN PASSWORD REINTRODUCED');
+const authBoundary = productContract.authBoundary || {};
+if (authBoundary.adminSurface !== 'packages/admin') failures.push('AUTH BOUNDARY ADMIN SURFACE MISMATCH');
+if (authBoundary.userSurface !== 'packages/mobile') failures.push('AUTH BOUNDARY USER SURFACE MISMATCH');
+if (authBoundary.adminAuthorityTable !== 'public.admin_users') failures.push('AUTH BOUNDARY ADMIN AUTHORITY MISMATCH');
+if (authBoundary.adminFallback !== 'keep-admin-bootstrap one-time recovery code only') failures.push('AUTH BOUNDARY ADMIN FALLBACK MISMATCH');
+if (authBoundary.userRecoveryService !== 'keep-auth-email') failures.push('AUTH BOUNDARY USER RECOVERY MISMATCH');
+if (authBoundary.adminRecoveryMustNotUseUserEmailFlow !== true) failures.push('AUTH BOUNDARY MUST FORBID USER RECOVERY IN ADMIN');
+if (admin.includes("keep-auth-email")) failures.push('ADMIN MUST NOT CALL USER keep-auth-email RECOVERY');
+if (admin.includes("../mobile/") || admin.includes("packages/mobile")) failures.push('ADMIN MUST NOT IMPORT MOBILE AUTH RUNTIME');
+
 
 const sharing = fs.readFileSync(path.join(root, 'packages/mobile/src/services/sharingService.ts'), 'utf8');
 if (!sharing.includes('shareProfileByEmail')) failures.push('USER-OWNED EMAIL SHARE MISSING');
