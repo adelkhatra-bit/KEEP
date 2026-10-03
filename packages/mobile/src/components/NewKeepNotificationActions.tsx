@@ -211,7 +211,7 @@ export default function NewKeepNotificationActions({
     return (
       <View>
         <View testID="new-keep-revealed" style={s.revealed}>
-          <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ DANS TA COLLECTION'}</Text>
+          <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ CHEZ TOI'}</Text>
           <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
         </View>
         <Text style={s.revealedHint}>Titre et artiste révélés · empreinte du premier découvreur conservée.</Text>
