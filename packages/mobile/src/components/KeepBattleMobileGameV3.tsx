@@ -3462,6 +3462,8 @@ const s = StyleSheet.create({
   battleCheckboxMark: { color: '#FFF', fontSize: 14, fontWeight: '900' },
   battleStatusBadge: { minHeight: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   battleStatusBadgeText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  battleStatusBadgeCancel: { borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.10)' },
+  battleStatusBadgeCancelText: { color: colors.danger },
   battleStatusBadgeMuted: { opacity: 0.75 },
   battleStatusBadgeTextMuted: { color: colors.textMuted },
   battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
