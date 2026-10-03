@@ -57,3 +57,12 @@ AUDIT/REFONTE MOBILE demandé par Adel. Continuer uniquement sur `reconcile/clau
 ### 2026-09-29 — reçu
 
 Adel demande un travail à deux avec ChatGPT Sol. ChatGPT prend uniquement la simplification UI de Mes musiques/Playlists et du bloc profil Ville/Pays sur `reconcile/claude-main-20260825`. Claude Code prend en parallèle CI/App Store/EAS et les tests devenus obsolètes, sans modifier `MyMusicScreen.tsx` ni `ProfileSettingsMobileScreen.tsx` jusqu'au handoff de fin. Ne pas toucher App.tsx, Navigation.tsx ni la barre des 5 onglets. Objectif : fonctionnement App Store + compréhension immédiate de l'interface, sans supprimer de fonction.
+
+## 🔐 AUTHENTIFICATION — FRONTIÈRE USER / SUPER ADMIN
+
+- **Utilisateur Loki** : runtime `packages/mobile`; récupération utilisateur = `keep-auth-email`.
+- **Super Admin** : runtime `packages/admin`; autorité = `public.admin_users` + rôle actif; login principal = mot de passe Supabase; secours = `keep-admin-bootstrap` avec code à usage unique.
+- Il est **interdit** de brancher le Super Admin sur `keep-auth-email`, le magic-link utilisateur ou un écran mobile de récupération.
+- Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
+- Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
+- Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.
