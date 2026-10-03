@@ -427,7 +427,7 @@ export default function GlobalNotificationBanner() {
 
   if (!user || isDemoMode || isLocalGuest) return null;
 
-  const answerBlockingChallenge = async (accept: boolean) => {
+  const commitBlockingChallengeDecision = async (accept: boolean) => {
     if (!blockingChallenge || respondBusy) return;
     const item = blockingChallenge;
     setRespondBusy(true);
@@ -441,6 +441,19 @@ export default function GlobalNotificationBanner() {
       setRespondBusy(false);
       setTimeout(() => { void refreshBlockingBattleDecision(); }, 250);
     }
+  };
+  const answerBlockingChallenge = (accept: boolean) => {
+    if (accept) { void commitBlockingChallengeDecision(true); return; }
+    const item = blockingChallenge;
+    if (!item || respondBusy) return;
+    Alert.alert(
+      'Refuser ce Battle ?',
+      `Confirme uniquement si tu veux réellement refuser l’invitation de ${item.username}.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => { void commitBlockingChallengeDecision(false); } },
+      ],
+    );
   };
 
   const answerBlockingRematch = async (accept: boolean) => {
@@ -595,7 +608,7 @@ export default function GlobalNotificationBanner() {
   // page ... êtes-vous prêt oui ou non" -- une fois "disponible" activé, le
   // bandeau global doit permettre de répondre directement, pas seulement
   // avertir puis renvoyer vers l'écran Battle.
-  const respondFromBanner = async (accept: boolean) => {
+  const commitBannerBattleDecision = async (accept: boolean) => {
     if (!challengeId || respondBusy) return;
     setRespondBusy(true);
     try {
@@ -609,6 +622,18 @@ export default function GlobalNotificationBanner() {
     } finally {
       setRespondBusy(false);
     }
+  };
+  const respondFromBanner = (accept: boolean) => {
+    if (accept) { void commitBannerBattleDecision(true); return; }
+    if (!challengeId || respondBusy) return;
+    Alert.alert(
+      'Refuser ce Battle ?',
+      'Confirme le refus. Sans cette confirmation, aucune invitation Battle ne peut être refusée.',
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: 'REFUSER', style: 'destructive', onPress: () => { void commitBannerBattleDecision(false); } },
+      ],
+    );
   };
 
   // Adel (03/09/2026) : "quand j'appuie sur revanche, pareil ça me met une
