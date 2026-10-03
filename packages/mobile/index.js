@@ -8,6 +8,7 @@ import SharedMusicHandoff from './src/components/SharedMusicHandoff';
 import BackgroundListeningLifecycle from './src/components/BackgroundListeningLifecycle';
 import AuthEmailLinkLifecycle from './src/components/AuthEmailLinkLifecycle';
 import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
+import ActiveBattleResumeLifecycle from './src/components/ActiveBattleResumeLifecycle';
 import { useUserStore } from './src/store/useUserStore';
 import { isSupabaseConfigured, supabase } from './src/services/supabaseClient';
 import { colors } from './src/theme/colors';
@@ -370,6 +371,7 @@ function KeepRoot() {
           React.createElement(BackgroundListeningLifecycle),
           React.createElement(AuthEmailLinkLifecycle),
           React.createElement(PushRegistrationLifecycle),
+          React.createElement(ActiveBattleResumeLifecycle),
           React.createElement(App),
           React.createElement(WebRefreshSurfaceGuard),
         ),
