@@ -164,7 +164,7 @@ begin
     with offer_genres as materialized (
       select distinct lower(trim(g.genre)) genre
       from public.playlist_sale_offer_tracks ot
-      join public.tracks t on t.id=ot.track_id
+      join public.tracks t on t.id::text=ot.track_id::text
       cross join lateral unnest(coalesce(t.genres,'{}'::text[])) g(genre)
       where ot.offer_id=v_offer.id
         and nullif(trim(g.genre),'') is not null
@@ -188,7 +188,7 @@ begin
 
       select tl.profile_id recipient_id
       from public.keep_decisions seller_kd
-      join public.track_likes tl on tl.track_id=seller_kd.track_id
+      join public.track_likes tl on tl.track_id::text=seller_kd.track_id::text
       where seller_kd.profile_id=v_offer.seller_id
         and seller_kd.decision in ('KEEP','KEPT')
         and tl.profile_id<>v_offer.seller_id
@@ -223,7 +223,7 @@ begin
             or exists (
               select 1
               from public.keep_decisions vkd
-              join public.tracks vt on vt.id=vkd.track_id
+              join public.tracks vt on vt.id::text=vkd.track_id::text
               cross join lateral unnest(coalesce(vt.genres,'{}'::text[])) vg(genre)
               where vkd.profile_id=cp.recipient_id
                 and vkd.decision in ('KEEP','KEPT')
@@ -232,7 +232,7 @@ begin
             or exists (
               select 1
               from public.track_likes vtl
-              join public.tracks vt on vt.id=vtl.track_id
+              join public.tracks vt on vt.id::text=vtl.track_id::text
               cross join lateral unnest(coalesce(vt.genres,'{}'::text[])) vg(genre)
               where vtl.profile_id=cp.recipient_id
                 and lower(trim(vg.genre))=og.genre
@@ -355,7 +355,7 @@ with viewer_genres as (
 
     select unnest(coalesce(t.genres,'{}'::text[])) g
     from public.keep_decisions kd
-    join public.tracks t on t.id=kd.track_id
+    join public.tracks t on t.id::text=kd.track_id::text
     where kd.profile_id=auth.uid()
       and kd.decision in ('KEEP','KEPT')
 
@@ -363,7 +363,7 @@ with viewer_genres as (
 
     select unnest(coalesce(t.genres,'{}'::text[])) g
     from public.track_likes tl
-    join public.tracks t on t.id=tl.track_id
+    join public.tracks t on t.id::text=tl.track_id::text
     where tl.profile_id=auth.uid()
   ) x
   where nullif(trim(g),'') is not null
@@ -394,7 +394,7 @@ related_sellers as (
 
   select skd.profile_id seller_id,40 social_score
   from public.track_likes tl
-  join public.keep_decisions skd on skd.track_id=tl.track_id
+  join public.keep_decisions skd on skd.track_id::text=tl.track_id::text
   join active_sellers a on a.seller_id=skd.profile_id
   where tl.profile_id=auth.uid()
     and skd.decision in ('KEEP','KEPT')
@@ -424,7 +424,7 @@ offers as (
   join affinity a on a.seller_id=o.seller_id
   join public.profiles p on p.id=o.seller_id and p.is_public=true
   join public.playlist_sale_offer_tracks ot on ot.offer_id=o.id
-  join public.tracks t on t.id=ot.track_id
+  join public.tracks t on t.id::text=ot.track_id::text
   left join lateral (
     select unnest(coalesce(t.genres,'{}'::text[])) genre
   ) g on true
