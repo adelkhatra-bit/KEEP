@@ -16,7 +16,7 @@ import { spacing, radius, typography } from '../theme/spacing';
 import SwipeDeck from '../components/SwipeDeck';
 import KeepBattleArenaPanel from '../components/KeepBattleArenaPanel';
 import { isKeepBattleEnabled } from '../services/keepBattleExperienceService';
-import { loadKeepBattleSoloLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
+import { loadKeepBattleSoloLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadPendingArenaRematches, respondKeepBattleArenaRematch, loadMyKeepBattleCreditStatus, loadMyActiveKeepBattleArena, KeepBattleGlobalLeaderboardEntry, KeepBattlePendingRematch, KeepBattlePlayerStats } from '../services/keepBattleService';
 import { loadIncomingBattleChallenges, respondBattleChallenge, KeepBattleIncomingChallenge } from '../services/keepBattleLiveService';
 import { supabase } from '../services/supabaseClient';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
@@ -255,6 +255,34 @@ export default function PartiesScreen({ navigation, route }: any) {
   // deviennent deux onglets séparés au lieu d'un lanceur mélangé dans le
   // flux des événements ; Soirées reste l'onglet par défaut.
   const [partiesTab, setPartiesTab] = useState<'SOIREES' | 'BATTLE'>('SOIREES');
+  // Un joueur qui possède encore un siège ACTIVE côté serveur ne doit jamais
+  // avoir à chercher où est passé son Battle. Au montage et à chaque retour
+  // sur l'onglet Soirées, on relit la vérité serveur puis on rouvre
+  // directement l'arène exacte. Une vraie sortie via QUITTER LE BATTLE
+  // désactive le siège, donc ce mécanisme ne force jamais un ancien match.
+  useEffect(() => {
+    if (!battleFeatureEnabled || !user?.id || isLocalGuest || isDemoMode) return undefined;
+    let live = true;
+    const resumeActiveArena = async () => {
+      const active = await loadMyActiveKeepBattleArena().catch(() => null);
+      if (!live || !active?.id || active.me?.status !== 'ACTIVE') return;
+      setPendingArenaId(active.id);
+      setPartiesTab('BATTLE');
+      setBattleOpen(true);
+      useGameSessionStore.getState().setGameInProgress(
+        true,
+        'EN_LIGNE',
+        'Tu es engagé dans ce Battle. Pour sortir, utilise QUITTER LE BATTLE.',
+        active.id,
+      );
+    };
+    void resumeActiveArena();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void resumeActiveArena(); });
+    return () => {
+      live = false;
+      unsubscribe?.();
+    };
+  }, [battleFeatureEnabled, isDemoMode, isLocalGuest, navigation, user?.id]);
   // Adel (30/09/2026) : le bouton Battle du haut ouvre directement le vrai
   // Battle. Le classement global reste disponible séparément, replié dans
   // Soirées, sans écran/lanceur intermédiaire.
