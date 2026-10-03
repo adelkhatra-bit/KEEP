@@ -15,10 +15,11 @@ describe('Battle result voice and Solo exit contract', () => {
   });
 
   it('uses more of the Solo screen and lowers the answer grid', () => {
-    expect(battle).toContain('style={[s.visual, s.soloVisual]}');
-    expect(battle).toContain("soloVisual: { height: undefined, width: '100%', maxWidth: 330, aspectRatio: 1, alignSelf: 'center' }");
-    expect(battle).toContain('soloQuestion: { marginTop: 18 }');
-    expect(battle).toContain('soloAnswers: { marginTop: 14, paddingBottom: 4 }');
+    expect(battle).toContain('style={[s.visual, s.soloVisual, { maxHeight: arenaVisualMax }]}');
+    expect(battle).toContain("soloVisual: { height: undefined, width: '100%', aspectRatio: 1");
+    expect(battle).not.toContain('maxWidth: 330');
+    expect(battle).toContain("soloCardActive: { flexGrow: 1, justifyContent: 'flex-start' }");
+    expect(battle).toContain("soloAnswersActive: { marginTop: 'auto', paddingTop: 6, paddingBottom: 0 }");
   });
 
   it('automatically ducks preview audio and uses a more natural French voice', () => {
