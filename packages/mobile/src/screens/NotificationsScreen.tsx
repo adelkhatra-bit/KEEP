@@ -450,7 +450,7 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const notificationPrimaryActionLabel = (item: KeepNotification): string | null => {
     const type = String(item.type || '').toUpperCase();
-    if (isNewKeepNotification(item) || isEventInvite(item) || isBuyerPaymentReady(item) || isSellerPaymentAction(item) || isBattleInvite(item)) return null;
+    if (isNewKeepNotification(item) || isEventInvite(item) || isBuyerPaymentReady(item) || isSellerPaymentAction(item)) return null;
     if (type.startsWith('AGORA')) return 'OUVRIR LE TCHAT';
     if (type === 'CHAT_ACTIVATION_AVAILABLE' || type === 'AGORA_ACTIVATE') return 'RÉGLER LE TCHAT';
     if (type.startsWith('FREE_') || type === 'MONTHLY_FREE_CREDIT') return 'VOIR MES FREE';
