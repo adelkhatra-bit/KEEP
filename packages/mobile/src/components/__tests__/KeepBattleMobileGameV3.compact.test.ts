@@ -28,8 +28,9 @@ describe('Loki Music Battle — compact current UX', () => {
   });
 
   it('still exposes accept/refuse when the player can decide, including the finished Solo screen', () => {
-    expect(source).toContain('void respond(incoming[0], false)');
-    expect(source).toContain('void respond(incoming[0], true)');
+    expect(source).toContain('requestBattleChallengeDecision(incoming[0], false)');
+    expect(source).toContain('requestBattleChallengeDecision(incoming[0], true)');
+    expect(source).toContain("Alert.alert(\n      'Refuser ce Battle ?'");
     expect(source).toContain('PARTIE TERMINÉE');
     expect(source).toContain('REFUSER');
     expect(source).toContain('ACCEPTER');
