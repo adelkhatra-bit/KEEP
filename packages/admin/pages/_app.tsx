@@ -77,7 +77,7 @@ function AdminLogin(){
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>{APP_NAME}</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun accès sans mot de passe n’est autorisé.</p>
+    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé automatiquement et aucun accès sans mot de passe n’est autorisé.</p>
     <label style={label}>Adresse e-mail Super Admin</label>
     <input type="email" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="nom@exemple.com" style={input}/>
     <label style={label}>Mot de passe</label>
