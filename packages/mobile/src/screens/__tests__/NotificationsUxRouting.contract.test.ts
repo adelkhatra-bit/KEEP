@@ -73,4 +73,11 @@ describe('Notifications UX and routing contract', () => {
     expect(sidePanel).toContain("return 'VOIR LE PROFIL'");
     expect(sidePanel).toContain('openActivityNotification');
   });
+
+  it('shows the visited username directly in profile-activity actions', () => {
+    expect(notifications).toContain("if (key === 'PROFILE_VIEW') return 'VISITE DE PROFIL'");
+    expect(notifications).toContain('return `VOIR @${profileUsername}`');
+    const sidePanel = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(sidePanel).toContain('return `VOIR @${profileUsername}`');
+  });
 });

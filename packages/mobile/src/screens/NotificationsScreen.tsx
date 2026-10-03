@@ -91,6 +91,7 @@ const CHAT_SURFACE_OPTIONS: { key: MusicAgoraSurface; label: string }[] = [
 
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
+  if (key === 'PROFILE_VIEW') return 'VISITE DE PROFIL';
   if (key === 'NEW_FOLLOWER') return 'NOUVEL ABONNÉ';
   if (key === 'FOLLOWER_LEFT') return 'DÉSABONNEMENT';
   if (key === 'NEW_PUBLIC_KEEP') return 'NOUVEAU MORCEAU';
@@ -461,7 +462,9 @@ export default function NotificationsScreen({ navigation }: any) {
     if (type === 'PLAYLIST_SALE_COMPLETED') return 'GÉRER LA PÉPITE';
     if (type === 'PLAN_GIFTED' || type.includes('PLAN')) return 'VOIR MON OFFRE';
     if (eventIdOf(item)) return 'VOIR L’ÉVÉNEMENT';
-    if (notificationProfileUsername(item) || notificationProfileId(item)) return 'VOIR LE PROFIL';
+    const profileUsername = notificationProfileUsername(item);
+    if (profileUsername) return `VOIR @${profileUsername}`;
+    if (notificationProfileId(item)) return 'VOIR LE PROFIL';
     return null;
   };
 

@@ -110,7 +110,9 @@ function activityActionLabel(item: KeepNotification): string {
   if (type.startsWith('EVENT_')) return 'VOIR L’ÉVÉNEMENT';
   if (type === 'PLAYLIST_SALE_DELIVERED') return 'OUVRIR LA COLLECTION';
   if (type.startsWith('PLAYLIST_SALE_')) return 'OUVRIR LA PÉPITE';
-  if (activityProfileUsername(item) || activityProfileId(item)) return 'VOIR LE PROFIL';
+  const profileUsername = activityProfileUsername(item);
+  if (profileUsername) return `VOIR @${profileUsername}`;
+  if (activityProfileId(item)) return 'VOIR LE PROFIL';
   return 'OUVRIR / AGIR';
 }
 
