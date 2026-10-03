@@ -88,14 +88,14 @@ describe('Loki Music duplicate track identity', () => {
     expect(filterTracksNotAlreadyKept(candidate as any, index).map((track: any) => track.id)).toEqual(['remote-c']);
   });
 
-  it('retire aussi un morceau via le filet titre/artiste quand aucun id fournisseur n’est disponible', () => {
+  it('ne supprime jamais deux enregistrements distincts sur le seul couple titre/artiste', () => {
     const index = buildKeepTrackIdentityIndex([
-      { id: 'keep-x', title: "N'tya (Album Version)", artist: 'Kayliah', providerIds: {} },
+      { id: 'keep-x', title: "N'tya", artist: 'Kayliah', providerIds: {} },
     ] as any);
     const filtered = filterTracksNotAlreadyKept([
       { id: 'remote-x', title: "N'TYA", artist: 'Kayliah', providerIds: {} },
       { id: 'remote-y', title: 'Autre', artist: 'Kayliah', providerIds: {} },
     ] as any, index);
-    expect(filtered.map((track: any) => track.id)).toEqual(['remote-y']);
+    expect(filtered.map((track: any) => track.id)).toEqual(['remote-x', 'remote-y']);
   });
 });
