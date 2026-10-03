@@ -28,7 +28,7 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).toContain('style={s.sellerPriceRow}');
     expect(source).toContain('<Text style={s.profileLinkText}>{normalizedUsername}</Text>');
     expect(source).toContain("freeAccess ? 'FREE' : 'PAYPAL'");
-    expect(profile).toContain("navigation.navigate('PublicProfile', { username: profile.username })");
+    expect(profile).toContain("navigation.navigate('PublicProfile', { username: sellerUsername })");
   });
 
   it('shows a red inline shortage state and a direct FREE recharge action', () => {

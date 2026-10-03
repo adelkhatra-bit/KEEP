@@ -14,7 +14,7 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
   it('orders the top-level sections: identity < unified counters < exclusive collection rail < collection header < tabs < socials', () => {
     const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
     const unifiedCounters = source.indexOf('<View style={styles.topMetricsBar}');
-    const boutique = source.indexOf('style={styles.marketplaceSection}');
+    const boutique = source.indexOf('motionKey={`visitor-market:${profile.id}:${profileBoutiqueOffers.length}`}');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
     const socialHub = source.indexOf('<View style={styles.socialHub}>');

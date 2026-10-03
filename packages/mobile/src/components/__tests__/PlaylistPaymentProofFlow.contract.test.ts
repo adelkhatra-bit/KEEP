@@ -40,7 +40,7 @@ describe('Playlist payment proof and delivery contract', () => {
     expect(checkout).toContain('Agrandir le QR PayPal en plein écran');
     expect(checkout).toContain('TOUCHER LE QR POUR L’AGRANDIR');
     expect(checkout).toContain('qrFullscreenImage');
-    expect(checkout).toContain('ASTUCE QR');
+    expect(checkout).toContain('INTÉGRATION PAYPAL');
     expect(checkout).toContain('reste appuyé sur l’image');
     expect(qrControl).toContain('RECADRER / ZOOMER');
     expect(qrControl).toContain('Pince pour zoomer');
@@ -55,10 +55,10 @@ describe('Playlist payment proof and delivery contract', () => {
   });
 
   it('requires the seller to verify PayPal before delivery and exposes the proof', () => {
-    expect(panel).toContain('VOIR LA PREUVE DE PAIEMENT');
-    expect(panel).toContain('J’AI REÇU LES FONDS · DÉBLOQUER');
-    expect(panel).toContain('transaction.buyerMarkedPaidAt');
-    expect(panel).toContain('transaction.paymentProofPath');
+    expect(notifications).toContain('HISTORIQUE / PREUVE');
+    expect(notifications).toContain("text: 'OUI · FONDS REÇUS'");
+    expect(notifications).toContain('status.buyerMarkedPaidAt');
+    expect(notifications).toContain('status.proofUploadedAt');
     expect(notifications).toContain('Vérifie d’abord TON compte PayPal');
     expect(notifications).toContain('FONDS REÇUS · DÉBLOQUER');
     expect(migration).toContain('BUYER_HAS_NOT_MARKED_PAID');

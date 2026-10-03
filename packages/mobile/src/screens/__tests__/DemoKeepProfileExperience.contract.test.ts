@@ -79,10 +79,10 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('makes a seller and their Drops unmistakable without adding a bulky shop header', () => {
     expect(profile).toContain('offers={profileBoutiqueOffers}');
-    expect(boutique).toContain('DROP DU MOMENT');
+    expect(boutique).toContain('★ PÉPITE À LA UNE');
     expect(boutique).toContain('Boutique de @{sellerUsername}');
     expect(boutique).toContain('Tout voir · {visibleOffers.length} ›');
-    expect(boutique).toContain('Aperçu sans révéler les titres · une collection déjà acquise reste signalée');
+    expect(boutique).toContain('TOUCHE POUR ÉCOUTER · TITRES PROTÉGÉS');
     expect(profile).not.toContain('BOUTIQUE MUSICALE ACTIVE');
   });
 

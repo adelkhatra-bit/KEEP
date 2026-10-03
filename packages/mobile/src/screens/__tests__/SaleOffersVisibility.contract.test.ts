@@ -24,7 +24,7 @@ describe('ventes : collections compactes, prix juste', () => {
     expect(panel).toContain('splitSaleOffersByStatus(offers, focusOfferId)');
     expect(panel).toContain('data={filteredPublished}');
     expect(panel).toContain("offerFilter === 'FREE'");
-    expect(panel).toContain("offerFilter === 'MONEY'");
+    expect(panel).toContain("['MONEY', '€ EUROS', moneyPublished.length]");
     expect(panel).toContain('RETIRÉES ({retired.length})');
     expect(panel).toContain('Non visibles sur ton profil ni par les visiteurs.');
     expect(panel).toContain('route?.params?.manageSaleOfferId');

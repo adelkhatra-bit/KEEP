@@ -23,7 +23,7 @@ describe('seller boutique', () => {
   it('keeps euro collections visible but protected on native, with no native money bundle checkout', () => {
     expect(boutique).toContain("offer.paymentMode !== 'FREE' && Platform.OS !== 'web'");
     expect(boutique).toContain("? 'protégée' : salePriceLabel(offer)");
-    expect(boutique).toContain("Platform.OS === 'web' ? bundleOffers : bundleOffers.filter((offer) => offer.paymentMode === 'FREE')");
+    expect(boutique).toContain("Platform.OS === 'web' ? bundleOffers.filter((offer) => offer.paymentMode !== 'BOTH') : bundleOffers.filter((offer) => offer.paymentMode === 'FREE')");
     expect(boutique).not.toContain("Platform.OS === 'ios' ? offers.filter((offer) => offer.paymentMode === 'FREE') : offers");
   });
 
