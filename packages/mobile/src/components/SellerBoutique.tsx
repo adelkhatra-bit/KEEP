@@ -2,6 +2,7 @@ import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
 import { Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 
@@ -113,6 +114,7 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
   return (
     <TouchableOpacity
       style={[s.card, { width }]}
+      onPressIn={unlockWebAudioForGesture}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Écouter l'aperçu de ${offer.playlistName}, ${offer.trackCount} titres, ${unlocked ? 'débloquée' : salePriceLabel(offer)}`}
@@ -205,6 +207,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         </View>
         <TouchableOpacity
           style={s.bannerCta}
+          onPressIn={unlockWebAudioForGesture}
           onPress={() => { const first = featured[0] || ranked[0]; if (first) onOpenOffer(first); }}
           accessibilityRole="button"
           accessibilityLabel="Écouter les aperçus des pépites"
@@ -214,7 +217,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       </View>
 
       {drop ? (
-        <TouchableOpacity style={s.drop} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Drop du moment : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
+        <TouchableOpacity style={s.drop} onPressIn={unlockWebAudioForGesture} onPress={() => onOpenOffer(drop)} accessibilityRole="button" accessibilityLabel={`Drop du moment : ${drop.playlistName}, ${salePriceLabel(drop)}`}>
           <LinearGradient colors={genreGradient(drop.genres?.[0] || 'Mix')} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.dropGradient}>
             <View style={s.dropHead}>
               <View style={s.dropLive}>
@@ -241,7 +244,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
               {featured.length > 1 ? (
                 <View style={s.dots}>
                   {featured.map((row, dotIndex) => (
-                    <TouchableOpacity key={row.offerId} onPress={() => { setDropIndex(dotIndex); onOpenOffer(row); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Écouter le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
+                    <TouchableOpacity key={row.offerId} onPressIn={unlockWebAudioForGesture} onPress={() => { setDropIndex(dotIndex); onOpenOffer(row); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }} accessibilityLabel={`Écouter le drop ${dotIndex + 1}`} style={[s.dot, dotIndex === dropIndex % featured.length && s.dotOn]} />
                   ))}
                 </View>
               ) : null}
