@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AccessibilityInfo, Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 import type { ProfileSaleSuggestion } from '../services/profileSaleSuggestionService';
@@ -109,127 +109,157 @@ export default function ProfileOpportunityRail({ suggestions = [], viewerKey = '
     </TouchableOpacity>;
   }
 
+  const sellerInitial = (suggestion.sellerUsername || 'L').replace(/^@+/, '').slice(0, 1).toUpperCase();
+
   return <View style={s.wrapper}>
-    <View style={s.hero}>
-      <Animated.View pointerEvents="none" style={[s.glow,{opacity:glow.interpolate({inputRange:[0,1],outputRange:[.16,.5]}),transform:[{scale:glow.interpolate({inputRange:[0,1],outputRange:[.9,1.1]})}]}]} />
-      <View style={s.stage}>
-        <Animated.Text
-          accessible={false}
-          style={[s.dancer, reduceMotion ? undefined : { transform: [
-            { translateY: dance.interpolate({ inputRange:[0,1], outputRange:[4,-7] }) },
-            { rotate: dance.interpolate({ inputRange:[0,1], outputRange:['-7deg','8deg'] }) },
-            { scale: dance.interpolate({ inputRange:[0,1], outputRange:[.98,1.06] }) },
-          ] }]}
-        >🕺</Animated.Text>
-        <View style={s.wave}>
-          {[16,28,42,24,52,34,20].map((height, waveIndex) => <Animated.View key={waveIndex} style={[s.waveBar,{height,opacity:reduceMotion ? .55 : glow.interpolate({inputRange:[0,1],outputRange:[.35,.95]})}]} />)}
-        </View>
-      </View>
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={s.heroTouch}
+      onPress={() => onSuggestionPress(suggestion)}
+      accessibilityRole="button"
+      accessibilityLabel={`Écouter pendant 15 secondes le drop de ${suggestion.sellerUsername}`}
+    >
+      <View style={s.hero}>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            s.glow,
+            {
+              opacity: reduceMotion ? .22 : glow.interpolate({ inputRange:[0,1], outputRange:[.12,.46] }),
+              transform:[{ scale: reduceMotion ? 1 : glow.interpolate({ inputRange:[0,1], outputRange:[.9,1.15] }) }],
+            },
+          ]}
+        />
 
-      <View style={s.copy}>
-        <View style={s.kickerRow}><Text style={s.kicker}>DROP DU MOMENT</Text><Text style={s.position}>{index + 1}/{suggestions.length}</Text></View>
-        <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouveau mix'}</Text>
-        <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
-        <Text style={s.overlap} numberOfLines={1}>{overlapLabel}</Text>
-        <Text style={s.hook} numberOfLines={2}>{DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length]}</Text>
-        <View style={s.actions}>
-          {suggestion.paymentMode === 'FREE' ? (
-            <TouchableOpacity
-              style={s.freeDropButton}
-              onPress={() => onSuggestionPress(suggestion)}
-              accessibilityRole="button"
-              accessibilityLabel={suggestion.freePrice != null ? `Découvrir ce drop pour ${suggestion.freePrice} FREE` : 'Découvrir ce drop en FREE'}
-            >
-              <View style={s.freeOrbStage}>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    s.freeOrbAura,
-                    { opacity: reduceMotion ? .34 : glow.interpolate({ inputRange:[0,1], outputRange:[.18,.62] }), transform:[{ scale: reduceMotion ? 1 : glow.interpolate({ inputRange:[0,1], outputRange:[.9,1.18] }) }] },
-                  ]}
-                />
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    s.freeOrb,
-                    reduceMotion ? undefined : {
-                      transform: [
-                        { perspective: 700 },
-                        { rotateY: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-20deg','20deg'] }) },
-                        { rotateZ: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-4deg','4deg'] }) },
-                        { scale: glow.interpolate({ inputRange:[0,1], outputRange:[.96,1.08] }) },
-                      ],
-                    },
-                  ]}
-                >
-                  <View style={s.freeOrbInner}>
-                    <Text style={s.freeOrbSpark}>✦</Text>
-                    <Text style={s.freeOrbValue}>{suggestion.freePrice ?? '✦'}</Text>
-                    <Text style={s.freeOrbLabel}>FREE</Text>
-                  </View>
-                </Animated.View>
-              </View>
-              <View style={s.freeDropCopy}>
-                <Text style={s.freeDropTop}>{suggestion.freePrice != null ? `SEULEMENT ${suggestion.freePrice} FREE` : 'EN FREE'}</Text>
-                <Text style={s.freeDropMiddle}>DÉBLOQUE LE DROP</Text>
-                <Text style={s.freeDropBottom}>APERÇU GRATUIT AVANT DE CHOISIR</Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <View style={s.price}><Text style={s.priceText}>{priceLabel(suggestion)}</Text></View>
-              <TouchableOpacity style={s.listen} onPress={() => onSuggestionPress(suggestion)} accessibilityLabel={`Lancer l'aperçu de ${suggestion.playlistName}`}><Text style={s.listenText}>▶ APERÇU</Text></TouchableOpacity>
-            </>
-          )}
+        <View style={s.playerTop}>
+          <View style={s.liveBadge}><View style={s.liveDot}/><Text style={s.liveBadgeText}>DROP DU MOMENT</Text></View>
+          <Text style={s.position}>{index + 1}/{suggestions.length}</Text>
         </View>
-      </View>
-    </View>
 
-    <View style={s.footer}>
-      <View style={s.dots}>{suggestions.slice(0,8).map((row,dotIndex)=><TouchableOpacity key={row.offerId} onPress={()=>setIndex(dotIndex)} accessibilityLabel={`Afficher le drop ${dotIndex+1}`} style={[s.dot,dotIndex===index&&s.dotOn]} />)}</View>
-      <TouchableOpacity onPress={hide} accessibilityLabel="Masquer le drop musical"><Text style={s.hideText}>MASQUER</Text></TouchableOpacity>
-    </View>
+        <View style={s.playerMain}>
+          <View style={s.creator}>
+            {suggestion.sellerAvatarUrl
+              ? <Image source={{ uri: suggestion.sellerAvatarUrl }} style={s.avatar}/>
+              : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarInitial}>{sellerInitial}</Text></View>}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                s.avatarPulse,
+                {
+                  opacity: reduceMotion ? .28 : glow.interpolate({ inputRange:[0,1], outputRange:[.16,.62] }),
+                  transform:[{ scale: reduceMotion ? 1 : glow.interpolate({ inputRange:[0,1], outputRange:[.96,1.18] }) }],
+                },
+              ]}
+            />
+          </View>
+
+          <View style={s.copy}>
+            <Text style={s.title} numberOfLines={1}>{suggestion.playlistName || 'Nouvelle Pépite'}</Text>
+            <Text style={s.meta} numberOfLines={1}>@{suggestion.sellerUsername} · {suggestion.trackCount} titres · {genre}</Text>
+            <Text style={s.overlap} numberOfLines={1}>{overlapLabel}</Text>
+          </View>
+        </View>
+
+        <View style={s.waveStage} accessibilityElementsHidden>
+          {[16,28,42,24,52,34,20,38,18,46,27,35].map((height, waveIndex) => (
+            <Animated.View
+              key={waveIndex}
+              style={[
+                s.waveBar,
+                {
+                  height,
+                  opacity: reduceMotion ? .52 : glow.interpolate({inputRange:[0,1],outputRange:[.3,.95]}),
+                  transform: reduceMotion ? undefined : [{
+                    scaleY: dance.interpolate({
+                      inputRange:[0,1],
+                      outputRange:[waveIndex % 2 === 0 ? .66 : .92, waveIndex % 2 === 0 ? 1.14 : .72],
+                    }),
+                  }],
+                },
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={s.hookRow}>
+          <Text style={s.hook} numberOfLines={2}>{DROP_MARKETING_HOOKS[index % DROP_MARKETING_HOOKS.length]}</Text>
+          <View style={s.priceChip}><Text style={s.priceChipText}>{priceLabel(suggestion)}</Text></View>
+        </View>
+
+        <View style={s.listenCta}>
+          <Animated.View
+            style={[
+              s.playOrb,
+              reduceMotion ? undefined : {
+                transform:[
+                  { perspective:700 },
+                  { rotateY: freeFlip.interpolate({ inputRange:[0,1], outputRange:['-8deg','8deg'] }) },
+                  { scale: glow.interpolate({ inputRange:[0,1], outputRange:[.97,1.07] }) },
+                ],
+              },
+            ]}
+          >
+            <Text style={s.playOrbText}>▶</Text>
+          </Animated.View>
+          <View style={s.listenCopy}>
+            <Text style={s.listenTitle}>1 TAP · ÉCOUTER 15 s</Text>
+            <Text style={s.listenHint}>Aperçu d’abord · déblocage seulement si tu le choisis</Text>
+          </View>
+          <Text style={s.listenArrow}>›</Text>
+        </View>
+
+        {suggestions.length > 1 ? (
+          <View style={s.progress}>
+            {suggestions.slice(0,8).map((row,progressIndex)=><View key={row.offerId} style={[s.progressBar,progressIndex===index&&s.progressBarOn]} />)}
+          </View>
+        ) : null}
+      </View>
+    </TouchableOpacity>
+
+    <TouchableOpacity style={s.hide} onPress={hide} accessibilityLabel="Masquer le drop musical">
+      <Text style={s.hideText}>MASQUER</Text>
+    </TouchableOpacity>
   </View>;
 }
 
 const s=StyleSheet.create({
   wrapper:{marginHorizontal:18,marginTop:12,marginBottom:6},
-  hero:{minHeight:180,borderRadius:24,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,overflow:'hidden',flexDirection:'row',alignItems:'stretch',padding:14},
-  glow:{position:'absolute',left:-28,top:-18,width:170,height:170,borderRadius:85,backgroundColor:colors.primary},
-  stage:{width:104,alignItems:'center',justifyContent:'center',position:'relative'},
-  dancer:{fontSize:54,zIndex:2},
-  wave:{position:'absolute',left:4,right:4,bottom:10,height:56,flexDirection:'row',alignItems:'flex-end',justifyContent:'center',gap:4},
-  waveBar:{width:5,borderRadius:3,backgroundColor:colors.keep},
-  copy:{flex:1,minWidth:0,justifyContent:'center',paddingLeft:10},
-  kickerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
-  kicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2},
+  heroTouch:{borderRadius:24},
+  hero:{minHeight:224,borderRadius:24,borderWidth:1,borderColor:'rgba(139,92,246,.55)',backgroundColor:'#120D1B',overflow:'hidden',padding:14,position:'relative'},
+  glow:{position:'absolute',right:-54,top:-62,width:210,height:210,borderRadius:105,backgroundColor:colors.primary},
+  playerTop:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
+  liveBadge:{minHeight:24,paddingHorizontal:9,borderRadius:12,backgroundColor:'rgba(45,225,194,.10)',borderWidth:1,borderColor:'rgba(45,225,194,.28)',flexDirection:'row',alignItems:'center',gap:6},
+  liveDot:{width:6,height:6,borderRadius:3,backgroundColor:colors.keep},
+  liveBadgeText:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.1},
   position:{color:colors.textMuted,fontSize:9,fontWeight:'800'},
-  title:{color:colors.textPrimary,fontSize:19,fontWeight:'900',marginTop:5},
-  meta:{color:colors.primaryLight,fontSize:11,fontWeight:'800',marginTop:4},
-  overlap:{color:colors.keep,fontSize:10,fontWeight:'900',marginTop:4},
-  hook:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:7},
-  actions:{flexDirection:'row',alignItems:'center',gap:8,marginTop:12},
-  price:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:'#E8C26A',backgroundColor:'rgba(232,194,106,.14)',alignItems:'center',justifyContent:'center'},
-  priceText:{color:'#E8C26A',fontSize:11,fontWeight:'900'},
-  freeDropButton:{flex:1,minHeight:66,borderRadius:22,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',flexDirection:'row',alignItems:'center',paddingHorizontal:9,paddingVertical:7,overflow:'hidden'},
-  freeOrbStage:{width:62,height:58,alignItems:'center',justifyContent:'center'},
-  freeOrbAura:{position:'absolute',width:58,height:58,borderRadius:29,backgroundColor:colors.keep},
-  freeOrb:{width:52,height:52,borderRadius:26,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(45,225,194,.18)',borderWidth:1,borderColor:colors.keep,shadowColor:'#2DE1C2',shadowOpacity:.72,shadowRadius:13,shadowOffset:{width:0,height:0},elevation:10},
-  freeOrbInner:{width:41,height:41,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(139,92,246,.34)',borderWidth:1,borderColor:'rgba(255,255,255,.42)'},
-  freeOrbSpark:{position:'absolute',right:1,top:-4,color:'#FFF',fontSize:9,fontWeight:'900'},
-  freeOrbValue:{color:'#FFF',fontSize:20,lineHeight:21,fontWeight:'900'},
-  freeOrbLabel:{color:colors.keep,fontSize:8,lineHeight:9,fontWeight:'900',letterSpacing:.9},
-  freeDropCopy:{flex:1,minWidth:0,paddingLeft:8},
-  freeDropTop:{color:colors.keep,fontSize:12,fontWeight:'900',letterSpacing:.55},
-  freeDropMiddle:{color:'#FFF',fontSize:9,fontWeight:'900',letterSpacing:.75,marginTop:1},
-  freeDropBottom:{color:colors.textMuted,fontSize:7.5,fontWeight:'900',letterSpacing:.35,marginTop:3},
-  listen:{flex:1,minHeight:38,borderRadius:19,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10},
-  listenText:{color:colors.white,fontSize:11,fontWeight:'900',letterSpacing:.4},
-  footer:{minHeight:36,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:4},
-  dots:{flexDirection:'row',alignItems:'center',gap:5},
-  dot:{width:6,height:6,borderRadius:3,backgroundColor:colors.border},
-  dotOn:{width:16,backgroundColor:colors.primaryLight},
-  hideText:{color:colors.textMuted,fontSize:9,fontWeight:'900'},
+  playerMain:{flexDirection:'row',alignItems:'center',gap:11,marginTop:12},
+  creator:{width:54,height:54,alignItems:'center',justifyContent:'center'},
+  avatar:{width:48,height:48,borderRadius:24,backgroundColor:colors.backgroundCard,zIndex:2},
+  avatarFallback:{alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:colors.primaryLight},
+  avatarInitial:{color:'#FFF',fontSize:20,fontWeight:'900'},
+  avatarPulse:{position:'absolute',width:54,height:54,borderRadius:27,borderWidth:2,borderColor:colors.keep,zIndex:1},
+  copy:{flex:1,minWidth:0},
+  title:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
+  meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:3},
+  overlap:{color:colors.keep,fontSize:9,fontWeight:'900',marginTop:4},
+  waveStage:{height:46,marginTop:10,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,overflow:'hidden'},
+  waveBar:{width:4,borderRadius:3,backgroundColor:colors.primaryLight},
+  hookRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:2},
+  hook:{flex:1,minWidth:0,color:colors.textMutedGrey,fontSize:10,lineHeight:14},
+  priceChip:{minHeight:28,paddingHorizontal:9,borderRadius:14,borderWidth:1,borderColor:'rgba(232,194,106,.55)',backgroundColor:'rgba(232,194,106,.10)',alignItems:'center',justifyContent:'center'},
+  priceChipText:{color:'#E8C26A',fontSize:10,fontWeight:'900'},
+  listenCta:{minHeight:54,borderRadius:18,backgroundColor:'rgba(139,92,246,.18)',borderWidth:1,borderColor:colors.primary,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:10,marginTop:10},
+  playOrb:{width:36,height:36,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',shadowColor:colors.primaryLight,shadowOpacity:.52,shadowRadius:8,shadowOffset:{width:0,height:0},elevation:7},
+  playOrbText:{color:'#FFF',fontSize:13,fontWeight:'900',marginLeft:2},
+  listenCopy:{flex:1,minWidth:0},
+  listenTitle:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.45},
+  listenHint:{color:colors.textMutedGrey,fontSize:8.5,fontWeight:'700',marginTop:2},
+  listenArrow:{color:colors.primaryLight,fontSize:24,fontWeight:'900'},
+  progress:{height:4,flexDirection:'row',gap:4,marginTop:10},
+  progressBar:{flex:1,height:3,borderRadius:2,backgroundColor:colors.border},
+  progressBarOn:{backgroundColor:colors.keep},
+  hide:{alignSelf:'flex-end',minHeight:28,justifyContent:'center',paddingHorizontal:4},
+  hideText:{color:colors.textMuted,fontSize:8,fontWeight:'900',letterSpacing:.5},
   reopen:{marginHorizontal:18,marginVertical:10,minHeight:58,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:10},
   reopenIcon:{color:colors.keep,fontSize:18,fontWeight:'900'},
   reopenCopy:{flex:1,minWidth:0},
