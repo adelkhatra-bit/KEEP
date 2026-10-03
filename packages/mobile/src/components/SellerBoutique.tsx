@@ -52,6 +52,9 @@ type Props = {
   onOpenOffer: (offer: PublicPlaylistSaleOffer) => void;
   /** Le gros CTA "LES APERÇUS" enchaîne les Pépites à la une en une seule action. */
   onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
+  /** Achat groupé des collections encore verrouillées, sans supprimer l'achat unitaire. */
+  onBuyAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
+  buyAllBusy?: boolean;
   /** Même composant pour le propriétaire et ses visiteurs : aucune deuxième version de la Boutique musicale. */
   ownerMode?: boolean;
   /** Nom naturel du visiteur pour une personnalisation légère, jamais affiché avec @. */
@@ -124,7 +127,7 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
   );
 }
 
-export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, ownerMode = false, viewerUsername }: Props) {
+export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, onBuyAllOffers, buyAllBusy = false, ownerMode = false, viewerUsername }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const sellerName = String(sellerUsername || 'Loki').replace(/^@+/, '').trim() || 'Loki';
   const viewerName = String(viewerUsername || '').replace(/^@+/, '').trim();
@@ -142,6 +145,31 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   );
   const freeCount = visibleOffers.filter((offer) => offer.paymentMode === 'FREE').length;
   const moneyCount = visibleOffers.length - freeCount;
+  const bundleOffers = useMemo(
+    () => ownerMode ? [] : visibleOffers.filter((offer) => !unlockedOfferIds.has(offer.offerId)),
+    [ownerMode, visibleOffers, unlockedOfferIds],
+  );
+  const bundleFreeTotal = useMemo(
+    () => bundleOffers.filter((offer) => offer.paymentMode === 'FREE').reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0),
+    [bundleOffers],
+  );
+  const bundleMoneyTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    bundleOffers.filter((offer) => offer.paymentMode !== 'FREE').forEach((offer) => {
+      const currency = String(offer.currencyCode || 'EUR').toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + Math.max(0, Number(offer.priceCents || 0)));
+    });
+    return Array.from(totals.entries());
+  }, [bundleOffers]);
+  const bundleTotalLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (bundleFreeTotal > 0) parts.push(`${bundleFreeTotal} FREE`);
+    bundleMoneyTotals.forEach(([currency, cents]) => {
+      const amount = (cents / 100).toFixed(2).replace('.', ',');
+      parts.push(currency === 'EUR' ? `${amount} €` : `${amount} ${currency}`);
+    });
+    return parts.join(' + ');
+  }, [bundleFreeTotal, bundleMoneyTotals]);
   const newTracksForViewer = useMemo(
     () => ownerMode
       ? 0
@@ -274,6 +302,25 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           </TouchableOpacity>
         ))}
       </ScrollView>
+      {!ownerMode && onBuyAllOffers && bundleOffers.length > 1 ? (
+        <View style={s.bundleBar}>
+          <View style={s.bundleCopy}>
+            <Text style={s.bundleTitle}>TOTAL DES PÉPITES · {bundleOffers.length}</Text>
+            <Text style={s.bundleTotal}>{bundleTotalLabel || 'Prix à confirmer'}</Text>
+            <Text style={s.bundleHint}>Tu peux toujours acheter une collection seule.</Text>
+          </View>
+          <TouchableOpacity
+            style={[s.bundleButton, buyAllBusy && s.bundleButtonDisabled]}
+            disabled={buyAllBusy}
+            onPress={() => onBuyAllOffers(bundleOffers)}
+            accessibilityRole="button"
+            accessibilityLabel={`Tout prendre, ${bundleOffers.length} collections, total ${bundleTotalLabel}`}
+          >
+            <Text style={s.bundleButtonText}>{buyAllBusy ? 'EN COURS…' : 'TOUT PRENDRE'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.shelf} accessibilityLabel="Collections à débloquer">
         {shelf.map((offer) => (
           <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={142} />
@@ -397,6 +444,14 @@ const s = StyleSheet.create({
   chipText: { color: colors.textSecondary, fontSize: 12, fontWeight: '900' },
   chipTextOn: { color: '#FFFFFF' },
   shelf: { gap: 10, paddingVertical: 2, paddingRight: 8 },
+  bundleBar: { borderRadius: 16, borderWidth: 1, borderColor: 'rgba(232,194,106,.46)', backgroundColor: 'rgba(232,194,106,.08)', padding: 12, gap: 10 },
+  bundleCopy: { minWidth: 0 },
+  bundleTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .55 },
+  bundleTotal: { color: GOLD, fontSize: 17, fontWeight: '900', marginTop: 3 },
+  bundleHint: { color: colors.textSecondary, fontSize: 9, fontWeight: '700', marginTop: 3 },
+  bundleButton: { minHeight: 44, borderRadius: 14, backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
+  bundleButtonDisabled: { opacity: .55 },
+  bundleButtonText: { color: GOLD_DARK, fontSize: 12, fontWeight: '900', letterSpacing: .5 },
   card: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, padding: 8, gap: 5 },
   cover: { height: 112, borderRadius: 12, padding: 8, justifyContent: 'space-between' },
   coverGenre: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .8, alignSelf: 'flex-start' },
