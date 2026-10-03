@@ -27,6 +27,7 @@ async function waitForNavigationReady(maxAttempts = 24): Promise<boolean> {
 export default function ActiveBattleResumeLifecycle() {
   React.useEffect(() => {
     if (!supabase) return undefined;
+    const client = supabase;
     let alive = true;
     let running = false;
 
@@ -34,7 +35,7 @@ export default function ActiveBattleResumeLifecycle() {
       if (!alive || running) return;
       running = true;
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data } = await client.auth.getSession();
         if (!alive || !data.session?.user?.id) return;
 
         const active = await loadMyActiveKeepBattleArena().catch(() => null);
@@ -67,7 +68,7 @@ export default function ActiveBattleResumeLifecycle() {
 
     void resume();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
       if (!session?.user?.id) return;
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
         setTimeout(() => { void resume(); }, 0);
