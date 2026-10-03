@@ -58,7 +58,8 @@ import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { markNotificationRead } from '../services/notificationService';
 
 const PAGE_SIZE = 24;
-const LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
+const LOKI_REACTION_TOKEN = '[[LOKI_REACTION]]';
+const LEGACY_LOKI_REACTION_TOKEN = '[[KEEP_LOKI_REACTION]]';
 const LOKI_REACTION_TEXT = '◉ᴗ◉✦';
 const QUICK_REACTIONS: ReadonlyArray<{ label: string; payload: string; loki?: boolean }> = [
   { label: '❤️', payload: '❤️' },
@@ -1650,7 +1651,7 @@ export default function MusicAgoraPanel({
               <Text style={s.quotedReplyBody} numberOfLines={2}>{message.replyToBody || 'Message précédent'}</Text>
             </View>
           ) : null}
-          {(message.body === LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
+          {(message.body === LOKI_REACTION_TOKEN || message.body === LEGACY_LOKI_REACTION_TOKEN || message.body === LOKI_REACTION_TEXT) ? (
             <View style={s.lokiReactionBubble}><Text style={s.lokiReactionText}>{LOKI_REACTION_TEXT} · LOKI</Text></View>
           ) : extractMusicAgoraPayoutQrUrl(message.body) ? (
             <View style={s.qrMessage}>
