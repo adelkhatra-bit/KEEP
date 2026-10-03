@@ -104,7 +104,7 @@ $function$;
 -- Nettoie uniquement les notifications mensuelles recréées un jour ultérieur
 -- à l'attribution. Le test SQL minimal peut ne pas charger la table historique :
 -- dans ce cas on saute ce nettoyage sans rendre la migration non reproductible.
-do $
+do $$
 begin
   if to_regclass('public.monthly_free_credit_awards') is not null then
     execute $cleanup$
@@ -117,4 +117,4 @@ begin
     $cleanup$;
   end if;
 end
-$;
+$$;
