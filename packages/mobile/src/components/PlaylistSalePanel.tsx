@@ -86,6 +86,8 @@ function transactionFreeBalanceLabel(transaction: PlaylistSaleTransaction): stri
 
 export default function PlaylistSalePanel({ navigation, route }: any) {
   const focusOfferId: string | undefined = route?.params?.manageSaleOfferId;
+  const focusPaymentId: string | undefined = route?.params?.focusPaymentId;
+  const openPaymentHistory = route?.params?.openPaymentHistory === true;
   const user = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
@@ -155,6 +157,9 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
   const [error, setError] = useState('');
   const [retiredOpen, setRetiredOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => {
+    if (openPaymentHistory || focusPaymentId) setHistoryOpen(true);
+  }, [openPaymentHistory, focusPaymentId]);
   const [offerFilter, setOfferFilter] = useState<'ALL' | 'FREE' | 'MONEY'>('ALL');
   const [collectionCartOpen, setCollectionCartOpen] = useState(false);
   const [collectionCartStep, setCollectionCartStep] = useState<'TRACKS' | 'REVIEW' | 'PRICE' | 'PUBLISH'>('TRACKS');
@@ -1219,7 +1224,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                 {historyOpen ? (
                   <View style={s.historyList}>
                     {sales.map((sale) => (
-                      <View key={`sale:${sale.id}`} style={[s.offerCard, s.historyCard]}>
+                      <View key={`sale:${sale.id}`} style={[s.offerCard, s.historyCard, focusPaymentId === sale.id && s.historyCardFocused]}>
                         <View style={s.historyTop}>
                           <View style={s.offerInfo}>
                             <Text style={s.historyDirection}>VENTE · @{sale.counterpartUsername}</Text>
@@ -1238,7 +1243,7 @@ export default function PlaylistSalePanel({ navigation, route }: any) {
                       </View>
                     ))}
                     {purchases.map((purchase) => (
-                      <View key={`purchase:${purchase.id}`} style={[s.offerCard, s.historyCard]}>
+                      <View key={`purchase:${purchase.id}`} style={[s.offerCard, s.historyCard, focusPaymentId === purchase.id && s.historyCardFocused]}>
                         <View style={s.historyTop}>
                           <View style={s.offerInfo}>
                             <Text style={s.historyDirection}>ACHAT · @{purchase.counterpartUsername}</Text>
@@ -1452,7 +1457,7 @@ const s = StyleSheet.create({
   historyToggleMeta:{color:colors.textMutedGrey,fontSize:9,fontWeight:'700',marginTop:3},
   historyToggleIcon:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
   historyList:{marginTop:10},
-  historyCard:{padding:12},
+  historyCard:{padding:12},historyCardFocused:{borderColor:colors.keep,borderWidth:2},
   historyTop:{flexDirection:'row',alignItems:'flex-start',gap:8},
   historyDirection:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.8,marginBottom:3},
   historyDate:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:4},
