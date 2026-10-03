@@ -51,7 +51,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
     setSavingPayoutLink(true);
     try {
       await setMyPayoutLink(payoutLinkInput);
-      Alert.alert('Paiement prêt', `${payoutProviderLabel(payoutLinkInput)} est maintenant relié à ton profil. L’acheteur sera envoyé directement sur ce lien avec le montant prérempli quand PayPal.Me est utilisé.`);
+      Alert.alert('Paiement prêt', `${payoutProviderLabel(payoutLinkInput)} est maintenant relié à ton profil. L’autre utilisateur sera envoyé directement sur ce lien avec le montant prérempli quand PayPal.Me est utilisé.`);
     } catch (e: any) {
       Alert.alert('Lien invalide', String(e?.message || '').includes('PAYOUT_LINK_MUST_BE_HTTPS') ? 'Entre ton pseudo PayPal.Me ou utilise un lien sécurisé https://.' : (e?.message || 'Impossible d’enregistrer ce lien.'));
     } finally {
@@ -207,7 +207,7 @@ export default function CreatorToolsPanel({ navigation }: any) {
         </TouchableOpacity>
       </View>
       <PayPalQrPayoutControl profileId={user.id} qrUrl={payoutQrUrl} onChange={setPayoutQrUrl} disabled={savingPayoutLink} />
-      <Text style={s.paymentFootnote}>Loki Music n’encaisse jamais l’argent. Le vendeur confirme la réception avant le déverrouillage.</Text>
+      <Text style={s.paymentFootnote}>Loki Music n’encaisse jamais l’argent. Le propriétaire de la collection confirme la réception avant le déverrouillage.</Text>
     </View>
 
     {/* Adel (17-18/09/2026) : "construis tout ce qui manque" -- l'entrée
