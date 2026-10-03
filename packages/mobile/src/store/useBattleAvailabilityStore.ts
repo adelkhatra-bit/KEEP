@@ -113,14 +113,11 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     }
   },
   autoDisable: async () => {
-    if (get().busy || !get().available || get().activatedManually) return;
-    set({ busy: true });
-    try {
-      await setManualBattleAvailability(false);
-      set({ available: false, activatedManually: false });
-    } finally {
-      set({ busy: false });
-    }
+    // Disponibilité Battle = état de présence Loki, pas état de l'écran Battle.
+    // Quitter une partie / fermer l'arène ne doit JAMAIS mettre le compte OFF.
+    // Seul setAvailable(false), déclenché par un choix explicite de l'utilisateur,
+    // peut désactiver les invitations.
+    return;
   },
   syncFromServer: async () => {
     // Adel (02/09/2026) : "on va les laisser connecté par défaut ... lors de
@@ -132,6 +129,11 @@ export const useBattleAvailabilityStore = create<BattleAvailabilityState>((set, 
     // comme si l'utilisateur venait de l'activer lui-même depuis son profil.
     if (get().busy) return;
     try {
+      // Important : sur un profil qui n'a encore aucune ligne de présence,
+      // getManualBattleAvailability() renvoie false. Le ping crée justement
+      // cette ligne avec manual_available=true. Il faut donc pinger AVANT de
+      // lire l'état, sinon l'UI reste faussement OFF jusqu'à une autre action.
+      await pingManualBattleAvailability();
       const value = await getManualBattleAvailability();
       set({ available: value, activatedManually: value });
       startPing();
