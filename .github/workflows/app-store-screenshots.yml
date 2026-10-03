@@ -101,6 +101,11 @@ jobs:
             }
 
             // Fermer complètement le mini-tour avant toute capture App Store.
+            // Il apparaît via AsyncStorage dans un useEffect après le rendu initial :
+            // attendre explicitement son éventuelle apparition avant de décider
+            // qu'il n'existe pas.
+            const firstCoach = page.getByLabel('Passer le mini-tour').last();
+            await firstCoach.waitFor({state:'visible',timeout:5000}).catch(()=>{});
             for (let i=0;i<7;i++) {
               const byLabel = page.getByLabel('Passer le mini-tour').last();
               const byText = page.getByText('Passer',{exact:true}).last();
