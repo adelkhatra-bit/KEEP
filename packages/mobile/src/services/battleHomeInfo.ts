@@ -53,24 +53,33 @@ function hhmm(iso: string | null | undefined): string {
 // neuf… illimité s'il a une formule ».
 export function soloQuotaCopy(status: SoloDailyStatusLike | null): { headline: string; detail: string; exhausted: boolean } | null {
   if (!status) return null;
-  if (status.unlimited) return { headline: 'Solos : illimités', detail: 'inclus dans ta formule', exhausted: false };
-  const limit = Math.max(0, status.limit ?? 0);
+  if (status.unlimited) return { headline: 'Solos disponibles : illimités', detail: 'aucun compteur à épuiser', exhausted: false };
   const remaining = Math.max(0, status.remaining ?? 0);
-  const reset = `recharge à ${hhmm(status.resetsAt)}`;
-  if (remaining <= 0) return { headline: `Solos : 0 / ${limit} restant`, detail: reset, exhausted: true };
-  return { headline: `Solos : ${remaining} / ${limit} restant${remaining > 1 ? 's' : ''}`, detail: reset, exhausted: false };
+  const dayEnd = status.resetsAt ? `journée Battle jusqu’à ${hhmm(status.resetsAt)}` : 'compteur actuel';
+  if (remaining <= 0) return { headline: '0 Solo disponible', detail: dayEnd, exhausted: true };
+  return { headline: `${remaining} Solo${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''}`, detail: dayEnd, exhausted: false };
 }
 
 // Règle par profil, affichée sous la recharge : combien de Solos par jour.
 // Adel (30/09/2026) : chaque formule garde sa limite, mais préparer un Solo
 // ne consomme rien. Le quota est engagé au premier extrait réellement joué.
-const PLAN_LABELS: Record<string, string> = { FREE: 'formule gratuite', PREMIUM: 'Premium', CREATOR_PRO: 'Créateur Pro', VENUE_PRO: 'Lieu Pro' };
-export function soloPlanRuleCopy(status: SoloDailyStatusLike | null): { short: string; full: string } | null {
+const PLAN_LABELS: Record<string, string> = { FREE: 'compte standard', PREMIUM: 'Premium', CREATOR_PRO: 'Créateur Pro', VENUE_PRO: 'Lieu Pro' };
+export function soloPlanRuleCopy(status: SoloDailyStatusLike | null, purchasedRemaining = 0): { short: string; full: string } | null {
   if (!status) return null;
-  const plan = PLAN_LABELS[String(status.plan || 'FREE').toUpperCase()] ?? 'ta formule';
-  if (status.unlimited) return { short: 'Solos illimités avec ta formule', full: 'Ta formule te donne des parties Solo illimitées.' };
-  const limit = Math.max(0, status.limit ?? 0);
-  return { short: `${limit} Solos par jour · ${plan}`, full: `Formule ${plan} : ${limit} parties Solo par jour, remises à zéro chaque nuit. Un Solo compte seulement quand sa première musique démarre réellement ; ouvrir puis fermer avant le son ne consomme rien. Si tu quittes ensuite, la partie reste comptée. Le Battle en ligne n'est pas concerné : il se joue avec tes Free.` };
+  const account = PLAN_LABELS[String(status.plan || 'FREE').toUpperCase()] ?? 'ton compte';
+  if (status.unlimited) return { short: 'Solos disponibles : illimités', full: 'Ton compte permet de lancer des parties Solo sans compteur à épuiser.' };
+  const totalLimit = Math.max(0, status.limit ?? 0);
+  const purchased = Math.max(0, purchasedRemaining);
+  const includedToday = Math.max(0, totalLimit - purchased);
+  const remaining = Math.max(0, status.remaining ?? 0);
+  return {
+    short: `${remaining} Solo${remaining > 1 ? 's' : ''} disponible${remaining > 1 ? 's' : ''} maintenant`,
+    full: `Compte ${account} : ${includedToday} Solo${includedToday > 1 ? 's' : ''} dans le quota de la journée Battle. `
+      + (purchased > 0 ? `Tu as aussi ${purchased} Solo${purchased > 1 ? 's' : ''} acheté${purchased > 1 ? 's' : ''} encore en réserve. ` : '')
+      + 'Les Solos achetés (packs de 10 ou 25) sont crédités immédiatement et restent jusqu’à utilisation. '
+      + 'Ils ne se rechargent jamais automatiquement : une fois consommés, il faut racheter un pack. '
+      + 'Un Solo est consommé lorsque la première musique de la partie démarre.',
+  };
 }
 
 // Miroir exact de public.keep_monthly_free_bonus_for_profile : le bonus
@@ -324,19 +333,18 @@ export const DEFAULT_SOLO_PACKS: SoloPackLike[] = [
   { code: 'LARGE', solos: 25, free: 6 },
 ];
 
-export function soloRechargeCopy(packs: SoloPackLike[] | null | undefined, status: SoloDailyStatusLike | null): { hint: string; short: string; full: string } {
+export function soloRechargeCopy(packs: SoloPackLike[] | null | undefined, _status: SoloDailyStatusLike | null): { hint: string; short: string; full: string } {
   const list = packs && packs.length ? packs : DEFAULT_SOLO_PACKS;
   const small = list.find((p) => p.code === 'SMALL') ?? list[0];
   const large = list.find((p) => p.code === 'LARGE');
-  const daily = status && !status.unlimited && status.limit ? status.limit : null;
   const freeWord = (n: number) => `${n} Free`;
   const offers = [small, large].filter(Boolean).map((p) => `${p!.solos} Solos pour ${freeWord(p!.free)}`).join(', ou ');
   return {
     hint: `+${small.solos} Solos pour ${freeWord(small.free)}`,
-    short: 'En savoir plus sur la recharge',
-    full: `Recharger, c'est acheter des Solos tout de suite avec tes Free : ${offers}. `
-      + `Le prix est retiré de ton solde de Free au moment où tu confirmes l'achat, jamais avant. `
-      + `Les Solos achetés s'ajoutent à ceux du jour et restent sur ton compte jusqu'à ce que tu les joues. `
-      + `Tu ne veux rien payer ? ${daily ? `Tes ${daily} Solos gratuits reviennent` : 'Tes Solos gratuits reviennent'} automatiquement chaque nuit à 2 h (heure de Paris).`,
+    short: 'Comment fonctionnent les packs ?',
+    full: `Deux packs sont disponibles : ${offers}. `
+      + 'Après confirmation, le nombre de Solos choisi est crédité immédiatement sur ton compte et le prix en Free est débité une seule fois. '
+      + 'Chaque Solo acheté reste disponible jusqu’à ce que tu le consommes. '
+      + 'Un pack ne se recharge jamais automatiquement : quand tes Solos achetés sont épuisés, tu rachètes le pack que tu veux.',
   };
 }
