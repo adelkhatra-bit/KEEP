@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Linking, Modal, ScrollView, StyleSheet, Text,
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { loadPlaylistPaymentProof, pickAndUploadPlaylistPaymentProof, PlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import { colors } from '../theme/colors';
+import { Alert } from '../utils/keepAlert';
 
 type Props = {
   visible: boolean;
@@ -14,6 +15,7 @@ type Props = {
   payoutQrUrl?: string | null;
   onClose: () => void;
   onPaid?: () => Promise<void> | void;
+  onCancelTransaction?: () => Promise<void> | void;
 };
 
 export default function PayoutCheckoutSheet({
@@ -26,6 +28,7 @@ export default function PayoutCheckoutSheet({
   payoutQrUrl,
   onClose,
   onPaid,
+  onCancelTransaction,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
@@ -73,7 +76,37 @@ export default function PayoutCheckoutSheet({
     }
   };
 
-  const confirmPaid = async () => {
+  const confirmCancelTransaction = () => {
+    if (!onCancelTransaction || busy || proofBusy) return;
+    Alert.alert(
+      'Annuler la transaction ?',
+      'Cette action préviendra immédiatement l’autre utilisateur qu’il ne doit plus attendre. Si un paiement a déjà été signalé ou une preuve a été jointe, Loki bloquera l’annulation.',
+      [
+        { text: 'GARDER LA TRANSACTION', style: 'cancel' },
+        {
+          text: 'ANNULER LA TRANSACTION',
+          style: 'destructive',
+          onPress: () => {
+            setBusy(true);
+            setError('');
+            void Promise.resolve(onCancelTransaction())
+              .then(() => onClose())
+              .catch((e: any) => {
+                const message = String(e?.message || '');
+                setError(
+                  message.includes('PAYMENT_ALREADY_REPORTED')
+                    ? 'Le paiement a déjà été signalé ou une preuve a été jointe. La transaction ne peut plus être annulée silencieusement.'
+                    : 'Impossible d’annuler cette transaction pour le moment.',
+                );
+              })
+              .finally(() => setBusy(false));
+          },
+        },
+      ],
+    );
+  };
+
+    const confirmPaid = async () => {
     if (!onPaid || busy) return;
     if (!proof) {
       setError('Ajoute d’abord une capture PayPal ou un PDF. Le vendeur pourra la consulter avant de confirmer la réception des fonds.');
@@ -155,6 +188,11 @@ export default function PayoutCheckoutSheet({
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity style={s.later} onPress={onClose}><Text style={s.laterText}>PLUS TARD</Text></TouchableOpacity>
+            {onCancelTransaction ? (
+              <TouchableOpacity style={s.cancelTransaction} disabled={busy || proofBusy} onPress={confirmCancelTransaction} accessibilityRole="button" accessibilityLabel="Annuler définitivement cette transaction">
+                <Text style={s.cancelTransactionText}>ANNULER LA TRANSACTION</Text>
+              </TouchableOpacity>
+            ) : null}
           </ScrollView>
         </View>
       </View>
@@ -215,4 +253,6 @@ const s = StyleSheet.create({
   disabled:{opacity:.45},
   later:{minHeight:42,alignItems:'center',justifyContent:'center',marginTop:4},
   laterText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900'},
+  cancelTransaction:{width:'100%',minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',alignItems:'center',justifyContent:'center',marginTop:2},
+  cancelTransactionText:{color:colors.danger,fontSize:9.5,fontWeight:'900',letterSpacing:.5},
 });
