@@ -18,6 +18,7 @@ import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { isNewKeepNotification } from '../services/newKeepNotification';
 import { navigateToBattleArena, navigateToEvent, navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { supabase } from '../services/supabaseClient';
+import { loadPlaylistSalePaymentGuardStatus } from '../services/playlistSaleService';
 
 type Props = {
   visible: boolean;
@@ -100,6 +101,26 @@ async function resolveActivityProfileUsername(item: KeepNotification): Promise<s
   const { data } = await supabase.from('profiles').select('username').eq('id', id).maybeSingle();
   const username = String((data as any)?.username || '').trim();
   return username ? username.replace(/^@+/, '') : null;
+}
+
+function paymentIdOf(item: KeepNotification): string | null {
+  const raw = item.data?.paymentId ?? item.data?.payment_id;
+  return typeof raw === 'string' && raw ? raw : null;
+}
+
+async function pendingPaymentWarning(item: KeepNotification): Promise<string | null> {
+  const paymentId = paymentIdOf(item);
+  if (!paymentId) return null;
+  try {
+    const status = await loadPlaylistSalePaymentGuardStatus(paymentId);
+    if (!status?.pending) return null;
+    if (status.proofUploadedAt || status.buyerMarkedPaidAt) {
+      return 'ATTENTION : cette transaction n’est pas terminée. Un paiement a déjà été signalé ou une preuve a été envoyée, mais la collection n’est pas encore débloquée.';
+    }
+    return 'ATTENTION : cette transaction n’est pas terminée. Le QR/lien de paiement et les informations de déblocage peuvent encore être nécessaires.';
+  } catch {
+    return 'Cette notification est liée à un paiement. Loki n’a pas pu confirmer que la transaction est terminée.';
+  }
 }
 
 function activityActionLabel(item: KeepNotification): string {
@@ -352,10 +373,13 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   };
 
 
-  const deleteOne = (item: KeepNotification) => {
+  const deleteOne = async (item: KeepNotification) => {
+    const paymentWarning = await pendingPaymentWarning(item);
     Alert.alert(
       'Supprimer cette notification ?',
-      'Elle disparaîtra de cette liste. Le message ou l’activité d’origine ne sera pas supprimé.',
+      paymentWarning
+        ? `${paymentWarning}\n\nSi tu la supprimes maintenant, la transaction reste enregistrée dans Loki, mais tu perds ce raccourci depuis les notifications.`
+        : 'Elle disparaîtra de cette liste. Le message, la transaction ou l’activité d’origine ne seront pas supprimés.',
       [
         { text: 'ANNULER', style: 'cancel' },
         {
@@ -377,7 +401,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     );
   };
 
-  const deleteVisibleSection = () => {
+  const deleteVisibleSection = async () => {
     if (activeTab === 'SETTINGS') return;
     const sectionItems = activeTab === 'MESSAGES'
       ? items.filter((item) => isChatNotificationType(item.type))
@@ -385,9 +409,24 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
     if (!sectionItems.length) return;
 
     const sectionLabel = activeTab === 'MESSAGES' ? 'messages' : 'activités';
+    const paymentItems = sectionItems.filter((item) => Boolean(paymentIdOf(item)));
+    const pendingChecks = await Promise.all(paymentItems.map(async (item) => {
+      try {
+        const paymentId = paymentIdOf(item);
+        if (!paymentId) return false;
+        return Boolean((await loadPlaylistSalePaymentGuardStatus(paymentId))?.pending);
+      } catch {
+        return true;
+      }
+    }));
+    const pendingCount = pendingChecks.filter(Boolean).length;
+    const detail = pendingCount > 0
+      ? `\n\nATTENTION : ${pendingCount} notification${pendingCount > 1 ? 's sont' : ' est'} liée${pendingCount > 1 ? 's' : ''} à une transaction encore incomplète. Les transactions resteront enregistrées, mais leurs raccourcis seront retirés.`
+      : '';
+
     Alert.alert(
       `Vider ${activeTab === 'MESSAGES' ? 'Messages' : 'Activité'} ?`,
-      `Les ${sectionItems.length} notification${sectionItems.length > 1 ? 's' : ''} de cette section seront retirées. Les contenus d’origine restent disponibles.`,
+      `Les ${sectionItems.length} notification${sectionItems.length > 1 ? 's' : ''} de cette section seront retirées. Les contenus d’origine restent disponibles.${detail}`,
       [
         { text: 'ANNULER', style: 'cancel' },
         {
@@ -656,7 +695,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <Text style={s.inboxHint}>Appuie pour ouvrir. Utilise × pour supprimer ce qui ne t’est plus utile.</Text>
                 <View style={s.inboxActionButtons}>
                   <TouchableOpacity style={s.markAllButton} onPress={() => void markVisibleRead()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
-                  <TouchableOpacity style={[s.markAllButton, s.clearButton]} onPress={() => void clearVisible()} disabled={!visibleItems.length}><Text style={s.clearText}>EFFACER</Text></TouchableOpacity>
+                  <TouchableOpacity style={[s.markAllButton, s.clearButton]} onPress={() => { void deleteVisibleSection(); }} disabled={!visibleItems.length}><Text style={s.clearText}>EFFACER</Text></TouchableOpacity>
                 </View>
               </View>
               {loading && !items.length ? <Text style={s.empty}>Chargement…</Text> : null}
@@ -680,7 +719,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                           style={s.deleteOne}
                           onPress={(event) => {
                             event.stopPropagation?.();
-                            void removeOne(item);
+                            void deleteOne(item);
                           }}
                           accessibilityRole="button"
                           accessibilityLabel="Supprimer cette notification"
