@@ -54,6 +54,8 @@ type Props = {
   onOpenAllOffers?: (offers: PublicPlaylistSaleOffer[]) => void;
   /** Même composant pour le propriétaire et ses visiteurs : aucune deuxième version du Drop. */
   ownerMode?: boolean;
+  /** Nom naturel du visiteur pour une personnalisation légère, jamais affiché avec @. */
+  viewerUsername?: string;
 };
 
 export function salePriceLabel(offer: PublicPlaylistSaleOffer): string {
@@ -122,8 +124,10 @@ function OfferCard({ offer, overlaps, unlocked, onPress, width }: { offer: Publi
   );
 }
 
-export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, ownerMode = false }: Props) {
+export default function SellerBoutique({ offers, sellerUsername, overlaps, unlockedOfferIds, onOpenOffer, onOpenAllOffers, ownerMode = false, viewerUsername }: Props) {
   const { width: windowWidth } = useWindowDimensions();
+  const sellerName = String(sellerUsername || 'Loki').replace(/^@+/, '').trim() || 'Loki';
+  const viewerName = String(viewerUsername || '').replace(/^@+/, '').trim();
   // Le profil montre toujours l'intégralité du club musical. Sur iPhone,
   // les éventuelles restrictions de paiement sont appliquées à l'étape
   // d'achat ; elles ne doivent jamais faire disparaître des collections.
@@ -199,6 +203,13 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <Text style={s.bannerKicker} numberOfLines={1}>{ownerMode ? 'MES PÉPITES' : 'PÉPITES À DÉCOUVRIR'}</Text>
         </View>
         <Text style={s.bannerTitle}>{`${visibleOffers.length} collection${visibleOffers.length > 1 ? 's' : ''} · 1 clic pour écouter`}</Text>
+        <Text style={s.bannerPersonal} numberOfLines={2}>
+          {ownerMode
+            ? 'Ton club musical est prêt. Lance directement une collection.'
+            : viewerName
+              ? `${viewerName}, découvre la sélection de ${sellerName}.`
+              : `Découvre la sélection de ${sellerName}.`}
+        </Text>
         <View style={s.bannerPills}>
           {freeCount > 0 ? <View style={[s.bannerPill, s.tokenFree]}><Text style={[s.bannerPillText, s.tokenTextFree]}>✦ {freeCount} en FREE</Text></View> : null}
           {moneyCount > 0 ? <View style={[s.bannerPill, s.tokenMoney]}><Text style={[s.bannerPillText, s.tokenTextMoney]}>€ {moneyCount}</Text></View> : null}
@@ -268,7 +279,9 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           <OfferCard key={offer.offerId} offer={offer} overlaps={overlaps} unlocked={unlockedOfferIds.has(offer.offerId)} onPress={() => onOpenOffer(offer)} width={142} />
         ))}
       </ScrollView>
-      <Text style={s.hint}>{ownerMode ? 'Touche une collection pour l’écouter directement. Pour modifier une vente, utilise ◆ PÉPITES sur ton profil.' : 'Aperçu sans révéler les titres · une collection déjà acquise reste signalée'}</Text>
+      <Text style={s.hint}>{ownerMode
+        ? 'Touche une collection pour l’écouter directement. Pour modifier une vente, utilise ◆ PÉPITES sur ton profil.'
+        : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
 
       <Modal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
@@ -342,6 +355,7 @@ const s = StyleSheet.create({
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
   bannerKicker: { flex: 1, color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1.3 },
   bannerTitle: { color: colors.textPrimary, fontSize: 20, lineHeight: 26, fontWeight: '900' },
+  bannerPersonal: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, fontWeight: '700' },
   bubbleGenre: { fontWeight: '900', textAlign: 'center' },
   bannerPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bannerPill: { minHeight: 28, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

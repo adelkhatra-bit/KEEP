@@ -82,6 +82,9 @@ describe('PublicUserProfileScreen — compteur réel des titres nouveaux dans un
     expect(ownerSource).toContain('<SellerBoutique');
     expect(ownerSource).toContain('ownerMode');
     expect(ownerSource).toContain("navigation.navigate('PlaylistSale'");
-    expect(boutique).toContain('LES PÉPITES DE @');
+    expect(boutique).toContain('viewerUsername?: string;');
+    expect(boutique).toContain("replace(/^@+/, '')");
+    expect(boutique).toContain('Merci pour ta visite');
+    expect(boutique).not.toContain('LES PÉPITES DE @');
   });
 });
