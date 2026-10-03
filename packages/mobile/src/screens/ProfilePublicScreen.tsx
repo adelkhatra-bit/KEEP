@@ -1956,7 +1956,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
           busy={opportunityPurchaseBusy}
           onClose={() => { setOpportunityPreviewOffer(null); setOpportunityPreviewSuggestion(null); }}
           onConfirmPurchase={(offer) => { void buyOpportunityOffer(offer); }}
-          purchaseEnabled={opportunityPreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled}
+          purchaseEnabled={opportunityPreviewOffer.paymentMode !== 'MONEY' || marketplacePurchaseEnabled}
+          moneyPurchaseEnabled={marketplacePurchaseEnabled}
           sourceUsername={opportunityPreviewSuggestion?.sellerUsername}
           freeBalance={freeBalance}
           onOpenProfile={opportunityPreviewSuggestion ? () => {

@@ -62,8 +62,10 @@ type Props = {
 };
 
 export function salePriceLabel(offer: PublicPlaylistSaleOffer): string {
+  const money = `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? ' €' : ` ${offer.currencyCode}`}`;
   if (offer.paymentMode === 'FREE') return offer.freePrice != null ? `${offer.freePrice} FREE` : 'FREE';
-  return `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? ' €' : ` ${offer.currencyCode}`}`;
+  if (offer.paymentMode === 'BOTH') return `${offer.freePrice ?? 0} FREE ou ${money}`;
+  return money;
 }
 
 function genreGradient(genre: string): [string, string] {
@@ -95,11 +97,12 @@ function rankForViewer(offers: PublicPlaylistSaleOffer[], overlaps: Record<strin
 function PriceToken({ offer, unlocked }: { offer: PublicPlaylistSaleOffer; unlocked: boolean }) {
   if (unlocked) return <View style={[s.token, s.tokenUnlocked]}><Text style={[s.tokenText, s.tokenTextUnlocked]}>✓ DÉBLOQUÉE</Text></View>;
   const free = offer.paymentMode === 'FREE';
-  const nativeMoneyProtected = !free && Platform.OS !== 'web';
+  const dual = offer.paymentMode === 'BOTH';
+  const nativeMoneyProtected = offer.paymentMode === 'MONEY' && Platform.OS !== 'web';
   return (
     <View style={[s.token, free ? s.tokenFree : s.tokenMoney]}>
       <Text style={[s.tokenText, free ? s.tokenTextFree : s.tokenTextMoney]} numberOfLines={1}>
-        {nativeMoneyProtected ? 'PROTÉGÉE' : free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
+        {nativeMoneyProtected ? 'PROTÉGÉE' : dual ? `✦ ${salePriceLabel(offer)}` : free ? `✦ ${salePriceLabel(offer)}` : `€ ${salePriceLabel(offer).replace(' €', '')}`}
       </Text>
     </View>
   );
@@ -144,14 +147,14 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
     () => (ownerMode ? ranked : ranked.filter((offer) => !unlockedOfferIds.has(offer.offerId))).slice(0, DROP_FEATURED_MAX),
     [ranked, unlockedOfferIds, ownerMode],
   );
-  const freeCount = visibleOffers.filter((offer) => offer.paymentMode === 'FREE').length;
-  const moneyCount = visibleOffers.length - freeCount;
+  const freeCount = visibleOffers.filter((offer) => offer.paymentMode === 'FREE' || offer.paymentMode === 'BOTH').length;
+  const moneyCount = visibleOffers.filter((offer) => offer.paymentMode === 'MONEY' || offer.paymentMode === 'BOTH').length;
   const bundleOffers = useMemo(
     () => ownerMode ? [] : visibleOffers.filter((offer) => !unlockedOfferIds.has(offer.offerId)),
     [ownerMode, visibleOffers, unlockedOfferIds],
   );
   const actionableBundleOffers = useMemo(
-    () => Platform.OS === 'web' ? bundleOffers : bundleOffers.filter((offer) => offer.paymentMode === 'FREE'),
+    () => Platform.OS === 'web' ? bundleOffers.filter((offer) => offer.paymentMode !== 'BOTH') : bundleOffers.filter((offer) => offer.paymentMode === 'FREE'),
     [bundleOffers],
   );
   const bundleFreeTotal = useMemo(
@@ -190,7 +193,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
   const [storeQuery, setStoreQuery] = useState('');
   const shelf = useMemo(() => {
     const base = shelfFilter === 'NEW' ? visibleOffers : ranked;
-    const filtered = base.filter((offer) => shelfFilter === 'FREE' ? offer.paymentMode === 'FREE' : shelfFilter === 'MONEY' ? offer.paymentMode !== 'FREE' : true);
+    const filtered = base.filter((offer) => shelfFilter === 'FREE' ? (offer.paymentMode === 'FREE' || offer.paymentMode === 'BOTH') : shelfFilter === 'MONEY' ? (offer.paymentMode === 'MONEY' || offer.paymentMode === 'BOTH') : true);
     return filtered.slice(0, SHELF_MAX);
   }, [ranked, visibleOffers, shelfFilter]);
 
@@ -209,8 +212,8 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
       return av - bv;
     });
     return base.filter((offer) => {
-      if (storeFilter === 'FREE' && offer.paymentMode !== 'FREE') return false;
-      if (storeFilter === 'MONEY' && offer.paymentMode === 'FREE') return false;
+      if (storeFilter === 'FREE' && offer.paymentMode !== 'FREE' && offer.paymentMode !== 'BOTH') return false;
+      if (storeFilter === 'MONEY' && offer.paymentMode !== 'MONEY' && offer.paymentMode !== 'BOTH') return false;
       if (storeFilter.startsWith('GENRE:') && !(offer.genres || []).includes(storeFilter.slice(6))) return false;
       if (query && !`${offer.playlistName} ${(offer.genres || []).join(' ')}`.toLowerCase().includes(query)) return false;
       return true;

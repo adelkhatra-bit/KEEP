@@ -63,6 +63,13 @@ describe('PlaylistSaleImmersivePreview — compact unlock popup', () => {
     expect(source).toContain('{!freeAccess ? <Text style={s.noRefund}>');
   });
 
+  it('offers a clear FREE or PayPal choice for dual-mode collections', () => {
+    expect(source).toContain("offer.paymentMode === 'BOTH'");
+    expect(source).toContain('CHOISIS TON MODE DE DÉBLOCAGE');
+    expect(source).toContain('moneyPurchaseEnabled');
+    expect(source).toContain("{ ...offer, paymentMode: selectedPaymentMode }");
+  });
+
   it('uses a concise unlock CTA and never a generic purchase label', () => {
     expect(source).toContain('DÉBLOQUER LA COLLECTION · ${priceLabel}');
     expect(source).toContain('COMMENCER MA TRANSACTION · ${priceLabel}');

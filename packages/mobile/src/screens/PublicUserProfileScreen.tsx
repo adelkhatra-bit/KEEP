@@ -1130,7 +1130,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   useEffect(() => {
     setFreePurchaseMessage(null);
-    if (!immersivePreviewOffer || immersivePreviewOffer.paymentMode !== 'FREE' || !effectiveViewerId) {
+    if (!immersivePreviewOffer || immersivePreviewOffer.paymentMode === 'MONEY' || !effectiveViewerId) {
       setFreeBalance(null);
       return undefined;
     }
@@ -1201,8 +1201,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return;
     }
 
+    const dualOffers = locked.filter((offer) => offer.paymentMode === 'BOTH');
+    if (dualOffers.length) {
+      Alert.alert('Choix du paiement', 'Les collections FREE + PayPal se débloquent une par une afin que tu choisisses le mode de paiement pour chacune.');
+      return;
+    }
     const freeOffers = locked.filter((offer) => offer.paymentMode === 'FREE');
-    const moneyOffers = locked.filter((offer) => offer.paymentMode !== 'FREE');
+    const moneyOffers = locked.filter((offer) => offer.paymentMode === 'MONEY');
 
     if (freeOffers.length && moneyOffers.length) {
       const freeTotal = freeOffers.reduce((sum, offer) => sum + Math.max(0, Number(offer.freePrice ?? 0)), 0);
@@ -2318,7 +2323,8 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           busy={purchaseBusyId === immersivePreviewOffer.offerId}
           onClose={() => { setImmersivePreviewOffer(null); setImmersivePreviewSellerUsername(null); }}
           onConfirmPurchase={(offer) => void buyPlaylistOffer(offer)}
-          purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode === 'FREE' || marketplacePurchaseEnabled)}
+          purchaseEnabled={!isOwner && (immersivePreviewOffer.paymentMode !== 'MONEY' || marketplacePurchaseEnabled)}
+          moneyPurchaseEnabled={marketplacePurchaseEnabled}
           ownerMode={isOwner}
           sourceUsername={immersivePreviewSellerUsername || profile.username}
           freeBalance={freeBalance}

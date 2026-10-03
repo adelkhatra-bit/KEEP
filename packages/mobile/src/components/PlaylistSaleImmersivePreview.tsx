@@ -54,6 +54,7 @@ interface Props {
   onConfirmPurchase: (offer: PublicPlaylistSaleOffer) => void;
   busy?: boolean;
   purchaseEnabled?: boolean;
+  moneyPurchaseEnabled?: boolean;
   ownerMode?: boolean;
   sourceUsername?: string;
   onOpenProfile?: () => void;
@@ -64,13 +65,14 @@ interface Props {
   requestMissingBusy?: boolean;
 }
 
-export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, ownerMode = false, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
+export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, onConfirmPurchase, busy, purchaseEnabled = true, moneyPurchaseEnabled = purchaseEnabled, ownerMode = false, sourceUsername, onOpenProfile, freeBalance = null, purchaseError = null, onRechargeFree, onRequestMissingTracks, requestMissingBusy = false }: Props) {
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const compact = windowHeight < 760 || windowWidth < 360;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggleMore = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<'FREE' | 'MONEY'>(offer.paymentMode === 'MONEY' ? 'MONEY' : 'FREE');
   const [termsBusy, setTermsBusy] = useState(false);
   const [termsError, setTermsError] = useState<string | null>(null);
   const [tracks, setTracks] = useState<PlaylistSalePreviewTrack[] | null>(null);
@@ -129,6 +131,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
       return undefined;
     }
     setWaiverAccepted(false);
+    setSelectedPaymentMode(offer.paymentMode === 'MONEY' ? 'MONEY' : 'FREE');
     setTermsBusy(false);
     setTermsError(null);
     setDetailsOpen(false);
@@ -231,7 +234,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const tracksLoading = tracks === null;
   const tracksUnavailable = tracks !== null && tracks.length === 0;
   const trackCountLabel = offer.trackCount || tracks?.length || 0;
-  const freeAccess = offer.paymentMode === 'FREE';
+  const dualAccess = offer.paymentMode === 'BOTH';
+  const freeAccess = selectedPaymentMode === 'FREE';
   const priceLabel = freeAccess
     ? `${offer.freePrice ?? 0} FREE`
     : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}`;
@@ -435,6 +439,19 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </View>
           ) : purchaseEnabled ? (
             <>
+              {dualAccess ? (
+                <View style={s.dualChoice}>
+                  <Text style={s.dualChoiceTitle}>CHOISIS TON MODE DE DÉBLOCAGE</Text>
+                  <View style={s.dualChoiceRow}>
+                    <TouchableOpacity style={[s.dualChoiceButton, selectedPaymentMode === 'FREE' && s.dualChoiceButtonOn]} onPress={() => { setSelectedPaymentMode('FREE'); setWaiverAccepted(false); setTermsError(null); }} accessibilityState={{ selected: selectedPaymentMode === 'FREE' }}>
+                      <Text style={[s.dualChoiceButtonText, selectedPaymentMode === 'FREE' && s.dualChoiceButtonTextOn]}>⚡ {offer.freePrice ?? 0} FREE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.dualChoiceButton, selectedPaymentMode === 'MONEY' && s.dualChoiceButtonOn, !moneyPurchaseEnabled && s.dualChoiceButtonDisabled]} disabled={!moneyPurchaseEnabled} onPress={() => { setSelectedPaymentMode('MONEY'); setWaiverAccepted(false); setTermsError(null); }} accessibilityState={{ selected: selectedPaymentMode === 'MONEY', disabled: !moneyPurchaseEnabled }}>
+                      <Text style={[s.dualChoiceButtonText, selectedPaymentMode === 'MONEY' && s.dualChoiceButtonTextOn]}>{moneyPurchaseEnabled ? `PAYPAL · ${(offer.priceCents / 100).toFixed(2).replace('.', ',')}${offer.currencyCode === 'EUR' ? '€' : ` ${offer.currencyCode}`}` : 'PAYPAL INDISPONIBLE'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
               {freeBlocked ? (
                 <View style={s.creditError}>
                   <Text style={s.creditErrorTitle}>FREE INSUFFISANTS</Text>
@@ -483,7 +500,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               <TouchableOpacity
                 style={[s.buyButton, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonDisabled]}
                 disabled={!waiverAccepted || busy || freeBlocked || allAlreadyOwned}
-                onPress={() => onConfirmPurchase(offer)}
+                onPress={() => onConfirmPurchase(dualAccess ? { ...offer, paymentMode: selectedPaymentMode } : offer)}
                 accessibilityLabel={allAlreadyOwned ? 'Tu as déjà tous les morceaux' : freeBlocked ? 'FREE insuffisants, recharge nécessaire' : freeAccess ? `Débloquer la collection avec ${priceLabel}` : `Commencer ma transaction PayPal, ${priceLabel}`}
               >
                 <Text style={[s.buyButtonText, (!waiverAccepted || freeBlocked || allAlreadyOwned) && s.buyButtonTextDisabled]} numberOfLines={1}>{busy ? '…' : allAlreadyOwned ? 'DÉJÀ DANS TA MUSIQUE' : freeBlocked ? 'FREE INSUFFISANTS' : !waiverAccepted ? 'ACCEPTE LES CONDITIONS POUR CONTINUER' : freeAccess ? `DÉBLOQUER LA COLLECTION · ${priceLabel}` : `COMMENCER MA TRANSACTION · ${priceLabel}`}</Text>
