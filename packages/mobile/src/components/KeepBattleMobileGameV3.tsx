@@ -1038,10 +1038,29 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         delete next[item.targetId];
         return next;
       });
-      await refreshSocial();
+      if (arena?.id) {
+        const [outbox, freshArena] = await Promise.all([
+          loadOutgoingBattleChallenges().catch(() => []),
+          loadKeepBattleArena(arena.id).catch(() => null),
+        ]);
+        const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
+        setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
+        setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
+        setArenaInvitedIds(pendingOutgoing.filter((x) => x.arenaId === arena.id).map((x) => x.targetId));
+        if (freshArena) setArena(freshArena);
+      } else {
+        await refreshSocial();
+      }
     } catch (error: any) {
       const message = String(error?.message || error || '');
-      await refreshSocial();
+      if (arena?.id) {
+        const outbox = await loadOutgoingBattleChallenges().catch(() => []);
+        const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
+        setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
+        setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
+      } else {
+        await refreshSocial();
+      }
       if (message.includes('BATTLE_CHALLENGE_ALREADY_ACCEPTED')) {
         Alert.alert('Battle', `${item.username} a déjà accepté. Le Battle va s’ouvrir automatiquement.`);
       } else if (!message.includes('NOT_CANCELLABLE')) {
@@ -1050,7 +1069,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     } finally {
       setCancelChallengeBusyId(null);
     }
-  }, [cancelChallengeBusyId, refreshSocial]);
+  }, [arena?.id, cancelChallengeBusyId, refreshSocial]);
 
   const requestCancelOutgoingChallenge = React.useCallback((item: KeepBattleOutgoingChallenge) => {
     const remaining = Math.max(0, new Date(item.expiresAt).getTime() - Date.now());
@@ -1063,6 +1082,26 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       ],
     );
   }, [cancelOutgoingChallenge]);
+
+  React.useEffect(() => {
+    if (!arena?.id || arena.status !== 'WAITING') return undefined;
+    let alive = true;
+    const syncWaitingInvites = async () => {
+      const [outbox, freshArena] = await Promise.all([
+        loadOutgoingBattleChallenges().catch(() => []),
+        loadKeepBattleArena(arena.id).catch(() => null),
+      ]);
+      if (!alive) return;
+      const pendingOutgoing = outbox.filter((x) => x.status === 'PENDING');
+      setOutgoingPendingTargetIds(new Set(pendingOutgoing.map((x) => x.targetId)));
+      setOutgoingPendingByTarget(Object.fromEntries(pendingOutgoing.map((x) => [x.targetId, x])));
+      setArenaInvitedIds(pendingOutgoing.filter((x) => x.arenaId === arena.id).map((x) => x.targetId));
+      if (freshArena) setArena(freshArena);
+    };
+    void syncWaitingInvites();
+    const timer = setInterval(() => { void syncWaitingInvites(); }, 2000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [arena?.id, arena?.status]);
 
   React.useEffect(() => {
     if (!solo || arena) return;
@@ -2401,8 +2440,23 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (!freshTarget) throw new Error('BATTLE_PLAYER_NOT_AVAILABLE');
       if (opponentNeedsMoreFree(freshTarget, arena.roundCount)) throw new Error(`BATTLE_TARGET_NO_CREDIT:${stakeForRounds(arena.roundCount)}`);
       player = freshTarget;
-      await sendBattleArenaChallenge(arena.id, player.profileId);
+      const sent = await sendBattleArenaChallenge(arena.id, player.profileId);
       setArenaInvitedIds((rows) => rows.includes(player.profileId) ? rows : [...rows, player.profileId]);
+      if (sent.id && sent.expiresAt) {
+        const pendingItem: KeepBattleOutgoingChallenge = {
+          id: sent.id,
+          targetId: player.profileId,
+          username: player.username,
+          avatarUrl: player.avatarUrl,
+          themeCode: arena.themeCode,
+          status: 'PENDING',
+          arenaId: arena.id,
+          arenaCode: sent.arenaCode ?? arena.arenaCode,
+          expiresAt: sent.expiresAt,
+        };
+        setOutgoingPendingTargetIds((rows) => new Set(rows).add(player.profileId));
+        setOutgoingPendingByTarget((rows) => ({ ...rows, [player.profileId]: pendingItem }));
+      }
     } catch (e: any) {
       const message = String(e?.message || e || '');
       if (message.includes('BATTLE_ARENA_FULL')) Alert.alert('Battle', 'Le groupe est déjà complet : 10 joueurs.');
@@ -3025,7 +3079,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             )
           ) : null}
           {arena.openSeats > 0 ? <TouchableOpacity style={s.finishSecondary} onPress={() => { if (arenaInviteOpen) setArenaInviteOpen(false); else void openArenaInviteList(); }}><Text style={s.finishSecondaryText}>{arenaInviteOpen ? 'FERMER LES INVITATIONS' : `AJOUTER UN JOUEUR · ${arena.openSeats} PLACE${arena.openSeats > 1 ? 'S' : ''}`}</Text></TouchableOpacity> : null}
-          {arenaInviteOpen ? <View style={s.arenaInvitePanel}><Text style={s.arenaInviteTitle}>JOUEURS DISPONIBLES · GROUPE {arena.seats.length}/10</Text>{busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <ScrollView style={s.arenaInviteScroll} contentContainerStyle={s.arenaInviteList}>{livePlayers.map((player) => { const invited = arenaInvitedIds.includes(player.profileId); const blockedMs = (inviteBlockedUntil[player.profileId] || 0) - now; const blocked = blockedMs > 0; const targetShort = opponentNeedsMoreFree(player, arena.roundCount); return <View key={player.profileId} style={[s.arenaInviteRow, targetShort && s.liveRowInsufficient]}><TouchableOpacity onPress={() => onOpenProfile(player.username)}><Avatar name={player.username} url={player.avatarUrl} size={46} /></TouchableOpacity><View style={{ flex: 1 }}><Text style={s.arenaInviteName}>{player.username}</Text><Text style={[s.arenaInviteMeta, targetShort && s.arenaInviteMetaShort]}>{targetShort ? `🎁 ${player.remainingFree}/${stakeForRounds(arena.roundCount)} Free · indisponible` : `● disponible · ${themeLabel(player.themeCode)}`}</Text></View><TouchableOpacity accessibilityRole="button" hitSlop={10} disabled={invited || blocked || targetShort || Boolean(arenaInviteBusyId)} style={[s.arenaInviteButton, (invited || blocked || targetShort) && s.actionDisabled, targetShort && s.battleButtonCreditBlocked]} onPress={() => { void invitePlayerToArena(player); }}><Text style={[s.arenaInviteButtonText, targetShort && s.battleButtonCreditBlockedText]}>{arenaInviteBusyId === player.profileId ? 'ENVOI…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : invited ? 'INVITÉ' : targetShort ? `${player.remainingFree}/${stakeForRounds(arena.roundCount)} FREE` : 'INVITER'}</Text></TouchableOpacity></View>; })}</ScrollView> : <Text style={s.arenaInviteEmpty}>Aucun autre joueur disponible pour le moment.</Text>}<TouchableOpacity style={s.arenaShareButton} onPress={() => { void shareArenaInvite(arena); }}><Text style={s.arenaShareButtonText}>INVITER UN AMI PAR LIEN</Text></TouchableOpacity></View> : null}
+          {arenaInviteOpen ? <View style={s.arenaInvitePanel}><Text style={s.arenaInviteTitle}>JOUEURS DISPONIBLES · GROUPE {arena.seats.length}/10</Text>{busy ? <ActivityIndicator color="#E5F266" /> : livePlayers.length ? <ScrollView style={s.arenaInviteScroll} contentContainerStyle={s.arenaInviteList}>{livePlayers.map((player) => { const pendingInvite = outgoingPendingByTarget[player.profileId]; const invited = Boolean(pendingInvite) || arenaInvitedIds.includes(player.profileId); const inviteRemaining = pendingInvite ? Math.max(0, new Date(pendingInvite.expiresAt).getTime() - now) : 0; const cancelling = Boolean(pendingInvite && cancelChallengeBusyId === pendingInvite.id); const blockedMs = (inviteBlockedUntil[player.profileId] || 0) - now; const blocked = blockedMs > 0; const targetShort = opponentNeedsMoreFree(player, arena.roundCount); return <View key={player.profileId} style={[s.arenaInviteRow, targetShort && s.liveRowInsufficient]}><TouchableOpacity onPress={() => onOpenProfile(player.username)}><Avatar name={player.username} url={player.avatarUrl} size={46} /></TouchableOpacity><View style={{ flex: 1 }}><Text style={s.arenaInviteName}>{player.username}</Text><Text style={[s.arenaInviteMeta, targetShort && s.arenaInviteMetaShort]}>{pendingInvite ? `Invitation en attente · ${formatInviteCooldown(inviteRemaining)}` : targetShort ? `🎁 ${player.remainingFree}/${stakeForRounds(arena.roundCount)} Free · indisponible` : `● disponible · ${themeLabel(player.themeCode)}`}</Text></View><TouchableOpacity accessibilityRole="button" hitSlop={10} disabled={cancelling || blocked || targetShort || (invited && !pendingInvite) || Boolean(arenaInviteBusyId)} style={[s.arenaInviteButton, (blocked || targetShort || (invited && !pendingInvite)) && s.actionDisabled, targetShort && s.battleButtonCreditBlocked, pendingInvite && s.arenaInviteCancelButton]} onPress={() => { if (pendingInvite) requestCancelOutgoingChallenge(pendingInvite); else void invitePlayerToArena(player); }}><Text style={[s.arenaInviteButtonText, targetShort && s.battleButtonCreditBlockedText, pendingInvite && s.arenaInviteCancelText]}>{arenaInviteBusyId === player.profileId ? 'ENVOI…' : cancelling ? 'ANNULATION…' : blocked ? `⏳ ${formatInviteCooldown(blockedMs)}` : pendingInvite ? `ANNULER · ${formatInviteCooldown(inviteRemaining)}` : invited ? 'INVITÉ' : targetShort ? `${player.remainingFree}/${stakeForRounds(arena.roundCount)} FREE` : 'INVITER'}</Text></TouchableOpacity></View>; })}</ScrollView> : <Text style={s.arenaInviteEmpty}>Aucun autre joueur disponible pour le moment.</Text>}<TouchableOpacity style={s.arenaShareButton} onPress={() => { void shareArenaInvite(arena); }}><Text style={s.arenaShareButtonText}>INVITER UN AMI PAR LIEN</Text></TouchableOpacity></View> : null}
           {/* Adel (02/09/2026) : "quand j'appuie sur quitter, il faut que je
               quitte automatiquement et ça me remette sur soirée" -- QUITTER
               LE BATTLE ne devait ramener qu'à l'accueil Battle interne
@@ -3071,6 +3125,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <ScrollView scrollEnabled={arena.status !== "ACTIVE"} bounces={arena.status !== "ACTIVE"} style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.arenaScrollContent, arena.status === 'ACTIVE' && round ? s.arenaScrollContentActive : null]}>
       {arena.status === "WAITING" && arena.matchNo > 0 && !arena.lastResult ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>🏆</Text></View><Text style={s.winner}>RÉSULTATS EN CHARGEMENT</Text><Text style={s.waitText}>Compilation de vos scores...</Text></View> : null}
       {arena.status === "WAITING" && (arena.matchNo === 0 || arena.lastResult) ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>⚡</Text></View><Text style={s.winner}>{arena.seats.length < 2 ? (arena.pendingInviteCount > 0 ? "INVITATION ENVOYÉE" : "EN ATTENTE") : "JOUEURS EN SYNCHRONISATION"}</Text><Text style={s.waitText}>{arena.seats.length >= 2 ? "Tout le monde est prêt. Le même extrait démarre pour tous." : arena.pendingInviteCount > 0 ? `${arena.pendingInviteCount} réponse${arena.pendingInviteCount > 1 ? "s" : ""} en attente · tu peux continuer à inviter d’autres joueurs.` : "Invite un adversaire ou partage le lien pour démarrer."}</Text>{arena.pendingInviteCount > 0 ? <View style={s.waitingStatusPill}><Text style={s.waitingStatusText}>EN ATTENTE DE RÉPONSE</Text></View> : null}</View> : null}
+      {arena.status === 'WAITING' ? Object.values(outgoingPendingByTarget).filter((item) => item.arenaId === arena.id && new Date(item.expiresAt).getTime() > now).map((item) => { const inviteRemaining = Math.max(0, new Date(item.expiresAt).getTime() - now); const cancelling = cancelChallengeBusyId === item.id; return <View key={item.id} style={s.pendingArenaInvite}><View style={{ flex: 1 }}><Text style={s.pendingArenaInviteName}>@{item.username} · EN ATTENTE</Text><Text style={s.pendingArenaInviteMeta}>Réponse possible encore {formatInviteCooldown(inviteRemaining)}</Text></View><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Annuler l’invitation envoyée à ${item.username}`} disabled={cancelling} style={[s.pendingArenaInviteCancel, cancelling && s.actionDisabled]} onPress={() => requestCancelOutgoingChallenge(item)}><Text style={s.pendingArenaInviteCancelText}>{cancelling ? 'ANNULATION…' : 'ANNULER'}</Text></TouchableOpacity></View>; }) : null}
       {arena.status === 'ACTIVE' && round ? <><Animated.View style={[s.card, s.arenaCardActive, { minHeight: roundCardMinHeight }, { transform: [{ scale: pulse }] }]}><View style={[s.visual, s.arenaVisualActive, { maxHeight: arenaVisualMax, maxWidth: arenaVisualMax }]}>{round.revealed && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{round.revealed ? <View style={s.result}><Text style={round.myAnswer?.correct ? s.good : s.bad}>{round.myAnswer?.correct ? 'GAGNÉ !' : round.answered ? 'PERDU' : 'OUPS · TROP TARD'}</Text><Text style={s.artist}>{round.artist || ''}</Text>{arena.roundWinner ? <Text style={s.roundWinner}>⚡ @{arena.roundWinner.username} gagne la manche en {(arena.roundWinner.responseMs / 1000).toFixed(1)}s</Text> : !round.myAnswer?.correct ? <Text testID="battle-round-no-winner" style={s.roundNoWinner}>😶 PERSONNE N’A TROUVÉ · aucun point sur cette manche</Text> : null}</View> : null}</View>
       <View style={s.clockRow}><Text style={[s.clock, ready && left < 2200 && s.clockHot]}>{ready ? `${(left / 1000).toFixed(1)}s` : 'PRÊT'}</Text></View><View style={s.timeTrack}><View style={[s.timeFill, { width: `${ready ? pct : 100}%` }]} /></View>
       {false ? <View style={s.duel}><View style={s.duelNames}><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={s.duelName}>{first.username}</Text><Text style={s.duelPoints}></Text></TouchableOpacity><View style={s.duelCenter}><Text style={s.duelScore}>VS</Text><Text style={s.duelTimer}>{`${Math.ceil(left / 1000)}s`}</Text></View><TouchableOpacity style={{ flex: 1 }} onPress={() => {}}><Text style={[s.duelName, { textAlign: 'right' }]}>{second.username}</Text><Text style={[s.duelPoints, { textAlign: 'right' }]}></Text></TouchableOpacity></View><View style={s.power}><Animated.View style={[s.powerLeft, { width: powerShareAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }) }]} /><View style={s.powerMiddle} /><View style={s.powerRight} /></View></View> : null}
@@ -3464,6 +3519,13 @@ const s = StyleSheet.create({
   battleStatusBadgeText: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
   battleStatusBadgeCancel: { borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.10)' },
   battleStatusBadgeCancelText: { color: colors.danger },
+  pendingArenaInvite: { minHeight: 58, marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 15, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundCard },
+  pendingArenaInviteName: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  pendingArenaInviteMeta: { color: colors.textMutedGrey, fontSize: 10, fontWeight: '800', marginTop: 2 },
+  pendingArenaInviteCancel: { minHeight: 34, paddingHorizontal: 11, borderRadius: 17, borderWidth: 1, borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.08)', alignItems: 'center', justifyContent: 'center' },
+  pendingArenaInviteCancelText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
+  arenaInviteCancelButton: { borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.08)' },
+  arenaInviteCancelText: { color: colors.danger },
   battleStatusBadgeMuted: { opacity: 0.75 },
   battleStatusBadgeTextMuted: { color: colors.textMuted },
   battleSelectionFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.backgroundElevated, borderTopWidth: 1, borderTopColor: colors.border },
