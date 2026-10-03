@@ -106,7 +106,21 @@ export function navigateFromNotificationData(data: Record<string, unknown> | nul
     return;
   }
 
-  if (type === 'NEW_PUBLIC_KEEP' || type.startsWith('PLAYLIST_SALE_PAYMENT') || type === 'PLAYLIST_SALE_BUYER_PAID' || type === 'PLAYLIST_SALE_WAITING_SELLER') {
+  if (type === 'NEW_PUBLIC_KEEP') {
+    // Une notification "nouvelle musique" est faite pour écouter : si le
+    // serveur fournit l'entrée détectée, ouvrir directement Écouter. Repli
+    // vers le centre de notifications uniquement pour les anciennes lignes
+    // qui ne possèdent pas encore entryId.
+    const newMusicEntryId = String(payload.entryId ?? payload.entry_id ?? '').trim();
+    if (newMusicEntryId) {
+      guardedNavigate('Main', { screen: 'Listen', params: { entryId: newMusicEntryId, source: 'NEW_PUBLIC_KEEP' } });
+    } else {
+      guardedNavigate('Notifications', notificationId ? { focusNotificationId: notificationId } : undefined);
+    }
+    return;
+  }
+
+  if (type.startsWith('PLAYLIST_SALE_PAYMENT') || type === 'PLAYLIST_SALE_BUYER_PAID' || type === 'PLAYLIST_SALE_WAITING_SELLER') {
     guardedNavigate('Notifications', notificationId ? { focusNotificationId: notificationId } : undefined);
     return;
   }
