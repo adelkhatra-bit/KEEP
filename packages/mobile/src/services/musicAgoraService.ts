@@ -121,12 +121,13 @@ export type MusicAgoraReportReason = 'spam' | 'harassment' | 'inappropriate_cont
 
 const ALL_CHAT_SURFACES: MusicAgoraSurface[] = ['LISTEN','DISCOVER','PLAYLISTS','PARTIES','PROFILE','NOTIFICATIONS'];
 export const MARKETPLACE_PAYMENT_TERMS_VERSION = '2026-10-01-chat-payments-v1';
-const PAYPAL_QR_PREFIX = '[[KEEP_PAYPAL_QR]]';
+const PAYPAL_QR_PREFIXES = ['[[LOKI_PAYPAL_QR]]', '[[KEEP_PAYPAL_QR]]'] as const;
 
 export function extractMusicAgoraPayoutQrUrl(body: string): string | null {
   const raw = String(body || '');
-  if (!raw.startsWith(PAYPAL_QR_PREFIX)) return null;
-  const candidate = raw.slice(PAYPAL_QR_PREFIX.length).trim();
+  const prefix = PAYPAL_QR_PREFIXES.find((value) => raw.startsWith(value));
+  if (!prefix) return null;
+  const candidate = raw.slice(prefix.length).trim();
   try {
     const url = new URL(candidate);
     const host = url.hostname.toLowerCase();
