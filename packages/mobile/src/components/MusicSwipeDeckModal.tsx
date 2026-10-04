@@ -345,7 +345,7 @@ export default function MusicSwipeDeckModal({
                     () => {
                       if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
                       setPreviewEnded(true);
-                      if (loop) advanceIndex();
+                      if (index + 1 < deckTracks.length || loop) advanceIndex();
                     },
                   );
                   recovered = true;
@@ -359,7 +359,7 @@ export default function MusicSwipeDeckModal({
               // Dans un flux automatique, un extrait réellement illisible ne
               // doit jamais bloquer l'utilisateur sur une carte silencieuse.
               setAutoplayBlocked(false);
-              if (loop && !actionInFlight.current) {
+              if ((index + 1 < deckTracks.length || loop) && !actionInFlight.current) {
                 endAdvanceTimer.current = setTimeout(() => {
                   endAdvanceTimer.current = null;
                   if (alive && !actionInFlight.current) advanceIndex();
@@ -439,7 +439,7 @@ export default function MusicSwipeDeckModal({
           },
           () => {
             setPreviewEnded(true);
-            if (!actionInFlight.current && loop) {
+            if (!actionInFlight.current && (index + 1 < deckTracks.length || loop)) {
               if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
               endAdvanceTimer.current = setTimeout(() => {
                 endAdvanceTimer.current = null;
