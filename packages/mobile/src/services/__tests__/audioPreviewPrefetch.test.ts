@@ -70,3 +70,18 @@ describe('Non-régression : le correctif micro/audio (a98868f) reste intact apr�
     expect(preview).not.toContain('allowsRecordingIOS: false,');
   });
 });
+
+describe('Accueil Loki Pulse — latence TestFlight et verrou audio global', () => {
+  const home = readNormalized(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx');
+
+  it("ne lance aucun preload expo-av entre onPressIn et la lecture native d'une bulle", () => {
+    expect(home).toContain("if (Platform.OS !== 'web') return;");
+    expect(home).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');
+  });
+
+  it('coupe immédiatement tout ancien extrait avant d’ouvrir le morceau choisi', () => {
+    expect(home).toContain('stopTrackPreviewFast();');
+    expect(home).toContain('setHomePulseSelectedTrackId(trackId);');
+    expect(home).toContain('setHomePulseOpen(true);');
+  });
+});
