@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { openProviderPopup } from '../lib/providerWindow';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationRow = {
@@ -216,7 +217,7 @@ export default function Operations() {
                 <td><strong style={{ color: state.tone }}>{state.text}</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{row.configured ? (row.source ?? 'CONFIGURÉE') : 'Aucune clé active'}</div></td>
                 <td>{live?.last_checked_at ? new Date(live.last_checked_at).toLocaleString('fr-FR') : 'Pas encore contrôlée'}</td>
                 <td style={{ maxWidth: 280, whiteSpace: 'normal' }}>{live?.last_error ?? row.hint ?? '—'}</td>
-                <td><a href={billing.url} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', fontWeight: 800 }}>{billing.label}</a></td>
+                <td><button type="button" onClick={() => billing.url && openProviderPopup(billing.url, `loki-billing-${row.key}`)} style={{ color: '#ffffff', fontWeight: 800, background: 'rgba(124,92,252,.12)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>{billing.label}</button></td>
               </tr>;
             })}
           </tbody>
