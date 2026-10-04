@@ -5,7 +5,7 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(__dirname, ...
 
 describe('Web companion QR contract', () => {
   const onboarding = read('..', '..', 'screens', 'onboarding', 'OnboardingScreen.tsx');
-  const app = read('..', '..', '..', 'App.tsx');
+  const chatHost = read('..', '..', 'components', 'ChatDockHost.tsx');
   const pairing = read('..', '..', 'services', 'webPairingService.ts');
   const lifecycle = read('..', '..', 'components', 'WebPairingLifecycle.tsx');
   const account = read('..', '..', 'components', 'AccountActionsPanel.tsx');
@@ -20,7 +20,7 @@ describe('Web companion QR contract', () => {
     expect(edge).toContain("keep://pair?pairing_id=");
     expect(pairing).toContain("approveDesktopPairing");
     expect(lifecycle).toContain("Linking.addEventListener('url'");
-    expect(app).toContain('<WebPairingLifecycle />');
+    expect(chatHost).toContain('<WebPairingLifecycle />');
   });
 
   it('stores no refresh token in the pairing backend and uses one-time magic-link auth', () => {
