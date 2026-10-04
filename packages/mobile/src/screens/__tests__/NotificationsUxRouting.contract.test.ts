@@ -46,7 +46,8 @@ describe('Notifications UX and routing contract', () => {
     expect(notifications).toContain("return 'OUVRIR BATTLE'");
     expect(notifications).toContain("return 'OUVRIR LA COLLECTION'");
     expect(notifications).toContain("return 'VOIR LA PÉPITE'");
-    expect(notifications).toContain("return 'OUVRIR ICI'");
+    expect(notifications).toContain("if (profileUsername || notificationProfileId(item)) return null;");
+    expect(notifications).toContain('VOIR LE PROFIL · @{profileUsername}');
     expect(notifications).toContain("type === 'MONTHLY_FREE_CREDIT' || type.startsWith('FREE_')");
     expect(notifications).toContain('ownerProfileId');
   });
