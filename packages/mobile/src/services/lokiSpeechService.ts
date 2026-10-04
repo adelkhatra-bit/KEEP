@@ -1,6 +1,4 @@
 import { Platform } from 'react-native';
-import { Audio, InterruptionModeIOS } from 'expo-av';
-import { isNativeRecordingModeActive } from './micCapture';
 import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from './audioPreviewService';
 
 type LokiSpeechOptions = {
@@ -9,33 +7,19 @@ type LokiSpeechOptions = {
   pitch?: number;
 };
 
-let nativeSpeechModule: typeof import('expo-speech') | null = null;
-function getNativeSpeech() {
-  if (!nativeSpeechModule) nativeSpeechModule = require('expo-speech') as typeof import('expo-speech');
-  return nativeSpeechModule;
-}
+let speechSerial = 0;
 
-let activeSpeechSerial = 0;
-
-async function prepareNativeSpeechAudio(): Promise<void> {
-  if (Platform.OS === 'web') return;
-  // iOS/TestFlight: AVSpeechSynthesizer can inherit an audio session that was
-  // previously configured by the microphone. Force a speaker-friendly mode
-  // before Loki speaks, while preserving recording if a real capture is
-  // currently active elsewhere in the app.
-  const recordingActive = isNativeRecordingModeActive();
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: recordingActive,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: recordingActive,
-    interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-    shouldDuckAndroid: true,
-    playThroughEarpieceAndroid: false,
-  });
+function nativeSpeechModule(): typeof import('expo-speech') | null {
+  if (Platform.OS === 'web') return null;
+  try {
+    return require('expo-speech') as typeof import('expo-speech');
+  } catch {
+    return null;
+  }
 }
 
 export async function stopLokiSpeech(): Promise<void> {
-  activeSpeechSerial += 1;
+  speechSerial += 1;
   if (Platform.OS === 'web') {
     try {
       const synth = (globalThis as any)?.speechSynthesis;
@@ -44,17 +28,16 @@ export async function stopLokiSpeech(): Promise<void> {
     return;
   }
   try {
-    await getNativeSpeech().stop();
-  } catch {
-    // Voice is optional and must never block Loki Music.
-  }
+    const Speech = nativeSpeechModule();
+    await Speech?.stop?.();
+  } catch {}
 }
 
 export async function speakLokiText(text: string, options: LokiSpeechOptions = {}): Promise<void> {
   const clean = String(text || '').trim();
   if (!clean) return;
 
-  const serial = ++activeSpeechSerial;
+  const mySerial = ++speechSerial;
   const duckToken = await duckActivePreviewForSpeech(0.16).catch(() => 0);
 
   try {
@@ -62,6 +45,7 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
       const synth = (globalThis as any)?.speechSynthesis;
       const Utterance = (globalThis as any)?.SpeechSynthesisUtterance;
       if (!synth || !Utterance) return;
+
       synth.cancel?.();
       synth.resume?.();
       await new Promise<void>((resolve) => {
@@ -71,25 +55,26 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
         utterance.pitch = options.pitch ?? 1;
         utterance.volume = 1;
         let settled = false;
-        const finish = () => {
+        const done = () => {
           if (settled) return;
           settled = true;
           resolve();
         };
-        utterance.onend = finish;
-        utterance.onerror = finish;
+        utterance.onend = done;
+        utterance.onerror = done;
         synth.speak(utterance);
-        setTimeout(finish, Math.max(4500, clean.length * 95));
+        setTimeout(done, Math.max(1800, Math.min(12000, clean.length * 95)));
       });
       return;
     }
 
-    const Speech = getNativeSpeech();
-    await prepareNativeSpeechAudio().catch(() => {});
+    const Speech = nativeSpeechModule();
+    if (!Speech) return;
+
     await Speech.stop().catch(() => {});
     await new Promise<void>((resolve) => {
       let settled = false;
-      const finish = () => {
+      const done = () => {
         if (settled) return;
         settled = true;
         resolve();
@@ -99,22 +84,21 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           language: options.language || 'fr-FR',
           rate: options.rate ?? 0.95,
           pitch: options.pitch ?? 1,
-          volume: 1,
-          useApplicationAudioSession: true,
-          onStart: () => {},
-          onDone: finish,
-          onStopped: finish,
-          onError: finish,
+          onDone: done,
+          onStopped: done,
+          onError: done,
         });
       } catch {
-        finish();
+        done();
       }
-      // Filet de sécurité : une voix système iOS interrompue peut parfois ne
-      // pas rappeler onDone/onStopped. Ne jamais laisser le volume ducké.
-      setTimeout(finish, Math.max(5000, clean.length * 110));
+      // Filet de sécurité : une callback TTS iOS perdue ne doit jamais laisser
+      // l'audio Battle ducké indéfiniment.
+      setTimeout(done, Math.max(2200, Math.min(14000, clean.length * 105)));
     });
   } finally {
-    if (serial === activeSpeechSerial && duckToken) {
+    if (mySerial === speechSerial && duckToken) {
+      await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
+    } else if (duckToken) {
       await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
     }
   }
