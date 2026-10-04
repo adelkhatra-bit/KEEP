@@ -34,6 +34,8 @@ describe('packs de Solos', () => {
   it('the app offers the packs when Solos are exhausted, never fakes a card payment', () => {
     expect(game).toContain('＋ ACHETER DES SOLOS');
     expect(game).toContain("{ text: 'Acheter des Solos', onPress: () => { void openSoloPacks(); } },");
+    expect(game).toContain('soloRechargeCopy(soloPacks?.packs, soloDailyStatus).full');
+    expect(game).not.toContain('Deux packs au choix : +10 Solos ou +25 Solos.');
     expect(game).toContain('Paiement par carte / Apple Pay : bientôt');
     expect(game).toContain("Aucun Free n’a été débité, réessaie dans un instant.");
   });

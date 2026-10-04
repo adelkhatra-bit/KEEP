@@ -80,7 +80,7 @@ export function soloPlanRuleCopy(status: SoloDailyStatusLike | null, purchasedFa
       + (purchased > 0
         ? `Stock acheté restant : ${purchased} Solo${purchased > 1 ? 's' : ''}. Ce stock reste sur ton compte jusqu’à utilisation et s’ajoute au quota du jour. `
         : '')
-      + 'Les deux packs disponibles créditent immédiatement 10 ou 25 Solos. Chaque partie consomme 1 Solo. Quand les Solos achetés sont épuisés, il faut acheter un nouveau pack.',
+      + 'Les packs affichés juste au-dessus sont réglés depuis le Super Admin et créditent immédiatement le nombre de Solos indiqué. Chaque partie consomme 1 Solo. Quand les Solos achetés sont épuisés, il faut acheter un nouveau pack.',
   };
 }
 

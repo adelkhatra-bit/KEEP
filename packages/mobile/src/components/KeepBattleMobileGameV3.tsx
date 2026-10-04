@@ -2321,7 +2321,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Acheter des Solos</Text>
-            <Text style={s.prefsPickerHint}>Deux packs au choix : +10 Solos ou +25 Solos. Le pack choisi est crédité immédiatement sur ton stock. Chaque partie consomme 1 Solo. Aucun pack ne se renouvelle automatiquement : quand ton stock acheté est épuisé, tu dois acheter un nouveau pack.{soloPacks?.bonusRemaining ? ` Stock acheté restant : ${soloPacks.bonusRemaining} Solo${soloPacks.bonusRemaining > 1 ? 's' : ''}.` : ''}</Text>
+            <Text style={s.prefsPickerHint}>{soloRechargeCopy(soloPacks?.packs, soloDailyStatus).full}{soloPacks?.bonusRemaining ? ` Stock acheté restant : ${soloPacks.bonusRemaining} Solo${soloPacks.bonusRemaining > 1 ? 's' : ''}.` : ''}</Text>
             {(soloPacks?.packs ?? []).map((pack) => {
               const short = (soloPacks?.balance ?? 0) < pack.free;
               return (
