@@ -1,7 +1,7 @@
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -318,8 +318,55 @@ export default function MusicSwipeDeckModal({
             }
             if (alive) setAutoplayBlocked(false);
           } catch {
-            // .play() réellement refusé par le navigateur : on conserve le
-            // bouton manuel visible, mais on ne déclare pas le morceau absent.
+            if (!alive) return;
+            if (Platform.OS !== 'web') {
+              // TestFlight/iOS : aucun geste utilisateur n'est requis pour
+              // jouer un son dans l'app native. Une erreur ici est transitoire
+              // (session audio, décodage, URL catalogue). On retente plusieurs
+              // fois automatiquement au lieu d'afficher un bouton ÉCOUTER.
+              let recovered = false;
+              for (let retry = 0; retry < 3 && alive && !recovered; retry += 1) {
+                await new Promise((resolve) => setTimeout(resolve, 180 + retry * 180));
+                if (!alive || playbackGeneration.current !== generation) return;
+                try {
+                  if (isTrackPreviewActive(playbackKey)) { recovered = true; break; }
+                  await stopTrackPreview();
+                  await toggleTrackPreview(
+                    playbackKey,
+                    refreshedUrl,
+                    (playing) => {
+                      if (playing && currentSourceProfileId) {
+                        void recordProfileSwipeListen(currentSourceProfileId, current.id);
+                      }
+                    },
+                    () => {
+                      if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
+                      setPreviewEnded(true);
+                      if (loop) advanceIndex();
+                    },
+                  );
+                  recovered = true;
+                } catch {}
+              }
+              if (recovered) {
+                setAutoplayBlocked(false);
+                setPreviewEnded(false);
+                return;
+              }
+              // Dans un flux automatique, un extrait réellement illisible ne
+              // doit jamais bloquer l'utilisateur sur une carte silencieuse.
+              setAutoplayBlocked(false);
+              if (loop && !actionInFlight.current) {
+                endAdvanceTimer.current = setTimeout(() => {
+                  endAdvanceTimer.current = null;
+                  if (alive && !actionInFlight.current) advanceIndex();
+                }, 220);
+              } else {
+                setResolvedPreviewUrl(null);
+              }
+              return;
+            }
+            // Web uniquement : Safari/Chrome peuvent imposer un geste.
             if (alive) setAutoplayBlocked(true);
           }
         }
@@ -636,7 +683,7 @@ export default function MusicSwipeDeckModal({
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
-                  {(autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
+                  {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
                     <TouchableOpacity style={s.manualPlayButton} onPress={() => { unlockWebAudioForGesture(); setPreviewEnded(false); void manualPlay(); }} accessibilityLabel={previewEnded ? "Réécouter l’extrait" : "Lancer l’extrait"}>
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
