@@ -523,6 +523,13 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   // Action GARDER unique : ouvre le choix Public/Privé (+ destination)
   // AVANT toute écriture. Utilisée par le bouton et le swipe droit.
+  const passCurrent = () => {
+    if (!current || !pending || keepBusy) return;
+    const nextTrackId = canGoOlder ? tracks[currentIndex + 1]?.id : null;
+    if (nextTrackId) setViewedTrackId(nextTrackId);
+    passTrack(current.id);
+  };
+
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
     if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
