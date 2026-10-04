@@ -67,9 +67,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   automation: 'Automatisation & relais',
 };
 
-const AUDD_DASHBOARD = 'https://dashboard.audd.io/';
-const AUDD_DOCS = 'https://docs.audd.io/';
-
 const STATUS_LABELS: Record<IntegrationStatus, string> = {
   UNKNOWN: 'À tester',
   ACTIVE: 'Actif',
@@ -139,8 +136,14 @@ export default function Integrations() {
 
   useEffect(() => { void load(); }, []);
 
+  const acrCloudActive = rows.some((row) => row.key.startsWith('ACRCLOUD_') && row.runtimeStatus === 'ACTIVE');
+
   const needsAttention = (row: IntegrationRow) => {
     const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
+    // ACRCloud est le moteur serveur actif. AudD peut rester absent sans
+    // rendre la reconnaissance indisponible : ne jamais le présenter comme
+    // une panne bloquante ni le dupliquer dans la zone d'alerte.
+    if (row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive) return false;
     return !row.configured
       || Boolean(row.configurationIssue)
       || status === 'ERROR'
@@ -167,8 +170,6 @@ export default function Integrations() {
     for (const row of rows.filter((item) => !needsAttention(item))) (map[row.category] ||= []).push(row);
     return map;
   }, [rows]);
-
-  const paidRows = useMemo(() => rows.filter((row) => row.key === 'AUDD_API_KEY'), [rows]);
 
   const keepRowVisible = (key: string) => {
     if (typeof document === 'undefined') return;
@@ -246,6 +247,9 @@ export default function Integrations() {
   const renderIntegrationRow = (row: IntegrationRow, urgent = false) => {
     const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
     const feedback = rowFeedback[row.key];
+    const optionalAudd = row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive;
+    const displayedStatus = optionalAudd ? 'Optionnel · ACRCloud actif' : STATUS_LABELS[status];
+    const displayedStatusColor = optionalAudd ? '#c9c3d2' : STATUS_COLORS[status];
     return (
       <div
         key={row.key}
@@ -262,8 +266,8 @@ export default function Integrations() {
             <strong style={{ color: '#fff' }}>{row.label}</strong>
             <div style={{ color: '#d9d5e2', fontSize: 12, marginTop: 3 }}>{row.key}</div>
           </div>
-          <div style={{ fontSize: 12, color: STATUS_COLORS[status], fontWeight: 800 }}>
-            ● {STATUS_LABELS[status]}
+          <div style={{ fontSize: 12, color: displayedStatusColor, fontWeight: 800 }}>
+            ● {displayedStatus}
           </div>
         </div>
 
@@ -272,11 +276,15 @@ export default function Integrations() {
             <strong>Configuration incorrecte :</strong> {row.configurationIssue}
           </div>
         )}
-        {row.lastError && (status === 'ERROR' || status === 'EXHAUSTED') && (
+        {optionalAudd ? (
+          <div style={{ color: '#e7e2ec', fontSize: 12, marginBottom: 8, lineHeight: 1.45 }}>
+            La reconnaissance fonctionne déjà avec ACRCloud. Ajoute AudD ici uniquement si tu veux aussi utiliser ton abonnement AudD.
+          </div>
+        ) : row.lastError && (status === 'ERROR' || status === 'EXHAUSTED') ? (
           <div style={{ color: status === 'EXHAUSTED' ? '#ffd08a' : '#ffd6dc', fontSize: 12, marginBottom: 8 }}>
             {row.lastError}
           </div>
-        )}
+        ) : null}
 
         {INTEGRATION_PROVIDER_LINKS[row.key] && (
           <a
@@ -402,7 +410,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          Loki Music fonctionne d’abord avec les capacités natives et le fallback public sans clé. AudD et ACRCloud augmentent ensuite la couverture dès que des credentials valides sont ajoutés. Le bouton ci-dessous reteste les fournisseurs déjà enregistrés sans afficher leurs secrets.
+          Loki Music fonctionne d’abord avec les capacités natives et sa mémoire musicale. Côté serveur, ACRCloud est le moteur actif dès qu’il est configuré. AudD est un moteur complémentaire optionnel : son absence ne doit jamais être affichée comme une panne si ACRCloud est actif.
         </p>
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -431,38 +439,6 @@ export default function Integrations() {
             ))}
           </div>
         )}
-      </div>
-
-      <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Services à quota / payants</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
-          Loki Music surveille l’état remonté par le fournisseur pendant les vraies utilisations. Si une clé est épuisée, le statut passe automatiquement en <strong>Quota épuisé</strong>. La clé peut ensuite être remplacée ici sans redéployer l’application.
-        </p>
-        {paidRows.map((row) => {
-          const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
-          return <div key={row.key} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, marginTop: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-              <div>
-                <strong>AudD — reconnaissance musicale</strong>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
-                  Sans clé, Loki Music exploite déjà le partage TikTok / YouTube / Instagram / Snapchat et les métadonnées publiques. Une clé AudD valide active automatiquement l’empreinte audio complète. Toute clé AudD invalide est refusée avant sauvegarde.
-                </div>
-              </div>
-              <div style={{ color: STATUS_COLORS[status], fontWeight: 800 }}>● {STATUS_LABELS[status]}</div>
-            </div>
-            {row.lastCheckedAt && <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 8 }}>Dernier contrôle réel : {new Date(row.lastCheckedAt).toLocaleString('fr-FR')}</div>}
-            {row.lastError && <div style={{ color: status === 'EXHAUSTED' ? '#ff9f43' : '#e05252', fontSize: 12, marginTop: 8 }}>Dernier retour : {row.lastError}</div>}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-              <a href={AUDD_DASHBOARD} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
-                Gérer / recharger AudD
-              </a>
-              <a href={AUDD_DOCS} target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '9px 13px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
-                Documentation AudD
-              </a>
-              <button onClick={() => void testRecognition()} disabled={busy === 'RECOGNITION_TEST'}>Tester AudD / ACRCloud</button>
-            </div>
-          </div>;
-        })}
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
