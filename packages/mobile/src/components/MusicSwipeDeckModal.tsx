@@ -249,6 +249,9 @@ export default function MusicSwipeDeckModal({
         // fallait toucher le petit bouton vert pour entendre la carte courante.
         // On démarre d'abord le morceau visible, puis seulement ensuite N+1.
         const nextTrack = deckTracks[index + 1];
+        const nextPreviewPromise: Promise<string | null> = nextTrack
+          ? resolveTrackPreviewUrl(nextTrack).catch(() => null)
+          : Promise.resolve(null);
 
         stopTrackPreviewFast();
         if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
@@ -281,7 +284,7 @@ export default function MusicSwipeDeckModal({
           // Le morceau visible est maintenant réellement parti : on peut
           // préparer le suivant sans retarder l'autoplay courant.
           if (nextTrack) {
-            void resolveTrackPreviewUrl(nextTrack)
+            void nextPreviewPromise
               .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
               .catch(() => {});
           }
@@ -313,8 +316,8 @@ export default function MusicSwipeDeckModal({
               },
             );
             if (nextTrack) {
-              void resolveTrackPreviewUrl(nextTrack)
-                .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
+              void nextPreviewPromise
+              .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
                 .catch(() => {});
             }
             if (alive) setAutoplayBlocked(false);
