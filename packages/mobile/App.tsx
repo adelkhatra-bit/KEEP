@@ -7,7 +7,6 @@ import './src/i18n';
 import Navigation from './src/navigation/Navigation';
 import OnboardingScreen from './src/screens/onboarding/OnboardingScreen';
 import GlobalNotificationBanner from './src/components/GlobalNotificationBanner';
-import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
 import { RootChatDock } from './src/components/ChatDockHost';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
@@ -485,7 +484,6 @@ export default function App() {
           ) : null}
         </View>
       )}
-      {authReady && user ? <PushRegistrationLifecycle /> : null}
       {authReady && user ? <GlobalNotificationBanner /> : null}
       {authReady && user ? <RootChatDock /> : null}
       <AppUpdateBanner authReady={authReady} />
