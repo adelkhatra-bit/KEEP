@@ -109,6 +109,10 @@ export function shouldSuppressNotificationPresentation(item: KeepNotification): 
   const sourceTable = String(data.sourceTable || data.source_table || '').trim().toLowerCase();
   const sharedTrackId = String(data.sharedTrackId || data.shared_track_id || '').trim();
 
+  // Bruit produit/technique : ces événements restent en base pour l'audit,
+  // mais ne méritent pas une carte permanente dans le centre utilisateur.
+  if (type === 'SYSTEM_TEST' || type === 'LOKI_PULSE_NEW' || type === 'BATTLE_SOLO_RANK_CHANGED') return true;
+
   // Un partage/offre de musique possède sa notification spécialisée avec
   // écoute/GARDER/PASSER. Le message chat générique portant le même morceau
   // ne doit pas produire une deuxième alerte.
@@ -142,9 +146,18 @@ export function notificationSemanticKey(item: KeepNotification): string {
     if (sourceProfileId) return `${type}|source:${sourceProfileId}|theme:${themeCode}`;
   }
 
-  // Tchat : chaque message a son propre identifiant. Le texte des
-  // notifications de groupe est toujours le même (« @x a envoyé un
-  // message. ») : sans cette clé, 5 messages en 30 min n'en comptaient qu'1.
+  // Centre de notifications : les messages eux-mêmes vivent dans le chat.
+  // Ici on garde une entrée récente par conversation, comme les grandes apps,
+  // au lieu d'une carte par message.
+  if (type === 'AGORA_DIRECT') {
+    const senderId = notificationDataValue(item, ['senderId','sender_id','sourceProfileId','source_profile_id']);
+    const roomSlug = notificationDataValue(item, ['roomSlug','room_slug']);
+    if (senderId) return `AGORA_DIRECT|sender:${senderId}|room:${roomSlug}`;
+  }
+  if (type === 'AGORA_GROUP_MESSAGE') {
+    const groupId = notificationDataValue(item, ['groupId','group_id']);
+    if (groupId) return `AGORA_GROUP_MESSAGE|group:${groupId}`;
+  }
   if (type.startsWith('AGORA')) {
     const messageId = notificationDataValue(item, ['messageId','message_id']);
     const groupId = notificationDataValue(item, ['groupId','group_id']);
@@ -179,7 +192,11 @@ export function dedupeNotifications(items: KeepNotification[]): KeepNotification
     const key = notificationSemanticKey(item);
     const time = new Date(item.createdAt).getTime();
     const previous = seen.get(key);
-    if (previous != null && Number.isFinite(time) && Math.abs(previous - time) <= NOTIFICATION_DEDUPE_WINDOW_MS) continue;
+    const type = String(item.type || '').toUpperCase();
+    const chatWindow = type === 'AGORA_DIRECT' || type === 'AGORA_GROUP_MESSAGE'
+      ? 6 * 60 * 60 * 1000
+      : NOTIFICATION_DEDUPE_WINDOW_MS;
+    if (previous != null && Number.isFinite(time) && Math.abs(previous - time) <= chatWindow) continue;
     seen.set(key, Number.isFinite(time) ? time : Date.now());
     out.push(item);
   }
