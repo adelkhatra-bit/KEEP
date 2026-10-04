@@ -84,12 +84,23 @@ async function measure(page, expectedTab) {
       return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw
         && cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
     };
+    const textOf = (el) => String(el?.innerText || el?.textContent || '').replace(/\\s+/g, ' ').trim();
     const leafWithText = (label) => [...document.querySelectorAll('div, span, a, button')]
-      .filter((el) => (el.innerText || '').trim() === label)
-      .filter((el) => ![...el.children].some((c) => (c.innerText || '').trim() === label));
-    const visibleTabs = tabLabels.filter((label) => leafWithText(label).some(visible));
+      .filter((el) => textOf(el) === label)
+      .filter((el) => ![...el.children].some((child) => textOf(child) === label));
+    // React Navigation expose chaque bouton de la barre avec role="tab".
+    // Sur React Native Web, le libellé inactif peut être découpé dans plusieurs
+    // wrappers (icône + texte), donc chercher uniquement une feuille innerText
+    // produit un faux 1/5 alors que les cinq onglets sont réellement visibles.
+    // Le rôle tab est le contrat sémantique du navigateur et reste soumis au
+    // même contrôle géométrique de visibilité ci-dessus.
     const roleTabs = [...document.querySelectorAll('[role="tab"]')];
-    const expectedRoleTab = roleTabs.find((el) => (el.innerText || '').trim().includes(expectedTab));
+    const roleTabForLabel = (label) => roleTabs.find((el) => textOf(el).includes(label));
+    const visibleTabs = tabLabels.filter((label) => {
+      const roleTab = roleTabForLabel(label);
+      return roleTab ? visible(roleTab) : leafWithText(label).some(visible);
+    });
+    const expectedRoleTab = roleTabForLabel(expectedTab);
     const activeColor = 'rgb(167, 139, 250)';
     const activeTabSelected = expectedRoleTab
       ? expectedRoleTab.getAttribute('aria-selected') === 'true'
