@@ -1,4 +1,5 @@
 name: Loki Battle Mobile Audit
+# audit-trigger-chatgpt-parity: 2026-10-04T15:34:00Z
 
 on:
   workflow_dispatch:
