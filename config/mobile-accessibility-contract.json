@@ -28,5 +28,11 @@
     "forbidMutedFunctionalText": true,
     "normalTextContrastRatio": 4.5,
     "rule": "On dark backgrounds, functional text must use white or very light theme tokens. Muted gray is restricted to non-essential explanatory copy."
+  },
+  "layoutStability": {
+    "expandableHelpMustReserveSpace": true,
+    "primaryActionsMustNotShiftOnHelpToggle": true,
+    "bottomDiscoveryRailStaysAnchored": true,
+    "rule": "Expanding contextual help must not push primary actions or bottom discovery controls. Reserve space or overlay help inside a bounded region so the rest of the screen stays visually stable."
   }
 }
