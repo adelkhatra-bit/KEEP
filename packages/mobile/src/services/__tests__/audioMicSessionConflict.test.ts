@@ -40,4 +40,14 @@ describe('Conflit micro/audio -- audioPreviewService ne coupe plus une capture m
     expect(preview).toContain('interruptionModeIOS: recordingActive ? InterruptionModeIOS.MixWithOthers : InterruptionModeIOS.DoNotMix,');
     expect(mic).toContain('interruptionModeIOS: InterruptionModeIOS.MixWithOthers,');
   });
+  it('Battle Solo attend la libération réelle du micro avant toute preview TestFlight', () => {
+    const battle = readNormalized(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx');
+    expect(battle).toContain("import { cancelAudioCapture } from '../services/micCapture';");
+    const start = battle.indexOf('const start = async () => {');
+    const cancel = battle.indexOf('await cancelAudioCapture().catch(() => {});', start);
+    const play = battle.indexOf('const ok = await playVerified(', start);
+    expect(cancel).toBeGreaterThan(start);
+    expect(play).toBeGreaterThan(cancel);
+  });
+
 });
