@@ -299,7 +299,11 @@ jobs:
             // Cas exact remonté : ouvrir une conversation privée depuis la liste
             // (comme après un profil) doit afficher tout de suite le message le plus
             // récent et un Envoi doit rester visible sans geste manuel.
-            // Cible le TouchableOpacity lui-même : cliquer le Text enfant peut varier\n            // selon la version React Native Web et ne prouve pas que la ligne entière\n            // de conversation reste actionnable.\n            const directConversationRow = page.getByTestId(\`loki-chat-direct-row:\${directProfileId}\`).last();\n            await clickRobust(directConversationRow, 'Open direct profile conversation');
+            // Cible le vrai bouton accessible du TouchableOpacity. Les anciens
+            // "\\n" écrits littéralement ci-dessous avaient commenté le locator
+            // ET le clic : le test attendait donc un fil qu'il n'avait jamais ouvert.
+            const directConversationRow = page.getByRole('button', { name: 'Ouvrir la conversation avec profil-test' }).last();
+            await clickRobust(directConversationRow, 'Open direct profile conversation');
             const directThread = page.getByTestId('loki-chat-thread-scroll').last();
             await directThread.waitFor({ state: 'visible', timeout: 10000 });
             await page.waitForTimeout(900);
