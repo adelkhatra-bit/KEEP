@@ -37,11 +37,13 @@ describe('KeepBattleMobileGameV3 -- un extrait mort ne bloque plus le Solo', () 
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const preview = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
-  it('limite les retries natifs et remplace le morceau avant de rendre la main', () => {
-    expect(preview).toContain('const maxAttempts = 1;');
+  it('récupère automatiquement le même round sans réponse injectée ni popup bloquant', () => {
+    expect(preview).toContain('const maxAttempts = 2;');
     expect(battle).toContain('soloAudioReplacementRef');
-    expect(battle).toContain("recordSoloAnswer('__AUDIO_ERROR__')");
-    expect(battle).toContain("Alert.alert('Audio indisponible'");
+    expect(battle).toContain('soloAudioRetryNonce');
+    expect(battle).toContain('retry même manche');
+    expect(battle).not.toContain("recordSoloAnswer('__AUDIO_ERROR__')");
+    expect(battle).not.toContain("Alert.alert('Audio indisponible'");
     expect(battle).not.toContain("Alert.alert('Manche sautée'");
   });
 });
