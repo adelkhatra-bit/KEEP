@@ -37,6 +37,14 @@ describe('KeepBattleMobileGameV3 -- un extrait mort ne bloque plus le Solo', () 
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
   const preview = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
+  it('coupe immédiatement le son au tap et précharge la manche suivante sans bloquer TestFlight', () => {
+    expect(battle).toContain('stopTrackPreviewFast();');
+    expect(battle).toContain('preloadTrackPreviewSegment(');
+    expect(battle).toContain('const SOLO_RESULT_HOLD_MS = 650;');
+    expect(preview).toContain('configureSession = true');
+    expect(preview).toContain('false, !activePlaying');
+  });
+
   it('récupère automatiquement le même round sans réponse injectée ni popup bloquant', () => {
     expect(preview).toContain('const maxAttempts = 2;');
     expect(battle).toContain('soloAudioReplacementRef');
