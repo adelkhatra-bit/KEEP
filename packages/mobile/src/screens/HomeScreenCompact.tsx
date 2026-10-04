@@ -23,7 +23,8 @@ import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
-import { preloadTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 
@@ -110,10 +111,24 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  const prewarmHomePulseTrack = (trackId: string) => {
+    const item = homePulseItems.find((row) => row.track.id === trackId);
+    if (!item) return;
+    const direct = item.track.previewUrl?.trim();
+    if (direct) {
+      void preloadTrackPreview(direct);
+      return;
+    }
+    void resolveTrackPreviewUrl(item.track)
+      .then((url) => url ? preloadTrackPreview(url) : undefined)
+      .catch(() => {});
+  };
+
   const openHomePulseTrack = (trackId: string) => {
     // Le tap sur une bulle prépare l'audio immédiatement puis ouvre le Swipe
     // sur CE morceau. Aucun second bouton "Écouter" ne doit être nécessaire.
     unlockWebAudioForGesture();
+    prewarmHomePulseTrack(trackId);
     setHomePulseSelectedTrackId(trackId);
     setHomePulseOpen(true);
   };
@@ -662,6 +677,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <TouchableOpacity
                     key={item.track.id}
                     style={s.homePulseCard}
+                    onPressIn={() => prewarmHomePulseTrack(item.track.id)}
                     onPress={() => openHomePulseTrack(item.track.id)}
                     accessibilityLabel={`Écouter ${item.track.title}`}
                   >
