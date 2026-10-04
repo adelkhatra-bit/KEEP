@@ -254,7 +254,11 @@ async function createSoundWithRetry(
 ): Promise<NativeSound> {
   const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
-  const maxAttempts = 1;
+  // Réseau mobile / TestFlight : une première ouverture AV peut échouer pendant
+  // la bascule de session audio. Un second essai court suffit généralement et
+  // évite le symptôme « j'appuie mais je n'entends rien » sans multiplier les
+  // requêtes ni masquer une vraie URL expirée.
+  const maxAttempts = 2;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let createdSound: NativeSound | null = null;
     try {
