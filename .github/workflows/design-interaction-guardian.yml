@@ -38,12 +38,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Typecheck Super Admin
+        run: npm --workspace packages/admin run type-check
       - name: Enforce Loki interaction and readability contract
         run: |
           node scripts/verify-mobile-accessibility-contract.cjs
           node scripts/verify-mobile-text-contrast.cjs
           node scripts/verify-interaction-loop.cjs
           node scripts/verify-admin-interaction-loop.cjs
+          node scripts/verify-admin-user-loop.cjs
+          node scripts/verify-admin-integrations-single-source.cjs
           node scripts/verify-ui-layout-baseline.cjs
       - name: Lock Listen home compact behavior
         run: npm test --workspace=packages/mobile -- --runInBand HomeScreenCompact.branding.contract.test.ts HomeLokiPulse.contract.test.ts LokiPulseBubblesPlacement.contract.test.ts
