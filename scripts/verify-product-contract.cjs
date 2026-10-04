@@ -191,6 +191,36 @@ must(contract.changeProtocol?.cleanGeneratedCachesBeforeIntegration === true, 'i
 must(packageJson.scripts?.['integration:preflight']?.includes('clean-integration-cache.cjs'), 'integration preflight does not clean generated caches');
 must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-contract.cjs'), 'integration postflight does not verify product contract');
 
+// ─── Reconnaissance musicale : une seule vérité Super Admin ────────────────
+{
+  const rule = contract.musicRecognitionArchitecture || {};
+  const integrationsAdmin = fs.readFileSync(path.join(root, 'packages/admin/pages/integrations.tsx'), 'utf8');
+  const launchCenter = fs.readFileSync(path.join(root, 'packages/admin/pages/launch-center.tsx'), 'utf8');
+  const operations = fs.readFileSync(path.join(root, 'packages/admin/pages/operations.tsx'), 'utf8');
+
+  must(rule.nativePrimary === 'ShazamKit', 'RECONNAISSANCE: ShazamKit doit rester le moteur natif principal');
+  must(rule.serverPrimary === 'ACRCloud', 'RECONNAISSANCE: ACRCloud doit rester le moteur serveur principal');
+  must(rule.optionalSecondary === 'AudD', 'RECONNAISSANCE: AudD doit rester un moteur secondaire optionnel');
+  must(rule.auddSubscriptionDoesNotMeanConnected === true, 'RECONNAISSANCE: abonnement AudD ≠ clé reliée doit rester explicite');
+  must(rule.optionalAuddAbsenceMustNotBeUrgentWhenAcrCloudActive === true, 'RECONNAISSANCE: AudD absent ne doit pas être une alerte si ACRCloud est actif');
+  must(rule.singleAuddConfigurationSurface === 'packages/admin/pages/integrations.tsx', 'RECONNAISSANCE: surface canonique AudD modifiée');
+  must(rule.superAdminMustNotDescribeAuddAsPrimary === true, 'RECONNAISSANCE: le Super Admin ne doit jamais présenter AudD comme moteur principal');
+
+  must(integrationsAdmin.includes("if (row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive) return false;"),
+    'RECONNAISSANCE: AudD absent remonte de nouveau dans « À corriger maintenant » malgré ACRCloud actif');
+  must(integrationsAdmin.includes("Optionnel · ACRCloud actif"),
+    'RECONNAISSANCE: statut optionnel AudD manquant dans Intégrations');
+  must(!integrationsAdmin.includes('Services à quota / payants'),
+    'RECONNAISSANCE: ancienne carte AudD dupliquée réintroduite dans Intégrations');
+
+  must(launchCenter.includes('ShazamKit sur iPhone → ACRCloud côté serveur → AudD uniquement'),
+    'RECONNAISSANCE: Centre de lancement ne reflète plus l’ordre réel des moteurs');
+  must(!launchCenter.includes('ShazamKit sur iPhone → AudD → ACRCloud'),
+    'RECONNAISSANCE: ancien ordre AudD prioritaire réintroduit');
+  must(operations.includes('moteur optionnel') && operations.includes('moteur serveur principal'),
+    'RECONNAISSANCE: Opérations ne distingue plus AudD optionnel et ACRCloud principal');
+}
+
 // ─── Fiabilité de la connexion (incident 02/10/2026) ───────────────────────
 // BLOQUANT pour la publication web ET l'OTA mobile. Toute IA qui remet une
 // échéance Auth plus courte que le serveur, des relances en rafale ou un
