@@ -593,3 +593,206 @@ index 00000000..5ad09a1c
 +grant all on table public.keep_iap_free_products to service_role;
 +grant all on table public.keep_iap_consumable_transactions to service_role;
 ```
+
+
+### 2026-10-05 02:20 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°4 → en attente [VALIDÉ-PAR-CHATGPT] — Cohérence design Loki (demande explicite d'Adel)
+
+HEAD de référence : `3534407e`. Demande d'Adel (05/10, 02:10) : « les écritures ne sont jamais les mêmes selon les pages ou dans les pop-up… un mélange de site internet et d'application ». Il veut une harmonisation avec un regard d'expert, sans rien casser, avec des outils gratuits. Décision d'Adel dans la fenêtre de choix : **garder le look Loki gras, limité à 6 tailles, rien sous 11 px. Pop-ups : fenêtre qui glisse du bas sur téléphone, fenêtre centrée sur ordinateur.**
+
+**Audit en lecture seule (MODE RÉEL, HEAD `3534407e`)**
+- Code `packages/mobile/src` : **2 167 tailles de texte écrites à la main, 52 tailles différentes** (6 ; 6,5 ; 7 ; 7,5… jusqu'à 72), **825 couleurs hex écrites à la main (252 différentes)**, **52 arrondis différents**. L'échelle `theme/spacing.ts > typography` existe mais n'est utilisée que 5 fois.
+- **65 fenêtres `<Modal>` faites « maison »** en dehors d'AlertHost : 53 en `fade` (rendu « site web ») contre 11 en `slide` (rendu « app »). Les pires fichiers : KeepBattleMobileGameV3 (206 tailles, 4 fenêtres), ProfilePublicScreen (175, 7), PartiesScreen (156, 8), MyMusicScreen (150, 5), PublicUserProfileScreen (141, 6).
+- Live, page Écouter à 712 px : **10 styles de texte sur un seul écran**, des onglets en 10 px, du texte en **8 px (« TCHAT ») et 6,5 px (« LOKI »)**.
+- Live, « Mes Sessions » : le titre fait 26/700 alors que celui d'Écouter fait 34/700. Deux boutons côte à côte ont des styles différents : « SWIPER · 8 » en 10 px/900 majuscules, « Supprimer » en 12 px/800 minuscules.
+
+**Lot 4a (cette proposition) : AUCUN changement visuel**
+1. `packages/mobile/src/theme/lokiText.ts` : les 6 styles Loki (screenTitle 28/800, blockTitle 18/800, body 15/500, secondary 13/500, label 11/800, button 15/800) et `LOKI_MIN_FONT_SIZE = 11`, exportés par `theme/index.ts`. L'ancien `typography` n'est pas touché.
+2. `scripts/verify-design-consistency.cjs` + `config/design-consistency-baseline.json` : un **cliquet**. Les compteurs ci-dessus deviennent la base. Un commit peut les faire baisser (migration), jamais monter (nouvelle valeur écrite à la main). `--report` donne le classement des fichiers.
+3. `.github/workflows/design-interaction-guardian.yml` : une étape en plus dans le workflow existant. Aucun nouveau workflow.
+
+**Lots suivants (un lot validé à chaque fois, preuves 390×844 et 1440×900, cliquet en baisse) :**
+- 4b : composant unique `LokiSheet`. Sur téléphone, il glisse du bas avec poignée, défile à l'intérieur et garde les boutons fixés en bas, en reprenant les règles §9 d'AlertHost. Sur ordinateur (≥ 900 px), c'est une fenêtre centrée. Les 65 fenêtres migrent ensuite, en commençant par les plus petites.
+- 4c : écran par écran, migration des tailles vers `lokiText`, en commençant par les textes sous 11 px et les rangées de boutons qui ne sont pas homogènes.
+- Règle à ajouter dans `docs/KEEP_CAHIER_DES_CHARGES_UI.md` §11 : « Texte : uniquement les 6 styles lokiText. Fenêtres : uniquement LokiSheet / AlertHost. »
+
+Rappel : `Navigation.tsx`, la barre des 5 onglets et `App.tsx` ne sont pas touchés par le lot 4a. Les lots 4b/4c les toucheront seulement si Adel le demande explicitement, onglet par onglet.
+
+## Patch D — lot 4a (aucun rendu modifié)
+```diff
+diff --git a/.github/workflows/design-interaction-guardian.yml b/.github/workflows/design-interaction-guardian.yml
+index db9b9694..9c029c83 100644
+--- a/.github/workflows/design-interaction-guardian.yml
++++ b/.github/workflows/design-interaction-guardian.yml
+@@ -40,6 +40,8 @@ jobs:
+       - run: npm ci
+       - name: Typecheck Super Admin
+         run: npm --workspace packages/admin run type-check
++      - name: Cliquet cohérence design Loki (tailles, couleurs, pop-ups)
++        run: node scripts/verify-design-consistency.cjs
+       - name: Enforce Loki interaction and readability contract
+         run: |
+           node scripts/verify-mobile-accessibility-contract.cjs
+diff --git a/config/design-consistency-baseline.json b/config/design-consistency-baseline.json
+new file mode 100644
+index 00000000..55f52efd
+--- /dev/null
++++ b/config/design-consistency-baseline.json
+@@ -0,0 +1,10 @@
++{
++  "literalFontSize": 2167,
++  "distinctFontSizes": 52,
++  "literalHexColors": 825,
++  "distinctHexColors": 252,
++  "distinctRadii": 52,
++  "rawModals": 65,
++  "_comment": "Cliquet design Loki : ces valeurs ne doivent jamais augmenter. Les baisser via --update après une migration vers les tokens.",
++  "_measuredAt": "2026-10-04"
++}
+diff --git a/packages/mobile/src/theme/index.ts b/packages/mobile/src/theme/index.ts
+index f544dfa5..c7cb558b 100644
+--- a/packages/mobile/src/theme/index.ts
++++ b/packages/mobile/src/theme/index.ts
+@@ -1,2 +1,3 @@
+ export * from './colors';
+ export * from './spacing';
++export * from './lokiText';
+diff --git a/packages/mobile/src/theme/lokiText.ts b/packages/mobile/src/theme/lokiText.ts
+new file mode 100644
+index 00000000..0e8245ca
+--- /dev/null
++++ b/packages/mobile/src/theme/lokiText.ts
+@@ -0,0 +1,27 @@
++/**
++ * Échelle de texte Loki — décision d'Adel du 05/10/2026 (« garder le look Loki gras »).
++ *
++ * 6 styles seulement, partout (écrans, pop-ups, téléphone et ordinateur).
++ * Rien sous 11 px. Les écrans migrent vers ces styles un par un (cliquet
++ * scripts/verify-design-consistency.cjs : le nombre de tailles « en dur » ne
++ * peut que baisser). Ajouter ce fichier ne change aucun rendu existant.
++ */
++export const lokiText = {
++  /** Titre d'écran (« Écouter », « Mes Sessions »…) */
++  screenTitle: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.3 },
++  /** Titre de bloc, de carte ou de pop-up */
++  blockTitle: { fontSize: 18, fontWeight: '800' as const },
++  /** Texte courant */
++  body: { fontSize: 15, fontWeight: '500' as const, lineHeight: 21 },
++  /** Information secondaire (date, compteur, sous-titre) */
++  secondary: { fontSize: 13, fontWeight: '500' as const, lineHeight: 18 },
++  /** Étiquette / badge / onglet — taille minimale autorisée */
++  label: { fontSize: 11, fontWeight: '800' as const, letterSpacing: 0.4 },
++  /** Libellé de bouton (même style pour TOUS les boutons d'une même rangée) */
++  button: { fontSize: 15, fontWeight: '800' as const },
++} as const;
++
++export type LokiTextVariant = keyof typeof lokiText;
++
++/** Taille minimale lisible (Apple HIG : 11 pt). */
++export const LOKI_MIN_FONT_SIZE = 11;
+diff --git a/scripts/verify-design-consistency.cjs b/scripts/verify-design-consistency.cjs
+new file mode 100644
+index 00000000..76c854b7
+--- /dev/null
++++ b/scripts/verify-design-consistency.cjs
+@@ -0,0 +1,100 @@
++#!/usr/bin/env node
++/**
++ * Cliquet de cohérence design Loki (mobile + web, source unique packages/mobile/src).
++ *
++ * Problème mesuré le 05/10/2026 : tailles de texte, graisses, couleurs, arrondis
++ * et fenêtres codés « à la main » écran par écran. Résultat : les écritures ne sont
++ * jamais les mêmes d'une page ou d'une pop-up à l'autre, avec un rendu mi-site, mi-app.
++ *
++ * Principe « cliquet » : on ne casse rien et on ne réécrit rien d'un coup.
++ * Les compteurs actuels sont la base (config/design-consistency-baseline.json).
++ * Un commit peut les faire BAISSER (migration vers les tokens) mais jamais MONTER.
++ *   node scripts/verify-design-consistency.cjs            → contrôle (CI)
++ *   node scripts/verify-design-consistency.cjs --report   → rapport détaillé
++ *   node scripts/verify-design-consistency.cjs --update   → enregistre une baisse
++ */
++'use strict';
++const fs = require('fs');
++const path = require('path');
++
++const ROOT = path.join(__dirname, '..');
++const SRC = path.join(ROOT, 'packages', 'mobile', 'src');
++const BASELINE = path.join(ROOT, 'config', 'design-consistency-baseline.json');
++
++function walk(dir, out = []) {
++  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
++    const p = path.join(dir, e.name);
++    if (e.isDirectory()) { if (e.name !== '__tests__' && e.name !== 'node_modules') walk(p, out); }
++    else if (/\.tsx$/.test(e.name)) out.push(p);
++  }
++  return out;
++}
++
++function measure() {
++  const files = walk(SRC);
++  const m = { literalFontSize: 0, distinctFontSizes: new Set(), literalHexColors: 0, distinctHexColors: new Set(),
++    distinctRadii: new Set(), rawModals: 0, fadeModals: 0, slideModals: 0, perFile: {} };
++  for (const f of files) {
++    const s = fs.readFileSync(f, 'utf8');
++    const rel = path.relative(ROOT, f);
++    const fs_ = s.match(/fontSize:\s*[0-9.]+/g) || [];
++    const hex = s.match(/#[0-9a-fA-F]{6}\b/g) || [];
++    const rad = s.match(/borderRadius:\s*[0-9.]+/g) || [];
++    const modals = (s.match(/<Modal\b/g) || []).length;
++    m.literalFontSize += fs_.length;
++    fs_.forEach((x) => m.distinctFontSizes.add(x.replace(/fontSize:\s*/, '')));
++    m.literalHexColors += hex.length;
++    hex.forEach((x) => m.distinctHexColors.add(x.toUpperCase()));
++    rad.forEach((x) => m.distinctRadii.add(x.replace(/borderRadius:\s*/, '')));
++    if (!/AlertHost\.tsx$/.test(f)) m.rawModals += modals;
++    m.fadeModals += (s.match(/animationType=["{']*fade/g) || []).length;
++    m.slideModals += (s.match(/animationType=["{']*slide/g) || []).length;
++    if (fs_.length || modals) m.perFile[rel] = { fontSize: fs_.length, modals, hex: hex.length };
++  }
++  return {
++    literalFontSize: m.literalFontSize,
++    distinctFontSizes: m.distinctFontSizes.size,
++    literalHexColors: m.literalHexColors,
++    distinctHexColors: m.distinctHexColors.size,
++    distinctRadii: m.distinctRadii.size,
++    rawModals: m.rawModals,
++    fadeModals: m.fadeModals,
++    slideModals: m.slideModals,
++    _sizes: [...m.distinctFontSizes].map(Number).sort((a, b) => a - b),
++    _perFile: m.perFile,
++  };
++}
++
++const KEYS = ['literalFontSize', 'distinctFontSizes', 'literalHexColors', 'distinctHexColors', 'distinctRadii', 'rawModals'];
++const now = measure();
++
++if (process.argv.includes('--report')) {
++  console.log('Cohérence design Loki — mesure réelle');
++  for (const k of [...KEYS, 'fadeModals', 'slideModals']) console.log(`  ${k.padEnd(20)} ${now[k]}`);
++  console.log('  tailles de texte utilisées :', now._sizes.join(', '));
++  const top = Object.entries(now._perFile).sort((a, b) => b[1].fontSize - a[1].fontSize).slice(0, 15);
++  console.log('  fichiers les plus dispersés (tailles de texte en dur) :');
++  for (const [f, v] of top) console.log(`    ${String(v.fontSize).padStart(4)}  ${f}${v.modals ? `  (${v.modals} fenêtre(s) maison)` : ''}`);
++  process.exit(0);
++}
++
++if (process.argv.includes('--update') || !fs.existsSync(BASELINE)) {
++  const base = Object.fromEntries(KEYS.map((k) => [k, now[k]]));
++  base._comment = 'Cliquet design Loki : ces valeurs ne doivent jamais augmenter. Les baisser via --update après une migration vers les tokens.';
++  base._measuredAt = new Date().toISOString().slice(0, 10);
++  fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
++  fs.writeFileSync(BASELINE, JSON.stringify(base, null, 2) + '\n');
++  console.log('✅ Base enregistrée :', JSON.stringify(base));
++  process.exit(0);
++}
++
++const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
++const worse = KEYS.filter((k) => now[k] > base[k]);
++if (worse.length) {
++  console.error('❌ Cohérence design en recul (une nouvelle valeur « en dur » a été ajoutée) :');
++  for (const k of worse) console.error(`   - ${k} : ${base[k]} → ${now[k]}`);
++  console.error('Utilise les tokens de packages/mobile/src/theme (typography, colors, radius) et la feuille Loki commune au lieu d\'une nouvelle valeur.');
++  process.exit(1);
++}
++const better = KEYS.filter((k) => now[k] < base[k]);
++console.log(`✅ Cohérence design : aucun recul${better.length ? ` (amélioré : ${better.join(', ')} — lance --update pour verrouiller)` : ''}.`);
+```
