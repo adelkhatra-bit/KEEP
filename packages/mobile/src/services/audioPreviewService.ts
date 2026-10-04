@@ -213,6 +213,14 @@ async function discardProfilePreloaded() {
 // On ne désactive donc plus jamais l'enregistrement si une capture est
 // réellement en cours -- l'extrait joue par-dessus (MixWithOthers, comme
 // micCapture.ts), sans jamais couper le micro.
+export async function prepareAudioSessionForSpeech(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  // TestFlight/iOS : expo-speech partage la session audio globale avec
+  // expo-av. Après micro/Battle, forcer un mode de lecture audible avant la
+  // synthèse évite une voix routée/silencieuse alors que la preview est active.
+  await configurePreviewAudio();
+}
+
 async function configurePreviewAudio() {
   const { Audio, InterruptionModeIOS } = getNativeExpoAV();
   const recordingActive = isNativeRecordingModeActive();
