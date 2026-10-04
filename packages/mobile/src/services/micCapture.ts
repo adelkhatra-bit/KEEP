@@ -5,6 +5,7 @@
  * `onLevel` (optionnel, 0-1) pilote l'animation avec le niveau micro réel.
  */
 import { Platform } from 'react-native';
+import { File as ExpoFile } from 'expo-file-system';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
 import { APP_NAME } from '../config/brand';
 import { noSoundMessage } from './micNoSoundMessage';
@@ -240,8 +241,20 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   const uri = recording.getURI();
   if (!uri) throw new Error('Capture micro : aucun fichier produit par expo-av.');
 
-  const response = await fetch(uri);
-  return response.blob();
+  // P0 TestFlight/Tesla (04/10/2026) : sur React Native, fetch(file://...).blob()
+  // peut produire un Blob vide alors que l'enregistrement expo-av est valide.
+  // Les logs production montraient alors des multipart de ~255 octets et
+  // ACRCloud répondait audio_too_small pendant des dizaines de minutes.
+  // Expo SDK 54 expose File.bytes() : on lit donc réellement le fichier natif
+  // puis on construit un Blob binaire transportable par les 4 moteurs
+  // (ShazamKit, mémoire Loki, AudD, ACRCloud).
+  const nativeFile = new ExpoFile(uri);
+  const bytes = await nativeFile.bytes();
+  if (!bytes || bytes.byteLength < 1000) {
+    throw new Error(`Capture micro invalide : seulement ${bytes?.byteLength ?? 0} octet(s) enregistrés.`);
+  }
+  const mime = /\.wav(?:$|\?)/i.test(uri) ? 'audio/wav' : 'audio/mp4';
+  return new Blob([bytes], { type: mime });
 }
 
 // ---- Web : Web Audio API brute + encodage WAV manuel ----
