@@ -8,15 +8,16 @@ describe('Battle explicit decision everywhere', () => {
   const rematch = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20260930212000_keep_battle_rematch_cancel_status_timeout.sql');
   const bonus = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001013000_battle_fastest_perfect_bonus_product_lock.sql');
 
-  it('polls server truth globally and renders a non-dismissible decision modal', () => {
+  it('resynchronizes server truth globally without overlaying an active game', () => {
     expect(banner).toContain('loadIncomingBattleChallenges');
     expect(banner).toContain('loadPendingArenaRematches');
     // 969e92b1 : plus de sondage global à 800 ms (incident 02/10/2026, contrat authResilience) ; resynchronisation au retour au premier plan.
     expect(banner).toContain("AppState.addEventListener('change'");
     expect(banner).not.toContain('BATTLE_DECISION_POLL_MS');
-    expect(banner).toContain('DÉCISION REQUISE');
+    expect(banner).toContain("Alert.alert(\n      'Refuser ce Battle ?'");
     expect(banner).toContain('REFUSER');
     expect(banner).toContain('ACCEPTER');
+    expect(banner).toContain('if (isGameInProgress) return null;');
   });
 
   it('locks an accepted online Battle until explicit quit', () => {
