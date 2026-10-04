@@ -13,4 +13,13 @@ describe('SwipeDeck visible decision labels', () => {
     expect(source).toContain("rightLabel = 'GARDER'");
     expect(source).not.toContain("rightLabel = 'Loki Music'");
   });
+  it('keeps TikTok-style upward swipe as an optional next-track gesture', () => {
+    expect(source).toContain("export type SwipeDirection = 'LEFT' | 'RIGHT' | 'UP'");
+    expect(source).toContain('onSwipeUp?: () => void | Promise<void>;');
+    expect(source).toContain("upLabel = 'SUIVANT'");
+    expect(source).toContain("return commitSwipe('UP')");
+    expect(source).toContain('gesture.dy <= -VERTICAL_SWIPE_THRESHOLD');
+    expect(source).toContain('gesture.vy <= VERTICAL_FLING_VELOCITY');
+  });
+
 });
