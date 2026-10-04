@@ -330,10 +330,13 @@ export default function MusicSwipeDeckModal({
                 if (!alive || playbackGeneration.current !== generation) return;
                 try {
                   if (isTrackPreviewActive(playbackKey)) { recovered = true; break; }
+                  const retryUrl = await resolveTrackPreviewUrl(current, { forceRefresh: true });
+                  if (!retryUrl) continue;
+                  setResolvedPreviewUrl(retryUrl);
                   await stopTrackPreview();
                   await toggleTrackPreview(
                     playbackKey,
-                    refreshedUrl,
+                    retryUrl,
                     (playing) => {
                       if (playing && currentSourceProfileId) {
                         void recordProfileSwipeListen(currentSourceProfileId, current.id);
