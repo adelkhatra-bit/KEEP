@@ -24,7 +24,7 @@ import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKee
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, soloCostNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy, soloEncouragement } from '../services/battleHomeInfo';
+import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloIdleDetected, soloIdleNotice, soloCostNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy, soloEncouragement } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -478,8 +478,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // les parties "all-timeout" et éviter de débiter la mise quand l'utilisateur
   // n'a jamais interagi.
   const [soloResponses, setSoloResponses] = React.useState<string[]>([]);
-  // 04/10/2026 mobile/TestFlight : aucune modale d'inactivité pendant un Solo.
-  // Un timeout reste un simple « trop tard » de la manche et la partie continue.
+  // Détection d'absence : après deux manches consécutives sans réponse, Loki
+  // demande explicitement si le joueur est toujours présent. La fenêtre reste
+  // 40 s avant arrêt automatique ; un simple « Je suis là ! » reprend la partie.
+  const [idlePromptAt, setIdlePromptAt] = React.useState<number | null>(null);
+  const [idleResumeIndex, setIdleResumeIndex] = React.useState(0);
   // Adel (20/09/2026) : BUG RÉEL rapporté ("41 → +3 → 41", le message
   // affichait un gain jamais réellement crédité). soloAfter est déjà
   // rechargé depuis le serveur (pas une estimation), mais rien ne
@@ -1500,9 +1503,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       }, 520);
       return () => clearTimeout(id);
     }
-    // Après chaque résultat, on laisse 1,4 s pour voir la jaquette +
-    // GAGNÉ/PERDU/TROP TARD, puis on avance. Aucun popup d'inactivité ne peut
-    // interrompre, recouvrir ou fermer automatiquement un Solo.
+    // Après deux manches consécutives sans réponse, restaurer la sécurité
+    // « Tu es toujours là ? » avant de continuer automatiquement.
+    if (idlePromptAt !== null) return undefined;
+    if (soloIdleDetected(soloResponses, idleResumeIndex)) {
+      setIdlePromptAt(Date.now());
+      return undefined;
+    }
     const id = setTimeout(() => {
       void stopTrackPreview();
       setSoloIndex((v) => v + 1);
@@ -1510,7 +1517,24 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setSoloSelectedAnswer(null);
     }, 1400);
     return () => clearTimeout(id);
-  }, [solo, soloAnswer, soloIndex, soloResponses, celebrate, saveSessionEnabled, soloStartedAt]);
+  }, [solo, soloAnswer, soloIndex, soloResponses, celebrate, saveSessionEnabled, soloStartedAt, idlePromptAt, idleResumeIndex]);
+
+  React.useEffect(() => {
+    if (idlePromptAt === null) return undefined;
+    const id = setTimeout(() => {
+      setIdlePromptAt(null);
+      setSolo(null);
+      void stopTrackPreview();
+      void leaveSoloBattle().catch(() => {});
+    }, SOLO_IDLE_AUTO_CLOSE_MS);
+    return () => clearTimeout(id);
+  }, [idlePromptAt]);
+  React.useEffect(() => {
+    if (!solo) {
+      setIdlePromptAt(null);
+      setIdleResumeIndex(0);
+    }
+  }, [solo]);
 
   // Battle en ligne : compte local des questions consécutives sans réponse
   // (miroir de consecutive_misses côté serveur, remis à zéro dès qu'on répond)
@@ -2827,6 +2851,40 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           TOUJOURS atteignables quelle que soit la hauteur d'écran, au lieu
           de dépendre d'une marge fixe qui ne marche que sur certains
           appareils. */}
+      {idlePromptAt !== null ? (
+        <View style={s.idleOverlay} accessibilityViewIsModal>
+          <View style={s.idleCard}>
+            <Text style={s.idleEmoji}>😴</Text>
+            <Text style={s.idleTitle}>Tu es toujours là ?</Text>
+            <Text style={s.idleText}>{soloIdleNotice((idlePromptAt + SOLO_IDLE_AUTO_CLOSE_MS - now) / 1000, soloDailyStatus)}</Text>
+            <View style={s.idleActions}>
+              <TouchableOpacity
+                style={s.idleStop}
+                accessibilityRole="button"
+                onPress={() => {
+                  setIdlePromptAt(null);
+                  setSolo(null);
+                  void stopTrackPreview();
+                  void leaveSoloBattle().catch(() => {});
+                }}
+              >
+                <Text style={s.idleStopText}>Arrêter</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.idleGo}
+                accessibilityRole="button"
+                onPress={() => {
+                  unlockWebAudioForGesture();
+                  setIdleResumeIndex(soloResponses.length);
+                  setIdlePromptAt(null);
+                }}
+              >
+                <Text style={s.idleGoText}>Je suis là !</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
       <ScrollView scrollEnabled bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
       <Animated.View style={[s.card, s.soloCardActive, { minHeight: soloRoundCardMinHeight }, { transform: [{ scale: pulse }] }]}>
         <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: soloVisualMax, maxWidth: soloVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{!answered ? <View pointerEvents="none" style={s.roundEncouragementOverlay}><Text style={s.roundEncouragementText}>{soloEncouragement(soloIndex, solo.rounds.length)}</Text></View> : null}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
