@@ -22,6 +22,14 @@ describe('Loki Music push registration has no Render intermediary', () => {
     expect(source).not.toContain('/api/notifications/push-token');
     expect(source).not.toContain('getSupabaseAccessToken');
   });
+  it('binds iOS Expo tokens to the native APNs environment', () => {
+    expect(source).toContain('getIosPushNotificationServiceEnvironmentAsync');
+    expect(source).toContain("baseOptions.development = iosEnvironment === 'development'");
+    expect(source).toContain("require('expo-application')");
+    expect(source).toContain('nativeApplicationVersion');
+    expect(source).toContain('nativeBuildVersion');
+  });
+
   it('can remove the current device token directly on logout', () => {
     expect(source).toContain('unregisterCurrentPushToken');
     expect(source).toContain("rpc('keep_push_token_unregister'");
