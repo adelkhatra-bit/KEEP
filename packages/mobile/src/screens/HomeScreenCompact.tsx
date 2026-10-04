@@ -22,6 +22,7 @@ import { colors } from '../theme/colors';
 import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
+import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
@@ -924,32 +925,29 @@ export default function HomeScreenCompact({ navigation }: any) {
         <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Couper le micro"><Text style={s.secondaryText}>■  COUPER LE MICRO</Text></TouchableOpacity>
       </View>
 
-      <Modal visible={keepChoiceOpen} transparent animationType="fade" onRequestClose={() => { setKeepChoiceOpen(false); setKeepEditId(null); }}>
-        <View style={s.modalOverlay}><View style={s.keepChoiceCard}>
-          <Text style={s.modalTitle}>{keepEditId ? 'Modifier la visibilité' : 'Garder ce morceau'}</Text>
-          <Text style={s.modalBody}>Choisis ce que les autres verront. Tu pourras modifier ce choix plus tard dans Mes Sessions.</Text>
-          {!keepEditId && playlists.length > 1 ? (
-            <View style={s.playlistChoices}>
-              <Text style={s.choiceLabel}>DESTINATION</Text>
-              <View style={s.playlistChoiceWrap}>
-                {playlists.slice(0, 5).map((playlist) => {
-                  const selected = keepPlaylistId === playlist.id;
-                  return <TouchableOpacity key={playlist.id} style={[s.playlistChoice, selected && s.playlistChoiceOn]} onPress={() => setKeepPlaylistId(playlist.id)}><Text style={[s.playlistChoiceText, selected && s.playlistChoiceTextOn]} numberOfLines={1}>{playlist.name}</Text></TouchableOpacity>;
-                })}
-              </View>
-            </View>
-          ) : null}
-          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePublic]} onPress={() => { if (keepEditId) { void applyVisibilityEdit(keepEditId, 'PUBLIC'); } else if (current) { void doKeep(current.id, keepPlaylistId, 'PUBLIC'); } }} disabled={keepBusy || privacyBusy}>
-            <Text style={s.visibilityChoiceTitlePublic}>PUBLIC SUR MON PROFIL</Text>
-            <Text style={s.visibilityChoiceText}>Le morceau apparaîtra dans ton univers Loki Music partagé.</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.visibilityChoice, s.visibilityChoicePrivate]} onPress={() => { if (keepEditId) { void applyVisibilityEdit(keepEditId, 'PRIVATE'); } else if (current) { void doKeep(current.id, keepPlaylistId, 'PRIVATE'); } }} disabled={keepBusy || privacyBusy}>
-            <Text style={s.visibilityChoiceTitlePrivate}>GARDER EN PRIVÉ</Text>
-            <Text style={s.visibilityChoiceText}>Le morceau reste dans ta bibliothèque et n’apparaît pas sur ton profil public.</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.cancelChoice} onPress={() => { setKeepChoiceOpen(false); setKeepEditId(null); }}><Text style={s.cancelChoiceText}>Annuler</Text></TouchableOpacity>
-        </View></View>
-      </Modal>
+      <KeepVisibilityChoiceModal
+        visible={keepChoiceOpen}
+        title={keepEditId ? 'Modifier la visibilité' : 'Garder ce morceau'}
+        trackLabel={current ? `${current.track.title} · ${current.track.artist}` : null}
+        costFree={keepEditId ? null : creditCostPerKeep}
+        playlists={playlists.map((playlist) => ({ id: playlist.id, name: playlist.name }))}
+        selectedPlaylistId={keepPlaylistId}
+        onSelectPlaylist={setKeepPlaylistId}
+        editMode={Boolean(keepEditId)}
+        busy={keepBusy || privacyBusy}
+        onPublic={() => {
+          if (keepEditId) void applyVisibilityEdit(keepEditId, 'PUBLIC');
+          else if (current) void doKeep(current.id, keepPlaylistId, 'PUBLIC');
+        }}
+        onPrivate={() => {
+          if (keepEditId) void applyVisibilityEdit(keepEditId, 'PRIVATE');
+          else if (current) void doKeep(current.id, keepPlaylistId, 'PRIVATE');
+        }}
+        onCancel={() => {
+          setKeepChoiceOpen(false);
+          setKeepEditId(null);
+        }}
+      />
 
       <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
