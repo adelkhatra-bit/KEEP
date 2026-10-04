@@ -667,6 +667,11 @@ export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedA
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
+export async function acknowledgeKeepBattleArenaPresence(arenaId: string): Promise<void> {
+  const { error } = await client().rpc('keep_battle_arena_presence_ack', { p_arena_id: arenaId });
+  if (error) throw error;
+}
+
 export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
   const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
