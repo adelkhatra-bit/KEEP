@@ -365,6 +365,25 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => { live = false; };
   }, [user?.id]);
   useEffect(() => {
+    let live = true;
+    const refreshHomePulse = async () => {
+      if (!user || isDemoMode || musicEngine.isDemoMode) {
+        if (live) setHomePulseItems([]);
+        return;
+      }
+      try {
+        const items = await loadLokiPulse(24, user.id);
+        if (live) setHomePulseItems(items);
+      } catch {
+        // Conserver les dernières bulles valides en cas de panne réseau/RPC :
+        // une indisponibilité temporaire ne doit jamais vider Loki Pulse.
+      }
+    };
+    void refreshHomePulse();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomePulse(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [isDemoMode, navigation, user?.id]);
+  useEffect(() => {
     void refreshCreditBadge();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
     return () => unsubscribe?.();
