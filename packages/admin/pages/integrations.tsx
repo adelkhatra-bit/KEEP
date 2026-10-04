@@ -3,6 +3,7 @@ import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import { openProviderPopup } from '../lib/providerWindow';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -180,26 +181,15 @@ export default function Integrations() {
 
   const openProviderWindow = (row: IntegrationRow) => {
     const provider = INTEGRATION_PROVIDER_LINKS[row.key];
-    if (!provider?.url || typeof window === 'undefined') return;
-    const width = Math.min(1180, Math.max(760, window.screen.availWidth - 160));
-    const height = Math.min(860, Math.max(620, window.screen.availHeight - 120));
-    const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
-    const top = Math.max(20, Math.round((window.screen.availHeight - height) / 2));
-    const popup = window.open(
-      provider.url,
-      `loki-provider-${row.key}`,
-      `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
-    );
-    if (!popup) {
+    if (!provider?.url) return;
+    const opened = openProviderPopup(provider.url, `loki-provider-${row.key}`);
+    if (!opened) {
       setRowFeedback((prev) => ({
         ...prev,
         [row.key]: { kind: 'error', text: 'La petite fenêtre a été bloquée par le navigateur. Autorise les pop-ups pour Loki Super Admin puis réessaie.' },
       }));
-      return;
     }
-    popup.focus();
   };
-
 
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
