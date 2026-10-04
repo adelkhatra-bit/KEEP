@@ -4,7 +4,7 @@ import { CanonicalTrack, RecognitionResult } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { authorizeNextPaidListenWithFree, markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { authorizeNextPaidListenWithFree, clearNextPaidListenFreeAuthorization, markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, MicPermissionDeniedError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { Alert } from '../utils/keepAlert';
@@ -12,6 +12,7 @@ import { checkConnectedLibraries } from '../services/connectedMusicLibrary';
 import { clearSharedMusicSource, getSharedMusicSource } from '../services/sharedMusicSourceService';
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
+import { useAccountGateStore } from './useAccountGateStore';
 import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
 import { listenQuotaMessage, loadListenEconomyStatus, recordListenSuccess, type ListenEconomyStatus } from '../services/listenEconomyService';
 
@@ -267,6 +268,8 @@ async function applyDetectedTrack(
     lastMatchAt = lastDetectionAt;
     nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
     presenceGate = createMusicPresenceGateState();
+    listenFreeAuthorizedForNextSuccess = false;
+    clearNextPaidListenFreeAuthorization();
     set({ recognizing: false, micLevel: 0, musicPresence: 'music', noMusicSince: null, showEndPrompt: false, error: null, signalHint: null });
     return 'duplicate';
   }
@@ -292,19 +295,33 @@ async function applyDetectedTrack(
   // pas ajouté localement : aucun résultat gratuit ne contourne le quota.
   if (source === 'listen' && !musicEngine.isDemoMode) {
     try {
-      const economy = await recordListenSuccess('listen:' + sessionIdAtDetection + ':' + entry.id);
+      // Les Edge Functions marquent les reconnaissances payantes déjà
+      // comptabilisées côté serveur. Les fast-paths gratuits (ShazamKit,
+      // mémoire Loki, source partagée) passent ici par le même RPC idempotent.
+      const serverRecorded = Boolean((recognition as any)?.__listenEconomyRecorded);
+      const economy = serverRecorded
+        ? await loadListenEconomyStatus()
+        : await recordListenSuccess('listen:' + sessionIdAtDetection + ':' + entry.id, listenFreeAuthorizedForNextSuccess);
       if (economy) {
         set({ listenEconomyStatus: economy });
         if (economy.ok === false) {
+          const insufficient = economy.reason === 'FREE_REQUIRED' && !economy.canPayWithFree;
+          listenFreeAuthorizedForNextSuccess = false;
+          clearNextPaidListenFreeAuthorization();
           set({
             recognizing: false,
             micLevel: 0,
             micPaused: true,
-            error: listenQuotaMessage(economy),
+            error: null,
+            listenFreeRequired: !economy.isAnonymous,
+            listenFreeInsufficient: insufficient,
           });
+          if (economy.isAnonymous) useAccountGateStore.getState().requestAccount('create');
           return 'inactive';
         }
       }
+      listenFreeAuthorizedForNextSuccess = false;
+      clearNextPaidListenFreeAuthorization();
     } catch {
       // Une panne temporaire de comptage ne transforme pas une reconnaissance
       // valide en perte de morceau. Le prochain focus rafraîchira le compteur.
@@ -369,6 +386,7 @@ let nextRecognitionAllowedAt = 0;
 let consecutiveNoMatches = 0;
 let consecutiveWeakSamples = 0;
 let presenceGate = createMusicPresenceGateState();
+let listenFreeAuthorizedForNextSuccess = false;
 // Seuil sur le pic linéaire pré-gain (même échelle que le garde-fou silence
 // à 0.004 dans micCapture.ts) : sous cette valeur, même après amplification
 // x10, le signal est trop faible pour qu'une empreinte fiable en sorte --
@@ -443,12 +461,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   useFreeForNextListen: () => {
+    listenFreeAuthorizedForNextSuccess = true;
     authorizeNextPaidListenWithFree();
     nextRecognitionAllowedAt = 0;
-    set({ listenFreeRequired: false, listenFreeInsufficient: false, error: null, signalHint: null });
+    set({ micPaused: false, listenFreeRequired: false, listenFreeInsufficient: false, error: null, signalHint: null });
   },
 
-  dismissListenFreePrompt: () => set({ listenFreeRequired: false, listenFreeInsufficient: false }),
+  dismissListenFreePrompt: () => {
+    listenFreeAuthorizedForNextSuccess = false;
+    clearNextPaidListenFreeAuthorization();
+    set({ listenFreeRequired: false, listenFreeInsufficient: false });
+  },
 
   startSession: () => {
     clearTimers();
@@ -496,13 +519,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const tick = async () => {
       if (!get().isActive || get().recognizing || get().micPaused) return;
       const listenEconomy = get().listenEconomyStatus;
-      if (listenEconomy && !listenEconomy.canListen) {
+      if (listenEconomy?.overQuota && !listenFreeAuthorizedForNextSuccess) {
         set({
           recognizing: false,
           micLevel: 0,
           micPaused: true,
-          error: listenQuotaMessage(listenEconomy),
+          error: null,
+          listenFreeRequired: !listenEconomy.isAnonymous,
+          listenFreeInsufficient: !listenEconomy.isAnonymous && !listenEconomy.canPayWithFree,
         });
+        if (listenEconomy.isAnonymous) useAccountGateStore.getState().requestAccount('create');
         return;
       }
       const now = Date.now();
@@ -625,6 +651,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
     presenceGate = createMusicPresenceGateState();
+    listenFreeAuthorizedForNextSuccess = false;
+    clearNextPaidListenFreeAuthorization();
     set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, musicPresence: 'unknown', micPaused: false, error: null, signalHint: null, listenFreeRequired: false, listenFreeInsufficient: false, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
