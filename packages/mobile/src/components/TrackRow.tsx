@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { ProviderPlaylist } from '@keep/music';
 import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import TrackListenControls from './TrackListenControls';
+import { KeepDecisionModal, KeepSuccessModal } from './KeepDecisionModal';
 import { getCommercialRules } from '../services/growthAccessService';
 
 const IMPORT_SOURCE_LABEL: Record<string, string> = {
@@ -112,60 +113,27 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         )}
       </View>
 
-      <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={() => !keepSubmitting && setKeepPromptOpen(false)}>
-        <View style={styles.keepOverlay}>
-          <View style={styles.keepPromptCard}>
-            <Text style={styles.keepPromptEyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
-            <Text style={styles.keepPromptTitle}>Garder ce morceau ?</Text>
-            <Text style={styles.keepPromptTrack} numberOfLines={2}>{track.title} · {track.artist}</Text>
-            <Text style={styles.keepPromptBody}>Choisis seulement si tu veux vraiment le garder. Rien n’est enregistré et aucun FREE n’est débité tant que tu n’as pas choisi.</Text>
-            <View style={styles.keepCostNotice}>
-              <Text style={styles.keepCostNoticeValue}>{keepCost}</Text>
-              <View style={styles.keepCostNoticeCopy}><Text style={styles.keepCostNoticeTitle}>FREE SERONT DÉBITÉS</Text><Text style={styles.keepCostNoticeText}>Uniquement après ta confirmation Public ou Privé.</Text></View>
-            </View>
+      <KeepDecisionModal
+        visible={keepPromptOpen}
+        trackTitle={track.title}
+        trackArtist={track.artist}
+        costFree={keepCost}
+        busy={keepSubmitting}
+        playlists={destinationOptions}
+        selectedPlaylistId={selectedPlaylistId}
+        onSelectPlaylist={setSelectedPlaylistId}
+        onChoose={confirmIndividualKeep}
+        onCancel={() => setKeepPromptOpen(false)}
+      />
 
-            {destinationOptions.length > 0 ? <View style={styles.destinationBlock}>
-              <Text style={styles.destinationLabel}>RANGER DANS</Text>
-              <View style={styles.destinationWrap}>
-                {destinationOptions.slice(0, 8).map((playlist) => {
-                  const selected = selectedPlaylistId === playlist.id;
-                  return <TouchableOpacity key={playlist.id} style={[styles.destinationPill, selected && styles.destinationPillOn]} onPress={() => setSelectedPlaylistId(playlist.id)} disabled={keepSubmitting}>
-                    <Text style={[styles.destinationText, selected && styles.destinationTextOn]} numberOfLines={1}>{playlist.name}</Text>
-                  </TouchableOpacity>;
-                })}
-              </View>
-            </View> : null}
-
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} onPress={() => { void confirmIndividualKeep('PUBLIC'); }} disabled={keepSubmitting} accessibilityLabel="Visible sur mon profil">
-              <Text style={styles.keepChoicePublicTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'VISIBLE SUR MON PROFIL'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki Music.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} onPress={() => { void confirmIndividualKeep('PRIVATE'); }} disabled={keepSubmitting} accessibilityLabel="Garder en privé">
-              <Text style={styles.keepChoicePrivateTitle}>{keepSubmitting ? 'ENREGISTREMENT…' : 'GARDER EN PRIVÉ'}</Text>
-              <Text style={styles.keepChoiceText}>Le morceau reste dans ta bibliothèque sans apparaître sur ton profil.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.keepCancel} onPress={() => setKeepPromptOpen(false)} disabled={keepSubmitting} accessibilityLabel="Annuler sans garder">
-              <Text style={styles.keepCancelText}>ANNULER — NE RIEN GARDER</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={keepSuccessOpen} transparent animationType="fade" onRequestClose={() => setKeepSuccessOpen(false)}>
-        <View style={styles.keepOverlay}>
-          <View style={styles.keepSuccessCard}>
-            <View style={styles.keepSuccessOrb}><Text style={styles.keepSuccessOrbText}>✓</Text></View>
-            <Text style={styles.keepSuccessEyebrow}>C’EST GARDÉ</Text>
-            <Text style={styles.keepSuccessTitle}>Merci pour ta découverte</Text>
-            <Text style={styles.keepSuccessTrack} numberOfLines={2}>{track.title} · {track.artist}</Text>
-            <Text style={styles.keepSuccessDebit}>{keepCost} FREE débités</Text>
-            <Text style={styles.keepSuccessBody}>{keepSuccessVisibility === 'PUBLIC' ? 'Bravo, tu fais grandir ta communauté. Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.' : 'Le morceau est gardé en privé dans ta bibliothèque. Rien n’est publié et aucune notification de nouveau morceau n’est envoyée à tes abonnés.'}</Text>
-            <TouchableOpacity style={styles.keepSuccessButton} onPress={() => setKeepSuccessOpen(false)} accessibilityLabel="Fermer la confirmation"><Text style={styles.keepSuccessButtonText}>PARFAIT</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <KeepSuccessModal
+        visible={keepSuccessOpen}
+        trackTitle={track.title}
+        trackArtist={track.artist}
+        costFree={keepCost}
+        visibility={keepSuccessVisibility}
+        onContinue={() => setKeepSuccessOpen(false)}
+      />
     </>
   );
 }
