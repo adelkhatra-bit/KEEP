@@ -4,7 +4,7 @@ import { CanonicalTrack, RecognitionResult } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { authorizeNextPaidListenWithFree, markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, MicPermissionDeniedError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { Alert } from '../utils/keepAlert';
@@ -173,6 +173,8 @@ interface SessionStore {
   musicPresence: MusicPresenceVerdict;
   error: string | null;
   signalHint: string | null;
+  listenFreeRequired: boolean;
+  listenFreeInsufficient: boolean;
   locationLabel?: string;
   lat?: number;
   lng?: number;
@@ -188,6 +190,8 @@ interface SessionStore {
   refreshListenEconomyStatus: () => Promise<ListenEconomyStatus | null>;
   pauseListening: () => void;
   resumeListening: () => void;
+  useFreeForNextListen: () => void;
+  dismissListenFreePrompt: () => void;
   startSession: () => void;
   requestEndSession: (title?: string) => string | null;
   dismissEndPrompt: () => void;
@@ -311,7 +315,7 @@ async function applyDetectedTrack(
   lastMatchAt = lastDetectionAt;
   nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
   presenceGate = createMusicPresenceGateState();
-  set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, musicPresence: 'music', noMusicSince: null, showEndPrompt: false, error: null, signalHint: null }));
+  set((s) => ({ tracks: [entry, ...s.tracks], recognizing: false, micLevel: 0, musicPresence: 'music', noMusicSince: null, showEndPrompt: false, error: null, signalHint: null, listenFreeRequired: false, listenFreeInsufficient: false }));
   persistLiveSession(get());
 
   // Audit Adel (11/09/2026) : "il faut que le bouton Garder soit bloque,
@@ -404,6 +408,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   musicPresence: 'unknown',
   error: null,
   signalHint: null,
+  listenFreeRequired: false,
+  listenFreeInsufficient: false,
   locationLabel: undefined,
   lat: undefined,
   lng: undefined,
@@ -435,6 +441,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     presenceGate = createMusicPresenceGateState();
     set({ micPaused: false, noMusicSince: null, musicPresence: 'unknown' });
   },
+
+  useFreeForNextListen: () => {
+    authorizeNextPaidListenWithFree();
+    nextRecognitionAllowedAt = 0;
+    set({ listenFreeRequired: false, listenFreeInsufficient: false, error: null, signalHint: null });
+  },
+
+  dismissListenFreePrompt: () => set({ listenFreeRequired: false, listenFreeInsufficient: false }),
 
   startSession: () => {
     clearTimers();
@@ -472,6 +486,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       micPaused: false,
       error: null,
       signalHint: null,
+      listenFreeRequired: false,
+      listenFreeInsufficient: false,
       locationLabel: undefined,
       lat: undefined,
       lng: undefined,
@@ -515,6 +531,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             if (silencePromptGraceHandle) { clearTimeout(silencePromptGraceHandle); silencePromptGraceHandle = null; }
           }
         }
+        // La classification locale ne connaît pas le titre, mais elle sait
+        // distinguer un silence/une conversation. Dans ces deux cas, aucun
+        // fournisseur de reconnaissance (donc aucun appel payant) ne doit partir.
+        if (presence.verdict === 'speech' || presence.verdict === 'silence') {
+          consecutiveNoMatches = Math.min(5, consecutiveNoMatches + 1);
+          consecutiveWeakSamples = presence.verdict === 'silence' ? consecutiveWeakSamples + 1 : 0;
+          set({ recognizing: false, micLevel: 0, error: null, signalHint: null });
+          return;
+        }
         const recognition = await musicEngine.recognitionProvider.recognize(audioSample);
         if (!get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
         if (!recognition) {
@@ -531,6 +556,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         await applyDetectedTrack(set, get, recognition, 'listen');
       } catch (e: any) {
         if (e instanceof MicCaptureCancelledError || !get().isActive) { set({ recognizing: false, micLevel: 0, error: null }); return; }
+        if (e?.message === 'LISTEN_FREE_REQUIRED') {
+          set({ recognizing: false, micLevel: 0, error: null, signalHint: null, listenFreeRequired: true, listenFreeInsufficient: false });
+          return;
+        }
+        if (e?.message === 'LISTEN_FREE_INSUFFICIENT') {
+          set({ recognizing: false, micLevel: 0, error: null, signalHint: null, listenFreeRequired: true, listenFreeInsufficient: true });
+          return;
+        }
+        if (e?.message === 'GUEST_LISTEN_LIMIT_REACHED') {
+          get().requestEndSession();
+          set({ recognizing: false, micLevel: 0, error: null, signalHint: null });
+          useAccountGateStore.getState().requestAccount('create');
+          return;
+        }
         if (e instanceof MicPermissionDeniedError) {
           // Une permission réellement refusée n'est pas un "micro actif avec
           // erreur". On ferme immédiatement la session de capture, libère les
@@ -586,7 +625,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
     if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
     presenceGate = createMusicPresenceGateState();
-    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, musicPresence: 'unknown', micPaused: false, error: null, signalHint: null, locationLabel: undefined, lat: undefined, lng: undefined });
+    set({ isActive: false, sessionId: null, startedAt: null, tracks: [], noMusicSince: null, showEndPrompt: false, recognizing: false, micLevel: 0, musicPresence: 'unknown', micPaused: false, error: null, signalHint: null, listenFreeRequired: false, listenFreeInsufficient: false, locationLabel: undefined, lat: undefined, lng: undefined });
     return session.tracks.length > 0 ? session.id : null;
   },
 
