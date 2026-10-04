@@ -6,6 +6,9 @@ describe('Fast recognition contract', () => {
   const core = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'keepMusicCoreRecognition.ts'), 'utf8');
   const session = fs.readFileSync(path.resolve(__dirname, '..', '..', 'store', 'useSessionStore.ts'), 'utf8');
   const server = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-core', 'index.ts'), 'utf8');
+  const fallback = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', 'keep-music-fallback', 'index.ts'), 'utf8');
+  const seed = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'supabase', 'functions', '_shared', 'fingerprintSeed.ts'), 'utf8');
+  const shazam = fs.readFileSync(path.resolve(__dirname, '..', '..', 'services', 'nativeShazamRecognition.ts'), 'utf8');
 
   it('races ShazamKit and KEEP fingerprint memory before paid providers', () => {
     expect(native).toContain('recognizeWithNativeShazam(audioSample)');
@@ -19,6 +22,26 @@ describe('Fast recognition contract', () => {
     expect(core).toContain('const AUDD_PRIMARY_ENABLED = false;');
     expect(core).toContain("const acr = await recognitionAttempt('keep-music-fallback'");
     expect(core).toContain('if (AUDD_PRIMARY_ENABLED) {');
+  });
+
+  it('does not discard paid ACRCloud matches behind the old score 55 threshold', () => {
+    expect(fallback).toContain('const MIN_ACR_SCORE = 40;');
+    expect(fallback).toContain('const MIN_CATALOG_CORROBORATED_SCORE = 22;');
+    expect(fallback).not.toContain('const MIN_ACR_SCORE = 55;');
+  });
+
+  it('never sends M4A/AAC preview bytes to mpg123', () => {
+    expect(seed).toContain('function isMp3Payload');
+    expect(seed).toContain('function isMp4AacPayload');
+    expect(seed).toContain('if (!isMp3Payload(audioBytes, contentType))');
+    expect(seed).toContain('decoder.decode(audioBytes)');
+  });
+
+  it('persists one-per-launch ShazamKit diagnostics for real TestFlight evidence', () => {
+    expect(shazam).toContain("area: 'shazamkit_recognition'");
+    expect(shazam).toContain("'SHAZAM_MATCH_OK'");
+    expect(shazam).toContain("'SHAZAM_NATIVE_ERROR'");
+    expect(shazam).toContain("console.warn('[ShazamKit] échec natif'");
   });
 
   it('uses a shorter first iOS sample but retains longer retries', () => {
