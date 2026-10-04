@@ -61,8 +61,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - ✅ Auth (pseudo + mot de passe + e-mail vérifié obligatoires depuis le
   01/09/2026 ; connexion par pseudo OU e-mail pour compatibilité anciens
   comptes) — `authService.ts`, `keep-username-auth`.
-- ✅ Essai gratuit invité (3 Free) + bonus inscription (+20 Free) = 23 Free
-  avant abonnement.
+- ✅ Économie FREE : invité = 3 reconnaissances réussies au total ; nouveau compte = +5 FREE ; quotas Écouter = 5/30/60/150 par jour selon la formule, puis 1 FREE par reconnaissance réussie. Les comptes créés avant le 04/10/2026 conservent leur bonus historique.
 - ✅ Écouter (Home) — reconnaissance audio serveur (AudD + repli ACRCloud),
   aucun secret provider côté mobile.
 - ✅ Découvertes (Loki Swipe) — swipe multi-morceaux, autoplay web fiabilisé.

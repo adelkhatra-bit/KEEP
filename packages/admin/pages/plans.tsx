@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
@@ -17,10 +17,11 @@ type LimitKey =
   | 'smart_sort_trials_lifetime'
   | 'events_per_month'
   | 'downloads_per_day'
+  | 'listens_per_day'
   | 'battle_matches_per_month';
 
 type LimitsByPlan = Record<string, Partial<Record<LimitKey, number | null>>>;
-type QuotaResponse = { guestLimit?: number; signupBonus?: number; freeTotal?: number; usageLimits?: Array<{ planCode: string; limitKey: LimitKey; limitValue: number | null }>; };
+type QuotaResponse = { guestLimit?: number; signupBonus?: number; usageLimits?: Array<{ planCode: string; limitKey: LimitKey; limitValue: number | null }>; };
 
 // Adel (04/09/2026) : "je pense que Découvertes c'est le jour où l'utilisateur
 // a son Premium, il a 50 Free directement ... j'ai pas compris" -- confirmé :
@@ -31,6 +32,7 @@ type QuotaResponse = { guestLimit?: number; signupBonus?: number; freeTotal?: nu
 const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
   { key: 'discovery_profiles_lifetime', label: 'Découvertes (à vie, une fois)', help: 'Profils uniques accessibles au total, jamais renouvelé. Vide = illimité.' },
   { key: 'smart_sort_trials_lifetime', label: 'Essais Vibes (à vie, une fois)', help: 'Essais de rangement automatique au total, jamais renouvelé. Vide = illimité.' },
+  { key: 'listens_per_day', label: 'Écoutes reconnues (chaque jour)', help: 'Reconnaissances réussies incluses chaque jour. Au-delà, chaque nouveau morceau reconnu coûte 1 FREE. Seules les reconnaissances réussies comptent.' },
   { key: 'downloads_per_day', label: 'Téléch. (chaque jour)', help: 'Téléchargements autorisés par jour, remis à zéro chaque jour. Vide = illimité.' },
   { key: 'events_per_month', label: 'Soirées (chaque mois)', help: 'Créations de soirées autorisées par mois, remis à zéro chaque mois. Vide = illimité.' },
   // Adel (04/09/2026) : "pour les inscriptions sur le Battle, que je puisse
@@ -70,7 +72,7 @@ function parseNullableNumber(value: string): number | null {
 export default function Plans() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [guestLimit, setGuestLimit] = useState(3);
-  const [signupBonus, setSignupBonus] = useState(20);
+  const [signupBonus, setSignupBonus] = useState(5);
   const [limits, setLimits] = useState<LimitsByPlan>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +84,6 @@ export default function Plans() {
   // Un vrai bouton "?" cliquable affiche l'explication en clair.
   const [openHelpKey, setOpenHelpKey] = useState<LimitKey | null>(null);
 
-  const freeTotal = useMemo(() => Math.max(0, guestLimit) + Math.max(0, signupBonus), [guestLimit, signupBonus]);
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -92,7 +93,7 @@ export default function Plans() {
       if (quotaResult.error) throw quotaResult.error;
       setPlans(((response?.data ?? []) as ApiPlan[]).map(mapPlan));
       const quota = (quotaResult.data ?? {}) as QuotaResponse;
-      setGuestLimit(Number(quota.guestLimit ?? 3)); setSignupBonus(Number(quota.signupBonus ?? 20));
+      setGuestLimit(Number(quota.guestLimit ?? 3)); setSignupBonus(Number(quota.signupBonus ?? 5));
       const nextLimits: LimitsByPlan = {};
       for (const item of quota.usageLimits ?? []) {
         if (!item?.planCode || !item?.limitKey) continue;
@@ -139,12 +140,12 @@ export default function Plans() {
     {!error && !loading && <div className="demo-banner">● MODE RÉEL — chaque modification est enregistrée dans Supabase et auditée.</div>}
 
     <section style={{ marginTop: 22, padding: 18, border: '1px solid #302742', borderRadius: 14, background: '#110d19' }}>
-      <h2 style={{ margin: '0 0 6px' }}>Free : crédits & croissance</h2>
-      <p style={{ margin: '0 0 16px', color: '#9f96ad' }}>L’écoute reste gratuite. Les crédits sont consommés seulement lorsqu’un morceau est réellement gardé/téléchargé. Les paliers de partage et d’abonnés se règlent dans Textes & Quotas app.</p>
+      <h2 style={{ margin: '0 0 6px' }}>FREE : écoute & crédits</h2>
+      <p style={{ margin: '0 0 16px', color: '#9f96ad' }}>Un invité dispose d’un nombre total de reconnaissances avant compte. Après création du compte, le bonus ci-dessous est crédité en FREE. Chaque formule possède ensuite son quota « Écoutes reconnues / jour » ; au-delà, une reconnaissance réussie coûte 1 FREE. Les comptes créés avant le 04/10/2026 conservent leur bonus historique.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14 }}>
-        <label><strong>Avant inscription</strong><input type="number" min="0" value={guestLimit} onChange={(e)=>setGuestLimit(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
-        <label><strong>Bonus après compte</strong><input type="number" min="0" value={signupBonus} onChange={(e)=>setSignupBonus(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
-        <div style={{padding:14,borderRadius:12,background:'#191225',border:'1px solid #3c2d55'}}><div style={{color:'#a78bfa',fontWeight:800}}>BASE FREE</div><div style={{fontSize:30,fontWeight:900,marginTop:6}}>{freeTotal}</div><small style={{color:'#82798e'}}>Les bonus communautaires s’ajoutent ensuite.</small></div>
+        <label><strong>Invité · écoutes totales</strong><input type="number" min="0" value={guestLimit} onChange={(e)=>setGuestLimit(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
+        <label><strong>Nouveau compte · bonus FREE</strong><input type="number" min="0" value={signupBonus} onChange={(e)=>setSignupBonus(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
+        <div style={{padding:14,borderRadius:12,background:'#191225',border:'1px solid #3c2d55'}}><div style={{color:'#a78bfa',fontWeight:800}}>APRÈS QUOTA</div><div style={{fontSize:30,fontWeight:900,marginTop:6}}>1 FREE</div><small style={{color:'#82798e'}}>par nouveau morceau réellement reconnu. Aucun débit si rien n’est trouvé.</small></div>
       </div>
       <a href="/remote-config" style={{display:'inline-block',marginTop:14,color:'#b79cff',fontWeight:800}}>Régler les paliers partages / abonnés / Audience Pro →</a>
     </section>
