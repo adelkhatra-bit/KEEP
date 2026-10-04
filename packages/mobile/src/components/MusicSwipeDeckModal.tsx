@@ -638,12 +638,12 @@ export default function MusicSwipeDeckModal({
           : 'Lecture automatique';
 
   const swipeHint = previewOnly
-    ? 'Aperçu exact de ce que verront tes abonnés · glisse ← pour passer · → pour garder'
+    ? '↑ suivant · ← passer · → garder'
     : currentAlreadyKept
-      ? 'Déjà dans ta collection · aucun doublon possible · glisse ← pour passer'
+      ? '↑ suivant · ← passer · déjà dans ta collection'
       : askVisibilityOnKeep
-        ? 'Glisse ← pour passer · → pour garder puis choisir profil ou privé'
-        : 'Glisse ← pour passer · → pour ajouter à ta collection';
+        ? '↑ suivant · ← passer · → garder puis choisir profil ou privé'
+        : '↑ suivant · ← passer · → ajouter à ta collection';
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
   const resolvedSubtitle = prefilterRemovedCount > 0
