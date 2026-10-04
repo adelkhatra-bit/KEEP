@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "rule": "Loki Music mobile and desktop use one shared product implementation. Shared features are edited once in packages/mobile/src and are consumed by iOS, Android and Expo Web. Platform-specific code is limited to adapters for browser/native capabilities; duplicated feature screens are forbidden.",
+  "canonicalRuntime": "packages/mobile",
+  "sharedFeatureRoot": "packages/mobile/src",
+  "webBuildSource": "packages/mobile",
+  "mobileViewport": "390x844",
+  "desktopViewport": "1440x900",
+  "dualViewportWorkflow": ".github/workflows/keep-dual-viewport-guardian.yml",
+  "forbiddenParallelRoots": [
+    "packages/web",
+    "apps/web",
+    "apps/desktop",
+    "packages/desktop"
+  ],
+  "forbiddenFeatureSuffixes": [
+    ".web.ts",
+    ".web.tsx",
+    ".native.ts",
+    ".native.tsx"
+  ],
+  "featureDirectories": [
+    "packages/mobile/src/screens",
+    "packages/mobile/src/components",
+    "packages/mobile/src/store"
+  ],
+  "allowedPlatformSpecificFiles": [
+    "packages/mobile/src/services/micCapture.ts",
+    "packages/mobile/src/services/audioPreviewService.ts",
+    "packages/mobile/src/services/nativeShazamRecognition.ts",
+    "packages/mobile/src/utils/webAutofillFix.ts"
+  ],
+  "requiredChecks": [
+    "source-of-truth",
+    "typecheck",
+    "mobile-390x844",
+    "desktop-1440x900",
+    "web-runtime"
+  ]
+}
