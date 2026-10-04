@@ -13,6 +13,7 @@ on:
       - 'packages/music/**'
       - 'config/platform-parity-contract.json'
       - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/verify-platform-behavior-parity.cjs'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
@@ -54,6 +55,8 @@ jobs:
       - run: npm ci
       - name: Verify shared Mobile/Desktop source
         run: node scripts/verify-source-of-truth.cjs
+      - name: Verify Mobile/Web behavior parity
+        run: node scripts/verify-platform-behavior-parity.cjs
       - name: Typecheck
         run: npm run type-check
       - name: Install Chromium
