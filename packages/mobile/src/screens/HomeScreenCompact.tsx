@@ -112,11 +112,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
   const prewarmHomePulseTrack = (trackId: string) => {
-    // Web uniquement : sur TestFlight, onPressIn précède onPress de quelques
-    // millisecondes et l'ancien preload expo-av entrait dans la même file que
-    // la lecture, ce qui retardait précisément le morceau que l'utilisateur
-    // venait de choisir.
-    if (Platform.OS !== 'web') return;
+    // Le preload natif est désormais indépendant de la file de lecture :
+    // dès le contact du doigt, Loki commence à préparer l'extrait choisi.
+    // Aucun son ne joue ici (shouldPlay:false), donc un seul morceau reste
+    // audible dans toute l'application.
     const item = homePulseItems.find((row) => row.track.id === trackId);
     if (!item) return;
     const direct = item.track.previewUrl?.trim();
