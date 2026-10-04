@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
@@ -20,6 +20,8 @@ interface Props {
   // d'un extrait ne doit jamais valoir decision PASSER/GARDER, seulement
   // avancer la consultation.
   onPreviewFinished?: () => void;
+  /** Lecture automatique uniquement dans une vue focalisée (ex. Écouter/Loki Pulse). */
+  autoPlay?: boolean;
 }
 
 /**
@@ -27,7 +29,7 @@ interface Props {
  * « vient d'être détecté » (HomeScreenCompact) et les lignes d'historique
  * (TrackRow). Chaque bouton représente une vraie DURÉE, jamais un offset.
  */
-export default function TrackListenControls({ track, previewKey, onPreviewFinished }: Props) {
+export default function TrackListenControls({ track, previewKey, onPreviewFinished, autoPlay = false }: Props) {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [embeddedPlayerOpen, setEmbeddedPlayerOpen] = useState(false);
   // BUG RÉEL (Adel, 01/09/2026 : "j'écoute la musique elle ne part pas, elle
@@ -37,6 +39,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   // fonctionnel dans TrackPreviewButton.tsx/MusicSwipeDeckModal.tsx.
   const [resolvedPreviewUrl, setResolvedPreviewUrl] = useState(track.previewUrl ?? null);
   const [resolvingPreview, setResolvingPreview] = useState(false);
+  const autoStartedKey = useRef<string | null>(null);
 
   const externalDestination = resolveTrackExternalDestination(track);
   const externalPlayUrl = externalDestination?.url;
@@ -75,6 +78,52 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   useEffect(() => () => {
     void stopTrackPreview(previewKey);
   }, [previewKey]);
+
+  useEffect(() => {
+    autoStartedKey.current = null;
+  }, [previewKey]);
+
+  useEffect(() => {
+    if (!autoPlay || !resolvedPreviewUrl || resolvingPreview) return undefined;
+    const autoKey = `${previewKey}:${resolvedPreviewUrl}`;
+    if (autoStartedKey.current === autoKey) return undefined;
+    autoStartedKey.current = autoKey;
+    let live = true;
+
+    const run = async () => {
+      // Vue focalisée seulement : pause temporaire du micro d'écoute, puis
+      // reprise automatique quand l'extrait se termine.
+      const session = useSessionStore.getState();
+      if (session.isActive && !session.micPaused) session.pauseListening();
+
+      for (let attempt = 0; attempt < 3 && live; attempt += 1) {
+        try {
+          setPreviewBusy(true);
+          await playTrackPreviewSegment(
+            previewKey,
+            resolvedPreviewUrl,
+            0,
+            10000,
+            resumeListeningOnStop,
+            onPreviewFinished,
+            true,
+          );
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 220 + attempt * 260));
+        } finally {
+          if (live) setPreviewBusy(false);
+        }
+      }
+      // En autoplay natif on ne montre jamais un popup qui volerait le tap
+      // utilisateur. Les boutons manuels restent disponibles en repli.
+      const latest = useSessionStore.getState();
+      if (latest.micPaused) latest.resumeListening();
+    };
+
+    void run();
+    return () => { live = false; };
+  }, [autoPlay, onPreviewFinished, previewKey, resolvedPreviewUrl, resolvingPreview]);
 
   const stopKeepListening = async () => {
     const session = useSessionStore.getState();
