@@ -238,14 +238,23 @@ function pushClientMetadata(): {
   };
 }
 
-async function registerExpoTokenWithSupabase(token: string): Promise<{ ok: boolean; reason?: string }> {
+async function registerExpoTokenWithSupabase(
+  token: string,
+  nativePushToken?: import('expo-notifications').DevicePushToken | null,
+): Promise<{ ok: boolean; reason?: string }> {
   if (!supabase) return { ok: false, reason: 'supabase_not_configured' };
   if (!token) return { ok: false, reason: 'empty_token' };
   try {
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user?.id) return { ok: false, reason: 'not_logged_in' };
     const meta = pushClientMetadata();
-    const { error } = await supabase.rpc('keep_push_token_register_v2', {
+    const nativeData = nativePushToken?.data;
+    const nativeToken = typeof nativeData === 'string'
+      ? nativeData.trim()
+      : nativeData != null
+        ? String(nativeData).trim()
+        : null;
+    const { error } = await supabase.rpc('keep_push_token_register_v3', {
       p_token: token,
       p_platform: Platform.OS,
       p_app_version: meta.appVersion,
@@ -253,6 +262,8 @@ async function registerExpoTokenWithSupabase(token: string): Promise<{ ok: boole
       p_device_model: meta.deviceModel,
       p_os_version: meta.osVersion,
       p_expo_project_id: meta.expoProjectId,
+      p_native_token: nativeToken || null,
+      p_native_token_type: nativePushToken?.type ? String(nativePushToken.type) : Platform.OS,
     });
     if (error) {
       void reportPushRegistrationFailure('register_rpc_error', String(error.message || error.code || 'rpc_error'));
@@ -273,7 +284,7 @@ export function listenForExpoPushTokenChanges(): () => void {
     // addPushTokenListener renvoie le token NATIF APNs/FCM. On le convertit
     // en ExpoPushToken et on refuse toute valeur brute avant le RPC.
     void resolveExpoPushToken(projectId, nextToken)
-      .then((token) => registerExpoTokenWithSupabase(token))
+      .then((token) => registerExpoTokenWithSupabase(token, nextToken))
       .catch((error) => {
         void reportPushRegistrationFailure('expo_token_rotation_error', String((error as any)?.message || error || 'unknown').slice(0, 300));
       });
@@ -343,15 +354,17 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
   }
 
   let token: string;
+  let nativePushToken: import('expo-notifications').DevicePushToken | null = null;
   try {
-    token = await resolveExpoPushToken(projectId);
+    nativePushToken = await Notifications.getDevicePushTokenAsync().catch(() => null);
+    token = await resolveExpoPushToken(projectId, nativePushToken || undefined);
   } catch (error: any) {
     const detail = String(error?.message || error || 'unknown').slice(0, 300);
     void reportPushRegistrationFailure('expo_token_error', detail);
     return { ok: false, reason: 'expo_token_error' };
   }
 
-  return registerExpoTokenWithSupabase(token);
+  return registerExpoTokenWithSupabase(token, nativePushToken);
 }
 
 export async function unregisterCurrentPushToken(): Promise<void> {
