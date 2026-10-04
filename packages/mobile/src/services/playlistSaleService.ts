@@ -688,6 +688,25 @@ export async function loadPlaylistSaleOfferOverlap(offerId: string): Promise<Pla
   };
 }
 
+export async function loadPlaylistSaleOfferOverlaps(offerIds: string[]): Promise<Record<string, PlaylistSaleOverlap>> {
+  if (!supabase) return {};
+  const ids = Array.from(new Set(offerIds.map((id) => String(id || '').trim()).filter(Boolean))).slice(0, 80);
+  if (!ids.length) return {};
+  const { data, error } = await supabase.rpc('keep_playlist_sale_offer_overlaps', { p_offer_ids: ids });
+  if (error) throw error;
+  const out: Record<string, PlaylistSaleOverlap> = {};
+  (Array.isArray(data) ? data : []).forEach((row: any) => {
+    const offerId = String(row.offer_id ?? row.offerId ?? '');
+    if (!offerId) return;
+    out[offerId] = {
+      totalCount: Number(row.total_count ?? row.totalCount ?? 0),
+      ownedCount: Number(row.owned_count ?? row.ownedCount ?? 0),
+      missingCount: Number(row.missing_count ?? row.missingCount ?? 0),
+    };
+  });
+  return out;
+}
+
 export type PlaylistSaleMissingTrackRequestResult = {
   requestId: string;
   offerId: string;
