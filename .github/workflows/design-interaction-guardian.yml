@@ -1,0 +1,43 @@
+name: KEEP — Design & Interaction Guardian
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'packages/mobile/src/**'
+      - 'config/mobile-accessibility-contract.json'
+      - 'docs/UI_CONTRAST_RULE.md'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/design-interaction-guardian.yml'
+  pull_request:
+    paths:
+      - 'packages/mobile/src/**'
+      - 'config/mobile-accessibility-contract.json'
+      - 'docs/UI_CONTRAST_RULE.md'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/design-interaction-guardian.yml'
+  workflow_dispatch:
+
+jobs:
+  design-guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Enforce Loki interaction and readability contract
+        run: |
+          node scripts/verify-mobile-accessibility-contract.cjs
+          node scripts/verify-mobile-text-contrast.cjs
+          node scripts/verify-ui-layout-baseline.cjs
+      - name: Lock Listen home compact behavior
+        run: npm test --workspace=packages/mobile -- --runInBand HomeScreenCompact.branding.contract.test.ts HomeLokiPulse.contract.test.ts LokiPulseBubblesPlacement.contract.test.ts
