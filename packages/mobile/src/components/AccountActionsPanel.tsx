@@ -7,6 +7,7 @@ import { createAuthService } from '../services/authService';
 import { clearLocalGuestMarker } from '../services/guestUpgradeService';
 import { deleteOwnKeepAccount } from '../services/accountDeletionService';
 import { supabase } from '../services/supabaseClient';
+import WebCompanionSessionsPanel from './WebCompanionSessionsPanel';
 
 // Adel (16-17/09/2026) : "je clique sur une fonction, j'ai le résultat,
 // sans être mélangé à d'autres trucs" -- déconnexion/suppression (ex-onglet
@@ -68,6 +69,7 @@ export default function AccountActionsPanel() {
     <TouchableOpacity style={s.signOutButton} onPress={confirmSignOut} disabled={signingOut || deletingAccount}>
       <Text style={s.signOutText}>{signingOut ? 'Déconnexion…' : 'Se déconnecter'}</Text>
     </TouchableOpacity>
+    <WebCompanionSessionsPanel />
     <View style={s.deleteDivider} />
     <Text style={s.deleteTitle}>Suppression définitive</Text>
     <Text style={s.help}>Supprime le compte serveur et les données associées. Différent d’une simple déconnexion.</Text>
