@@ -18,6 +18,8 @@ type Props = {
 
 const SWIPE_THRESHOLD = 72;
 const VERTICAL_SWIPE_THRESHOLD = 64;
+const VERTICAL_FLING_MIN_DISTANCE = 28;
+const VERTICAL_FLING_VELOCITY = -0.45;
 const EXIT_DISTANCE = 520;
 const EXIT_DISTANCE_Y = 760;
 
@@ -58,7 +60,7 @@ export default function SwipeDeck({
     const targetX = direction === 'RIGHT' ? EXIT_DISTANCE : direction === 'LEFT' ? -EXIT_DISTANCE : 0;
     const targetY = direction === 'UP' ? -EXIT_DISTANCE_Y : 0;
     Animated.parallel([
-      Animated.timing(x, { toValue: targetX, duration: 190, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(x, { toValue: targetX, duration: direction === 'UP' ? 160 : 190, useNativeDriver: Platform.OS !== 'web' }),
       Animated.timing(y, { toValue: targetY, duration: 190, useNativeDriver: Platform.OS !== 'web' }),
     ]).start(() => {
       const callback = direction === 'RIGHT' ? onSwipeRight : direction === 'LEFT' ? onSwipeLeft : onSwipeUp;
@@ -91,7 +93,8 @@ export default function SwipeDeck({
     },
     onPanResponderRelease: (_, gesture) => {
       if (!enabled || animating.current) return settle();
-      if (onSwipeUp && gesture.dy <= -VERTICAL_SWIPE_THRESHOLD && Math.abs(gesture.dy) > Math.abs(gesture.dx)) return commitSwipe('UP');
+      const upwardFling = gesture.dy <= -VERTICAL_FLING_MIN_DISTANCE && gesture.vy <= VERTICAL_FLING_VELOCITY;
+      if (onSwipeUp && (gesture.dy <= -VERTICAL_SWIPE_THRESHOLD || upwardFling) && Math.abs(gesture.dy) > Math.abs(gesture.dx)) return commitSwipe('UP');
       if (gesture.dx >= SWIPE_THRESHOLD) return commitSwipe('RIGHT');
       if (gesture.dx <= -SWIPE_THRESHOLD) return commitSwipe('LEFT');
       settle();
