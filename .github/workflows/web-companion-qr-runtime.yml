@@ -1,4 +1,5 @@
 name: KEEP — Web Companion QR Runtime
+# audit-trigger-chatgpt-parity: 2026-10-04T15:34:00Z
 
 on:
   push:
