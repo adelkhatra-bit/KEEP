@@ -194,6 +194,8 @@ function createFakeSupabase(options = {}) {
         case 'keep_agora_my_conversations':
           if (!opts.unreadChat) return json(200, []);
           return json(200, [{ other_profile_id: SELLER, other_username: SELLER_USERNAME, other_avatar_url: null, last_message_id: 61, last_room_slug: 'place', last_body: 'Salut', last_created_at: recent(20000), last_shared_track_id: null, last_sale_offer_id: null }]);
+        case 'keep_playlist_sale_profile_preview_sampler':
+          return json(200, offers.slice(0, 3).map((offer, index) => ({ offer_id: offer.offer_id, track_id: `preview-${index + 1}`, preview_url: `${opts.origin}/none.mp3` })));
         case 'keep_agora_share_preflight': return json(200, { hasTrack: true, canSell: true, targetOwnsTrack: false });
         case 'keep_playlist_sale_access': return json(200, { unlocked: true, enabled: true, can_buy: true, can_sell: true });
         case 'keep_agora_post_group_offer': state.posted.push(body()); return json(200, { groupMessageId: 9, offersSent: 1, alreadyOwned: 1, alreadyPending: 0 });

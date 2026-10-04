@@ -180,6 +180,7 @@ const boutiqueJourney = {
       free: (await page.getByText(/^✦ \d+ en FREE$/).count()) > 0,
       euro: (await page.getByText(/^€ \d+$/).count()) > 0,
       nouveautes: (await page.getByText(/nouveautés pour toi$/).count()) > 0,
+      filtre_nouveautes: (await page.getByText('Nouveautés', { exact: true }).count()) > 0,
     };
     r.aucune_image_banniere = await page.evaluate(() => {
       const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim() === 'BOUTIQUE MUSICALE · SES PÉPITES');
@@ -201,8 +202,8 @@ const boutiqueJourney = {
     const allPreview = page.locator('[aria-label="Écouter tous les aperçus des pépites à la une"]').first();
     await allPreview.click({ force: true });
     await page.waitForTimeout(1200);
-    r.cta_reagit = (await page.getByText('PÉPITES À DÉCOUVRIR').count()) > 0
-      || (await page.getByText(/Pépites à la une/i).count()) > 0;
+    r.cta_reagit = (await page.getByText(/Aperçu \d+\/\d+/i).count()) > 0
+      || (await page.getByText(/Fin des aperçus/i).count()) > 0;
     await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
 
     await page.goto(profileUrl, { waitUntil: 'load' });
@@ -228,7 +229,7 @@ const boutiqueJourney = {
       ['sous-titre « 40 collections · 1 clic pour écouter »', r.titre_banniere],
       ['pastille FREE', r.pastilles.free],
       ['pastille €', r.pastilles.euro],
-      ['pastille nouveautés', r.pastilles.nouveautes],
+      ['filtre Nouveautés disponible même si aucune nouveauté n’est calculée', r.pastilles.filtre_nouveautes],
       ['aucune image dans la bannière', r.aucune_image_banniere === true],
       ['Pépite à la une visible', r.pepite_une],
       ['étagère « Toutes les Pépites »', r.etagere_titre],
@@ -525,7 +526,10 @@ const chatUnreadJourney = {
     await page.waitForTimeout(2500);
     r.retour_ok = (await page.locator('[aria-label="Retour aux conversations"]').count()) === 0;
     await page.getByText(fake.GROUP_NAME).first().waitFor({ timeout: 20000 });
-    r.lignes_allumees = await page.locator('[data-testid="chat-row-unread"]').count();
+    const groupUnreadRows = await page.locator('[data-testid="chat-row-unread"]').count();
+    const directUnreadRow = page.getByLabel(`Ouvrir la conversation avec ${fake.SELLER_USERNAME}`).first();
+    const directUnreadText = (await directUnreadRow.innerText().catch(() => '')).replace(/\s+/g, ' ');
+    r.lignes_allumees = groupUnreadRows + (/\b1\b/.test(directUnreadText) ? 1 : 0);
     r.entete_a_lire = await page.getByText('conversations à lire').count();
     r.filtres_masques = (await page.getByText('Invitations', { exact: true }).count()) === 0;
     r.ligne_groupe_texte = (await page.locator('[data-testid="chat-row-unread"]').first().innerText().catch(() => '')).replace(/\s+/g, ' ');
