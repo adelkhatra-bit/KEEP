@@ -583,7 +583,7 @@ export default function MusicSwipeDeckModal({
   };
 
   const pass = async () => {
-    if (!current || processing) return;
+    if (!current || processing || actionInFlight.current) return;
     const passedTrack = current;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
@@ -678,7 +678,7 @@ export default function MusicSwipeDeckModal({
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
               onSwipeUp={() => {
-                if (controlsLocked) return;
+                if (controlsLocked || actionInFlight.current) return;
                 actionInFlight.current = true;
                 void advance().finally(() => { actionInFlight.current = false; });
               }}
