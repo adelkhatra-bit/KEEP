@@ -140,6 +140,18 @@ if (!swipeModalSource.includes('optimisticPass?: boolean')) failures.push('MUSIC
 if (!homeListenSource.includes('optimisticPass')) failures.push('LOKI PULSE HOME MUST USE OPTIMISTIC PASS');
 
 
+const iosCompatibility = productContract.iosCompatibility || {};
+if (iosCompatibility.minimumSupportedVersion !== '15.1') failures.push('IOS MINIMUM SUPPORT MUST STAY 15.1');
+if (iosCompatibility.shazamModuleMinimum !== '15.1') failures.push('SHAZAM MODULE MINIMUM MUST STAY 15.1');
+if (iosCompatibility.iapModuleMinimum !== '15.1') failures.push('IAP MODULE MINIMUM MUST STAY 15.1');
+const mobileAppConfig = JSON.parse(read('packages/mobile/app.json'));
+const deploymentTarget = mobileAppConfig?.expo?.plugins?.find(p => Array.isArray(p) && p[0] === 'expo-build-properties')?.[1]?.ios?.deploymentTarget;
+if (deploymentTarget !== '15.1') failures.push(`IOS DEPLOYMENT TARGET MUST STAY 15.1 (found: ${deploymentTarget || 'missing'})`);
+const shazamPodspec = read('packages/mobile/modules/keep-shazam/ios/KeepShazam.podspec');
+const iapPodspec = read('packages/mobile/modules/keep-iap/ios/KeepIAP.podspec');
+if (!shazamPodspec.includes("s.platforms      = { :ios => '15.1' }")) failures.push('KEEP SHAZAM MUST SUPPORT IOS 15.1');
+if (!iapPodspec.includes("s.platforms      = { :ios => '15.1' }")) failures.push('KEEP IAP MUST SUPPORT IOS 15.1');
+
 const spacingSource = read('packages/mobile/src/theme/spacing.ts');
 const motionButtonSource = read('packages/mobile/src/components/MotionActionButton.tsx');
 if (!/export const minTouchTarget\s*=\s*48\s*;/.test(spacingSource)) {
