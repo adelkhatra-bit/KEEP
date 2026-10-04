@@ -3,7 +3,7 @@ import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text,
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
-import { iapAvailable, IAP_PRODUCT_IDS, loadIapProducts, purchasePlan, restorePurchases } from '../services/iapService';
+import { iapAvailable, IAP_FREE_PACKS, IAP_PRODUCT_IDS, loadIapProducts, purchaseFreePack, purchasePlan, restorePurchases } from '../services/iapService';
 import { loadPaddleCatalog, openPaddleCheckout, paddleCheckoutAvailable, PaddleCatalogEntry } from '../services/paddleService';
 import type { KeepIAPProduct } from 'keep-iap';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
@@ -189,6 +189,7 @@ export default function OffersScreen({ navigation, route }: any) {
   // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
   // réelle du plan), plus jamais un CTA qui ne fait que naviguer.
   const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
+  const [purchasingFreePack, setPurchasingFreePack] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [iapProducts, setIapProducts] = useState<Record<string, KeepIAPProduct>>({});
   // Adel (08/09/2026) : "j'ai juste a mettre connecter ensuite ca me dirige
@@ -255,6 +256,27 @@ export default function OffersScreen({ navigation, route }: any) {
     }
   };
 
+  const handleFreePackPurchase = async (freeAmount: number) => {
+    if (purchasingFreePack !== null) return;
+    setPurchasingFreePack(freeAmount);
+    try {
+      const result = await purchaseFreePack(freeAmount);
+      if (!result.ok) {
+        if (result.reason !== 'CANCELLED') {
+          Alert.alert('Recharge FREE', result.reason === 'PENDING'
+            ? 'Le paiement est en attente de validation par la boutique.'
+            : 'Impossible de finaliser cette recharge pour le moment.');
+        }
+        return;
+      }
+      setFreeBalance(result.balance);
+      const refreshed = await loadFreeCreditBreakdown().catch(() => null);
+      if (refreshed) setBreakdown(refreshed);
+      Alert.alert('Recharge terminée', `+${result.freeAmount} FREE ont été ajoutés. Nouveau solde : ${result.balance} FREE.`);
+    } finally {
+      setPurchasingFreePack(null);
+    }
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -575,11 +597,40 @@ export default function OffersScreen({ navigation, route }: any) {
               même endroit une seule fois, plutôt que dispersées plan par
               plan. */}
           <View style={s.battleDetails}>
-            <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
-            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d'abonnés, plus Loki Music t'offre de Free.</Text>
-            <Text style={s.battleDetailText}>⚡ Battle en ligne : un seul bonus sans-faute est attribué au joueur parfait le plus rapide (+{battleRules.perfectScoreBonusFree} Free sur 8 morceaux), en plus du résultat.</Text>
-            <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
-            <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
+            <Text style={s.paidSectionTitle}>GAGNER OU RECHARGER TES FREE</Text>
+            <Text style={s.battleDetailText}>📣 Parrainage : +2 FREE par inscrit validé, jusqu’à 20 FREE par mois.</Text>
+            <Text style={s.battleDetailText}>⚡ Battle et série quotidienne : gagne des FREE en jouant et en revenant.</Text>
+            <Text style={s.battleDetailText}>💎 Premier découvreur : +1 FREE quand un autre membre garde ta découverte, jusqu’à 20 par mois.</Text>
+            <Text style={s.battleDetailText}>📅 Bonus mensuel automatique selon ta formule.</Text>
+          </View>
+          <View style={s.rechargeBox}>
+            <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
+            <Text style={s.rechargeTitle}>Choisis ton pack</Text>
+            <Text style={s.rechargeIntro}>Achat ponctuel. Le solde est crédité uniquement après validation Apple ou Google.</Text>
+            {IAP_FREE_PACKS.map((pack) => {
+              const storeProduct = iapProducts[pack.productId];
+              const price = storeProduct?.displayPrice || pack.fallbackPrice;
+              const available = iapAvailable() && Boolean(storeProduct);
+              const busy = purchasingFreePack === pack.freeAmount;
+              return (
+                <View key={pack.productId} style={s.freePackRow}>
+                  <View style={s.freePackCopy}>
+                    <Text style={s.freePackAmount}>{pack.freeAmount} FREE</Text>
+                    <Text style={s.freePackPrice}>{price}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[s.freePackButton, !available && s.freePackButtonDisabled]}
+                    disabled={!available || purchasingFreePack !== null}
+                    onPress={() => void handleFreePackPurchase(pack.freeAmount)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Acheter ${pack.freeAmount} FREE pour ${price}`}
+                  >
+                    {busy ? <ActivityIndicator color="#0A140F" /> : <Text style={s.freePackButtonText}>{available ? 'RECHARGER' : 'APP MOBILE'}</Text>}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+            {!iapAvailable() ? <Text style={s.rechargeHint}>Les recharges se font uniquement dans l’app iPhone/Android, jamais sur le web.</Text> : null}
           </View>
         </>}
 
@@ -675,7 +726,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
-            <Text style={s.subscriptionText}>• Écouter avec Loki Music, reconnaître et PASSER ne consomment aucun Free.</Text>
+            <Text style={s.subscriptionText}>• Écouter et PASSER restent inclus. Une reconnaissance réussie au-delà du quota quotidien de ta formule coûte 1 FREE.</Text>
             <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
             <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule.</Text>
             <Text style={s.subscriptionText}>• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki Music.</Text>
@@ -762,6 +813,13 @@ const s = StyleSheet.create({
   rechargeItemTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   rechargeItemText: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, fontWeight: '800', marginTop: 2 },
   rechargeHint: { color: '#FFFFFF', fontSize: 8, lineHeight: 12, fontWeight: '700', marginTop: 3 },
+  freePackRow: { minHeight: 58, marginTop: 9, paddingTop: 9, borderTopWidth: 1, borderTopColor: '#254936', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  freePackCopy: { flex: 1 },
+  freePackAmount: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  freePackPrice: { color: '#7CF2B9', fontSize: 12, fontWeight: '900', marginTop: 2 },
+  freePackButton: { minWidth: 112, minHeight: 42, paddingHorizontal: 14, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7CF2B9' },
+  freePackButtonDisabled: { opacity: 0.45 },
+  freePackButtonText: { color: '#0A140F', fontSize: 11, fontWeight: '900' },
   startBonus: { marginTop: 10, borderRadius: 12, backgroundColor: '#17241D', paddingHorizontal: 9, paddingVertical: 8 },
   startBonusTitle: { color: '#7CF2B9', fontSize: 8, fontWeight: '900', letterSpacing: .7 },
   startBonusText: { color: '#FFFFFF', fontSize: 9, lineHeight: 13, fontWeight: '700', marginTop: 2 },
