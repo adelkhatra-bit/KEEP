@@ -24,6 +24,9 @@ if (contract.interactionLoop?.everyControlNeedsRealHandler !== true) fail('every
 if (contract.interactionLoop?.immediateVisualFeedback !== true) fail('immediateVisualFeedback must stay true');
 if ((contract.darkThemeReadability?.normalTextContrastRatio ?? 0) < 4.5) fail('dark theme normal text contrast must stay >= 4.5:1');
 if (contract.darkThemeReadability?.forbidMutedFunctionalText !== true) fail('functional muted text must stay forbidden');
+if (contract.layoutStability?.expandableHelpMustReserveSpace !== true) fail('expandable help must reserve space');
+if (contract.layoutStability?.primaryActionsMustNotShiftOnHelpToggle !== true) fail('primary actions must stay fixed when help toggles');
+if (contract.layoutStability?.bottomDiscoveryRailStaysAnchored !== true) fail('bottom discovery rail must stay anchored');
 
 const files = [
   path.join(root, 'packages', 'mobile', 'src', 'screens', 'HomeScreenCompact.tsx'),
@@ -43,4 +46,5 @@ console.log('KEEP mobile accessibility contract OK:', {
   oneTap: contract.interactionLoop.firstTapDirectAction,
   sensitiveConfirmOnly: contract.interactionLoop.secondTapSensitiveConfirmationOnly,
   darkContrast: contract.darkThemeReadability.normalTextContrastRatio,
+  stableHelp: contract.layoutStability.primaryActionsMustNotShiftOnHelpToggle,
 });
