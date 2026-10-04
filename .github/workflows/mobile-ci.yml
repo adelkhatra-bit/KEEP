@@ -10,6 +10,8 @@ on:
       - 'scripts/verify-profile-data-integrity.cjs'
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-mobile-text-contrast.cjs'
+      - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'config/mobile-accessibility-contract.json'
       - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
       - 'docs/KEEP_MASTER_SPEC.md'
       - 'config/keep-ui-baseline.json'
@@ -67,6 +69,9 @@ jobs:
 
       - name: KEEP mobile text contrast contract
         run: node scripts/verify-mobile-text-contrast.cjs
+
+      - name: KEEP mobile accessibility contract
+        run: node scripts/verify-mobile-accessibility-contract.cjs
 
       - name: KEEP UI baseline contract
         run: node scripts/verify-ui-layout-baseline.cjs
