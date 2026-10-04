@@ -74,14 +74,18 @@ describe('Non-régression : le correctif micro/audio (a98868f) reste intact apr�
 describe('Accueil Loki Pulse — latence TestFlight et verrou audio global', () => {
   const home = readNormalized(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx');
 
-  it("ne lance aucun preload expo-av entre onPressIn et la lecture native d'une bulle", () => {
-    expect(home).toContain("if (Platform.OS !== 'web') return;");
+  it("prépare l'extrait dès onPressIn sur Web et TestFlight sans jouer de second son", () => {
     expect(home).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');
+    expect(home).not.toContain("if (Platform.OS !== 'web') return;");
+    expect(preview).toContain('const requestEpoch = ++profilePreloadEpoch;');
+    expect(preview).toContain('createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying)');
   });
 
   it('coupe immédiatement tout ancien extrait avant d’ouvrir le morceau choisi', () => {
     expect(home).toContain('stopTrackPreviewFast();');
     expect(home).toContain('setHomePulseSelectedTrackId(trackId);');
     expect(home).toContain('setHomePulseOpen(true);');
+    expect(preview).toContain('let playbackRequestEpoch = 0;');
+    expect(preview).toContain('if (requestEpoch !== playbackRequestEpoch) return;');
   });
 });
