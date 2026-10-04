@@ -49,7 +49,7 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
   it("KeepBattleMobileGameV3 précharge la manche N+1 dès qu'une réponse est donnée, seulement s'il en reste une", () => {
     expect(battle).toContain('if (soloIndex < solo.rounds.length - 1) {');
     expect(battle).toContain('stopTrackPreviewFast();');
-    expect(battle).toContain('await preloadTrackPreviewSegment(');
+    expect(battle).toContain('void preloadTrackPreviewSegment(');
     expect(battle).toContain('soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),');
   });
 
