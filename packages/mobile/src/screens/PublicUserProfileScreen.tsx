@@ -1297,7 +1297,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         );
       } catch (e: any) {
         const message = String(e?.message || '');
-        if (handleDuplicatePurchaseBlock(offer, message)) return;
+        if (message.includes('DUPLICATE_TRACK_PURCHASE_BLOCKED')) {
+          Alert.alert('Pas de double achat', 'Une des collections contient déjà de la musique que tu possèdes. Loki bloque le débit groupé. Ouvre-la séparément pour demander uniquement les morceaux manquants.');
+          return;
+        }
         const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
         if (match) {
           const remaining = Number(match[1]);
@@ -1410,11 +1413,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         );
       } catch (e: any) {
         const message = String(e?.message || '');
-        const duplicate = message.match(/DUPLICATE_TRACK_PURCHASE_BLOCKED\s*:\s*(\d+)\s*:\s*(\d+)/i);
-        if (duplicate) {
-          Alert.alert('Pas de double achat', 'Une de ces collections contient déjà de la musique que tu possèdes. Loki ne la débitera pas en double. Ouvre cette collection pour demander uniquement les morceaux manquants.');
-          return;
-        }
+        if (handleDuplicatePurchaseBlock(offer, message)) return;
         const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
         if (match) {
           const remaining = Number(match[1]);
