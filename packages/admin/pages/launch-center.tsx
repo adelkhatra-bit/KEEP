@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import { openProviderPopup } from '../lib/providerWindow';
 
 type IntegrationRow = { key: string; configured: boolean };
 type RuntimeRow = { key: string; status: string; last_checked_at: string | null; last_error: string | null };
@@ -147,7 +148,13 @@ export default function LaunchCenter() {
           <div style={{ color: provider.required ? '#ffb454' : '#86efac', fontSize: 10, fontWeight: 900 }}>{provider.required ? 'NÉCESSAIRE AU LANCEMENT' : 'GRATUIT / OPTIONNEL'}</div>
           <h3 style={{ marginBottom: 4 }}>{provider.name}</h3><strong style={{ color: '#c4b5fd' }}>{provider.plan}</strong><div style={{ fontSize: 20, fontWeight: 900, margin: '10px 0' }}>{provider.price}</div>
           <p style={{ minHeight: 54, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>{provider.detail}</p>
-          <a href={provider.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 11, fontWeight: 900 }}>{provider.action}</a>
+          <button
+            type="button"
+            onClick={() => openProviderPopup(provider.url, `loki-launch-${provider.name.replace(/\W+/g, '-').toLowerCase()}`)}
+            style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 11, fontWeight: 900, border: 0, cursor: 'pointer' }}
+          >
+            {provider.action}
+          </button>
         </div>)}
       </div>
     </div>
