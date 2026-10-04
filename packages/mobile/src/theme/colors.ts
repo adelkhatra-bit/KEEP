@@ -58,7 +58,7 @@ export const colors = {
   smartBadgeText: '#A78BFA',
 
   white: '#FFFFFF',
-  black: '#FFFFFF',
+  black: '#000000',
   transparent: 'transparent',
 } as const;
 
