@@ -43,11 +43,13 @@ describe('Loki runtime regression contract — mic, popups, push money sound', (
     expect(generator).toContain("header.write('WAVE'");
   });
 
-  it('prunes APNs environment-mismatch tokens and forces a fresh device registration', () => {
+  it('keeps APNs environment-mismatch tokens and only prunes DeviceNotRegistered', () => {
     const worker = readRepo('supabase/functions/keep-push-worker/index.ts');
     const backend = readRepo('packages/backend/src/lib/pushNotifications.ts');
-    expect(worker).toContain('BadEnvironmentKeyInToken');
-    expect(backend).toContain('BadEnvironmentKeyInToken');
+    expect(worker).toContain('return code === "DeviceNotRegistered";');
+    expect(backend).toContain("return code === 'DeviceNotRegistered';");
+    expect(worker).not.toContain('return code === "BadEnvironmentKeyInToken"');
+    expect(backend).not.toContain("/BadEnvironmentKeyInToken/i.test(message)");
     expect(worker).toContain('from("push_tokens").delete()');
   });
 
