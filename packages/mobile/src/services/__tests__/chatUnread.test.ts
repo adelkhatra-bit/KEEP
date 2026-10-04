@@ -30,13 +30,13 @@ describe('non-lus du tchat', () => {
     expect(map).toEqual({ 'g:g1': ['1', '2'], 'p:s1': ['3'] });
   });
 
-  it('identical group notifications for DIFFERENT messages are not merged (real text in base)', () => {
+  it('centre notifications regroupe les messages récents d’une même conversation sans perdre les non-lus du chat', () => {
     const items = [
       n('1', 'AGORA_GROUP_MESSAGE', { groupId: 'g1', messageId: 26 }),
       n('2', 'AGORA_GROUP_MESSAGE', { groupId: 'g1', messageId: 27 }),
       n('3', 'AGORA_GROUP_MESSAGE', { groupId: 'g1', messageId: 27 }),
     ];
-    expect(dedupeNotifications(items).map((i) => i.id)).toEqual(['1', '2']);
+    expect(dedupeNotifications(items).map((i) => i.id)).toEqual(['1']);
   });
 
   it('the group asked at opening is applied once (Retour no longer bounces back)', () => {
