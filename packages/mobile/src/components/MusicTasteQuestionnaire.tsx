@@ -157,12 +157,12 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   };
 
   const body = tab === 'STYLES' ? <>
-    <Text style={s.helper}>Tout est déjà prêt : touche les styles qui te ressemblent. Les familles et sous-genres disponibles sont chargés automatiquement.</Text>
+    <Text style={s.helper}>Touche simplement les styles que tu aimes. Tu peux en choisir plusieurs.</Text>
     <View style={s.chips}>{shortcutRows.map((row) => {
       const on = selectedGenres.some((g) => g.toLowerCase() === row.key);
       return <TouchableOpacity key={row.key} style={[s.chip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}><Text style={[s.chipText,on&&s.chipTextOn]}>{row.label}</Text></TouchableOpacity>;
     })}</View>
-    <Text style={s.subTitle}>TOUS LES STYLES</Text>
+    <Text style={s.subTitle}>PLUS DE STYLES</Text>
     <View style={s.chips}>{genres.map((row) => {
       const on = selectedGenres.some((g) => g.toLowerCase() === row.label.toLowerCase());
       return <TouchableOpacity key={row.genreKey} style={[s.chip,s.catalogChip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}>
@@ -171,14 +171,14 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       </TouchableOpacity>;
     })}</View>
   </> : tab === 'LANGUAGES' ? <>
-    <Text style={s.helper}>Ta langue d’appareil est déjà pré-sélectionnée. Touche seulement les autres langues que tu veux ajouter.</Text>
+    <Text style={s.helper}>Ta langue est déjà choisie. Ajoute-en une autre seulement si tu écoutes aussi de la musique dans cette langue.</Text>
     <View style={s.chips}>{languages.map((row) => {
       const on = selectedLanguages.includes(row.code);
       const label = localDisplayName('language',row.code,row.name);
       return <TouchableOpacity key={row.code} style={[s.chip,on&&s.chipOn]} onPress={() => toggle(row.code,selectedLanguages,setSelectedLanguages,20)}><Text style={[s.chipText,on&&s.chipTextOn]}>{label}</Text></TouchableOpacity>;
     })}</View>
   </> : <>
-    <Text style={s.helper}>Ton pays détecté est déjà pré-sélectionné. Ajoute d’autres pays si tu veux élargir les découvertes.</Text>
+    <Text style={s.helper}>Ton pays est déjà choisi. Ajoute d’autres pays seulement si tu veux découvrir plus loin.</Text>
     <View style={s.chips}>{countries.map((row) => {
       const on = selectedCountries.includes(row.code);
       const label = localDisplayName('region',row.code,row.name);
@@ -191,15 +191,15 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   return <View style={[s.root,compact&&s.compact]}>
     <View style={s.hero}>
       <View style={s.pulseOrb}><Text style={s.pulseOrbText}>◉</Text></View>
-      <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE · POUR TOI</Text><Text style={s.title}>Construis ton univers musical</Text><Text style={s.subtitle}>Styles + langues + pays. Plus tu précises, plus les trouvailles deviennent pertinentes.</Text></View>
+      <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE · POUR TOI</Text><Text style={s.title}>Choisis les musiques que tu aimes</Text><Text style={s.subtitle}>Commence par tes styles. Langues et pays sont facultatifs. Loki apprend ensuite avec tes écoutes.</Text></View>
     </View>
-    <View style={s.detected}><Text style={s.detectedTitle}>PRÉREMPLI AUTOMATIQUEMENT</Text><Text style={s.detectedText}>{detectedTag || 'Langue appareil'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · modifie uniquement ce que tu veux</Text></View>
+    <View style={s.detected}><Text style={s.detectedTitle}>DÉJÀ PRÉPARÉ POUR TOI</Text><Text style={s.detectedText}>{detectedTag || 'Ta langue'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · change seulement si tu veux</Text></View>
     <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>changeTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
     <View style={s.searchWrap}>
       <TextInput
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder={tab === 'STYLES' ? 'Rechercher un style dans tout le catalogue' : tab === 'LANGUAGES' ? 'Rechercher une langue' : 'Rechercher un pays'}
+        placeholder={tab === 'STYLES' ? 'Chercher un style' : tab === 'LANGUAGES' ? 'Chercher une langue' : 'Chercher un pays'}
         placeholderTextColor={colors.textMutedGrey}
         autoCapitalize="none"
         autoCorrect={false}
@@ -207,9 +207,9 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       />
       {catalogBusy ? <ActivityIndicator size="small" color={colors.keep}/> : searchQuery ? <TouchableOpacity style={s.searchClear} onPress={() => setSearchQuery('')}><Text style={s.searchClearText}>×</Text></TouchableOpacity> : null}
     </View>
-    <Text style={s.readyHint}>{searchQuery ? 'Résultats du catalogue mondial' : 'Choisis directement ou recherche un style, une langue ou un pays'}</Text>
+    <Text style={s.readyHint}>{searchQuery ? 'Résultats trouvés' : 'Touche un choix pour l’ajouter'}</Text>
     <View style={s.selectedBox}>
-      <Text style={s.selectedTitle}>DÉJÀ SÉLECTIONNÉ · TOUCHE × POUR RETIRER</Text>
+      <Text style={s.selectedTitle}>TES CHOIX · TOUCHE × POUR RETIRER</Text>
       {selectedLabels.length ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.selectedRail}>
           {selectedLabels.map((item) => (
@@ -231,10 +231,10 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
     <View style={s.footer}>
       <Text style={s.summary}>{selectedGenres.length + ' style' + (selectedGenres.length>1?'s':'') + ' · ' + (selectedLanguages.length || 'toutes') + ' langue' + (selectedLanguages.length===1?'':'s') + ' · ' + (selectedCountries.length || 'monde')}</Text>
       <View style={s.footerActions}>
-        <TouchableOpacity style={[s.primary,s.footerAction,saving&&s.disabled]} onPress={()=>void confirm()} disabled={saving}>{saving ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>CRÉER MON PULSE</Text>}</TouchableOpacity>
-        <TouchableOpacity style={[s.cancel,s.footerAction]} onPress={()=>void later()} disabled={saving}><Text style={s.cancelText}>ANNULER</Text></TouchableOpacity>
+        <TouchableOpacity style={[s.primary,s.footerAction,saving&&s.disabled]} onPress={()=>void confirm()} disabled={saving}>{saving ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>ENREGISTRER MES GOÛTS</Text>}</TouchableOpacity>
+        <TouchableOpacity style={[s.cancel,s.footerAction]} onPress={()=>void later()} disabled={saving}><Text style={s.cancelText}>PLUS TARD</Text></TouchableOpacity>
       </View>
-      <Text style={s.reminderText}>Annuler ferme cette fenêtre et Loki te le reproposera plus tard.</Text>
+      <Text style={s.reminderText}>Tu pourras changer tes goûts à tout moment depuis ton profil.</Text>
     </View>
   </View>;
 }
