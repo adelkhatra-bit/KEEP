@@ -101,6 +101,33 @@ function notificationDataValue(item: KeepNotification, keys: string[]): string {
   return '';
 }
 
+export function shouldSuppressNotificationPresentation(item: KeepNotification): boolean {
+  const type = String(item.type || '').trim().toUpperCase();
+  const data = item.data || {};
+  const event = String(data.event || '').trim().toUpperCase();
+  const source = String(data.source || '').trim().toUpperCase();
+  const sourceTable = String(data.sourceTable || data.source_table || '').trim().toLowerCase();
+  const sharedTrackId = String(data.sharedTrackId || data.shared_track_id || '').trim();
+
+  // Un partage/offre de musique possède sa notification spécialisée avec
+  // écoute/GARDER/PASSER. Le message chat générique portant le même morceau
+  // ne doit pas produire une deuxième alerte.
+  if (type === 'AGORA_DIRECT' && sharedTrackId) return true;
+
+  // Un résultat gagnant d'arène contient déjà le gain de Free. Les triggers
+  // comptables génériques peuvent créer FREE_CREDITED + FREE_CREDIT_REWARD au
+  // même instant : ils restent en base pour la traçabilité, mais ne sont pas
+  // présentés/pushés une deuxième fois.
+  if (type === 'FREE_CREDITED' && (source === 'ARENA' || event === 'FREE_CREDITED' && source === 'ARENA')) return true;
+  if (type === 'FREE_CREDIT_REWARD' && sourceTable === 'keep_battle_arena_credit_events') return true;
+
+  // Même principe pour un don administrateur : ADMIN_CREDIT_GRANT est la
+  // notification explicite, le reward générique du ledger est redondant.
+  if (type === 'FREE_CREDIT_REWARD' && sourceTable === 'admin_credit_grants') return true;
+
+  return false;
+}
+
 export function notificationSemanticKey(item: KeepNotification): string {
   const type = String(item.type || '').trim().toUpperCase();
   const arenaId = notificationDataValue(item, ['arenaId','arena_id']);
@@ -143,6 +170,7 @@ export function dedupeNotifications(items: KeepNotification[]): KeepNotification
   const seen = new Map<string, number>();
   const out: KeepNotification[] = [];
   for (const item of items) {
+    if (shouldSuppressNotificationPresentation(item)) continue;
     const key = notificationSemanticKey(item);
     const time = new Date(item.createdAt).getTime();
     const previous = seen.get(key);
@@ -208,7 +236,10 @@ export function subscribeToNotifications(
         filter: `profile_id=eq.${profileId}`,
       },
       (payload) => {
-        if (payload?.new) onInsert(mapNotificationRow(payload.new));
+        if (!payload?.new) return;
+        const notification = mapNotificationRow(payload.new);
+        if (shouldSuppressNotificationPresentation(notification)) return;
+        onInsert(notification);
       },
     )
     .subscribe();
