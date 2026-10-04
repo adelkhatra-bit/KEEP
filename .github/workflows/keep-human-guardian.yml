@@ -112,11 +112,10 @@ jobs:
             page.on('console',m=>{ if(m.type()==='error') errors.push(`CONSOLE: ${m.text()}`); });
             page.on('dialog',async d=>d.accept().catch(()=>{}));
             const t=(v,o={})=>page.getByText(v,o).last();
-            // React Navigation / React Native Web peut répartir le libellé
-            // d'un onglet dans plusieurs wrappers. Le rôle tab est la cible
-            // utilisateur stable ; un getByText(exact) peut donc produire un
-            // faux négatif alors que la barre est visiblement complète.
-            const tab=(label)=>page.getByRole('tab').filter({hasText:label}).last();
+            // BottomTabBarButton n'expose pas toujours role="tab" sur RN Web.
+            // Cible le contrôle pressable/lien contenant le libellé, dans la
+            // barre basse, au lieu d'un Text enfant exact.
+            const tab=(label)=>page.locator('[role="button"],[role="link"],a,button').filter({hasText:label}).last();
             const shot=async n=>page.screenshot({path:`artifacts/human-guardian/${n}.png`,fullPage:true});
             const inViewport=async(loc,label)=>{ await loc.waitFor({state:'visible',timeout:15000}); const b=await loc.boundingBox(); if(!b||b.y<0||b.y+b.height>844) throw new Error(`${label} outside viewport ${JSON.stringify(b)}`); };
             const clickRobust=async(loc,label)=>{ let last; for(let attempt=1;attempt<=5;attempt++){ try{ await loc.waitFor({state:'visible',timeout:10000}); await loc.scrollIntoViewIfNeeded().catch(()=>{}); await page.keyboard.press('Escape').catch(()=>{}); await loc.click({timeout:3000}); return; }catch(e){ last=e; await page.waitForTimeout(180*attempt); } } await loc.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(last?.message||last||'click failed')}`); }); };
