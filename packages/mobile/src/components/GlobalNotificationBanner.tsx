@@ -486,27 +486,30 @@ export default function GlobalNotificationBanner() {
   if ((blockingChallenge || blockingRematch) && !partiesTabOpen) {
     const challenge = blockingChallenge;
     const rematch = blockingRematch;
+    // Une INVITATION ne doit jamais bloquer le reste de l'application.
+    // Seul un Battle déjà ACTIVE côté serveur a le droit de reprendre l'écran.
+    // Ici on garde les décisions accessibles dans un bandeau flottant, sans
+    // Modal plein écran : Solo, écoute, profils et navigation restent utilisables.
     return (
-      <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
-        <View style={styles.battleLockBackdrop}>
-          <View style={styles.battleLockCard} accessibilityRole="alert">
-            <Text style={styles.battleLockEyebrow}>LOKI MUSIC · DÉCISION REQUISE</Text>
-            <Text style={styles.battleLockTitle}>{challenge ? '⚡ INVITATION BATTLE' : '🔁 REVANCHE BATTLE'}</Text>
-            <Text style={styles.battleLockBody}>
+      <View pointerEvents="box-none" style={styles.battleInviteWrap}>
+        <View style={styles.battleInviteCard} accessibilityRole="alert">
+          <View style={styles.battleInviteCopy}>
+            <Text style={styles.battleLockEyebrow}>LOKI MUSIC · BATTLE</Text>
+            <Text style={styles.battleInviteTitle}>{challenge ? '⚡ INVITATION BATTLE' : '🔁 REVANCHE BATTLE'}</Text>
+            <Text style={styles.battleInviteBody} numberOfLines={2}>
               {challenge ? `${challenge.username} te défie · ${challenge.roundCount} morceaux` : `${rematch?.participantUsernames?.join(', ') || 'Le groupe'} veut rejouer`}
             </Text>
-            <Text style={styles.battleLockHint}>Cette invitation reste affichée tant que tu n’as pas choisi. Accepte ou refuse pour continuer dans l’application.</Text>
-            <View style={styles.battleLockActions}>
-              <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleLockNo, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(false) : answerBlockingRematch(false)); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
-                <Text style={styles.battleLockNoText}>REFUSER</Text>
-              </TouchableOpacity>
-              <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleLockYes, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(true) : answerBlockingRematch(true)); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
-                <Text style={styles.battleLockYesText}>{respondBusy ? 'CONNEXION…' : 'ACCEPTER'}</Text>
-              </TouchableOpacity>
-            </View>
+          </View>
+          <View style={styles.battleInviteActions}>
+            <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleInviteNo, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(false) : answerBlockingRematch(false)); }} accessibilityRole="button" accessibilityLabel="Refuser le Battle">
+              <Text style={styles.battleInviteNoText}>REFUSER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity disabled={respondBusy || !battleDecisionReady} style={[styles.battleInviteYes, (respondBusy || !battleDecisionReady) && styles.battleDisabled]} onPress={() => { void (challenge ? answerBlockingChallenge(true) : answerBlockingRematch(true)); }} accessibilityRole="button" accessibilityLabel="Accepter le Battle">
+              <Text style={styles.battleInviteYesText}>{respondBusy ? '…' : 'ACCEPTER'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </View>
     );
   }
 
@@ -945,6 +948,16 @@ export default function GlobalNotificationBanner() {
 
 const styles = StyleSheet.create({
   battleLockBackdrop: { flex: 1, backgroundColor: 'rgba(7,5,12,0.9)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  battleInviteWrap: { position: 'absolute', zIndex: 10020, elevation: 42, top: Platform.OS === 'ios' ? 54 : 18, left: 10, right: 10, alignItems: 'center' },
+  battleInviteCard: { width: '100%', maxWidth: 420, borderRadius: 18, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: 'rgba(21,16,31,.98)', paddingHorizontal: 12, paddingVertical: 11, shadowColor: '#000', shadowOpacity: .42, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 42 },
+  battleInviteCopy: { minWidth: 0 },
+  battleInviteTitle: { color: '#FFF', fontSize: 14, lineHeight: 18, fontWeight: '900', marginTop: 2 },
+  battleInviteBody: { color: '#FFF', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  battleInviteActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  battleInviteNo: { flex: 1, minHeight: 36, borderRadius: 14, borderWidth: 1, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },
+  battleInviteNoText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
+  battleInviteYes: { flex: 1, minHeight: 36, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },
+  battleInviteYesText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
   battleLockCard: { width: '100%', maxWidth: 420, borderRadius: 24, borderWidth: 2, borderColor: '#7C5CFC', backgroundColor: '#15101F', paddingHorizontal: 18, paddingVertical: 20, shadowColor: '#000', shadowOpacity: 0.48, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 40 },
   battleLockEyebrow: { color: '#68F2B1', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center' },
   battleLockTitle: { color: '#FFF', fontSize: 22, lineHeight: 28, fontWeight: '900', textAlign: 'center', marginTop: 8 },
