@@ -1,0 +1,42 @@
+name: Loki TestFlight Tester Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'Build TestFlight à synchroniser (vide = dernier build valide)'
+        required: false
+        type: string
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - 'scripts/sync-testflight-testers.cjs'
+      - '.github/workflows/testflight-tester-sync.yml'
+      - '.github/testflight-tester-sync-trigger'
+
+concurrency:
+  group: loki-testflight-tester-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Synchroniser le dernier build avec tous les testeurs
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+          EXPECTED_BUILD_NUMBER: ${{ inputs.build_number || '' }}
+          WAIT_MINUTES: '0'
+        run: node scripts/sync-testflight-testers.cjs
