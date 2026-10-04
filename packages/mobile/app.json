@@ -54,7 +54,7 @@
         {
           "ios": {
             "useFrameworks": "static",
-            "deploymentTarget": "16.0"
+            "deploymentTarget": "15.1"
           }
         }
       ],
