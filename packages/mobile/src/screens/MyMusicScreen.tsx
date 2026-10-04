@@ -289,7 +289,6 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [sellPriceCents, setSellPriceCents] = useState<number | null>(null);
   const [sellFreePrice, setSellFreePrice] = useState<number | null>(null);
   const [sellCurrencyCode, setSellCurrencyCode] = useState<string>(() => defaultSaleCurrency((user as any)?.countryCode));
-  const [saleCartReviewOpen, setSaleCartReviewOpen] = useState(false);
   const [sellBusy, setSellBusy] = useState(false);
   const [saleSelectionMode, setSaleSelectionMode] = useState(false);
   const [selectedSaleTrackIds, setSelectedSaleTrackIds] = useState<Set<string>>(new Set());
@@ -974,15 +973,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
       Alert.alert('Panier Pépites', 'Choisis au moins 2 morceaux. Une Pépite représente une vraie sélection, jamais un morceau isolé.');
       return;
     }
-    setSaleCartReviewOpen(true);
-  };
-
-  const confirmSaleCart = () => {
-    if (saleCartTracks.length < 2) {
-      setSaleCartReviewOpen(false);
-      return;
-    }
-    setSaleCartReviewOpen(false);
+    // Règle UX Loki : la sélection est déjà visible à l'écran. Ne pas imposer
+    // une seconde page "Ton panier est prêt" avant la configuration.
+    // Le prochain écran donne directement nom + mode + prix ; PUBLIER reste
+    // l'unique validation finale sensible.
     openSellModal({
       kind: 'selection',
       key: `selection:${Date.now()}`,
@@ -1791,8 +1785,8 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={[styles.selectionCreateButton, selectedSaleTrackIds.size < 2 && styles.selectionCreateDisabled]} disabled={selectedSaleTrackIds.size < 2} onPress={createSaleSelection}>
-                <Text style={styles.selectionCreateText}>{selectedSaleTrackIds.size < 2 ? 'PANIER EN COURS' : 'VOIR MON PANIER'}</Text>
-                {selectedSaleTrackIds.size >= 2 ? <Text style={styles.selectionCreateSubtext}>Tout est bon ? →</Text> : null}
+                <Text style={styles.selectionCreateText}>{selectedSaleTrackIds.size < 2 ? 'PANIER EN COURS' : 'CONTINUER'}</Text>
+                {selectedSaleTrackIds.size >= 2 ? <Text style={styles.selectionCreateSubtext}>Nom · mode · prix →</Text> : null}
               </TouchableOpacity>
             )}
           </View>
@@ -1863,69 +1857,16 @@ export default function MyMusicScreen({ navigation, route }: any) {
           fois pour une playlist entière, un album (groupe par artiste) et
           un seul morceau -- même popup, sellTarget change juste ce qui est
           vendu. */}
-      <Modal visible={saleCartReviewOpen} transparent animationType="fade" onRequestClose={() => setSaleCartReviewOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <ScrollView contentContainerStyle={styles.saleModalScroll} showsVerticalScrollIndicator={false}>
-            <View style={[styles.editCard, styles.saleCartReviewCard]}>
-              <View style={styles.saleWizardTopRow}>
-                <Text style={styles.saleWizardStep}>ÉTAPE 2 SUR 4</Text>
-                <Text style={styles.saleWizardCount}>{saleCartTracks.length} TITRE{saleCartTracks.length > 1 ? 'S' : ''}</Text>
-              </View>
-              <Text style={styles.saleCartReviewTitle}>Ton panier est prêt</Text>
-              <Text style={styles.saleCartReviewHint}>Vérifie ta sélection maintenant. Rien n’est publié et aucun prix n’est encore demandé.</Text>
-
-              <View style={styles.saleCartSummaryRow}>
-                <View style={styles.saleCartSummaryStat}><Text style={styles.saleCartSummaryValue}>{saleCartTracks.length}</Text><Text style={styles.saleCartSummaryLabel}>MORCEAUX</Text></View>
-                <View style={styles.saleCartSummaryDivider} />
-                <View style={styles.saleCartSummaryStat}><Text style={[styles.saleCartSummaryValue, saleCartConflictCount > 0 && styles.saleCartSummaryWarn]}>{saleCartConflictCount}</Text><Text style={styles.saleCartSummaryLabel}>DÉJÀ EN VENTE</Text></View>
-                <View style={styles.saleCartSummaryDivider} />
-                <View style={styles.saleCartSummaryStat}><Text style={styles.saleCartSummaryValue}>{Math.max(0, saleCartTracks.length - saleCartConflictCount)}</Text><Text style={styles.saleCartSummaryLabel}>NOUVEAUX</Text></View>
-              </View>
-
-              <View style={styles.saleCartTrackList}>
-                {saleCartTracks.slice(0, 8).map((track, index) => (
-                  <View key={track.id} style={styles.saleCartTrackRow}>
-                    <Text style={styles.saleCartTrackNo}>{String(index + 1).padStart(2, '0')}</Text>
-                    {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.saleCartTrackCover as any} /> : <View style={[styles.saleCartTrackCover, styles.saleCartTrackCoverFallback]}><Text style={styles.saleCartTrackCoverText}>♪</Text></View>}
-                    <View style={styles.saleCartTrackCopy}>
-                      <Text style={styles.saleCartTrackTitle} numberOfLines={1}>{track.title}</Text>
-                      <Text style={styles.saleCartTrackArtist} numberOfLines={1}>{track.artist}</Text>
-                    </View>
-                    {myOfferedTrackIds[track.id] ? <Text style={styles.saleCartTrackBadge}>DÉJÀ EN VENTE</Text> : <Text style={styles.saleCartTrackBadgeNew}>OK</Text>}
-                  </View>
-                ))}
-                {saleCartTracks.length > 8 ? <Text style={styles.saleCartMore}>+ {saleCartTracks.length - 8} autre{saleCartTracks.length - 8 > 1 ? 's' : ''} morceau{saleCartTracks.length - 8 > 1 ? 'x' : ''}</Text> : null}
-              </View>
-
-              {saleCartConflictCount > 0 ? (
-                <View style={styles.saleCartWarning}>
-                  <Text style={styles.saleCartWarningTitle}>AUCUN DOUBLON CRÉÉ</Text>
-                  <Text style={styles.saleCartWarningText}>{saleCartConflictCount} morceau{saleCartConflictCount > 1 ? 'x sont' : ' est'} déjà proposé ailleurs. Loki garde la musique unique et référence simplement ce{saleCartConflictCount > 1 ? 's' : ''} titre{saleCartConflictCount > 1 ? 's' : ''} dans cette nouvelle Pépite.</Text>
-                </View>
-              ) : null}
-
-              <TouchableOpacity style={styles.saleCartConfirmButton} onPress={confirmSaleCart}>
-                <Text style={styles.saleCartConfirmTitle}>OUI, TOUT EST BON</Text>
-                <Text style={styles.saleCartConfirmHint}>Choisir ensuite FREE ou une devise</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saleCartEditButton} onPress={() => setSaleCartReviewOpen(false)}>
-                <Text style={styles.saleCartEditText}>MODIFIER MA SÉLECTION</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
-
       <Modal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
         <View style={styles.modalBackdrop}>
           <ScrollView contentContainerStyle={styles.saleModalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={[styles.editCard, styles.saleWizardCard]}>
               <View style={styles.saleWizardTopRow}>
-                <Text style={styles.saleWizardStep}>ÉTAPE 3 SUR 4</Text>
+                <Text style={styles.saleWizardStep}>CONFIGURATION</Text>
                 <Text style={styles.saleWizardCount}>{sellTarget?.kind === 'selection' ? String(sellTarget.trackIds.length) + ' titres' : 'Collection'}</Text>
               </View>
               <Text style={styles.editTitle}>Choisis comment tu veux être payé</Text>
-              <Text style={styles.editHint}>Ta sélection est validée. Maintenant choisis FREE ou une devise, puis ton prix.</Text>
+              <Text style={styles.editHint}>Choisis le nom, le mode de déblocage et le prix. Publier sera la seule validation finale.</Text>
 
               {sellTarget?.kind === 'selection' ? <TextInput
                 style={styles.input}
@@ -1980,7 +1921,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
               </> : <Text style={styles.salePriceExplain}>{Platform.OS === 'web' ? 'Choisis FREE ou PAIEMENT DIRECT pour afficher les prix correspondants.' : 'Choisis FREE pour fixer le prix de la collection.'}</Text>}
 
               <View style={styles.saleWizardDivider} />
-              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>ÉTAPE 4 SUR 4</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
+              <View style={styles.saleWizardTopRow}><Text style={styles.saleWizardStep}>VALIDATION</Text><Text style={styles.saleWizardCount}>PUBLIER</Text></View>
 
               {sellPaymentMode === 'MONEY' && Platform.OS === 'web' ? (
                 <View style={[styles.salePaymentSetup, (payoutLink.trim() || payoutQrUrl.trim()) ? styles.salePaymentGateReady : styles.salePaymentGateMissing]}>
