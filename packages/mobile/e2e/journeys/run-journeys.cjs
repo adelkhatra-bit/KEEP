@@ -645,7 +645,7 @@ const newKeepNotifJourney = {
   async run({ page, shot }) {
     const r = {};
     await page.goto(`${BASE}/notifications`, { waitUntil: 'load' });
-    await page.getByText(`Nouveau morceau chez @${fake.SELLER_USERNAME}`).first().waitFor({ timeout: 40000 });
+    await page.getByText(`Nouveau morceau chez ${fake.SELLER_USERNAME}`).first().waitFor({ timeout: 40000 });
     await page.locator('[data-testid="new-keep-listen"]').first().waitFor({ timeout: 20000 });
     const text = await page.locator('body').innerText();
     r.titre_masque = !text.includes(fake.SECRET_TRACK.title) && !text.includes(fake.SECRET_TRACK.artist);
@@ -663,7 +663,7 @@ const newKeepNotifJourney = {
       ['titre et artiste jamais affichés (même ancienne notification)', r.titre_masque],
       ['pochette jamais affichée', r.pochette_masquee],
       ['bouton ▶ Écouter dans la notification', r.ecouter],
-      ['bouton GARDER avec le coût FREE', r.garder && /FREE/.test(r.texte_garder)],
+      ['bouton AJOUTER GRATUITEMENT disponible dans la notification', r.garder && /AJOUTER GRATUITEMENT/.test(r.texte_garder)],
       ['GARDER demande Public / Privé, titre toujours masqué', r.choix_public_prive && r.toujours_masque_avant_choix],
     ];
     return { details: r, failures: failed(checks), ok: 'titre masqué, écoute + GARDER dans la notification' };
