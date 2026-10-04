@@ -304,7 +304,15 @@ jobs:
             // Cible le vrai bouton accessible du TouchableOpacity. Les anciens
             // "\\n" écrits littéralement ci-dessous avaient commenté le locator
             // ET le clic : le test attendait donc un fil qu'il n'avait jamais ouvert.
-            const directConversationRow = page.getByRole('button', { name: 'Ouvrir la conversation avec profil-test' }).last();
+            const directConversationRow = page.getByTestId(`loki-chat-direct-row:${directProfileId}`).last();
+            await directConversationRow.waitFor({ state: 'visible', timeout: 10000 });
+            const directRowA11y = await directConversationRow.evaluate(el => ({
+              role: el.getAttribute('role'),
+              ariaLabel: el.getAttribute('aria-label'),
+            }));
+            if (directRowA11y.role !== 'button' || directRowA11y.ariaLabel !== 'Ouvrir la conversation avec profil-test') {
+              throw new Error(`Direct conversation row accessibility contract broken: ${JSON.stringify(directRowA11y)}`);
+            }
             await clickRobust(directConversationRow, 'Open direct profile conversation');
             const directThread = page.getByTestId('loki-chat-thread-scroll').last();
             await directThread.waitFor({ state: 'visible', timeout: 10000 });
