@@ -34,6 +34,7 @@ const mustExist = [
   'docs/KEEP_MASTER_SPEC.md',
   'docs/KEEP_CAHIER_DES_CHARGES_UI.md',
   'config/keep-product-contract.json',
+  'config/platform-parity-contract.json',
   'config/keep-ui-baseline.json',
   'scripts/verify-product-contract.cjs',
   'scripts/verify-ui-layout-baseline.cjs',
@@ -100,6 +101,17 @@ for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
   if (!branchContract.forbiddenRemoteBranches?.includes(forbiddenBranch)) {
     failures.push(`BRANCH CONTRACT MUST FORBID REMOTE BRANCH: ${forbiddenBranch}`);
   }
+}
+
+const platformParity = JSON.parse(fs.readFileSync(path.join(root, 'config/platform-parity-contract.json'), 'utf8'));
+if (platformParity.canonicalRuntime !== 'packages/mobile') failures.push('PLATFORM PARITY CANONICAL RUNTIME MISMATCH');
+if (platformParity.webBuildSource !== 'packages/mobile') failures.push('PLATFORM PARITY WEB SOURCE MUST BE packages/mobile');
+for (const forbidden of platformParity.forbiddenParallelRoots || []) {
+  if (fs.existsSync(path.join(root, forbidden))) failures.push(`PARALLEL MOBILE/WEB PRODUCT ROOT FORBIDDEN: ${forbidden}`);
+}
+const dualViewportWorkflow = fs.readFileSync(path.join(root, platformParity.dualViewportWorkflow), 'utf8');
+for (const marker of ['packages/mobile/**', '390', '844', '1440', '900']) {
+  if (!dualViewportWorkflow.toLowerCase().includes(marker.toLowerCase())) failures.push(`MOBILE/DESKTOP PARITY MARKER MISSING: ${marker}`);
 }
 
 const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
