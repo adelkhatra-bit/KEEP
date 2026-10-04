@@ -901,6 +901,20 @@
     ],
     "enforcedBy": "scripts/verify-source-of-truth.cjs"
   },
+  "musicRecognitionArchitecture": {
+    "nativePrimary": "ShazamKit",
+    "serverPrimary": "ACRCloud",
+    "optionalSecondary": "AudD",
+    "auddSubscriptionDoesNotMeanConnected": true,
+    "optionalAuddAbsenceMustNotBeUrgentWhenAcrCloudActive": true,
+    "singleAuddConfigurationSurface": "packages/admin/pages/integrations.tsx",
+    "superAdminMustNotDescribeAuddAsPrimary": true,
+    "providerOrder": [
+      "ShazamKit",
+      "ACRCloud",
+      "AudD-optional"
+    ]
+  },
   "iosCompatibility": {
     "minimumSupportedVersion": "15.1",
     "expoSdk": "54",
