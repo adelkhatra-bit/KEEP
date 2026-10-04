@@ -34,10 +34,12 @@ export function authorizeNextPaidListenWithFree(): void {
   nextPaidListenUsesFree = true;
 }
 
-function consumePaidListenAuthorization(): boolean {
-  const allowed = nextPaidListenUsesFree;
+export function clearNextPaidListenFreeAuthorization(): void {
   nextPaidListenUsesFree = false;
-  return allowed;
+}
+
+function paidListenAuthorizationActive(): boolean {
+  return nextPaidListenUsesFree;
 }
 
 function deviceTimeZone(): string {
@@ -586,7 +588,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // désactiver la reconnaissance : le même échantillon part directement
     // vers le fournisseur réellement configuré.
     if (!fallbackKnownUnavailable() && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
-      const useFree = consumePaidListenAuthorization();
+      const useFree = paidListenAuthorizationActive();
       lastPaidProviderAttemptAt = Date.now();
       const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
 
@@ -622,6 +624,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         throw new Error('LISTEN_FREE_REQUIRED');
       }
       if (acr.status === 402 && acr.payload?.error === 'listen_free_insufficient') {
+        clearNextPaidListenFreeAuthorization();
         throw new Error('LISTEN_FREE_INSUFFICIENT');
       }
       if (acr.status === 402 && acr.payload?.error === 'guest_listen_limit_reached') {
@@ -642,7 +645,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       const audd = Date.now() < primaryUnavailableUntil || !paidReady
         ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
         : await (async () => {
-            const useFree = consumePaidListenAuthorization();
+            const useFree = paidListenAuthorizationActive();
             lastPaidProviderAttemptAt = Date.now();
             return recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId, useFree);
           })();
@@ -653,7 +656,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         return audd.payload.recognition as RecognitionResult;
       }
       if (audd.status === 402 && audd.payload?.error === 'listen_free_required') throw new Error('LISTEN_FREE_REQUIRED');
-      if (audd.status === 402 && audd.payload?.error === 'listen_free_insufficient') throw new Error('LISTEN_FREE_INSUFFICIENT');
+      if (audd.status === 402 && audd.payload?.error === 'listen_free_insufficient') { clearNextPaidListenFreeAuthorization(); throw new Error('LISTEN_FREE_INSUFFICIENT'); }
       if (audd.status === 402 && audd.payload?.error === 'guest_listen_limit_reached') throw new Error('GUEST_LISTEN_LIMIT_REACHED');
       if (audd.status === 409 || audd.payload?.error === 'recognition_not_configured') {
         primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
