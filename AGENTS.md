@@ -177,3 +177,16 @@ Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jama
 - Un utilisateur qui reprend gratuitement une découverte publique conserve la provenance du premier découvreur ; il ne devient jamais le premier découvreur par propagation.
 - Tous les Swipe/profils doivent afficher le premier découvreur quand il diffère du propriétaire courant et proposer VOIR LE PROFIL près du lien d’écoute complète.
 - Une mise à jour ne doit jamais effacer ni réattribuer cette provenance.
+
+
+## UX GLOBALE — CONTRASTE + 1 CLIC
+
+Règle produit verrouillée (04/10/2026) :
+- fond sombre → texte fonctionnel blanc/très clair ;
+- pas de grand texte explicatif permanent : aide compacte / « En savoir plus » ;
+- l’ouverture d’une aide ne déplace pas les actions principales ;
+- 1 clic pour ouvrir/agir ; 2e clic uniquement pour confirmer une action sensible ;
+- aucun bouton visible sans action réelle ;
+- privilégier les actions inline au lieu d’empiler les navigations ;
+- mêmes règles Mobile + Web, source unique `packages/mobile/src`.
+Le contrat machine est `config/keep-product-contract.json > uxInteractionRules` et la CI refuse toute suppression de ces invariants.
