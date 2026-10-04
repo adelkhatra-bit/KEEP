@@ -815,9 +815,11 @@ export default function HomeScreenCompact({ navigation }: any) {
             enabled={Boolean(pending && !keepBusy)}
             onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
             onSwipeRight={openKeepChooser}
+            onSwipeUp={() => { if (current && pending) passTrack(current.id); }}
             leftLabel="PASSER"
             rightLabel="GARDER"
-            hint="Swipe facultatif : ← passer · garder → puis choisis Public ou Privé"
+            upLabel="SUIVANT"
+            hint="Swipe facultatif : ↑ suivant · ← passer · garder →"
           >
             <View style={s.trackCard}>
               <View style={s.trackHead}>
