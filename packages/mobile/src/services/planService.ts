@@ -12,6 +12,7 @@ export type KeepPlan = {
   // prix (plan_prices.free_bonus_per_month), une seule source de vérité au
   // lieu d'une clé remote_config séparée par plan.
   monthlyFreeBonus: number;
+  dailyListenLimit: number;
 };
 
 export type CreditFunnel = {
@@ -28,15 +29,31 @@ export type CreditFunnel = {
 
 export async function loadPlans(): Promise<KeepPlan[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('plans')
-    .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
-    .eq('is_active', true)
-    .eq('plan_prices.is_active', true)
-    .eq('plan_prices.period', 'MONTHLY');
-  if (error) throw error;
+  const [plansResult, listenLimitsResult] = await Promise.all([
+    supabase
+      .from('plans')
+      .select('id,code,name,description,trial_days,plan_prices!inner(currency_code,period,amount,is_active,effective_from,free_bonus_per_month)')
+      .eq('is_active', true)
+      .eq('plan_prices.is_active', true)
+      .eq('plan_prices.period', 'MONTHLY'),
+    supabase
+      .from('usage_limits')
+      .select('limit_value,plans!inner(code)')
+      .eq('limit_key', 'listens_per_day'),
+  ]);
+  if (plansResult.error) throw plansResult.error;
+  if (listenLimitsResult.error) throw listenLimitsResult.error;
 
-  return (data ?? []).map((row: any) => {
+  const listenLimits = new Map<string, number>();
+  for (const row of listenLimitsResult.data ?? []) {
+    const code = String((row as any)?.plans?.code ?? '');
+    const value = Number((row as any)?.limit_value);
+    if (code && Number.isFinite(value) && value > 0) listenLimits.set(code, value);
+  }
+  const fallbackListenLimit = (code: string) =>
+    code === 'VENUE_PRO' ? 150 : code === 'CREATOR_PRO' ? 60 : code === 'PREMIUM' ? 30 : 5;
+
+  return (plansResult.data ?? []).map((row: any) => {
     const prices = Array.isArray(row.plan_prices) ? row.plan_prices : [];
     const price = prices.slice().sort((a: any, b: any) => String(b.effective_from).localeCompare(String(a.effective_from)))[0];
     return {
@@ -47,6 +64,7 @@ export async function loadPlans(): Promise<KeepPlan[]> {
       monthlyAmount: Number(price?.amount || 0),
       currencyCode: price?.currency_code || 'EUR',
       monthlyFreeBonus: Number(price?.free_bonus_per_month || 0),
+      dailyListenLimit: listenLimits.get(String(row.code)) ?? fallbackListenLimit(String(row.code)),
     };
   }).sort((a: KeepPlan, b: KeepPlan) => ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(a.code) - ['FREE','PREMIUM','CREATOR_PRO','VENUE_PRO'].indexOf(b.code));
 }
@@ -55,7 +73,7 @@ export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
   guestSuccessLimit: 3,
   signupBonusSuccesses: 5,
   monthlyBonusFree: 5,
-  monthlyBonusPremium: 15,
+  monthlyBonusPremium: 30,
   monthlyBonusCreatorPro: 40,
   monthlyBonusVenuePro: 100,
 };
