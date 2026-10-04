@@ -4,13 +4,16 @@ import path from 'path';
 describe('Pépites euro publication payment gate', () => {
   const source = fs.readFileSync(path.resolve(__dirname, '..', 'MyMusicScreen.tsx'), 'utf8');
 
-  it('shows the publication flow in four explicit steps', () => {
+  it('keeps publication simple: selection, direct configuration, then final validation', () => {
     expect(source).toContain('ÉTAPE 1 SUR 4');
-    expect(source).toContain('ÉTAPE 2 SUR 4');
-    expect(source).toContain('ÉTAPE 3 SUR 4');
-    expect(source).toContain('ÉTAPE 4 SUR 4');
     expect(source).toContain('MODE DE DÉBLOCAGE');
     expect(source).toContain('PRIX DE LA COLLECTION');
+    expect(source).toContain('VALIDATION');
+    expect(source).toContain('PUBLIER LA COLLECTION');
+    expect(source).toContain('Publier sera la seule validation finale.');
+    expect(source).not.toContain('ÉTAPE 2 SUR 4');
+    expect(source).not.toContain('ÉTAPE 3 SUR 4');
+    expect(source).not.toContain('ÉTAPE 4 SUR 4');
   });
 
   it('blocks euro publication until the seller configured PayPal.Me or a PayPal QR', () => {
