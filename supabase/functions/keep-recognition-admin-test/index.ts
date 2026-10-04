@@ -120,13 +120,13 @@ async function testAudd(): Promise<ProviderResult> {
 
     let result: ProviderResult;
     if (code === 900 || code === 901 || /invalid\s+(?:api\s*)?(?:key|token)|authorization|no api[_ -]?token/i.test(detail)) {
-      result = { provider: "AUDD", status: "ERROR", configured: true, message: "AudD refuse le token actuellement enregistré.", checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD #${code}: ${detail.slice(0, 160)}.`, checkedAt, providerCode: code };
     } else if (response.status === 402 || /quota|credit|balance|limit\s+(?:reached|exceeded)|payment|subscription|exhaust/i.test(detail)) {
-      result = { provider: "AUDD", status: "EXHAUSTED", configured: true, message: "Token AudD authentifié, mais quota/crédit fournisseur épuisé.", checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "EXHAUSTED", configured: true, message: `AudD ${code ? `#${code}` : `HTTP ${response.status}`}: ${detail.slice(0, 160)}. Quota/crédit fournisseur épuisé.`, checkedAt, providerCode: code };
     } else if (code === 700 || payload?.status === "success") {
       result = { provider: "AUDD", status: "ACTIVE", configured: true, message: "Token AudD vérifié en direct auprès du fournisseur.", checkedAt, providerCode: code };
     } else {
-      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD n'a pas confirmé le token (${detail.slice(0, 140)}).`, checkedAt, providerCode: code };
+      result = { provider: "AUDD", status: "ERROR", configured: true, message: `AudD ${code ? `#${code}` : `HTTP ${response.status}`}: ${detail.slice(0, 160)}.`, checkedAt, providerCode: code };
     }
     await setRuntimeStatus("AUDD_API_KEY", result.status, result.message);
     return result;
