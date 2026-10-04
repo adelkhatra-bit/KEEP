@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { isNativeRecordingModeActive } from './micCapture';
 
 type ExpoAVModule = typeof import('expo-av');
