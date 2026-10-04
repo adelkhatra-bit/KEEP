@@ -1,4 +1,4 @@
-# audit-run: 2026-10-04T04:47:00+02:00 validate latest TestFlight APNs
+# audit-run: 2026-10-04T11:55:00+02:00 diagnose-testflight-push-environment
 name: Loki TestFlight Entitlements Audit
 
 on:
