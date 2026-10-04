@@ -3,6 +3,7 @@ package expo.modules.keepiap
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
+import com.android.billingclient.api.ConsumeParams
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
 import com.android.billingclient.api.PendingPurchasesParams
@@ -43,25 +44,26 @@ class KeepIAPModule : Module(), PurchasesUpdatedListener {
             promise.reject("E_KEEP_IAP_PRODUCT", "Produit Google Play introuvable.", null)
             return@queryProducts
           }
-          val offer = details.subscriptionOfferDetails
-            ?.firstOrNull { it.pricingPhases.pricingPhaseList.isNotEmpty() }
-            ?: details.subscriptionOfferDetails?.firstOrNull()
-          if (offer == null) {
-            promise.reject("E_KEEP_IAP_OFFER", "Aucune offre Google Play disponible pour cet abonnement.", null)
-            return@queryProducts
-          }
           val activity = appContext.currentActivity
           if (activity == null) {
             promise.reject("E_KEEP_IAP_ACTIVITY", "Activité Android indisponible.", null)
             return@queryProducts
           }
 
-          val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
+          val productParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(details)
-            .setOfferToken(offer.offerToken)
-            .build()
+          if (details.productType == BillingClient.ProductType.SUBS) {
+            val offer = details.subscriptionOfferDetails
+              ?.firstOrNull { it.pricingPhases.pricingPhaseList.isNotEmpty() }
+              ?: details.subscriptionOfferDetails?.firstOrNull()
+            if (offer == null) {
+              promise.reject("E_KEEP_IAP_OFFER", "Aucune offre Google Play disponible pour cet abonnement.", null)
+              return@queryProducts
+            }
+            productParamsBuilder.setOfferToken(offer.offerToken)
+          }
           val builder = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(productParams))
+            .setProductDetailsParamsList(listOf(productParamsBuilder.build()))
           if (!appAccountToken.isNullOrBlank()) {
             builder.setObfuscatedAccountId(appAccountToken.take(64))
           }
@@ -88,30 +90,7 @@ class KeepIAPModule : Module(), PurchasesUpdatedListener {
 
     AsyncFunction("finish") { transactionId: String, promise: Promise ->
       withBillingClient(promise) { client ->
-        val params = QueryPurchasesParams.newBuilder()
-          .setProductType(BillingClient.ProductType.SUBS)
-          .build()
-        client.queryPurchasesAsync(params) { result, purchases ->
-          if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-            promise.reject("E_KEEP_IAP_QUERY", billingMessage(result), null)
-            return@queryPurchasesAsync
-          }
-          val purchase = purchases.firstOrNull { it.purchaseToken == transactionId }
-          if (purchase == null || purchase.isAcknowledged) {
-            promise.resolve(true)
-            return@queryPurchasesAsync
-          }
-          val ack = AcknowledgePurchaseParams.newBuilder()
-            .setPurchaseToken(purchase.purchaseToken)
-            .build()
-          client.acknowledgePurchase(ack) { ackResult ->
-            if (ackResult.responseCode == BillingClient.BillingResponseCode.OK) {
-              promise.resolve(true)
-            } else {
-              promise.reject("E_KEEP_IAP_ACK", billingMessage(ackResult), null)
-            }
-          }
-        }
+        finishPurchase(client, transactionId, promise)
       }
     }
   }
@@ -186,6 +165,9 @@ class KeepIAPModule : Module(), PurchasesUpdatedListener {
     })
   }
 
+  private fun isOneTimeProduct(productId: String): Boolean =
+    productId.startsWith("com.adelkhatra.keep.free.")
+
   private fun queryProducts(
     client: BillingClient,
     productIds: List<String>,
@@ -193,33 +175,45 @@ class KeepIAPModule : Module(), PurchasesUpdatedListener {
     resolvePayload: Boolean,
     after: (() -> Unit)? = null
   ) {
-    val products = productIds.filter { it.isNotBlank() }.distinct().map {
-      QueryProductDetailsParams.Product.newBuilder()
-        .setProductId(it)
-        .setProductType(BillingClient.ProductType.SUBS)
-        .build()
-    }
-    if (products.isEmpty()) {
+    val unique = productIds.filter { it.isNotBlank() }.distinct()
+    if (unique.isEmpty()) {
       if (resolvePayload) promise.resolve(emptyList<Map<String, Any?>>()) else after?.invoke()
       return
     }
-    val params = QueryProductDetailsParams.newBuilder()
-      .setProductList(products)
-      .build()
 
-    client.queryProductDetailsAsync(params, ProductDetailsResponseListener { result, queryResult ->
-      if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-        promise.reject("E_KEEP_IAP_PRODUCTS", billingMessage(result), null)
-        return@ProductDetailsResponseListener
+    val groups = listOf(
+      BillingClient.ProductType.SUBS to unique.filterNot(::isOneTimeProduct),
+      BillingClient.ProductType.INAPP to unique.filter(::isOneTimeProduct),
+    ).filter { it.second.isNotEmpty() }
+
+    val collected = mutableListOf<ProductDetails>()
+    var pending = groups.size
+    var failed = false
+    groups.forEach { (productType, ids) ->
+      val products = ids.map {
+        QueryProductDetailsParams.Product.newBuilder()
+          .setProductId(it)
+          .setProductType(productType)
+          .build()
       }
-      val details = queryResult.productDetailsList
-      details.forEach { productCache[it.productId] = it }
-      if (resolvePayload) {
-        promise.resolve(details.sortedBy { it.productId }.map { productPayload(it) })
-      } else {
-        after?.invoke()
-      }
-    })
+      val params = QueryProductDetailsParams.newBuilder().setProductList(products).build()
+      client.queryProductDetailsAsync(params, ProductDetailsResponseListener { result, queryResult ->
+        if (failed) return@ProductDetailsResponseListener
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+          failed = true
+          promise.reject("E_KEEP_IAP_PRODUCTS", billingMessage(result), null)
+          return@ProductDetailsResponseListener
+        }
+        val details = queryResult.productDetailsList
+        details.forEach { productCache[it.productId] = it }
+        collected.addAll(details)
+        pending -= 1
+        if (pending == 0) {
+          if (resolvePayload) promise.resolve(collected.sortedBy { it.productId }.map { productPayload(it) })
+          else after?.invoke()
+        }
+      })
+    }
   }
 
   private fun queryOwnedSubscriptions(promise: Promise) {
@@ -247,14 +241,57 @@ class KeepIAPModule : Module(), PurchasesUpdatedListener {
   private fun productPayload(product: ProductDetails): Map<String, Any?> {
     val offer = product.subscriptionOfferDetails?.firstOrNull()
     val phase = offer?.pricingPhases?.pricingPhaseList?.lastOrNull()
+    val oneTime = product.oneTimePurchaseOfferDetails
+    val priceMicros = oneTime?.priceAmountMicros ?: phase?.priceAmountMicros ?: 0L
     return mapOf(
       "id" to product.productId,
       "displayName" to product.name,
       "description" to product.description,
-      "displayPrice" to (phase?.formattedPrice ?: ""),
-      "price" to ((phase?.priceAmountMicros ?: 0L).toDouble() / 1_000_000.0),
-      "type" to "SUBS"
+      "displayPrice" to (oneTime?.formattedPrice ?: phase?.formattedPrice ?: ""),
+      "price" to (priceMicros.toDouble() / 1_000_000.0),
+      "type" to product.productType
     )
+  }
+
+  private fun finishPurchase(client: BillingClient, transactionId: String, promise: Promise) {
+    val types = listOf(BillingClient.ProductType.INAPP, BillingClient.ProductType.SUBS)
+    fun queryAt(index: Int) {
+      if (index >= types.size) {
+        promise.resolve(true)
+        return
+      }
+      val productType = types[index]
+      val params = QueryPurchasesParams.newBuilder().setProductType(productType).build()
+      client.queryPurchasesAsync(params) { result, purchases ->
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+          promise.reject("E_KEEP_IAP_QUERY", billingMessage(result), null)
+          return@queryPurchasesAsync
+        }
+        val purchase = purchases.firstOrNull { it.purchaseToken == transactionId }
+        if (purchase == null) {
+          queryAt(index + 1)
+          return@queryPurchasesAsync
+        }
+        if (productType == BillingClient.ProductType.INAPP) {
+          val consume = ConsumeParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
+          client.consumeAsync(consume) { consumeResult, _ ->
+            if (consumeResult.responseCode == BillingClient.BillingResponseCode.OK) promise.resolve(true)
+            else promise.reject("E_KEEP_IAP_CONSUME", billingMessage(consumeResult), null)
+          }
+          return@queryPurchasesAsync
+        }
+        if (purchase.isAcknowledged) {
+          promise.resolve(true)
+          return@queryPurchasesAsync
+        }
+        val ack = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
+        client.acknowledgePurchase(ack) { ackResult ->
+          if (ackResult.responseCode == BillingClient.BillingResponseCode.OK) promise.resolve(true)
+          else promise.reject("E_KEEP_IAP_ACK", billingMessage(ackResult), null)
+        }
+      }
+    }
+    queryAt(0)
   }
 
   private fun purchasePayload(purchase: Purchase, status: String): Map<String, Any?> {
