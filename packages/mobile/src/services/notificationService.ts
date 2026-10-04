@@ -290,13 +290,14 @@ export async function requestSocialLink(targetProfileId: string, platform: strin
   if (error) throw error;
 }
 
-async function runNotificationAction(action: 'read' | 'read_all' | 'delete' | 'delete_all', notificationId?: string): Promise<void> {
-  if (!supabase) return;
-  const { error } = await supabase.rpc('keep_notification_action', {
+async function runNotificationAction(action: 'read' | 'read_all' | 'delete' | 'delete_all', notificationId?: string): Promise<number> {
+  if (!supabase) return 0;
+  const { data, error } = await supabase.rpc('keep_notification_action', {
     p_action: action,
     p_notification_id: notificationId ?? null,
   });
   if (error) throw error;
+  return Number(data ?? 0);
 }
 
 export async function markNotificationRead(_profileId: string, notificationId: string): Promise<void> {
@@ -309,25 +310,29 @@ export async function markAllNotificationsRead(_profileId: string): Promise<void
 
 export async function deleteNotification(profileId: string, notificationId: string): Promise<void> {
   if (!supabase) return;
-  // Le RPC utilise auth.uid() côté serveur et ne dépend pas d'un profileId
-  // local qui peut être périmé après reconnexion. C'est le chemin principal.
+  // Ne jamais annoncer "supprimée" si le serveur n'a supprimé aucune ligne.
+  // Un auth.uid temporairement désynchronisé peut faire réussir le RPC avec 0.
   try {
-    await runNotificationAction('delete', notificationId);
-    return;
+    const deleted = await runNotificationAction('delete', notificationId);
+    if (deleted > 0) return;
   } catch {}
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('notifications')
     .delete()
     .eq('profile_id', profileId)
-    .eq('id', notificationId);
+    .eq('id', notificationId)
+    .select('id');
   if (error) throw error;
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('NOTIFICATION_DELETE_NOT_CONFIRMED');
+  }
 }
 
 export async function deleteAllNotifications(profileId: string): Promise<void> {
   if (!supabase) return;
   try {
-    await runNotificationAction('delete_all');
-    return;
+    const deleted = await runNotificationAction('delete_all');
+    if (deleted > 0) return;
   } catch {}
   const { error } = await supabase
     .from('notifications')
