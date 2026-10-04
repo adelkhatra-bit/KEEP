@@ -33,7 +33,7 @@ import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
 import { shareProfile, shareProfileTrack } from '../services/sharingService';
 import { blockUser, isBlockedEitherWay, reportUser, unblockUser, REPORT_REASONS, ReportReason } from '../services/moderationService';
-import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, cancelPlaylistSalePayment, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistBundleWithFree, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistBundlePurchase, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadDeliveredPlaylistSaleTracks, loadMaskedPlaylistSaleTrackIds, loadMyPlaylistSaleUnlocks, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferOverlaps, loadPlaylistSaleOfferPreviewTracks, loadPlaylistSaleProfilePreviewSampler, loadPlaylistSaleOffersForProfile, cancelPlaylistSalePayment, markPlaylistSaleBuyerPaid, PlaylistPurchaseRequest, PlaylistSaleOverlap, PublicPlaylistSaleOffer, purchasePlaylistBundleWithFree, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistBundlePurchase, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { isFeatureEnabled, isPlaylistMarketplaceEnabled, isPlaylistMarketplaceVisible } from '../services/featureFlagService';
 import PlaylistSaleImmersivePreview from '../components/PlaylistSaleImmersivePreview';
 import SellerBoutique, { SELLER_BOUTIQUE_SECTION_STYLE } from '../components/SellerBoutique';
@@ -379,19 +379,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return undefined;
     }
     let live = true;
-    Promise.all(profileBoutiqueOffers.map(async (offer) => {
-      try {
-        const overlap = await loadPlaylistSaleOfferOverlap(offer.offerId);
-        return [offer.offerId, overlap] as const;
-      } catch {
-        return null;
-      }
-    })).then((entries) => {
-      if (!live) return;
-      const next: Record<string, PlaylistSaleOverlap> = {};
-      entries.forEach((entry) => { if (entry) next[entry[0]] = entry[1]; });
-      setSaleOfferOverlaps(next);
-    });
+    void loadPlaylistSaleOfferOverlaps(profileBoutiqueOffers.map((offer) => offer.offerId))
+      .then((next) => {
+        if (live) setSaleOfferOverlaps(next);
+      })
+      .catch(() => {
+        if (live) setSaleOfferOverlaps({});
+      });
     return () => { live = false; };
   }, [effectiveViewerId, profileBoutiqueOffers]);
   useEffect(() => {
