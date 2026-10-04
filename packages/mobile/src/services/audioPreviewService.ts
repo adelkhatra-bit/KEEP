@@ -595,7 +595,6 @@ export async function toggleTrackPreview(
       profilePreloadedSound = null;
       profilePreloadedUrl = null;
       await unloadActive();
-      await configurePreviewAudio();
       if (requestEpoch !== playbackRequestEpoch) {
         try { await ready.unloadAsync(); } catch {}
         return;
@@ -605,9 +604,9 @@ export async function toggleTrackPreview(
       createdSound = ready;
     } else {
       await unloadActive();
-      await configurePreviewAudio();
-      // Créer chargé mais silencieux : si PASSER arrive pendant le chargement,
-      // l'ancien titre est abandonné AVANT tout playAsync, donc aucun chevauchement.
+      // createSoundWithRetry configure la session une seule fois. Avant ce
+      // correctif, configurePreviewAudio était appelé ici puis à nouveau dans
+      // createSoundWithRetry, ce qui alourdissait chaque passage sur iOS.
       createdSound = await createSoundWithRetry(previewUrl, 0, onStatus, false);
     }
 
@@ -762,7 +761,6 @@ export async function playTrackPreviewSegment(
 
     if (!createdSound) {
       await unloadActive();
-      await configurePreviewAudio();
       createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);
     }
 
@@ -886,7 +884,6 @@ export async function scheduleTrackPreviewSegment(
     }
 
     await unloadActive();
-    await configurePreviewAudio();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
     const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
       if (!status.isLoaded) return;
@@ -1025,7 +1022,6 @@ export async function playAntiShazamPreviewSegment(
     }
 
     await unloadActive();
-    await configurePreviewAudio();
     const createdSound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
     createdSound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
       if (!status.isLoaded) return;
