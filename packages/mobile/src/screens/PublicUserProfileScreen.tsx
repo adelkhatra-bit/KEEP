@@ -1187,6 +1187,26 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
   };
 
+  const handleDuplicatePurchaseBlock = (offer: PublicPlaylistSaleOffer, message: string): boolean => {
+    const match = message.match(/DUPLICATE_TRACK_PURCHASE_BLOCKED\s*:\s*(\d+)\s*:\s*(\d+)/i);
+    if (!match) return false;
+    const owned = Number(match[1] || 0);
+    const missing = Number(match[2] || 0);
+    if (missing <= 0) {
+      Alert.alert('Déjà dans ton Loki Music', 'Tu possèdes déjà tous les morceaux de cette collection. Aucun paiement ni FREE ne sera débité.');
+      return true;
+    }
+    Alert.alert(
+      'Pas de double achat',
+      `Tu possèdes déjà ${owned} morceau${owned > 1 ? 'x' : ''}. Loki ne te les fera jamais repayer. Demande seulement les ${missing} morceau${missing > 1 ? 'x' : ''} manquant${missing > 1 ? 's' : ''}.`,
+      [
+        { text: 'ANNULER', style: 'cancel' },
+        { text: `DEMANDER LES ${missing} MANQUANTS`, onPress: () => { void requestOnlyMissingTracks(offer); } },
+      ],
+    );
+    return true;
+  };
+
   const acceptMarketplaceTermsThen = (source: string, onAccepted: () => void) => {
     Alert.alert(
       'Conditions des paiements entre utilisateurs',
@@ -1277,6 +1297,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         );
       } catch (e: any) {
         const message = String(e?.message || '');
+        if (handleDuplicatePurchaseBlock(offer, message)) return;
         const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
         if (match) {
           const remaining = Number(match[1]);
@@ -1335,6 +1356,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setPayoutCheckout(request);
     } catch (e: any) {
       const message = String(e?.message || '');
+      if (message.includes('DUPLICATE_TRACK_PURCHASE_BLOCKED')) {
+        Alert.alert('Pas de double achat', 'Une de ces collections contient déjà de la musique que tu possèdes. Loki bloque le paiement groupé pour éviter tout doublon. Ouvre les collections concernées et demande seulement les morceaux manquants.');
+        return;
+      }
       if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) {
         Alert.alert('Première transaction en cours', 'Termine ou annule d’abord ta première transaction avant de lancer un achat groupé.');
       } else if (message.includes('SELLER_PAYOUT_NOT_CONFIGURED')) {
@@ -1385,6 +1410,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         );
       } catch (e: any) {
         const message = String(e?.message || '');
+        const duplicate = message.match(/DUPLICATE_TRACK_PURCHASE_BLOCKED\s*:\s*(\d+)\s*:\s*(\d+)/i);
+        if (duplicate) {
+          Alert.alert('Pas de double achat', 'Une de ces collections contient déjà de la musique que tu possèdes. Loki ne la débitera pas en double. Ouvre cette collection pour demander uniquement les morceaux manquants.');
+          return;
+        }
         const match = message.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
         if (match) {
           const remaining = Number(match[1]);
@@ -1440,6 +1470,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       setPayoutCheckout(request);
     } catch (e: any) {
       const message = String(e?.message || '');
+      if (handleDuplicatePurchaseBlock(offer, message)) return;
       if (message.includes('authentication_required')) goToOwnProfile();
       else if (message.includes('FIRST_PAYMENT_ONE_AT_A_TIME') || message.includes('FIRST_PAYMENT_PENDING')) Alert.alert(
         'Première transaction en cours',
