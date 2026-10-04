@@ -3,13 +3,16 @@ import { AppState } from 'react-native';
 import { listenForExpoPushTokenChanges, registerForPushNotifications } from '../services/pushNotificationService';
 import { supabase } from '../services/supabaseClient';
 
+let pushLifecycleOwnerActive = false;
+
 /**
  * Keeps the native device registered without routing through an external API.
  * Mounted outside Navigation/App so it cannot affect the validated mobile UI.
  */
 export default function PushRegistrationLifecycle() {
   React.useEffect(() => {
-    if (!supabase) return undefined;
+    if (!supabase || pushLifecycleOwnerActive) return undefined;
+    pushLifecycleOwnerActive = true;
     let alive = true;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let registering = false;
@@ -47,6 +50,7 @@ export default function PushRegistrationLifecycle() {
 
     return () => {
       alive = false;
+      pushLifecycleOwnerActive = false;
       if (retry) clearTimeout(retry);
       listener.subscription.unsubscribe();
       stopTokenListener();
