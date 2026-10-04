@@ -156,6 +156,11 @@ export function notificationSemanticKey(item: KeepNotification): string {
   ]);
   if (stableId) return `${type}|entity:${stableId}`;
 
+  if (type === 'NEW_PUBLIC_KEEP') {
+    const actorId = notificationDataValue(item, ['actorId','actor_id','profileId','profile_id','sourceProfileId','source_profile_id']);
+    if (actorId) return `${type}|actor:${actorId}`;
+  }
+
   const trackId = notificationDataValue(item, ['trackId','track_id']);
   if (trackId) {
     const actorId = notificationDataValue(item, ['actorId','actor_id','profileId','profile_id','sellerId','seller_id','buyerId','buyer_id']);
