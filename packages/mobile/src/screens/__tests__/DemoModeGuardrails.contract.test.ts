@@ -40,7 +40,7 @@ describe('Demo mode guardrails', () => {
   });
 
   it('locks the canonical product contract', () => {
-    expect(contract.demoExperience.listenRecognitionLimitDefault).toBe(8);
+    expect(contract.demoExperience.listenRecognitionLimitDefault).toBe(3);
     expect(contract.demoExperience.discoveryRequiresRealAccountByDefault).toBe(true);
     expect(contract.demoExperience.fakeFreeBalanceForbidden).toBe(true);
     expect(contract.demoExperience.demoFreeDisplay).toBe('?');

@@ -37,7 +37,18 @@
       "public_profile_swipe",
       "loki_pulse"
     ],
-    "alreadyOwnedDuplicate": 0
+    "alreadyOwnedDuplicate": 0,
+    "listenAfterDailyQuota": -1,
+    "listenCountsOnlyOnSuccessfulRecognition": true,
+    "guestRecognitionTotalLimit": 3,
+    "signupBonusFree": 5,
+    "dailyListenIncluded": {
+      "FREE": 5,
+      "PREMIUM": 30,
+      "CREATOR_PRO": 60,
+      "VENUE_PRO": 150
+    },
+    "paidRecognitionMinIntervalSeconds": 20
   },
   "profileOwner": {
     "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
@@ -390,7 +401,7 @@
   "demoExperience": {
     "discoveryRequiresRealAccountByDefault": true,
     "discoveryLockRemoteConfigKey": "demo_discovery_locked",
-    "listenRecognitionLimitDefault": 8,
+    "listenRecognitionLimitDefault": 3,
     "listenLimitRemoteConfigKey": "demo_listen_limit",
     "listenUsageScope": "device-persistent",
     "fakeFreeBalanceForbidden": true,
@@ -399,7 +410,8 @@
       "listenAndRecognizeCostFree": 0,
       "passCostFree": 0,
       "realBalanceAppearsAfterAccountConnection": true,
-      "keepAndBattleMayUseOrEarnFree": true
+      "keepAndBattleMayUseOrEarnFree": true,
+      "listenAfterQuotaCostFree": 1
     },
     "superAdminGroup": "Écouter & compte"
   },
