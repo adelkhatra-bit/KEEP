@@ -391,8 +391,12 @@ export default function MusicSwipeDeckModal({
       endAdvanceTimer.current = null;
     }
     playbackGeneration.current += 1;
-    await stopTrackPreview();
+    // Changer la carte immédiatement : l'unload natif peut prendre plus d'une
+    // seconde sur iPhone. stopTrackPreview coupe déjà l'ancien son tout de
+    // suite, puis termine le nettoyage en arrière-plan.
+    const stopPromise = stopTrackPreview().catch(() => {});
     advanceIndex();
+    await stopPromise;
   };
 
   const confirmKeep = async (visibility: KeepVisibilityChoice) => {
