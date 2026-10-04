@@ -46,6 +46,7 @@ import { ProfileCertificationTier } from '../services/publicProfileStateService'
 import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
+const SOLO_RESULT_HOLD_MS = 650;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const BATTLE_NETWORK_DEADLINE_MS = 8_000;
 async function withBattleDeadline<T>(promise: Promise<T>, label: string, ms = BATTLE_NETWORK_DEADLINE_MS): Promise<T> {
@@ -1427,16 +1428,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
-    // Adel (22/09/2026, audit latence TestFlight) : dès qu'une réponse est
-    // donnée, préchargement de l'extrait de la manche suivante en
-    // arrière-plan pendant la pause de 2,8s qui suit (voir
-    // preloadTrackPreviewSegment dans audioPreviewService.ts). L'extrait de
-    // la manche en cours n'est jamais interrompu par ce préchargement -- il
-    // continue de jouer normalement jusqu'à sa fin naturelle.
+    // Une réponse coupe maintenant l'extrait courant. Attendre la libération
+    // réelle du player natif avant de précharger N+1 : sur iOS c'est ce qui
+    // rapproche l'enchaînement de la fluidité Web sans changer l'UI.
     if (soloIndex < solo.rounds.length - 1) {
       const nextRound = solo.rounds[soloIndex + 1];
       if (nextRound?.previewUrl) {
-        void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0);
+        void (async () => {
+          await stopTrackPreview().catch(() => {});
+          await preloadTrackPreviewSegment(
+            soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),
+            nextRound.previewUrl,
+            0,
+          ).catch(() => {});
+        })();
       }
     }
     if (soloIndex >= solo.rounds.length - 1) {
@@ -1524,7 +1529,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       setSoloIndex((v) => v + 1);
       setSoloAnswer(null);
       setSoloSelectedAnswer(null);
-    }, 1400);
+    }, SOLO_RESULT_HOLD_MS);
     return () => clearTimeout(id);
   }, [solo, soloAnswer, soloIndex, soloResponses, celebrate, saveSessionEnabled, soloStartedAt, idlePromptAt, idleResumeIndex]);
 
@@ -2628,10 +2633,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (Date.now() - soloStartedAt >= ROUND_MS) return;
     if (answeredRoundRef.current === soloIndex) return; // déjà tranché par le timeout
     answeredRoundRef.current = soloIndex;
-    // Adel (02/09/2026) : "en attendant la réponse, tu laisses la musique" --
-    // répondre ne doit pas couper l'extrait avant l'heure : le morceau
-    // s'arrête déjà tout seul à la fin naturelle de la manche (timeout ou
-    // reveal, voir plus bas).
+    void stopTrackPreview().catch(() => {});
+    // Mobile/TestFlight : dès que le joueur a répondu, le morceau est tranché.
+    // Couper immédiatement libère AVAudioSession et permet de précharger la
+    // manche suivante pendant le court reveal, au lieu d'attendre la fin des
+    // 10 secondes comme avant.
     const isCorrect = sameAnswer(choice, round.correctAnswer);
     setSoloSelectedAnswer(choice);
     recordSoloAnswer(isCorrect ? 'CORRECT' : 'INCORRECT');
