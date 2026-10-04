@@ -9,6 +9,7 @@ on:
       - 'packages/mobile/src/components/LokiMascotVoice.tsx'
       - 'packages/mobile/src/screens/PartiesScreen.tsx'
       - 'packages/mobile/src/services/audioPreviewService.ts'
+      - 'packages/mobile/src/services/__tests__/audioMicSessionConflict.test.ts'
       - 'packages/mobile/src/services/keepBattleExperienceService.ts'
       - '.github/workflows/keep-battle-solo-guardian.yml'
   pull_request:
