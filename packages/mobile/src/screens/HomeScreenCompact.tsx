@@ -19,7 +19,7 @@ import { loadSessionScreenCopy, loadCurrentPlanCode, loadDemoListenLimit } from 
 import { getDownloadCreditStatus } from '../services/creditService';
 import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError } from '../services/micCapture';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/spacing';
+import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
@@ -1230,7 +1230,7 @@ const s = StyleSheet.create({
   idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
   idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
-  idleLearnMore: { minHeight: 32, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  idleLearnMore: { minHeight: minTouchTarget, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
   idleLearnMoreText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
   idleLearnMorePanel: { width: '100%', maxWidth: 340, marginTop: 2, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
   idleLearnMoreBody: { color: C.mutedGrey, fontSize: 11, lineHeight: 16, textAlign: 'center' },
@@ -1268,7 +1268,7 @@ const s = StyleSheet.create({
   micFixHint: { color: C.muted, fontSize: 11, lineHeight: 15, textAlign: 'center', maxWidth: 300, marginTop: 6, marginBottom: 4 },
   sectionTitle: { color: C.text, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 9, marginBottom: 6 },
   queueNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
-  queueNavBtn: { minHeight: 34, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
+  queueNavBtn: { minHeight: minTouchTarget, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   queueNavBtnText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
   queueNavCount: { color: C.muted, fontSize: 11, fontWeight: '800' },
   trackCard: { borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 14, padding: 10 },
