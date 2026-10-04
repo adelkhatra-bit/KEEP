@@ -111,6 +111,15 @@ if (platformParity.webAuthenticatedRuntime !== 'shared-packages-mobile-src') fai
 if (platformParity.webAccountCreationAllowed !== false) failures.push('WEB MUST NOT CREATE ACCOUNTS');
 if (platformParity.webPasswordLoginAllowed !== false) failures.push('WEB MUST NOT EXPOSE PASSWORD LOGIN');
 if (platformParity.webRemoteLogout !== true) failures.push('WEB REMOTE LOGOUT MUST REMAIN ENABLED');
+
+const spacingSource = read('packages/mobile/src/theme/spacing.ts');
+const motionButtonSource = read('packages/mobile/src/components/MotionActionButton.tsx');
+if (!/export const minTouchTarget\s*=\s*48\s*;/.test(spacingSource)) {
+  failures.push('ACCESSIBILITY TOUCH TARGET MUST REMAIN 48');
+}
+if (!motionButtonSource.includes('minWidth: minTouchTarget') || !motionButtonSource.includes('minHeight: minTouchTarget')) {
+  failures.push('MOTION ACTION BUTTON MUST ENFORCE 48x48 TOUCH TARGET');
+}
 for (const forbidden of platformParity.forbiddenParallelRoots || []) {
   if (fs.existsSync(path.join(root, forbidden))) failures.push(`PARALLEL MOBILE/WEB PRODUCT ROOT FORBIDDEN: ${forbidden}`);
 }
