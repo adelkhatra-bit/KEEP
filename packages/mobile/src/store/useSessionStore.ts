@@ -251,8 +251,11 @@ async function applyDetectedTrack(
   source: 'listen' | 'manual-search',
 ): Promise<'added' | 'duplicate' | 'inactive'> {
   const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
-  const last = get().tracks[0];
-  if (last && sameTrack(last.track, track)) {
+  // Anti-doublon session complet : A → B → A ne doit jamais recréer A.
+  // Le même comparateur canonique est utilisé sur Mobile et Web (ISRC d'abord,
+  // puis titre + artiste normalisés si l'ISRC manque).
+  const duplicate = get().tracks.find((entry) => sameTrack(entry.track, track));
+  if (duplicate) {
     lastDetectionAt = Date.now();
     lastMatchAt = lastDetectionAt;
     nextRecognitionAllowedAt = Date.now() + SAME_TRACK_COOLDOWN_MS;
