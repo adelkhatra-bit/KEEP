@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, StyleProp, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
+import { minTouchTarget } from '../theme/spacing';
 
 interface MotionActionButtonProps {
   onPress: () => void;
@@ -143,7 +144,7 @@ export default function MotionActionButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
-      style={[containerStyle, style]}
+      style={[{ minWidth: minTouchTarget, minHeight: minTouchTarget, justifyContent: 'center' }, containerStyle, style]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
