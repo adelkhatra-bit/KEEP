@@ -1351,11 +1351,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         } catch {}
       }
 
-      // Dernier filet : ne jamais incrémenter soloIndex directement (cela
-      // pouvait dépasser la dernière manche et casser le rendu). Le flux
-      // normal de fin de manche fait avancer proprement après ce verdict.
-      console.warn(`[Battle SOLO] audio indisponible manche ${soloIndex + 1}/${solo?.rounds.length}`);
-      Alert.alert('Audio indisponible', 'Loki n’arrive pas à lire ce morceau. La manche passe automatiquement sans bloquer la partie.');
+      // Dernier filet : ne jamais afficher de popup bloquant pour un échec
+      // audio. Sur iOS TestFlight, Expo AV peut remonter un faux négatif de
+      // contrôle alors que l'extrait est déjà audible (lecture/préchargement
+      // démarré en parallèle). Le popup "Loki n'arrive pas à lire..." créait
+      // alors un parasite au milieu d'une manche parfaitement jouable.
+      //
+      // Si aucun remplacement n'a pu être chargé, on marque simplement la
+      // manche audio comme annulée et le flux normal passe à la suivante.
+      // Même comportement web/natif, aucune modale parasite.
+      console.warn(`[Battle SOLO] audio non confirmé manche ${soloIndex + 1}/${solo?.rounds.length} — passage silencieux`);
       recordSoloAnswer('__AUDIO_ERROR__');
       animateResult();
     };
