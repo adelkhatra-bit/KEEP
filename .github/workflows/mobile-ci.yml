@@ -11,6 +11,7 @@ on:
       - 'scripts/verify-source-of-truth.cjs'
       - 'scripts/verify-mobile-text-contrast.cjs'
       - 'scripts/verify-mobile-accessibility-contract.cjs'
+      - 'scripts/verify-music-anti-duplicate-contract.cjs'
       - 'config/mobile-accessibility-contract.json'
       - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
       - 'docs/KEEP_MASTER_SPEC.md'
@@ -72,6 +73,9 @@ jobs:
 
       - name: KEEP mobile accessibility contract
         run: node scripts/verify-mobile-accessibility-contract.cjs
+
+      - name: KEEP music anti-duplicate contract
+        run: node scripts/verify-music-anti-duplicate-contract.cjs
 
       - name: KEEP UI baseline contract
         run: node scripts/verify-ui-layout-baseline.cjs
