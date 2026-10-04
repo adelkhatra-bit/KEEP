@@ -271,7 +271,11 @@ export default function PartiesScreen({ navigation, route }: any) {
     let live = true;
     const resumeActiveArena = async () => {
       const active = await loadMyActiveKeepBattleArena().catch(() => null);
-      if (!live || !active?.id || active.me?.status !== 'ACTIVE') return;
+      // Ne jamais forcer un ancien lobby WAITING par-dessus le SOLO. Le retour
+      // automatique est réservé à un match réellement lancé. Un salon WAITING
+      // reste accessible depuis l'onglet Battle mais ne prend pas le contrôle
+      // de l'écran ni de la session Solo.
+      if (!live || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') return;
       setPendingArenaId(active.id);
       setPartiesTab('BATTLE');
       setBattleOpen(true);
