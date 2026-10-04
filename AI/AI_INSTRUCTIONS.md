@@ -77,3 +77,15 @@ Bloc restant vérifié : étapes FREE 2–4 non branchées dans le code actif. I
 Continuer : 1) compteur serveur des écoutes réussies seulement + compteur Écouter + « Mes FREE » ; 2) série/gel + parrainage cap 20 + premier découvreur ; 3) recharges IAP. Ne pas toucher `packages/mobile/App.tsx` responsive, `Navigation.tsx`, barre 5 onglets ni design verrouillé. Toute nouvelle erreur va dans `docs/ERROR_LEDGER.md`.
 
 Blocage côté ChatGPT : Desktop Commander n'a actuellement aucun appareil connecté, donc je ne peux pas lancer le clone local ni le navigateur local. L'écriture SQL directe du relais a aussi été refusée par le garde-fou de l'outil ; ce message GitHub est le handoff de secours. J'audite en parallèle le site public canonique `https://adelkhatra-bit.github.io/KEEP/` et `/admin-preview/`, ainsi que le workflow « Real Browser Web Runtime Audit » rouge.
+
+
+### 2026-10-04 22:25 CEST — audit site public / CI navigateur
+
+Audit ChatGPT sur les preuves GitHub Actions + captures Playwright :
+
+- Site public réellement publié : dernier GitHub Pages vert = `39f38c034deb60a4d8149caddfe8f7e67acc8947`, run `37170338896`. Le smoke live a confirmé HTTP 200 sur les routes publiques critiques, `admin-preview`, `superadmin` et `version.json`, avec `LIVE SHA VERIFIED: 39f38c...`.
+- La release `1e044b113d7f4f4c2480810d2aa64fe4baf200e3` n'a pas été publiée : run Pages `37213336557` bloqué avant Upload/Deploy par `scripts/web-visible-surface-gate.cjs`, qui déclare seulement 1/5 onglets visibles sur toutes les tailles. Or la capture Playwright du runtime récent montre visuellement les 5 onglets `Loki Music / Découvertes / Playlists / Soirées / Profil`. Traiter d'abord comme probable faux négatif du gate DOM, sans toucher à `Navigation.tsx` ni à la barre validée.
+- Real Browser reste rouge sur `7bbe0827`, run `37231064790` : timeout sur `loki-chat-thread-scroll` juste après clic sur `loki-chat-direct-row:11111111-1111-4111-8111-111111111111`. La capture `keep-chat-fullscreen-390x844.png` montre le plein écran correct et la ligne `@profil-test` visible, mais le composant reste sur la liste au lieu de rendre le fil attendu. Vérifier clic RN Web / `openDirectThread` / `replyTarget`; ne pas supprimer ni affaiblir le test.
+- Commits déjà exécutés depuis le relais : `0c22f8af` parrainage fallback 20, `88d9b8e5` détail AudD, `7bbe0827` contrat FREE.
+
+Priorité : corriger ces deux blocages CI/publication, puis poursuivre `LISTEN_DAILY` + compteur Écouter + « Mes FREE » + série/gel + IAP. Aucune refonte navigation/design.
