@@ -306,6 +306,22 @@ function notificationPermissionGranted(
   ].includes(iosStatus as any);
 }
 
+
+export type PushPermissionState = 'granted' | 'denied' | 'undetermined' | 'unavailable';
+
+export async function getPushPermissionState(): Promise<PushPermissionState> {
+  if (Platform.OS === 'web' || !Device.isDevice) return 'unavailable';
+  try {
+    const Notifications = getNativeNotifications();
+    const permission = await Notifications.getPermissionsAsync();
+    if (permission.status === 'granted') return 'granted';
+    if (permission.status === 'denied') return 'denied';
+    return 'undetermined';
+  } catch {
+    return 'unavailable';
+  }
+}
+
 export async function registerForPushNotifications(): Promise<{ ok: boolean; reason?: string }> {
   if (Platform.OS === 'web') {
     return { ok: true, reason: 'web_in_app_banner_owned_by_global_notification_banner' };
