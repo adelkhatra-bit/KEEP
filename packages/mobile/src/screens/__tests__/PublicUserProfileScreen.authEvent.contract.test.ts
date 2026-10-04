@@ -20,7 +20,7 @@ describe('PublicUserProfileScreen real-session + inline event contract', () => {
     expect(source).not.toContain('!viewer || isLocalGuest');
     expect(source).not.toContain('!viewer?.id || isLocalGuest');
     expect(source).not.toContain('requiresAccount={!viewer || isLocalGuest}');
-    expect(source).toContain('requiresAccount={!effectiveViewerId}');
+    expect(source).toContain('requiresAccount={!effectiveViewerId && !isDemoMode}');
     expect(source).toContain('const chooseProfileEventRsvp = async (status: EventRsvpStatus) =>');
     expect(source).toContain('await setEventRsvp(effectiveViewerId, profileEvent.id, status);');
   });
