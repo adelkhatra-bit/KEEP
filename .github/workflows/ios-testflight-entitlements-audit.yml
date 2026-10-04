@@ -24,7 +24,7 @@ jobs:
           node-version: 22
 
       - name: Install EAS CLI
-        run: npm install -g eas-cli@latest
+        run: npm install -g eas-cli@24.6.0
 
       - name: Inspect latest iOS build provisioning profile
         working-directory: packages/mobile
@@ -32,6 +32,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
+          eas whoami
           eas build:list --platform ios --limit 10 --json --non-interactive > "$RUNNER_TEMP/builds.json"
           node <<'NODE'
           const fs=require('fs');
