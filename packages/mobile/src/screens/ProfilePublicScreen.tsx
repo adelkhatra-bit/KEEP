@@ -1611,9 +1611,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // action réellement complexe (achat, upload, connexion de service).
   const openFromMenu = (screen: string, params?: Record<string, unknown>) => { setMenuOpen(false); setExpandedMenuItem(null); navigation.navigate(screen, params); };
   const directMenuAction = (key: string) => {
-    // Le premier appui ne quitte plus le profil : chaque rubrique se déplie
-    // dans le même drawer. Les écrans complets ne s'ouvrent qu'après une
-    // action explicite dans le détail de la rubrique.
+    // Règle UX Loki : 1er appui = vraie fonction. Un écran intermédiaire
+    // d'explication ne doit jamais être obligatoire avant une destination
+    // évidente. Les rubriques multi-choix restent dans le drawer car le
+    // premier appui y expose déjà directement les contrôles.
+    if (key === 'profile') { openFromMenu('ProfileSettings'); return; }
+    if (key === 'identityShare') {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      setQrOpen(true);
+      return;
+    }
     if (key === 'musicTaste') {
       setMenuOpen(false);
       setExpandedMenuItem(null);
@@ -1623,6 +1631,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
       else setPulseTasteOpen(true);
       return;
     }
+    if (key === 'chatSettings') {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      useGlobalChatStore.getState().openSettings();
+      return;
+    }
+    if (key === 'music') { openFromMenu('MusicConnections'); return; }
+    if (key === 'offers') { openFromMenu('Offers'); return; }
+    if (key === 'sellPlaylists') { openFromMenu('PlaylistSale'); return; }
+    if (key === 'receipts') { openFromMenu('PlaylistSale', { openPaymentHistory: true }); return; }
+
+    // Réseaux/site, Créateur et Aide comportent plusieurs contrôles distincts :
+    // le premier appui les affiche directement dans ce même drawer.
     setExpandedMenuItem(key);
   };
   const renderMenuDetail = (key: string) => {
