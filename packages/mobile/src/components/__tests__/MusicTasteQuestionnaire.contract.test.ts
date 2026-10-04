@@ -22,15 +22,19 @@ describe('MusicTasteQuestionnaire global-catalog contract', () => {
     expect(source).toContain("savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : [])");
   });
 
-  it('keeps Create Pulse and Cancel aligned on one row', () => {
+  it('keeps the child-simple primary choice and Later aligned on one row', () => {
     expect(source).toContain('<View style={s.footerActions}>');
-    expect(source).toContain('ENREGISTRER MES GOÛTS');
+    expect(source).toContain('Quels sons tu aimes ?');
+    expect(source).toContain('Touche tes styles préférés. Loki s’occupe du reste.');
+    expect(source).toContain('C’EST BON');
     expect(source).toContain('PLUS TARD');
     expect(source).toContain("footerActions:{flexDirection:'row'");
     expect(source).toContain('footerAction:{flex:1,minWidth:0}');
   });
 
-  it('always shows existing selections and lets web/mobile users edit them', () => {
+  it('keeps advanced language/country editing one tap away on the same surface', () => {
+    expect(source).toContain('PLUS DE CHOIX');
+    expect(source).toContain('accessibilityState={{ expanded: advancedOpen }}');
     expect(source).toContain('TES CHOIX · TOUCHE × POUR RETIRER');
     expect(source).toContain('removeSelected');
     expect(source).toContain('nestedScrollEnabled');
