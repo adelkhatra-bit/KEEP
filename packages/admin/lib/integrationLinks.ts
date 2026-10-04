@@ -12,7 +12,7 @@
 // faire à sa place -- seule la RECHERCHE de la bonne page est automatisée.
 export type IntegrationProviderLink = {
   label: string;
-  url: string;
+  url?: string;
   help: string;
   expected?: string;
   fixedValue?: string;
@@ -36,6 +36,7 @@ export const INTEGRATION_PROVIDER_LINKS: Record<string, IntegrationProviderLink>
   ACRCLOUD_ACCESS_SECRET: { label: 'ACRCloud — projet de reconnaissance', url: 'https://console.acrcloud.com/', help: 'Dans le même projet ACRCloud, copie Access Secret.', expected: 'Access Secret du même projet' },
   ACRCLOUD_HOST: { label: 'ACRCloud — projet de reconnaissance', url: 'https://console.acrcloud.com/', help: 'Dans le même projet ACRCloud, copie l’Identify Host.', expected: 'Doit ressembler à identify-….acrcloud.com' },
   GOOGLE_TRANSLATE_API_KEY: { label: 'Google Cloud — identifiants', url: 'https://console.cloud.google.com/apis/credentials', help: 'Ouvre Google Cloud > APIs & Services > Credentials, puis copie une API Key autorisée pour Cloud Translation.', expected: 'Clé Google Cloud API' },
+  ACCOUNT_EMAIL_CODE_SECRET: { label: 'Loki — secret interne e-mail', help: 'Cette valeur appartient à Loki Music : ne va sur aucun site. Clique sur Générer dans le Super Admin puis enregistre-la.', expected: 'Secret aléatoire généré automatiquement ici' },
   SPOTIFY_CLIENT_ID: { label: 'Spotify — application Loki', url: 'https://developer.spotify.com/dashboard', help: 'Ouvre ton application Loki dans Spotify Developer Dashboard > Settings et copie Client ID.', expected: 'Client ID Spotify' },
   SPOTIFY_CLIENT_SECRET: { label: 'Spotify — application Loki', url: 'https://developer.spotify.com/dashboard', help: 'Dans la même application Spotify > Settings, affiche puis copie Client Secret.', expected: 'Client Secret Spotify' },
   DEEZER_APP_ID: { label: 'Deezer — My Apps', url: 'https://developers.deezer.com/myapps', help: 'Ouvre ton application Deezer et copie Application ID.', expected: 'App ID Deezer' },
