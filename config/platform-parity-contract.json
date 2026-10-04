@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "rule": "Loki Music mobile and desktop use one shared product implementation. Shared features are edited once in packages/mobile/src and are consumed by iOS, Android and Expo Web. Platform-specific code is limited to adapters for browser/native capabilities; duplicated feature screens are forbidden.",
   "canonicalRuntime": "packages/mobile",
   "sharedFeatureRoot": "packages/mobile/src",
@@ -32,6 +32,7 @@
   ],
   "requiredChecks": [
     "source-of-truth",
+    "behavior-parity",
     "typecheck",
     "mobile-390x844",
     "desktop-1440x900",
@@ -41,5 +42,32 @@
   "webAuthenticatedRuntime": "shared-packages-mobile-src",
   "webAccountCreationAllowed": false,
   "webPasswordLoginAllowed": false,
-  "webRemoteLogout": true
+  "webRemoteLogout": true,
+  "behavioralParity": {
+    "rule": "Mobile/TestFlight and Web must use the same gameplay, catalogue, anti-duplicate, result-copy and business rules. Platform branches may only adapt native/browser capabilities (audio engine, microphone, animations, deep links).",
+    "protectedModules": [
+      "Battle/Solo round count and timing",
+      "Battle/Solo catalogue selection and theme filters",
+      "result and encouragement copy",
+      "recognition and KEEP anti-duplicate rules",
+      "FREE cost and purchase guards",
+      "PASSER/GARDER behavior",
+      "notification event semantics"
+    ],
+    "forbiddenPlatformDivergence": [
+      "different round counts",
+      "different catalogue limits",
+      "different theme filters",
+      "different result hold timings",
+      "different FREE costs",
+      "different duplicate rules"
+    ],
+    "allowedPlatformAdapters": [
+      "audio playback implementation",
+      "microphone capture implementation",
+      "animation native driver",
+      "browser autoplay unlock",
+      "native deep links"
+    ]
+  }
 }
