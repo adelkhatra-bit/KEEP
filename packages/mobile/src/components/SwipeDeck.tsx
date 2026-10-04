@@ -17,7 +17,8 @@ type Props = {
 };
 
 const SWIPE_THRESHOLD = 72;
-const VERTICAL_SWIPE_THRESHOLD = 64;
+const VERTICAL_SWIPE_THRESHOLD = 52;
+const VERTICAL_FLICK_VELOCITY = -0.48;
 const VERTICAL_FLING_MIN_DISTANCE = 28;
 const VERTICAL_FLING_VELOCITY = -0.45;
 const EXIT_DISTANCE = 520;
@@ -74,7 +75,7 @@ export default function SwipeDeck({
     });
   };
 
-  const wantsHorizontal = (gesture: any) => Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15;
+  const wantsHorizontal = (gesture: any) => Boolean(onSwipeLeft || onSwipeRight) && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15;
   const wantsUp = (gesture: any) => Boolean(onSwipeUp) && gesture.dy < -6 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.1;
 
   const responder = useMemo(() => PanResponder.create({
