@@ -125,6 +125,22 @@ jobs:
               state:report.subscriptionGroups.flatMap(g=>g.subscriptions).find(s=>s.productId===productId)?.state||null
             }));
 
+            const expectedFreeProducts=[
+              'com.adelkhatra.keep.free.30',
+              'com.adelkhatra.keep.free.100',
+              'com.adelkhatra.keep.free.300'
+            ];
+            report.expectedFreeProducts=expectedFreeProducts.map(productId=>{
+              const item=report.inAppPurchases.find(p=>p.productId===productId);
+              return {
+                productId,
+                found:Boolean(item),
+                type:item?.type||null,
+                state:item?.state||null,
+                consumable:item?.type==='CONSUMABLE'
+              };
+            });
+
             console.log('=== LOKI IAP AUDIT ===');
             console.log(JSON.stringify(report,null,2));
             console.log('=== END LOKI IAP AUDIT ===');
