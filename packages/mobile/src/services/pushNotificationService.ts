@@ -164,18 +164,38 @@ function isExpoPushToken(token: unknown): token is string {
   return /^(?:Exponent|Expo)PushToken\[[^\]]+\]$/.test(value);
 }
 
+async function iosPushEnvironment(): Promise<'development' | 'production' | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const Application = require('expo-application');
+    const environment = await Application.getIosPushNotificationServiceEnvironmentAsync?.();
+    return environment === 'development' || environment === 'production' ? environment : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveExpoPushToken(projectId: string, devicePushToken?: import('expo-notifications').DevicePushToken): Promise<string> {
   const Notifications = getNativeNotifications();
+  // TestFlight/App Store utilisent APNs production alors qu'un build de
+  // développement utilise le sandbox. Le préciser à Expo empêche de fabriquer
+  // un ExpoPushToken lié au mauvais environnement (BadEnvironmentKeyInToken).
+  const iosEnvironment = await iosPushEnvironment();
+  const baseOptions: Record<string, unknown> = { projectId };
+  if (Platform.OS === 'ios' && iosEnvironment) {
+    baseOptions.development = iosEnvironment === 'development';
+  }
+
   // La conversion explicite est utile après une rotation APNs/FCM, mais
   // certaines versions iOS/Expo peuvent momentanément renvoyer un token natif.
   // Dans ce cas on refait immédiatement la résolution canonique via projectId.
   if (devicePushToken) {
     try {
-      const converted = await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken });
+      const converted = await Notifications.getExpoPushTokenAsync({ ...baseOptions, devicePushToken } as any);
       if (isExpoPushToken(converted.data)) return converted.data.trim();
     } catch {}
   }
-  const fresh = await Notifications.getExpoPushTokenAsync({ projectId });
+  const fresh = await Notifications.getExpoPushTokenAsync(baseOptions as any);
   if (!isExpoPushToken(fresh.data)) throw new Error('EXPO_PUSH_TOKEN_INVALID');
   return fresh.data.trim();
 }
@@ -224,10 +244,9 @@ function pushClientMetadata(): {
   let appVersion: string | null = null;
   let buildNumber: string | null = null;
   try {
-    const constantsModule = require('expo-constants');
-    const Constants = constantsModule?.default ?? constantsModule;
-    appVersion = typeof Constants?.nativeAppVersion === 'string' ? Constants.nativeAppVersion : null;
-    buildNumber = typeof Constants?.nativeBuildVersion === 'string' ? Constants.nativeBuildVersion : null;
+    const Application = require('expo-application');
+    appVersion = typeof Application?.nativeApplicationVersion === 'string' ? Application.nativeApplicationVersion : null;
+    buildNumber = typeof Application?.nativeBuildVersion === 'string' ? Application.nativeBuildVersion : null;
   } catch {}
   return {
     appVersion,
