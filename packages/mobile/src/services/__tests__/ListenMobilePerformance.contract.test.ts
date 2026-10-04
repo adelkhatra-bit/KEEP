@@ -25,8 +25,8 @@ describe('Listen mobile swipe performance contract', () => {
   });
 
   it('accepts a short upward flick for TikTok-style navigation', () => {
-    expect(swipe).toContain('VERTICAL_FLICK_VELOCITY');
-    expect(swipe).toContain('gesture.vy <= VERTICAL_FLICK_VELOCITY');
+    expect(swipe).toContain('VERTICAL_FLING_VELOCITY');
+    expect(swipe).toContain('gesture.vy <= VERTICAL_FLING_VELOCITY');
   });
 
   it('preloads the next native audio without resetting the active iOS audio session', () => {
