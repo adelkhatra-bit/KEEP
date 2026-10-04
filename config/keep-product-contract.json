@@ -116,6 +116,22 @@
     "resizeMustNotBlankApplication": true,
     "fiveTabsMustRemainVisible": true
   },
+  "accessibilityTouchTargets": {
+    "sharedMinimum": 48,
+    "appleMinimumPt": 44,
+    "androidRecommendedDp": 48,
+    "wcag22MinimumCssPx": 24,
+    "rule": "All primary interactive controls must expose at least a 48x48 hit target on Loki Mobile and Web. Visual artwork may be smaller only when hitSlop/padding expands the actual target to 48x48.",
+    "appliesTo": [
+      "buttons",
+      "icon-buttons",
+      "music-bubbles",
+      "chips",
+      "cards",
+      "playback-controls",
+      "swipe-fallback-controls"
+    ]
+  },
   "changeProtocol": {
     "auditBeforeEdit": true,
     "checkRemoteHeadBeforeEdit": true,
