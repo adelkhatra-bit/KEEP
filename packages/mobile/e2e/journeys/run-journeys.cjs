@@ -688,13 +688,8 @@ const battleArenaLayoutJourney = {
     const answers = page.getByText("The O'Jays", { exact: true }).first();
     const boxAns = await answers.boundingBox();
     const earth = await page.getByText('Earth', { exact: true }).first().boundingBox();
-    const visual = await page.evaluate(() => {
-      const t = [...document.querySelectorAll('div')].find((d) => d.innerText && d.innerText.trim() === 'QUI CHANTE ?');
-      // Le visuel est le 1er bloc du cadre de jeu : on mesure sa hauteur via le cadre de la manche.
-      const all = [...document.querySelectorAll('div')].filter((d) => { const cs = getComputedStyle(d); return cs.overflow === 'hidden' && d.getBoundingClientRect().width > 200 && d.getBoundingClientRect().top > 40; });
-      const v = all.find((d) => d.getBoundingClientRect().height >= 110 && d.getBoundingClientRect().bottom < (t ? t.getBoundingClientRect().top : 9999));
-      return v ? Math.round(v.getBoundingClientRect().height) : 0;
-    });
+    const visualBox = await page.getByTestId('battle-round-visual').first().boundingBox();
+    const visual = visualBox ? Math.round(visualBox.height) : 0;
     r.hauteur_visuel = visual;
     r.reponses_bas = boxAns ? Math.round(boxAns.y + boxAns.height) : null;
     r.reponses_dans_ecran = Boolean(boxAns && earth && earth.y > 0 && boxAns.y + boxAns.height <= vp.height);
