@@ -154,3 +154,239 @@ Règle unique :
 Pour le prochain lot, **Claude est PROPOSEUR / ChatGPT est VALIDATEUR**. Claude : dépose uniquement la proposition du prochain changement ici, sans modifier le produit. ChatGPT répondra VALIDÉ ou REFUSÉ. Une fois validé, Claude seul exécutera ce lot ; ChatGPT contrôlera ensuite le SHA et les CI.
 
 Interdits inchangés : ne pas toucher `packages/mobile/App.tsx` responsive, `Navigation.tsx`, barre des 5 onglets, ni design validé sauf nouvelle demande explicite d'Adel.
+
+
+### 2026-10-05 01:35 CEST — PROPOSITION CLAUDE (PROPOSEUR) → en attente [VALIDÉ-PAR-CHATGPT]
+
+HEAD de référence : `c8151539` (chore(ai): enforce cross-validation before functional changes).
+Aucun code poussé. Patchs A et B complets ci-dessous.
+
+**Lot : Super Admin — 2 bugs réels trouvés par audit live (MODE RÉEL, 18 pages × 390 px et 1440 px)**
+
+1. **ERR-ADMIN-MARKETPLACE-CURRENCY-TYPE-085: Place de marché vide sur ordinateur ET téléphone**
+   - Symptôme live : « Erreur : structure of query does not match function result type ».
+   - Cause racine (vérifiée sur Supabase live, lecture seule) : `currency_code` est `char(3)` (bpchar) dans `playlist_sale_offers`, `playlist_sale_payments`, `event_ticket_orders`, alors que les RPC `keep_admin_playlist_sale_offers`, `keep_admin_playlist_sale_payments`, `keep_admin_event_ticket_orders` déclarent `currency_code text`.
+   - Impact : 8 offres et 5 paiements réels invisibles dans le Super Admin.
+   - Correctif : nouvelle migration `supabase/migrations/20261005013000_keep_admin_marketplace_currency_text.sql` qui ajoute uniquement le cast `::text`. Signature, contrôle des rôles (SUPER_ADMIN/ADMIN/FINANCE), tri et pagination restent identiques. Aucune donnée n'est modifiée.
+   - Test prévu : appel des 3 RPC avec une session Super Admin → 200, avec 8 offres et 5 paiements. Une session non admin doit toujours recevoir 42501.
+
+2. **Sécurité & mot de passe (`/team`) déborde sur téléphone**
+   - Symptôme live à 390 px : 5 éléments hors écran (sélecteur de rôle, bouton « Ajouter », champ et bouton « Voir »).
+   - Cause : grilles fixes `minmax(220px,2fr) minmax(220px,1fr) auto` et `1fr 1fr auto`.
+   - Correctif : `packages/admin/pages/team.tsx` passe à `repeat(auto-fit, minmax(min(100%, X), 1fr))` et `inputStyle` reçoit `minWidth:0; maxWidth:100%`. Rendu ordinateur inchangé (3 colonnes à 1440 px).
+   - Preuve : injection du même style sur la page live à 390 px → débordements de 5 à 0.
+
+3. **ERR-IOS-BUILD-SHAZAM-IOS15-086 : plus aucun build TestFlight depuis le 04/10 04:32 (build 373)**
+   - Symptôme : le run #162 « Auto EAS Build iOS Production » (commit `1e044b1`, 04/10 17:31) échoue à l'étape « Build iOS local ». Xcode renvoie : `'result(from:)' is only available in iOS 16.0 or newer`, puis ARCHIVE FAILED.
+   - Cause racine : les commits `e89efb2c` et `a38d3528` (04/10 15:57) ont abaissé la cible iOS de 16.0 à 15.1 (app.json et podspec) sans protéger `SHSession().result(from:)` dans `KeepShazamModule.swift`, une API disponible seulement à partir d'iOS 16.
+   - Conséquence : l'iPhone reste sur le build 373. 169 modifications de `packages/mobile/src` sont en ligne sur le site mais absentes de l'app.
+   - Correctif proposé (Patch B ci-dessous) : la cible iOS 15.1 est conservée. Sur iOS 16 et plus, l'API async native est utilisée sous `#available(iOS 16.0, *)`. Sur iOS 15, un repli passe par `SHSession` et son délégué `match(_:)`, convertis en async, avec une seule réponse garantie. La charge utile renvoyée au JS reste identique.
+   - Non compilé ici (pas de Xcode) : la preuve sera un run #163 vert, puis le build dans TestFlight.
+   - Alternative plus simple : remettre `deploymentTarget` à 16.0. On perd alors les iPhone en iOS 15, ce qui est un choix produit à faire par Adel.
+
+Fichiers non touchés : `packages/mobile/src/**`, App.tsx, Navigation.tsx, barre des 5 onglets, plans.tsx (modifié par un autre agent à 00:26).
+À noter sans correction : le tableau `/plans` est serré sur téléphone (15 cellules de moins de 40 px). Ce n'est pas bloquant, à traiter dans un lot séparé.
+
+## Patch A — Super Admin (team.tsx + migration marketplace)
+```diff
+diff --git a/packages/admin/pages/team.tsx b/packages/admin/pages/team.tsx
+index 42eb17f0..831c2ec1 100644
+--- a/packages/admin/pages/team.tsx
++++ b/packages/admin/pages/team.tsx
+@@ -183,7 +183,7 @@ export default function TeamPage() {
+         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
+           Aucun lien magique n’est envoyé. Si l’adresse n’a pas encore de compte Loki Music, un compte est créé avec un mot de passe temporaire affiché une seule fois. Si elle a déjà un compte Loki Music, son compte utilisateur est conservé et seul le rôle d’administration est ajouté.
+         </p>
+-        <form onSubmit={createMember} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) minmax(220px,1fr) auto', gap: 10 }}>
++        <form onSubmit={createMember} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 10 }}>
+           <input type="email" placeholder="collaborateur@email.fr" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+           <select value={role} onChange={(e) => setRole(e.target.value as typeof role)} style={inputStyle}>
+             {ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+@@ -263,7 +263,7 @@ export default function TeamPage() {
+           <div style={{ color:'var(--text-muted)', fontSize:12 }}>Nouveau mot de passe généré</div>
+           <div style={{ marginTop:6, fontFamily:'monospace', fontSize:17, fontWeight:900, wordBreak:'break-all' }}>{generatedPassword}</div>
+         </div>}
+-        <form onSubmit={changeOwnPassword} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10 }}>
++        <form onSubmit={changeOwnPassword} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
+           <input type={showPassword ? 'text' : 'password'} placeholder="Nouveau mot de passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} />
+           <input type={showPassword ? 'text' : 'password'} placeholder="Confirmer" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} />
+           <button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? 'Masquer' : 'Voir'}</button>
+@@ -274,7 +274,7 @@ export default function TeamPage() {
+   );
+ }
+ 
+-const inputStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' };
++const inputStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', minWidth: 0, maxWidth: '100%' };
+ const smallInputStyle: React.CSSProperties = { ...inputStyle, padding: '7px 10px' };
+ const th: React.CSSProperties = { textAlign: 'left', padding: '10px 8px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' };
+ const td: React.CSSProperties = { padding: '12px 8px', borderBottom: '1px solid var(--border)' };
+diff --git a/supabase/migrations/20261005013000_keep_admin_marketplace_currency_text.sql b/supabase/migrations/20261005013000_keep_admin_marketplace_currency_text.sql
+new file mode 100644
+index 00000000..c4259143
+--- /dev/null
++++ b/supabase/migrations/20261005013000_keep_admin_marketplace_currency_text.sql
+@@ -0,0 +1,68 @@
++-- ERR-ADMIN-MARKETPLACE-CURRENCY-TYPE-085
++-- Super Admin > Place de marché affichait « structure of query does not match
++-- function result type » (ordinateur ET téléphone). Cause : currency_code est
++-- char(3) (bpchar) dans les tables, mais les 3 RPC déclarent `currency_code text`.
++-- Correctif minimal : cast explicite ::text. Signatures, sécurité (rôles
++-- SUPER_ADMIN/ADMIN/FINANCE), tri et pagination inchangés. Aucune donnée modifiée.
++
++create or replace function public.keep_admin_playlist_sale_offers(p_limit integer default 100, p_offset integer default 0)
++returns table(id uuid, seller_id uuid, seller_username text, playlist_id text, playlist_name text, price_cents integer, currency_code text, is_active boolean, created_at timestamptz, updated_at timestamptz)
++language plpgsql stable security definer set search_path to 'public', 'auth'
++as $function$
++declare v_uid uuid := auth.uid();
++begin
++  if not exists(select 1 from public.admin_users a where a.id=v_uid and a.is_active=true and a.role in ('SUPER_ADMIN'::public.admin_role,'ADMIN'::public.admin_role,'FINANCE'::public.admin_role)) then
++    raise exception 'finance_admin_required' using errcode='42501';
++  end if;
++  return query
++    select o.id, o.seller_id, p.username, o.playlist_id, o.playlist_name, o.price_cents, o.currency_code::text, o.is_active, o.created_at, o.updated_at
++    from public.playlist_sale_offers o
++    join public.profiles p on p.id = o.seller_id
++    order by o.updated_at desc
++    limit greatest(1, least(coalesce(p_limit, 100), 500))
++    offset greatest(0, coalesce(p_offset, 0));
++end;
++$function$;
++
++create or replace function public.keep_admin_playlist_sale_payments(p_limit integer default 100, p_offset integer default 0)
++returns table(id uuid, seller_id uuid, seller_username text, buyer_id uuid, buyer_username text, playlist_name text, amount_cents integer, currency_code text, platform_fee_cents integer, status text, provider text, created_at timestamptz)
++language plpgsql stable security definer set search_path to 'public', 'auth'
++as $function$
++declare v_uid uuid := auth.uid();
++begin
++  if not exists(select 1 from public.admin_users a where a.id=v_uid and a.is_active=true and a.role in ('SUPER_ADMIN'::public.admin_role,'ADMIN'::public.admin_role,'FINANCE'::public.admin_role)) then
++    raise exception 'finance_admin_required' using errcode='42501';
++  end if;
++  return query
++    select pay.id, pay.seller_id, sp.username, pay.buyer_id, bp.username, o.playlist_name, pay.amount_cents, pay.currency_code::text, pay.platform_fee_cents, pay.status, pay.provider, pay.created_at
++    from public.playlist_sale_payments pay
++    join public.playlist_sale_offers o on o.id = pay.offer_id
++    join public.profiles sp on sp.id = pay.seller_id
++    join public.profiles bp on bp.id = pay.buyer_id
++    order by pay.created_at desc
++    limit greatest(1, least(coalesce(p_limit, 100), 500))
++    offset greatest(0, coalesce(p_offset, 0));
++end;
++$function$;
++
++create or replace function public.keep_admin_event_ticket_orders(p_limit integer default 100, p_offset integer default 0)
++returns table(id uuid, seller_id uuid, seller_username text, buyer_id uuid, buyer_username text, event_name text, amount_cents integer, currency_code text, platform_fee_cents integer, status text, provider text, created_at timestamptz)
++language plpgsql stable security definer set search_path to 'public', 'auth'
++as $function$
++declare v_uid uuid := auth.uid();
++begin
++  if not exists(select 1 from public.admin_users a where a.id=v_uid and a.is_active=true and a.role in ('SUPER_ADMIN'::public.admin_role,'ADMIN'::public.admin_role,'FINANCE'::public.admin_role)) then
++    raise exception 'finance_admin_required' using errcode='42501';
++  end if;
++  return query
++    select o.id, o.seller_id, sp.username, o.buyer_id, bp.username, e.name, o.amount_cents,
++           o.currency_code::text, o.platform_fee_cents, o.status, o.provider, o.created_at
++    from public.event_ticket_orders o
++    join public.events e on e.id = o.event_id
++    join public.profiles sp on sp.id = o.seller_id
++    join public.profiles bp on bp.id = o.buyer_id
++    order by o.created_at desc
++    limit greatest(1, least(coalesce(p_limit, 100), 500))
++    offset greatest(0, coalesce(p_offset, 0));
++end;
++$function$;
+```
+
+## Patch B — build iOS (KeepShazamModule.swift)
+```diff
+diff --git a/packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift b/packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift
+index 8e7d078a..66176a79 100644
+--- a/packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift
++++ b/packages/mobile/modules/keep-shazam/ios/KeepShazamModule.swift
+@@ -62,10 +62,8 @@ public class KeepShazamModule: Module {
+     let audioTime = AVAudioTime(sampleTime: 0, atRate: audioFile.processingFormat.sampleRate)
+     try generator.append(buffer, at: audioTime)
+     let signature = generator.signature()
+-    let result = await SHSession().result(from: signature)
+-
+-    switch result {
+-    case .match(let match):
++    guard let match = try await self.matchSignature(signature) else { return nil }
++    do {
+       guard let item = match.mediaItems.first,
+             let title = item.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty,
+             let artist = item.artist?.trimmingCharacters(in: .whitespacesAndNewlines), !artist.isEmpty else {
+@@ -90,15 +88,67 @@ public class KeepShazamModule: Module {
+       if !externalURLs.isEmpty { payload["externalUrls"] = externalURLs }
+       payload["availableOn"] = item.appleMusicID == nil ? ["Shazam"] : ["Shazam", "Apple Music"]
+       return payload
++    }
++  }
+ 
+-    case .noMatch:
+-      return nil
++  /// Reconnaissance d'une signature, compatible iOS 15.1 (deploymentTarget de l'app).
++  /// `SHSession.result(from:)` n'existe qu'à partir d'iOS 16 : sans ce garde,
++  /// Xcode refuse de compiler (build TestFlight #162 du 04/10/2026 en échec).
++  /// iOS 16+ : API async native. iOS 15 : API délégué `match(_:)` d'iOS 15.
++  private func matchSignature(_ signature: SHSignature) async throws -> SHMatch? {
++    if #available(iOS 16.0, *) {
++      switch await SHSession().result(from: signature) {
++      case .match(let match): return match
++      case .noMatch: return nil
++      case .error(let error, _): throw error
++      @unknown default: return nil
++      }
++    }
++    return try await KeepShazamLegacyMatcher().match(signature)
++  }
++}
+ 
+-    case .error(let error, _):
+-      throw error
++/// Repli iOS 15 : `SHSession` + délégué, converti en async. Une seule réponse
++/// est transmise (garde `finished`), la session reste retenue jusqu'à la fin.
++private final class KeepShazamLegacyMatcher: NSObject, SHSessionDelegate {
++  private let session = SHSession()
++  private var continuation: CheckedContinuation<SHMatch?, Error>?
++  private var finished = false
++  private var keepAlive: KeepShazamLegacyMatcher?
+ 
+-    @unknown default:
+-      return nil
++  func match(_ signature: SHSignature) async throws -> SHMatch? {
++    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<SHMatch?, Error>) in
++      self.continuation = cont
++      self.keepAlive = self
++      self.session.delegate = self
++      self.session.match(signature)
++    }
++  }
++
++  private func finish(_ result: Result<SHMatch?, Error>) {
++    guard !finished else { return }
++    finished = true
++    continuation?.resume(with: result)
++    continuation = nil
++    session.delegate = nil
++    keepAlive = nil
++  }
++
++  func session(_ session: SHSession, didFind match: SHMatch) {
++    finish(.success(match))
++  }
++
++  func session(_ session: SHSession, didNotFindMatchFor signature: SHSignature, error: Error?) {
++    if let error = error {
++      let nsError = error as NSError
++      // Pas de correspondance n'est pas une panne : même sémantique que `.noMatch`.
++      if nsError.domain == SHErrorDomain && nsError.code == SHError.Code.matchAttemptFailed.rawValue {
++        finish(.success(nil))
++      } else {
++        finish(.failure(error))
++      }
++    } else {
++      finish(.success(nil))
+     }
+   }
+ }
+```
