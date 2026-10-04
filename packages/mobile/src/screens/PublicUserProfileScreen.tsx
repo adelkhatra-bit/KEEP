@@ -20,6 +20,7 @@ import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPla
 import TrackPreviewButton from '../components/TrackPreviewButton';
 import TrackActionRow from '../components/TrackActionRow';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
+import KeepVisibilityChoiceModal, { KeepSuccessModal } from '../components/KeepVisibilityChoiceModal';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
@@ -225,6 +226,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   // et il m'a pas demande" -- meme choix que dans SWIPER/TrackRow, jamais
   // saute pour ce bouton en ligne.
   const [keepPromptTrack, setKeepPromptTrack] = useState<PublicKeepTrack | null>(null);
+  const [keepSuccessTrack, setKeepSuccessTrack] = useState<{ track: PublicKeepTrack; visibility: KeepVisibility } | null>(null);
   const [followNudgeVisible, setFollowNudgeVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1740,12 +1742,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
       maybeSuggestFollow();
-      Alert.alert(
-        isDemoMode ? 'Mode démo' : 'Ajouté à ta collection',
-        isDemoMode
-          ? `« ${track.title} » est gardé temporairement en ${visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'} pour la démonstration.`
-          : `« ${track.title} » est maintenant dans tes musiques.`,
-      );
+      setKeepSuccessTrack({ track, visibility });
     } catch (e: any) {
       if (e?.message === 'CREDITS_EXHAUSTED') {
         Alert.alert('Crédits gratuits utilisés', 'Tu peux toujours écouter les extraits et continuer tes sessions. Passe à Premium pour débloquer les fonctions payantes.', [
@@ -2526,26 +2523,24 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         </View>
       </Modal>
 
-      <Modal visible={!!keepPromptTrack} transparent animationType="fade" onRequestClose={() => setKeepPromptTrack(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.shareSheet}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.shareTitle}>Garder ce morceau ?</Text>
-            {keepPromptTrack ? <Text style={styles.keepPromptTrack} numberOfLines={2}>{keepPromptTrack.title} · {keepPromptTrack.artist}</Text> : null}
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePublic]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PUBLIC')} accessibilityLabel="Visible sur mon profil">
-              <Text style={styles.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
-              <Text style={styles.keepChoiceText}>Le morceau sera rangé et visible dans ton univers Loki Music.</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.keepChoice, styles.keepChoicePrivate]} disabled={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false} onPress={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PRIVATE')} accessibilityLabel="Garder en privé">
-              <Text style={styles.keepChoicePrivateTitle}>GARDER EN PRIVÉ</Text>
-              <Text style={styles.keepChoiceText}>Le morceau reste dans ta bibliothèque sans apparaître sur ton profil.</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelShare} onPress={() => setKeepPromptTrack(null)}>
-              <Text style={styles.cancelShareText}>ANNULER — NE RIEN GARDER</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <KeepVisibilityChoiceModal
+        visible={!!keepPromptTrack}
+        title="Garder ce morceau"
+        trackLabel={keepPromptTrack ? `${keepPromptTrack.title} · ${keepPromptTrack.artist}` : null}
+        costFree={0}
+        busy={keepPromptTrack ? addingTrackIds.has(keepPromptTrack.trackId) : false}
+        onPublic={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PUBLIC')}
+        onPrivate={() => keepPromptTrack && void addToMyKeep(keepPromptTrack, 'PRIVATE')}
+        onCancel={() => setKeepPromptTrack(null)}
+      />
+
+      <KeepSuccessModal
+        visible={!!keepSuccessTrack}
+        trackLabel={keepSuccessTrack ? `${keepSuccessTrack.track.title} · ${keepSuccessTrack.track.artist}` : null}
+        costFree={null}
+        visibility={keepSuccessTrack?.visibility}
+        onContinue={() => setKeepSuccessTrack(null)}
+      />
     </SafeAreaView>
   );
 }
