@@ -672,7 +672,14 @@ Deno.serve(async (req) => {
       let pipedreamBundleComplete = false;
       if (key.startsWith("PIPEDREAM_")) {
         if (key === "PIPEDREAM_ENVIRONMENT" && value !== "development" && value !== "production") {
-          return json(400, { error: "invalid_pipedream_environment", message: "Utilise development ou production." });
+          const message = "Valeur invalide. Pour Loki Music en production, utilise exactement : production";
+          await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", "ERROR", message);
+          return json(400, { error: "invalid_pipedream_environment", message });
+        }
+        if (key === "PIPEDREAM_PROJECT_ID" && !/^proj_[A-Za-z0-9_-]+$/.test(value)) {
+          const message = "Project ID Pipedream invalide : ouvre Projects > ton projet > Settings et copie l’identifiant qui commence par proj_.";
+          await setRecognitionRuntimeStatus("PIPEDREAM_CONNECT", "ERROR", message);
+          return json(400, { error: "invalid_pipedream_project_id", message });
         }
         const [savedClientId, savedClientSecret, savedProjectId] = await Promise.all([
           key === "PIPEDREAM_CLIENT_ID" ? Promise.resolve(value) : getSecret("PIPEDREAM_CLIENT_ID"),
