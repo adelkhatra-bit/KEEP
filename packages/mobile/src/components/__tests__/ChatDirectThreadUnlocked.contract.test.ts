@@ -35,6 +35,15 @@ describe('Loki direct chat remains writable contract', () => {
     expect(panel).toContain('followChatBottom(false)');
   });
 
+
+  it('persists the selected direct thread outside the modal child so web keyboard rerenders cannot bounce back to inbox', () => {
+    expect(panel).toContain('useGlobalChatStore.getState().prime({');
+    expect(panel).toContain('targetProfileId: target.profileId');
+    expect(panel).toContain('targetUsername: target.username');
+    expect(panel).toContain('useGlobalChatStore.getState().clearTarget();');
+    expect(panel).toContain('accessibilityRole="button"');
+  });
+
   it('uses the same bottom-follow behavior for public, direct and group conversations', () => {
     expect(panel).toContain('loadMusicAgoraGroupMessages(activeGroup.id, undefined, PAGE_SIZE)');
     expect(panel).toContain('loadMusicAgoraMessages(roomSlug, undefined, PAGE_SIZE)');
