@@ -217,13 +217,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);
-  const [ownerMusicInfoExpanded, setOwnerMusicInfoExpanded] = useState(false);
-  const [ownerPrivateChatExpanded, setOwnerPrivateChatExpanded] = useState(false);
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
       setOwnerDnaExpanded(false);
-      setOwnerMusicInfoExpanded(false);
-      setOwnerPrivateChatExpanded(false);
     });
     return () => unsubscribe?.();
   }, [navigation]);
