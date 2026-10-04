@@ -812,10 +812,10 @@ export default function HomeScreenCompact({ navigation }: any) {
         {current ? (
           <SwipeDeck
             resetKey={current.id}
-            enabled={Boolean(pending && !keepBusy)}
-            onSwipeLeft={() => { if (current && pending) passTrack(current.id); }}
-            onSwipeRight={openKeepChooser}
-            onSwipeUp={() => { if (current && pending) passTrack(current.id); }}
+            enabled={Boolean(!keepBusy && (pending || canGoOlder))}
+            onSwipeLeft={pending ? () => { if (current) passTrack(current.id); } : undefined}
+            onSwipeRight={pending ? openKeepChooser : undefined}
+            onSwipeUp={canGoOlder ? goOlder : undefined}
             leftLabel="PASSER"
             rightLabel="GARDER"
             upLabel="SUIVANT"
