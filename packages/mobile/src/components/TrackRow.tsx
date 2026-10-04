@@ -6,7 +6,7 @@ import { KeepVisibility, SessionTrackEntry } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import TrackListenControls from './TrackListenControls';
-import { KeepDecisionModal, KeepSuccessModal } from './KeepDecisionModal';
+import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import { getCommercialRules } from '../services/growthAccessService';
 
 const IMPORT_SOURCE_LABEL: Record<string, string> = {
@@ -113,23 +113,23 @@ export default function TrackRow({ entry, onKeep, onPass, onRestore, onVisibilit
         )}
       </View>
 
-      <KeepDecisionModal
+      <KeepVisibilityChoiceModal
         visible={keepPromptOpen}
-        trackTitle={track.title}
-        trackArtist={track.artist}
+        title="Garder ce morceau"
+        trackLabel={`${track.title} · ${track.artist}`}
         costFree={keepCost}
         busy={keepSubmitting}
         playlists={destinationOptions}
         selectedPlaylistId={selectedPlaylistId}
         onSelectPlaylist={setSelectedPlaylistId}
-        onChoose={confirmIndividualKeep}
+        onPublic={() => { void confirmIndividualKeep('PUBLIC'); }}
+        onPrivate={() => { void confirmIndividualKeep('PRIVATE'); }}
         onCancel={() => setKeepPromptOpen(false)}
       />
 
       <KeepSuccessModal
         visible={keepSuccessOpen}
-        trackTitle={track.title}
-        trackArtist={track.artist}
+        trackLabel={`${track.title} · ${track.artist}`}
         costFree={keepCost}
         visibility={keepSuccessVisibility}
         onContinue={() => setKeepSuccessOpen(false)}
