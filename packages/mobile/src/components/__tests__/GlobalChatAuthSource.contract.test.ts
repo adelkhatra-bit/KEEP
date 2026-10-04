@@ -29,7 +29,7 @@ describe('Global chat uses the real Supabase session', () => {
   });
 
   it('uses the same real profile id for notifications and the messenger panel', () => {
-    expect(source).toContain('loadNotifications(effectiveProfileId)');
+    expect(source).toContain("loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true })");
     expect(source).toContain('subscribeToNotifications(effectiveProfileId');
     expect(source).toContain("currentProfileId={effectiveProfileId || user?.id || ''}");
   });

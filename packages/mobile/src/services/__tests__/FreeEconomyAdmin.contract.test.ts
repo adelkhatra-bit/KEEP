@@ -13,7 +13,7 @@ describe('[ECONOMIE-FREE-ADMIN] clés canoniques et grandfathering', () => {
   it('le Super Admin pilote la limite écoute quotidienne et affiche la règle réelle', () => {
     expect(admin).toContain("| 'listens_per_day'");
     expect(admin).toContain("Écoutes reconnues (chaque jour)");
-    expect(admin).toContain("puis 1 FREE par reconnaissance réussie");
+    expect(admin).toContain("une reconnaissance réussie coûte 1 FREE");
     expect(admin).not.toContain("L’écoute reste gratuite.");
   });
 
