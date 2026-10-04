@@ -12,6 +12,11 @@ const PRODUCT_PLAN_MAP: Record<string, string> = {
   "com.adelkhatra.keep.creatorpro.monthly": "CREATOR_PRO",
   "com.adelkhatra.keep.venuepro.monthly": "VENUE_PRO",
 };
+const FREE_PRODUCT_IDS = new Set([
+  "com.adelkhatra.keep.free.30",
+  "com.adelkhatra.keep.free.100",
+  "com.adelkhatra.keep.free.300",
+]);
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -152,6 +157,69 @@ async function verifyGoogleSubscription(
   };
 }
 
+async function verifyGoogleOneTimeProduct(
+  uid: string,
+  purchaseToken: string,
+  requestedProductId: string,
+  packageName: string,
+) {
+  if (!purchaseToken || packageName !== BUNDLE_ID) return { ok: false as const, status: 403, error: "package_mismatch" };
+  if (!FREE_PRODUCT_IDS.has(requestedProductId)) return { ok: false as const, status: 400, error: "unknown_product" };
+  const accessToken = await googleAccessToken();
+  if (!accessToken) return { ok: false as const, status: 503, error: "google_play_not_configured" };
+
+  const url =
+    "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" +
+    encodeURIComponent(BUNDLE_ID) +
+    "/purchases/productsv2/tokens/" +
+    encodeURIComponent(purchaseToken);
+  const response = await fetch(url, { headers: { authorization: "Bearer " + accessToken } });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    return { ok: false as const, status: response.status === 404 ? 400 : 502, error: "google_play_product_verify_failed", detail: detail.slice(0, 300) };
+  }
+
+  const payload = await response.json();
+  const accountId = String(payload?.obfuscatedExternalAccountId ?? "").trim();
+  if (!accountId || accountId.toLowerCase() !== uid.toLowerCase()) {
+    return { ok: false as const, status: 403, error: "account_mismatch" };
+  }
+  const state = String(payload?.purchaseStateContext?.purchaseState ?? "");
+  if (state !== "PURCHASED") {
+    return { ok: false as const, status: 409, error: state === "PENDING" ? "purchase_pending" : "purchase_not_active" };
+  }
+  const items = Array.isArray(payload?.productLineItem) ? payload.productLineItem : [];
+  const line = items.find((item: any) => String(item?.productId ?? "") === requestedProductId);
+  if (!line) return { ok: false as const, status: 400, error: "product_mismatch" };
+  const quantity = Math.max(1, Number(line?.productOfferDetails?.quantity ?? 1) || 1);
+
+  return {
+    ok: true as const,
+    productId: requestedProductId,
+    transactionId: purchaseToken,
+    quantity,
+    rawReceipt: payload,
+  };
+}
+
+async function creditFreeRecharge(
+  uid: string,
+  platform: "ios" | "android",
+  productId: string,
+  transactionId: string,
+  rawReceipt: unknown,
+) {
+  const { data, error } = await admin.rpc("service_credit_iap_free_purchase", {
+    p_profile_id: uid,
+    p_platform: platform,
+    p_product_id: productId,
+    p_transaction_id: transactionId,
+    p_raw_receipt: rawReceipt ?? {},
+  });
+  if (error) throw error;
+  return data as any;
+}
+
 async function persistSubscription(input: {
   uid: string;
   planCode: string;
@@ -252,6 +320,14 @@ Deno.serve(async (req) => {
       const packageName = String(body?.packageName ?? BUNDLE_ID).trim();
       if (!purchaseToken || !productId) return json(400, { error: "missing_google_purchase" });
 
+      if (FREE_PRODUCT_IDS.has(productId)) {
+        const verifiedPack = await verifyGoogleOneTimeProduct(uid, purchaseToken, productId, packageName);
+        if (!verifiedPack.ok) return json(verifiedPack.status, { error: verifiedPack.error, detail: verifiedPack.detail });
+        if (verifiedPack.quantity !== 1) return json(400, { error: "unsupported_quantity" });
+        const credited = await creditFreeRecharge(uid, "android", productId, verifiedPack.transactionId, verifiedPack.rawReceipt);
+        return json(200, { ok: true, kind: "FREE_RECHARGE", ...credited });
+      }
+
       const verified = await verifyGoogleSubscription(uid, purchaseToken, productId, packageName);
       if (!verified.ok) return json(verified.status, { error: verified.error, detail: verified.detail });
 
@@ -268,7 +344,7 @@ Deno.serve(async (req) => {
         source: "google_play_billing",
       });
       if (!verified.active) return json(409, { ok: false, error: "subscription_inactive" });
-      return json(200, { ok: true, planCode: persisted.planCode, currentPeriodEnd: persisted.currentPeriodEnd });
+      return json(200, { ok: true, kind: "SUBSCRIPTION", planCode: persisted.planCode, currentPeriodEnd: persisted.currentPeriodEnd });
     }
 
     const jws = String(body?.jws ?? "").trim();
@@ -281,12 +357,21 @@ Deno.serve(async (req) => {
       return json(403, { error: "account_mismatch" });
     }
 
-    const planCode = PRODUCT_PLAN_MAP[String(payload.productId ?? "")];
+    const productId = String(payload.productId ?? "");
+    const transactionId = String(payload.transactionId ?? "");
+    const revoked = Boolean(payload.revocationDate);
+
+    if (FREE_PRODUCT_IDS.has(productId)) {
+      if (!transactionId) return json(400, { error: "missing_transaction_id" });
+      if (revoked) return json(409, { ok: false, error: "purchase_revoked" });
+      const credited = await creditFreeRecharge(uid, "ios", productId, transactionId, payload);
+      return json(200, { ok: true, kind: "FREE_RECHARGE", ...credited });
+    }
+
+    const planCode = PRODUCT_PLAN_MAP[productId];
     if (!planCode) return json(400, { error: "unknown_product" });
 
     const originalTransactionId = String(payload.originalTransactionId ?? payload.transactionId ?? "");
-    const transactionId = String(payload.transactionId ?? "");
-    const revoked = Boolean(payload.revocationDate);
     const expiresAtMs = Number(payload.expiresDate ?? 0);
     const expired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
     const active = !revoked && !expired;
@@ -307,7 +392,7 @@ Deno.serve(async (req) => {
     });
 
     if (!active) return json(409, { ok: false, error: revoked ? "subscription_revoked" : "subscription_expired" });
-    return json(200, { ok: true, planCode: persisted.planCode, currentPeriodEnd: persisted.currentPeriodEnd });
+    return json(200, { ok: true, kind: "SUBSCRIPTION", planCode: persisted.planCode, currentPeriodEnd: persisted.currentPeriodEnd });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return json(500, { error: message });
