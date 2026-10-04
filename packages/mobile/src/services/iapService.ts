@@ -27,17 +27,29 @@ export const IAP_PRODUCT_IDS: Record<string, string> = {
   VENUE_PRO: 'com.adelkhatra.keep.venuepro.monthly',
 };
 
+export const IAP_FREE_PACKS = [
+  { freeAmount: 30, productId: 'com.adelkhatra.keep.free.30', fallbackPrice: '0,99 €' },
+  { freeAmount: 100, productId: 'com.adelkhatra.keep.free.100', fallbackPrice: '2,49 €' },
+  { freeAmount: 300, productId: 'com.adelkhatra.keep.free.300', fallbackPrice: '5,99 €' },
+] as const;
+
 export function iapAvailable(): boolean {
   return (Platform.OS === 'ios' || Platform.OS === 'android') && Boolean(KeepIAP?.isAvailable?.());
 }
 
 export async function loadIapProducts(): Promise<Record<string, KeepIAPProduct>> {
   if (!iapAvailable() || !KeepIAP) return {};
-  const products = await KeepIAP.getProducts(Object.values(IAP_PRODUCT_IDS));
+  const products = await KeepIAP.getProducts([
+    ...Object.values(IAP_PRODUCT_IDS),
+    ...IAP_FREE_PACKS.map((pack) => pack.productId),
+  ]);
   return Object.fromEntries(products.map((product) => [product.id, product]));
 }
 
 export type PurchasePlanResult = { ok: true; planCode: string } | { ok: false; reason: string };
+export type PurchaseFreePackResult =
+  | { ok: true; freeAmount: number; balance: number; alreadyGranted: boolean }
+  | { ok: false; reason: string };
 
 /**
  * Achète réellement une formule via StoreKit, puis fait vérifier la
@@ -73,6 +85,50 @@ export async function purchasePlan(planCode: string): Promise<PurchasePlanResult
     await KeepIAP.finish(transaction.transactionId).catch(() => {});
   }
   return { ok: true, planCode: verified.planCode };
+}
+
+export async function purchaseFreePack(freeAmount: number): Promise<PurchaseFreePackResult> {
+  if (!iapAvailable() || !KeepIAP) return { ok: false, reason: 'IAP_UNAVAILABLE' };
+  const pack = IAP_FREE_PACKS.find((entry) => entry.freeAmount === freeAmount);
+  if (!pack) return { ok: false, reason: 'UNKNOWN_FREE_PACK' };
+  const uid = useUserStore.getState().user?.id;
+  if (!uid) return { ok: false, reason: 'AUTH_REQUIRED' };
+
+  let transaction;
+  try {
+    transaction = await KeepIAP.purchase(pack.productId, uid);
+  } catch (e: any) {
+    return { ok: false, reason: String(e?.message || e || 'PURCHASE_FAILED') };
+  }
+  if (transaction.status === 'CANCELLED') return { ok: false, reason: 'CANCELLED' };
+  if (transaction.status === 'PENDING') return { ok: false, reason: 'PENDING' };
+  if (transaction.status === 'UNVERIFIED') return { ok: false, reason: 'UNVERIFIED' };
+
+  const verification = Platform.OS === 'android'
+    ? { platform: 'android' as const, purchaseToken: transaction.purchaseToken, productId: transaction.productId, packageName: transaction.packageName }
+    : { platform: 'ios' as const, jws: transaction.jwsRepresentation };
+  if (verification.platform === 'ios' && !verification.jws) return { ok: false, reason: 'NO_TRANSACTION_SIGNATURE' };
+  if (verification.platform === 'android' && (!verification.purchaseToken || verification.productId !== pack.productId)) {
+    return { ok: false, reason: 'NO_PURCHASE_TOKEN' };
+  }
+
+  if (!supabase) return { ok: false, reason: 'SUPABASE_UNAVAILABLE' };
+  const body = verification.platform === 'android'
+    ? { platform: 'android', purchaseToken: verification.purchaseToken, productId: verification.productId, packageName: verification.packageName }
+    : { platform: 'ios', jws: verification.jws };
+  const { data, error } = await supabase.functions.invoke('keep-iap-verify', { body });
+  if (error) return { ok: false, reason: String(error.message || 'VERIFY_FAILED') };
+  if (!data?.ok || data?.kind !== 'FREE_RECHARGE') return { ok: false, reason: String(data?.error || 'VERIFY_REJECTED') };
+
+  if (transaction.transactionId) {
+    await KeepIAP.finish(transaction.transactionId).catch(() => {});
+  }
+  return {
+    ok: true,
+    freeAmount: Number(data.freeAmount ?? pack.freeAmount),
+    balance: Math.max(0, Number(data.balance ?? 0)),
+    alreadyGranted: Boolean(data.alreadyGranted),
+  };
 }
 
 async function verifyAndActivate(verification: { platform: 'ios'; jws?: string } | { platform: 'android'; purchaseToken?: string; productId?: string; packageName?: string }): Promise<PurchasePlanResult> {
