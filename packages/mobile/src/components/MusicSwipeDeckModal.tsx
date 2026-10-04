@@ -51,6 +51,9 @@ type Props = {
   onClose: () => void;
   onKeep?: (track: CanonicalTrack, visibility: KeepVisibilityChoice) => boolean | void | Promise<boolean | void>;
   onPass?: (track: CanonicalTrack) => boolean | void | Promise<boolean | void>;
+  /** Pour les flux de découverte non destructifs (ex. Loki Pulse) : affiche le
+   * morceau suivant immédiatement et persiste PASSER en arrière-plan. */
+  optimisticPass?: boolean;
   onOpenSourceProfile?: (username: string) => void;
 };
 
@@ -75,6 +78,7 @@ export default function MusicSwipeDeckModal({
   onClose,
   onKeep,
   onPass,
+  optimisticPass = false,
   onOpenSourceProfile,
 }: Props) {
   const [round, setRound] = useState(0);
@@ -505,13 +509,32 @@ export default function MusicSwipeDeckModal({
 
   const pass = async () => {
     if (!current || processing) return;
+    const passedTrack = current;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAlreadyKeepInfoOpen(false);
+
+    // Loki Pulse : PASSER ne supprime pas une donnée critique. Sur mobile,
+    // attendre le réseau avant de changer de carte donnait l'impression que
+    // le bouton ne répondait pas. On coupe l'ancien son et avance d'abord,
+    // puis on persiste le masquage en arrière-plan.
+    if (optimisticPass) {
+      actionInFlight.current = true;
+      setProcessing(true);
+      try {
+        await advance();
+        void Promise.resolve(onPass?.(passedTrack)).catch(() => {});
+      } finally {
+        actionInFlight.current = false;
+        setProcessing(false);
+      }
+      return;
+    }
+
     actionInFlight.current = true;
     setProcessing(true);
     try {
-      const result = await onPass?.(current);
+      const result = await onPass?.(passedTrack);
       if (result !== false) await advance();
     } finally {
       actionInFlight.current = false;
