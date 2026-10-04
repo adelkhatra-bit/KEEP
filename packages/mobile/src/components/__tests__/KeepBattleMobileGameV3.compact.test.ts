@@ -13,6 +13,7 @@ describe('Loki Music Battle — compact current UX', () => {
   const exitGuard = read(__dirname, '..', '..', 'services', 'gameExitGuard.ts');
   const gameSessionStore = read(__dirname, '..', '..', 'store', 'useGameSessionStore.ts');
   const battleInfo = read(__dirname, '..', '..', 'services', 'battleHomeInfo.ts');
+  const activeBattleResume = read(__dirname, '..', 'ActiveBattleResumeLifecycle.tsx');
 
   it('keeps Solo and online mode as compact action buttons while information stays outside', () => {
     expect(source).toContain('<Text style={s.modeIconText}>◎</Text><Text style={s.modeTitle}>SOLO</Text>');
@@ -141,6 +142,14 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(gameSessionStore).toContain("mode === 'EN_LIGNE' ? activeArenaId : undefined");
     expect(exitGuard).toContain("'Battle en cours'");
     expect(exitGuard).toContain("'RETOURNER AU BATTLE'");
+  });
+
+  it('never lets a WAITING online lobby hijack Solo while still resuming a real ACTIVE match', () => {
+    expect(parties).toContain("active.status !== 'ACTIVE'");
+    expect(activeBattleResume).toContain("active.status !== 'ACTIVE'");
+    expect(parties).toContain("setGameInProgress(\n        true,\n        'EN_LIGNE'");
+    expect(source).toContain("setGameInProgress(true, 'SOLO'");
+    expect(source).toContain("setArena(null); setBrowseOnline(false); setSolo(pack)");
   });
 
   it('rotates independent Solo result voice lines instead of one fixed sentence', () => {
