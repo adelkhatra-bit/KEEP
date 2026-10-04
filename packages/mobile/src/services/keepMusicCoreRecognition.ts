@@ -15,6 +15,9 @@ const FALLBACK_RECHECK_MS = 30 * 1000;
 const FALLBACK_QUOTA_RECHECK_MS = 6 * 60 * 60 * 1000;
 const PRIMARY_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
+// Économie FREE 04/10/2026 : les fast-paths gratuits restent réactifs, mais
+// aucun fournisseur payant ne doit recevoir plus d'un extrait toutes les 20 s.
+const PAID_PROVIDER_MIN_GAP_MS = 20 * 1000;
 // 04/10/2026: AudD renvoie actuellement recognition_not_configured (409) en production.
 // ACRCloud est configuré et devient le moteur serveur prioritaire. AudD reste déployé
 // mais hors du chemin normal tant qu'une clé valide n'est pas explicitement réactivée.
@@ -24,6 +27,23 @@ let fallbackUnavailableUntil = 0;
 let primaryUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
 let fallbackConsensus: RecognitionConsensusState | null = null;
+let lastPaidProviderAttemptAt = 0;
+let nextPaidListenUsesFree = false;
+
+export function authorizeNextPaidListenWithFree(): void {
+  nextPaidListenUsesFree = true;
+}
+
+function consumePaidListenAuthorization(): boolean {
+  const allowed = nextPaidListenUsesFree;
+  nextPaidListenUsesFree = false;
+  return allowed;
+}
+
+function deviceTimeZone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris'; }
+  catch { return 'Europe/Paris'; }
+}
 
 // AJOUT (02/09/2026, demande Adel : "je suis dans la voiture, la musique est
 // longue -- si l'écoute a déjà identifié le morceau, il ne faut pas qu'elle
@@ -328,6 +348,7 @@ async function recognitionAttempt(
   blob: Blob,
   accessToken: string | null,
   deviceId: string,
+  useFree = false,
 ): Promise<RecognitionAttempt> {
   const form = new FormData();
   form.append('audio', blob, `keep-sample.${audioExtension(blob)}`);
@@ -342,6 +363,8 @@ async function recognitionAttempt(
         ...baseHeaders(accessToken),
         'x-keep-device-id': deviceId,
         'x-keep-platform': Platform.OS,
+        'x-keep-timezone': deviceTimeZone(),
+        'x-keep-use-free': useFree ? '1' : '0',
       },
       body: form,
     });
@@ -562,8 +585,10 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
     // désactiver la reconnaissance : le même échantillon part directement
     // vers le fournisseur réellement configuré.
-    if (!fallbackKnownUnavailable()) {
-      const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
+    if (!fallbackKnownUnavailable() && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
+      const useFree = consumePaidListenAuthorization();
+      lastPaidProviderAttemptAt = Date.now();
+      const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
 
       const acrQuotaExhausted = acr.payload?.providerStatus === 3003
         || acr.payload?.providerUnavailable === 'quota_exhausted';
@@ -593,6 +618,15 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         }
       }
 
+      if (acr.status === 402 && acr.payload?.error === 'listen_free_required') {
+        throw new Error('LISTEN_FREE_REQUIRED');
+      }
+      if (acr.status === 402 && acr.payload?.error === 'listen_free_insufficient') {
+        throw new Error('LISTEN_FREE_INSUFFICIENT');
+      }
+      if (acr.status === 402 && acr.payload?.error === 'guest_listen_limit_reached') {
+        throw new Error('GUEST_LISTEN_LIMIT_REACHED');
+      }
       if (acr.status === 429 || acr.payload?.error === 'fallback_rate_limited') {
         recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
       }
@@ -604,15 +638,23 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // AudD reste disponible comme palier secondaire mais n'est plus appelé
     // tant qu'il n'est pas explicitement réactivé avec une clé valide.
     if (AUDD_PRIMARY_ENABLED) {
-      const audd = Date.now() < primaryUnavailableUntil
+      const paidReady = Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS;
+      const audd = Date.now() < primaryUnavailableUntil || !paidReady
         ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
-        : await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
+        : await (async () => {
+            const useFree = consumePaidListenAuthorization();
+            lastPaidProviderAttemptAt = Date.now();
+            return recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId, useFree);
+          })();
       if (audd.ok && audd.payload?.recognition) {
         primaryUnavailableUntil = 0;
         fallbackConsensus = null;
         recognitionBackoffUntil = 0;
         return audd.payload.recognition as RecognitionResult;
       }
+      if (audd.status === 402 && audd.payload?.error === 'listen_free_required') throw new Error('LISTEN_FREE_REQUIRED');
+      if (audd.status === 402 && audd.payload?.error === 'listen_free_insufficient') throw new Error('LISTEN_FREE_INSUFFICIENT');
+      if (audd.status === 402 && audd.payload?.error === 'guest_listen_limit_reached') throw new Error('GUEST_LISTEN_LIMIT_REACHED');
       if (audd.status === 409 || audd.payload?.error === 'recognition_not_configured') {
         primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
       }
