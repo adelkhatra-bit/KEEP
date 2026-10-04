@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
-import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 // Clé stable (sans compteur de tentative) identifiant l'extrait d'une manche
 // solo -- utilisée à la fois par preloadTrackPreviewSegment (pendant la
@@ -1526,7 +1526,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       return undefined;
     }
     const id = setTimeout(() => {
-      void stopTrackPreview();
+      // Transition immédiate : la manche suivante ne doit pas attendre
+      // l'unload natif de la précédente. Le nettoyage continue en arrière-plan.
+      stopTrackPreviewFast();
       setSoloIndex((v) => v + 1);
       setSoloAnswer(null);
       setSoloSelectedAnswer(null);
