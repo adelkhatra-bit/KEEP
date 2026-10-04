@@ -959,6 +959,9 @@ export async function scheduleTrackPreviewSegment(
           if (lateByMs > 0) {
             try { await createdSound.setPositionAsync(syncedPosition); } catch {}
           }
+          retireEveryNativeSoundExcept(createdSound);
+          await awaitNativeHandoffSilence();
+          if (activeSound !== createdSound) return;
           await createdSound.playAsync();
           if (activeSound !== createdSound) return;
           onStateChange?.(true);
@@ -979,6 +982,10 @@ export function stopTrackPreviewFast(key?: string): void {
   if (!matchesCurrent) return;
   playbackRequestEpoch += 1;
 
+  // Nettoie aussi tout lecteur natif orphelin qui aurait perdu activeSound
+  // pendant une course asynchrone. Les deux slots de préchargement restent
+  // silencieux et sont conservés pour garder la fluidité.
+  retireEveryNativeSoundExcept(null);
   clearActiveTimer();
 
   if (!key || webAudioKey === key) {
@@ -1015,6 +1022,7 @@ export async function stopTrackPreview(key?: string): Promise<void> {
   const matchesCurrent = !key || activeKey === key || webAudioKey === key;
   if (!matchesCurrent) return;
   playbackRequestEpoch += 1;
+  retireEveryNativeSoundExcept(null);
   clearActiveTimer();
   if (!key || webAudioKey === key) {
     const listener = webAudioListener;
