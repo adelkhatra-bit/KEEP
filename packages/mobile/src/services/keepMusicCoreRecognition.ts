@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { fetch as expoFetch } from 'expo/fetch';
 import type { CanonicalTrack, MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import type { KeepVisibility } from '../types';
 import { getSupabaseAccessToken, supabase } from './supabaseClient';
@@ -327,7 +328,11 @@ async function recognitionAttempt(
   const form = new FormData();
   form.append('audio', blob, `keep-sample.${audioExtension(blob)}`);
   try {
-    const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
+    // Expo SDK 54 recommande expo/fetch pour les uploads Blob/File natifs.
+    // Le fetch React Native historique a été observé en production avec un
+    // multipart de 255 octets malgré un enregistrement micro valide.
+    const transportFetch: typeof fetch = Platform.OS === 'web' ? fetch : (expoFetch as unknown as typeof fetch);
+    const response = await transportFetch(`${SUPABASE_URL!.replace(/\/$/, '')}/functions/v1/${functionName}`, {
       method: 'POST',
       headers: {
         ...baseHeaders(accessToken),
