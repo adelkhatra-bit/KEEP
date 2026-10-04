@@ -112,19 +112,6 @@ export default function GlobalNotificationBanner() {
   const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
   const isGameInProgress = useGameSessionStore((s) => s.isGameInProgress);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
-
-  useEffect(() => {
-    if (!isGameInProgress) return;
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-    }
-    translateY.stopAnimation();
-    opacity.stopAnimation();
-    translateY.setValue(OFFSCREEN_TOP);
-    opacity.setValue(0);
-    setCurrent(null);
-  }, [isGameInProgress, opacity, translateY]);
   const [respondBusy, setRespondBusy] = useState(false);
   const [battleDecisionReady, setBattleDecisionReady] = useState(false);
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
@@ -141,6 +128,19 @@ export default function GlobalNotificationBanner() {
   const recentSemanticKeys = useRef(new Map<string, number>());
   const notificationPlanRef = useRef<NotificationPlanCode>('FREE');
   const notificationAccessRulesRef = useRef<NotificationAccessRule[]>([]);
+
+  useEffect(() => {
+    if (!isGameInProgress) return;
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    translateY.stopAnimation();
+    opacity.stopAnimation();
+    translateY.setValue(OFFSCREEN_TOP);
+    opacity.setValue(0);
+    setCurrent(null);
+  }, [isGameInProgress, opacity, translateY]);
   // Adel (04/09/2026) : "les notifications viennent du côté, je veux que tu
   // les fasses venir du haut vers le bas comme ça je peux les Swiper pour les
   // remonter vers le haut" -- remplace l'ancienne entrée/sortie latérale
