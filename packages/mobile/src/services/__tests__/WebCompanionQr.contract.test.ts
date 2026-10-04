@@ -17,7 +17,7 @@ describe('Web companion QR contract', () => {
   });
 
   it('uses one shared mobile/web runtime and a native deep link for approval', () => {
-    expect(pairing).toContain("keep://pair?pairing_id=");
+    expect(edge).toContain("keep://pair?pairing_id=");
     expect(pairing).toContain("approveDesktopPairing");
     expect(lifecycle).toContain("Linking.addEventListener('url'");
     expect(app).toContain('<WebPairingLifecycle />');
@@ -33,6 +33,6 @@ describe('Web companion QR contract', () => {
   it('supports remote desktop sign-out from account settings', () => {
     expect(account).toContain('<WebCompanionSessionsPanel />');
     expect(lifecycle).toContain('getWebCompanionSessionStatus');
-    expect(lifecycle).toContain('createAuthService(supabase).signOut()');
+    expect(lifecycle).toContain('createAuthService(client).signOut()');
   });
 });
