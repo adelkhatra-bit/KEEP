@@ -333,6 +333,7 @@ for (const [marker, capability] of [["from('follows')", 'follow persistence'], [
 // human-readable help in the UI; provider setup must keep the admin page open.
 const adminIntegrations = read('packages/admin/pages/integrations.tsx');
 const integrationLinks = read('packages/admin/lib/integrationLinks.ts');
+const providerWindow = read('packages/admin/lib/providerWindow.ts');
 const adminControl = read('supabase/functions/keep-admin-control/index.ts');
 const catalogSource = adminControl.slice(adminControl.indexOf('const CATALOG:'), adminControl.indexOf('};', adminControl.indexOf('const CATALOG:')) + 2);
 const catalogKeys = [...catalogSource.matchAll(/^\s{2}([A-Z0-9_]+):/gm)].map((match) => match[1]);
@@ -347,7 +348,7 @@ for (const marker of [
   'popup=yes',
   'Le Super Admin reste ouvert derrière',
 ]) {
-  if (!integrationLinks.includes(marker) && !adminIntegrations.includes(marker)) {
+  if (!integrationLinks.includes(marker) && !adminIntegrations.includes(marker) && !providerWindow.includes(marker)) {
     failures.push(`SUPER ADMIN PROVIDER UX MARKER MISSING: ${marker}`);
   }
 }
