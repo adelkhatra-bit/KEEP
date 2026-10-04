@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import UsernameAccountForm from './UsernameAccountForm';
+import WebPairingLifecycle from './WebPairingLifecycle';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
@@ -12,7 +13,7 @@ import { radius, spacing } from '../theme/spacing';
 // (App.tsx), ce popup s'ouvre par-dessus n'importe quel écran sans jamais
 // naviguer : l'utilisateur ne quitte donc jamais l'endroit d'où il a
 // déclenché la création/connexion de compte.
-export default function AccountGateModal() {
+function AccountGateModalInner() {
   const visible = useAccountGateStore((s) => s.visible);
   const mode = useAccountGateStore((s) => s.mode);
   const followUsername = useAccountGateStore((s) => s.followUsername);
@@ -53,6 +54,10 @@ export default function AccountGateModal() {
       </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+export default function AccountGateModal() {
+  return <><WebPairingLifecycle /><AccountGateModalInner /></>;
 }
 
 const s = StyleSheet.create({
