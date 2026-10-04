@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/**'
       - 'scripts/**'
+      - 'config/**'
       - 'supabase/**'
       - 'render.yaml'
       - 'CLAUDE.md'
