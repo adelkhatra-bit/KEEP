@@ -19,7 +19,9 @@ export type ReferralStatus = ReferralRules & {
   totalFreeEarned: number;
 };
 
-const FALLBACK: ReferralRules = { freePerSignup: 2, bonus3: 3, bonus5: 5, bonus10: 10, monthlyCap: 40 };
+// Décision canonique 04/10/2026 : +2 FREE par filleul validé, sans anciens paliers, plafond 20/mois.
+// Le serveur reste la source de vérité ; ce fallback ne sert qu'en cas d'indisponibilité du RPC.
+const FALLBACK: ReferralRules = { freePerSignup: 2, bonus3: 0, bonus5: 0, bonus10: 0, monthlyCap: 20 };
 
 function parseRules(raw: any): ReferralRules {
   return {
