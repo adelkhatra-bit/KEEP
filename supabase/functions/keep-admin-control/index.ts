@@ -968,6 +968,44 @@ Deno.serve(async (req) => {
       return json(200, { ok: true, data, username: profile.username });
     }
 
+    if (action === "users.grants") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
+      const identity = String(body?.identity ?? body?.email ?? "").trim();
+      if (!identity) return json(400, { error: "identity_required" });
+      const user = await findAuthUserByIdentity(identity);
+      if (!user) return json(404, { error: "user_not_found" });
+
+      const { data: rows, error } = await admin
+        .from("subscriptions")
+        .select("id,plan_id,status,current_period_start,current_period_end,grant_reason,created_at")
+        .eq("profile_id", user.id)
+        .eq("source", "admin_grant")
+        .in("status", ["ACTIVE", "TRIALING"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const planIds = Array.from(new Set((rows ?? []).map((row: any) => row.plan_id).filter(Boolean)));
+      let plansById = new Map<string, string>();
+      if (planIds.length) {
+        const { data: plans, error: plansError } = await admin.from("plans").select("id,code").in("id", planIds);
+        if (plansError) throw plansError;
+        plansById = new Map((plans ?? []).map((row: any) => [String(row.id), String(row.code)]));
+      }
+
+      return json(200, {
+        ok: true,
+        grants: (rows ?? []).map((row: any) => ({
+          id: row.id,
+          planCode: plansById.get(String(row.plan_id)) ?? "PREMIUM",
+          status: row.status,
+          startsAt: row.current_period_start,
+          endsAt: row.current_period_end,
+          reason: row.grant_reason,
+          createdAt: row.created_at,
+        })),
+      });
+    }
+
     if (action === "users.revoke_grant") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN"]);
       const identity = String(body?.identity ?? body?.email ?? "").trim();
