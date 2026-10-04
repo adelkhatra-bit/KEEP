@@ -9,13 +9,14 @@ describe('Notifications inline actions + seller boutique isolation', () => {
   const boutique = read(__dirname, '..', '..', 'components', 'SellerBoutique.tsx');
   const saleService = read(__dirname, '..', '..', 'services', 'playlistSaleService.ts');
 
-  it('keeps generic social/profile notifications inside Notifications until the user explicitly opens the profile', () => {
-    expect(notifications).toContain("if (profileUsername || notificationProfileId(item)) return 'OUVRIR ICI';");
+  it('keeps generic social/profile notifications actionable inline in one tap', () => {
+    expect(notifications).toContain("if (profileUsername || notificationProfileId(item)) return null;");
     expect(notifications).toContain('setGenericDetailProfileUsername(profileUsername);');
     expect(notifications).toContain('setGenericDetailItem(item);');
     expect(notifications).toContain('VOIR LE PROFIL · @{genericDetailProfileUsername}');
     expect(notifications).toContain("'+ SUIVRE'");
     expect(notifications).toContain('Actions avec @{profileUsername} ›');
+    expect(notifications).toContain('VOIR LE PROFIL · @{profileUsername}');
   });
 
   it('never substitutes another seller recommendation for the visited profile boutique', () => {
