@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -90,6 +90,21 @@ const CHAT_SURFACE_OPTIONS: { key: MusicAgoraSurface; label: string }[] = [
   { key: 'NOTIFICATIONS', label: 'Notifications' },
 ];
 
+function giftedPlanBenefits(item: KeepNotification): string[] {
+  const raw = item.data?.benefits;
+  if (Array.isArray(raw)) {
+    const values = raw.map((value) => String(value || '').trim()).filter(Boolean);
+    if (values.length) return values;
+  }
+  const monthlyFree = Number(item.data?.monthly_free ?? 0);
+  const dailySolos = Number(item.data?.daily_solos ?? 0);
+  const values: string[] = [];
+  if (monthlyFree > 0) values.push(`${monthlyFree} Free offerts chaque mois`);
+  if (dailySolos > 0) values.push(`${dailySolos} Solos par jour`);
+  if (item.data?.paid_battle_access) values.push('Battle sans débit de Free');
+  return values;
+}
+
 function notificationTypeLabel(type: string) {
   const key = type.trim().toUpperCase();
   if (key === 'PROFILE_VIEW') return 'VISITE DE PROFIL';
@@ -176,6 +191,22 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const marketingLocked = planCode === 'FREE';
   const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
   const [pushPermission, setPushPermission] = useState<PushPermissionState>('unavailable');
+  const giftPulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const hasUnreadGift = items.some((item) => item.type === 'PLAN_GIFTED' && !item.readAt);
+    if (!hasUnreadGift) {
+      giftPulse.setValue(0);
+      return;
+    }
+    const animation = Animated.sequence([
+      Animated.timing(giftPulse, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(giftPulse, { toValue: 0, duration: 420, useNativeDriver: true }),
+      Animated.timing(giftPulse, { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.timing(giftPulse, { toValue: 0, duration: 420, useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [giftPulse, items]);
   useEffect(() => {
     if (!user) return;
     let live = true;
@@ -1080,8 +1111,22 @@ export default function NotificationsScreen({ navigation, route }: any) {
               : payoutQrUrl
                 ? 'QR PayPal partagé · ouvre le paiement ou le Tchat pour l’utiliser.'
                 : item.body;
+            const gifted = item.type === 'PLAN_GIFTED';
+            const giftBenefits = gifted ? giftedPlanBenefits(item) : [];
             return (
-            <View key={item.id} style={[styles.card, !item.readAt && styles.cardUnread]}>
+            <Animated.View
+              key={item.id}
+              style={[
+                styles.card,
+                !item.readAt && styles.cardUnread,
+                gifted && styles.cardGifted,
+                gifted && {
+                  transform: [{
+                    scale: giftPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.018] }),
+                  }],
+                },
+              ]}
+            >
               <TouchableOpacity
                 style={styles.cardMain}
                 onPress={() => { void openNotification(item); }}
@@ -1103,6 +1148,13 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <Text style={styles.cardBody} numberOfLines={3}>{notificationBody}</Text>
                   </View>
                 </View>
+                {gifted ? (
+                  <View style={styles.giftBox}>
+                    <Text style={styles.giftEyebrow}>🎁 OFFRE ACTIVÉE</Text>
+                    {giftBenefits.map((benefit) => <Text key={benefit} style={styles.giftBenefit}>✓ {benefit}</Text>)}
+                    <Text style={styles.giftHint}>Appuie ici pour voir le détail complet de ton offre.</Text>
+                  </View>
+                ) : null}
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
                 {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
@@ -1247,7 +1299,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   <Text style={styles.deleteOneText}>{deletingId === item.id ? 'Suppression…' : 'Supprimer'}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Animated.View>
             );
           })}
           {error && items.length > 0 && <Text style={styles.error}>{error}</Text>}
@@ -1502,6 +1554,11 @@ const styles = StyleSheet.create({
   preferenceItemHint: { color: colors.white, fontSize: 11, lineHeight: 15, marginTop: 3 },
   card: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: 16, marginBottom: spacing.sm, overflow: 'hidden' },
   cardUnread: { borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,0.14)' },
+  cardGifted: { borderColor: '#D6B36A', backgroundColor: 'rgba(214,179,106,.10)' },
+  giftBox: { marginTop: 10, borderRadius: 13, borderWidth: 1, borderColor: '#D6B36A', backgroundColor: 'rgba(214,179,106,.08)', paddingHorizontal: 11, paddingVertical: 10 },
+  giftEyebrow: { color: '#FFF4D0', fontSize: 10, fontWeight: '900', letterSpacing: .8, marginBottom: 6 },
+  giftBenefit: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '700' },
+  giftHint: { color: '#F1E7C7', fontSize: 10, lineHeight: 15, marginTop: 6 },
   cardMain: { padding: spacing.md, paddingBottom: spacing.sm },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardType: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
