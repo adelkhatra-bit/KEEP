@@ -618,12 +618,14 @@ export default function HomeScreenCompact({ navigation }: any) {
             >
               <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
             </TouchableOpacity>
-            {homeAboutOpen ? (
-              <View style={s.idleLearnMorePanel}>
-                <Text style={s.idleLearnMoreBody}>{screenCopy.emptyTitle ?? t('session.emptyTitle')} {homeSubtitleMore}</Text>
-                <Text style={s.idleLearnMoreBody}>Le micro est utilisé uniquement pendant l’écoute.</Text>
-              </View>
-            ) : null}
+            <View style={s.idleLearnMoreSlot}>
+              {homeAboutOpen ? (
+                <View style={s.idleLearnMorePanel}>
+                  <Text style={s.idleLearnMoreBody}>{screenCopy.emptyTitle ?? t('session.emptyTitle')} {homeSubtitleMore}</Text>
+                  <Text style={s.idleLearnMoreBody}>Le micro est utilisé uniquement pendant l’écoute.</Text>
+                </View>
+              ) : null}
+            </View>
             {error ? <Text style={s.error}>{error}</Text> : null}
             {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
             {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
@@ -1172,7 +1174,7 @@ const s = StyleSheet.create({
   orbLetterCompact: { fontSize: 38 },
   idleWave: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   idleWaveBar: { width: 4, borderRadius: 3, backgroundColor: C.purpleLight, opacity: 0.55 },
-  idleCta: { marginTop: 22, alignItems: 'center' },
+  idleCta: { marginTop: 8, alignItems: 'center' },
   loki3dWrap: { position: 'relative', minHeight: 38, minWidth: 220, alignItems: 'center', justifyContent: 'center', marginTop: -2, marginBottom: 5 },
   loki3dDepth: { position: 'absolute', color: 'rgba(45,225,194,0.28)', fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, transform: [{ translateX: 2 }, { translateY: 3 }] },
   loki3dFace: { color: C.text, fontSize: 26, lineHeight: 34, fontWeight: '900', letterSpacing: 4.2, textShadowColor: 'rgba(124,92,252,0.72)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 10 },
@@ -1180,16 +1182,16 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:10,marginBottom:-18},
-  homePulseRail:{paddingHorizontal:2,paddingVertical:4,gap:10},
-  homePulseCard:{width:78,alignItems:'center'},
-  homePulseArtworkRing:{position:'relative',width:68,height:68,borderRadius:34,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
-  homePulseArtwork:{width:'100%',height:'100%',borderRadius:30},
+  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:8,marginBottom:-30},
+  homePulseRail:{paddingHorizontal:2,paddingTop:4,paddingBottom:0,gap:12},
+  homePulseCard:{width:84,alignItems:'center'},
+  homePulseArtworkRing:{position:'relative',width:74,height:74,borderRadius:37,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
+  homePulseArtwork:{width:'100%',height:'100%',borderRadius:33},
   homePulseFallbackWrap:{backgroundColor:C.card,alignItems:'center',justifyContent:'center'},
   homePulseFallback:{color:C.purpleLight,fontSize:20,fontWeight:'900'},
   homePulseNewDot:{position:'absolute',right:-5,bottom:-2,minWidth:25,height:16,borderRadius:8,paddingHorizontal:4,backgroundColor:C.green,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:C.bg},
   homePulseNewText:{color:C.bg,fontSize:11,fontWeight:'900',letterSpacing:.4},
-  homePulseTrackTitle:{width:'100%',color:C.text,fontSize:11,fontWeight:'800',textAlign:'center',marginTop:5},
+  homePulseTrackTitle:{width:'100%',color:C.text,fontSize:11.5,fontWeight:'900',textAlign:'center',marginTop:5},
   livePanel: { marginBottom: 8 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
@@ -1229,11 +1231,12 @@ const s = StyleSheet.create({
   premiumText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
   idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
-  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
+  idleSubtitle: { color: C.text, fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
   idleLearnMore: { minHeight: minTouchTarget, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
-  idleLearnMoreText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
+  idleLearnMoreText: { color: C.purpleLight, fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' },
+  idleLearnMoreSlot: { width: '100%', minHeight: 78, alignItems: 'center', justifyContent: 'flex-start' },
   idleLearnMorePanel: { width: '100%', maxWidth: 340, marginTop: 2, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
-  idleLearnMoreBody: { color: C.mutedGrey, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  idleLearnMoreBody: { color: C.text, fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center' },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
   demoRow:{marginTop:14,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
