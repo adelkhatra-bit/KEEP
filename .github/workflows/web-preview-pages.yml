@@ -5,22 +5,9 @@ on:
   push:
     branches: ['reconcile/claude-main-20260825']
     paths:
-      # Public Pages deploys only when the public web artifact can change.
-      # Backend/database-only commits must not consume a Pages deployment.
-      - 'packages/mobile/**'
-      - '!packages/mobile/**/__tests__/**'
-      - '!packages/mobile/**/*.test.ts'
-      - '!packages/mobile/**/*.test.tsx'
-      - '!packages/mobile/**/*.spec.ts'
-      - '!packages/mobile/**/*.spec.tsx'
-      - 'packages/music/**'
-      - 'packages/admin/**'
-      - 'scripts/verify-source-of-truth.cjs'
-      - 'scripts/resolve-ci-impact.cjs'
-      - 'scripts/resolve-web-deploy-scope.cjs'
-      - 'scripts/verify-source-of-truth.cjs'
-      - 'package.json'
-      - 'package-lock.json'
+      # RELEASE UNIQUE : le web public part uniquement du même commit que le
+      # build TestFlight, matérialisé par .eas-build-trigger.
+      - 'packages/mobile/.eas-build-trigger'
       - '.github/workflows/web-preview-pages.yml'
   workflow_dispatch:
 
@@ -72,28 +59,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Ignore stale queued deploys
+      - name: Lock release SHA to TestFlight trigger
         id: fresh
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin "$KEEP_PROJECT_BRANCH" --depth=200
-          latest="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- \
-            packages/mobile packages/music packages/admin \
-            scripts/verify-source-of-truth.cjs scripts/resolve-ci-impact.cjs scripts/resolve-web-deploy-scope.cjs \
-            package.json package-lock.json .github/workflows/web-preview-pages.yml \
-            ':(exclude)packages/mobile/**/__tests__/**' \
-            ':(exclude)packages/mobile/**/*.test.ts' \
-            ':(exclude)packages/mobile/**/*.test.tsx' \
-            ':(exclude)packages/mobile/**/*.spec.ts' \
-            ':(exclude)packages/mobile/**/*.spec.tsx')"
-          test -n "$latest"
-          if [ "$GITHUB_SHA" = "$latest" ]; then
+          release_sha="$(git log -1 --format=%H "origin/$KEEP_PROJECT_BRANCH" -- packages/mobile/.eas-build-trigger)"
+          test -n "$release_sha"
+          if [ "$GITHUB_SHA" = "$release_sha" ]; then
             echo "build=yes" >> "$GITHUB_OUTPUT"
-            echo "Fresh web-impact deploy candidate: $GITHUB_SHA"
+            echo "Unified release SHA confirmed: $GITHUB_SHA"
           else
             echo "build=no" >> "$GITHUB_OUTPUT"
-            echo "Stale web-impact deploy skipped: $GITHUB_SHA (latest web-impact SHA: $latest)"
+            echo "Not a release commit: $GITHUB_SHA (current TestFlight release SHA: $release_sha)"
           fi
 
       - name: Configure GitHub Pages
