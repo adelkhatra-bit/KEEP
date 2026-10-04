@@ -78,6 +78,7 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
           rate: options.rate ?? 0.94,
           pitch: options.pitch ?? 1,
           volume: 1,
+          useApplicationAudioSession: true,
           onDone: finish,
           onStopped: finish,
           onError: finish,
