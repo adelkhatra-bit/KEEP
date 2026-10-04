@@ -831,6 +831,39 @@ export async function scheduleTrackPreviewSegment(
   });
 }
 
+export function stopTrackPreviewFast(key?: string): void {
+  const matchesCurrent = !key || activeKey === key || webAudioKey === key;
+  if (!matchesCurrent) return;
+
+  clearActiveTimer();
+
+  if (!key || webAudioKey === key) {
+    const listener = webAudioListener;
+    webAudioListener = null;
+    webAudioKey = null;
+    try { webAudio?.pause(); } catch {}
+    listener?.(false);
+  }
+
+  if (!key || activeKey === key) {
+    const sound = activeSound;
+    const listener = activeStateListener;
+    activeSound = null;
+    activeKey = null;
+    activeStateListener = null;
+    listener?.(false);
+
+    if (sound) {
+      // Interaction mobile : la coupure est immédiate. Le nettoyage natif
+      // continue en arrière-plan afin que le prochain extrait ne reste pas
+      // bloqué derrière stop/unload dans la file sérialisée.
+      void sound.stopAsync()
+        .catch(() => {})
+        .then(() => sound.unloadAsync().catch(() => {}));
+    }
+  }
+}
+
 export async function stopTrackPreview(key?: string): Promise<void> {
   // La coupure doit être perceptible dès le geste de swipe. Si une lecture est
   // encore en train d'attendre `canplay`, attendre son tour dans `serialize`
