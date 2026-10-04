@@ -36,6 +36,10 @@ Toute nouvelle erreur réelle doit être ajoutée à `docs/ERROR_LEDGER.md` avan
 
 La mémoire `.context/` transmet l'état de travail entre agents ; elle ne remplace ni le code, ni le schéma Supabase réel, ni les règles de `CLAUDE.md` et `AGENTS.md`.
 
+## Parité Mobile / Ordinateur — une seule implémentation
+
+Le mobile iOS/Android et la version ordinateur Expo Web ne sont jamais deux produits à coder séparément. Toute logique produit commune (Écouter, Découvertes, Playlists, Soirées/Battle, Profil, Tchat, paiements, notifications) doit vivre une seule fois dans `packages/mobile/src` et être utilisée par les deux runtimes. Les différences de plateforme sont limitées aux adaptateurs techniques (micro, audio, navigateur, permissions, routage), jamais à une copie complète d'écran ou de feature. Toute modification fonctionnelle dans `packages/mobile/**` doit être validée dans le même cycle sur 390×844 ET 1440×900 via `.github/workflows/keep-dual-viewport-guardian.yml`. Le contrat machine est `config/platform-parity-contract.json` et `scripts/verify-source-of-truth.cjs` bloque les racines produit Web/Desktop parallèles.
+
 ## Une seule version, un seul dossier
 
 Ce dépôt (`C:\Users\97156\keep`) est la SEULE copie de travail. Il n'y a pas de
