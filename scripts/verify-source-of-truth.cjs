@@ -329,6 +329,29 @@ for (const [marker, capability] of [["from('follows')", 'follow persistence'], [
   if (!viewedProfile.includes(marker)) failures.push(`FOLLOW CAPABILITY MISSING: ${capability}`);
 }
 
+// Super Admin integration UX contract: every backend integration must have
+// human-readable help in the UI; provider setup must keep the admin page open.
+const adminIntegrations = read('packages/admin/pages/integrations.tsx');
+const integrationLinks = read('packages/admin/lib/integrationLinks.ts');
+const adminControl = read('supabase/functions/keep-admin-control/index.ts');
+const catalogSource = adminControl.slice(adminControl.indexOf('const CATALOG:'), adminControl.indexOf('};', adminControl.indexOf('const CATALOG:')) + 2);
+const catalogKeys = [...catalogSource.matchAll(/^\s{2}([A-Z0-9_]+):/gm)].map((match) => match[1]);
+for (const key of catalogKeys) {
+  if (!integrationLinks.includes(`  ${key}: {`)) failures.push(`SUPER ADMIN INTEGRATION HELP MISSING: ${key}`);
+}
+for (const marker of [
+  "PIPEDREAM_PROJECT_ID: { label: 'Pipedream — Projects', url: 'https://pipedream.com/projects'",
+  "PIPEDREAM_ENVIRONMENT: { label: 'Pipedream — Environment Variables', url: 'https://pipedream.com/settings/env-vars'",
+  "fixedValue: 'production'",
+  'openProviderWindow',
+  'popup=yes',
+  'Le Super Admin reste ouvert derrière',
+]) {
+  if (!integrationLinks.includes(marker) && !adminIntegrations.includes(marker)) {
+    failures.push(`SUPER ADMIN PROVIDER UX MARKER MISSING: ${marker}`);
+  }
+}
+
 const recognition = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepMusicCoreRecognition.ts'), 'utf8');
 for (const marker of ['keep-music-core', 'keep-music-fallback', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY', 'AUDD_PRIMARY_ENABLED = false']) {
   if (!recognition.includes(marker)) failures.push(`SECURE RECOGNITION MARKER MISSING: ${marker}`);
