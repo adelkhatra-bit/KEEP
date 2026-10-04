@@ -109,6 +109,28 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  const [homeAboutOpen, setHomeAboutOpen] = useState(false);
+  const homeAboutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (homeAboutTimer.current) clearTimeout(homeAboutTimer.current);
+  }, []);
+
+  const toggleHomeAbout = () => {
+    if (homeAboutTimer.current) {
+      clearTimeout(homeAboutTimer.current);
+      homeAboutTimer.current = null;
+    }
+    if (homeAboutOpen) {
+      setHomeAboutOpen(false);
+      return;
+    }
+    setHomeAboutOpen(true);
+    homeAboutTimer.current = setTimeout(() => {
+      homeAboutTimer.current = null;
+      setHomeAboutOpen(false);
+    }, 8000);
+  };
   const [listenInfoOpen, setListenInfoOpen] = useState(false);
   const listenInfoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [recognitionInfoOpen, setRecognitionInfoOpen] = useState(false);
@@ -613,6 +635,22 @@ export default function HomeScreenCompact({ navigation }: any) {
             <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
+            <TouchableOpacity
+              style={s.idleLearnMore}
+              onPress={toggleHomeAbout}
+              accessibilityRole="button"
+              accessibilityLabel="En savoir plus sur Loki Music"
+              accessibilityState={{ expanded: homeAboutOpen }}
+            >
+              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+            </TouchableOpacity>
+            {homeAboutOpen ? (
+              <View style={s.idleLearnMorePanel}>
+                <Text style={s.idleLearnMoreBody}>
+                  Loki Music écoute uniquement pendant ta session, identifie les morceaux autour de toi, puis te laisse choisir librement PASSER ou GARDER. GARDER construit progressivement ta bibliothèque, ton profil musical et ton Loki DNA.
+                </Text>
+              </View>
+            ) : null}
             <TouchableOpacity
               style={s.listenInfoLink}
               onPress={toggleListenInfo}
@@ -1257,6 +1295,10 @@ const s = StyleSheet.create({
   idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
   idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10 },
+  idleLearnMore: { minHeight: 32, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  idleLearnMoreText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
+  idleLearnMorePanel: { width: '100%', maxWidth: 340, marginTop: 2, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
+  idleLearnMoreBody: { color: C.mutedGrey, fontSize: 11, lineHeight: 16, textAlign: 'center' },
   listenInfoLink: { minHeight: 32, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   listenInfoLinkText: { color: C.purpleLight, fontSize: 11, fontWeight: '800', textDecorationLine: 'underline' },
   listenInfoCard: { width: '100%', maxWidth: 340, marginTop: 3, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,92,252,.34)', backgroundColor: 'rgba(21,16,32,.82)' },
