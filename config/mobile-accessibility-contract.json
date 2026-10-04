@@ -13,5 +13,20 @@
     "minimumUsefulText": 11,
     "dynamicTypeTargetPercent": 200,
     "rule": "Primary mobile reading text should target 17pt. Useful text must not be introduced below 11pt. Layouts must remain usable with larger text."
+  },
+  "interactionLoop": {
+    "firstTapDirectAction": true,
+    "secondTapSensitiveConfirmationOnly": true,
+    "collapsibleHelpByDefault": true,
+    "optionalGesturesOnly": true,
+    "everyControlNeedsRealHandler": true,
+    "immediateVisualFeedback": true,
+    "rule": "Every interactive control must close the loop: intention -> action -> feedback -> result or return. One tap opens or executes the intended function; a second tap is reserved for sensitive confirmation. Help text is collapsed by default and gestures accelerate actions but are never mandatory."
+  },
+  "darkThemeReadability": {
+    "functionalText": "textPrimary",
+    "forbidMutedFunctionalText": true,
+    "normalTextContrastRatio": 4.5,
+    "rule": "On dark backgrounds, functional text must use white or very light theme tokens. Muted gray is restricted to non-essential explanatory copy."
   }
 }
