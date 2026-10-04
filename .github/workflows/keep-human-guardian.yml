@@ -112,13 +112,18 @@ jobs:
             page.on('console',m=>{ if(m.type()==='error') errors.push(`CONSOLE: ${m.text()}`); });
             page.on('dialog',async d=>d.accept().catch(()=>{}));
             const t=(v,o={})=>page.getByText(v,o).last();
+            // React Navigation / React Native Web peut répartir le libellé
+            // d'un onglet dans plusieurs wrappers. Le rôle tab est la cible
+            // utilisateur stable ; un getByText(exact) peut donc produire un
+            // faux négatif alors que la barre est visiblement complète.
+            const tab=(label)=>page.getByRole('tab').filter({hasText:label}).last();
             const shot=async n=>page.screenshot({path:`artifacts/human-guardian/${n}.png`,fullPage:true});
             const inViewport=async(loc,label)=>{ await loc.waitFor({state:'visible',timeout:15000}); const b=await loc.boundingBox(); if(!b||b.y<0||b.y+b.height>844) throw new Error(`${label} outside viewport ${JSON.stringify(b)}`); };
             const clickRobust=async(loc,label)=>{ let last; for(let attempt=1;attempt<=5;attempt++){ try{ await loc.waitFor({state:'visible',timeout:10000}); await loc.scrollIntoViewIfNeeded().catch(()=>{}); await page.keyboard.press('Escape').catch(()=>{}); await loc.click({timeout:3000}); return; }catch(e){ last=e; await page.waitForTimeout(180*attempt); } } await loc.click({force:true,timeout:2000}).catch(()=>{ throw new Error(`${label}: ${String(last?.message||last||'click failed')}`); }); };
             await page.goto('http://127.0.0.1:8081',{waitUntil:'domcontentloaded',timeout:60000});
             const tryFree=t('ESSAYER GRATUITEMENT',{exact:true});
             if(await tryFree.isVisible().catch(()=>false)) await clickRobust(tryFree,'Guest trial');
-            for(const x of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) await t(x,{exact:true}).waitFor({state:'visible',timeout:15000});
+            for(const x of ['Loki Music','Découvertes','Playlists','Soirées','Profil']) await tab(x).waitFor({state:'visible',timeout:15000});
             await shot('01-listen-idle');
 
             // Première installation : fermer le mini-tour comme le ferait un humain
@@ -143,7 +148,7 @@ jobs:
             // L'utilisateur doit d'abord choisir sa distance puis appuyer sur
             // RECHERCHER. Cette assertion empêche le retour d'un profil par
             // défaut qui consommerait aussi une découverte Free sans action.
-            await clickRobust(t('Découvertes',{exact:true}),'Découvertes tab');
+            await clickRobust(tab('Découvertes'),'Découvertes tab');
             await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
             await page.getByLabel('Rechercher des profils autour de moi').last().waitFor({state:'visible',timeout:15000});
             if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
@@ -168,16 +173,16 @@ jobs:
             if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
             await shot('04-discover-after-search');
 
-            await clickRobust(t('Playlists',{exact:true}),'Playlists tab');
+            await clickRobust(tab('Playlists'),'Playlists tab');
             await page.waitForTimeout(300);
             await shot('05-playlists');
 
-            await clickRobust(t('Soirées',{exact:true}),'Soirées tab');
+            await clickRobust(tab('Soirées'),'Soirées tab');
             await page.waitForTimeout(300);
             await page.getByLabel('Tout comprendre sur Soirées').last().waitFor({state:'visible',timeout:15000});
             await shot('06-parties');
 
-            await clickRobust(t('Profil',{exact:true}),'Profil tab');
+            await clickRobust(tab('Profil'),'Profil tab');
             const profileMenu=page.getByLabel('Menu du profil').last();
             await profileMenu.waitFor({state:'visible',timeout:15000});
             if(await t('+ Suivre',{exact:true}).isVisible().catch(()=>false)) throw new Error('Own profile displays self-follow');
