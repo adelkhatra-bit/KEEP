@@ -21,7 +21,9 @@
     "optionalGesturesOnly": true,
     "everyControlNeedsRealHandler": true,
     "immediateVisualFeedback": true,
-    "rule": "Every interactive control must close the loop: intention -> action -> feedback -> result or return. One tap opens or executes the intended function; a second tap is reserved for sensitive confirmation. Help text is collapsed by default and gestures accelerate actions but are never mandatory."
+    "rule": "Every interactive control must close the loop: intention -> action -> feedback -> result or return. One tap opens or executes the intended function; a second tap is reserved for sensitive confirmation. Help text is collapsed by default. In music listening flows, an upward swipe always means NEXT and remains optional because PASSER / GARDER / ARRÊTER stay available.",
+    "verticalSwipeNext": true,
+    "verticalSwipeOptional": true
   },
   "darkThemeReadability": {
     "functionalText": "textPrimary",
