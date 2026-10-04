@@ -235,6 +235,21 @@ export async function loadUnreadNotificationCount(profileId: string): Promise<nu
   return dedupeNotifications((data ?? []).map(mapNotificationRow)).length;
 }
 
+export async function loadLatestUnreadPlanGift(profileId: string): Promise<KeepNotification | null> {
+  if (!supabase || !profileId) return null;
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id,type,title,body,data,read_at,created_at')
+    .eq('profile_id', profileId)
+    .eq('type', 'PLAN_GIFTED')
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapNotificationRow(data) : null;
+}
+
 /**
  * Écoute Supabase Realtime pour que la notification arrive pendant Écouter,
  * Playlists, Soirées, Profil, etc. La table notifications est publiée dans
