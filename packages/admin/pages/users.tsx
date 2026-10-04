@@ -49,6 +49,15 @@ type UserSnapshot = {
 };
 
 type LegacyRecovery = { username: string; temporaryPassword: string; message?: string };
+type ActiveAdminGrant = {
+  id: string;
+  planCode: PaidPlan;
+  status: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  reason: string | null;
+  createdAt: string;
+};
 
 const REQUIREMENTS = [
   ['BIRTH_DATE', 'Date de naissance'], ['GENDER', 'Genre'],
@@ -76,6 +85,12 @@ function certificationLabel(user: DirectoryUser) {
   if (!user.account_verified) return 'ESSAI';
   return user.certification_tier || user.plan_code || 'FREE';
 }
+function planLabelForAdmin(code: string) {
+  if (code === 'PREMIUM') return 'Premium';
+  if (code === 'CREATOR_PRO') return 'Creator Pro';
+  if (code === 'VENUE_PRO') return 'Venue Pro';
+  return code.replace(/_/g, ' ');
+}
 
 export default function Users() {
   const [query, setQuery] = useState('');
@@ -98,6 +113,7 @@ export default function Users() {
   const [requirements, setRequirements] = useState<string[]>([]);
   const [plan, setPlan] = useState<PaidPlan>('PREMIUM');
   const [months, setMonths] = useState(12);
+  const [activeAdminGrants, setActiveAdminGrants] = useState<ActiveAdminGrant[]>([]);
   const [creditAmount, setCreditAmount] = useState('');
   const [creditReason, setCreditReason] = useState('');
   // Adel (04/09/2026) : "je veux pouvoir le débloquer à un utilisateur ...
@@ -167,11 +183,13 @@ export default function Users() {
   }, [users, query, planFilter]);
 
   const openUser = async (u: DirectoryUser) => {
-    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride(''); setMarketplaceTestBypass(null);
+    setSelected(u); setSnapshot(null); setRequirements([]); setTemporaryPassword(null); setEmailInput(''); setEditingEmail(false); setEmailSavedAt(null); setMessage(null); setError(null); setBusy('load'); setFollowerOverride(''); setMarketplaceTestBypass(null); setActiveAdminGrants([]);
     try {
       const result = await invokeUserControl({ action: 'get', profileId: u.id });
       setSnapshot(result.data as UserSnapshot);
       setRequirements(Array.isArray(result.data?.requirements) ? result.data.requirements : []);
+      const grantsResult = await invokeAdmin({ action: 'users.grants', identity: u.username }).catch(() => ({ grants: [] }));
+      setActiveAdminGrants(Array.isArray(grantsResult?.grants) ? grantsResult.grants as ActiveAdminGrant[] : []);
       const override = (result.data as UserSnapshot)?.profile?.follower_count_override;
       setFollowerOverride(override == null ? '' : String(override));
       if (supabase) {
@@ -212,25 +230,37 @@ export default function Users() {
     finally { setBusy(null); }
   };
 
+  const refreshActiveAdminGrants = async (identity = selected?.username) => {
+    if (!identity) return;
+    const result = await invokeAdmin({ action: 'users.grants', identity });
+    setActiveAdminGrants(Array.isArray(result?.grants) ? result.grants as ActiveAdminGrant[] : []);
+  };
+
   const grant = async () => {
     if (!selected) return;
+    if (typeof window !== 'undefined' && !window.confirm(
+      `Êtes-vous sûr de vouloir offrir ${plan} à @${selected.username} pour ${durationLabel(months)} ?\n\nL'utilisateur recevra immédiatement les droits et une notification Loki Music.`
+    )) return;
     setBusy('grant'); setError(null);
     try {
       const result = await invokeAdmin({ action: 'users.grant', identity: selected.username, planCode: plan, months, reason: 'Offert depuis le Super Admin Loki Music' });
       const endsAt = result?.data?.endsAt ? new Date(result.data.endsAt).toLocaleDateString('fr-FR') : null;
       setMessage(`${plan} offert à @${selected.username} — ${durationLabel(months)}${endsAt ? `, jusqu’au ${endsAt}` : ''}.`);
-      await load(); await refreshSelected();
+      await Promise.all([load(), refreshSelected(), refreshActiveAdminGrants(selected.username)]);
     } catch (e: any) { setError(e?.message ?? 'Attribution impossible.'); }
     finally { setBusy(null); }
   };
 
   const revoke = async () => {
     if (!selected) return;
+    if (typeof window !== 'undefined' && !window.confirm(
+      `Retirer l'offre Premium/Pro de @${selected.username} ?\n\nLes droits liés à l'offre seront retirés immédiatement. Le compte et ses données restent intacts.`
+    )) return;
     setBusy('revoke'); setError(null);
     try {
       await invokeAdmin({ action: 'users.revoke_grant', identity: selected.username });
-      setMessage(`Avantage offert retiré pour @${selected.username}. Le compte et les données restent intacts.`);
-      await load(); await refreshSelected();
+      setMessage(`Avantage offert retiré pour @${selected.username}. Ses droits reviennent immédiatement à son abonnement réellement actif.`);
+      await Promise.all([load(), refreshSelected(), refreshActiveAdminGrants(selected.username)]);
     } catch (e: any) { setError(e?.message ?? 'Révocation impossible.'); }
     finally { setBusy(null); }
   };
@@ -575,7 +605,25 @@ export default function Users() {
               <select value={plan} onChange={(e)=>setPlan(e.target.value as PaidPlan)} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value="PREMIUM">Premium · 2,99 €</option><option value="CREATOR_PRO">Creator Pro · 9,99 €</option><option value="VENUE_PRO">Venue Pro · 29,99 €</option></select>
               <select value={months} onChange={(e)=>setMonths(Number(e.target.value))} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value={1}>1 mois</option><option value={3}>3 mois</option><option value={6}>6 mois</option><option value={12}>1 an</option><option value={24}>2 ans</option><option value={0}>Illimité</option></select>
             </div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}><button onClick={()=>void grant()} disabled={busy!==null}>Offrir {plan}</button><button onClick={()=>void revoke()} disabled={busy!==null} style={{opacity:.8}}>Arrêter l’offre</button></div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}><button onClick={()=>void grant()} disabled={busy!==null}>Offrir {plan}</button></div>
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:11,fontWeight:900,letterSpacing:.7,color:'#fff',marginBottom:7}}>OFFRES SUPER ADMIN ACTIVES</div>
+              {activeAdminGrants.length === 0 ? (
+                <div style={{color:'var(--text)',fontSize:12,padding:'10px 12px',border:'1px solid var(--border)',borderRadius:10}}>Aucune offre active pour cet utilisateur.</div>
+              ) : activeAdminGrants.map((grantItem) => (
+                <div key={grantItem.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,padding:'12px 13px',border:'1px solid #68f2b1',borderRadius:12,background:'#10231c',marginTop:7}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{color:'#fff',fontWeight:900}}>{planLabelForAdmin(grantItem.planCode)} · OFFERT</div>
+                    <div style={{color:'#dfe8e3',fontSize:11,marginTop:3}}>
+                      {grantItem.endsAt ? `Actif jusqu'au ${new Date(grantItem.endsAt).toLocaleDateString('fr-FR')}` : 'Actif sans date de fin'}
+                    </div>
+                  </div>
+                  <button onClick={()=>void revoke()} disabled={busy!==null} style={{background:'#7a1f2a',color:'#fff',fontWeight:900,flexShrink:0}}>
+                    {busy==='revoke'?'RETRAIT…':'RETIRER'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canModerateDiscovery?'block':'none'}}>
