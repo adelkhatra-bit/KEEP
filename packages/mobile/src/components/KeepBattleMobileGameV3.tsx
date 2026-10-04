@@ -525,7 +525,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // bloquées. Une seule tentative de remplacement automatique par manche.
   const soloAudioReplacementRef = React.useRef(new Set<string>());
   const [soloDailyStarted, setSoloDailyStarted] = React.useState(false);
-  const [pausedSoloRemaining, setPausedSoloRemaining] = React.useState<number | null>(null);
   const [battleSessionId, setBattleSessionId] = React.useState<string | null>(null);
   // Adel (01/09/2026) : "je veux pas que ça se fasse par défaut ... je veux
   // un bouton, souhaitez-vous ... avant qu'un Battle commence" -- le transfert
@@ -1296,7 +1295,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   React.useEffect(() => {
     const round = solo?.rounds[soloIndex];
-    if (!round || pausedSoloRemaining !== null) return undefined;
+    if (!round) return undefined;
     let alive = true;
     answeredRoundRef.current = -1;
     soloStartedAtRef.current = 0; setSoloStartedAt(0); setAudioReady(false);
@@ -1382,10 +1381,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, soloAudioRetryNonce, playVerified, pausedSoloRemaining, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
+  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, soloAudioRetryNonce, playVerified, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
-  const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
+  const displayedSoloRemaining = soloRemaining;
 
   // BUG RÉEL (Adel, 02/09/2026 : "invitation expirée, il bloque, il faut
   // jamais que ça bloque comme ça, un utilisateur ne doit jamais rester
@@ -1418,12 +1417,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // démarrer. `now` reste en dépendance pour continuer à revérifier toutes
     // les ~100ms tant que la manche est réellement en cours.
     const startedAt = soloStartedAtRef.current;
-    const remaining = pausedSoloRemaining ?? (startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS);
+    const remaining = startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS;
     if (remaining > 0) return;
     if (answeredRoundRef.current === soloIndex) return; // un appui a déjà tranché ce round
     answeredRoundRef.current = soloIndex;
     recordSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
-  }, [solo, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now, pausedSoloRemaining]);
+  }, [solo, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     // Adel (22/09/2026, audit latence TestFlight) : dès qu'une réponse est
