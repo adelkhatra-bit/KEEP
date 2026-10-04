@@ -165,15 +165,19 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
 // rapportés en test réel (30/08/2026) -- en dessous du seuil, KEEP traite
 // ça comme une non-reconnaissance et laisse la cascade continuer (source
 // sans clé) plutôt que d'afficher un résultat non fiable.
-// Ambient phone capture is noisier than direct audio. 55 keeps weak guesses out
-// while accepting repeatable matches that were previously discarded at 61/100.
-const MIN_ACR_SCORE = 55;
+// Audit réel 04/10/2026 : des titres corrects payés par ACRCloud sont revenus
+// avec des scores 22–49 sur capture ambiante iPhone. Le seuil fixe 55 jetait
+// donc des réponses valides et déclenchait un autre appel payant. Politique :
+// - 40+ : accepté comme résultat ACR normal ;
+// - 22–39 : accepté uniquement si Apple/iTunes ou Deezer confirme EXACTEMENT
+//   le même titre + artiste ;
+// - 20–39 sans corroboration : candidat de consensus multi-fenêtres ;
+// - <20 : rejet.
+// Cette logique garde la qualité tout en évitant de payer deux fois pour un
+// match déjà suffisamment étayé.
+const MIN_ACR_SCORE = 40;
 const MIN_REPEAT_CANDIDATE_SCORE = 20;
-// Retour réel iPhone/Safari du 30/09/2026 : un candidat à 40/100 était
-// cohérent mais rejeté. On ne baisse pas le seuil global : 40+ passe en
-// immédiat uniquement si Apple/iTunes ou Deezer confirme exactement titre
-// + artiste. Sinon le consensus multi-fenêtres reste obligatoire.
-const MIN_CATALOG_CORROBORATED_SCORE = 40;
+const MIN_CATALOG_CORROBORATED_SCORE = 22;
 
 async function hmacSha1Base64(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
