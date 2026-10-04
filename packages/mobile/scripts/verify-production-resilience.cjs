@@ -37,10 +37,10 @@ pass('Share intent injecte le morceau résolu dans la session', contains('packag
 
 const recognition = 'packages/mobile/src/services/keepMusicCoreRecognition.ts';
 const sessionStore = 'packages/mobile/src/store/useSessionStore.ts';
-pass('Absence AudD/ACRCloud ne casse plus la session', contains(recognition, "fallback.payload?.error === 'fallback_not_configured'") && contains(recognition, 'markFallbackUnavailable();') && contains(recognition, 'return null;'));
+pass('Absence des fournisseurs payants ne casse plus la session', contains(recognition, "acr.payload?.error === 'fallback_not_configured'") && contains(recognition, 'markFallbackUnavailable();') && contains(recognition, 'keylessSourceRecognition(accessToken)'));
 pass('Quota ACRCloud 3003 coupe la tempête de retries', contains(recognition, "providerUnavailable === 'quota_exhausted'") && contains(recognition, 'FALLBACK_QUOTA_RECHECK_MS'));
 pass('Fenêtres iPhone renforcées pour l’ambiance réelle', contains(sessionStore, 'return 4500;') && contains(sessionStore, 'return 6500;') && contains(sessionStore, 'return 9000;'));
-pass('AudD et ACRCloud restent en cascade serveur', contains(recognition, 'keep-music-recognition-v2') && contains(recognition, 'keep-music-fallback'));
+pass('ACRCloud est prioritaire et AudD reste réactivable', contains(recognition, 'const AUDD_PRIMARY_ENABLED = false;') && contains(recognition, "recognitionAttempt('keep-music-fallback'") && contains(recognition, 'if (AUDD_PRIMARY_ENABLED) {'));
 
 const adminControl = 'supabase/functions/keep-admin-control/index.ts';
 pass('Super Admin valide AudD auprès du fournisseur avant sauvegarde', contains(adminControl, 'validateAuddToken(value)') && contains(adminControl, 'invalid_audd_token'));
