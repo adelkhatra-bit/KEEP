@@ -56,5 +56,31 @@ jobs:
             const fields=(data.__schema?.mutationType?.fields||[])
               .filter(f=>/push|apple|credential|ios/i.test(f.name));
             console.log('EAS_PUSH_MUTATION_FIELDS='+JSON.stringify(fields,null,2));
+            const detail=await gql(`
+              query PushMutationDetail {
+                applePushKey: __type(name:"ApplePushKeyMutation") {
+                  fields {
+                    name
+                    args {
+                      name
+                      type { kind name ofType { kind name ofType { kind name } } }
+                    }
+                    type { kind name ofType { kind name } }
+                  }
+                }
+                iosCredentials: __type(name:"IosAppCredentialsMutation") {
+                  fields {
+                    name
+                    args {
+                      name
+                      type { kind name ofType { kind name ofType { kind name } } }
+                    }
+                    type { kind name ofType { kind name } }
+                  }
+                }
+              }
+            `);
+            console.log('APPLE_PUSH_KEY_MUTATION_DETAIL='+JSON.stringify(detail.applePushKey?.fields||[],null,2));
+            console.log('IOS_APP_CREDENTIALS_MUTATION_DETAIL='+JSON.stringify(detail.iosCredentials?.fields||[],null,2));
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
