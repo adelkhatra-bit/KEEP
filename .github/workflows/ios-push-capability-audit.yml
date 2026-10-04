@@ -1,7 +1,7 @@
 # audit-run: 2026-10-04T11:55:00+02:00 diagnose-testflight-push-environment
 # audit-trigger-live: 2026-10-04T14:21:00Z
 name: Loki iOS Push Capability Audit
-# audit-trigger: 2026-10-04T04:45:00+02:00 testflight-push-environment
+# audit-trigger: 2026-10-04T16:36:00+02:00 verify-testflight-push-after-audio-lock
 
 on:
   workflow_dispatch:
