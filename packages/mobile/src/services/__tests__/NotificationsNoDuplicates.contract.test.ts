@@ -38,7 +38,7 @@ describe('notifications sans doublons', () => {
 
   it('supprime via le RPC auth avant le delete RLS direct', () => {
     const service = read('packages', 'mobile', 'src', 'services', 'notificationService.ts');
-    const start = service.indexOf('export async function deleteNotification');
+    const start = service.indexOf('export async function deleteNotification(profileId');
     const end = service.indexOf('export async function deleteAllNotifications', start);
     const block = service.slice(start, end);
     const rpc = block.indexOf("runNotificationAction('delete'");
