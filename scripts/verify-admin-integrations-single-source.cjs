@@ -16,6 +16,8 @@ must(page.includes('attentionRows.map((row) => renderIntegrationRow(row, true))'
 must(page.includes('scrollIntoView({ block: \'center\', behavior: \'smooth\' })'), 'integration row context preservation missing');
 must(backend.includes('async function validateAuddToken'), 'AudD provider validation missing');
 must(backend.includes('ACRCLOUD_ACCESS_KEY') && backend.includes('ACRCLOUD_ACCESS_SECRET') && backend.includes('ACRCLOUD_HOST'), 'ACRCloud credential set incomplete');
+must(backend.includes('Pipedream Connect vérifié et prêt') && backend.includes('status: "ACTIVE" as const'), 'Pipedream success must persist as ACTIVE, never unsupported OK');
+must(backend.includes('if (error) throw error;'), 'runtime integration status writes must not fail silently');
 
 console.log('KEEP Super Admin integrations: PASS');
 console.log('single provider editor; ACRCloud active path; AudD optional when absent; inline validation locked');
