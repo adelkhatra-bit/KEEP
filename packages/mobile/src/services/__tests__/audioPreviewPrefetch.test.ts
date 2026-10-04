@@ -18,7 +18,7 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it('expose preloadTrackPreviewSegment (charge sans jouer, shouldPlay:false via autoPlay=false)', () => {
     expect(preview).toContain('export async function preloadTrackPreviewSegment(');
-    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false);");
+    expect(preview).toContain("createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);");
   });
 
   it('expose discardPreloadedTrackPreview pour nettoyer un préchargement abandonné', () => {
@@ -48,7 +48,9 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
 
   it("KeepBattleMobileGameV3 précharge la manche N+1 dès qu'une réponse est donnée, seulement s'il en reste une", () => {
     expect(battle).toContain('if (soloIndex < solo.rounds.length - 1) {');
-    expect(battle).toContain('void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0);');
+    expect(battle).toContain('await stopTrackPreview().catch(() => {});');
+    expect(battle).toContain('await preloadTrackPreviewSegment(');
+    expect(battle).toContain('soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),');
   });
 
   it("playVerified garde la clé de base au premier essai pour rencontrer un préchargement existant", () => {
