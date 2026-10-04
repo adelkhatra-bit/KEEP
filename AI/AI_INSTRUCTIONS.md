@@ -390,3 +390,39 @@ index 8e7d078a..66176a79 100644
    }
  }
 ```
+
+
+### 2026-10-05 01:55 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°2 → en attente [VALIDÉ-PAR-CHATGPT] — Économie FREE v2 (regard marketing + utilisateur)
+
+HEAD de référence : `7d3f48ea`. Il s'agit d'une proposition de règle produit : aucun code, aucun réglage modifié. Adel a demandé de raisonner comme un utilisateur et d'étudier la concurrence. Une fois validée, `docs/PRICING_STRATEGY.md` > « Économie FREE (CANONIQUE) » sera mis à jour **avant** l'étape 2 de l'ordre d'implémentation (compteur d'écoutes).
+
+**1. Fait corrigé, vérifié le 05/10/2026 : la référence concurrente du doc canonique est fausse**
+- Le doc affirme « SoundHound freemium = 5 recherches gratuites/mois puis payant ». C'est faux aujourd'hui : SoundHound annonce sur son support « no fees or subscriptions! It is free ».
+- Shazam (Apple) est gratuit, sans publicité et sans limite.
+- Conséquence côté utilisateur : un blocage à 5 écoutes par jour sera comparé à Shazam, et l'app risque d'être désinstallée dès le premier jour. Le doc l'énonce d'ailleurs lui-même : « Ce qui ne nous coûte rien est illimité ».
+
+**2. Règle proposée pour les écoutes : on facture le coût réel, pas la reconnaissance**
+- **Illimité pour tous les comptes** : reconnaissance via ShazamKit sur iPhone, mémoire Loki et liens partagés, qui ne coûtent rien. C'est l'argument marketing n°1 : « Écoute illimitée ».
+- **Quota quotidien + 1 FREE au-delà** : seulement pour le repli vers un moteur payant (ACRCloud / AudD), quand ShazamKit n'a rien trouvé, avec les quotas actuels (5 / 30 / 60 / 150).
+- Invité (sans compte) : 3 reconnaissances, puis création de compte. Inchangé.
+- Ce que l'utilisateur voit : écoute illimitée. Le message « 1 FREE » n'apparaît que pour « recherche avancée » (moteur payant).
+
+**3. Ce qu'on vend : ce que Shazam ne fait pas**
+- Collection GARDER (−3 FREE), Battles et packs de solos, Pépites/Drop (commission plateforme sur les ventes), statut « premier découvreur », Compare nos KEEP.
+- Premium à 4,99 €/mois, soit 2,4 fois moins cher que Spotify Premium (12,14 €/mois en France). On met en avant l'**annuel à 39,99 €** (≈ 3,33 €/mois, badge « −33 % ») par défaut sur l'écran d'offre.
+- Recharges : on garde 0,99 € / 2,49 € / 5,99 € et on ajoute le badge « Le plus choisi » sur le pack de 100 FREE (prix d'ancrage au milieu).
+- Gel de série réservé aux abonnés : on garde, c'est le déclencheur d'abonnement.
+
+**4. Repère de conversion corrigé**
+- Le doc cite « Duolingo : 4 % des actifs paient (2021) ». Chiffre à jour (rapports Duolingo, T2 2026) : 12,7 M d'abonnés payants pour 140,6 M d'utilisateurs actifs mensuels, soit ≈ 9 %.
+- Objectif réaliste pour Loki : 2 à 5 % la première année.
+
+**5. Revenus B2B (le plus gros levier par client)**
+- VENUE PRO à 29 €/mois (bars, clubs, hôtels) : prévoir une page de présentation et un essai de 14 jours activable depuis le Super Admin. 10 lieux rapportent autant que 60 abonnés Premium.
+
+**6. Prérequis pour encaisser le premier euro (état réel : 0 € encaissé)**
+1. Réparer le build iOS (proposition n°1, ERR-IOS-BUILD-SHAZAM-IOS15-086).
+2. Créer dans App Store Connect les 3 abonnements et les 3 packs FREE, puis les relier à `keep-iap-verify`.
+3. Inscrire le compte au **App Store Small Business Program** (commission de 15 % au lieu de 30 % sous 1 M$ de revenus). C'est une action d'Adel sur developer.apple.com.
+
+Sources : support.soundhound.com (frais SoundHound) ; fiches App Store / Google Play de Shazam et SoundHound ; spotify.com/fr/premium (12,14 €) ; investors.duolingo.com et classcentral.com (T2 2026) ; developer.apple.com/app-store/small-business-program.
