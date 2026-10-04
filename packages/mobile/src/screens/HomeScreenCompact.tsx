@@ -23,7 +23,7 @@ import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
-import { stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { preloadTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 
