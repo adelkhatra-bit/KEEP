@@ -69,7 +69,14 @@ jobs:
             const appId=process.env.ASC_APP_ID.trim();
             const groups=await api('/v1/apps/'+appId+'/betaGroups?fields[betaGroups]=name,isInternalGroup,hasAccessToAllBuilds,publicLinkEnabled&limit=200');
             const builds=await api('/v1/builds?filter[app]='+encodeURIComponent(appId)+'&sort=-uploadedDate&fields[builds]=version,uploadedDate,processingState,buildAudienceType,expired&limit=20');
-            const report={latestBuilds:(builds.data||[]).map(x=>({id:x.id,buildNumber:x.attributes?.version,uploadedDate:x.attributes?.uploadedDate,processingState:x.attributes?.processingState,audience:x.attributes?.buildAudienceType,expired:x.attributes?.expired})),groups:[]};
+            const testers=await api('/v1/betaTesters?filter[apps]='+encodeURIComponent(appId)+'&fields[betaTesters]=state,inviteType&limit=200');
+            const report={
+              latestBuilds:(builds.data||[]).map(x=>({id:x.id,buildNumber:x.attributes?.version,uploadedDate:x.attributes?.uploadedDate,processingState:x.attributes?.processingState,audience:x.attributes?.buildAudienceType,expired:x.attributes?.expired})),
+              testerCount:(testers.data||[]).length,
+              testerStates:(testers.data||[]).reduce((m,x)=>{const k=x.attributes?.state||'UNKNOWN';m[k]=(m[k]||0)+1;return m;},{}),
+              testerIds:(testers.data||[]).map(x=>x.id),
+              groups:[]
+            };
             for(const g of (groups.data||[])){
               const rel=await api('/v1/betaGroups/'+g.id+'/relationships/builds?limit=200');
               const testers=await api('/v1/betaGroups/'+g.id+'/betaTesters?fields[betaTesters]=state,inviteType&limit=200');
