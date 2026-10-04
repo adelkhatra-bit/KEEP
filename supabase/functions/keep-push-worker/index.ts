@@ -18,6 +18,34 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
 const TOKEN_RE = /^(?:Exponent|Expo)PushToken\[.+\]$/;
 const MAX_ATTEMPTS = 3;
+
+const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
+  "NEW_PUBLIC_KEEP",
+  "LOKI_PULSE_NEW",
+  "PROFILE_VIEW",
+  "MUSIC_TAKEN",
+  "CHAT_ACTIVATION_AVAILABLE",
+  "FREE_CREDITED",
+  "FREE_CREDIT_REWARD",
+  "BATTLE_INVITE",
+  "KEEP_BATTLE_INVITE",
+  "BATTLE_CHALLENGE_ACCEPTED",
+  "BATTLE_CHALLENGE_DECLINED",
+  "BATTLE_PLAYER_AVAILABLE",
+  "BATTLE_ARENA_WIN",
+  "BATTLE_ARENA_LOSS",
+  "BATTLE_ARENA_RESULT",
+  "BATTLE_ARENA_AFK_ELIMINATED",
+  "BATTLE_ARENA_FORFEIT",
+  "BATTLE_ARENA_REMATCH_MISSED",
+  "BATTLE_SOLO_PACK",
+  "BATTLE_SOLO_RANK_CHANGED",
+  "SOLO_RANK_UP",
+]);
+
+function isInAppOnlyNotification(type: unknown) {
+  return IN_APP_ONLY_NOTIFICATION_TYPES.has(String(type || "").trim().toUpperCase());
+}
 // Toute notification utilisateur créée en base est éligible à une vraie push
 // système quand l'application est en arrière-plan/fermée. Le premier plan
 // reste dédoublonné côté client : bannière Loki interne uniquement.
@@ -136,6 +164,16 @@ async function processPending() {
     const attemptNumber = Number(notification.push_attempt_count || 0) + 1;
     const now = new Date().toISOString();
     try {
+      if (isInAppOnlyNotification(notification.type || notification.data?.type || notification.data?.event)) {
+        await db.from("notifications").update({
+          pushed_at: now,
+          push_delivery_status: "IN_APP_ONLY",
+          push_attempt_count: Number(notification.push_attempt_count || 0),
+          push_last_error: null,
+        }).eq("id", notification.id);
+        continue;
+      }
+
       if (suppressRedundantPresentation(notification)) {
         await db.from("notifications").update({
           pushed_at: now,

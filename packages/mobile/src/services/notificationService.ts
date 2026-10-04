@@ -304,26 +304,31 @@ export async function markAllNotificationsRead(_profileId: string): Promise<void
 
 export async function deleteNotification(profileId: string, notificationId: string): Promise<void> {
   if (!supabase) return;
-  // La suppression directe s'appuie sur la policy RLS notifications_delete_own.
-  // Elle est plus robuste côté client que de dépendre exclusivement du cache RPC
-  // PostgREST. En cas d'indisponibilité de cette route, on garde le RPC en secours.
+  // Le RPC utilise auth.uid() côté serveur et ne dépend pas d'un profileId
+  // local qui peut être périmé après reconnexion. C'est le chemin principal.
+  try {
+    await runNotificationAction('delete', notificationId);
+    return;
+  } catch {}
   const { error } = await supabase
     .from('notifications')
     .delete()
     .eq('profile_id', profileId)
     .eq('id', notificationId);
-  if (!error) return;
-  await runNotificationAction('delete', notificationId);
+  if (error) throw error;
 }
 
 export async function deleteAllNotifications(profileId: string): Promise<void> {
   if (!supabase) return;
+  try {
+    await runNotificationAction('delete_all');
+    return;
+  } catch {}
   const { error } = await supabase
     .from('notifications')
     .delete()
     .eq('profile_id', profileId);
-  if (!error) return;
-  await runNotificationAction('delete_all');
+  if (error) throw error;
 }
 
 export async function deleteNotifications(profileId: string, notificationIds: string[]): Promise<void> {

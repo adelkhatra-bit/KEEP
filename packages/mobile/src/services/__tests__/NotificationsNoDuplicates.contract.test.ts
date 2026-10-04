@@ -28,4 +28,21 @@ describe('notifications sans doublons', () => {
     expect(banner).toContain('const recentSemanticKeys = useRef(new Map<string, number>());');
     expect(banner).toContain('if (lastShown && Date.now() - lastShown < 30 * 60 * 1000) return;');
   });
+  it('réserve les pushes système aux événements qui demandent vraiment une action', () => {
+    const worker = read('supabase', 'functions', 'keep-push-worker', 'index.ts');
+    expect(worker).toContain('IN_APP_ONLY_NOTIFICATION_TYPES');
+    expect(worker).toContain('"NEW_PUBLIC_KEEP"');
+    expect(worker).toContain('"BATTLE_INVITE"');
+    expect(worker).toContain('push_delivery_status: "IN_APP_ONLY"');
+  });
+
+  it('supprime via le RPC auth avant le delete RLS direct', () => {
+    const service = read('packages', 'mobile', 'src', 'services', 'notificationService.ts');
+    const start = service.indexOf('export async function deleteNotification');
+    const rpc = service.indexOf("runNotificationAction('delete'", start);
+    const direct = service.indexOf(".from('notifications')", start);
+    expect(rpc).toBeGreaterThan(start);
+    expect(direct).toBeGreaterThan(rpc);
+  });
+
 });

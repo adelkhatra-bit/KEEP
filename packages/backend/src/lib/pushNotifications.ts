@@ -54,6 +54,13 @@ const RECEIPT_BATCH_SIZE = 300;
 // système iOS/Android. Ils restent éventuellement dans le centre interne, mais
 // ne réveillent pas le téléphone et ne multiplient pas les alertes Battle.
 const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
+  'FREE_CREDIT_REWARD',
+  'FREE_CREDITED',
+  'CHAT_ACTIVATION_AVAILABLE',
+  'MUSIC_TAKEN',
+  'PROFILE_VIEW',
+  'LOKI_PULSE_NEW',
+  'NEW_PUBLIC_KEEP',
   // Une notification externe doit demander une vraie action ou signaler un
   // événement important hors app. Les états Battle ci-dessous sont déjà
   // visibles dans l'écran Battle/centre interne et créaient trop de bruit.
@@ -92,8 +99,8 @@ function isMoneyNotification(data: Record<string, unknown> | null): boolean {
   return kind === 'money' || ['PLAYLIST_SALE_COMPLETED', 'EVENT_TICKET_SALE_COMPLETED'].includes(event);
 }
 
-function invalidatesExpoToken(code: string, message: string): boolean {
-  return code === 'DeviceNotRegistered' || /BadEnvironmentKeyInToken/i.test(message);
+function invalidatesExpoToken(code: string, _message: string): boolean {
+  return code === 'DeviceNotRegistered';
 }
 
 async function sendExpoPush(
