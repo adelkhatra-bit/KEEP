@@ -27,7 +27,10 @@ describe('Loki Music Battle — compact current UX', () => {
     expect(source).toContain("Les invitations restent en file d'attente pendant le Solo");
     expect(source).toContain('if (!solo || !audioReady || soloAnswer) return;');
     expect(source).not.toContain('disabled={!audioReady || answered || Boolean(incoming[0])');
-    expect(source).not.toContain('if (!round || incoming[0] || pausedSoloRemaining !== null) return undefined');
+    expect(source).not.toContain('pausedSoloRemaining');
+    expect(source).toContain('if (!round) return undefined;');
+    expect(source).toContain('const pct = audioReady ? (displayedSoloRemaining / ROUND_MS) * 100 : 100;');
+    expect(source).toContain('SOLO verrouillé : invitations et revanches restent en file serveur');
   });
 
   it('expires a stale incoming invitation locally so the Solo cannot remain blocked', () => {
@@ -47,7 +50,14 @@ describe('Loki Music Battle — compact current UX', () => {
   it('uses the synchronous round-start ref to prevent a false timeout on round 2+', () => {
     expect(source).toContain('const soloStartedAtRef = React.useRef(0);');
     expect(source).toContain('const startedAt = soloStartedAtRef.current;');
-    expect(source).toContain('const remaining = pausedSoloRemaining ?? (startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS);');
+    expect(source).toContain('const remaining = startedAt ? Math.max(0, ROUND_MS - (Date.now() - startedAt)) : ROUND_MS;');
+  });
+
+  it('never auto-answers or skips a Solo round when native audio fails', () => {
+    expect(source).toContain('audio non confirmé manche');
+    expect(source).toContain('retry même manche');
+    expect(source).toContain('setSoloAudioRetryNonce((value) => value + 1)');
+    expect(source).not.toContain("recordSoloAnswer('__AUDIO_ERROR__')");
   });
 
   it('preloads the next Solo excerpt after an answer and cleans abandoned preload', () => {
