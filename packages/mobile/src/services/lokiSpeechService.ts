@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Speech from 'expo-speech';
 import { duckActivePreviewForSpeech, restoreActivePreviewAfterSpeech } from './audioPreviewService';
 
 type LokiSpeechOptions = {
@@ -8,15 +9,7 @@ type LokiSpeechOptions = {
 };
 
 let speechSerial = 0;
-
-function nativeSpeechModule(): typeof import('expo-speech') | null {
-  if (Platform.OS === 'web') return null;
-  try {
-    return require('expo-speech') as typeof import('expo-speech');
-  } catch {
-    return null;
-  }
-}
+let activeDuckToken: number | null = null;
 
 export async function stopLokiSpeech(): Promise<void> {
   speechSerial += 1;
@@ -25,12 +18,17 @@ export async function stopLokiSpeech(): Promise<void> {
       const synth = (globalThis as any)?.speechSynthesis;
       synth?.cancel?.();
     } catch {}
-    return;
+  } else {
+    try {
+      await Speech.stop();
+    } catch {}
   }
-  try {
-    const Speech = nativeSpeechModule();
-    await Speech?.stop?.();
-  } catch {}
+
+  const duck = activeDuckToken;
+  activeDuckToken = null;
+  if (duck !== null) {
+    await restoreActivePreviewAfterSpeech(duck).catch(() => {});
+  }
 }
 
 export async function speakLokiText(text: string, options: LokiSpeechOptions = {}): Promise<void> {
@@ -38,68 +36,83 @@ export async function speakLokiText(text: string, options: LokiSpeechOptions = {
   if (!clean) return;
 
   const mySerial = ++speechSerial;
-  const duckToken = await duckActivePreviewForSpeech(0.16).catch(() => 0);
+  await stopLokiSpeech().catch(() => {});
+  // stopLokiSpeech increments the serial, so claim a fresh generation after
+  // cleaning up an older utterance.
+  const generation = ++speechSerial;
 
-  try {
-    if (Platform.OS === 'web') {
+  const duckToken = await duckActivePreviewForSpeech(0.12).catch(() => null);
+  if (generation !== speechSerial) {
+    if (duckToken !== null) await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
+    return;
+  }
+  activeDuckToken = duckToken;
+
+  const restore = async () => {
+    if (generation !== speechSerial) return;
+    const token = activeDuckToken;
+    activeDuckToken = null;
+    if (token !== null) await restoreActivePreviewAfterSpeech(token).catch(() => {});
+  };
+
+  if (Platform.OS === 'web') {
+    try {
       const synth = (globalThis as any)?.speechSynthesis;
       const Utterance = (globalThis as any)?.SpeechSynthesisUtterance;
-      if (!synth || !Utterance) return;
-
-      synth.cancel?.();
-      synth.resume?.();
-      await new Promise<void>((resolve) => {
+      if (synth && Utterance) {
+        synth.cancel?.();
+        synth.resume?.();
         const utterance = new Utterance(clean);
         utterance.lang = options.language || 'fr-FR';
         utterance.rate = options.rate ?? 0.95;
         utterance.pitch = options.pitch ?? 1;
         utterance.volume = 1;
-        let settled = false;
-        const done = () => {
-          if (settled) return;
-          settled = true;
-          resolve();
-        };
-        utterance.onend = done;
-        utterance.onerror = done;
-        synth.speak(utterance);
-        setTimeout(done, Math.max(1800, Math.min(12000, clean.length * 95)));
-      });
-      return;
-    }
-
-    const Speech = nativeSpeechModule();
-    if (!Speech) return;
-
-    await Speech.stop().catch(() => {});
-    await new Promise<void>((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      };
-      try {
-        Speech.speak(clean, {
-          language: options.language || 'fr-FR',
-          rate: options.rate ?? 0.95,
-          pitch: options.pitch ?? 1,
-          onDone: done,
-          onStopped: done,
-          onError: done,
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => { if (!settled) { settled = true; resolve(); } };
+          utterance.onend = done;
+          utterance.onerror = done;
+          synth.speak(utterance);
+          setTimeout(done, Math.max(1800, Math.min(12000, clean.length * 85)));
         });
-      } catch {
-        done();
+        await restore();
+        return;
       }
-      // Filet de sécurité : une callback TTS iOS perdue ne doit jamais laisser
-      // l'audio Battle ducké indéfiniment.
-      setTimeout(done, Math.max(2200, Math.min(14000, clean.length * 105)));
-    });
-  } finally {
-    if (mySerial === speechSerial && duckToken) {
-      await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
-    } else if (duckToken) {
-      await restoreActivePreviewAfterSpeech(duckToken).catch(() => {});
+    } catch {
+      // Browser speech can be blocked until the first user gesture.
     }
+    await restore();
+    return;
   }
+
+  // Native/TestFlight : AccessibilityInfo.announceForAccessibility n'est pas
+  // une vraie voix off et ne parle que si VoiceOver est actif. expo-speech est
+  // déjà embarqué dans le binaire Loki Music : on l'utilise réellement et on
+  // attend la fin avant de restaurer le volume de la musique.
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    try {
+      Speech.speak(clean, {
+        language: options.language || 'fr-FR',
+        rate: options.rate ?? 0.95,
+        pitch: options.pitch ?? 1,
+        onDone: finish,
+        onStopped: finish,
+        onError: finish,
+      });
+      setTimeout(finish, Math.max(2200, Math.min(14000, clean.length * 95)));
+    } catch {
+      finish();
+    }
+  });
+  await restore();
+
+  // Silence TypeScript/lint on the generation captured before stop. This also
+  // documents that every call owns an independent speech generation.
+  void mySerial;
 }
