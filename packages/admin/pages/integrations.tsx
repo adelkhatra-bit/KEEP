@@ -143,12 +143,7 @@ export default function Integrations() {
     // ACRCloud est le moteur serveur actif. AudD peut rester absent sans
     // rendre la reconnaissance indisponible : ne jamais le présenter comme
     // une panne bloquante ni le dupliquer dans la zone d'alerte.
-    if (
-      row.key === 'AUDD_API_KEY'
-      && !row.configured
-      && acrCloudActive
-      && (status === 'NOT_CONFIGURED' || status === 'UNKNOWN')
-    ) return false;
+    if (row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive) return false;
     return !row.configured
       || Boolean(row.configurationIssue)
       || status === 'ERROR'
