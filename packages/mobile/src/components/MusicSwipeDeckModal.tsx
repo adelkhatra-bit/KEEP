@@ -674,11 +674,15 @@ export default function MusicSwipeDeckModal({
               enabled={!controlsLocked}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
-              onSwipeUp={() => { void pass(); }}
+              onSwipeUp={() => {
+                if (controlsLocked) return;
+                actionInFlight.current = true;
+                void advance().finally(() => { actionInFlight.current = false; });
+              }}
               leftLabel="PASSER"
               rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
-              hint={swipeHint}
+              hint={`↑ morceau suivant · ${swipeHint}`}
             >
               <View style={s.card}>
                 {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
