@@ -24,6 +24,15 @@ export const SALE_PRESET_PRICES_CENTS = [50, 100, 200, 300, 500, 1000] as const;
 export const SALE_PRESET_FREE = [1, 3, 5, 10, 20, 50, 100] as const;
 export type PlaylistSalePaymentMode = 'MONEY' | 'FREE' | 'BOTH';
 
+function marketplaceRpcError(error: any, fallback: string): Error {
+  const raw = [error?.message, error?.details, error?.hint, error?.code].filter(Boolean).join(' | ');
+  const duplicate = raw.match(/DUPLICATE_TRACK_PURCHASE_BLOCKED\s*:\s*(\d+)\s*:\s*(\d+)/i);
+  if (duplicate) return new Error(`DUPLICATE_TRACK_PURCHASE_BLOCKED:${duplicate[1]}:${duplicate[2]}`);
+  const shortage = raw.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
+  if (shortage) return new Error(`NOT_ENOUGH_FREE:${shortage[1]}:${shortage[2]}`);
+  return new Error(String(error?.message || fallback));
+}
+
 function normalizePlaylistSalePaymentMode(value: unknown): PlaylistSalePaymentMode {
   const mode = String(value ?? 'MONEY').toUpperCase();
   return mode === 'FREE' || mode === 'BOTH' ? mode : 'MONEY';
@@ -185,7 +194,7 @@ export async function loadPlaylistSaleOfferDetails(playlistId: string): Promise<
 
 export async function requestPlaylistPurchase(offerId: string): Promise<PlaylistPurchaseRequest> {
   const { data, error } = await client().rpc('keep_playlist_sale_request_purchase', { p_offer_id: offerId });
-  if (error) throw new Error(String(error.message || 'PLAYLIST_PURCHASE_REQUEST_FAILED'));
+  if (error) throw marketplaceRpcError(error, 'PLAYLIST_PURCHASE_REQUEST_FAILED');
   const row = data as any;
   return {
     paymentId: String(row?.paymentId ?? ''),
@@ -208,7 +217,7 @@ export async function requestPlaylistBundlePurchase(offerIds: string[]): Promise
   const ids = Array.from(new Set(offerIds.filter(Boolean)));
   if (ids.length < 2) throw new Error('BUNDLE_REQUIRES_MULTIPLE_OFFERS');
   const { data, error } = await client().rpc('keep_playlist_sale_request_bundle_purchase', { p_offer_ids: ids });
-  if (error) throw new Error(String(error.message || 'PLAYLIST_BUNDLE_PURCHASE_REQUEST_FAILED'));
+  if (error) throw marketplaceRpcError(error, 'PLAYLIST_BUNDLE_PURCHASE_REQUEST_FAILED');
   const row = data as any;
   return {
     paymentId: String(row?.paymentId ?? ''),
@@ -226,7 +235,7 @@ export async function purchasePlaylistBundleWithFree(offerIds: string[]): Promis
   const ids = Array.from(new Set(offerIds.filter(Boolean)));
   if (!ids.length) throw new Error('BUNDLE_EMPTY');
   const { data, error } = await client().rpc('keep_playlist_sale_purchase_bundle_with_free', { p_offer_ids: ids });
-  if (error) throw new Error(String(error.message || 'PLAYLIST_BUNDLE_FREE_PURCHASE_FAILED'));
+  if (error) throw marketplaceRpcError(error, 'PLAYLIST_BUNDLE_FREE_PURCHASE_FAILED');
   const row = data as any;
   return {
     bundleCount: Number(row?.bundleCount ?? ids.length),
@@ -936,12 +945,7 @@ export async function updateOfferPrice(offerId: string, priceCents: number): Pro
 
 export async function purchasePlaylistOfferWithFree(offerId: string): Promise<PlaylistDeliveryResult & { freePrice: number; remainingFree: number; alreadyUnlocked: boolean }> {
   const { data, error } = await client().rpc('keep_playlist_sale_purchase_with_free', { p_offer_id: offerId });
-  if (error) {
-    const raw = [error.message, error.details, error.hint, error.code].filter(Boolean).join(' | ');
-    const shortage = raw.match(/NOT_ENOUGH_FREE\s*:\s*(\d+)\s*:\s*(\d+)/i);
-    if (shortage) throw new Error('NOT_ENOUGH_FREE:' + shortage[1] + ':' + shortage[2]);
-    throw new Error(String(error.message || 'PLAYLIST_FREE_PURCHASE_FAILED'));
-  }
+  if (error) throw marketplaceRpcError(error, 'PLAYLIST_FREE_PURCHASE_FAILED');
   const row = data as any;
   return {
     paymentId: String(row?.paymentId ?? ''),
