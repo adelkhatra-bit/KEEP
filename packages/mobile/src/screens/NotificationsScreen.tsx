@@ -32,6 +32,7 @@ import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import NewKeepNotificationActions from '../components/NewKeepNotificationActions';
+import { getPushPermissionState, type PushPermissionState } from '../services/pushNotificationService';
 import { isNewKeepNotification, maskedNewKeepCopy } from '../services/newKeepNotification';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
@@ -174,6 +175,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const [planCode, setPlanCode] = useState('FREE');
   const marketingLocked = planCode === 'FREE';
   const [notificationAccessRules, setNotificationAccessRules] = useState<NotificationAccessRule[]>([]);
+  const [pushPermission, setPushPermission] = useState<PushPermissionState>('unavailable');
   useEffect(() => {
     if (!user) return;
     let live = true;
@@ -185,6 +187,15 @@ export default function NotificationsScreen({ navigation, route }: any) {
     loadNotificationAccessRules().then((rules) => { if (live) setNotificationAccessRules(rules); }).catch(() => {});
     return () => { live = false; };
   }, []);
+  useEffect(() => {
+    let live = true;
+    const refreshPermission = () => {
+      void getPushPermissionState().then((status) => { if (live) setPushPermission(status); });
+    };
+    refreshPermission();
+    const unsubscribe = navigation?.addListener?.('focus', refreshPermission);
+    return () => { live = false; unsubscribe?.(); };
+  }, [navigation]);
   useEffect(() => {
     if (!user || isLocalGuest || isDemoMode) {
       setChatEnabled(false);
@@ -1211,6 +1222,22 @@ export default function NotificationsScreen({ navigation, route }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Réglages des notifications</Text>
           <Text style={styles.preferenceHint}>Active ou désactive ce que Loki Music peut t’envoyer. Les réglages restent accessibles en bas du centre.</Text>
+          {Platform.OS === 'ios' && pushPermission === 'denied' ? (
+            <View style={styles.pushSystemWarning}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pushSystemWarningTitle}>Notifications iPhone désactivées</Text>
+                <Text style={styles.pushSystemWarningText}>iOS bloque les notifications même si elles sont activées dans Loki Music.</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Ouvrir les réglages iPhone des notifications"
+                style={styles.pushSystemWarningButton}
+                onPress={() => { void Linking.openSettings().catch(() => {}); }}
+              >
+                <Text style={styles.pushSystemWarningButtonText}>RÉGLAGES</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {/* Les événements et les contenus promotionnels restent des réglages
               explicites de l'utilisateur. Les abonnements débloquent du confort
               et des fonctions, jamais l'obligation de recevoir une publicité. */}
@@ -1425,6 +1452,11 @@ const styles = StyleSheet.create({
   chatSurfaceChipTextOn:{color:colors.primaryLight},
     section: { marginBottom: spacing.xxl },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, marginBottom: spacing.md },
+  pushSystemWarning: { marginTop: 10, marginBottom: 6, minHeight: 58, borderRadius: 16, borderWidth: 1, borderColor: colors.danger, backgroundColor: 'rgba(255,92,114,.08)', paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pushSystemWarningTitle: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
+  pushSystemWarningText: { color: colors.textSecondary, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  pushSystemWarningButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  pushSystemWarningButtonText: { color: colors.danger, fontSize: 10, fontWeight: '900' },
   sectionTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginBottom: spacing.md },
   sectionTitleNoMargin: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   clearText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
