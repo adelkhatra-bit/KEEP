@@ -242,14 +242,12 @@ export default function MusicSwipeDeckModal({
         setPreviewResolving(false);
         setResolvedPreviewUrl(previewUrl);
 
-        // Précharge le morceau suivant pendant l'écoute courante : sur un
-        // profil visité, la file doit s'enchaîner sans trou réseau perceptible.
+        // IMPORTANT TestFlight : ne jamais précharger N+1 AVANT de lancer N.
+        // Le lecteur natif sérialise ses opérations ; un preload réseau/décodage
+        // placé ici pouvait monopoliser la file et donner l'impression qu'il
+        // fallait toucher le petit bouton vert pour entendre la carte courante.
+        // On démarre d'abord le morceau visible, puis seulement ensuite N+1.
         const nextTrack = deckTracks[index + 1];
-        if (nextTrack) {
-          void resolveTrackPreviewUrl(nextTrack)
-            .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
-            .catch(() => {});
-        }
 
         await stopTrackPreview();
         if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
@@ -276,6 +274,13 @@ export default function MusicSwipeDeckModal({
               advanceIndex();
             },
           );
+          // Le morceau visible est maintenant réellement parti : on peut
+          // préparer le suivant sans retarder l'autoplay courant.
+          if (nextTrack) {
+            void resolveTrackPreviewUrl(nextTrack)
+              .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
+              .catch(() => {});
+          }
         } catch {
           // Une URL de preview persistée peut expirer côté catalogue. Avant de
           // conclure à un blocage autoplay, on force UNE résolution fraîche et
@@ -303,6 +308,11 @@ export default function MusicSwipeDeckModal({
                 if (loop) advanceIndex();
               },
             );
+            if (nextTrack) {
+              void resolveTrackPreviewUrl(nextTrack)
+                .then((nextUrl) => nextUrl ? preloadTrackPreview(nextUrl) : undefined)
+                .catch(() => {});
+            }
             if (alive) setAutoplayBlocked(false);
           } catch {
             // .play() réellement refusé par le navigateur : on conserve le
