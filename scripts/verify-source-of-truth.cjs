@@ -112,6 +112,33 @@ if (platformParity.webAuthenticatedRuntime !== 'shared-packages-mobile-src') fai
 if (platformParity.webAccountCreationAllowed !== false) failures.push('WEB MUST NOT CREATE ACCOUNTS');
 if (platformParity.webPasswordLoginAllowed !== false) failures.push('WEB MUST NOT EXPOSE PASSWORD LOGIN');
 if (platformParity.webRemoteLogout !== true) failures.push('WEB REMOTE LOGOUT MUST REMAIN ENABLED');
+if (platformParity.musicParity?.sharedBusinessLogic !== true) failures.push('MUSIC PARITY MUST USE SHARED BUSINESS LOGIC');
+if (platformParity.musicParity?.designMustRemainShared !== true) failures.push('MUSIC PARITY MUST NOT SPLIT THE DESIGN');
+if (platformParity.musicParity?.nativeAudioAdapterMayDiffer !== true) failures.push('MUSIC PARITY MUST ACKNOWLEDGE NATIVE AUDIO ADAPTER');
+const parityRequirements = Array.isArray(platformParity.musicParity?.requirements) ? platformParity.musicParity.requirements.join('\n') : '';
+for (const marker of [
+  'PASSER updates the visible card immediately',
+  'Battle Solo result hold is at most 700ms',
+  'Web viewport emulation never counts as proof of native iOS audio parity',
+]) {
+  if (!parityRequirements.includes(marker)) failures.push(`MUSIC PARITY REQUIREMENT MISSING: ${marker}`);
+}
+
+const battleSource = read('packages/mobile/src/components/KeepBattleMobileGameV3.tsx');
+const audioPreviewSource = read('packages/mobile/src/services/audioPreviewService.ts');
+const swipeModalSource = read('packages/mobile/src/components/MusicSwipeDeckModal.tsx');
+const homeListenSource = read('packages/mobile/src/screens/HomeScreenCompact.tsx');
+const resultHoldMatch = battleSource.match(/const SOLO_RESULT_HOLD_MS\s*=\s*(\d+)/);
+if (!resultHoldMatch || Number(resultHoldMatch[1]) > 700) failures.push('BATTLE SOLO RESULT HOLD MUST STAY <= 700MS');
+if (!audioPreviewSource.includes('createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying)')) {
+  failures.push('IOS NEXT-PREVIEW PRELOAD MUST AVOID AUDIOSESSION RESET WHILE CURRENT TRACK PLAYS');
+}
+if (audioPreviewSource.includes('if (status.isLoaded && status.isPlaying) return;')) {
+  failures.push('IOS NEXT-PREVIEW PRELOAD MUST NOT BE SKIPPED JUST BECAUSE CURRENT AUDIO IS PLAYING');
+}
+if (!swipeModalSource.includes('optimisticPass?: boolean')) failures.push('MUSIC SWIPE MUST RETAIN OPTIMISTIC PASS SUPPORT');
+if (!homeListenSource.includes('optimisticPass')) failures.push('LOKI PULSE HOME MUST USE OPTIMISTIC PASS');
+
 
 const spacingSource = read('packages/mobile/src/theme/spacing.ts');
 const motionButtonSource = read('packages/mobile/src/components/MotionActionButton.tsx');
