@@ -2758,7 +2758,6 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   if (solo) {
     const round = solo.rounds[soloIndex];
     const timeout = soloAnswer === '__TIMEOUT__';
-    const audioError = soloAnswer === '__AUDIO_ERROR__';
     const answered = Boolean(soloAnswer);
     const correct = soloAnswer === 'CORRECT';
     const attempts = soloIndex + (answered ? 1 : 0);
@@ -2868,7 +2867,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       ) : null}
       <ScrollView scrollEnabled bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={s.soloScroll}>
       <Animated.View style={[s.card, s.soloCardActive, { minHeight: soloRoundCardMinHeight }, { transform: [{ scale: pulse }] }]}>
-        <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: soloVisualMax, maxWidth: soloVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{!answered ? <View pointerEvents="none" style={s.roundEncouragementOverlay}><Text style={s.roundEncouragementText}>{soloEncouragement(soloIndex, solo.rounds.length)}</Text></View> : null}{answered ? <View style={s.result}><Text style={audioError ? s.roundNoWinner : correct ? s.good : s.bad}>{audioError ? 'MANCHE ANNULÉE · AUDIO' : correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
+        <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: soloVisualMax, maxWidth: soloVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{!answered ? <View pointerEvents="none" style={s.roundEncouragementOverlay}><Text style={s.roundEncouragementText}>{soloEncouragement(soloIndex, solo.rounds.length)}</Text></View> : null}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
         <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
         {/* SOLO verrouillé : invitations et revanches restent en file serveur
