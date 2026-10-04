@@ -356,7 +356,15 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
   let token: string;
   let nativePushToken: import('expo-notifications').DevicePushToken | null = null;
   try {
-    nativePushToken = await Notifications.getDevicePushTokenAsync().catch(() => null);
+    try {
+      nativePushToken = await Notifications.getDevicePushTokenAsync();
+    } catch (nativeError: any) {
+      void reportPushRegistrationFailure(
+        'native_token_error',
+        String(nativeError?.message || nativeError || 'unknown').slice(0, 300),
+      );
+      nativePushToken = null;
+    }
     token = await resolveExpoPushToken(projectId, nativePushToken || undefined);
   } catch (error: any) {
     const detail = String(error?.message || error || 'unknown').slice(0, 300);
