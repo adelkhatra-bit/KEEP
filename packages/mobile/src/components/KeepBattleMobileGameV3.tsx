@@ -20,6 +20,7 @@ async function loadBattleCreditStatusIfAuthenticated(): Promise<KeepBattleCredit
   return loadMyKeepBattleCreditStatus().catch(() => null);
 }
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import { cancelAudioCapture } from '../services/micCapture';
 import { acknowledgeKeepBattleArenaPresence, buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleSoloRank, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleSoloRank, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
@@ -1299,6 +1300,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       });
     }
     const start = async () => {
+      // TestFlight/iOS : pauseListening() met l'UI en pause immédiatement mais
+      // l'arrêt natif du micro est asynchrone. Attendre ici la libération réelle
+      // d'Audio.Recording + AVAudioSession AVANT de lancer la preview évite une
+      // course où le son démarre encore en mode PlayAndRecord/receiver et devient
+      // inaudible alors que expo-av le considère comme "playing".
+      await cancelAudioCapture().catch(() => {});
+      if (!alive) return;
+
       // TestFlight : ne jamais multiplier les retries natifs. Un premier essai,
       // puis une ré-résolution de l'URL ; si les deux échouent, on remplace le
       // morceau au lieu de laisser les quatre réponses désactivées.
