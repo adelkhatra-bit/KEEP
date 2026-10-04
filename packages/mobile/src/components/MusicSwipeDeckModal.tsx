@@ -1,5 +1,5 @@
 import ChatDockHost from './ChatDockHost';
-import KeepVisibilityChoiceModal from './KeepVisibilityChoiceModal';
+import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -666,28 +666,16 @@ export default function MusicSwipeDeckModal({
         />
       ) : null}
 
-      {!previewOnly ? <Modal visible={!!keepSuccess} transparent animationType="fade" onRequestClose={() => { void continueAfterKeepSuccess(); }}>
-        <View style={s.keepOverlay}>
-          <View style={s.keepSuccessCard}>
-            <View style={s.keepSuccessBadge}><Text style={s.keepSuccessBadgeText}>✓</Text></View>
-            <Text style={s.keepSuccessEyebrow}>MERCI · C’EST ENREGISTRÉ</Text>
-            <Text style={s.keepSuccessTitle}>Ta pépite rejoint ton univers</Text>
-            <Text style={s.keepSuccessTrack} numberOfLines={2}>{keepSuccess?.title} · {keepSuccess?.artist}</Text>
-            <View style={s.keepSuccessDebit}>
-              <Text style={s.keepSuccessDebitAmount}>−{keepDebitAmount ?? 0} FREE</Text>
-              <Text style={s.keepSuccessDebitText}>débités avec succès</Text>
-            </View>
-            <Text style={s.keepSuccessBody}>
-              {keepSuccess?.visibility === 'PUBLIC'
-                ? 'Bravo, tu fais grandir ta communauté. Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.'
-                : 'Le morceau est gardé en privé, seulement pour toi. Rien n’est publié et aucune notification de nouveau morceau n’est envoyée à tes abonnés.'}
-            </Text>
-            <TouchableOpacity style={s.keepSuccessButton} onPress={() => { void continueAfterKeepSuccess(); }} accessibilityLabel="Continuer vers le morceau suivant">
-              <Text style={s.keepSuccessButtonText}>CONTINUER</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal> : null}
+      {!previewOnly ? (
+        <KeepSuccessModal
+          visible={!!keepSuccess}
+          trackLabel={keepSuccess ? `${keepSuccess.title} · ${keepSuccess.artist}` : null}
+          costFree={keepDebitAmount}
+          visibility={keepSuccess?.visibility}
+          continueLabel="CONTINUER"
+          onContinue={continueAfterKeepSuccess}
+        />
+      ) : null}
 
       {!previewOnly ? <Modal visible={alreadyKeepInfoOpen} transparent animationType="fade" onRequestClose={closeAlreadyKeepInfo}>
         <View style={s.keepOverlay}>
