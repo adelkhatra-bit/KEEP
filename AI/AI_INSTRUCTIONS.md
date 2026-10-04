@@ -426,3 +426,170 @@ HEAD de référence : `7d3f48ea`. Il s'agit d'une proposition de règle produit 
 3. Inscrire le compte au **App Store Small Business Program** (commission de 15 % au lieu de 30 % sous 1 M$ de revenus). C'est une action d'Adel sur developer.apple.com.
 
 Sources : support.soundhound.com (frais SoundHound) ; fiches App Store / Google Play de Shazam et SoundHound ; spotify.com/fr/premium (12,14 €) ; investors.duolingo.com et classcentral.com (T2 2026) ; developer.apple.com/app-store/small-business-program.
+
+
+### 2026-10-05 02:05 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°3 → en attente [VALIDÉ-PAR-CHATGPT] — Garde Supabase « Data API grants » (échéance 30/10/2026)
+
+HEAD de référence : `f3be1a7a`. Aucun code n'est poussé, le patch C complet est ci-dessous.
+
+**Contexte (source officielle : https://supabase.com/changelog/45329)** : à partir du **30/10/2026**, toute **nouvelle** table du schéma `public` d'un projet existant n'est plus visible par supabase-js / PostgREST / GraphQL sans `GRANT` explicite. Les tables existantes gardent leurs droits. Si on l'oublie, l'app reçoit « permission denied » et la fonctionnalité semble cassée sans raison visible. Rien dans le dépôt ne protège contre ce cas aujourd'hui.
+
+**Preuve réelle** : appliquée aux migrations depuis le 07/09, la garde trouve plusieurs tables créées sans GRANT (feature_usage_counters, playlist_sale_offers, etc. ; elles fonctionnent seulement grâce aux droits automatiques d'avant). Le cas le plus récent est la migration `20261005000500_iap_free_recharges.sql` (00:05 aujourd'hui) : `keep_iap_free_products` et `keep_iap_consumable_transactions` sont lues par l'app (policies SELECT `to authenticated`) mais n'ont aucun GRANT explicite.
+
+**Correctif proposé (patch C)** :
+1. `scripts/verify-migration-grants.cjs` (nouveau, avec auto-test) : toute migration datée de 20261005 ou après qui crée une table `public` doit avoir un `GRANT ... ON public.<table> TO ...` dans la même migration ou une suivante, ou bien le marqueur `-- keep:no-data-api <table>` pour une table interne. Les migrations plus anciennes ne sont pas contrôlées, car leurs tables gardent leurs droits.
+2. Le workflow existant `.github/workflows/verify-migrations.yml` reçoit une étape supplémentaire. Aucun nouveau workflow n'est créé.
+3. La migration `20261005020000_iap_free_recharges_explicit_grants.sql` rend explicites la lecture `authenticated` et `service_role` des 2 tables IAP. Écritures inchangées (seule la fonction SECURITY DEFINER peut écrire), aucune donnée modifiée.
+
+Tests faits en local : self-test OK ; garde KO sur le HEAD actuel (les 2 tables IAP), puis OK avec la migration 3.
+Règle à ajouter pour toutes les IA dans le même commit (CLAUDE.md, section Supabase) : « Toute nouvelle table public = GRANT explicite dans la migration (changement Supabase du 30/10/2026). »
+
+## Patch C — garde grants + migration IAP
+```diff
+diff --git a/.github/workflows/verify-migrations.yml b/.github/workflows/verify-migrations.yml
+index a05da7f2..1eebcea1 100644
+--- a/.github/workflows/verify-migrations.yml
++++ b/.github/workflows/verify-migrations.yml
+@@ -13,12 +13,14 @@ on:
+     paths:
+       - "supabase/migrations/**"
+       - "supabase/scripts/**"
++      - "scripts/verify-migration-grants.cjs"
+       - ".github/workflows/verify-migrations.yml"
+   pull_request:
+     branches: ['reconcile/claude-main-20260825']
+     paths:
+       - "supabase/migrations/**"
+       - "supabase/scripts/**"
++      - "scripts/verify-migration-grants.cjs"
+       - ".github/workflows/verify-migrations.yml"
+   workflow_dispatch:
+ 
+@@ -46,6 +48,11 @@ jobs:
+       - name: Checkout
+         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+ 
++      - name: Garde Supabase Data API grants (30/10/2026)
++        run: |
++          node scripts/verify-migration-grants.cjs --self-test
++          node scripts/verify-migration-grants.cjs
++
+       - name: Vérifier les migrations + triggers + RLS
+         shell: bash
+         run: |
+diff --git a/scripts/verify-migration-grants.cjs b/scripts/verify-migration-grants.cjs
+new file mode 100644
+index 00000000..669f9f37
+--- /dev/null
++++ b/scripts/verify-migration-grants.cjs
+@@ -0,0 +1,92 @@
++#!/usr/bin/env node
++/**
++ * Garde Supabase « Data API grants » (changement Supabase du 30/10/2026).
++ *
++ * À partir du 30/10/2026, une NOUVELLE table du schéma public n'est plus
++ * exposée automatiquement à supabase-js / PostgREST / GraphQL : sans GRANT
++ * explicite, l'app reçoit « permission denied » sans autre signe.
++ * Source : https://supabase.com/changelog/45329
++ *
++ * Règle : toute migration postérieure à la date de bascule qui crée une table
++ * dans `public` doit, dans cette migration ou une migration suivante, soit contenir un
++ * `GRANT ... ON [TABLE] [public.]<table> TO ...`, soit porter le marqueur
++ * `-- keep:no-data-api <table>` (table interne volontairement non exposée,
++ * utilisée seulement par des fonctions SECURITY DEFINER).
++ *
++ * Les migrations antérieures (tables existantes) gardent leurs droits actuels
++ * selon Supabase et ne sont pas contrôlées.
++ */
++'use strict';
++const fs = require('fs');
++const path = require('path');
++
++const MIGRATIONS_DIR = path.join(__dirname, '..', 'supabase', 'migrations');
++const CUTOFF_PREFIX = process.env.KEEP_GRANTS_CUTOFF || '20261005';
++
++function tablesCreated(sql) {
++  const re = /create\s+table\s+(?:if\s+not\s+exists\s+)?(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?\s*\(/gi;
++  const schemaRe = /create\s+table\s+(?:if\s+not\s+exists\s+)?"?([a-z_][a-z0-9_]*)"?\."?([a-z_][a-z0-9_]*)"?/gi;
++  const nonPublic = new Set();
++  let m;
++  while ((m = schemaRe.exec(sql))) {
++    if (m[1].toLowerCase() !== 'public') nonPublic.add(m[2].toLowerCase());
++  }
++  const out = new Set();
++  while ((m = re.exec(sql))) {
++    const name = m[1].toLowerCase();
++    if (!nonPublic.has(name)) out.add(name);
++  }
++  return [...out];
++}
++
++function hasGrant(sql, table) {
++  const grant = new RegExp(`grant\\s+[^;]*?\\son\\s+(?:table\\s+)?(?:"?public"?\\.)?"?${table}"?\\b[^;]*\\bto\\b`, 'i');
++  const optOut = new RegExp(`--\\s*keep:no-data-api\\s+${table}\\b`, 'i');
++  return grant.test(sql) || optOut.test(sql);
++}
++
++function check(files) {
++  const problems = [];
++  const sqls = files.map((file) => fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''));
++  sqls.forEach((sql, i) => {
++    const laterSql = sqls.slice(i).join('\n');
++    for (const table of tablesCreated(sql)) {
++      if (!hasGrant(laterSql, table)) problems.push(`${path.basename(files[i])} → public.${table}`);
++    }
++  });
++  return problems;
++}
++
++function selfTest() {
++  const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'keep-grants-'));
++  const w = (n, s) => { const p = path.join(tmp, n); fs.writeFileSync(p, s); return p; };
++  const ok = w('a.sql', 'create table public.foo (id int);\ngrant select on public.foo to authenticated;');
++  const ok2 = w('b.sql', 'create table if not exists bar (id int);\n-- keep:no-data-api bar');
++  const ok3 = w('c.sql', 'create table private.secret (id int);');
++  const bad = w('d.sql', 'create table public.baz (id int);\ngrant select on public.other to anon;');
++  const r = check([ok, ok2, ok3, bad]);
++  if (r.length !== 1 || !r[0].includes('public.baz')) {
++    console.error('❌ self-test KO', r);
++    process.exit(1);
++  }
++  console.log('✅ self-test verify-migration-grants OK');
++}
++
++if (process.argv.includes('--self-test')) {
++  selfTest();
++  process.exit(0);
++}
++
++const files = fs.readdirSync(MIGRATIONS_DIR)
++  .filter((f) => f.endsWith('.sql') && f.slice(0, 8) >= CUTOFF_PREFIX)
++  .sort()
++  .map((f) => path.join(MIGRATIONS_DIR, f));
++const problems = check(files);
++if (problems.length) {
++  console.error('❌ Nouvelle(s) table(s) public sans GRANT explicite (Supabase Data API, 30/10/2026) :');
++  for (const p of problems) console.error('   - ' + p);
++  console.error('Ajoute (dans la migration ou une suivante) : grant select[, insert, update, delete] on public.<table> to authenticated[, anon, service_role];');
++  console.error('ou, si la table est interne : -- keep:no-data-api <table>');
++  process.exit(1);
++}
++console.log(`✅ Grants Data API OK (${files.length} migration(s) depuis ${CUTOFF_PREFIX} contrôlée(s)).`);
+diff --git a/supabase/migrations/20261005020000_iap_free_recharges_explicit_grants.sql b/supabase/migrations/20261005020000_iap_free_recharges_explicit_grants.sql
+new file mode 100644
+index 00000000..5ad09a1c
+--- /dev/null
++++ b/supabase/migrations/20261005020000_iap_free_recharges_explicit_grants.sql
+@@ -0,0 +1,11 @@
++-- Supabase Data API : à partir du 30/10/2026, une nouvelle table public n'est
++-- plus exposée sans GRANT explicite (https://supabase.com/changelog/45329).
++-- Les deux tables IAP du 05/10/2026 sont lues par l'app (policies SELECT
++-- `to authenticated`) : on rend le droit de lecture explicite pour qu'une
++-- réinstallation / branche Supabase créée après le 30/10 reste fonctionnelle.
++-- Écriture inchangée : uniquement via public.service_credit_iap_free_purchase
++-- (SECURITY DEFINER, service_role). Aucune donnée modifiée.
++grant select on table public.keep_iap_free_products to authenticated;
++grant select on table public.keep_iap_consumable_transactions to authenticated;
++grant all on table public.keep_iap_free_products to service_role;
++grant all on table public.keep_iap_consumable_transactions to service_role;
+```
