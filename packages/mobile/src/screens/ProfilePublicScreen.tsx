@@ -15,6 +15,7 @@ import { createProfileService } from '../services/profileService';
 import { createAuthService } from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { getDownloadCreditStatus, loadFreeSpentToday } from '../services/creditService';
+import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { loadPulsePreferenceState } from '../services/pulsePreferenceService';
@@ -321,6 +322,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [freeSpentKeepCount, setFreeSpentKeepCount] = useState(0);
   const [freeMarketplaceSpentToday, setFreeMarketplaceSpentToday] = useState(0);
   const [freeMarketplacePurchaseCount, setFreeMarketplacePurchaseCount] = useState(0);
+  const [freeListenSpentToday, setFreeListenSpentToday] = useState(0);
+  const [freeListenPaidCountToday, setFreeListenPaidCountToday] = useState(0);
+  const [freeListenStreak, setFreeListenStreak] = useState(0);
+  const [freeStreakEarnedToday, setFreeStreakEarnedToday] = useState(0);
+  const [freeDiscoveryEarnedToday, setFreeDiscoveryEarnedToday] = useState(0);
+  const [freeRechargeEarnedToday, setFreeRechargeEarnedToday] = useState(0);
   const [freeWon, setFreeWon] = useState(0);
   const [freeLost, setFreeLost] = useState(0);
   // Adel (04/09/2026) : le coût réel d'un Garder (free_cost_per_keep, Super
@@ -713,22 +720,39 @@ export default function ProfilePublicScreen({ navigation }: any) {
         // Le solde FREE principal ne doit jamais disparaître parce qu'une
         // statistique secondaire (Battle du jour / dépenses du jour) échoue.
         // Chaque source se dégrade indépendamment.
-        const [battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
+        const [walletStatus, battleStatus, dailyBattleStats, dailySpend] = await Promise.all([
+          loadMyFreeWalletStatus().catch(() => null),
           loadMyKeepBattleCreditStatus().catch(() => null),
           loadKeepBattlePlayerStats(user.id).catch(() => null),
           loadFreeSpentToday().catch(() => null),
         ]);
         if (!live) return;
-        if (battleStatus) setFreeBalance(battleStatus.remainingFree);
-        if (dailySpend) {
-          setFreeSpentToday(dailySpend.spent ?? 0);
-          setFreeSpentKeepCount(dailySpend.keeps ?? 0);
-          setFreeMarketplaceSpentToday(dailySpend.marketplaceSpent ?? 0);
-          setFreeMarketplacePurchaseCount(dailySpend.marketplacePurchases ?? 0);
-        }
-        if (dailyBattleStats) {
-          setFreeWon(dailyBattleStats.freeWon ?? 0);
-          setFreeLost(dailyBattleStats.freeLost ?? 0);
+        if (walletStatus) {
+          setFreeBalance(walletStatus.balance);
+          setFreeSpentToday(walletStatus.spentToday);
+          setFreeSpentKeepCount(walletStatus.keepCountToday);
+          setFreeMarketplaceSpentToday(walletStatus.marketplaceSpentToday);
+          setFreeMarketplacePurchaseCount(walletStatus.marketplacePurchaseCountToday);
+          setFreeListenSpentToday(walletStatus.listenSpentToday);
+          setFreeListenPaidCountToday(walletStatus.listenPaidCountToday);
+          setFreeListenStreak(walletStatus.listenStreak);
+          setFreeStreakEarnedToday(walletStatus.streakEarnedToday);
+          setFreeDiscoveryEarnedToday(walletStatus.discoveryEarnedToday);
+          setFreeRechargeEarnedToday(walletStatus.rechargeEarnedToday);
+          setFreeWon(walletStatus.earnedToday);
+          setFreeLost(walletStatus.lostToday);
+        } else {
+          if (battleStatus) setFreeBalance(battleStatus.remainingFree);
+          if (dailySpend) {
+            setFreeSpentToday(dailySpend.spent ?? 0);
+            setFreeSpentKeepCount(dailySpend.keeps ?? 0);
+            setFreeMarketplaceSpentToday(dailySpend.marketplaceSpent ?? 0);
+            setFreeMarketplacePurchaseCount(dailySpend.marketplacePurchases ?? 0);
+          }
+          if (dailyBattleStats) {
+            setFreeWon(dailyBattleStats.freeWon ?? 0);
+            setFreeLost(dailyBattleStats.freeLost ?? 0);
+          }
         }
       } else if (live && isDemoMode) {
         // La démo n'a aucun portefeuille serveur. Ne jamais inventer un solde
@@ -738,6 +762,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setFreeSpentKeepCount(0);
         setFreeMarketplaceSpentToday(0);
         setFreeMarketplacePurchaseCount(0);
+        setFreeListenSpentToday(0);
+        setFreeListenPaidCountToday(0);
+        setFreeListenStreak(0);
+        setFreeStreakEarnedToday(0);
+        setFreeDiscoveryEarnedToday(0);
+        setFreeRechargeEarnedToday(0);
         setFreeWon(0);
         setFreeLost(0);
       } else if (live) {
@@ -749,6 +779,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setFreeSpentKeepCount(0);
         setFreeMarketplaceSpentToday(0);
         setFreeMarketplacePurchaseCount(0);
+        setFreeListenSpentToday(0);
+        setFreeListenPaidCountToday(0);
+        setFreeListenStreak(0);
+        setFreeStreakEarnedToday(0);
+        setFreeDiscoveryEarnedToday(0);
+        setFreeRechargeEarnedToday(0);
         setFreeWon(0);
         setFreeLost(0);
       }
@@ -1648,7 +1684,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   };
   const renderMenuDetail = (key: string) => {
     if (key === 'free') return <>
-      <Text style={s.shareTitle}>Ton solde Free</Text>
+      <Text style={s.shareTitle}>Mes FREE</Text>
       <Text style={s.shareSubtitle}>{freeBalance != null ? `${freeBalance} Free disponibles.` : 'Solde indisponible pour le moment.'}</Text>
       {freeBalance === 0 ? (
         <View style={s.freeEmptyCallout}>
@@ -1660,7 +1696,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       ) : null}
       <View style={s.linkPreview}>
-        <Text style={s.linkPreviewText}>🎧 Écouter et reconnaître : toujours gratuit</Text>
+        <Text style={s.linkPreviewText}>🎧 Écouter : quota inclus selon ta formule, puis 1 FREE par morceau reconnu</Text>
         <Text style={s.linkPreviewText}>💾 Garder un morceau sur ton profil : -{freeCostPerKeep} Free</Text>
         <Text style={s.linkPreviewText}>🎮 Battle solo (entraînement) : gratuit</Text>
         <Text style={s.linkPreviewText}>⚡ Battle en ligne : mise de Free au départ</Text>
@@ -1888,7 +1924,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       </View>
       {freeDetailsOpen && !isDemoMode ? (
         <View style={s.metricInlinePanel}>
-          <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Tes Free</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
+          <View style={s.metricPanelHeader}><Text style={s.metricPanelTitle}>Mes FREE</Text><TouchableOpacity hitSlop={12} onPress={() => setFreeDetailsOpen(false)}><Text style={s.metricPanelClose}>×</Text></TouchableOpacity></View>
           <View style={s.freeInlineStats}>
             <View style={s.freeInlineStat}><Text style={[s.freeInlineValue, s.freeInlineValueSpent]}>−{freeSpentToday}</Text><Text style={s.freeInlineLabel}>dépensés aujourd’hui</Text></View>
             <View style={s.freeInlineStat}><Text style={[s.freeInlineValue, s.freeInlineValueWon]}>+{freeWon}</Text><Text style={s.freeInlineLabel}>gagnés aujourd’hui</Text></View>
@@ -1896,7 +1932,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </View>
           <Text style={s.freeInlineHint}>
             {freeSpentKeepCount} morceau{freeSpentKeepCount > 1 ? 'x' : ''} ajouté{freeSpentKeepCount > 1 ? 's' : ''} avec des FREE aujourd’hui
+            {freeListenPaidCountToday > 0 ? ` · ${freeListenPaidCountToday} écoute${freeListenPaidCountToday > 1 ? 's' : ''} hors quota : −${freeListenSpentToday} FREE` : ''}
             {freeMarketplacePurchaseCount > 0 ? ` · ${freeMarketplacePurchaseCount} collection${freeMarketplacePurchaseCount > 1 ? 's' : ''} : −${freeMarketplaceSpentToday} FREE` : ''}
+            {freeListenStreak > 0 ? ` · Série : ${freeListenStreak} jour${freeListenStreak > 1 ? 's' : ''}` : ''}
+            {freeStreakEarnedToday > 0 ? ` · Série +${freeStreakEarnedToday}` : ''}
+            {freeDiscoveryEarnedToday > 0 ? ` · Premier découvreur +${freeDiscoveryEarnedToday}` : ''}
+            {freeRechargeEarnedToday > 0 ? ` · Recharge +${freeRechargeEarnedToday}` : ''}
             {' · '}journée 02:00 → 01:59 · coût GARDER : {freeCostPerKeep} FREE.
           </Text>
           <TouchableOpacity style={s.freeInlineCta} onPress={() => navigation.navigate('Offers', { sourceFeature: 'PROFILE_FREE' })}><Text style={s.freeInlineCtaText}>COMMENT GAGNER PLUS DE FREE ›</Text></TouchableOpacity>
