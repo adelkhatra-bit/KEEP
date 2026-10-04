@@ -105,7 +105,7 @@ export default function SwipeDeck({
   const upOpacity = y.interpolate({ inputRange: [-150, -28, 0], outputRange: [1, .18, 0], extrapolate: 'clamp' });
   const upScale = y.interpolate({ inputRange: [-150, 0], outputRange: [1.08, 1], extrapolate: 'clamp' });
 
-  return <View style={[styles.shell, Platform.OS === 'web' && styles.shellWeb]}>
+  return <View style={[styles.shell, Platform.OS === 'web' && styles.shellWeb, Platform.OS === 'web' && onSwipeUp ? styles.shellWebVertical : null]}>
     <Animated.View style={[styles.badge, styles.leftBadge, { opacity: leftOpacity }]} pointerEvents="none"><Text style={styles.leftText}>{leftLabel}</Text></Animated.View>
     <Animated.View style={[styles.badge, styles.rightBadge, { opacity: rightOpacity }]} pointerEvents="none"><Text style={styles.rightText}>{rightLabel}</Text></Animated.View>
     {onSwipeUp ? <Animated.View style={[styles.badge, styles.upBadge, { opacity: upOpacity, transform: [{ scale: upScale }] }]} pointerEvents="none"><Text style={styles.upText}>↑ {upLabel}</Text></Animated.View> : null}
@@ -117,6 +117,7 @@ export default function SwipeDeck({
 const styles = StyleSheet.create({
   shell:{width:'100%',position:'relative'},
   shellWeb:{touchAction:'pan-y',userSelect:'none'} as any,
+  shellWebVertical:{touchAction:'none'} as any,
   badge:{position:'absolute',top:18,zIndex:10,borderWidth:2,borderRadius:10,paddingHorizontal:10,paddingVertical:6},
   leftBadge:{right:18,borderColor:'#FF5F83',transform:[{rotate:'7deg'}]},
   rightBadge:{left:18,borderColor:'#68F2B1',transform:[{rotate:'-7deg'}]},
