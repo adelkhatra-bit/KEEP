@@ -6,6 +6,7 @@ const baseline = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-ui-base
 const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
 const profile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
 const settings = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx'), 'utf8');
+const home = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/HomeScreenCompact.tsx'), 'utf8');
 
 const fail = (message) => { throw new Error(`KEEP UI BASELINE: ${message}`); };
 const must = (condition, message) => { if (!condition) fail(message); };
@@ -59,7 +60,16 @@ must(!profile.includes("{ key: 'account'"), 'Compte entry reintroduced in hambur
 must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel reintroduced in hamburger');
 must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout control missing from profile settings');
 
+must(home.includes('<View style={s.idleLearnMoreSlot}>'), 'Listen home must reserve a fixed learn-more slot');
+must(home.includes("idleLearnMoreSlot: { width: '100%', height: 96"), 'Listen learn-more slot height must stay fixed so CTA does not jump');
+must(home.includes("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'"), 'Loki Pulse rail must stay anchored toward bottom');
+must(/homePulseWrap:\{[^\n]*marginBottom:-\d+/.test(home), 'Loki Pulse rail must stay close to the five-tab bar');
+must(/homePulseArtworkRing:\{[^\n]*width:(8\d|9\d),height:\1/.test(home) || home.includes('homePulseArtworkRing:{position:\'relative\',width:80,height:80'), 'Loki Pulse bubbles must stay enlarged for mobile touch/readability');
+must(home.includes("idleSubtitle: { color: C.text"), 'Listen primary subtitle must use high-contrast text on dark background');
+must(home.includes("idleLearnMoreBody: { color: C.text"), 'Expanded Listen help must use high-contrast text on dark background');
+
 console.log('KEEP UI baseline: PASS');
 console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
 console.log('accessibility: shared touch targets >= 48 locked');
+console.log('listen home: fixed learn-more slot; high contrast; bottom Loki Pulse rail locked');
