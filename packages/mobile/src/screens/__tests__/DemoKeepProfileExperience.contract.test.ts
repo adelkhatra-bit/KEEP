@@ -30,9 +30,9 @@ describe('Demo keep confirmation + visited profile premium design', () => {
   });
 
   it('lets demo mode exercise the Public/Private choice locally instead of skipping it', () => {
-    expect(profile).toContain("requiresAccount={!effectiveViewerId}");
+    expect(profile).toContain("requiresAccount={!effectiveViewerId && !isDemoMode}");
     expect(profile).not.toContain('requiresAccount={!viewer || isLocalGuest || isDemoMode}');
-    expect(profile).toContain("isDemoMode ? 'Mode démo' : 'Ajouté à ta collection'");
+    expect(profile).toContain("Alert.alert('Mode démo'");
     expect(profile).toContain("visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'");
   });
 
