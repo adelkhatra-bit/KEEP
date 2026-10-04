@@ -1,4 +1,5 @@
 name: KEEP — Robot de parcours (tchat, boutique, paiement)
+# audit-trigger-chatgpt-parity: 2026-10-04T15:34:00Z
 
 # Rejoue les parcours utilisateur (fenêtre d'écoute FREE/€, boutique Pépites,
 # tchat de groupe, vente FREE en groupe, réponses/réactions, administration
