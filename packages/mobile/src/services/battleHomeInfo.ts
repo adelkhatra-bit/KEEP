@@ -184,11 +184,11 @@ export function soloIdleNotice(secondsLeft: number, status: SoloDailyStatusLike 
   return `Personne n’a répondu aux 2 derniers morceaux. Sans réponse dans ${s} s, ${counted}. Aucun Free n’est retiré de ton solde.`;
 }
 
-// Battle en ligne : 3 questions d'affilée sans réponse = sortie de la partie
-// et mise perdue (règle serveur, Adel 02/09/2026). Adel (02/10/2026) : « il
-// faut bien marquer que là il va y avoir 3 Free débités » -> avertissement
-// dès la 2e question manquée.
-export const ARENA_AFK_LIMIT = 3;
+// Battle en ligne : après 2 questions sans réponse, l'interface ouvre
+// « Tu es toujours là ? » pendant 40 s. Le serveur conserve une marge jusqu'à
+// 6 manches manquées afin que cette fenêtre ait réellement le temps de servir.
+// Si le joueur ignore aussi cette grâce, la sortie/forfait applique la mise.
+export const ARENA_AFK_LIMIT = 6;
 export function arenaMissWarning(missStreak: number, stake: number): string | null {
   if (missStreak < ARENA_AFK_LIMIT - 1 || missStreak >= ARENA_AFK_LIMIT) return null;
   return `⚠️ ${missStreak} questions sans réponse : encore une et tu sors du Battle, −${stake} Free débités.`;
