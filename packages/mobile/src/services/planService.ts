@@ -53,7 +53,7 @@ export async function loadPlans(): Promise<KeepPlan[]> {
 
 export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
   guestSuccessLimit: 3,
-  signupBonusSuccesses: 20,
+  signupBonusSuccesses: 5,
   monthlyBonusFree: 5,
   monthlyBonusPremium: 15,
   monthlyBonusCreatorPro: 40,
@@ -63,7 +63,7 @@ export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
 export async function loadCreditFunnel(): Promise<CreditFunnel> {
   if (!supabase) return CREDIT_FUNNEL_DEFAULTS;
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', [
-    'guest_success_limit', 'signup_bonus_successes',
+    'guest_success_limit', 'signup_bonus_free_new_accounts', 'signup_bonus_successes',
     'free_monthly_bonus_free', 'free_monthly_bonus_premium', 'free_monthly_bonus_creator_pro', 'free_monthly_bonus_venue_pro',
   ]);
   if (error) throw error;
@@ -71,7 +71,7 @@ export async function loadCreditFunnel(): Promise<CreditFunnel> {
   const pick = (key: string, fallback: number) => Number.isFinite(map[key]) ? map[key] : fallback;
   return {
     guestSuccessLimit: pick('guest_success_limit', CREDIT_FUNNEL_DEFAULTS.guestSuccessLimit),
-    signupBonusSuccesses: pick('signup_bonus_successes', CREDIT_FUNNEL_DEFAULTS.signupBonusSuccesses),
+    signupBonusSuccesses: pick('signup_bonus_free_new_accounts', pick('signup_bonus_successes', CREDIT_FUNNEL_DEFAULTS.signupBonusSuccesses)),
     monthlyBonusFree: pick('free_monthly_bonus_free', CREDIT_FUNNEL_DEFAULTS.monthlyBonusFree),
     monthlyBonusPremium: pick('free_monthly_bonus_premium', CREDIT_FUNNEL_DEFAULTS.monthlyBonusPremium),
     monthlyBonusCreatorPro: pick('free_monthly_bonus_creator_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusCreatorPro),
@@ -117,15 +117,20 @@ export async function loadSessionScreenCopy(): Promise<SessionScreenCopy> {
 }
 
 export async function loadDemoListenLimit(): Promise<number> {
-  if (!supabase) return 8;
+  if (!supabase) return 3;
   const { data, error } = await supabase
     .from('remote_config')
-    .select('value')
-    .eq('key', 'demo_listen_limit')
-    .maybeSingle();
-  if (error) return 8;
-  const limit = Number(data?.value);
-  if (!Number.isFinite(limit)) return 8;
+    .select('key,value')
+    .in('key', ['guest_listen_total_limit', 'demo_listen_limit', 'guest_success_limit']);
+  if (error) return 3;
+  const map = Object.fromEntries((data ?? []).map((row: any) => [String(row.key), Number(row.value)]));
+  const limit = Number.isFinite(map.guest_listen_total_limit)
+    ? map.guest_listen_total_limit
+    : Number.isFinite(map.demo_listen_limit)
+      ? map.demo_listen_limit
+      : Number.isFinite(map.guest_success_limit)
+        ? map.guest_success_limit
+        : 3;
   return Math.max(1, Math.min(100, Math.round(limit)));
 }
 
