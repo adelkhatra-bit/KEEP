@@ -69,6 +69,10 @@ Les branches `web-preview`, `admin-preview`, `chatgpt/keep-design-integration-au
 
 Toute nouvelle intégration, tout nouveau test et tout nouveau lien de partage doivent pointer vers `reconcile/claude-main-20260825` et vers le domaine GitHub Pages canonique. Si un ancien lien ressort, on corrige/redirige l'ancien lien ; on ne crée jamais un nouveau domaine.
 
+## Parité Mobile / Ordinateur — miroir par source unique
+
+Il n'existe pas une version Mobile à recopier vers une version PC. `packages/mobile` est la source commune et Expo Web consomme le même code. Une correction fonctionnelle commune doit donc être écrite une seule fois dans `packages/mobile/src` ; le Web la reçoit automatiquement au prochain export. Ne jamais créer `packages/web`, `apps/web`, `apps/desktop` ou une copie `.web.tsx/.native.tsx` d'un écran complet pour « synchroniser » les deux. Les différences autorisées sont seulement des adaptateurs de plateforme (permissions, micro/audio, APIs navigateur, deep links). Toute modification de `packages/mobile/**` doit garder les deux preuves : mobile 390×844 et ordinateur 1440×900. Contrat : `config/platform-parity-contract.json` ; contrôle bloquant : `scripts/verify-source-of-truth.cjs` ; test réel : `.github/workflows/keep-dual-viewport-guardian.yml`.
+
 ## Routage web / GitHub Pages
 
 GitHub Pages n'effectue pas de rewrite SPA côté serveur. La solution officielle KEEP est donc **déjà** dans `.github/workflows/web-preview-pages.yml` :
