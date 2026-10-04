@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "Loki Music shared mobile/web runtime",
+  "touchTargets": {
+    "sharedMinimum": 48,
+    "appleMinimum": 44,
+    "androidMinimum": 48,
+    "webWcagMinimum": 24,
+    "rule": "All primary touch actions use at least 48x48 logical units. Smaller visual icons must expand their hit area without changing the approved design."
+  },
+  "typography": {
+    "mobileBodyTarget": 17,
+    "minimumUsefulText": 11,
+    "dynamicTypeTargetPercent": 200,
+    "rule": "Primary mobile reading text should target 17pt. Useful text must not be introduced below 11pt. Layouts must remain usable with larger text."
+  }
+}
