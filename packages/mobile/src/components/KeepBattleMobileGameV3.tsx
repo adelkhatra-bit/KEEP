@@ -2634,7 +2634,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (Date.now() - soloStartedAt >= ROUND_MS) return;
     if (answeredRoundRef.current === soloIndex) return; // déjà tranché par le timeout
     answeredRoundRef.current = soloIndex;
-    void stopTrackPreview().catch(() => {});
+    stopTrackPreviewFast();
     // Mobile/TestFlight : dès que le joueur a répondu, le morceau est tranché.
     // Couper immédiatement libère AVAudioSession et permet de précharger la
     // manche suivante pendant le court reveal, au lieu d'attendre la fin des
