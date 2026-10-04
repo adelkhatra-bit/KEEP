@@ -450,11 +450,12 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     await markIosProductionPushRepairDone();
     const environment = await iosPushEnvironment();
     const meta = pushClientMetadata();
-    if (supabase) {
-      void supabase.auth.getSession().then(({ data }) => {
+    const client = supabase;
+    if (client) {
+      void client.auth.getSession().then(({ data }) => {
         const profileId = data.session?.user?.id;
         if (!profileId) return;
-        return supabase.from('client_diagnostics').insert({
+        return client.from('client_diagnostics').insert({
           profile_id: profileId,
           area: 'push_registration',
           code: 'ios_production_reregistered',
