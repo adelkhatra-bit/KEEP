@@ -1,4 +1,5 @@
 name: Loki App Review Sync
+# sync-trigger-live: 2026-10-04T14:24:00Z
 # sync-trigger: 2026-10-04T12:55:00Z fill-beta-review-notes
 
 on:
