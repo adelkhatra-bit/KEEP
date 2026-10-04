@@ -5,7 +5,16 @@ import KeepShazam from '../../modules/keep-shazam';
 const NATIVE_ERROR_BACKOFF_MS = 15 * 1000;
 let unavailableUntil = 0;
 
-function blobToBase64(blob: Blob): Promise<string> {
+function isBlobLike(value: unknown): value is Blob {
+  const row = value as any;
+  return Boolean(row && typeof row.size === 'number' && typeof row.arrayBuffer === 'function');
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const nativeBase64 = (blob as any)?.base64;
+  if (typeof nativeBase64 === 'function') {
+    return String(await nativeBase64.call(blob));
+  }
   return new Promise((resolve, reject) => {
     try {
       const reader = new FileReader();
@@ -33,7 +42,10 @@ export async function recognizeWithNativeShazam(audioSample: ArrayBuffer | Blob)
   if (Platform.OS !== 'ios' || !KeepShazam || Date.now() < unavailableUntil) return null;
   try {
     if (!KeepShazam.isAvailable()) return null;
-    const blob = audioSample instanceof Blob ? audioSample : new Blob([audioSample], { type: 'audio/m4a' });
+    // Expo File implémente Blob mais n'est pas garanti d'être instanceof
+    // le Blob global de React Native. Test structurel obligatoire.
+    if (!isBlobLike(audioSample)) return null;
+    const blob = audioSample;
     if (!blob.size) return null;
     const base64 = await blobToBase64(blob);
     const result = await KeepShazam.recognizeBase64(base64);
