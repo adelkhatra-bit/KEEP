@@ -183,6 +183,29 @@ export default function Integrations() {
     }, 80);
   };
 
+  const openProviderWindow = (row: IntegrationRow) => {
+    const provider = INTEGRATION_PROVIDER_LINKS[row.key];
+    if (!provider || typeof window === 'undefined') return;
+    const width = Math.min(1180, Math.max(760, window.screen.availWidth - 160));
+    const height = Math.min(860, Math.max(620, window.screen.availHeight - 120));
+    const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
+    const top = Math.max(20, Math.round((window.screen.availHeight - height) / 2));
+    const popup = window.open(
+      provider.url,
+      `loki-provider-${row.key}`,
+      `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+    );
+    if (!popup) {
+      setRowFeedback((prev) => ({
+        ...prev,
+        [row.key]: { kind: 'error', text: 'La petite fenêtre a été bloquée par le navigateur. Autorise les pop-ups pour Loki Super Admin puis réessaie.' },
+      }));
+      return;
+    }
+    popup.focus();
+  };
+
+
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
     const fail = (text: string) => {
@@ -252,6 +275,7 @@ export default function Integrations() {
   const renderIntegrationRow = (row: IntegrationRow, urgent = false) => {
     const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
     const feedback = rowFeedback[row.key];
+    const provider = INTEGRATION_PROVIDER_LINKS[row.key];
     const optionalAudd =
       row.key === 'AUDD_API_KEY'
       && !row.configured
@@ -305,16 +329,39 @@ export default function Integrations() {
           </div>
         ) : null}
 
-        {INTEGRATION_PROVIDER_LINKS[row.key] && (
-          <a
-            href={INTEGRATION_PROVIDER_LINKS[row.key].url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: '#cbb8ff', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
-          >
-            🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
-          </a>
-        )}
+        {provider ? (
+          <div style={{ marginBottom: 10, padding: '11px 12px', borderRadius: 10, background: 'rgba(124,92,252,.08)', border: '1px solid rgba(124,92,252,.32)' }}>
+            <div style={{ color: '#ffffff', fontSize: 12, lineHeight: 1.5 }}>
+              <strong>Où trouver cette valeur :</strong> {provider.help}
+            </div>
+            {provider.expected ? (
+              <div style={{ color: '#e9e3f2', fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>
+                <strong>Valeur attendue :</strong> {provider.expected}
+              </div>
+            ) : null}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
+              <button
+                type="button"
+                onClick={() => openProviderWindow(row)}
+                style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(139,92,246,.16)', border: '1px solid var(--primary)', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
+              >
+                ↗ OUVRIR {provider.label.toUpperCase()}
+              </button>
+              {provider.fixedValue ? (
+                <button
+                  type="button"
+                  onClick={() => setValues((prev) => ({ ...prev, [row.key]: provider.fixedValue as string }))}
+                  style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(45,225,194,.12)', border: '1px solid #2de1c2', color: '#d9fff8', fontWeight: 900, cursor: 'pointer' }}
+                >
+                  UTILISER « {provider.fixedValue} »
+                </button>
+              ) : null}
+            </div>
+            <div style={{ color: '#cfc8db', fontSize: 11, lineHeight: 1.45, marginTop: 7 }}>
+              Le fournisseur s’ouvre dans une petite fenêtre. Le Super Admin reste ouvert derrière et conserve exactement ta position.
+            </div>
+          </div>
+        ) : null}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: '1 1 360px' }}>
