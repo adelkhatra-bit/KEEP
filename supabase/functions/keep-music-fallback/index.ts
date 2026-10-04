@@ -57,20 +57,71 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function allowFallback(req: Request, userId: string | null) {
+async function paidRecognitionIdentity(req: Request, userId: string | null) {
   const device = (req.headers.get("x-keep-device-id") ?? "guest").slice(0, 160);
   const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown")
     .split(",")[0].trim().slice(0, 80);
-  // Préfixe dédié : le fallback ne consomme pas la fenêtre AudD lorsqu'il est
-  // appelé après un no-match. Il conserve néanmoins une protection de coût.
-  const identityHash = await sha256(`acrcloud|${userId ?? "guest"}|${device}|${ip}`);
+  return sha256(`paid-recognition|${userId ?? "guest"}|${device}|${ip}`);
+}
+
+async function allowFallback(identityHash: string) {
   const { data, error } = await admin.rpc("service_allow_recognition", {
     p_identity_hash: identityHash,
-    p_limit: 12,
-    p_window_seconds: 60,
+    p_limit: 1,
+    p_window_seconds: 20,
   });
   if (error) throw error;
   return Boolean(data);
+}
+
+function requestTimezone(req: Request) {
+  const value = (req.headers.get("x-keep-timezone") ?? "Europe/Paris").trim();
+  return value.slice(0, 80) || "Europe/Paris";
+}
+
+function allowFreeDebit(req: Request) {
+  return req.headers.get("x-keep-use-free") === "1";
+}
+
+function economyBlocked(reason: string | null | undefined) {
+  if (reason === "LISTEN_FREE_REQUIRED") return json(402, { error: "listen_free_required" });
+  if (reason === "INSUFFICIENT_FREE") return json(402, { error: "listen_free_insufficient" });
+  if (reason === "GUEST_LISTEN_LIMIT_REACHED") return json(402, { error: "guest_listen_limit_reached" });
+  return json(503, { error: "listen_economy_unavailable" });
+}
+
+async function precheckListenEconomy(req: Request, userId: string | null, identityHash: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_listen_precheck", {
+      p_profile_id: userId,
+      p_timezone: requestTimezone(req),
+      p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_guest_listen_precheck", { p_identity_hash: identityHash });
+  if (error) throw error;
+  return data as any;
+}
+
+async function recordListenEconomy(req: Request, userId: string | null, identityHash: string, sourceKey: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_record_listen_success", {
+      p_profile_id: userId,
+      p_source_key: sourceKey,
+      p_timezone: requestTimezone(req),
+      p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_record_guest_listen_success", {
+    p_identity_hash: identityHash,
+    p_source_key: sourceKey,
+  });
+  if (error) throw error;
+  return data as any;
 }
 
 function first<T>(value: T | T[] | null | undefined): T | null {
@@ -270,9 +321,15 @@ async function normalizeAcrMusic(music: any) {
 
 async function identify(req: Request) {
   const userId = await optionalUserId(req);
-  if (!(await allowFallback(req, userId))) {
+  const identityHash = await paidRecognitionIdentity(req, userId);
+  const economy = await precheckListenEconomy(req, userId, identityHash);
+  if (!economy?.allowed) return economyBlocked(economy?.reason);
+  // Le quota produit est contrôlé AVANT le rate-limit fournisseur : accepter
+  // « Utiliser 1 FREE » ne doit pas être bloqué par une tentative refusée.
+  if (!(await allowFallback(identityHash))) {
     return json(429, { error: "fallback_rate_limited", message: "Fallback musical temporairement limité. Réessaie dans quelques secondes." });
   }
+  const listenSourceKey = `acr:${crypto.randomUUID()}`;
 
   const [accessKey, accessSecret, rawHost] = await Promise.all([
     getSecret("ACRCLOUD_ACCESS_KEY"),
@@ -361,11 +418,14 @@ async function identify(req: Request) {
     );
     if (catalogCorroborated) {
       console.log("keep-music-fallback corroborated", JSON.stringify({ rawScore, title: candidateRecognition.title, artist: candidateRecognition.artist }));
-      // Score acoustique <55 : on l’affiche grâce à la double preuve, mais on
-      // ne seed pas la mémoire collective pour éviter tout empoisonnement.
+      const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
+      if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);
+      (candidateRecognition as any).__listenEconomyRecorded = true;
+      // Score acoustique faible mais catalogue exact : compté uniquement ici,
+      // après la reconnaissance réellement acceptée.
       return json(200, {
         ok: true, provider: "ACRCloud", recognition: candidateRecognition, providerStatus: statusCode,
-        lowConfidenceScore: rawScore, recognitionEvidence: "catalog_exact",
+        lowConfidenceScore: rawScore, recognitionEvidence: "catalog_exact", listenEconomy: listenRecord,
       });
     }
     return json(200, {
@@ -375,8 +435,14 @@ async function identify(req: Request) {
     });
   }
   const acrRecognition = await normalizeAcrMusic(music);
-  if (acrRecognition) seedInBackground(admin, acrRecognition as any);
-  return json(200, { ok: true, provider: "ACRCloud", recognition: acrRecognition });
+  if (acrRecognition) {
+    const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
+    if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);
+    (acrRecognition as any).__listenEconomyRecorded = true;
+    seedInBackground(admin, acrRecognition as any);
+    return json(200, { ok: true, provider: "ACRCloud", recognition: acrRecognition, listenEconomy: listenRecord });
+  }
+  return json(200, { ok: true, provider: "ACRCloud", recognition: null });
 }
 
 Deno.serve(async (req) => {
