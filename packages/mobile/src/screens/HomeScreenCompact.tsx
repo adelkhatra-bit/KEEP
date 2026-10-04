@@ -110,6 +110,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  const openHomePulseTrack = (trackId: string) => {
+    // Le tap sur une bulle prépare l'audio immédiatement puis ouvre le Swipe
+    // sur CE morceau. Aucun second bouton "Écouter" ne doit être nécessaire.
+    unlockWebAudioForGesture();
+    setHomePulseSelectedTrackId(trackId);
+    setHomePulseOpen(true);
+  };
   const [homeAboutOpen, setHomeAboutOpen] = useState(false);
   const homeAboutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
