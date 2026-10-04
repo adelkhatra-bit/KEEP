@@ -32,7 +32,8 @@ describe('notifications sans doublons', () => {
     const worker = read('supabase', 'functions', 'keep-push-worker', 'index.ts');
     expect(worker).toContain('IN_APP_ONLY_NOTIFICATION_TYPES');
     expect(worker).toContain('"NEW_PUBLIC_KEEP"');
-    expect(worker).toContain('"BATTLE_INVITE"');
+    expect(worker).not.toMatch(/IN_APP_ONLY_NOTIFICATION_TYPES[\s\S]*?"BATTLE_INVITE"/);
+    expect(worker).not.toMatch(/IN_APP_ONLY_NOTIFICATION_TYPES[\s\S]*?"KEEP_BATTLE_INVITE"/);
     expect(worker).toContain('push_delivery_status: "IN_APP_ONLY"');
   });
 
