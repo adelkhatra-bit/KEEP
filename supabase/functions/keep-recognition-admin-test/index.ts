@@ -249,8 +249,18 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
   try {
     const actor = await requireAdmin(req);
-    const [keyless, audd, acrcloud] = await Promise.all([testKeyless(), testAudd(), testAcrCloud()]);
+    const [keyless, auddRaw, acrcloud] = await Promise.all([testKeyless(), testAudd(), testAcrCloud()]);
+    const audd = auddRaw.status === "NOT_CONFIGURED" && acrcloud.status === "ACTIVE"
+      ? {
+          ...auddRaw,
+          message: "AudD n’est pas configuré sur ce projet. Ce n’est pas bloquant : ACRCloud est actif et utilisé comme moteur serveur principal.",
+        }
+      : auddRaw;
+    if (audd.message !== auddRaw.message) {
+      await setRuntimeStatus("AUDD_API_KEY", "NOT_CONFIGURED", audd.message);
+    }
     const providers = [keyless, audd, acrcloud];
+    const serverRecognitionReady = [audd, acrcloud].some((item) => item.status === "ACTIVE");
     await audit(actor.id, providers);
     return json(200, {
       ok: true,
@@ -258,6 +268,8 @@ Deno.serve(async (req) => {
       secretExposed: false,
       providers,
       recognitionReady: providers.some((item) => item.status === "ACTIVE"),
+      serverRecognitionReady,
+      primaryServerProvider: acrcloud.status === "ACTIVE" ? "ACRCLOUD" : audd.status === "ACTIVE" ? "AUDD" : null,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
