@@ -109,6 +109,29 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  const [recognitionInfoOpen, setRecognitionInfoOpen] = useState(false);
+  const recognitionInfoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleRecognitionInfo = () => {
+    if (recognitionInfoTimer.current) {
+      clearTimeout(recognitionInfoTimer.current);
+      recognitionInfoTimer.current = null;
+    }
+    setRecognitionInfoOpen((open) => {
+      const next = !open;
+      if (next) {
+        recognitionInfoTimer.current = setTimeout(() => {
+          recognitionInfoTimer.current = null;
+          setRecognitionInfoOpen(false);
+        }, 8000);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => () => {
+    if (recognitionInfoTimer.current) clearTimeout(recognitionInfoTimer.current);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -568,6 +591,22 @@ export default function HomeScreenCompact({ navigation }: any) {
             <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
+            <TouchableOpacity
+              style={s.recognitionInfoToggle}
+              onPress={toggleRecognitionInfo}
+              accessibilityRole="button"
+              accessibilityLabel={recognitionInfoOpen ? 'Masquer comment fonctionne la reconnaissance' : 'En savoir plus sur la reconnaissance musicale'}
+            >
+              <Text style={s.recognitionInfoToggleText}>{recognitionInfoOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.recognitionInfoChevron}>{recognitionInfoOpen ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+            {recognitionInfoOpen ? (
+              <View style={s.recognitionInfoCard}>
+                <Text style={s.recognitionInfoText}>
+                  Loki Music écoute quelques secondes via le micro, identifie le morceau avec ses moteurs de reconnaissance, puis affiche le titre trouvé. Ensuite tu choisis GARDER ou PASSER. Le panneau se referme automatiquement.
+                </Text>
+              </View>
+            ) : null}
             {error ? <Text style={s.error}>{error}</Text> : null}
             {error && /microphone/i.test(error) && micPermissionFixHint() ? <Text style={s.micFixHint}>{micPermissionFixHint()}</Text> : null}
             {!error && micPreflightDenied && micPermissionFixHint() ? <Text style={s.micFixHint}>🎙️ Microphone bloqué pour ce site -- {micPermissionFixHint()}</Text> : null}
@@ -637,6 +676,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           askVisibilityOnKeep
           keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER / MASQUER reste gratuit.`}
           keepDebitAmount={homePulseFreeCost}
+          optimisticPass
           onKeep={async (track, visibility) => {
             const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
             if (ok) setHomePulseItems((items) => items.filter((item) => item.track.id !== track.id));
@@ -1123,6 +1163,11 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
+  recognitionInfoToggle: { minHeight: 36, marginTop: 6, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  recognitionInfoToggleText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
+  recognitionInfoChevron: { color: C.purpleLight, fontSize: 13, fontWeight: '900' },
+  recognitionInfoCard: { width: '100%', maxWidth: 330, marginTop: 2, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(124,92,252,.35)', backgroundColor: 'rgba(18,14,28,.82)', paddingHorizontal: 12, paddingVertical: 10 },
+  recognitionInfoText: { color: C.mutedGrey, fontSize: 11, lineHeight: 16, textAlign: 'center' },
   homePulseWrap:{width:'100%',maxWidth:692,marginTop:16},
   homePulseRail:{paddingHorizontal:2,paddingVertical:4,gap:10},
   homePulseCard:{width:72,alignItems:'center'},
