@@ -46,6 +46,7 @@ import { ProfileCertificationTier } from '../services/publicProfileStateService'
 import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
+const A11Y_TOUCH_HIT_SLOP = { top: 9, bottom: 9, left: 9, right: 9 } as const;
 const SOLO_RESULT_HOLD_MS = 650;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const BATTLE_NETWORK_DEADLINE_MS = 8_000;
@@ -2318,7 +2319,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <Modal visible={soloPacksOpen} transparent animationType="fade" onRequestClose={() => setSoloPacksOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
-            <TouchableOpacity style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
+            <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Acheter des Solos</Text>
             <Text style={s.prefsPickerHint}>Deux packs au choix : +10 Solos ou +25 Solos. Le pack choisi est crédité immédiatement sur ton stock. Chaque partie consomme 1 Solo. Aucun pack ne se renouvelle automatiquement : quand ton stock acheté est épuisé, tu dois acheter un nouveau pack.{soloPacks?.bonusRemaining ? ` Stock acheté restant : ${soloPacks.bonusRemaining} Solo${soloPacks.bonusRemaining > 1 ? 's' : ''}.` : ''}</Text>
             {(soloPacks?.packs ?? []).map((pack) => {
@@ -2337,7 +2338,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <Modal visible={prefsPickerOpen} transparent animationType="fade" onRequestClose={() => setPrefsPickerOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
-            <TouchableOpacity style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
+            <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>Styles Battle</Text>
             <Text style={s.prefsPickerHint}>Ton profil peut afficher tous tes styles musicaux. Ici seulement, choisis jusqu’à 3 styles acceptés pour les Battles. Mix remplace les styles précis.</Text>
             <ScrollView style={s.prefsPickerScroll}>
@@ -2411,7 +2412,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <Modal visible transparent animationType="fade" onRequestClose={() => setStatsPlayer(null)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
-            <TouchableOpacity style={s.statsClose} onPress={() => setStatsPlayer(null)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
+            <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setStatsPlayer(null)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
             <Text style={s.statsUsername}>{statsPlayer.username}</Text>
             {statsLoading ? <ActivityIndicator color="#E5F266" /> : statsData ? (
               <>
@@ -2814,7 +2815,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     if (soloFinished) {
       const perfect = soloScore === solo.rounds.length;
       return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
+        <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => { setSoloFinished(false); setSolo(null); void leaveSoloBattle().catch(() => {}); }}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>PARTIE TERMINÉE</Text></View><Text style={s.round}>{solo.rounds.length}/{solo.rounds.length}</Text></View>
         {/* Adel (02/09/2026) : "à l'étape huit pourquoi tu mets pas cette
             invitation ... la partie est terminée" -- vrai trou : incoming[0]
             continue d'être sondé même sur cet écran de fin de partie
@@ -2882,7 +2883,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       </View>;
     }
     return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
-      <View style={s.playHeader}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Quitter le solo" style={s.playBack} onPress={() => {
+      <View style={s.playHeader}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} accessibilityRole="button" accessibilityLabel="Quitter le solo" style={s.playBack} onPress={() => {
         // Adel (29/09/2026) : quitter en cours de partie ne rend PAS le Solo
         // (compté au démarrage, côté serveur). On le dit avant de sortir.
         const quit = () => { setSolo(null); void stopTrackPreview(); void leaveSoloBattle().catch(() => {}); };
@@ -2976,7 +2977,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const specTeamB = spectating.seats.filter((_, index) => index % 2 === 1);
     const canJoin = spectating.status !== 'CLOSED' && spectating.status !== 'EXPIRED';
     return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
+      <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => setSpectating(null)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · SPECTATEUR</Text><Text style={s.title}>{themeLabel(spectating.themeCode)}</Text></View><Text style={s.round}>{spectating.currentRound || 0}/{spectating.roundCount}</Text></View>
       <ScrollView style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={s.arenaScrollContent}>
       {renderTeamSquares(specTeamA, specTeamB, canJoin ? { onPress: () => { void joinSpectatedMatch(); }, busy: spectateJoinBusy } : undefined)}
       <View style={s.waiting}>
@@ -3087,7 +3088,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       };
       return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer le Battle" hitSlop={10} style={s.closeBattle} onPress={closeBattleArena}><Text style={s.closeBattleText}>×</Text></TouchableOpacity>
-        <View style={s.header}><TouchableOpacity style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
+        <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={backToArenaHome}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE · FIN DU MATCH</Text><Text style={s.title}>{themeLabel(arena.themeCode)}</Text></View><Text style={s.round}>{arena.seats.length}J</Text></View>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.finishScroll}>
           {perfectBonusWinner ? (
             <Animated.View style={[s.perfectBonusCard, perfectBonusGlowStyle]}>
@@ -3311,7 +3312,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           lancée (WAITING/ACTIVE) ; sortir se fait via ‹ (backToArenaHome)
           ou "QUITTER LE BATTLE" sur l'écran de fin. Conservée uniquement là. */}
       <Animated.View pointerEvents="none" style={[s.versus, { opacity: versusOpacity, transform: [{ scale: versusScale }] }]}><Text style={s.versusText}>⚡ BATTLE ⚡</Text><Text style={s.versusNames} numberOfLines={2}>{versusLabel}</Text></Animated.View>
-      <View style={s.playHeader}><TouchableOpacity accessibilityRole="button" accessibilityLabel="Quitter le Battle" style={s.playBack} onPress={backToArenaHome}><Text style={s.playBackText}>‹</Text></TouchableOpacity><Text numberOfLines={1} style={s.playMode}>EN LIGNE · {arena.seats.length}J · {themeLabel(round?.themeCode || arena.themeCode)}</Text><Text style={s.playRound}>{arena.currentRound || 0}/{arena.roundCount}</Text><Text style={s.playStake}>🎁 {stakeForRounds(arena.roundCount)}</Text></View>
+      <View style={s.playHeader}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} accessibilityRole="button" accessibilityLabel="Quitter le Battle" style={s.playBack} onPress={backToArenaHome}><Text style={s.playBackText}>‹</Text></TouchableOpacity><Text numberOfLines={1} style={s.playMode}>EN LIGNE · {arena.seats.length}J · {themeLabel(round?.themeCode || arena.themeCode)}</Text><Text style={s.playRound}>{arena.currentRound || 0}/{arena.roundCount}</Text><Text style={s.playStake}>🎁 {stakeForRounds(arena.roundCount)}</Text></View>
       {/* Adel (03/09/2026) : "on voit pas les titres en dessous, on voit pas
           la suite du bas" -- vrai bug : cet écran n'avait AUCUN scroll, donc
           dès que la grille d'équipes ajoutait ne serait-ce qu'une ligne de
@@ -3416,7 +3417,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     const canStartSelectedBattle = selectedLiveBattlePlayers.length >= 1 && creditReady && !insufficientForRoundCount(roundCount) && !startingGroupBattle;
     return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>
       {renderPlayerStatsModal()}
-      <View style={s.header}><TouchableOpacity style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>Choisis tes adversaires</Text></View><View style={s.headerCreditPill}><Text style={s.headerCreditText}>🎁 {myCreditStatus?.remainingFree ?? '…'}</Text></View></View>
+      <View style={s.header}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.back} onPress={() => setBrowseOnline(false)}><Text style={s.backText}>‹</Text></TouchableOpacity><View style={s.headerMid}><Text style={s.kicker}>LOKI MUSIC · BATTLE</Text><Text style={s.title}>Choisis tes adversaires</Text></View><View style={s.headerCreditPill}><Text style={s.headerCreditText}>🎁 {myCreditStatus?.remainingFree ?? '…'}</Text></View></View>
       <View style={s.lobbySummary}>
         <View style={s.lobbySummaryItem}><Text style={s.lobbySummaryValue}>{roundCount}</Text><Text style={s.lobbySummaryLabel}>MORCEAUX</Text></View>
         <View style={s.lobbySummaryDivider}/>
@@ -3518,13 +3519,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // Battle etait le seul ecran rendu sans ScrollView, donc sur un viewport
   // court le bouton "BATTLE EN LIGNE" passait sous la barre d'onglets. Meme
   // patron de secours que solo/arene/browse/finish : tout reste atteignable.
-  return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
+  return <View style={[s.root, isDesktopBattle && s.rootDesktop]}>{renderSoloSavePrompt()}<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.homeScroll}><View style={s.home}><TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.homeBack} onPress={onExit}><Text style={s.homeBackText}>‹</Text></TouchableOpacity>
       {/* Adel (08/09/2026) : "mettre un ? avec un popup pour expliquer
           l'avantage de jouer en solo, l'avantage de jouer en Battle en ligne
           ... plus ils vont pouvoir remporter des Free, ces Free vont servir
           à intégrer des artistes sur leur profil" -- pourquoi jouer, pas
           seulement comment. */}
-      <TouchableOpacity style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Tout comprendre sur Loki Music Battle" onPress={() => setHomeHelpOpen(true)}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
+      <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.homeHelp} accessibilityRole="button" accessibilityLabel="Tout comprendre sur Loki Music Battle" onPress={() => setHomeHelpOpen(true)}><Text style={s.homeHelpText}>?</Text></TouchableOpacity>
       <ContextHelpSheet
         visible={homeHelpOpen}
         title="Tout comprendre sur Battle"
