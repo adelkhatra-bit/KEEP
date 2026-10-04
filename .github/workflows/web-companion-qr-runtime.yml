@@ -1,0 +1,84 @@
+name: KEEP — Web Companion QR Runtime
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/components/WebCompanionPairingScreen.tsx'
+      - 'packages/mobile/src/components/WebPairingLifecycle.tsx'
+      - 'packages/mobile/src/services/webPairingService.ts'
+      - 'packages/mobile/src/screens/onboarding/OnboardingScreen.tsx'
+      - 'supabase/functions/keep-web-pairing/**'
+      - 'supabase/migrations/*web_companion*'
+      - '.github/workflows/web-companion-qr-runtime.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+  workflow_dispatch:
+
+concurrency:
+  group: keep-web-companion-qr-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qr-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
+      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_DEMO_MODE: 'false'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Shared source contract
+        run: node scripts/verify-source-of-truth.cjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install chromium --with-deps
+      - name: Start production-like Web companion
+        working-directory: packages/mobile
+        run: |
+          node scripts/start-web.cjs --port 8081 --clear >/tmp/loki-web-companion.log 2>&1 &
+          for i in {1..120}; do
+            if grep -Fq '[KEEP WEB] READY http://localhost:8081' /tmp/loki-web-companion.log 2>/dev/null && curl -fsS http://127.0.0.1:8081 >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/loki-web-companion.log
+          exit 1
+      - name: Verify QR-only desktop entry
+        run: |
+          cat > /tmp/check-web-companion.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({viewport:{width:1440,height:900}});
+            const errors=[];
+            page.on('pageerror',e=>errors.push(String(e)));
+            await page.goto('http://127.0.0.1:8081',{waitUntil:'domcontentloaded',timeout:60000});
+            await page.getByTestId('loki-web-companion-pairing').waitFor({state:'visible',timeout:20000});
+            await page.getByText('Connexion ordinateur',{exact:true}).waitFor({state:'visible',timeout:10000});
+            await page.getByText(/Scanne ce QR code/i).waitFor({state:'visible',timeout:10000});
+            await page.locator('svg').filter({has:page.locator('path')}).first().waitFor({state:'visible',timeout:15000}).catch(()=>{});
+            if (await page.getByText('Créer mon compte',{exact:true}).count()) throw new Error('Desktop must not expose account creation');
+            if (await page.getByText('J’AI DÉJÀ UN COMPTE',{exact:true}).count()) throw new Error('Desktop must not expose password login');
+            if (errors.length) throw new Error(errors.join('\n'));
+            console.log('WEB_COMPANION_QR_ONLY: PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          node /tmp/check-web-companion.cjs
+      - name: Logs on failure
+        if: failure()
+        run: cat /tmp/loki-web-companion.log || true
