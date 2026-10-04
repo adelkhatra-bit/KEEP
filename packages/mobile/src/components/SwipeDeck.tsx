@@ -116,7 +116,7 @@ export default function SwipeDeck({
 
 const styles = StyleSheet.create({
   shell:{width:'100%',position:'relative'},
-  shellWeb:{touchAction:'pan-y',userSelect:'none'} as any,
+  shellWeb:{touchAction:'none',userSelect:'none'} as any,
   shellWebVertical:{touchAction:'none'} as any,
   badge:{position:'absolute',top:18,zIndex:10,borderWidth:2,borderRadius:10,paddingHorizontal:10,paddingVertical:6},
   leftBadge:{right:18,borderColor:'#FF5F83',transform:[{rotate:'7deg'}]},
