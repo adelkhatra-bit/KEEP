@@ -249,12 +249,16 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   // puis on construit un Blob binaire transportable par les 4 moteurs
   // (ShazamKit, mémoire Loki, AudD, ACRCloud).
   const nativeFile = new ExpoFile(uri);
-  const bytes = await nativeFile.bytes();
-  if (!bytes || bytes.byteLength < 1000) {
-    throw new Error(`Capture micro invalide : seulement ${bytes?.byteLength ?? 0} octet(s) enregistrés.`);
+  // Expo SDK 54 : File implémente directement Blob sur iOS/Android.
+  // NE PAS reconstruire un Blob depuis Uint8Array/ArrayBuffer avec le Blob
+  // React Native historique : il lève précisément
+  // "Creating blobs from 'ArrayBuffer' and 'ArrayBufferView' are not supported".
+  // On valide seulement la taille puis on transmet le File natif tel quel à
+  // expo/fetch + FormData (chemin officiellement supporté par Expo).
+  if (!nativeFile.exists || nativeFile.size < 1000) {
+    throw new Error(`Capture micro invalide : seulement ${nativeFile.size ?? 0} octet(s) enregistrés.`);
   }
-  const mime = /\.wav(?:$|\?)/i.test(uri) ? 'audio/wav' : 'audio/mp4';
-  return new Blob([bytes], { type: mime });
+  return nativeFile as unknown as Blob;
 }
 
 // ---- Web : Web Audio API brute + encodage WAV manuel ----
