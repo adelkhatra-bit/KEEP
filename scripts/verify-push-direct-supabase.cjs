@@ -19,7 +19,7 @@ const appConfig = read('packages/mobile/app.json');
 const mobilePackage = read('packages/mobile/package.json');
 const soundGenerator = read('packages/mobile/scripts/generate-notification-sounds.cjs');
 
-ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'") || service.includes("rpc('keep_push_token_register_v2'"));
+ok('mobile registers token through Supabase RPC', service.includes("rpc('keep_push_token_register'") || service.includes("rpc('keep_push_token_register_v2'") || service.includes("rpc('keep_push_token_register_v3'"));
 ok('mobile push registration has no Render API URL dependency', !service.includes('EXPO_PUBLIC_API_URL') && !service.includes('/api/notifications/push-token'));
 ok('global lifecycle invokes push registration', lifecycle.includes('registerForPushNotifications') && root.includes('PushRegistrationLifecycle'));
 ok('token registration is authenticated by auth.uid()', directRpc.includes('auth.uid()'));
@@ -32,7 +32,7 @@ ok('money sound is generated before native builds', mobilePackage.includes('gene
 ok('Expo bundles the money notification sound', appConfig.includes('keep_money.wav'));
 ok('mobile registers a dedicated money notification channel', service.includes("setNotificationChannelAsync('money'") && service.includes("sound: 'keep_money.wav'"));
 ok('Edge worker applies persisted category sound preferences including money and silent', worker.includes('deliveryPreference') && worker.includes('isMoneyNotification') && worker.includes('keep_money.wav') && worker.includes('SILENT') && worker.includes('pref.channelId'));
-ok('invalid APNs environment tokens are pruned', worker.includes('BadEnvironmentKeyInToken'));
+ok('only genuinely invalid device tokens are pruned', worker.includes('return code === "DeviceNotRegistered"') && worker.includes('BadEnvironmentKeyInToken') && worker.includes('token de l\'iPhone reste valable'));
 
 console.log('KEEP direct Supabase push architecture: PASS');
 for (const c of checks) console.log(`PASS  ${c.label}`);
