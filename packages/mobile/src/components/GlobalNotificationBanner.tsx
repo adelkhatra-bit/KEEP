@@ -110,6 +110,7 @@ export default function GlobalNotificationBanner() {
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
+  const isGameInProgress = useGameSessionStore((s) => s.isGameInProgress);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
   const [battleDecisionReady, setBattleDecisionReady] = useState(false);
@@ -316,6 +317,12 @@ export default function GlobalNotificationBanner() {
     const unsubscribe = subscribeToNotifications(user.id, (notification) => {
       if (!active) return;
 
+      // Pendant un Solo ou un Battle EN LIGNE, aucun bandeau ni bip global
+      // n'a le droit de prendre la session audio ou de recouvrir les 4 réponses.
+      // La notification reste persistée en base et non lue ; elle est visible
+      // après la partie dans Notifications, sans interrompre une manche.
+      if (useGameSessionStore.getState().isGameInProgress) return;
+
       const battleChallenge = isBattleChallenge(notification);
       const battleRematch = isBattleRematch(notification);
       // Adel (02/09/2026) : "il pourra recevoir des invite dans n'importe
@@ -425,6 +432,11 @@ export default function GlobalNotificationBanner() {
   }, [isDemoMode, isLocalGuest, opacity, refreshBlockingBattleDecision, translateY, user?.id]);
 
   if (!user || isDemoMode || isLocalGuest) return null;
+
+  // Filet de sécurité rendu : si une notification était déjà affichée au
+  // moment précis où la partie démarre, elle disparaît immédiatement et ne
+  // reçoit plus aucun toucher pendant le jeu.
+  if (isGameInProgress) return null;
 
   const commitBlockingChallengeDecision = async (accept: boolean) => {
     if (!blockingChallenge || respondBusy) return;
