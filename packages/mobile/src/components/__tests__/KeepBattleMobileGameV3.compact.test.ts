@@ -62,7 +62,7 @@ describe('Loki Music Battle — compact current UX', () => {
 
   it('preloads the next Solo excerpt after an answer and cleans abandoned preload', () => {
     expect(source).toContain('if (soloIndex < solo.rounds.length - 1) {');
-    expect(source).toContain('preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1)');
+    expect(source).toMatch(/preloadTrackPreviewSegment\([\s\S]*soloRoundPreviewKey\(nextRound\.trackId, soloIndex \+ 1\)/);
     expect(source).toContain('discardPreloadedTrackPreview();');
   });
 
