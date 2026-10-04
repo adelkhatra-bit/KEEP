@@ -93,6 +93,7 @@ jobs:
                 publicLinkEnabled:!!g.attributes?.publicLinkEnabled,
                 testerCount:(testers.data||[]).length,
                 testerStates:(testers.data||[]).reduce((m,x)=>{const k=x.attributes?.state||'UNKNOWN';m[k]=(m[k]||0)+1;return m;},{}),
+                testers:(testers.data||[]).map(x=>({id:x.id,state:x.attributes?.state||null,inviteType:x.attributes?.inviteType||null})),
                 buildIds:(rel.data||[]).map(x=>x.id)
               });
             }
@@ -101,3 +102,5 @@ jobs:
             console.log('=== END LOKI TESTFLIGHT GROUP AUDIT ===');
           })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
           NODE
+
+# tester-assignment-audit: 2026-10-04T14:01Z
