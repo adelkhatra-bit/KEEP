@@ -634,7 +634,9 @@ Deno.serve(async (req) => {
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
       if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
-        return json(400, { error: "invalid_stripe_secret_key", message: "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY." });
+        const message = "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY.";
+        await setRecognitionRuntimeStatus(key, "ERROR", message);
+        return json(400, { error: "invalid_stripe_secret_key", message });
       }
       if (key === "STRIPE_PUBLISHABLE_KEY" && !/^pk_(test_|live_)/.test(value)) {
         return json(400, { error: "invalid_stripe_publishable_key", message: "Stripe Publishable Key doit commencer par pk_test_ ou pk_live_." });
@@ -651,17 +653,18 @@ Deno.serve(async (req) => {
         key === "STRIPE_SECRET_KEY" ? await validateStripeSecretKey(value) :
         null;
       if (directProviderValidation && !directProviderValidation.valid) {
+        await setRecognitionRuntimeStatus(key, "ERROR", directProviderValidation.message);
         return json(400, { error: "provider_rejected_key", message: directProviderValidation.message, validation: directProviderValidation });
       }
 
       const providerValidation = key === "AUDD_API_KEY" ? await validateAuddToken(value) : null;
       if (providerValidation && !providerValidation.valid) {
-        await resetIntegrationRuntimeStatus(key, false);
+        await setRecognitionRuntimeStatus(key, "ERROR", providerValidation.message);
         return json(400, { error: "invalid_audd_token", message: providerValidation.message, validation: providerValidation });
       }
       const musicApiValidation = key === "MUSICAPI_CLIENT_ID" ? await validateMusicApiClientId(value) : null;
       if (musicApiValidation && !musicApiValidation.valid) {
-        await resetIntegrationRuntimeStatus(key, false);
+        await setRecognitionRuntimeStatus(key, "ERROR", musicApiValidation.message);
         return json(400, { error: "invalid_musicapi_client_id", message: musicApiValidation.message, validation: musicApiValidation });
       }
 
