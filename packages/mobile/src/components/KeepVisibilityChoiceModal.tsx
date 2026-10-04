@@ -109,7 +109,59 @@ export default function KeepVisibilityChoiceModal({
   );
 }
 
+
+type SuccessProps = {
+  visible: boolean;
+  trackLabel?: string | null;
+  costFree?: number | null;
+  visibility?: 'PUBLIC' | 'PRIVATE' | null;
+  continueLabel?: string;
+  onContinue: () => void | Promise<void>;
+};
+
+export function KeepSuccessModal({
+  visible,
+  trackLabel,
+  costFree,
+  visibility,
+  continueLabel = 'PARFAIT',
+  onContinue,
+}: SuccessProps) {
+  const cost = Math.max(0, Number(costFree || 0));
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { void onContinue(); }}>
+      <View style={s.overlay}>
+        <View style={s.successCard}>
+          <View style={s.successOrb}><Text style={s.successOrbText}>✓</Text></View>
+          <Text style={s.successEyebrow}>C’EST GARDÉ</Text>
+          <Text style={s.successTitle}>Merci pour ta découverte</Text>
+          {trackLabel ? <Text style={s.successTrack} numberOfLines={2}>{trackLabel}</Text> : null}
+          {costFree != null ? <Text style={s.successDebit}>{cost} FREE débités</Text> : null}
+          <Text style={s.successBody}>
+            {visibility === 'PUBLIC'
+              ? 'Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.'
+              : 'Le morceau est gardé en privé dans ta bibliothèque. Rien n’est publié et aucune notification de nouveau morceau n’est envoyée à tes abonnés.'}
+          </Text>
+          <TouchableOpacity style={s.successButton} onPress={() => { void onContinue(); }} accessibilityLabel="Fermer la confirmation">
+            <Text style={s.successButtonText}>{continueLabel}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const s = StyleSheet.create({
+  successCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.keep, backgroundColor: '#151020', padding: 20, alignItems: 'center', shadowColor: '#000', shadowOpacity: .35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
+  successOrb: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(45,225,194,.14)', borderWidth: 1, borderColor: colors.keep, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  successOrbText: { color: colors.keep, fontSize: 28, fontWeight: '900' },
+  successEyebrow: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
+  successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
+  successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
+  successBody: { color: '#AFA5BC', fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 },
+  successButton: { width: '100%', minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  successButtonText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: .7 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(4,3,8,.82)',
