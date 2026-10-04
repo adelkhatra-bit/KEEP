@@ -1,4 +1,5 @@
 name: Loki App Review Contact Sync
+# sync-trigger-chatgpt: 2026-10-04T15:23:00Z
 
 on:
   workflow_dispatch:
