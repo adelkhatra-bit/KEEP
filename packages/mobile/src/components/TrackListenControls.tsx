@@ -4,7 +4,7 @@ import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
-import { playTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
@@ -76,7 +76,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
   }, [track.title, track.artist, track.previewUrl, embedUrl]);
 
   useEffect(() => () => {
-    void stopTrackPreview(previewKey);
+    // PASSER / changement de carte : couper instantanément l'ancien extrait.
+    // Le nettoyage natif se termine en arrière-plan pour que le prochain son
+    // puisse démarrer sans attente perceptible sur iPhone/TestFlight.
+    stopTrackPreviewFast(previewKey);
   }, [previewKey]);
 
   useEffect(() => {
