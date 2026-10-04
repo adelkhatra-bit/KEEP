@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StyleSh
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import UsernameAccountForm, { UsernameAccountMode } from '../../components/UsernameAccountForm';
+import WebCompanionPairingScreen from '../../components/WebCompanionPairingScreen';
 import OnboardingGenresScreen from './OnboardingGenresScreen';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
@@ -133,6 +134,7 @@ export default function OnboardingScreen() {
   // fonctionnel pendant ce court instant, en repli si cette entrée
   // automatique échoue (ex. stockage local indisponible).
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     if (accountOpen || intent.followUsername) return;
     if (useUserStore.getState().user) return;
     void handleGuestPress();
@@ -166,6 +168,10 @@ export default function OnboardingScreen() {
   // lien partagé : il reste disponible uniquement si un développeur l'active
   // explicitement dans un build __DEV__.
   const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
+
+  if (Platform.OS === 'web') {
+    return <WebCompanionPairingScreen />;
+  }
 
   if (genresOpen) {
     return (
