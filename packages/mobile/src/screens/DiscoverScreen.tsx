@@ -597,7 +597,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
           <View style={styles.discoveryModes}>
-            <TouchableOpacity style={[styles.discoveryModeButton, styles.discoveryModeButtonOn]}><Text style={[styles.discoveryModeText, styles.discoveryModeTextOn]}>PERSONNES</Text></TouchableOpacity>
+            <View style={[styles.discoveryModeButton, styles.discoveryModeButtonOn]} accessibilityRole="text" accessibilityLabel="Personnes, rubrique sélectionnée mais temporairement indisponible"><Text style={[styles.discoveryModeText, styles.discoveryModeTextOn]}>PERSONNES</Text></View>
             {eventsFeatureEnabled ? <TouchableOpacity style={styles.discoveryModeButton} onPress={() => setDiscoverMode('EVENTS')}><Text style={styles.discoveryModeText}>ÉVÉNEMENTS</Text></TouchableOpacity> : null}
           </View>
           <View style={styles.emptyCard}><Text style={styles.mutedHint}>La découverte de personnes est temporairement indisponible. Les événements restent accessibles ci-dessus.</Text></View>
