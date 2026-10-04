@@ -20,7 +20,7 @@ async function loadBattleCreditStatusIfAuthenticated(): Promise<KeepBattleCredit
   return loadMyKeepBattleCreditStatus().catch(() => null);
 }
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleSoloRank, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleSoloRank, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
+import { acknowledgeKeepBattleArenaPresence, buildKeepBattleArenaInviteLink, cancelKeepBattleArenaRematch, createKeepBattleArena, joinKeepBattleArena, KeepBattleArenaSpectate, KeepBattleArenaState, KeepBattleArenaWinner, KeepBattleCreditStatus, KeepBattlePendingRematch, KeepBattlePlayerStats, KeepBattleRematchParticipant, KeepBattleSoloRank, KeepBattleTheme, leaveKeepBattleArena, loadKeepBattleArena, loadKeepBattleArenaRematchStatus, loadKeepBattleArenaWinnerHistory, estimateKeepBattleServerClockOffsetMs, keepBattleServerNowMs, loadKeepBattleGlobalLeaderboard, loadKeepBattlePlayerStats, loadKeepBattleThemes, loadMyActiveKeepBattleArena, loadMyKeepBattleCreditStatus, loadMyKeepBattleSoloRank, loadPendingArenaRematches, proposeKeepBattleArenaRematch, respondKeepBattleArenaRematch, spectateKeepBattleArena, startKeepBattleArena, submitKeepBattleArenaQuizAnswer, subscribeKeepBattleArena, updateSoloPresenceTheme } from '../services/keepBattleService';
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
@@ -1541,6 +1541,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // pour prévenir AVANT la 3e : « encore une et tu sors, −X Free ».
   const arenaMissRef = React.useRef<{ match: number; counted: Set<number>; streak: number }>({ match: -1, counted: new Set(), streak: 0 });
   const [arenaMissStreak, setArenaMissStreak] = React.useState(0);
+  const [arenaIdlePromptAt, setArenaIdlePromptAt] = React.useState<number | null>(null);
   React.useEffect(() => {
     if (!arena || arena.status !== 'ACTIVE' || arena.me?.status !== 'ACTIVE') return;
     if (arenaMissRef.current.match !== arena.matchNo) {
@@ -1553,6 +1554,28 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     tracker.streak = arena.round.answered ? 0 : tracker.streak + 1;
     setArenaMissStreak(tracker.streak);
   }, [arena?.matchNo, arena?.currentRound, arena?.round?.revealed, arena?.round?.answered, arena?.status, arena?.me?.status]);
+
+  React.useEffect(() => {
+    if (!arena || arena.status !== 'ACTIVE' || arena.me?.status !== 'ACTIVE') {
+      setArenaIdlePromptAt(null);
+      return;
+    }
+    if (arenaMissStreak >= 2 && arenaIdlePromptAt === null) setArenaIdlePromptAt(Date.now());
+    if (arenaMissStreak === 0 && arenaIdlePromptAt !== null) setArenaIdlePromptAt(null);
+  }, [arena?.id, arena?.status, arena?.me?.status, arenaMissStreak, arenaIdlePromptAt]);
+
+  React.useEffect(() => {
+    if (arenaIdlePromptAt === null || !arena?.id || arena.status !== 'ACTIVE' || arena.me?.status !== 'ACTIVE') return undefined;
+    const arenaId = arena.id;
+    const id = setTimeout(() => {
+      setArenaIdlePromptAt(null);
+      void stopTrackPreview();
+      void leaveKeepBattleArena(arenaId).catch(() => {});
+      useGameSessionStore.getState().clearGameSession();
+      setArena(null);
+    }, SOLO_IDLE_AUTO_CLOSE_MS);
+    return () => clearTimeout(id);
+  }, [arenaIdlePromptAt, arena?.id, arena?.status, arena?.me?.status, setArena]);
 
   const refreshArena = React.useCallback(async () => {
     const requestedId = arena?.id;
@@ -2651,7 +2674,9 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             onPress: () => {
               void stopTrackPreview();
               const leavingArenaId = arenaIdLiveRef.current;
-    if (leavingArenaId && !leavingArenaId.startsWith('PENDING_')) void leaveKeepBattleArena(leavingArenaId).catch(() => {});
+              if (leavingArenaId && !leavingArenaId.startsWith('PENDING_')) void leaveKeepBattleArena(leavingArenaId).catch(() => {});
+              useGameSessionStore.getState().clearGameSession();
+              setArenaIdlePromptAt(null);
               setArena(null);
             },
           },
@@ -2661,7 +2686,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }
     void stopTrackPreview();
     const activeArenaId = arenaIdLiveRef.current;
-    if (activeArenaId && !activeArenaId.startsWith('PENDING_')) void leaveKeepBattleArena(activeArenaId).catch(() => {});
+    if (activeArenaId && !activeArenaId.startsWith('PENDING_')) {
+      void leaveKeepBattleArena(activeArenaId).catch(() => {});
+      useGameSessionStore.getState().clearGameSession();
+    }
+    setArenaIdlePromptAt(null);
     setArena(null);
     setBuildingArena(null);
   }, [arena?.id]);
@@ -2692,7 +2721,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // fermer l'écran doit prévenir le serveur (forfait si la partie était
     // active, sinon simple sortie du groupe) sinon le siège reste ACTIVE
     // pour toujours côté serveur.
-    if (arena?.id) void leaveKeepBattleArena(arena.id).catch(() => {});
+    if (arena?.id) {
+      void leaveKeepBattleArena(arena.id).catch(() => {});
+      useGameSessionStore.getState().clearGameSession();
+    }
+    setArenaIdlePromptAt(null);
     // Adel (02/09/2026) : "il ne faut pas le désactiver automatique" quand
     // c'est une activation MANUELLE -- quitter complètement Battle éteint
     // la disponibilité seulement si elle a été activée automatiquement en
@@ -3275,6 +3308,51 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           laisse un carré plus grand pour l'image » -- pendant la manche, le
           visuel prend toute la hauteur libre (carré au maximum) et pousse
           les réponses vers le bas ; jamais sous 118 px. */}
+      {arenaIdlePromptAt !== null ? (
+        <View style={s.idleOverlay} accessibilityViewIsModal>
+          <View style={s.idleCard}>
+            <Text style={s.idleEmoji}>😴</Text>
+            <Text style={s.idleTitle}>Tu es toujours là ?</Text>
+            <Text style={s.idleText}>
+              {`Tu n’as répondu à aucune des 2 dernières manches. Sans réponse dans ${Math.max(0, Math.ceil((arenaIdlePromptAt + SOLO_IDLE_AUTO_CLOSE_MS - now) / 1000))} s, tu quittes le Battle et la règle d’abandon s’applique.`}
+            </Text>
+            <View style={s.idleActions}>
+              <TouchableOpacity
+                style={s.idleStop}
+                accessibilityRole="button"
+                onPress={() => {
+                  const arenaId = arena.id;
+                  setArenaIdlePromptAt(null);
+                  void stopTrackPreview();
+                  void leaveKeepBattleArena(arenaId).catch(() => {});
+                  useGameSessionStore.getState().clearGameSession();
+                  setArena(null);
+                }}
+              >
+                <Text style={s.idleStopText}>Arrêter</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={s.idleGo}
+                accessibilityRole="button"
+                onPress={() => {
+                  unlockWebAudioForGesture();
+                  const arenaId = arena.id;
+                  void acknowledgeKeepBattleArenaPresence(arenaId)
+                    .then(() => {
+                      arenaMissRef.current.streak = 0;
+                      setArenaMissStreak(0);
+                      setArenaIdlePromptAt(null);
+                      void refreshArena();
+                    })
+                    .catch(() => {});
+                }}
+              >
+                <Text style={s.idleGoText}>Je suis là !</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
       <ScrollView scrollEnabled={arena.status !== "ACTIVE"} bounces={arena.status !== "ACTIVE"} style={s.arenaScroll} showsVerticalScrollIndicator={false} contentContainerStyle={[s.arenaScrollContent, arena.status === 'ACTIVE' && round ? s.arenaScrollContentActive : null]}>
       {arena.status === "WAITING" && arena.matchNo > 0 && !arena.lastResult ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>🏆</Text></View><Text style={s.winner}>RÉSULTATS EN CHARGEMENT</Text><Text style={s.waitText}>Compilation de vos scores...</Text></View> : null}
       {arena.status === "WAITING" && (arena.matchNo === 0 || arena.lastResult) ? <View style={s.waiting}><View style={s.waitingPulse}><Text style={s.trophy}>⚡</Text></View><Text style={s.winner}>{arena.seats.length < 2 ? (arena.pendingInviteCount > 0 ? "INVITATION ENVOYÉE" : "EN ATTENTE") : "JOUEURS EN SYNCHRONISATION"}</Text><Text style={s.waitText}>{arena.seats.length >= 2 ? "Tout le monde est prêt. Le même extrait démarre pour tous." : arena.pendingInviteCount > 0 ? `${arena.pendingInviteCount} réponse${arena.pendingInviteCount > 1 ? "s" : ""} en attente · tu peux continuer à inviter d’autres joueurs.` : "Invite un adversaire ou partage le lien pour démarrer."}</Text>{arena.pendingInviteCount > 0 ? <View style={s.waitingStatusPill}><Text style={s.waitingStatusText}>EN ATTENTE DE RÉPONSE</Text></View> : null}</View> : null}
