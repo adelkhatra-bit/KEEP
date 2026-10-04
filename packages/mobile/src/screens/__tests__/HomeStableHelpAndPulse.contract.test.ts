@@ -9,7 +9,8 @@ describe('Listen home stable layout contract', () => {
     const cta = source.indexOf('<View style={s.idleCta}>', help);
     expect(help).toBeGreaterThan(-1);
     expect(cta).toBeGreaterThan(help);
-    expect(source).toContain("idleLearnMoreSlot: { width: '100%', minHeight: 78");
+    expect(source).toContain("idleLearnMoreSlot: { width: '100%', height: 96");
+    expect(source).toContain("idleLearnMorePanel: { position: 'absolute', top: 2");
   });
 
   it('keeps important copy bright on the dark Listen background', () => {
