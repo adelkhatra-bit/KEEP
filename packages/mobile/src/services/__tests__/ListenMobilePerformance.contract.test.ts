@@ -4,7 +4,7 @@ import path from 'path';
 const read = (...parts: string[]) => fs.readFileSync(path.resolve(__dirname, ...parts), 'utf8');
 
 describe('Listen mobile swipe performance contract', () => {
-  const home = read('..', 'HomeScreenCompact.tsx');
+  const home = read('..', '..', 'screens', 'HomeScreenCompact.tsx');
   const swipe = read('..', '..', 'components', 'SwipeDeck.tsx');
   const audio = read('..', 'audioPreviewService.ts');
 
@@ -14,14 +14,14 @@ describe('Listen mobile swipe performance contract', () => {
   });
 
   it('PASSER advances the UI before persisting the local decision', () => {
-    const start = home.indexOf('const passCurrent = () => {');
-    const next = home.indexOf('setViewedTrackId(nextTrackId);', start);
+    const start = home.indexOf('const passCurrentAndAdvance = () => {');
+    const next = home.indexOf('setViewedTrackId(nextId);', start);
     const pass = home.indexOf('passTrack(current.id);', start);
     expect(start).toBeGreaterThan(-1);
     expect(next).toBeGreaterThan(start);
     expect(pass).toBeGreaterThan(next);
-    expect(home).toContain('onSwipeLeft={pending ? passCurrent : undefined}');
-    expect(home).toContain('onPress={passCurrent}');
+    expect(home).toContain('onSwipeLeft={pending ? passCurrentAndAdvance : undefined}');
+    expect(home).toContain('onPress={passCurrentAndAdvance}');
   });
 
   it('accepts a short upward flick for TikTok-style navigation', () => {
