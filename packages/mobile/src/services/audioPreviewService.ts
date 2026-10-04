@@ -67,6 +67,42 @@ let webProfilePreloadUrl: string | null = null;
 let playbackRequestEpoch = 0;
 let profilePreloadEpoch = 0;
 
+// Transition native entre deux extraits : PASSER peut être tapé plusieurs fois
+// avant que stopAsync/unloadAsync aient fini côté AVFoundation. On garde une
+// petite barrière de silence séparée du nettoyage complet : le prochain son
+// peut démarrer dès que l'ancien est muet/pausé, sans attendre son unload.
+let nativeHandoffSilenceBarrier: Promise<void> = Promise.resolve();
+
+function retireNativeSoundFast(sound: NativeSound): void {
+  const silence = (async () => {
+    try {
+      await withAudioTimeout(sound.setVolumeAsync(0), 'AUDIO_HANDOFF_MUTE', 140);
+      return;
+    } catch {}
+    try {
+      await withAudioTimeout(sound.pauseAsync(), 'AUDIO_HANDOFF_PAUSE', 180);
+      return;
+    } catch {}
+    try { await withAudioTimeout(sound.stopAsync(), 'AUDIO_HANDOFF_STOP', 220); } catch {}
+  })();
+
+  const previous = nativeHandoffSilenceBarrier;
+  nativeHandoffSilenceBarrier = Promise.allSettled([previous, silence]).then(() => undefined);
+
+  void silence.finally(async () => {
+    try { await withAudioTimeout(sound.stopAsync(), 'AUDIO_RETIRE_STOP', 500); } catch {}
+    try { await withAudioTimeout(sound.unloadAsync(), 'AUDIO_RETIRE_UNLOAD', 900); } catch {}
+  });
+}
+
+async function awaitNativeHandoffSilence(): Promise<void> {
+  if (canUseWebAudio()) return;
+  await Promise.race([
+    nativeHandoffSilenceBarrier.catch(() => {}),
+    new Promise<void>((resolve) => setTimeout(resolve, 220)),
+  ]);
+}
+
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
 // deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
 // pendant toute la session. L'élément est seulement mis en pause entre les titres ;
@@ -580,6 +616,14 @@ export async function toggleTrackPreview(
       return;
     }
 
+    // Un PASSER précédent peut encore être en train de muter l'ancien son.
+    // Attendre uniquement sa mise au silence évite tout chevauchement audible.
+    await awaitNativeHandoffSilence();
+    if (requestEpoch !== playbackRequestEpoch) {
+      try { await createdSound.unloadAsync(); } catch {}
+      return;
+    }
+
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange;
@@ -670,7 +714,9 @@ export async function playTrackPreviewSegment(
   onEnded?: () => void,
   startFromBeginning = false,
 ): Promise<void> {
+  const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
+    if (requestEpoch !== playbackRequestEpoch) return;
     if (canUseWebAudio()) {
       await playWebSegment(key, previewUrl, positionMillis, durationMillis, onStateChange, onEnded, !startFromBeginning);
       return;
@@ -718,6 +764,13 @@ export async function playTrackPreviewSegment(
       await unloadActive();
       await configurePreviewAudio();
       createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);
+    }
+
+    await awaitNativeHandoffSilence();
+    if (requestEpoch !== playbackRequestEpoch) {
+      try { await createdSound.stopAsync(); } catch {}
+      try { await createdSound.unloadAsync(); } catch {}
+      return;
     }
 
     activeSound = createdSound;
@@ -787,7 +840,9 @@ export async function scheduleTrackPreviewSegment(
   startAtEpochMs: number,
   onStateChange?: (playing: boolean) => void,
 ): Promise<void> {
+  const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
+    if (requestEpoch !== playbackRequestEpoch) return;
     if (canUseWebAudio()) {
       clearActiveTimer();
       // Adel (02/09/2026) : "la musique démarre en retard, c'est déloyal" --
@@ -844,6 +899,12 @@ export async function scheduleTrackPreviewSegment(
         });
       }
     }, false);
+    await awaitNativeHandoffSilence();
+    if (requestEpoch !== playbackRequestEpoch) {
+      try { await createdSound.stopAsync(); } catch {}
+      try { await createdSound.unloadAsync(); } catch {}
+      return;
+    }
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange ?? null;
@@ -901,12 +962,10 @@ export function stopTrackPreviewFast(key?: string): void {
     listener?.(false);
 
     if (sound) {
-      // Interaction mobile : la coupure est immédiate. Le nettoyage natif
-      // continue en arrière-plan afin que le prochain extrait ne reste pas
-      // bloqué derrière stop/unload dans la file sérialisée.
-      void sound.stopAsync()
-        .catch(() => {})
-        .then(() => sound.unloadAsync().catch(() => {}));
+      // Coupe d'abord l'audible (mute/pause), puis nettoie en arrière-plan.
+      // Le prochain extrait attend seulement cette micro-barrière de silence,
+      // jamais l'unload complet : pas de double son et pas de latence lourde.
+      retireNativeSoundFast(sound);
     }
   }
 }
@@ -954,7 +1013,9 @@ export async function playAntiShazamPreviewSegment(
   onEnded?: () => void,
 ): Promise<number> {
   const durationMs = SECRET_PREVIEW_DURATION_MS;
+  const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
+    if (requestEpoch !== playbackRequestEpoch) return durationMs;
 
     if (canUseWebAudio()) {
       // Démarrage à zéro : beaucoup de previews AAC iTunes sont courtes et
@@ -970,6 +1031,12 @@ export async function playAntiShazamPreviewSegment(
       if (!status.isLoaded) return;
       if (activeSound === createdSound) activeStateListener?.(status.isPlaying);
     });
+    await awaitNativeHandoffSilence();
+    if (requestEpoch !== playbackRequestEpoch) {
+      try { await createdSound.stopAsync(); } catch {}
+      try { await createdSound.unloadAsync(); } catch {}
+      return durationMs;
+    }
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange ?? null;
