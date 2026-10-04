@@ -1530,6 +1530,7 @@ export default function MusicAgoraPanel({
                   item.lastRoomSlug,
                 );
               }}
+              accessibilityRole="button"
               accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
             >
               {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
