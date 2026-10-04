@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
-import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 
 // Clé stable (sans compteur de tentative) identifiant l'extrait d'une manche
 // solo -- utilisée à la fois par preloadTrackPreviewSegment (pendant la
@@ -2642,6 +2642,17 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     setSoloSelectedAnswer(choice);
     recordSoloAnswer(isCorrect ? 'CORRECT' : 'INCORRECT');
     if (isCorrect) setSoloScore((v) => v + 1);
+    stopTrackPreviewFast();
+    if (solo && soloIndex < solo.rounds.length - 1) {
+      const nextRound = solo.rounds[soloIndex + 1];
+      if (nextRound?.previewUrl) {
+        void preloadTrackPreviewSegment(
+          soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),
+          nextRound.previewUrl,
+          0,
+        );
+      }
+    }
     animateResult();
   };
 
