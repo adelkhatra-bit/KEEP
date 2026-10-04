@@ -598,9 +598,17 @@ export async function preloadTrackPreview(previewUrl: string): Promise<void> {
 
   return serialize(async () => {
     if (profilePreloadedSound && profilePreloadedUrl === previewUrl) return;
+    let activePlaying = false;
+    if (activeSound) {
+      try {
+        const status = await activeSound.getStatusAsync();
+        activePlaying = Boolean(status.isLoaded && status.isPlaying);
+      } catch {}
+    }
     await discardProfilePreloaded();
     try {
-      const sound = await createSoundWithRetry(previewUrl, 0, () => {}, false);
+      if (!activePlaying) await configurePreviewAudio();
+      const sound = await createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying);
       profilePreloadedSound = sound;
       profilePreloadedUrl = previewUrl;
     } catch {
