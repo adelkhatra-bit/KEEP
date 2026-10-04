@@ -132,57 +132,6 @@ export default function HomeScreenCompact({ navigation }: any) {
       setHomeAboutOpen(false);
     }, 8000);
   };
-  const [listenInfoOpen, setListenInfoOpen] = useState(false);
-  const listenInfoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    const refreshHomePulse = async () => {
-      if (!user?.id || isDemoMode || musicEngine.isDemoMode) {
-        if (live) setHomePulseItems([]);
-        return;
-      }
-      try {
-        const items = await loadLokiPulse(24, user.id);
-        if (live) setHomePulseItems(items);
-      } catch {
-        // Une panne PostgREST temporaire ne doit jamais faire disparaître
-        // des bulles déjà visibles. Le service retourne aussi le dernier cache
-        // valide du compte après un reload.
-      }
-    };
-    void refreshHomePulse();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomePulse(); });
-    return () => { live = false; unsubscribe?.(); };
-  }, [isDemoMode, navigation, user?.id]);
-
-  const openHomePulseTrack = (trackId: string) => {
-    unlockWebAudioForGesture();
-    setHomePulseSelectedTrackId(trackId);
-    setHomePulseOpen(true);
-    void getDownloadCreditStatus().then((status) => { if (status.costPerKeep) setHomePulseFreeCost(status.costPerKeep); }).catch(() => {});
-  };
-
-  const toggleListenInfo = () => {
-    if (listenInfoTimer.current) {
-      clearTimeout(listenInfoTimer.current);
-      listenInfoTimer.current = null;
-    }
-    setListenInfoOpen((open) => {
-      const next = !open;
-      if (next) {
-        listenInfoTimer.current = setTimeout(() => {
-          setListenInfoOpen(false);
-          listenInfoTimer.current = null;
-        }, 8000);
-      }
-      return next;
-    });
-  };
-  useEffect(() => () => {
-    if (listenInfoTimer.current) clearTimeout(listenInfoTimer.current);
-  }, []);
-
   const [elapsed, setElapsed] = useState(formatElapsed(startedAt));
   const [silencePromptSeconds, setSilencePromptSeconds] = useState(Math.ceil(SILENCE_PROMPT_GRACE_MS / 1000));
   const micPulse = useRef(new Animated.Value(0)).current;
@@ -626,21 +575,6 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.idleLearnMorePanel}>
                 <Text style={s.idleLearnMoreBody}>
                   Loki Music écoute uniquement pendant ta session, identifie les morceaux autour de toi, puis te laisse choisir librement PASSER ou GARDER. GARDER construit progressivement ta bibliothèque, ton profil musical et ton Loki DNA.
-                </Text>
-              </View>
-            ) : null}
-            <TouchableOpacity
-              style={s.listenInfoLink}
-              onPress={toggleListenInfo}
-              accessibilityRole="button"
-              accessibilityLabel={listenInfoOpen ? "Masquer l'explication de l'écoute Loki Music" : "En savoir plus sur l'écoute Loki Music"}
-            >
-              <Text style={s.listenInfoLinkText}>{listenInfoOpen ? 'En savoir moins ︿' : 'En savoir plus ﹀'}</Text>
-            </TouchableOpacity>
-            {listenInfoOpen ? (
-              <View style={s.listenInfoCard}>
-                <Text style={s.listenInfoText}>
-                  Loki Music écoute quelques secondes autour de toi, tente d’identifier le morceau avec ses moteurs de reconnaissance, puis affiche le résultat. Tu peux ensuite GARDER ou PASSER. Le panneau se referme automatiquement après quelques secondes.
                 </Text>
               </View>
             ) : null}
@@ -1253,10 +1187,6 @@ const s = StyleSheet.create({
   idleLearnMoreText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
   idleLearnMorePanel: { width: '100%', maxWidth: 340, marginTop: 2, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
   idleLearnMoreBody: { color: C.mutedGrey, fontSize: 11, lineHeight: 16, textAlign: 'center' },
-  listenInfoLink: { minHeight: 32, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
-  listenInfoLinkText: { color: C.purpleLight, fontSize: 11, fontWeight: '800', textDecorationLine: 'underline' },
-  listenInfoCard: { width: '100%', maxWidth: 340, marginTop: 3, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,92,252,.34)', backgroundColor: 'rgba(21,16,32,.82)' },
-  listenInfoText: { color: C.text, fontSize: 11, lineHeight: 16, fontWeight: '600', textAlign: 'center' },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
   demoRow:{marginTop:14,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:7},
