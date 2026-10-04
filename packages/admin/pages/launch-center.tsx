@@ -42,13 +42,13 @@ const PROVIDERS = [
     url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
   },
   {
-    name: 'AudD', plan: 'Paiement à l’usage', price: '5 USD / 1 000 écoutes', required: false,
-    detail: 'Moteur serveur prioritaire hors ShazamKit : 300 essais gratuits, catalogue annoncé de plus de 160 millions de titres.', action: 'CRÉER LE TOKEN',
+    name: 'AudD', plan: 'Optionnel · paiement à l’usage', price: 'Selon ton offre AudD', required: false,
+    detail: 'Moteur complémentaire. Un abonnement AudD ne connecte pas automatiquement Loki : la clé API doit être enregistrée dans Intégrations si tu veux l’activer.', action: 'GÉRER AUDD',
     url: 'https://dashboard.audd.io/',
   },
   {
-    name: 'ACRCloud', plan: 'Secours Music Recognition', price: 'Essai 14 jours puis devis', required: false,
-    detail: 'Deuxième moteur indépendant pour maximiser la couverture des morceaux rares, remixés ou mal captés.', action: 'OUVRIR L’ESSAI',
+    name: 'ACRCloud', plan: 'Moteur serveur principal', price: 'Selon ton offre ACRCloud', required: false,
+    detail: 'Moteur serveur actuellement utilisé par Loki pour compléter ShazamKit et la mémoire musicale.', action: 'GÉRER ACRCLOUD',
     url: 'https://console.acrcloud.com/',
   },
 ] as const;
@@ -160,7 +160,7 @@ export default function LaunchCenter() {
         etat lu (Cles detectees automatiquement + alerte d'erreur ci-dessous). */}
     <div className="card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Écoute multi-moteurs</h3>
-      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → AudD → ACRCloud. Pour un lien YouTube/TikTok partagé : métadonnées de la page → catalogues Apple/Deezer → empreinte audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
+      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → ACRCloud côté serveur → AudD uniquement s’il est explicitement connecté. Pour un lien partagé : métadonnées de la page → catalogues publics → moteur audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
       <a href="/integrations" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
         Tester les moteurs dans « Intégrations »
       </a>
