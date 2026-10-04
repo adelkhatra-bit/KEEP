@@ -4,6 +4,8 @@ Avant toute action, lire `config/keep-product-contract.json`. C'est la biblioth�
 ## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
 Lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md` avant toute modification. Une modification qui contredit ces fichiers sans nouvelle demande explicite est une régression.
 
+**Économie FREE obligatoire :** avant toute modification concernant les écoutes, FREE, recharges, parrainage, abonnements ou accès ordinateur QR, lire `docs/PRICING_STRATEGY.md` → « Économie FREE — décision d'Adel du 04/10/2026 (CANONIQUE) » et respecter son ordre d'implémentation.
+
 ## AVANT TOUTE ACTION
 Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
 
