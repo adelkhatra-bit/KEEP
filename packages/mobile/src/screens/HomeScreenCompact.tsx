@@ -23,7 +23,7 @@ import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
-import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
@@ -112,6 +112,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
   const prewarmHomePulseTrack = (trackId: string) => {
+    // Web uniquement : sur TestFlight, onPressIn précède onPress de quelques
+    // millisecondes et l'ancien preload expo-av entrait dans la même file que
+    // la lecture, ce qui retardait précisément le morceau que l'utilisateur
+    // venait de choisir.
+    if (Platform.OS !== 'web') return;
     const item = homePulseItems.find((row) => row.track.id === trackId);
     if (!item) return;
     const direct = item.track.previewUrl?.trim();
@@ -125,10 +130,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   };
 
   const openHomePulseTrack = (trackId: string) => {
-    // Le tap sur une bulle prépare l'audio immédiatement puis ouvre le Swipe
-    // sur CE morceau. Aucun second bouton "Écouter" ne doit être nécessaire.
+    // Un seul son audible dans toute l'app : le tap coupe immédiatement
+    // l'extrait ou le départ programmé précédent, puis le modal démarre
+    // directement le morceau choisi.
     unlockWebAudioForGesture();
-    prewarmHomePulseTrack(trackId);
+    stopTrackPreviewFast();
     setHomePulseSelectedTrackId(trackId);
     setHomePulseOpen(true);
   };
@@ -1198,7 +1204,7 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:2,marginBottom:-46},
+  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:2,marginBottom:-54},
   homePulseRail:{paddingHorizontal:2,paddingTop:2,paddingBottom:0,gap:12},
   homePulseCard:{width:90,alignItems:'center'},
   homePulseArtworkRing:{position:'relative',width:80,height:80,borderRadius:40,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
