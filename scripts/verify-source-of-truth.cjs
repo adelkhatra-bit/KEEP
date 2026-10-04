@@ -3,6 +3,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
+const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 const failures = [];
 const expectedRepository = 'adelkhatra-bit/KEEP';
 const expectedBranch = 'reconcile/claude-main-20260825';
