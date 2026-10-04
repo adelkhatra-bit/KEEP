@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } fr
 import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
-import { radius } from '../theme/spacing';
+import { minTouchTarget, radius } from '../theme/spacing';
 import { playTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -236,9 +236,9 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 
 const styles = StyleSheet.create({
   previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
-  previewPill: { minHeight: 24, paddingHorizontal: 7, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  previewPill: { minHeight: minTouchTarget, minWidth: minTouchTarget, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
-  youtubePill: { minHeight: 24, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
+  youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
   audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
   embedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },
