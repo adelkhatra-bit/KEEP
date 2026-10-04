@@ -291,12 +291,22 @@ jobs:
             }));
 
             await openKeep(page);
-            await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
+
+            // Le mini-tour est une surcouche de première installation : on le
+            // ferme AVANT toute capture/mesure pour comparer le vrai accueil
+            // utilisé au quotidien sur mobile et desktop.
+            const skipCoach=page.getByLabel('Passer le mini-tour').last();
+            if(await skipCoach.isVisible().catch(()=>false)) {
+              await skipCoach.click({force:true});
+              await page.waitForTimeout(180);
+            }
+
+            await page.screenshot({path:'artifacts/dual-viewport/01-mobile-390x844-listen-idle.png',fullPage:true});
 
             // Contrat visuel accueil 390x844 :
             // - ouvrir « En savoir plus » ne doit déplacer ni le CTA ni les bulles ;
-            // - les bulles restent proches de la barre des 5 onglets ;
-            // - un espace lisible reste entre le CTA et les bulles.
+            // - si Loki Pulse a des bulles pour ce compte, elles restent près des onglets ;
+            // - l'absence momentanée de recommandations ne doit pas faire échouer le layout.
             {
               const help=page.getByLabel('En savoir plus sur Loki Music').last();
               const cta=page.getByLabel('Identifier un morceau').last();
@@ -304,35 +314,39 @@ jobs:
               await Promise.all([
                 help.waitFor({state:'visible',timeout:15000}),
                 cta.waitFor({state:'visible',timeout:15000}),
-                rail.waitFor({state:'visible',timeout:15000}),
               ]);
-              const before=await Promise.all([cta.boundingBox(),rail.boundingBox()]);
+              const railVisible=await rail.isVisible().catch(()=>false);
+              const beforeCta=await cta.boundingBox();
+              const beforeRail=railVisible ? await rail.boundingBox() : null;
               await help.click({force:true});
               await page.waitForTimeout(220);
-              const after=await Promise.all([cta.boundingBox(),rail.boundingBox()]);
-              if(!before[0]||!before[1]||!after[0]||!after[1]) throw new Error('Accueil: mesure CTA/Pulse impossible');
-              if(Math.abs(before[0].y-after[0].y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec En savoir plus ${before[0].y} -> ${after[0].y}`);
-              if(Math.abs(before[1].y-after[1].y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${before[1].y} -> ${after[1].y}`);
-              const gap=after[1].y-(after[0].y+after[0].height);
-              if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
-              const bottomTab=page.getByText('Loki Music',{exact:true}).last();
-              const tabBox=await bottomTab.boundingBox();
-              if(tabBox){
-                const railBottom=after[1].y+after[1].height;
-                const railToTabs=tabBox.y-railBottom;
-                if(railToTabs>125) throw new Error(`Accueil: bulles trop hautes par rapport à la barre (${railToTabs}px)`);
+              const afterCta=await cta.boundingBox();
+              const afterRail=railVisible ? await rail.boundingBox() : null;
+              if(!beforeCta||!afterCta) throw new Error('Accueil: mesure CTA impossible');
+              if(Math.abs(beforeCta.y-afterCta.y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec En savoir plus ${beforeCta.y} -> ${afterCta.y}`);
+              if(railVisible && beforeRail && afterRail){
+                if(Math.abs(beforeRail.y-afterRail.y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${beforeRail.y} -> ${afterRail.y}`);
+                const gap=afterRail.y-(afterCta.y+afterCta.height);
+                if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
+                const bottomTab=page.getByText('Loki Music',{exact:true}).last();
+                const tabBox=await bottomTab.boundingBox();
+                if(tabBox){
+                  const railBottom=afterRail.y+afterRail.height;
+                  const railToTabs=tabBox.y-railBottom;
+                  if(railToTabs>125) throw new Error(`Accueil: bulles trop hautes par rapport à la barre (${railToTabs}px)`);
+                }
               }
               await help.click({force:true});
             }
 
-            // Le mini-tour de première installation est une vraie surcouche.
-            // Un utilisateur appuie d'abord sur Passer/Suivant ; le Guardian
-            // doit reproduire ce geste et ne jamais cliquer à travers l'aide.
-            const skipCoach=page.getByLabel('Passer le mini-tour').last();
-            if(await skipCoach.isVisible().catch(()=>false)) {
-              await skipCoach.click({force:true});
-              await page.waitForTimeout(180);
-            }
+            // Même écran, même session, simplement redimensionné en ordinateur :
+            // la capture sert de référence directe Mobile ↔ Desktop.
+            await page.setViewportSize({width:1440,height:900});
+            await page.waitForTimeout(260);
+            await assertNoOverflow(page,'listen-idle-desktop-1440x900');
+            await page.screenshot({path:'artifacts/dual-viewport/01-desktop-1440x900-listen-idle.png',fullPage:true});
+            await page.setViewportSize({width:390,height:844});
+            await page.waitForTimeout(180);
 
             // Tchat Loki : contrôle réel mini -> plein écran sur 390×844.
             // Le plein écran doit être un vrai Modal, afficher la même liste
