@@ -293,6 +293,38 @@ jobs:
             await openKeep(page);
             await page.screenshot({path:'artifacts/dual-viewport/01-listen-idle.png',fullPage:true});
 
+            // Contrat visuel accueil 390x844 :
+            // - ouvrir « En savoir plus » ne doit déplacer ni le CTA ni les bulles ;
+            // - les bulles restent proches de la barre des 5 onglets ;
+            // - un espace lisible reste entre le CTA et les bulles.
+            {
+              const help=page.getByLabel('En savoir plus sur Loki Music').last();
+              const cta=page.getByLabel('Identifier un morceau').last();
+              const rail=page.getByTestId('home-loki-pulse-track-bubbles').last();
+              await Promise.all([
+                help.waitFor({state:'visible',timeout:15000}),
+                cta.waitFor({state:'visible',timeout:15000}),
+                rail.waitFor({state:'visible',timeout:15000}),
+              ]);
+              const before=await Promise.all([cta.boundingBox(),rail.boundingBox()]);
+              await help.click({force:true});
+              await page.waitForTimeout(220);
+              const after=await Promise.all([cta.boundingBox(),rail.boundingBox()]);
+              if(!before[0]||!before[1]||!after[0]||!after[1]) throw new Error('Accueil: mesure CTA/Pulse impossible');
+              if(Math.abs(before[0].y-after[0].y)>3) throw new Error(`Accueil: IDENTIFIER bouge avec En savoir plus ${before[0].y} -> ${after[0].y}`);
+              if(Math.abs(before[1].y-after[1].y)>3) throw new Error(`Accueil: bulles bougent avec En savoir plus ${before[1].y} -> ${after[1].y}`);
+              const gap=after[1].y-(after[0].y+after[0].height);
+              if(gap<12) throw new Error(`Accueil: espace CTA/bulles insuffisant (${gap}px)`);
+              const bottomTab=page.getByText('Loki Music',{exact:true}).last();
+              const tabBox=await bottomTab.boundingBox();
+              if(tabBox){
+                const railBottom=after[1].y+after[1].height;
+                const railToTabs=tabBox.y-railBottom;
+                if(railToTabs>125) throw new Error(`Accueil: bulles trop hautes par rapport à la barre (${railToTabs}px)`);
+              }
+              await help.click({force:true});
+            }
+
             // Le mini-tour de première installation est une vraie surcouche.
             // Un utilisateur appuie d'abord sur Passer/Suivant ; le Guardian
             // doit reproduire ce geste et ne jamais cliquer à travers l'aide.
