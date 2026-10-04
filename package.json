@@ -25,9 +25,10 @@
     "data:guard:self-test": "node scripts/verify-data-preservation.cjs --self-test",
     "public-api:search": "node scripts/public-api-search.mjs",
     "cache:clean": "node scripts/clean-integration-cache.cjs",
-    "integration:preflight": "node scripts/clean-integration-cache.cjs && node scripts/verify-source-of-truth.cjs && node scripts/verify-ui-layout-baseline.cjs && node scripts/verify-product-contract.cjs && node scripts/verify-global-user-regression-guard.cjs",
-    "integration:postflight": "node scripts/verify-source-of-truth.cjs && node scripts/verify-ui-layout-baseline.cjs && node scripts/verify-product-contract.cjs && node scripts/verify-global-user-regression-guard.cjs",
-    "user-regression:guard": "node scripts/verify-global-user-regression-guard.cjs"
+    "integration:preflight": "node scripts/clean-integration-cache.cjs && node scripts/verify-source-of-truth.cjs && node scripts/verify-mobile-accessibility-contract.cjs && node scripts/verify-ui-layout-baseline.cjs && node scripts/verify-product-contract.cjs && node scripts/verify-global-user-regression-guard.cjs",
+    "integration:postflight": "node scripts/verify-source-of-truth.cjs && node scripts/verify-mobile-accessibility-contract.cjs && node scripts/verify-ui-layout-baseline.cjs && node scripts/verify-product-contract.cjs && node scripts/verify-global-user-regression-guard.cjs",
+    "user-regression:guard": "node scripts/verify-global-user-regression-guard.cjs",
+    "mobile:a11y:guard": "node scripts/verify-mobile-accessibility-contract.cjs"
   },
   "devDependencies": {
     "typescript": "^5.3.3"
