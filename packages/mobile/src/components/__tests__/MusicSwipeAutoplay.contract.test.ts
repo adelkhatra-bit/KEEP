@@ -28,7 +28,10 @@ describe('Loki Music Swipe audio lifecycle', () => {
   });
 
   it('invalidates the previous card and stops its audio before advancing', () => {
-    expect(modal).toContain('playbackGeneration.current += 1;\n    await stopTrackPreview();\n    advanceIndex();');
+    expect(modal).toContain('playbackGeneration.current += 1;');
+    expect(modal).toContain('const stopPromise = stopTrackPreview().catch(() => {});');
+    expect(modal).toContain('advanceIndex();');
+    expect(modal).toContain('await stopPromise;');
     expect(modal).toContain('playbackGeneration.current !== generation');
     expect(audio).toContain('try { webAudio?.pause(); } catch {}');
     expect(audio.indexOf('try { webAudio?.pause(); } catch {}')).toBeLessThan(audio.indexOf('return serialize(async () =>', audio.indexOf('export async function stopTrackPreview')));
