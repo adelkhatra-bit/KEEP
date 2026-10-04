@@ -1429,20 +1429,18 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [solo, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
-    // Une réponse coupe maintenant l'extrait courant. Attendre la libération
-    // réelle du player natif avant de précharger N+1 : sur iOS c'est ce qui
-    // rapproche l'enchaînement de la fluidité Web sans changer l'UI.
+    // Une réponse coupe immédiatement l'extrait courant et préchauffe N+1
+    // sans attendre stop/unload. Le nettoyage natif est best-effort en
+    // arrière-plan : le délai visuel de résultat sert déjà de fenêtre de preload.
     if (soloIndex < solo.rounds.length - 1) {
       const nextRound = solo.rounds[soloIndex + 1];
       if (nextRound?.previewUrl) {
-        void (async () => {
-          await stopTrackPreview().catch(() => {});
-          await preloadTrackPreviewSegment(
-            soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),
-            nextRound.previewUrl,
-            0,
-          ).catch(() => {});
-        })();
+        stopTrackPreviewFast();
+        void preloadTrackPreviewSegment(
+          soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),
+          nextRound.previewUrl,
+          0,
+        ).catch(() => {});
       }
     }
     if (soloIndex >= solo.rounds.length - 1) {
