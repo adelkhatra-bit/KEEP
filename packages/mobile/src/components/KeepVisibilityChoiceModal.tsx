@@ -159,7 +159,7 @@ const s = StyleSheet.create({
   successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
   successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
   successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
-  successBody: { color: '#AFA5BC', fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 },
+  successBody: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 },
   successButton: { width: '100%', minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   successButtonText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: .7 },
   overlay: {
@@ -238,7 +238,7 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   playlists: { marginTop: 12 },
-  label: { color: '#AFA5BC', fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
+  label: { color: colors.textSecondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
   playlistWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   playlist: {
     minHeight: 32,
@@ -252,7 +252,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   playlistOn: { borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.18)' },
-  playlistText: { color: '#AFA5BC', fontSize: 11, fontWeight: '700', maxWidth: 150 },
+  playlistText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', maxWidth: 150 },
   playlistTextOn: { color: '#B79CFF' },
   choice: {
     minHeight: 68,
@@ -274,5 +274,5 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 10,
   },
-  cancelText: { color: '#AFA5BC', fontSize: 11, fontWeight: '900' },
+  cancelText: { color: colors.textSecondary, fontSize: 11, fontWeight: '900' },
 });
