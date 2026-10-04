@@ -86,14 +86,16 @@ describe('Solo : toutes les sorties système sont gardées + regagner des Free',
 describe('Solo : absence détectée + Loki qui parle', () => {
   const battle = src('components', 'KeepBattleMobileGameV3.tsx');
   const mascot = src('components', 'LokiMascotVoice.tsx');
-  it('ne montre plus de popup bloquant après deux non-réponses', () => {
-    const { soloIdleDetected } = require('../../services/battleHomeInfo');
+  it('affiche « Tu es toujours là ? » après deux non-réponses et laisse 40 s', () => {
+    const { soloIdleDetected, SOLO_IDLE_AUTO_CLOSE_MS } = require('../../services/battleHomeInfo');
     expect(soloIdleDetected(['CORRECT', '__TIMEOUT__', '__TIMEOUT__'], 0)).toBe(true);
     expect(soloIdleDetected(['__TIMEOUT__', '__TIMEOUT__'], 2)).toBe(false);
     expect(soloIdleDetected(['__TIMEOUT__', 'CORRECT'], 0)).toBe(false);
-    expect(battle).not.toContain('idlePromptAt');
-    expect(battle).not.toContain('Tu es toujours là ?');
-    expect(battle).not.toContain('SOLO_IDLE_AUTO_CLOSE_MS');
+    expect(SOLO_IDLE_AUTO_CLOSE_MS).toBe(40_000);
+    expect(battle).toContain('idlePromptAt');
+    expect(battle).toContain('Tu es toujours là ?');
+    expect(battle).toContain('<Text style={s.idleStopText}>Arrêter</Text>');
+    expect(battle).toContain('<Text style={s.idleGoText}>Je suis là !</Text>');
   });
   it('Loki parle selon le score (voix expo-speech, pilote natif coupé sur le web)', () => {
     const { mascotLine } = require('../../services/battleHomeInfo');
