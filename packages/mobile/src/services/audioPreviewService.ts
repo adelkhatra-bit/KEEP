@@ -73,7 +73,24 @@ let profilePreloadEpoch = 0;
 // peut démarrer dès que l'ancien est muet/pausé, sans attendre son unload.
 let nativeHandoffSilenceBarrier: Promise<void> = Promise.resolve();
 
+const nativeSoundRegistry = new Set<NativeSound>();
+const retiringNativeSounds = new Set<NativeSound>();
+
+function forgetNativeSound(sound: NativeSound): void {
+  nativeSoundRegistry.delete(sound);
+  retiringNativeSounds.delete(sound);
+}
+
+function retireEveryNativeSoundExcept(keep?: NativeSound | null): void {
+  for (const sound of Array.from(nativeSoundRegistry)) {
+    if (sound === keep || sound === preloadedSound || sound === profilePreloadedSound) continue;
+    retireNativeSoundFast(sound);
+  }
+}
+
 function retireNativeSoundFast(sound: NativeSound): void {
+  if (retiringNativeSounds.has(sound)) return;
+  retiringNativeSounds.add(sound);
   const silence = (async () => {
     try {
       await withAudioTimeout(sound.setVolumeAsync(0), 'AUDIO_HANDOFF_MUTE', 140);
@@ -92,6 +109,7 @@ function retireNativeSoundFast(sound: NativeSound): void {
   void silence.finally(async () => {
     try { await withAudioTimeout(sound.stopAsync(), 'AUDIO_RETIRE_STOP', 500); } catch {}
     try { await withAudioTimeout(sound.unloadAsync(), 'AUDIO_RETIRE_UNLOAD', 900); } catch {}
+    forgetNativeSound(sound);
   });
 }
 
@@ -217,6 +235,7 @@ async function unloadActive() {
   if (!sound) return;
   try { await withAudioTimeout(sound.stopAsync(), 'AUDIO_STOP'); } catch {}
   try { await withAudioTimeout(sound.unloadAsync(), 'AUDIO_UNLOAD'); } catch {}
+  forgetNativeSound(sound);
 }
 
 function serialize<T>(task: () => Promise<T>): Promise<T> {
@@ -232,6 +251,7 @@ async function discardPreloaded() {
   if (!stale) return;
   try { await withAudioTimeout(stale.stopAsync(), 'AUDIO_PRELOAD_STOP'); } catch {}
   try { await withAudioTimeout(stale.unloadAsync(), 'AUDIO_PRELOAD_UNLOAD'); } catch {}
+  forgetNativeSound(stale);
 }
 
 async function discardProfilePreloaded() {
@@ -241,6 +261,7 @@ async function discardProfilePreloaded() {
   if (!stale) return;
   try { await withAudioTimeout(stale.stopAsync(), 'AUDIO_PRELOAD_STOP'); } catch {}
   try { await withAudioTimeout(stale.unloadAsync(), 'AUDIO_PRELOAD_UNLOAD'); } catch {}
+  forgetNativeSound(stale);
 }
 
 // BUG RÉEL trouvé en audit runtime (Adel, 22/09/2026, "beaucoup de bugs quand
@@ -281,6 +302,12 @@ async function configurePreviewAudio() {
 }
 
 async function ensurePlaying(sound: NativeSound): Promise<void> {
+  // Verrou global TestFlight : avant qu'un nouveau lecteur devienne audible,
+  // tout ancien NativeSound non réservé au préchargement est mis au silence.
+  // Même un lecteur qui a perdu activeSound à cause d'une course PASSER/play()
+  // reste dans le registre et ne peut donc plus continuer en parallèle.
+  retireEveryNativeSoundExcept(sound);
+  await awaitNativeHandoffSilence();
   let status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS');
   if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
   // Chaque nouvel extrait repart à volume plein sauf s'il est précisément le
@@ -327,6 +354,7 @@ async function createSoundWithRetry(
         },
       ), 'AUDIO_CREATE', autoPlay ? AUDIO_CREATE_TIMEOUT_MS : 2200);
       createdSound = created.sound;
+      nativeSoundRegistry.add(created.sound);
       if (autoPlay) {
         await ensurePlaying(created.sound);
       } else {
@@ -339,6 +367,7 @@ async function createSoundWithRetry(
       if (createdSound) {
         try { await withAudioTimeout(createdSound.stopAsync(), 'AUDIO_CREATE_STOP'); } catch {}
         try { await withAudioTimeout(createdSound.unloadAsync(), 'AUDIO_CREATE_UNLOAD'); } catch {}
+        forgetNativeSound(createdSound);
       }
       if (configureSession) await configurePreviewAudio().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 120 + attempt * 100));
