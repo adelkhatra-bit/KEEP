@@ -11,6 +11,7 @@ import { RootChatDock } from './src/components/ChatDockHost';
 import AppUpdateBanner from './src/components/AppUpdateBanner';
 import AlertHost from './src/components/AlertHost';
 import AccountGateModal from './src/components/AccountGateModal';
+import WebPairingLifecycle from './src/components/WebPairingLifecycle';
 import { useUserStore } from './src/store/useUserStore';
 import { useSessionStore } from './src/store/useSessionStore';
 import { useSessionHistoryStore } from './src/store/useSessionHistoryStore';
@@ -489,6 +490,7 @@ export default function App() {
       <AppUpdateBanner authReady={authReady} />
       <AlertHost />
       <AccountGateModal />
+      <WebPairingLifecycle />
       <StatusBar style="light" backgroundColor={colors.background} />
     </SafeAreaProvider>
   );
