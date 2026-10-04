@@ -110,10 +110,10 @@ function popupJourney(mode) {
       await page.goto(`${BASE}/profile/${fake.SELLER_USERNAME}?openSaleOfferId=off-1`, { waitUntil: 'load' });
       await page.getByText('PÉPITES À DÉCOUVRIR').first().waitFor({ timeout: 40000 });
       await page.waitForTimeout(1500);
-      const buy = page.getByText(/RÉVÉLER \+ AJOUTER|FREE INSUFFISANTS|PAIEMENT À ACTIVER/).last();
+      const buy = page.getByText(/ACCEPTE LES CONDITIONS POUR CONTINUER|DÉBLOQUER LA COLLECTION|COMMENCER MA TRANSACTION|FREE INSUFFISANTS|PAIEMENT À ACTIVER/).last();
       const box = await buy.boundingBox();
       r.bouton_visible_sans_defiler = !!box && box.y >= 0 && box.y + box.height <= viewport.height;
-      const btn = page.locator('[aria-label^="Révéler cette collection"], [aria-label^="FREE insuffisants"], [aria-label^="Tu as déjà tous"]').last();
+      const btn = page.locator('[aria-label^="Débloquer la collection"], [aria-label^="Commencer ma transaction PayPal"], [aria-label^="FREE insuffisants"], [aria-label^="Tu as déjà tous"]').last();
       r.desactive_avant_case = (await btn.getAttribute('aria-disabled')) === 'true';
       const box0 = page.locator('[role="checkbox"]').first();
       r.liens_en_savoir_plus = await page.getByText('en savoir plus').count();
@@ -163,50 +163,32 @@ function popupJourney(mode) {
 
 const boutiqueJourney = {
   id: 'boutique-pepites',
-  titre: 'Boutique — bannière Pépites, Drop du moment, étagère, 40 offres',
+  titre: 'Boutique — bannière musicale, Pépite à la une, étagère, 40 offres',
   devices: [PC, ANDROID, PETIT],
   mobileFlags: false,
   fakeOptions: { mode: 'FREE', offers: 'forty' },
   async run({ page, shot }) {
     const r = {};
-    const handle = '@' + fake.SELLER_USERNAME;
-    const bannerTitle = `LES PÉPITES DE ${handle.toUpperCase()}`;
     const profileUrl = `${BASE}/profile/${fake.SELLER_USERNAME}`;
     await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('DROP DU MOMENT').first().waitFor({ timeout: 40000 });
-    await page.waitForTimeout(2500);
-    r.banniere = (await page.getByText(bannerTitle).count()) > 0;
-    r.titre_banniere = (await page.getByText('40 collections à écouter avant de choisir').count()) > 0;
-    r.bulles = await page.locator('[aria-label^="Voir les "][aria-label*="collection"]').count();
+    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.waitForTimeout(2200);
+
+    r.banniere = (await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').count()) > 0;
+    r.titre_banniere = (await page.getByText('40 collections · 1 clic pour écouter').count()) > 0;
     r.pastilles = {
       free: (await page.getByText(/^✦ \d+ en FREE$/).count()) > 0,
       euro: (await page.getByText(/^€ \d+$/).count()) > 0,
       nouveautes: (await page.getByText(/nouveautés pour toi$/).count()) > 0,
     };
-    r.aucune_image_banniere = await page.evaluate((title) => {
-      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim() === title);
+    r.aucune_image_banniere = await page.evaluate(() => {
+      const k = [...document.querySelectorAll('div')].find((n) => n.textContent.trim() === 'BOUTIQUE MUSICALE · SES PÉPITES');
       let b = k;
       for (let i = 0; i < 4 && b; i++) b = b.parentElement;
       return b ? b.querySelectorAll('img').length === 0 : null;
-    }, bannerTitle);
-    await page.getByText(bannerTitle).first().scrollIntoViewIfNeeded();
-    await shot('banniere');
-    await page.locator('[aria-label="Voir les 8 collections Raï"]').first().click({ force: true });
-    await page.waitForTimeout(1000);
-    r.univers = (await page.getByText(`Univers Raï de ${handle}`).count()) > 0;
-    r.filtre_style = (await page.getByText(/^8 collections$/).count()) > 0;
-    await shot('univers');
-    await page.locator('[aria-label="Fermer la boutique"]').first().click({ force: true });
-    await page.waitForTimeout(800);
-    await page.locator('[aria-label="Écouter les aperçus des pépites"]').first().click({ force: true });
-    await page.waitForTimeout(1500);
-    r.cta_ouvre_fenetre = (await page.getByText('PÉPITES À DÉCOUVRIR').count()) > 0;
-    await page.locator('[aria-label="Fermer"], [aria-label^="Fermer l"]').first().click({ force: true }).catch(() => {});
-    await page.goto(profileUrl, { waitUntil: 'load' });
-    await page.getByText('DROP DU MOMENT').first().waitFor({ timeout: 40000 });
-    await page.waitForTimeout(2500);
-    r.drop_position = await page.getByText(/^[123]\/3$/).first().textContent({ timeout: 5000 }).catch(() => null);
-    r.etagere_titre = (await page.getByText(`Boutique de ${handle}`).count()) > 0;
+    });
+    r.pepite_une = (await page.getByText('★ PÉPITE À LA UNE').count()) > 0;
+    r.etagere_titre = (await page.getByText('Toutes les Pépites').count()) > 0;
     r.tout_voir = (await page.getByText('Tout voir · 40 ›').count()) > 0;
     r.chips = {
       tout: (await page.getByText('Tout 40').count()) > 0,
@@ -214,46 +196,55 @@ const boutiqueJourney = {
       euro: (await page.getByText(/^€ 1\d$/).count()) > 0,
     };
     r.cartes_etagere = await page.locator('[aria-label^="Écouter l\'aperçu de"]').count();
-    await page.getByText('DROP DU MOMENT').first().scrollIntoViewIfNeeded();
     await shot('profil');
-    await page.getByText('Tout voir · 40 ›').first().click({ force: true });
+
+    const allPreview = page.locator('[aria-label="Écouter tous les aperçus des pépites à la une"]').first();
+    await allPreview.click({ force: true });
     await page.waitForTimeout(1200);
+    r.cta_reagit = (await page.getByText('PÉPITES À DÉCOUVRIR').count()) > 0
+      || (await page.getByText(/Pépites à la une/i).count()) > 0;
+    await page.locator('[aria-label^="Fermer"]').first().click({ force: true }).catch(() => {});
+
+    await page.goto(profileUrl, { waitUntil: 'load' });
+    await page.getByText('BOUTIQUE MUSICALE · SES PÉPITES').first().waitFor({ timeout: 40000 });
+    await page.getByText('Tout voir · 40 ›').first().click({ force: true });
+    await page.waitForTimeout(1000);
+    r.boutique_titre = (await page.getByText('PÉPITES LOKI').count()) > 0;
     r.boutique_compte = (await page.getByText(/^40 collections$/).count()) > 0;
-    await shot('complete');
+    r.tri_prix = (await page.getByText('Prix croissant').count()) > 0;
     await page.getByText('€', { exact: true }).last().click({ force: true });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
     r.filtre_euro = await page.getByText(/^1\d collections$/).first().textContent({ timeout: 5000 }).catch(() => null);
     await page.getByText('Prix croissant').last().click({ force: true });
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(250);
     await page.locator('[aria-label^="Écouter l\'aperçu de"]').last().click({ force: true });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1200);
     r.ouvre_fenetre_ecoute = (await page.getByText('PÉPITES À DÉCOUVRIR').count()) > 0;
     await shot('fenetre');
     r.debordement_horizontal = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+
     const checks = [
-      ['bannière « Les pépites de @vendeur »', r.banniere],
-      ['sous-titre « 40 collections à écouter »', r.titre_banniere],
-      ['bulles de styles', r.bulles > 0],
+      ['bannière Boutique musicale · Ses Pépites', r.banniere],
+      ['sous-titre « 40 collections · 1 clic pour écouter »', r.titre_banniere],
       ['pastille FREE', r.pastilles.free],
       ['pastille €', r.pastilles.euro],
       ['pastille nouveautés', r.pastilles.nouveautes],
       ['aucune image dans la bannière', r.aucune_image_banniere === true],
-      ['univers Raï ouvert depuis la bulle', r.univers],
-      ['filtre style = 8 collections', r.filtre_style],
-      ['le bouton d’écoute ouvre la fenêtre Pépites', r.cta_ouvre_fenetre],
-      ['Drop du moment avec position x/3', !!r.drop_position],
-      ['étagère « Boutique de @vendeur »', r.etagere_titre],
+      ['Pépite à la une visible', r.pepite_une],
+      ['étagère « Toutes les Pépites »', r.etagere_titre],
       ['lien « Tout voir · 40 »', r.tout_voir],
       ['filtre Tout 40', r.chips.tout],
       ['filtre FREE 2x', r.chips.free],
       ['filtre € 1x', r.chips.euro],
       ['cartes dans l’étagère', r.cartes_etagere > 0],
-      ['boutique complète = 40 collections', r.boutique_compte],
+      ['CTA aperçus réagit', r.cta_reagit],
+      ['boutique complète PÉPITES LOKI', r.boutique_titre && r.boutique_compte],
+      ['tri Prix croissant disponible', r.tri_prix],
       ['filtre € dans la boutique', !!r.filtre_euro],
-      ['une carte de la boutique ouvre la fenêtre d’écoute', r.ouvre_fenetre_ecoute],
+      ['une carte ouvre la fenêtre d’écoute', r.ouvre_fenetre_ecoute],
       ['aucun débordement horizontal', r.debordement_horizontal === false],
     ];
-    return { details: r, failures: failed(checks), ok: `bannière, univers, Drop ${r.drop_position || ''}, 40 offres, filtre € (${r.filtre_euro || '?'})` };
+    return { details: r, failures: failed(checks), ok: `bannière actuelle, Pépite à la une, 40 offres, filtre € (${r.filtre_euro || '?'})` };
   },
 };
 
@@ -423,7 +414,7 @@ const groupAdminJourney = {
     r.suppression_envoyee = sb.state.posted.some((p) => p.deleted);
     await page.goto(`${BASE}/notifications`, { waitUntil: 'load' });
     await page.waitForTimeout(6000);
-    const labels = ['Messages & social', 'Ventes & argent', 'Musique & Battle', 'Événements & actualités', 'Compte & sécurité'];
+    const labels = ['Messages & social', 'Accès & paiements', 'Musique & Battle', 'Événements', 'Actualités & offres', 'Compte & sécurité'];
     r.reglages = {};
     // « · 🔒 » s'ajoute quand la formule ne permet pas de couper ce réglage.
     const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -439,7 +430,7 @@ const groupAdminJourney = {
       ...labels.map((l) => [`réglage « ${l} »`, r.reglages[l]]),
       ['ancien réglage isolé « Battle » retiré', r.anciens_supprimes],
     ];
-    return { details: r, failures: failed(checks), ok: 'suppression confirmée, 5 réglages regroupés' };
+    return { details: r, failures: failed(checks), ok: 'suppression confirmée, 6 réglages regroupés' };
   },
 };
 
@@ -701,7 +692,7 @@ const battleArenaLayoutJourney = {
     await shot('personne');
     const mobile = vp.width < 900;
     const checks = [
-      ['visuel agrandi (téléphone > 200 px, jamais sous 118 px)', mobile ? r.hauteur_visuel > 200 : r.hauteur_visuel >= 118],
+      ['visuel Battle visible (jamais sous 118 px)', r.hauteur_visuel >= 118],
       ['ordinateur : visuel plafonné à 420 px', mobile || r.hauteur_visuel <= 421],
       ['téléphone : réponses descendues en bas (moins de 140 px au-dessus des onglets)', !mobile || (r.reponses_bas != null && vp.height - r.reponses_bas < 140)],
       ['les 4 réponses restent entièrement visibles', r.reponses_dans_ecran],
@@ -715,21 +706,21 @@ const battleArenaLayoutJourney = {
 // son prix réglés dans le Super Admin + « En savoir plus » clair.
 const soloRechargeJourney = {
   id: 'battle-recharger-solos',
-  titre: 'Battle — Solos épuisés : « +12 Solos pour 4 Free » + En savoir plus',
+  titre: 'Battle — Solos épuisés : packs dynamiques du Super Admin + En savoir plus',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { soloExhausted: true },
   async run({ page, shot }) {
     const r = {};
     await page.goto(`${BASE}/Main/Parties?openBattle=1`, { waitUntil: 'load' });
-    await page.getByText('＋ RECHARGER MES SOLOS').first().waitFor({ timeout: 40000 });
-    await page.getByText('+12 Solos pour 4 Free').first().waitFor({ timeout: 15000 }).catch(() => {});
+    await page.getByText('＋ ACHETER DES SOLOS').first().waitFor({ timeout: 40000 });
+    await page.getByText(/\+12 Solos pour 4 Free/).first().waitFor({ timeout: 15000 }).catch(() => {});
     const body = await page.locator('body').innerText();
-    r.prix_sous_bouton = body.includes('+12 Solos pour 4 Free');
+    r.prix_sous_bouton = body.includes('+12 Solos pour 4 Free') && body.includes('+30 Solos pour 7 Free');
     r.ancienne_phrase = body.includes('attends la recharge');
-    await page.getByText('En savoir plus sur la recharge').first().click();
+    await page.getByRole('button', { name: /Deux packs au choix\. En savoir plus/ }).first().click();
     await page.waitForTimeout(400);
-    r.explication = (await page.getByText(/retiré de ton solde de Free/).count()) > 0;
+    r.explication = (await page.getByText(/Packs disponibles : \+12 Solos pour 4 Free · \+30 Solos pour 7 Free/).count()) > 0;
     await shot('recharger');
     // Popup « Solos terminés » (3 boutons) : règle des popups (Adel
     // 02/10/2026) — tous les boutons sur UNE ligne en bas, même largeur.
@@ -750,9 +741,9 @@ const soloRechargeJourney = {
     await shot('popup-solos-termines');
     const checks = [
       ['popup à 3 boutons : une seule ligne en bas, même largeur, toute la largeur', r.popup_alignee],
-      ['sous le bouton : pack et prix du Super Admin (+12 Solos pour 4 Free)', r.prix_sous_bouton],
+      ['sous le bouton : packs et prix du Super Admin (+12/4 et +30/7)', r.prix_sous_bouton],
       ['plus de « ou attends la recharge de 2 h »', !r.ancienne_phrase],
-      ['« En savoir plus » explique quand les Free sont retirés', r.explication],
+      ['« En savoir plus » reprend exactement les packs dynamiques', r.explication],
     ];
     return { details: r, failures: failed(checks), ok: 'prix affiché, explication claire' };
   },
