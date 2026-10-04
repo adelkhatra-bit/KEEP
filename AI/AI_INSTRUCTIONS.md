@@ -89,3 +89,20 @@ Audit ChatGPT sur les preuves GitHub Actions + captures Playwright :
 - Commits déjà exécutés depuis le relais : `0c22f8af` parrainage fallback 20, `88d9b8e5` détail AudD, `7bbe0827` contrat FREE.
 
 Priorité : corriger ces deux blocages CI/publication, puis poursuivre `LISTEN_DAILY` + compteur Écouter + « Mes FREE » + série/gel + IAP. Aucune refonte navigation/design.
+
+
+### 2026-10-04 22:42 CEST — audit économie FREE serveur live
+
+Constats supplémentaires vérifiés sur Supabase live `rrhqsqzcplvmwxizqnla` :
+
+1. **Parrainage serveur encore sur l'ancienne formule.** `keep_referral_rules()`, `keep_referral_free_credit_bonus_for_profile()` et `keep_claim_referral()` utilisent encore `referral_bonus_3=3`, `referral_bonus_5=5`, `referral_bonus_10=10` en plus de +2/filleul. Les valeurs live sont bien 3/5/10 et cap 20. Il existe 3 parrainages historiques, tous qualifiés AVANT la décision du 04/10 ; la formule live donne 9 FREE au parrain contre 6 avec la nouvelle règle. **Ne pas reprendre rétroactivement les 3 FREE historiques** : préserver le solde déjà gagné et appliquer la nouvelle formule prospectivement / via un ledger explicite, conformément à `userContentProtection`.
+
+2. **Deux familles de clés concurrentes.** Le code réellement utilisé (`planService.ts`, Super Admin, fonctions FREE) lit `guest_success_limit=3` et `signup_bonus_successes=20`. Les clés `guest_recognition_limit=20` et `signup_bonus_recognitions=20` existent mais sont mortes. Le nouveau cahier des charges nomme ces dernières. Ne crée pas une troisième source : unifier/migrer vers UNE source canonique, avec compatibilité des anciennes clés si nécessaire. Attention : modifier brutalement le calcul `keep_theoretical_free_credit_remaining_for_profile` pourrait réduire le solde des comptes existants ; grand-père les droits déjà acquis.
+
+3. **Aucun quota d'écoute par formule en base.** `usage_limits` ne contient aucun `listens_per_day` ni clé recognition/listen. Réutiliser `keep_plan_limit()` + `feature_usage_counters` (même modèle que `KEEP_DAILY` / `KEEP_MONTHLY`). `service_record_recognition_success()` ne fait aujourd'hui qu'un compteur lifetime.
+
+4. **Recharges FREE absentes.** `store_products` contient exactement 6 lignes : 3 abonnements mensuels × Apple/Google. Aucun `com.adelkhatra.keep.free.30/.100/.300`. `keep-iap-verify` ne connaît que les 3 abonnements et vérifie Google via subscriptionsv2 ; aucun consommable. Réutiliser le mécanisme natif IAP, mais créer un chemin consommable séparé et idempotent. `transactions` possède déjà un unique `store_transaction_id`; `store_purchase_events` est audit-only et n'a PAS d'unicité transactionnelle. Ne crédite jamais sur la seule présence d'un event audit.
+
+5. `config/keep-product-contract.json > creditRules` est encore ancien : `listen: 0`, `recognize: 0`. À mettre à jour dans le même commit que l'implémentation réelle, pas avant.
+
+Priorité : préserver les soldes historiques, une seule comptabilité FREE, aucune duplication de tables/services.
