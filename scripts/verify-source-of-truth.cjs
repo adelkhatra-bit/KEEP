@@ -106,6 +106,11 @@ for (const forbiddenBranch of ['web-preview', 'admin-preview']) {
 const platformParity = JSON.parse(fs.readFileSync(path.join(root, 'config/platform-parity-contract.json'), 'utf8'));
 if (platformParity.canonicalRuntime !== 'packages/mobile') failures.push('PLATFORM PARITY CANONICAL RUNTIME MISMATCH');
 if (platformParity.webBuildSource !== 'packages/mobile') failures.push('PLATFORM PARITY WEB SOURCE MUST BE packages/mobile');
+if (platformParity.webEntryMode !== 'qr-only-when-signed-out') failures.push('WEB ENTRY MUST REMAIN QR-ONLY');
+if (platformParity.webAuthenticatedRuntime !== 'shared-packages-mobile-src') failures.push('WEB AUTHENTICATED RUNTIME MUST USE SHARED MOBILE SOURCE');
+if (platformParity.webAccountCreationAllowed !== false) failures.push('WEB MUST NOT CREATE ACCOUNTS');
+if (platformParity.webPasswordLoginAllowed !== false) failures.push('WEB MUST NOT EXPOSE PASSWORD LOGIN');
+if (platformParity.webRemoteLogout !== true) failures.push('WEB REMOTE LOGOUT MUST REMAIN ENABLED');
 for (const forbidden of platformParity.forbiddenParallelRoots || []) {
   if (fs.existsSync(path.join(root, forbidden))) failures.push(`PARALLEL MOBILE/WEB PRODUCT ROOT FORBIDDEN: ${forbidden}`);
 }
