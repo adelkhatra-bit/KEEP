@@ -5,7 +5,7 @@ const read = (...parts: string[]) => fs.readFileSync(path.resolve(__dirname, ...
 
 describe('Web companion QR contract', () => {
   const onboarding = read('..', '..', 'screens', 'onboarding', 'OnboardingScreen.tsx');
-  const app = read('..', '..', '..', '..', 'App.tsx');
+  const app = read('..', '..', '..', 'App.tsx');
   const pairing = read('..', '..', 'services', 'webPairingService.ts');
   const lifecycle = read('..', '..', 'components', 'WebPairingLifecycle.tsx');
   const account = read('..', '..', 'components', 'AccountActionsPanel.tsx');
