@@ -268,12 +268,10 @@ export default function MusicSwipeDeckModal({
             () => {
               if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
               setPreviewEnded(true);
-              if (socialDiscoveryMode) {
-                // Sur le profil d'un autre utilisateur, la fin d'un extrait reste
-                // sur le morceau courant : l'auditeur choisit Réécouter, Passer ou
-                // Garder. Ne jamais faire défiler automatiquement une collection.
-                return;
-              }
+              // Loki Pulse / Swipe : l'écoute est un flux automatique.
+              // La fin de l'extrait doit toujours amener le morceau suivant
+              // quand la file boucle. PASSER/GARDER restent disponibles pendant
+              // l'extrait, mais aucun tap sur le bouton vert n'est requis.
               if (!loop) return;
               advanceIndex();
             },
@@ -302,7 +300,7 @@ export default function MusicSwipeDeckModal({
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
                 setPreviewEnded(true);
-                if (!socialDiscoveryMode && loop) advanceIndex();
+                if (loop) advanceIndex();
               },
             );
             if (alive) setAutoplayBlocked(false);
