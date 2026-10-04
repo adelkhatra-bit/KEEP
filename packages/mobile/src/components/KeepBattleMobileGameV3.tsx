@@ -46,6 +46,20 @@ import { colors } from '../theme/colors';
 
 const ROUND_MS = 10000;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const BATTLE_NETWORK_DEADLINE_MS = 8_000;
+async function withBattleDeadline<T>(promise: Promise<T>, label: string, ms = BATTLE_NETWORK_DEADLINE_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`BATTLE_NETWORK_TIMEOUT:${label}`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 const initial = (name: string) => (name || 'K').replace(/^@/, '').slice(0, 1).toUpperCase();
 
 // Adel (07/09/2026) : "pour huit musiques il perd trois Free, pour 15
@@ -1822,6 +1836,13 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       Alert.alert('Style indisponible', 'Ce style n’est pas encore disponible en Solo. Choisis un autre style.');
       return;
     }
+    if (compactMessage.includes('BATTLENETWORKTIMEOUT')) {
+      Alert.alert(
+        'Connexion trop lente',
+        'Le Solo n’a pas répondu assez vite. Rien n’a été débité ni compté. Réessaie : l’écran ne restera plus bloqué.',
+      );
+      return;
+    }
     Alert.alert('Solo indisponible', 'Impossible de préparer cette partie Solo pour le moment. Réessaie dans quelques instants.');
   };
 
@@ -1850,11 +1871,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // ne se rechargeait qu'une fois au montage de l'écran, jamais réactualisé
       // si les préférences avaient changé entretemps. On relit la valeur
       // fraîche côté serveur juste avant de démarrer le pack solo.
-      const freshPrefs = await loadMyMatchPreferences().catch(() => null);
+      const freshPrefs = await withBattleDeadline(loadMyMatchPreferences(), 'solo-preferences', 5_000).catch(() => null);
       const preferredThemes = freshPrefs?.themeCodes || myPreferredThemes;
       let pack: KeepBattleSoloPack;
       try {
-        pack = await loadKeepBattleSoloPack(themeCode, roundCount, preferredThemes);
+        pack = await withBattleDeadline(
+          loadKeepBattleSoloPack(themeCode, roundCount, preferredThemes),
+          'solo-pack',
+        );
       } catch (firstError: any) {
         let serialized = '';
         try { serialized = JSON.stringify(firstError); } catch { serialized = String(firstError ?? ''); }
@@ -1867,7 +1891,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // SOLO doit rester jouable même si un style choisi manque de matière.
         // On retombe automatiquement sur MIX, sans toucher à la disponibilité
         // Battle en ligne ni aux préférences enregistrées de l'utilisateur.
-        pack = await loadKeepBattleSoloPack('MIX', roundCount, undefined);
+        pack = await withBattleDeadline(
+          loadKeepBattleSoloPack('MIX', roundCount, undefined),
+          'solo-pack-mix',
+        );
         setThemeCode('MIX');
         Alert.alert(
           'Solo lancé en MIX',
@@ -1910,10 +1937,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     let dailyLimitReached = false;
     let insufficientCredit = false;
     try {
-      const [status, freshCredit] = await Promise.all([
-        loadKeepBattleSoloDailyStatus(),
-        loadBattleCreditStatusIfAuthenticated(),
-      ]);
+      const [status, freshCredit] = await withBattleDeadline(
+        Promise.all([
+          loadKeepBattleSoloDailyStatus(),
+          loadBattleCreditStatusIfAuthenticated(),
+        ]),
+        'solo-precheck',
+        6_000,
+      );
       // DEFENSIVE: status peut être null si le RPC n'existe pas en base
       // ou si le réseau a échoué. Dans ce cas, laisser passer (serveur fera le contrôle).
       if (status && !status.unlimited && status.remaining != null && status.remaining <= 0) {
@@ -2005,12 +2036,16 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         setLeaderboardRank(map);
       }).catch(() => {});
       const account = useUserStore.getState();
-      const [players, credit] = await Promise.all([
-        loadLiveSoloPlayers(20, roundCount),
-        account.user?.id && !account.isLocalGuest && !account.isDemoMode
-          ? loadBattleCreditStatusIfAuthenticated()
-          : Promise.resolve(null),
-      ]);
+      const [players, credit] = await withBattleDeadline(
+        Promise.all([
+          loadLiveSoloPlayers(20, roundCount),
+          account.user?.id && !account.isLocalGuest && !account.isDemoMode
+            ? loadBattleCreditStatusIfAuthenticated()
+            : Promise.resolve(null),
+        ]),
+        'online-lobby',
+        7_000,
+      );
       if (mountedRef.current) {
         setLivePlayers(players);
         if (credit) setMyCreditStatus(credit);
