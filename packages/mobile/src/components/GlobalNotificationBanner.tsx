@@ -112,6 +112,19 @@ export default function GlobalNotificationBanner() {
   const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
   const isGameInProgress = useGameSessionStore((s) => s.isGameInProgress);
   const [current, setCurrent] = useState<KeepNotification | null>(null);
+
+  useEffect(() => {
+    if (!isGameInProgress) return;
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    translateY.stopAnimation();
+    opacity.stopAnimation();
+    translateY.setValue(OFFSCREEN_TOP);
+    opacity.setValue(0);
+    setCurrent(null);
+  }, [isGameInProgress, opacity, translateY]);
   const [respondBusy, setRespondBusy] = useState(false);
   const [battleDecisionReady, setBattleDecisionReady] = useState(false);
   const [blockingChallenge, setBlockingChallenge] = useState<KeepBattleIncomingChallenge | null>(null);
@@ -494,6 +507,8 @@ export default function GlobalNotificationBanner() {
       ],
     );
   };
+
+  if (isGameInProgress) return null;
 
   if ((blockingChallenge || blockingRematch) && !partiesTabOpen) {
     const challenge = blockingChallenge;
