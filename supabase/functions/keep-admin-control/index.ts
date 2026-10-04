@@ -304,7 +304,7 @@ async function validatePipedreamCredentials(clientId: string, clientSecret: stri
     const payload = await response.json().catch(() => ({}));
     if (!payload?.access_token) return { valid: false, status: "ERROR" as const, message: "Pipedream n'a pas renvoyé de jeton d'accès." };
     if (!/^proj_/i.test(projectId)) return { valid: false, status: "ERROR" as const, message: "Project ID Pipedream invalide." };
-    return { valid: true, status: "OK" as const, message: "Pipedream Connect vérifié et prêt pour les fenêtres d'autorisation." };
+    return { valid: true, status: "ACTIVE" as const, message: "Pipedream Connect vérifié et prêt pour les fenêtres d'autorisation." };
   } catch {
     return { valid: false, status: "ERROR" as const, message: "Impossible de joindre Pipedream pour vérifier les identifiants." };
   }
@@ -409,13 +409,14 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
 
 async function setRecognitionRuntimeStatus(key: string, status: string, message: string | null) {
   const now = new Date().toISOString();
-  await admin.from("integration_runtime_status").upsert({
+  const { error } = await admin.from("integration_runtime_status").upsert({
     key,
     status,
     last_checked_at: now,
     last_error: status === "ACTIVE" ? null : message,
     updated_at: now,
   }, { onConflict: "key" });
+  if (error) throw error;
 }
 
 // Audit Adel (22/09/2026, Bloc 4 B1) : ce gabarit (EXACTEMENT le meme que
