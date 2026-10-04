@@ -86,13 +86,14 @@ describe('Solo : toutes les sorties système sont gardées + regagner des Free',
 describe('Solo : absence détectée + Loki qui parle', () => {
   const battle = src('components', 'KeepBattleMobileGameV3.tsx');
   const mascot = src('components', 'LokiMascotVoice.tsx');
-  it('2 morceaux sans réponse -> « Tu es toujours là ? », fermeture auto (partie comptée)', () => {
+  it('ne montre plus de popup bloquant après deux non-réponses', () => {
     const { soloIdleDetected } = require('../../services/battleHomeInfo');
     expect(soloIdleDetected(['CORRECT', '__TIMEOUT__', '__TIMEOUT__'], 0)).toBe(true);
     expect(soloIdleDetected(['__TIMEOUT__', '__TIMEOUT__'], 2)).toBe(false);
     expect(soloIdleDetected(['__TIMEOUT__', 'CORRECT'], 0)).toBe(false);
-    expect(battle).toContain('Tu es toujours là ?');
-    expect(battle).toContain('SOLO_IDLE_AUTO_CLOSE_MS');
+    expect(battle).not.toContain('idlePromptAt');
+    expect(battle).not.toContain('Tu es toujours là ?');
+    expect(battle).not.toContain('SOLO_IDLE_AUTO_CLOSE_MS');
   });
   it('Loki parle selon le score (voix expo-speech, pilote natif coupé sur le web)', () => {
     const { mascotLine } = require('../../services/battleHomeInfo');
