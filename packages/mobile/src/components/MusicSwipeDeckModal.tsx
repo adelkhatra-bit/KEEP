@@ -716,8 +716,8 @@ export default function MusicSwipeDeckModal({
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
                 <Text style={s.passButtonText}>PASSER</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel={resolvedBackLabel}>
-                <Text style={s.backDecisionText}>‹ PROFIL</Text>
+              <TouchableOpacity style={[s.decisionButton, s.backDecisionButton]} onPress={() => { void close(); }} disabled={controlsLocked} accessibilityLabel="Arrêter l’écoute et revenir">
+                <Text style={s.backDecisionText}>ARRÊTER</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
