@@ -11,7 +11,7 @@ type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CON
 // identifiant d'un fournisseur tiers), génère une valeur aléatoire
 // directement dans le navigateur d'Adel au clic : ni Claude ni aucun
 // serveur ne la voit avant qu'il clique "Enregistrer".
-const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY']); // redeploy-force 2026-09-20
+const GENERATABLE_KEYS = new Set(['AI_RELAY_API_KEY', 'ACCOUNT_EMAIL_CODE_SECRET']); // redeploy-force 2026-09-20
 const MULTILINE_KEYS = new Set([
   'APPLE_MUSICKIT_PRIVATE_KEY',
   'APPLE_IAP_PRIVATE_KEY',
@@ -185,7 +185,7 @@ export default function Integrations() {
 
   const openProviderWindow = (row: IntegrationRow) => {
     const provider = INTEGRATION_PROVIDER_LINKS[row.key];
-    if (!provider || typeof window === 'undefined') return;
+    if (!provider?.url || typeof window === 'undefined') return;
     const width = Math.min(1180, Math.max(760, window.screen.availWidth - 160));
     const height = Math.min(860, Math.max(620, window.screen.availHeight - 120));
     const left = Math.max(20, Math.round((window.screen.availWidth - width) / 2));
@@ -340,13 +340,15 @@ export default function Integrations() {
               </div>
             ) : null}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 9 }}>
-              <button
-                type="button"
-                onClick={() => openProviderWindow(row)}
-                style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(139,92,246,.16)', border: '1px solid var(--primary)', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
-              >
-                ↗ OUVRIR {provider.label.toUpperCase()}
-              </button>
+              {provider.url ? (
+                <button
+                  type="button"
+                  onClick={() => openProviderWindow(row)}
+                  style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(139,92,246,.16)', border: '1px solid var(--primary)', color: '#ffffff', fontWeight: 900, cursor: 'pointer' }}
+                >
+                  ↗ OUVRIR {provider.label.toUpperCase()}
+                </button>
+              ) : null}
               {provider.fixedValue ? (
                 <button
                   type="button"
