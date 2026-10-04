@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import type { CanonicalTrack } from '@keep/music';
 import { supabase } from './supabaseClient';
@@ -158,6 +159,41 @@ export async function notifyDetectedTrack(entryId: string, track: CanonicalTrack
 }
 
 const reportedPushFailures = new Set<string>();
+const IOS_PRODUCTION_PUSH_REPAIR_KEY = '@keep/ios-push-production-reregister-v1';
+
+async function repairIosProductionPushRegistrationIfNeeded(
+  Notifications: NotificationsModule,
+): Promise<boolean> {
+  if (Platform.OS !== 'ios' || !Device.isDevice) return false;
+  const environment = await iosPushEnvironment();
+  if (environment !== 'production') return false;
+
+  try {
+    if (await AsyncStorage.getItem(IOS_PRODUCTION_PUSH_REPAIR_KEY)) return false;
+  } catch {
+    // L'absence de stockage local ne doit pas empêcher la réparation du push.
+  }
+
+  try {
+    await Notifications.unregisterForNotificationsAsync();
+    // Laisser iOS fermer l'ancien enregistrement avant de demander le nouveau.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return true;
+  } catch (error: any) {
+    void reportPushRegistrationFailure(
+      'ios_production_reregister_error',
+      String(error?.message || error || 'unknown').slice(0, 300),
+    );
+    return false;
+  }
+}
+
+async function markIosProductionPushRepairDone(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    await AsyncStorage.setItem(IOS_PRODUCTION_PUSH_REPAIR_KEY, new Date().toISOString());
+  } catch {}
+}
 
 function isExpoPushToken(token: unknown): token is string {
   const value = String(token || '').trim();
@@ -388,6 +424,8 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     return { ok: false, reason: 'expo_project_id_missing' };
   }
 
+  const repairedIosProductionRegistration = await repairIosProductionPushRegistrationIfNeeded(Notifications);
+
   let token: string;
   let nativePushToken: import('expo-notifications').DevicePushToken | null = null;
   try {
@@ -407,7 +445,32 @@ export async function registerForPushNotifications(): Promise<{ ok: boolean; rea
     return { ok: false, reason: 'expo_token_error' };
   }
 
-  return registerExpoTokenWithSupabase(token, nativePushToken);
+  const registration = await registerExpoTokenWithSupabase(token, nativePushToken);
+  if (registration.ok && repairedIosProductionRegistration) {
+    await markIosProductionPushRepairDone();
+    const environment = await iosPushEnvironment();
+    const meta = pushClientMetadata();
+    if (supabase) {
+      void supabase.auth.getSession().then(({ data }) => {
+        const profileId = data.session?.user?.id;
+        if (!profileId) return;
+        return supabase.from('client_diagnostics').insert({
+          profile_id: profileId,
+          area: 'push_registration',
+          code: 'ios_production_reregistered',
+          message: 'APNs/Expo token réenregistré après correction environnement TestFlight.',
+          platform: Platform.OS,
+          context: {
+            environment,
+            appVersion: meta.appVersion,
+            buildNumber: meta.buildNumber,
+            deviceModel: meta.deviceModel,
+          },
+        });
+      }).catch(() => {});
+    }
+  }
+  return registration;
 }
 
 export async function unregisterCurrentPushToken(): Promise<void> {
