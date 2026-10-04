@@ -479,10 +479,19 @@ export default function HomeScreenCompact({ navigation }: any) {
   const passCurrentAndAdvance = () => {
     if (!current || current.status !== 'pending' || keepBusy) return;
     const nextId = canGoOlder ? tracks[currentIndex + 1]?.id ?? null : null;
-    passTrack(current.id);
+    // Le retour visuel passe d'abord : aucune écriture/purge audio ne doit
+    // retarder la sensation de réponse au tap.
     if (nextId) setViewedTrackId(nextId);
     void stopTrackPreview(`current:${current.id}`).catch(() => {});
+    passTrack(current.id);
   };
+  useEffect(() => {
+    const next = canGoOlder ? tracks[currentIndex + 1] : null;
+    const url = next?.track.previewUrl?.trim();
+    if (!next || !url) return;
+    void preloadTrackPreviewSegment(`current:${next.id}`, url, 1).catch(() => {});
+  }, [canGoOlder, currentIndex, tracks]);
+
   const detected = tracks.length;
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
@@ -523,13 +532,6 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   // Action GARDER unique : ouvre le choix Public/Privé (+ destination)
   // AVANT toute écriture. Utilisée par le bouton et le swipe droit.
-  const passCurrent = () => {
-    if (!current || !pending || keepBusy) return;
-    const nextTrackId = canGoOlder ? tracks[currentIndex + 1]?.id : null;
-    if (nextTrackId) setViewedTrackId(nextTrackId);
-    passTrack(current.id);
-  };
-
   const openKeepChooser = () => {
     if (!current || alreadySaved || !pending || keepBusy) return;
     if (insufficientCredit) { navigation?.navigate?.('Offers', { focusPlan: 'PREMIUM', sourceFeature: 'LISTEN_SESSION' }); return; }
