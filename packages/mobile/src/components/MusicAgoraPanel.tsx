@@ -501,15 +501,6 @@ export default function MusicAgoraPanel({
     stickToBottomRef.current = true;
     userDraggingChatRef.current = false;
     forceBottomRef.current = true;
-    // Le fil choisi doit survivre aux rerenders du dock plein écran (notamment
-    // visualViewport/clavier sur React Native Web). Sans persistance globale,
-    // le child pouvait revenir à l'inbox après le tap alors que la ligne avait
-    // bien reçu onPress.
-    useGlobalChatStore.getState().prime({
-      targetProfileId: target.profileId,
-      targetUsername: target.username,
-      roomSlug: preferredRoomSlug ?? null,
-    });
     setChatMode('MESSAGES');
     setActiveGroup(null);
     setReplyTarget(target);
@@ -528,7 +519,6 @@ export default function MusicAgoraPanel({
   };
 
   const openGroup = async (group: MusicAgoraGroup) => {
-    useGlobalChatStore.getState().prime({ groupId: group.id, groupName: group.name });
     setReplyTarget(null);
     setReplyingToMessage(null);
     setActiveGroup(group);
@@ -1289,7 +1279,6 @@ export default function MusicAgoraPanel({
   const compactInboxList = compact && chatMode === 'MESSAGES' && !replyTarget && !activeGroup;
   const groupInvitePending = Boolean(activeGroup && activeGroup.myStatus !== 'ACTIVE');
   const leaveCompactThread = () => {
-    useGlobalChatStore.getState().clearTarget();
     setChatMode('MESSAGES');
     setReplyTarget(null);
     setReplyingToMessage(null);
@@ -1460,7 +1449,6 @@ export default function MusicAgoraPanel({
               stickToBottomRef.current = true;
               userDraggingChatRef.current = false;
               forceBottomRef.current = true;
-              useGlobalChatStore.getState().clearTarget();
               setChatMode('PLACE');
               setReplyTarget(null);
               setReplyingToMessage(null);
@@ -1542,7 +1530,6 @@ export default function MusicAgoraPanel({
                   item.lastRoomSlug,
                 );
               }}
-              accessibilityRole="button"
               accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
             >
               {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
