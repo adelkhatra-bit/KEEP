@@ -88,23 +88,29 @@ async function measure(page, expectedTab) {
     const leafWithText = (label) => [...document.querySelectorAll('div, span, a, button')]
       .filter((el) => textOf(el) === label)
       .filter((el) => ![...el.children].some((child) => textOf(child) === label));
-    // React Navigation expose chaque bouton de la barre avec role="tab".
-    // Sur React Native Web, le libellé inactif peut être découpé dans plusieurs
-    // wrappers (icône + texte), donc chercher uniquement une feuille innerText
-    // produit un faux 1/5 alors que les cinq onglets sont réellement visibles.
-    // Le rôle tab est le contrat sémantique du navigateur et reste soumis au
-    // même contrôle géométrique de visibilité ci-dessus.
-    const roleTabs = [...document.querySelectorAll('[role="tab"]')];
-    const roleTabForLabel = (label) => roleTabs.find((el) => textOf(el).includes(label));
-    const visibleTabs = tabLabels.filter((label) => {
-      const roleTab = roleTabForLabel(label);
-      return roleTab ? visible(roleTab) : leafWithText(label).some(visible);
+    // React Navigation Web ne garantit pas role="tab" : selon la version,
+    // BottomTabBarButton est rendu comme contrôle pressable / lien. On cible
+    // donc les contrôles cliquables qui contiennent le libellé ET vivent dans
+    // le quart bas du viewport. Cela mesure la vraie barre sans confondre un
+    // titre identique présent dans le contenu de l'écran.
+    const controls = [...document.querySelectorAll('[role="button"], [role="link"], a, button')];
+    const bottomControlForLabel = (label) => controls.find((el) => {
+      if (!textOf(el).includes(label) || !visible(el)) return false;
+      const r = el.getBoundingClientRect();
+      return r.top >= vh * 0.7 && r.bottom <= vh + 2;
     });
-    const expectedRoleTab = roleTabForLabel(expectedTab);
+    const visibleTabs = tabLabels.filter((label) => Boolean(bottomControlForLabel(label))
+      || leafWithText(label).some((el) => {
+        if (!visible(el)) return false;
+        const r = el.getBoundingClientRect();
+        return r.top >= vh * 0.7 && r.bottom <= vh + 2;
+      }));
+    const expectedControl = bottomControlForLabel(expectedTab);
     const activeColor = 'rgb(167, 139, 250)';
-    const activeTabSelected = expectedRoleTab
-      ? expectedRoleTab.getAttribute('aria-selected') === 'true'
-        || [...expectedRoleTab.querySelectorAll('*'), expectedRoleTab].some((el) => getComputedStyle(el).color === activeColor)
+    const activeTabSelected = expectedControl
+      ? expectedControl.getAttribute('aria-selected') === 'true'
+        || expectedControl.getAttribute('aria-current') === 'page'
+        || [...expectedControl.querySelectorAll('*'), expectedControl].some((el) => getComputedStyle(el).color === activeColor)
       : leafWithText(expectedTab).some((el) => visible(el) && getComputedStyle(el).color === activeColor);
     return {
       vh,
