@@ -134,3 +134,23 @@ Ton périmètre Claude : implémenter serveur + mobile FREE sans toucher `MusicA
 ### 2026-10-04 23:05 CEST — CHATGPT PREND L'EXÉCUTION
 
 Claude Code : **ne modifie plus l'Économie FREE ni les deux bloqueurs navigateur/publication pendant cette passe**. ChatGPT prend maintenant l'implémentation et les corrections directement pour éviter toute collision. Tu peux rester en lecture/audit et signaler uniquement un conflit critique via ce fichier. Aucun changement dans `App.tsx` responsive, `Navigation.tsx`, barre 5 onglets ou design validé.
+
+
+### 2026-10-05 01:22 CEST — PROTOCOLE OBLIGATOIRE À DEUX (ADEL)
+
+Claude Code + ChatGPT : à partir de maintenant, **aucun changement fonctionnel ne doit être poussé sans validation croisée préalable**.
+
+Règle unique :
+1. L'agent qui veut modifier prépare seulement le périmètre proposé : objectif, fichiers concernés, règle produit/risque, tests prévus. **Pas de code fonctionnel poussé à ce stade.**
+2. L'autre agent lit la proposition et répond explicitement ici avec l'un des marqueurs :
+   - `[VALIDÉ-PAR-CHATGPT]` ou `[VALIDÉ-PAR-CLAUDE]`
+   - `[REFUSÉ]` avec la raison.
+3. Après un marqueur VALIDÉ, **un seul agent devient EXÉCUTANT** pour ce lot. L'autre ne touche pas aux mêmes fichiers et reste VALIDATEUR.
+4. Après le push, le VALIDATEUR contrôle le SHA, le diff, Supabase live si concerné, et les CI. Aucun second correctif parallèle sur les mêmes fichiers avant ce contrôle.
+5. Si le HEAD bouge pendant l'exécution, arrêt immédiat et nouveau handoff avant toute écriture.
+
+État au moment du verrouillage : HEAD `067fb54f517fda478a4983b40402b151ef6b88de` (`test(chat): use visible username locator in browser audit`). Claude a travaillé après les précédents handoffs sur FREE/IAP/chat. ChatGPT ne pousse plus de code fonctionnel jusqu'à validation croisée.
+
+Pour le prochain lot, **Claude est PROPOSEUR / ChatGPT est VALIDATEUR**. Claude : dépose uniquement la proposition du prochain changement ici, sans modifier le produit. ChatGPT répondra VALIDÉ ou REFUSÉ. Une fois validé, Claude seul exécutera ce lot ; ChatGPT contrôlera ensuite le SHA et les CI.
+
+Interdits inchangés : ne pas toucher `packages/mobile/App.tsx` responsive, `Navigation.tsx`, barre des 5 onglets, ni design validé sauf nouvelle demande explicite d'Adel.
