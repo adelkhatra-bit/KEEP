@@ -210,16 +210,22 @@ export async function deleteNotificationDuplicates(profileId: string, keep: Keep
   return Number(data ?? 0);
 }
 
-export async function loadNotifications(profileId: string): Promise<KeepNotification[]> {
+export async function loadNotifications(
+  profileId: string,
+  options: { dedupe?: boolean; unreadOnly?: boolean } = {},
+): Promise<KeepNotification[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from('notifications')
     .select('id,type,title,body,data,read_at,created_at')
     .eq('profile_id', profileId)
     .order('created_at', { ascending: false })
     .limit(100);
+  if (options.unreadOnly) query = query.is('read_at', null);
+  const { data, error } = await query;
   if (error) throw error;
-  return dedupeNotifications((data ?? []).map(mapNotificationRow));
+  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item));
+  return options.dedupe === false ? visible : dedupeNotifications(visible);
 }
 
 export async function loadUnreadNotificationCount(profileId: string): Promise<number> {

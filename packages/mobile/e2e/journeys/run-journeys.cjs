@@ -511,7 +511,7 @@ const chatLiveJourney = {
 // la conversation concernée, effacé dès qu'on l'ouvre.
 const chatUnreadJourney = {
   id: 'tchat-signal-non-lus',
-  titre: 'Tchat — signal des messages non lus (compteur, contour, lecture)',
+  titre: 'Tchat — signal des conversations non lues (compteur, contour, lecture)',
   devices: [ANDROID, MOBILE_SE, PC],
   mobileFlags: true,
   fakeOptions: { groupRole: 'MEMBER', groupMessages: true, unreadChat: true },
@@ -543,7 +543,7 @@ const chatUnreadJourney = {
     await page.waitForTimeout(1500);
     r.lues_apres_ouverture = [...sb.state.readNotifications].sort();
     const checks = [
-      ['compteur du bouton = 3 messages (l’annonce « Tchat disponible » ne compte pas)', /\b3\b/.test(r.badge) && !/\b4\b/.test(r.badge)],
+      ['compteur du bouton = 2 conversations non lues (groupe + privé ; aucune alerte système)', /\b2\b/.test(r.badge) && !/\b3\b/.test(r.badge)],
       ['contour lumineux sur le bouton du tchat', r.contour_bouton === 1],
       ['le robot ouvre la LISTE : rien n’est marqué lu sans ouvrir une conversation', r.lues_a_l_ouverture.length === 0],
       ['la liste est affichée (pas de conversation ouverte)', r.retour_ok === true],
@@ -551,7 +551,7 @@ const chatUnreadJourney = {
       ['mini-fenêtre : seulement les conversations à lire (en-tête, sans filtres)', r.entete_a_lire >= 1 && r.filtres_masques],
       ['ouvrir le groupe marque seulement ses 2 messages lus', r.lues_apres_ouverture.join(',') === 'n-g1,n-g2'],
     ];
-    return { details: r, failures: failed(checks), ok: `compteur 3, contour allumé, liste avec 2 conversations allumées, groupe lu à l’ouverture` };
+    return { details: r, failures: failed(checks), ok: `compteur 2 conversations, contour allumé, liste avec 2 conversations allumées, groupe entièrement lu à l’ouverture` };
   },
 };
 

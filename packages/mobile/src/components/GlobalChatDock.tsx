@@ -96,7 +96,8 @@ export default function GlobalChatDock() {
   const [activeSurface, setActiveSurface] = useState<MusicAgoraSurface | null>('PROFILE');
   const [chatSaving, setChatSaving] = useState(false);
   const [chatSettingsReady, setChatSettingsReady] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadByTarget = useGlobalChatStore((state) => state.unreadByTarget);
+  const unreadCount = Object.keys(unreadByTarget).length;
   const [latestChatSender, setLatestChatSender] = useState('');
   // Début du dernier message reçu, affiché quelques secondes dans la languette.
   const [latestChatPreview, setLatestChatPreview] = useState('');
@@ -265,7 +266,7 @@ export default function GlobalChatDock() {
       // pour un trou transitoire de session. Le contenu reste monté pendant
       // l'hydratation et la vraie déconnexion est gérée par SIGNED_OUT.
       setTracks([]);
-      setUnreadCount(0);
+      useGlobalChatStore.getState().setUnreadByTarget({});
       setChatSettingsReady(false);
       return;
     }
@@ -281,7 +282,7 @@ export default function GlobalChatDock() {
         side: 'right' as const,
         bottomOffset: 88,
       })),
-      loadNotifications(effectiveProfileId).catch(() => []),
+      loadNotifications(effectiveProfileId, { dedupe: false, unreadOnly: true }).catch(() => []),
       loadNotificationPreferences(effectiveProfileId).catch(() => null),
     ]).then(([settings, notifications, notificationPrefs]) => {
       if (!live) return;
@@ -300,8 +301,7 @@ export default function GlobalChatDock() {
         void saveMusicAgoraPosition(settings.side, migratedBottom).catch(() => {});
       }
       const unreadChat = notifications.filter((item) => !item.readAt && isChatNotification(item));
-      setUnreadCount(unreadChat.length);
-      useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(notifications));
+      useGlobalChatStore.getState().setUnreadByTarget(buildChatUnreadMap(unreadChat));
       const latest = unreadChat[0];
       setLatestChatSender(latest ? chatNotificationSender(latest) : '');
       setLatestChatPreview(latest ? chatNotificationPreview(latest) : '');
@@ -340,7 +340,6 @@ export default function GlobalChatDock() {
     return subscribeToNotifications(effectiveProfileId, (item) => {
       if (!isChatNotification(item)) return;
       const sender = chatNotificationSender(item);
-      setUnreadCount((value) => value + 1);
       const unreadKey = chatUnreadKey(item);
       if (unreadKey) useGlobalChatStore.getState().addUnread(unreadKey, item.id);
       flashEdge();
@@ -587,7 +586,6 @@ export default function GlobalChatDock() {
       return;
     }
 
-    setUnreadCount(0);
     // Adel (02/10/2026) : « quand je clique sur le robot, pourquoi il m'ouvre
     // direct une conversation ? Je suis occupé, je veux juste voir ». Le robot
     // ouvre TOUJOURS la liste ; les conversations non lues y sont allumées.
