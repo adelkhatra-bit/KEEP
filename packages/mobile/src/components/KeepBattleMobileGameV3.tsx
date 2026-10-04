@@ -703,6 +703,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [pending, setPending] = React.useState<string | null>(null);
   const [now, setNow] = React.useState(Date.now());
   const [audioReady, setAudioReady] = React.useState(false);
+  // Une panne audio TestFlight ne doit JAMAIS compter comme une réponse ni
+  // faire avancer la partie. Ce nonce relance simplement la même manche
+  // après une courte pause, jusqu'à ce qu'un extrait soit réellement audible.
+  const [soloAudioRetryNonce, setSoloAudioRetryNonce] = React.useState(0);
   const [respondingChallengeId, setRespondingChallengeId] = React.useState<string | null>(null);
   const [incomingDecisionReady, setIncomingDecisionReady] = React.useState(false);
   React.useEffect(() => {
@@ -1365,22 +1369,20 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         } catch {}
       }
 
-      // Dernier filet : ne jamais afficher de popup bloquant pour un échec
-      // audio. Sur iOS TestFlight, Expo AV peut remonter un faux négatif de
-      // contrôle alors que l'extrait est déjà audible (lecture/préchargement
-      // démarré en parallèle). Le popup "Loki n'arrive pas à lire..." créait
-      // alors un parasite au milieu d'une manche parfaitement jouable.
-      //
-      // Si aucun remplacement n'a pu être chargé, on marque simplement la
-      // manche audio comme annulée et le flux normal passe à la suivante.
-      // Même comportement web/natif, aucune modale parasite.
-      console.warn(`[Battle SOLO] audio non confirmé manche ${soloIndex + 1}/${solo?.rounds.length} — passage silencieux`);
-      recordSoloAnswer('__AUDIO_ERROR__');
-      animateResult();
+      // Dernier filet iOS/TestFlight : une panne audio n'est PAS une
+      // réponse du joueur et ne doit jamais faire passer à la manche suivante.
+      // Tant que le son n'est pas confirmé, le chrono reste arrêté
+      // (audioReady=false) et on relance LA MÊME manche automatiquement.
+      console.warn(`[Battle SOLO] audio non confirmé manche ${soloIndex + 1}/${solo?.rounds.length} — retry même manche`);
+      setAudioReady(false);
+      soloStartedAtRef.current = 0;
+      setSoloStartedAt(0);
+      await wait(850);
+      if (alive) setSoloAudioRetryNonce((value) => value + 1);
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, playVerified, pausedSoloRemaining, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
+  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, soloAudioRetryNonce, playVerified, pausedSoloRemaining, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
   const displayedSoloRemaining = pausedSoloRemaining ?? soloRemaining;
