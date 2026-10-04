@@ -78,7 +78,7 @@ jobs:
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           JS
-          node /tmp/check-web-companion.cjs
+          NODE_PATH="$GITHUB_WORKSPACE/node_modules" node /tmp/check-web-companion.cjs
       - name: Logs on failure
         if: failure()
         run: cat /tmp/loki-web-companion.log || true
