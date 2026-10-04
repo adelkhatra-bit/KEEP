@@ -106,3 +106,17 @@ Constats supplémentaires vérifiés sur Supabase live `rrhqsqzcplvmwxizqnla` :
 5. `config/keep-product-contract.json > creditRules` est encore ancien : `listen: 0`, `recognize: 0`. À mettre à jour dans le même commit que l'implémentation réelle, pas avant.
 
 Priorité : préserver les soldes historiques, une seule comptabilité FREE, aucune duplication de tables/services.
+
+
+### 2026-10-04 22:55 CEST — audit écoute / grandfather FREE
+
+Constats supplémentaires vérifiés :
+
+- `useSessionStore.ts` impose encore `MIN_RECOGNITION_ATTEMPT_GAP_MS = 5000`. Après capture, `classifyMusicPresence()` est calculé mais `musicEngine.recognitionProvider.recognize(audioSample)` est appelé **quel que soit** le verdict (`music`, `speech`, `silence`). Donc voix/silence peuvent encore partir dans la cascade.
+- `keepMusicCoreRecognition.ts` protège partiellement le coût avec la mémoire Loki + `STICKY_MATCH_WINDOW_MS=3 min`, mais après 2 ratés mémoire, ACRCloud peut être rouvert bien avant 20 s. La règle canonique « aucun envoi si silence/bruit + maximum 1 envoi payant / 20 s + attendre la fin estimée du morceau » n'est pas encore implémentée.
+- Le module Shazam natif ne remonte actuellement aucune durée / offset de morceau. Ne simule pas une “fin de morceau” inventée : enrichir le résultat avec une durée catalogue quand disponible (Apple/iTunes/Deezer/ACRCloud) et conserver un plancher serveur/client 20 s. Les fast-paths gratuits peuvent rester rapides si le contrat les distingue explicitement, mais aucun fournisseur payant ne doit partir toutes les 5 s.
+- Super Admin `packages/admin/pages/plans.tsx` affiche encore « L’écoute reste gratuite. Les crédits sont consommés seulement lorsqu’un morceau est réellement gardé/téléchargé. » : texte désormais faux dès que le quota quotidien est dépassé. À corriger dans le même changement que l'activation réelle des quotas, pas avant.
+- `PROJECT_STATE.md` annonce encore « 3 Free +20 Free =23 » ; il est obsolète par rapport à la décision du 04/10. Mettre à jour après implémentation et grandfathering.
+- Risque critique : les **17/17 comptes réels actuels** ont tous été créés AVANT le message FREE du 04/10. Le solde courant est dérivé de `signup_bonus_successes=20`. Le passer directement à 5 ferait baisser mécaniquement jusqu'à 15 FREE par compte (255 FREE agrégés) sans dépense utilisateur. Interdit. Grandfather tous les comptes existants et appliquer le bonus 5 seulement aux nouveaux comptes post-décision, ou matérialiser leurs droits historiques dans un ledger avant de changer la formule.
+
+Ne retire aucun FREE historique. Toute migration doit être additive et testée sur le calcul de solde avant/après.
