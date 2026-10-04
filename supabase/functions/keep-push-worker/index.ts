@@ -27,9 +27,6 @@ const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
   "CHAT_ACTIVATION_AVAILABLE",
   "FREE_CREDITED",
   "FREE_CREDIT_REWARD",
-  "BATTLE_INVITE",
-  "KEEP_BATTLE_INVITE",
-  "BATTLE_CHALLENGE_ACCEPTED",
   "BATTLE_CHALLENGE_DECLINED",
   "BATTLE_PLAYER_AVAILABLE",
   "BATTLE_ARENA_WIN",
@@ -46,9 +43,10 @@ const IN_APP_ONLY_NOTIFICATION_TYPES = new Set([
 function isInAppOnlyNotification(type: unknown) {
   return IN_APP_ONLY_NOTIFICATION_TYPES.has(String(type || "").trim().toUpperCase());
 }
-// Toute notification utilisateur créée en base est éligible à une vraie push
-// système quand l'application est en arrière-plan/fermée. Le premier plan
-// reste dédoublonné côté client : bannière Loki interne uniquement.
+// Les événements qui nécessitent une réaction immédiate (messages, paiement,
+ // invitation Battle/événement, défi accepté) restent éligibles à une vraie
+ // push système quand l'application est en arrière-plan/fermée. Les signaux
+ // faibles restent dans le centre Loki pour éviter la fatigue de notification.
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
