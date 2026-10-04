@@ -62,7 +62,8 @@ platform :ios do
     # l'objet App Review Contact. Celui-ci exige un vrai téléphone/e-mail
     # et reste volontairement séparé jusqu'à la soumission finale.
     listing_metadata = "/tmp/loki-appstore-metadata-listing"
-    sh("rm -rf '#{listing_metadata}' && cp -R fastlane/metadata '#{listing_metadata}' && rm -rf '#{listing_metadata}/review_information'")
+    source_metadata = File.expand_path("metadata", __dir__)
+    sh("rm -rf '#{listing_metadata}' && cp -R '#{source_metadata}' '#{listing_metadata}' && rm -rf '#{listing_metadata}/review_information'")
     deliver(
       submit_for_review: false,
       skip_binary_upload: true,
