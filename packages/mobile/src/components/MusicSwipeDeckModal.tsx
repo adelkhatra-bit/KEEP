@@ -384,7 +384,16 @@ export default function MusicSwipeDeckModal({
               void recordProfileSwipeListen(currentSourceProfileId, current.id);
             }
           },
-          () => setPreviewEnded(true),
+          () => {
+            setPreviewEnded(true);
+            if (!actionInFlight.current && loop) {
+              if (endAdvanceTimer.current) clearTimeout(endAdvanceTimer.current);
+              endAdvanceTimer.current = setTimeout(() => {
+                endAdvanceTimer.current = null;
+                if (!actionInFlight.current) advanceIndex();
+              }, 120);
+            }
+          },
         );
         setAutoplayBlocked(false);
         setPreviewEnded(false);
