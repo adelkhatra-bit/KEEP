@@ -5,7 +5,7 @@ import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, Style
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
@@ -462,12 +462,11 @@ export default function MusicSwipeDeckModal({
       endAdvanceTimer.current = null;
     }
     playbackGeneration.current += 1;
-    // Changer la carte immédiatement : l'unload natif peut prendre plus d'une
-    // seconde sur iPhone. stopTrackPreview coupe déjà l'ancien son tout de
-    // suite, puis termine le nettoyage en arrière-plan.
-    const stopPromise = stopTrackPreview().catch(() => {});
+    // Réponse instantanée Mobile/Web : la carte change sans attendre le
+    // stop/unload natif. L'ancien extrait est coupé immédiatement et son
+    // nettoyage continue en arrière-plan.
+    stopTrackPreviewFast();
     advanceIndex();
-    await stopPromise;
   };
 
   const confirmKeep = async (visibility: KeepVisibilityChoice) => {
