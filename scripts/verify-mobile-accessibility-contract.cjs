@@ -20,6 +20,8 @@ if (contract.interactionLoop?.firstTapDirectAction !== true) fail('firstTapDirec
 if (contract.interactionLoop?.secondTapSensitiveConfirmationOnly !== true) fail('secondTapSensitiveConfirmationOnly must stay true');
 if (contract.interactionLoop?.collapsibleHelpByDefault !== true) fail('collapsibleHelpByDefault must stay true');
 if (contract.interactionLoop?.optionalGesturesOnly !== true) fail('optionalGesturesOnly must stay true');
+if (contract.interactionLoop?.verticalSwipeNext !== true) fail('verticalSwipeNext must stay true');
+if (contract.interactionLoop?.verticalSwipeOptional !== true) fail('verticalSwipeOptional must stay true');
 if (contract.interactionLoop?.everyControlNeedsRealHandler !== true) fail('everyControlNeedsRealHandler must stay true');
 if (contract.interactionLoop?.immediateVisualFeedback !== true) fail('immediateVisualFeedback must stay true');
 if ((contract.darkThemeReadability?.normalTextContrastRatio ?? 0) < 4.5) fail('dark theme normal text contrast must stay >= 4.5:1');
@@ -45,6 +47,8 @@ console.log('KEEP mobile accessibility contract OK:', {
   dynamicType: contract.typography.dynamicTypeTargetPercent,
   oneTap: contract.interactionLoop.firstTapDirectAction,
   sensitiveConfirmOnly: contract.interactionLoop.secondTapSensitiveConfirmationOnly,
+  verticalSwipeNext: contract.interactionLoop.verticalSwipeNext,
+  verticalSwipeOptional: contract.interactionLoop.verticalSwipeOptional,
   darkContrast: contract.darkThemeReadability.normalTextContrastRatio,
   stableHelp: contract.layoutStability.primaryActionsMustNotShiftOnHelpToggle,
 });
