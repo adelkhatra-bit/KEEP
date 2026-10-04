@@ -171,7 +171,7 @@ export function battleWinReason(results: MatchResultLike[] | null | undefined): 
 // Solo laissé tout seul : 2 morceaux d'affilée sans réponse (depuis la
 // dernière reprise) -> « Tu es toujours là ? ». Adel (02/10/2026) : « une
 // personne peut prendre un appel urgent » -> 60 s au lieu de 20 s.
-export const SOLO_IDLE_AUTO_CLOSE_MS = 60_000;
+export const SOLO_IDLE_AUTO_CLOSE_MS = 40_000;
 
 // Texte exact de la fenêtre « Tu es toujours là ? » : ce qui se passe si
 // personne ne répond. Le Solo ne retire JAMAIS de Free (aucun débit côté
