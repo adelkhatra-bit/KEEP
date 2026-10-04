@@ -806,7 +806,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>
-              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} />
+              <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
               ) : current.status === 'kept' ? (
