@@ -1662,6 +1662,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   const addCanonicalToMyKeep = async (canonical: CanonicalTrack, visibility: 'PUBLIC' | 'PRIVATE') => {
+    if (isDemoMode) {
+      setViewerKeepTrackIds((current) => new Set(current).add(canonical.id));
+      Alert.alert('Mode démo', `Morceau gardé temporairement en ${visibility === 'PUBLIC' ? 'PUBLIC sur le profil' : 'PRIVÉ'}. Rien n’est envoyé sur un compte réel.`);
+      return true;
+    }
     if (!effectiveViewerId) {
       Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
         { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
@@ -2395,7 +2400,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         sourceByTrack={swipeSourceByTrack}
         subtitle="Les extraits démarrent automatiquement. Si un morceau est déjà dans ta collection, aucun doublon n’est créé."
         askVisibilityOnKeep
-        requiresAccount={!effectiveViewerId}
+        requiresAccount={!effectiveViewerId && !isDemoMode}
         onClose={() => { setSwipeOpen(false); setBrowseFilter(null); setFolderSwipeTracks([]); setFolderSwipeTitle(''); }}
         onKeep={addCanonicalToMyKeep}
         onOpenSourceProfile={(username) => { setSwipeOpen(false); navigation.navigate('PublicProfile', { username }); }}
