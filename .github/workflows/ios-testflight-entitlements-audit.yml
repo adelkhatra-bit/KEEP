@@ -1,3 +1,4 @@
+# audit-run: 2026-10-04T04:47:00+02:00 validate latest TestFlight APNs
 name: Loki TestFlight Entitlements Audit
 
 on:
