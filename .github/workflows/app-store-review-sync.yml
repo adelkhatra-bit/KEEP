@@ -55,6 +55,22 @@ jobs:
             if(!beta?.data) throw new Error('No Beta App Review detail found');
 
             const b=beta.data.attributes||{};
+            if(!String(b.notes||'').trim()){
+              const betaNotes=[
+                'Loki Music — parcours TestFlight conseillé :',
+                '1. Écouter > Identifier un morceau : autoriser le microphone, vérifier la reconnaissance puis ARRÊTER.',
+                '2. Ouvrir Battle > Solo : vérifier l’enchaînement audio rapide entre les manches et les messages Loki.',
+                '3. Tester Découvertes, Playlists, Soirées puis Profil et les réglages.',
+                '4. Les notifications système nécessitent l’autorisation iOS ; les notifications Loki restent aussi visibles dans l’application.',
+                '5. La version ordinateur est une surface compagnon du même produit et utilise la connexion par QR depuis le téléphone.',
+                '6. Les paiements externes de contenu numérique restent désactivés dans la build iOS ; les FREE sont une unité interne à Loki Music.'
+              ].join('\n');
+              await api('/v1/betaAppReviewDetails/'+beta.data.id,{
+                method:'PATCH',
+                body:{data:{type:'betaAppReviewDetails',id:beta.data.id,attributes:{notes:betaNotes}}}
+              });
+              b.notes=betaNotes;
+            }
             for(const k of ['contactFirstName','contactLastName','contactPhone','contactEmail']){
               if(!String(b[k]||'').trim()) throw new Error('Beta review contact incomplete: '+k);
             }
