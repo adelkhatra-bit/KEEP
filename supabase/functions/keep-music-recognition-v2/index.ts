@@ -76,18 +76,61 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function allowRecognition(req: Request, userId: string | null) {
+async function paidRecognitionIdentity(req: Request, userId: string | null) {
   const device = (req.headers.get("x-keep-device-id") ?? "guest").slice(0, 160);
   const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown")
     .split(",")[0].trim().slice(0, 80);
-  const identityHash = await sha256(`recognition-v2|${userId ?? "guest"}|${device}|${ip}`);
+  return sha256(`paid-recognition|${userId ?? "guest"}|${device}|${ip}`);
+}
+
+async function allowRecognition(identityHash: string) {
   const { data, error } = await admin.rpc("service_allow_recognition", {
     p_identity_hash: identityHash,
-    p_limit: 12,
-    p_window_seconds: 60,
+    p_limit: 1,
+    p_window_seconds: 20,
   });
   if (error) throw error;
   return Boolean(data);
+}
+
+function requestTimezone(req: Request) {
+  const value = (req.headers.get("x-keep-timezone") ?? "Europe/Paris").trim();
+  return value.slice(0, 80) || "Europe/Paris";
+}
+
+function allowFreeDebit(req: Request) { return req.headers.get("x-keep-use-free") === "1"; }
+
+function economyBlocked(reason: string | null | undefined) {
+  if (reason === "LISTEN_FREE_REQUIRED") return json(402, { error: "listen_free_required" });
+  if (reason === "INSUFFICIENT_FREE") return json(402, { error: "listen_free_insufficient" });
+  if (reason === "GUEST_LISTEN_LIMIT_REACHED") return json(402, { error: "guest_listen_limit_reached" });
+  return json(503, { error: "listen_economy_unavailable" });
+}
+
+async function precheckListenEconomy(req: Request, userId: string | null, identityHash: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_listen_precheck", {
+      p_profile_id: userId,p_timezone: requestTimezone(req),p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_guest_listen_precheck", { p_identity_hash: identityHash });
+  if (error) throw error;
+  return data as any;
+}
+
+async function recordListenEconomy(req: Request, userId: string | null, identityHash: string, sourceKey: string) {
+  if (userId) {
+    const { data, error } = await admin.rpc("service_record_listen_success", {
+      p_profile_id: userId,p_source_key: sourceKey,p_timezone: requestTimezone(req),p_allow_free: allowFreeDebit(req),
+    });
+    if (error) throw error;
+    return data as any;
+  }
+  const { data, error } = await admin.rpc("service_record_guest_listen_success", { p_identity_hash: identityHash,p_source_key: sourceKey });
+  if (error) throw error;
+  return data as any;
 }
 
 function normalizeText(value: unknown) {
@@ -192,9 +235,13 @@ function isQuotaFailure(message: string, status: number) {
 
 async function recognize(req: Request) {
   const userId = await optionalUserId(req);
-  if (!(await allowRecognition(req, userId))) {
+  const identityHash = await paidRecognitionIdentity(req, userId);
+  const economy = await precheckListenEconomy(req, userId, identityHash);
+  if (!economy?.allowed) return economyBlocked(economy?.reason);
+  if (!(await allowRecognition(identityHash))) {
     return json(429, { error: "recognition_rate_limited", message: "Loki Music écoute toujours. Nouvelle analyse dans quelques secondes." });
   }
+  const listenSourceKey = `audd:${crypto.randomUUID()}`;
 
   const credential = await resolveAuddCredential();
   if (!credential) {
@@ -254,8 +301,14 @@ async function recognize(req: Request) {
 
   await setRuntimeStatus("ACTIVE");
   const recognition = await normalizeResult(payload?.result);
-  if (recognition) seedInBackground(admin, recognition as any);
-  return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition });
+  if (recognition) {
+    const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
+    if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);
+    (recognition as any).__listenEconomyRecorded = true;
+    seedInBackground(admin, recognition as any);
+    return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition, listenEconomy: listenRecord });
+  }
+  return json(200, { ok: true, provider: "AudD", credentialSource: credential.source, recognition: null });
 }
 
 Deno.serve(async (req) => {
