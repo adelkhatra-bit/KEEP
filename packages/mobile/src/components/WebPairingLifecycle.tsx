@@ -92,7 +92,9 @@ export default function WebPairingLifecycle() {
   }, [user?.id, isLocalGuest, isDemoMode]);
 
   React.useEffect(() => {
-    if (Platform.OS !== 'web' || !user || isLocalGuest || isDemoMode || !supabase) return undefined;
+    if (Platform.OS !== 'web' || !user || isLocalGuest || isDemoMode) return undefined;
+    const client = supabase;
+    if (!client) return undefined;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -106,7 +108,7 @@ export default function WebPairingLifecycle() {
         if (status.revoked) {
           clearWebCompanionSessionId();
           useUserStore.getState().logout();
-          await createAuthService(supabase).signOut().catch(() => {});
+          await createAuthService(client).signOut().catch(() => {});
           return;
         }
       } catch {
