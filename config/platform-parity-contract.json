@@ -69,5 +69,25 @@
       "browser autoplay unlock",
       "native deep links"
     ]
+  },
+  "musicParity": {
+    "sharedBusinessLogic": true,
+    "designMustRemainShared": true,
+    "nativeAudioAdapterMayDiffer": true,
+    "requirements": [
+      "PASSER updates the visible card immediately; persistence must not block navigation",
+      "Swipe up remains optional and advances immediately",
+      "Battle Solo result hold is at most 700ms before advancing",
+      "iOS preloads the next Battle preview without resetting AVAudioSession while the current preview is playing",
+      "TestFlight build must be newer than or equal to the last audio/Battle parity commit before declaring parity",
+      "Web viewport emulation never counts as proof of native iOS audio parity"
+    ],
+    "testflightParityRequiredFor": [
+      "audio preview startup",
+      "PASSER latency",
+      "Solo round-to-round latency",
+      "Battle audio",
+      "push notifications"
+    ]
   }
 }
