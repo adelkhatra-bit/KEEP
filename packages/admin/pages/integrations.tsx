@@ -104,9 +104,10 @@ export default function Integrations() {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
+  const [rowFeedback, setRowFeedback] = useState<Record<string, { kind: 'ok' | 'error'; text: string }>>({});
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (keepPageStable = false) => {
+    if (!keepPageStable) setLoading(true);
     setError(null);
     try {
       const result = await invokeAdmin({ action: 'integrations.list' });
@@ -132,43 +133,79 @@ export default function Integrations() {
     } catch (e: any) {
       setError(e?.message ?? 'Impossible de charger les intégrations.');
     } finally {
-      setLoading(false);
+      if (!keepPageStable) setLoading(false);
     }
   };
 
   useEffect(() => { void load(); }, []);
 
+  const needsAttention = (row: IntegrationRow) => {
+    const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
+    return !row.configured
+      || Boolean(row.configurationIssue)
+      || status === 'ERROR'
+      || status === 'EXHAUSTED'
+      || (row.category === 'recognition' && status === 'UNKNOWN');
+  };
+
+  const attentionRows = useMemo(
+    () => rows.filter(needsAttention).sort((a, b) => {
+      const weight = (row: IntegrationRow) => {
+        const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
+        if (row.configurationIssue || status === 'ERROR') return 0;
+        if (status === 'EXHAUSTED') return 1;
+        if (!row.configured || status === 'NOT_CONFIGURED') return 2;
+        return 3;
+      };
+      return weight(a) - weight(b) || a.label.localeCompare(b.label, 'fr');
+    }),
+    [rows],
+  );
+
   const grouped = useMemo(() => {
     const map: Record<string, IntegrationRow[]> = {};
-    for (const row of rows) (map[row.category] ||= []).push(row);
+    for (const row of rows.filter((item) => !needsAttention(item))) (map[row.category] ||= []).push(row);
     return map;
   }, [rows]);
 
   const paidRows = useMemo(() => rows.filter((row) => row.key === 'AUDD_API_KEY'), [rows]);
 
+  const keepRowVisible = (key: string) => {
+    if (typeof document === 'undefined') return;
+    window.setTimeout(() => {
+      document.getElementById(`integration-${key}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 80);
+  };
+
   const save = async (row: IntegrationRow) => {
     const value = (values[row.key] ?? '').trim();
-    if (!value) return setError(`Renseigne une valeur pour ${row.label}.`);
-    if (!WHITESPACE_ALLOWED_KEYS.has(row.key) && /\s/.test(value)) return setError(`${row.label} : cette valeur contient un espace -- vérifie que tu n'as pas copié un caractère en trop.`);
-    if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return setError(`${row.label} : cette valeur ressemble à un exemple/placeholder, pas à une vraie clé. Colle la vraie valeur du fournisseur.`);
+    const fail = (text: string) => {
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'error', text } }));
+      keepRowVisible(row.key);
+    };
+    if (!value) return fail(`Renseigne une valeur pour ${row.label}.`);
+    if (!WHITESPACE_ALLOWED_KEYS.has(row.key) && /\s/.test(value)) return fail(`${row.label} : cette valeur contient un espace. Vérifie le copier-coller.`);
+    if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return fail(`${row.label} : cette valeur ressemble à un exemple, pas à une vraie clé fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
+    setRowFeedback((prev) => { const next = { ...prev }; delete next[row.key]; return next; });
     try {
       const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
       setValues((prev) => ({ ...prev, [row.key]: '' }));
-      if (row.key === 'AUDD_API_KEY' && result?.validation?.valid) {
-        setMessage(`Clé AudD vérifiée par le fournisseur puis enregistrée dans Supabase Vault. État : ${result.validation.status}.`);
-      } else if (row.key.startsWith('ACRCLOUD_') && result?.validation?.valid) {
-        setMessage(`ACRCloud vérifié par le fournisseur : Host + Access Key + Access Secret sont compatibles. État : ${result.validation.status}. Le fallback est actif immédiatement.`);
-      } else if (row.key.startsWith('ACRCLOUD_')) {
-        setMessage(`${row.label} enregistré. ACRCloud sera automatiquement testé dès que Host + Access Key + Access Secret seront tous renseignés.`);
-      } else if (result?.validation?.valid) {
-        setMessage(`${row.label} — ${result.validation.message || 'valeur vérifiée avant sauvegarde.'} État : ${result.validation.status}.`);
-      } else {
-        setMessage(`${row.label} enregistré dans Supabase Vault. La valeur précédente est remplacée sans être affichée.`);
-      }
-      await load();
+      const text =
+        row.key === 'AUDD_API_KEY' && result?.validation?.valid
+          ? `Clé AudD vérifiée par le fournisseur. État : ${result.validation.status}.`
+          : row.key.startsWith('ACRCLOUD_') && result?.validation?.valid
+            ? `ACRCloud vérifié : Host + Access Key + Access Secret sont compatibles. État : ${result.validation.status}.`
+            : row.key.startsWith('ACRCLOUD_')
+              ? `${row.label} enregistré. Le test complet se lance dès que les 3 valeurs ACRCloud sont présentes.`
+              : result?.validation?.valid
+                ? `${result.validation.message || 'Valeur vérifiée avant sauvegarde.'} État : ${result.validation.status}.`
+                : `${row.label} enregistré dans Supabase Vault.`;
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'ok', text } }));
+      await load(true);
+      keepRowVisible(row.key);
     } catch (e: any) {
-      setError(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
+      fail(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
     } finally {
       setBusy(null);
     }
@@ -178,10 +215,12 @@ export default function Integrations() {
     setBusy(row.key); setError(null); setMessage(null);
     try {
       await invokeAdmin({ action: 'integrations.delete', key: row.key });
-      setMessage(`${row.label} supprimé.`);
-      await load();
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'ok', text: `${row.label} supprimé. Cette intégration remonte maintenant dans « À corriger maintenant ».` } }));
+      await load(true);
+      keepRowVisible(row.key);
     } catch (e: any) {
-      setError(e?.message ?? `Impossible de supprimer ${row.label}.`);
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'error', text: e?.message ?? `Impossible de supprimer ${row.label}.` } }));
+      keepRowVisible(row.key);
     } finally {
       setBusy(null);
     }
@@ -194,7 +233,7 @@ export default function Integrations() {
       setLastRecognitionTest(result.providers ?? []);
       const summary = (result.providers ?? []).map((item) => `${item.provider}: ${STATUS_LABELS[item.status]}`).join(' · ');
       setMessage(`Test réel terminé — ${summary}. Aucune clé secrète n’a été exposée.`);
-      await load();
+      await load(true);
     } catch (e: any) {
       setError(e?.message ?? 'Test des moteurs de reconnaissance impossible.');
     } finally {
@@ -204,6 +243,127 @@ export default function Integrations() {
 
   const keylessStatus = keylessRuntime?.status ?? 'UNKNOWN';
 
+  const renderIntegrationRow = (row: IntegrationRow, urgent = false) => {
+    const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
+    const feedback = rowFeedback[row.key];
+    return (
+      <div
+        key={row.key}
+        id={`integration-${row.key}`}
+        style={{
+          border: urgent ? '1px solid #f0b429' : '1px solid var(--border)',
+          borderRadius: 12,
+          padding: 14,
+          background: urgent ? 'rgba(240,180,41,.055)' : 'transparent',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
+          <div>
+            <strong style={{ color: '#fff' }}>{row.label}</strong>
+            <div style={{ color: '#d9d5e2', fontSize: 12, marginTop: 3 }}>{row.key}</div>
+          </div>
+          <div style={{ fontSize: 12, color: STATUS_COLORS[status], fontWeight: 800 }}>
+            ● {STATUS_LABELS[status]}
+          </div>
+        </div>
+
+        {row.configurationIssue && (
+          <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ffd6dc', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}>
+            <strong>Configuration incorrecte :</strong> {row.configurationIssue}
+          </div>
+        )}
+        {row.lastError && (status === 'ERROR' || status === 'EXHAUSTED') && (
+          <div style={{ color: status === 'EXHAUSTED' ? '#ffd08a' : '#ffd6dc', fontSize: 12, marginBottom: 8 }}>
+            {row.lastError}
+          </div>
+        )}
+
+        {INTEGRATION_PROVIDER_LINKS[row.key] && (
+          <a
+            href={INTEGRATION_PROVIDER_LINKS[row.key].url}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: '#cbb8ff', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
+          >
+            🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
+          </a>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 360px' }}>
+            {MULTILINE_KEYS.has(row.key) ? (
+              <textarea
+                rows={6}
+                placeholder={row.configured ? 'Nouvelle valeur complète pour remplacer…' : 'Colle la valeur complète ici…'}
+                value={values[row.key] ?? ''}
+                onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                spellCheck={false}
+                style={{ width: '100%', minHeight: 132, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#fff', borderRadius: 8, padding: '10px 40px 10px 14px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
+              />
+            ) : (
+              <input
+                type={row.secret && !revealed[row.key] ? 'password' : 'text'}
+                placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
+                value={values[row.key] ?? ''}
+                onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#fff', borderRadius: 8, padding: '10px 40px 10px 14px' }}
+              />
+            )}
+            {row.secret && !MULTILINE_KEYS.has(row.key) && (
+              <button
+                type="button"
+                onClick={() => setRevealed((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
+                aria-label={revealed[row.key] ? 'Masquer la valeur' : 'Afficher la valeur'}
+                title={revealed[row.key] ? 'Masquer' : 'Afficher'}
+                style={{ position: 'absolute', right: 4, top: 4, bottom: 4, width: 32, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }}
+              >
+                {revealed[row.key] ? '🙈' : '👁'}
+              </button>
+            )}
+          </div>
+          {GENERATABLE_KEYS.has(row.key) && (
+            <button
+              type="button"
+              onClick={() => setValues((prev) => ({ ...prev, [row.key]: generateRandomKey() }))}
+              title="Génère une valeur aléatoire dans ce navigateur"
+              style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: '#cbb8ff', fontWeight: 800, cursor: 'pointer' }}
+            >
+              🎲 Générer
+            </button>
+          )}
+          <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
+            {busy === row.key ? 'Vérification…' : row.configured ? 'Vérifier et remplacer' : 'Vérifier et enregistrer'}
+          </button>
+          {row.configured && (
+            <button onClick={() => void remove(row)} disabled={busy === row.key} style={{ opacity: 0.9 }}>
+              Supprimer
+            </button>
+          )}
+        </div>
+
+        {feedback && (
+          <div
+            role="status"
+            style={{
+              marginTop: 9,
+              padding: '9px 11px',
+              borderRadius: 9,
+              border: `1px solid ${feedback.kind === 'ok' ? '#62c46f' : '#e05252'}`,
+              color: feedback.kind === 'ok' ? '#c9f7d0' : '#ffd6dc',
+              background: feedback.kind === 'ok' ? 'rgba(98,196,111,.09)' : 'rgba(224,82,82,.09)',
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: 1.45,
+            }}
+          >
+            {feedback.kind === 'ok' ? '✓ ' : '✕ '}{feedback.text}
+          </div>
+        )}
+        {row.updatedAt && <div style={{ marginTop: 6, fontSize: 11, color: '#c9c3d2' }}>Mis à jour : {new Date(row.updatedAt).toLocaleString('fr-FR')}</div>}
+      </div>
+    );
+  };
+
   return (
     <AdminLayout>
       <div className="page-title">Intégrations</div>
@@ -212,6 +372,20 @@ export default function Integrations() {
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
       {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
+
+      {!loading && (
+        <div className="card" style={{ marginBottom: 22, border: attentionRows.length ? '1px solid #f0b429' : '1px solid #62c46f' }}>
+          <h3 style={{ marginTop: 0, color: '#fff' }}>
+            {attentionRows.length ? `À corriger maintenant · ${attentionRows.length}` : 'Intégrations · tout est OK'}
+          </h3>
+          <p style={{ color: '#e7e2ec', marginTop: 0, lineHeight: 1.55 }}>
+            {attentionRows.length
+              ? 'Loki remonte ici automatiquement les clés manquantes, refusées, mal configurées ou sans quota. Tu peux les corriger directement ici sans chercher plus bas.'
+              : 'Aucune intégration ne demande une action immédiate.'}
+          </p>
+          {attentionRows.length > 0 && <div style={{ display: 'grid', gap: 12 }}>{attentionRows.map((row) => renderIntegrationRow(row, true))}</div>}
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Renouvellement intelligent des clés</h3>
@@ -246,7 +420,7 @@ export default function Integrations() {
           <button onClick={() => void testRecognition()} disabled={busy === 'RECOGNITION_TEST'} style={{ fontWeight: 800 }}>
             {busy === 'RECOGNITION_TEST' ? 'Test en cours…' : 'Tester tous les moteurs maintenant'}
           </button>
-          <button onClick={() => void load()} disabled={loading}>Actualiser les statuts</button>
+          <button onClick={() => void load(true)} disabled={loading}>Actualiser les statuts</button>
         </div>
         {lastRecognitionTest.length > 0 && (
           <div style={{ display: 'grid', gap: 6, marginTop: 12 }}>
@@ -326,97 +500,9 @@ export default function Integrations() {
 
       {!loading && Object.entries(grouped).map(([category, items]) => (
         <div className="card" key={category} style={{ marginBottom: 22 }}>
-          <h3 style={{ marginTop: 0 }}>{CATEGORY_LABELS[category] ?? category}</h3>
+          <h3 style={{ marginTop: 0, color: '#fff' }}>{CATEGORY_LABELS[category] ?? category}</h3>
           <div style={{ display: 'grid', gap: 14 }}>
-            {items.map((row) => (
-              <div key={row.key} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div>
-                    <strong>{row.label}</strong>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{row.key}</div>
-                  </div>
-                  <div style={{ fontSize: 12, color: row.configured ? '#62c46f' : 'var(--text-muted)' }}>
-                    {row.configured ? `● Configuré ${row.hint ? `(${row.hint})` : ''}` : '○ Non configuré'}
-                  </div>
-                </div>
-                {row.configurationIssue && <div style={{ marginBottom: 9, padding: '9px 11px', borderRadius: 9, border: '1px solid #e05252', color: '#ff9aa8', background: 'rgba(224,82,82,.09)', fontSize: 12, lineHeight: 1.45 }}><strong>Configuration incorrecte :</strong> {row.configurationIssue}</div>}
-                {(row.category === 'recognition' || (row.runtimeStatus && row.runtimeStatus !== 'UNKNOWN' && row.runtimeStatus !== 'NOT_CONFIGURED')) && (
-                  <div style={{ color: STATUS_COLORS[row.runtimeStatus ?? 'UNKNOWN'], fontSize: 12, marginBottom: 8 }}>
-                    ● {STATUS_LABELS[row.runtimeStatus ?? 'UNKNOWN']}
-                    {row.lastCheckedAt ? ` · contrôle ${new Date(row.lastCheckedAt).toLocaleString('fr-FR')}` : ''}
-                    {row.lastError ? ` · ${row.lastError}` : ''}
-                  </div>
-                )}
-                {/* Adel (08/09/2026) : "un bouton ... pour que j'active et
-                    ca me dirige directement" -- ouvre la bonne page du bon
-                    fournisseur juste a cote du champ ou coller la cle
-                    resultante. N'automatise pas l'inscription elle-meme
-                    (identite/paiement restent a faire par Adel sur le site
-                    du fournisseur), seulement la recherche de la page. */}
-                {INTEGRATION_PROVIDER_LINKS[row.key] && (
-                  <a
-                    href={INTEGRATION_PROVIDER_LINKS[row.key].url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', textDecoration: 'none', fontWeight: 800, fontSize: 12 }}
-                  >
-                    🔗 {row.configured ? 'Régénérer / révoquer chez' : 'Créer chez'} {INTEGRATION_PROVIDER_LINKS[row.key].label}
-                  </a>
-                )}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: '1 1 360px' }}>
-                    {MULTILINE_KEYS.has(row.key) ? (
-                      <textarea
-                        rows={6}
-                        placeholder={row.configured ? 'Nouvelle valeur complète pour remplacer…' : 'Colle la valeur complète ici…'}
-                        value={values[row.key] ?? ''}
-                        onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                        spellCheck={false}
-                        style={{ width: '100%', minHeight: 132, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
-                      />
-                    ) : (
-                      <input
-                        type={row.secret && !revealed[row.key] ? 'password' : 'text'}
-                        placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
-                        value={values[row.key] ?? ''}
-                        onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
-                        style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 40px 10px 14px' }}
-                      />
-                    )}
-                    {row.secret && !MULTILINE_KEYS.has(row.key) && (
-                      <button
-                        type="button"
-                        onClick={() => setRevealed((prev) => ({ ...prev, [row.key]: !prev[row.key] }))}
-                        aria-label={revealed[row.key] ? 'Masquer la valeur' : 'Afficher la valeur'}
-                        title={revealed[row.key] ? 'Masquer' : 'Afficher'}
-                        style={{ position: 'absolute', right: 4, top: 4, bottom: 4, width: 32, background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16 }}
-                      >
-                        {revealed[row.key] ? '🙈' : '👁'}
-                      </button>
-                    )}
-                  </div>
-                  {GENERATABLE_KEYS.has(row.key) && (
-                    <button
-                      type="button"
-                      onClick={() => setValues((prev) => ({ ...prev, [row.key]: generateRandomKey() }))}
-                      title="Génère une valeur aléatoire dans ce navigateur -- rien n'est envoyé avant de cliquer Enregistrer"
-                      style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(139,92,246,.14)', border: '1px solid var(--primary)', color: 'var(--primary)', fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      🎲 Générer
-                    </button>
-                  )}
-                  <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
-                    {busy === row.key ? 'Patiente…' : row.configured ? 'Remplacer' : 'Enregistrer'}
-                  </button>
-                  {row.configured && (
-                    <button onClick={() => void remove(row)} disabled={busy === row.key} style={{ opacity: 0.8 }}>
-                      Supprimer
-                    </button>
-                  )}
-                </div>
-                {row.updatedAt && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>Mis à jour : {new Date(row.updatedAt).toLocaleString('fr-FR')}</div>}
-              </div>
-            ))}
+            {items.map((row) => renderIntegrationRow(row))}
           </div>
         </div>
       ))}
