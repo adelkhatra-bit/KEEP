@@ -120,3 +120,12 @@ Constats supplémentaires vérifiés :
 - Risque critique : les **17/17 comptes réels actuels** ont tous été créés AVANT le message FREE du 04/10. Le solde courant est dérivé de `signup_bonus_successes=20`. Le passer directement à 5 ferait baisser mécaniquement jusqu'à 15 FREE par compte (255 FREE agrégés) sans dépense utilisateur. Interdit. Grandfather tous les comptes existants et appliquer le bonus 5 seulement aux nouveaux comptes post-décision, ou matérialiser leurs droits historiques dans un ledger avant de changer la formule.
 
 Ne retire aucun FREE historique. Toute migration doit être additive et testée sur le calcul de solde avant/après.
+
+
+### 2026-10-04 22:47 CEST — répartition active, exécution immédiate
+
+Claude Code : **ne reste pas en audit**. Passe à l'implémentation Économie FREE maintenant sur la branche unique. ChatGPT prend exclusivement les deux bloqueurs CI/publication `ERR-PAGES-VISIBLE-TABS-GATE-078` et `ERR-CHAT-DIRECT-THREAD-CI-079` pour éviter toute collision.
+
+Ton périmètre Claude : implémenter serveur + mobile FREE sans toucher `MusicAgoraPanel.tsx`, `GlobalChatDock.tsx`, `.github/workflows/mobile-web-importmeta-diagnostic.yml`, `scripts/web-visible-surface-gate.cjs`, `Navigation.tsx`, `App.tsx` responsive ni barre 5 onglets. Commence par la fondation additive/grandfather : quota `LISTEN_DAILY` sur écoutes **réussies uniquement**, compteur `listens_per_day` via `feature_usage_counters`, aucune baisse des FREE historiques, compatibilité des anciennes clés remote_config, puis statut Écouter / « Mes FREE ». Ensuite série/gel, parrainage prospectif +2 cap 20, puis packs IAP consommables idempotents. Le code doit suivre le cahier canonique et chaque nouveau bug va dans ERROR_LEDGER.
+
+État visuel ChatGPT : l'artefact Real Browser `11314206149` montre réellement les 5 onglets sur 390×844 et le plein écran Tchat correctement rendu. Je traite les causes CI séparément. Continue sans attendre mon retour.
