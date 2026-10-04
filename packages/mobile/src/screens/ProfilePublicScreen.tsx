@@ -217,9 +217,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [communityMode, setCommunityMode] = useState<CommunityMode>(null);
   const [metricsExpanded, setMetricsExpanded] = useState(false);
   const [ownerDnaExpanded, setOwnerDnaExpanded] = useState(false);
+  const [ownerMusicInfoExpanded, setOwnerMusicInfoExpanded] = useState(false);
+  const [ownerPrivateChatExpanded, setOwnerPrivateChatExpanded] = useState(false);
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('focus', () => {
       setOwnerDnaExpanded(false);
+      setOwnerMusicInfoExpanded(false);
+      setOwnerPrivateChatExpanded(false);
     });
     return () => unsubscribe?.();
   }, [navigation]);
@@ -2587,6 +2591,7 @@ const s=StyleSheet.create({
   ownerPrivateChatCollapsedHint:{color:colors.textMuted,fontSize:8.5,lineHeight:12,marginTop:2},
   ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
   ownerPrivateChatKicker:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
+  ownerPrivateChatToggleText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.5},
   ownerPrivateChatHint:{color:colors.textMuted,fontSize:9,lineHeight:14,marginTop:3},
   ownerPrivateChatCount:{minWidth:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,color:colors.primaryLight,textAlign:'center',fontSize:11,fontWeight:'900',paddingTop:6},
   ownerPrivateChatCard:{minHeight:58,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:10,paddingVertical:8,flexDirection:'row',alignItems:'center',gap:10},
@@ -2676,6 +2681,8 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
+  ownerMusicInfoToggle:{alignSelf:'center',minHeight:30,paddingHorizontal:12,alignItems:'center',justifyContent:'center',marginBottom:3},
+  ownerMusicInfoToggleText:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.7},
   ownerMusicInfo:{marginBottom:8,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,paddingVertical:8},
   ownerMusicInfoHeader:{flexDirection:'row',alignItems:'center',gap:8},
   ownerKeepHintCompact:{flex:1,color:colors.textSecondary,fontSize:10,lineHeight:14,fontWeight:'800'},
