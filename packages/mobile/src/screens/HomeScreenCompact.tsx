@@ -23,7 +23,7 @@ import { typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
-import { unlockWebAudioForGesture } from '../services/audioPreviewService';
+import { stopTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 
@@ -476,6 +476,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   const canGoOlder = currentIndex >= 0 && currentIndex < tracks.length - 1;
   const goNewer = () => { if (canGoNewer) setViewedTrackId(tracks[currentIndex - 1].id); };
   const goOlder = () => { if (canGoOlder) setViewedTrackId(tracks[currentIndex + 1].id); };
+  const passCurrentAndAdvance = () => {
+    if (!current || current.status !== 'pending' || keepBusy) return;
+    const nextId = canGoOlder ? tracks[currentIndex + 1]?.id ?? null : null;
+    passTrack(current.id);
+    if (nextId) setViewedTrackId(nextId);
+    void stopTrackPreview(`current:${current.id}`).catch(() => {});
+  };
   const detected = tracks.length;
   const kept = tracks.filter((tr) => tr.status === 'kept' || tr.status === 'already_saved').length;
   const pending = current?.status === 'pending';
@@ -813,7 +820,7 @@ export default function HomeScreenCompact({ navigation }: any) {
           <SwipeDeck
             resetKey={current.id}
             enabled={Boolean(!keepBusy && (pending || canGoOlder))}
-            onSwipeLeft={pending ? () => { if (current) passTrack(current.id); } : undefined}
+            onSwipeLeft={pending ? passCurrentAndAdvance : undefined}
             onSwipeRight={pending ? openKeepChooser : undefined}
             onSwipeUp={canGoOlder ? goOlder : undefined}
             leftLabel="PASSER"
@@ -852,7 +859,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <>
                   {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
                   <View style={s.actions}>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Passer ce morceau" style={[s.action, s.pass, !pending && s.disabled]} onPress={() => current && passTrack(current.id)} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Passer ce morceau" style={[s.action, s.pass, !pending && s.disabled]} onPress={passCurrentAndAdvance} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau" accessibilityHint="Choisir Public ou Privé avant de garder" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
                   </View>
                   {!insufficientCredit ? <Text style={s.keepHint}>Choisis Public ou Privé avant chaque ajout.</Text> : null}
