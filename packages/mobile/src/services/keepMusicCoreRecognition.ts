@@ -15,6 +15,10 @@ const FALLBACK_RECHECK_MS = 30 * 1000;
 const FALLBACK_QUOTA_RECHECK_MS = 6 * 60 * 60 * 1000;
 const PRIMARY_RECHECK_MS = 5 * 60 * 1000;
 const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
+// 04/10/2026: AudD renvoie actuellement recognition_not_configured (409) en production.
+// ACRCloud est configuré et devient le moteur serveur prioritaire. AudD reste déployé
+// mais hors du chemin normal tant qu'une clé valide n'est pas explicitement réactivée.
+const AUDD_PRIMARY_ENABLED = false;
 const KEYLESS_SOURCE_RECHECK_MS = 15 * 1000;
 let fallbackUnavailableUntil = 0;
 let primaryUnavailableUntil = 0;
@@ -491,10 +495,10 @@ function markFallbackUnavailable(durationMs = FALLBACK_RECHECK_MS) {
 
 /**
  * Reconnaissance musicale en cascade :
- * 1. AudD via `keep-music-recognition-v2` (clé serveur/Vault validée),
- * 2. ACRCloud via `keep-music-fallback` uniquement si AudD ne reconnaît pas
- *    le morceau ou rencontre un incident,
- * 3. sans clé : métadonnées publiques du partage social + catalogue iTunes.
+ * 1. mémoire collective Loki,
+ * 2. ACRCloud via `keep-music-fallback` (moteur serveur actif),
+ * 3. AudD uniquement si sa clé est explicitement réactivée,
+ * 4. sans clé : métadonnées publiques du partage social + catalogue iTunes.
  *
  * Spotify/YouTube/Deezer/Apple servent ensuite à enrichir le morceau reconnu ;
  * ils ne sont jamais présentés comme des moteurs d'empreinte audio eux-mêmes.
@@ -554,69 +558,63 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
       stickyMemoryMissStreak = 0;
     }
 
-    const primary = Date.now() < primaryUnavailableUntil
-      ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
-      : await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
-    const primaryRateLimited = primary.status === 429 || primary.payload?.error === 'recognition_rate_limited';
-    if (primary.ok && primary.payload?.recognition) {
-      primaryUnavailableUntil = 0;
-      fallbackConsensus = null;
-      recognitionBackoffUntil = 0;
-      return primary.payload.recognition as RecognitionResult;
-    }
-    if (primary.status === 409 || primary.payload?.error === 'recognition_not_configured') {
-      primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
-    }
+    // ACRCloud est le moteur serveur principal tant qu'AudD n'a pas une clé
+    // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
+    // désactiver la reconnaissance : le même échantillon part directement
+    // vers le fournisseur réellement configuré.
+    if (!fallbackKnownUnavailable()) {
+      const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
 
-    // Si ACRCloud a déjà répondu « non configuré », ne pas répéter à chaque
-    // extrait le même aller-retour 409. On retente périodiquement pour que
-    // l'activation future dans le Super Admin soit prise en compte sans reload.
-    if (fallbackKnownUnavailable()) {
-      const keyless = await keylessSourceRecognition(accessToken);
-      if (keyless) {
-        recognitionBackoffUntil = 0;
-        return keyless;
+      const acrQuotaExhausted = acr.payload?.providerStatus === 3003
+        || acr.payload?.providerUnavailable === 'quota_exhausted';
+      if (acrQuotaExhausted) {
+        markFallbackUnavailable(FALLBACK_QUOTA_RECHECK_MS);
+        fallbackConsensus = null;
       }
-      if (primaryRateLimited) recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-      // AudD/ACRCloud absents ou indisponibles ne deviennent jamais une erreur
-      // rouge utilisateur : Loki continue d'écouter et le partage social reste actif.
-      return null;
-    }
 
-    // Un no-match AudD ou une erreur fournisseur déclenche le second moteur.
-    // Le même échantillon est réutilisé : aucune nouvelle capture micro n'est
-    // nécessaire et le morceau reste dans la session dès qu'un moteur répond.
-    const fallback = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId);
-
-    // ACRCloud renvoie HTTP 200 même quand son quota est épuisé (status 3003).
-    // Sans ce test le client interprétait ça comme un simple no-match et
-    // rappelait le fournisseur toutes les quelques secondes. On le met en
-    // veille 6 h et on laisse la mémoire Loki / les sources sans clé continuer.
-    const fallbackQuotaExhausted = fallback.payload?.providerStatus === 3003
-      || fallback.payload?.providerUnavailable === 'quota_exhausted';
-    if (fallbackQuotaExhausted) {
-      markFallbackUnavailable(FALLBACK_QUOTA_RECHECK_MS);
-      fallbackConsensus = null;
-    }
-
-    if (fallback.ok && fallback.payload?.recognition) {
-      fallbackUnavailableUntil = 0;
-      fallbackConsensus = null;
-      recognitionBackoffUntil = 0;
-      return fallback.payload.recognition as RecognitionResult;
-    }
-
-    if (fallback.ok && fallback.payload?.candidateRecognition) {
-      const decision = updateRecognitionConsensus(
-        fallbackConsensus,
-        fallback.payload.candidateRecognition as RecognitionResult,
-        Number(fallback.payload.lowConfidenceScore ?? 0),
-      );
-      fallbackConsensus = decision.state;
-      if (decision.accepted) {
+      if (acr.ok && acr.payload?.recognition) {
         fallbackUnavailableUntil = 0;
+        fallbackConsensus = null;
         recognitionBackoffUntil = 0;
-        return decision.accepted;
+        return acr.payload.recognition as RecognitionResult;
+      }
+
+      if (acr.ok && acr.payload?.candidateRecognition) {
+        const decision = updateRecognitionConsensus(
+          fallbackConsensus,
+          acr.payload.candidateRecognition as RecognitionResult,
+          Number(acr.payload.lowConfidenceScore ?? 0),
+        );
+        fallbackConsensus = decision.state;
+        if (decision.accepted) {
+          fallbackUnavailableUntil = 0;
+          recognitionBackoffUntil = 0;
+          return decision.accepted;
+        }
+      }
+
+      if (acr.status === 429 || acr.payload?.error === 'fallback_rate_limited') {
+        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
+      }
+      if (acr.status === 409 || acr.payload?.error === 'fallback_not_configured') {
+        markFallbackUnavailable();
+      }
+    }
+
+    // AudD reste disponible comme palier secondaire mais n'est plus appelé
+    // tant qu'il n'est pas explicitement réactivé avec une clé valide.
+    if (AUDD_PRIMARY_ENABLED) {
+      const audd = Date.now() < primaryUnavailableUntil
+        ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
+        : await recognitionAttempt('keep-music-recognition-v2', blob, accessToken, deviceId);
+      if (audd.ok && audd.payload?.recognition) {
+        primaryUnavailableUntil = 0;
+        fallbackConsensus = null;
+        recognitionBackoffUntil = 0;
+        return audd.payload.recognition as RecognitionResult;
+      }
+      if (audd.status === 409 || audd.payload?.error === 'recognition_not_configured') {
+        primaryUnavailableUntil = Date.now() + PRIMARY_RECHECK_MS;
       }
     }
 
@@ -624,20 +622,6 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     if (keyless) {
       recognitionBackoffUntil = 0;
       return keyless;
-    }
-
-    if (fallback.status === 429 || fallback.payload?.error === 'fallback_rate_limited') {
-      recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-      return null;
-    }
-
-    if (fallback.status === 409 || fallback.payload?.error === 'fallback_not_configured') {
-      markFallbackUnavailable();
-      if (primaryRateLimited) {
-        recognitionBackoffUntil = Date.now() + PROVIDER_RATE_LIMIT_BACKOFF_MS;
-        return null;
-      }
-      return null;
     }
 
     // Avec ou sans fournisseur payant, une panne de reconnaissance ne coupe
