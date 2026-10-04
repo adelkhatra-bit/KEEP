@@ -48,5 +48,9 @@
     ],
     "desktopAndMobileMustUseSameProductSource": true,
     "resizeMustNotBlankApplication": true
+  },
+  "accessibilityTouchTargets": {
+    "sharedMinimum": 48,
+    "visualMayBeSmallerIfHitTargetIsExpanded": true
   }
 }
