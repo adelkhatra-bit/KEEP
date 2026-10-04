@@ -10,6 +10,10 @@ Before changing anything, read `/BRANCH_SOURCE_OF_TRUTH.json`, `/CLAUDE.md` and 
 
 **Branch safety:** GitHub's repository default is still `main`, so generic code-search tools can silently return stale `main` results. If a result URL/ref is `main` (or has no explicit ref), discard it and refetch the same path from `reconcile/claude-main-20260825` before reasoning or editing. The mobile application and the public website are both built from that same canonical branch.
 
+## Mobile/Desktop parity
+
+Treat iOS, Android and desktop Web as one product implementation. Shared product logic must be edited once under `packages/mobile/src`; Expo Web consumes that same implementation. Never create a parallel Web/Desktop feature tree or duplicate a full screen with platform suffixes to keep two copies in sync. Platform branches are allowed only for technical adapters such as microphone/audio, browser APIs, permissions and routing. Every functional change under `packages/mobile/**` must preserve both 390×844 mobile and 1440×900 desktop behavior through `.github/workflows/keep-dual-viewport-guardian.yml`. Machine contract: `config/platform-parity-contract.json`.
+
 ## One project only
 
 - Repository: `adelkhatra-bit/KEEP`
