@@ -38,6 +38,7 @@ function localDisplayName(kind: 'region' | 'language', code: string, fallback: s
 
 export default function MusicTasteQuestionnaire({ onDone, onLater, compact = false }: Props) {
   const [tab, setTab] = useState<Tab>('STYLES');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [genres, setGenres] = useState<MusicGenreOption[]>([]);
   const [countries, setCountries] = useState<MusicCountryOption[]>([]);
   const [languages, setLanguages] = useState<MusicLanguageOption[]>([]);
@@ -139,6 +140,7 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
 
   const later = async () => { await snoozePulsePreferences(24).catch(() => null); onLater(); };
   const shortcutRows = FAMILY_SHORTCUTS.map((label) => ({ label, key: label.toLowerCase() }));
+  const featuredShortcutRows = shortcutRows.slice(0, 18);
   const selectedLabels = tab === 'STYLES'
     ? selectedGenres.map((value) => ({ key: value, label: value }))
     : tab === 'LANGUAGES'
@@ -157,19 +159,21 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   };
 
   const body = tab === 'STYLES' ? <>
-    <Text style={s.helper}>Touche simplement les styles que tu aimes. Tu peux en choisir plusieurs.</Text>
-    <View style={s.chips}>{shortcutRows.map((row) => {
+    <Text style={s.helper}>Tu peux en choisir plusieurs.</Text>
+    <View style={s.chips}>{featuredShortcutRows.map((row) => {
       const on = selectedGenres.some((g) => g.toLowerCase() === row.key);
       return <TouchableOpacity key={row.key} style={[s.chip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}><Text style={[s.chipText,on&&s.chipTextOn]}>{row.label}</Text></TouchableOpacity>;
     })}</View>
-    <Text style={s.subTitle}>PLUS DE STYLES</Text>
-    <View style={s.chips}>{genres.map((row) => {
-      const on = selectedGenres.some((g) => g.toLowerCase() === row.label.toLowerCase());
-      return <TouchableOpacity key={row.genreKey} style={[s.chip,s.catalogChip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}>
-        <Text style={[s.chipText,on&&s.chipTextOn]} numberOfLines={1}>{row.label}</Text>
-        {row.trackCount > 0 ? <Text style={[s.countMini,on&&s.countMiniOn]}>{row.trackCount}</Text> : null}
-      </TouchableOpacity>;
-    })}</View>
+    {advancedOpen ? <>
+      <Text style={s.subTitle}>PLUS DE STYLES</Text>
+      <View style={s.chips}>{genres.map((row) => {
+        const on = selectedGenres.some((g) => g.toLowerCase() === row.label.toLowerCase());
+        return <TouchableOpacity key={row.genreKey} style={[s.chip,s.catalogChip,on&&s.chipOn]} onPress={() => toggle(row.label,selectedGenres,setSelectedGenres,30)}>
+          <Text style={[s.chipText,on&&s.chipTextOn]} numberOfLines={1}>{row.label}</Text>
+          {row.trackCount > 0 ? <Text style={[s.countMini,on&&s.countMiniOn]}>{row.trackCount}</Text> : null}
+        </TouchableOpacity>;
+      })}</View>
+    </> : null}
   </> : tab === 'LANGUAGES' ? <>
     <Text style={s.helper}>Ta langue est déjà choisie. Ajoute-en une autre seulement si tu écoutes aussi de la musique dans cette langue.</Text>
     <View style={s.chips}>{languages.map((row) => {
@@ -191,10 +195,27 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   return <View style={[s.root,compact&&s.compact]}>
     <View style={s.hero}>
       <View style={s.pulseOrb}><Text style={s.pulseOrbText}>◉</Text></View>
-      <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE · POUR TOI</Text><Text style={s.title}>Choisis les musiques que tu aimes</Text><Text style={s.subtitle}>Commence par tes styles. Langues et pays sont facultatifs. Loki apprend ensuite avec tes écoutes.</Text></View>
+      <View style={s.heroCopy}><Text style={s.eyebrow}>LOKI PULSE</Text><Text style={s.title}>Quels sons tu aimes ?</Text><Text style={s.subtitle}>Touche tes styles préférés. Loki s’occupe du reste.</Text></View>
     </View>
-    <View style={s.detected}><Text style={s.detectedTitle}>DÉJÀ PRÉPARÉ POUR TOI</Text><Text style={s.detectedText}>{detectedTag || 'Ta langue'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · change seulement si tu veux</Text></View>
-    <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>changeTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
+    <TouchableOpacity
+      style={s.advancedToggle}
+      onPress={() => {
+        setAdvancedOpen((open) => {
+          const next = !open;
+          if (!next) changeTab('STYLES');
+          return next;
+        });
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: advancedOpen }}
+      accessibilityLabel={advancedOpen ? 'Masquer les choix avancés' : 'Afficher plus de choix'}
+    >
+      <Text style={s.advancedToggleText}>{advancedOpen ? 'MASQUER LES OPTIONS' : 'PLUS DE CHOIX'}</Text>
+    </TouchableOpacity>
+    {advancedOpen ? <>
+      <View style={s.detected}><Text style={s.detectedTitle}>DÉJÀ PRÉPARÉ POUR TOI</Text><Text style={s.detectedText}>{detectedTag || 'Ta langue'}{detectedCountry ? ' · ' + localDisplayName('region',detectedCountry,detectedCountry) : ''} · change seulement si tu veux</Text></View>
+      <View style={s.tabs}>{([['STYLES','STYLES · ' + selectedGenres.length],['LANGUAGES','LANGUES · ' + selectedLanguages.length],['COUNTRIES','PAYS · ' + selectedCountries.length]] as const).map(([key,label]) => <TouchableOpacity key={key} style={[s.tab,tab===key&&s.tabOn]} onPress={()=>changeTab(key)}><Text style={[s.tabText,tab===key&&s.tabTextOn]}>{label}</Text></TouchableOpacity>)}</View>
+    </> : null}
     <View style={s.searchWrap}>
       <TextInput
         value={searchQuery}
@@ -207,8 +228,8 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       />
       {catalogBusy ? <ActivityIndicator size="small" color={colors.keep}/> : searchQuery ? <TouchableOpacity style={s.searchClear} onPress={() => setSearchQuery('')}><Text style={s.searchClearText}>×</Text></TouchableOpacity> : null}
     </View>
-    <Text style={s.readyHint}>{searchQuery ? 'Résultats trouvés' : 'Touche un choix pour l’ajouter'}</Text>
-    <View style={s.selectedBox}>
+    <Text style={s.readyHint}>{searchQuery ? 'Résultats trouvés' : 'Touche un style pour le choisir'}</Text>
+    {advancedOpen ? <View style={s.selectedBox}>
       <Text style={s.selectedTitle}>TES CHOIX · TOUCHE × POUR RETIRER</Text>
       {selectedLabels.length ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.selectedRail}>
@@ -220,7 +241,7 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
           ))}
         </ScrollView>
       ) : <Text style={s.selectedEmpty}>Aucun choix dans cette rubrique pour le moment.</Text>}
-    </View>
+    </View> : null}
     <ScrollView
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
@@ -231,10 +252,9 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
     <View style={s.footer}>
       <Text style={s.summary}>{selectedGenres.length + ' style' + (selectedGenres.length>1?'s':'') + ' · ' + (selectedLanguages.length || 'toutes') + ' langue' + (selectedLanguages.length===1?'':'s') + ' · ' + (selectedCountries.length || 'monde')}</Text>
       <View style={s.footerActions}>
-        <TouchableOpacity style={[s.primary,s.footerAction,saving&&s.disabled]} onPress={()=>void confirm()} disabled={saving}>{saving ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>ENREGISTRER MES GOÛTS</Text>}</TouchableOpacity>
+        <TouchableOpacity style={[s.primary,s.footerAction,saving&&s.disabled]} onPress={()=>void confirm()} disabled={saving}>{saving ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>C’EST BON</Text>}</TouchableOpacity>
         <TouchableOpacity style={[s.cancel,s.footerAction]} onPress={()=>void later()} disabled={saving}><Text style={s.cancelText}>PLUS TARD</Text></TouchableOpacity>
       </View>
-      <Text style={s.reminderText}>Tu pourras changer tes goûts à tout moment depuis ton profil.</Text>
     </View>
   </View>;
 }
@@ -251,7 +271,8 @@ const s=StyleSheet.create({
   pulseOrb:{width:54,height:54,borderRadius:27,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',alignItems:'center',justifyContent:'center'},
   pulseOrbText:{color:colors.keep,fontSize:28,fontWeight:'900'},heroCopy:{flex:1,minWidth:0},
   eyebrow:{color:colors.keep,fontSize:11,fontWeight:'900',letterSpacing:1.2},title:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:3},subtitle:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:5},
-  detected:{marginHorizontal:14,marginTop:12,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
+  advancedToggle:{minHeight:44,alignSelf:'center',paddingHorizontal:16,alignItems:'center',justifyContent:'center'},advancedToggleText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',textDecorationLine:'underline'},
+  detected:{marginHorizontal:14,marginTop:4,padding:11,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'rgba(139,92,246,.10)'},detectedTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.9},detectedText:{color:colors.textPrimary,fontSize:11,fontWeight:'800',marginTop:3},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:14,paddingTop:12},tab:{flex:1,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',paddingHorizontal:4},tabOn:{backgroundColor:colors.primary,borderColor:colors.primaryLight},tabText:{color:colors.textMuted,fontSize:11,fontWeight:'900'},tabTextOn:{color:'#FFF'},
   searchWrap:{marginHorizontal:14,marginTop:12,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',paddingLeft:12,paddingRight:8,gap:8},
   searchInput:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:11,fontWeight:'800',paddingVertical:9},
