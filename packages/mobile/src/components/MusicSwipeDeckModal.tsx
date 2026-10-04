@@ -250,7 +250,7 @@ export default function MusicSwipeDeckModal({
         // On démarre d'abord le morceau visible, puis seulement ensuite N+1.
         const nextTrack = deckTracks[index + 1];
 
-        await stopTrackPreview();
+        stopTrackPreviewFast();
         if (!alive || playbackGeneration.current !== generation || !previewUrl || !playbackKey) return;
         try {
           // Un double passage d'effet (StrictMode/re-render) ne doit jamais
@@ -297,7 +297,7 @@ export default function MusicSwipeDeckModal({
               return;
             }
             setResolvedPreviewUrl(refreshedUrl);
-            await stopTrackPreview();
+            stopTrackPreviewFast();
             await toggleTrackPreview(
               playbackKey,
               refreshedUrl,
