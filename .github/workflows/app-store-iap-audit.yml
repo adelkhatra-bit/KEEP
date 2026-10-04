@@ -1,4 +1,4 @@
-name: Loki App Store IAP Audit
+name: Loki App Store IAP Audit & Provision
 
 on:
   workflow_dispatch:
@@ -36,8 +36,14 @@ jobs:
             enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
           const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
 
-          async function api(p,{allow404=false}={}){
-            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{headers:{Authorization:'Bearer '+token}});
+          async function api(p,{allow404=false,method='GET',body=null}={}){
+            const headers={Authorization:'Bearer '+token};
+            if(body)headers['Content-Type']='application/json';
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers,
+              body:body?JSON.stringify(body):undefined
+            });
             if(allow404&&res.status===404)return null;
             const txt=await res.text();
             if(!res.ok)throw new Error(p+' HTTP '+res.status+' '+txt.slice(0,1000));
@@ -46,7 +52,41 @@ jobs:
 
           (async()=>{
             const appId=process.env.ASC_APP_ID.trim();
-            const report={subscriptionGroups:[],inAppPurchases:[]};
+            const report={subscriptionGroups:[],inAppPurchases:[],provisionedFreeProducts:[]};
+
+            const freeProducts=[
+              {productId:'com.adelkhatra.keep.free.30',name:'Loki 30 FREE'},
+              {productId:'com.adelkhatra.keep.free.100',name:'Loki 100 FREE'},
+              {productId:'com.adelkhatra.keep.free.300',name:'Loki 300 FREE'}
+            ];
+            const existingIaps=await api('/v1/apps/'+appId+
+              '/inAppPurchasesV2?fields[inAppPurchases]=name,productId,inAppPurchaseType,state&limit=200',
+              {allow404:true});
+            const existingIds=new Set((existingIaps?.data||[]).map(x=>x.attributes?.productId).filter(Boolean));
+            for(const product of freeProducts){
+              if(existingIds.has(product.productId))continue;
+              const created=await api('/v2/inAppPurchases',{
+                method:'POST',
+                body:{
+                  data:{
+                    type:'inAppPurchases',
+                    attributes:{
+                      name:product.name,
+                      productId:product.productId,
+                      inAppPurchaseType:'CONSUMABLE',
+                      familySharable:false,
+                      reviewNote:'Recharge ponctuelle de crédits FREE Loki Music. Crédit serveur uniquement après vérification de la transaction App Store.'
+                    },
+                    relationships:{app:{data:{type:'apps',id:appId}}}
+                  }
+                }
+              });
+              report.provisionedFreeProducts.push({
+                productId:product.productId,
+                id:created?.data?.id||null,
+                state:created?.data?.attributes?.state||null
+              });
+            }
 
             const groups=await api('/v1/apps/'+appId+
               '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=referenceName,subscriptions&fields[subscriptions]=name,productId,familySharable,state,subscriptionPeriod,reviewNote,groupLevel&limit=200&limit[subscriptions]=50');
