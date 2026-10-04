@@ -104,6 +104,20 @@
       "battleSoloPreferencesMustNeverOverwritePulseTaste": true
     }
   },
+  "uxInteractionRules": {
+    "darkBackgroundPrimaryText": "textPrimary-or-equivalent-high-contrast",
+    "functionalGreyTextOnDarkForbidden": true,
+    "permanentLongExplanationsForbidden": true,
+    "secondaryExplanationPattern": "inline-help-or-En-savoir-plus-with-stable-layout",
+    "helpExpansionMustNotShiftPrimaryControls": true,
+    "primaryActionAccessMaxClicks": 1,
+    "secondClickReservedForSensitiveConfirmation": true,
+    "sensitiveConfirmations": ["payment", "delete", "logout", "spend-free", "publish", "privacy-destructive-change"],
+    "buttonWithoutActionForbidden": true,
+    "preferInlineActionOverExtraNavigation": true,
+    "sameRulesMobileAndWeb": true,
+    "childUnderstandable": true
+  },
   "responsive": {
     "requiredViewports": [
       "390x844",
