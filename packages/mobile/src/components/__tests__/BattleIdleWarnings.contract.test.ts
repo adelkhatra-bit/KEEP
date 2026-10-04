@@ -18,10 +18,10 @@ describe('Solo : « Tu es toujours là ? »', () => {
     expect(soloIdleNotice(5, { limit: 0, remaining: 0, unlimited: true })).toContain('Aucun Free n’est retiré');
   });
 
-  it('keeps both choices: Arrêter and Je suis là !', () => {
-    expect(game).toContain('<Text style={s.idleStopText}>Arrêter</Text>');
-    expect(game).toContain('<Text style={s.idleGoText}>Je suis là !</Text>');
-    expect(game).toContain('soloIdleNotice((idlePromptAt + SOLO_IDLE_AUTO_CLOSE_MS - now) / 1000, soloDailyStatus)');
+  it('ne superpose plus de popup d’inactivité au Solo', () => {
+    expect(game).not.toContain('<Text style={s.idleStopText}>Arrêter</Text>');
+    expect(game).not.toContain('<Text style={s.idleGoText}>Je suis là !</Text>');
+    expect(game).not.toContain('idlePromptAt');
   });
 });
 
