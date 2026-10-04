@@ -260,6 +260,7 @@ async function createSoundWithRetry(
   positionMillis: number,
   onStatus: (status: AVPlaybackStatus, sound: NativeSound) => void,
   autoPlay = true,
+  configureSession = true,
 ): Promise<NativeSound> {
   const { Audio } = getNativeExpoAV();
   let lastError: unknown = null;
@@ -271,7 +272,7 @@ async function createSoundWithRetry(
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let createdSound: NativeSound | null = null;
     try {
-      await configurePreviewAudio();
+      if (configureSession) await configurePreviewAudio();
       const created = await withAudioTimeout(Audio.Sound.createAsync(
         { uri: previewUrl },
         {
@@ -298,8 +299,8 @@ async function createSoundWithRetry(
         try { await withAudioTimeout(createdSound.stopAsync(), 'AUDIO_CREATE_STOP'); } catch {}
         try { await withAudioTimeout(createdSound.unloadAsync(), 'AUDIO_CREATE_UNLOAD'); } catch {}
       }
-      await configurePreviewAudio().catch(() => {});
-      await new Promise((resolve) => setTimeout(resolve, 160 + attempt * 120));
+      if (configureSession) await configurePreviewAudio().catch(() => {});
+      await new Promise((resolve) => setTimeout(resolve, 120 + attempt * 100));
     }
   }
   throw lastError instanceof Error ? lastError : new Error('AUDIO_PREVIEW_LOAD_FAILED');
@@ -701,23 +702,22 @@ export async function preloadTrackPreviewSegment(
   if (!previewUrl || canUseWebAudio()) return;
   return serialize(async () => {
     if (preloadedKey === key && preloadedSound) return;
-    // iOS/Expo AV partage une seule session audio globale. Précharger un
-    // deuxième NativeSound pendant qu'une manche joue peut reconfigurer cette
-    // session et couper brièvement le morceau actif. Priorité absolue au son
-    // entendu par le joueur : si une preview est encore en lecture, on saute
-    // simplement ce préchargement et la manche suivante utilisera le chemin
-    // normal + retry.
+    // iOS/TestFlight : préparer N+1 sans reconfigurer l'AudioSession
+    // pendant que N joue. La reconfiguration globale était la vraie cause
+    // du saut de son ; le chargement silencieux d'un second Sound peut, lui,
+    // rester en arrière-plan et rendre la manche suivante quasi immédiate.
+    let activePlaying = false;
     if (activeSound) {
       try {
         const status = await activeSound.getStatusAsync();
-        if (status.isLoaded && status.isPlaying) return;
+        activePlaying = Boolean(status.isLoaded && status.isPlaying);
       } catch {}
     }
     await discardPreloaded();
     const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
     try {
-      await configurePreviewAudio();
-      const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false);
+      if (!activePlaying) await configurePreviewAudio();
+      const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);
       preloadedSound = sound;
       preloadedKey = key;
     } catch {
