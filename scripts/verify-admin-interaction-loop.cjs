@@ -21,6 +21,11 @@ function openingTags(source, tag) {
   const needle = '<' + tag;
   let cursor = 0;
   while ((cursor = source.indexOf(needle, cursor)) >= 0) {
+    const next = source[cursor + needle.length] || '';
+    if (/[A-Za-z0-9:_-]/.test(next)) {
+      cursor += needle.length;
+      continue;
+    }
     let i = cursor + needle.length;
     let braces = 0;
     let quote = null;
