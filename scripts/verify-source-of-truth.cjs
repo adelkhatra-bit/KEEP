@@ -260,7 +260,7 @@ for (const [marker, capability] of [["from('follows')", 'follow persistence'], [
 }
 
 const recognition = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepMusicCoreRecognition.ts'), 'utf8');
-for (const marker of ['keep-music-core', 'keep-music-fallback', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY']) {
+for (const marker of ['keep-music-core', 'keep-music-fallback', 'x-keep-device-id', 'EXPO_PUBLIC_SUPABASE_ANON_KEY', 'AUDD_PRIMARY_ENABLED = false']) {
   if (!recognition.includes(marker)) failures.push(`SECURE RECOGNITION MARKER MISSING: ${marker}`);
 }
 if (recognition.includes('EXPO_PUBLIC_AUDD_API_KEY') || recognition.includes('EXPO_PUBLIC_ACRCLOUD_ACCESS_SECRET')) {
@@ -347,7 +347,7 @@ console.log('public profile links: permanent aliases reserved per profile');
 console.log('auth user: pseudo + mot de passe + e-mail vérifié obligatoires à la création (depuis le 01/09/2026)');
 console.log('free credits: 3 guest + 20 signup bonus = 23');
 console.log('auth admin: direct password session (no magic-link redirect)');
-console.log('music recognition: server-side AudD + optional ACRCloud fallback, no provider secret in mobile');
+console.log('music recognition: shared memory + ACRCloud primary; AudD disabled until a valid server key is explicitly reactivated; no provider secret in mobile');
 console.log('mobile: packages/mobile');
 console.log('admin: packages/admin');
 console.log('backend: packages/backend');
