@@ -128,7 +128,7 @@ as 'insert into cron.job(jobname,schedule,command) values(p_jobname,p_schedule,p
 create or replace function cron.alter_job(job_id bigint, command text default null)
 returns void
 language sql
-as 'update cron.job set command=coalesce(cron.alter_job.command,cron.job.command) where jobid=job_id';
+as 'update cron.job j set command=coalesce($2,j.command) where j.jobid=$1';
 
 -- Shim Supabase Storage : tables/fonction minimales nécessaires aux
 -- migrations de buckets/policies. Le stockage réseau réel reste testé sur
