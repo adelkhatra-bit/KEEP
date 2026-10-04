@@ -74,9 +74,14 @@ jobs:
               latestBuilds:(builds.data||[]).map(x=>({id:x.id,buildNumber:x.attributes?.version,uploadedDate:x.attributes?.uploadedDate,processingState:x.attributes?.processingState,audience:x.attributes?.buildAudienceType,expired:x.attributes?.expired})),
               testerCount:(testers.data||[]).length,
               testerStates:(testers.data||[]).reduce((m,x)=>{const k=x.attributes?.state||'UNKNOWN';m[k]=(m[k]||0)+1;return m;},{}),
-              testerIds:(testers.data||[]).map(x=>x.id),
+              testers:(testers.data||[]).map(x=>({id:x.id,state:x.attributes?.state||null,inviteType:x.attributes?.inviteType||null})),
               groups:[]
             };
+            const latest=report.latestBuilds[0];
+            if(latest?.id){
+              const beta=await api('/v1/builds/'+latest.id+'/buildBetaDetail?fields[buildBetaDetails]=autoNotifyEnabled,internalBuildState,externalBuildState');
+              report.latestBuildBetaDetail=beta?.data?{id:beta.data.id,...beta.data.attributes}:null;
+            }
             for(const g of (groups.data||[])){
               const rel=await api('/v1/betaGroups/'+g.id+'/relationships/builds?limit=200');
               const testers=await api('/v1/betaGroups/'+g.id+'/betaTesters?fields[betaTesters]=state,inviteType&limit=200');
