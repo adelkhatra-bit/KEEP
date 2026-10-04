@@ -48,14 +48,14 @@ describe('Profile notifications drawer + sale origin guard', () => {
     expect(profile).toContain('}, 7000);');
   });
 
-  it('keeps the first hamburger click inside the drawer', () => {
+  it('opens primary hamburger destinations in one tap', () => {
     const start = profile.indexOf('const directMenuAction');
-    const block = profile.slice(start, start + 1500);
-    expect(block).not.toContain("return openFromMenu('ProfileSettings')");
-    expect(block).not.toContain("return openFromMenu('MusicConnections')");
-    expect(block).not.toContain("return openFromMenu('Offers')");
-    expect(block).not.toContain("return openFromMenu('PlaylistSale')");
-    expect(block).toContain('setExpandedMenuItem(key)');
+    const block = profile.slice(start, start + 1800);
+    expect(block).toContain("if (key === 'profile') { openFromMenu('ProfileSettings'); return; }");
+    expect(block).toContain("if (key === 'music') { openFromMenu('MusicConnections'); return; }");
+    expect(block).toContain("if (key === 'offers') { openFromMenu('Offers'); return; }");
+    expect(block).toContain("if (key === 'sellPlaylists') { openFromMenu('PlaylistSale'); return; }");
+    expect(block).toContain("if (key === 'receipts') { openFromMenu('PlaylistSale', { openPaymentHistory: true }); return; }");
   });
 
   it('keeps transaction receipts reachable from the profile hamburger', () => {
