@@ -1,19 +1,12 @@
 name: KEEP — OTA Production Update
 
 on:
-  # Production est volontaire : aucune modification UI/JS ne part avant les
-  # tests. Une fois les gardiens verts, l'agent touche ce fichier sentinelle.
   push:
     branches: ['reconcile/claude-main-20260825']
     paths:
-      - 'packages/mobile/.ota-production-trigger'
-      - 'packages/mobile/App.tsx'
-      - 'packages/mobile/src/**'
-      - 'packages/mobile/assets/**'
-      - 'packages/music/**'
-      - 'packages/mobile/package.json'
-      - 'package.json'
-      - 'package-lock.json'
+      # RELEASE UNIQUE : l’OTA iOS suit exactement le même commit que le
+      # build TestFlight. Aucun commit intermédiaire n’est publié.
+      - 'packages/mobile/.eas-build-trigger'
       - '.github/workflows/eas-update-production.yml'
   workflow_dispatch:
 
@@ -36,19 +29,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Resolve latest mobile-impact SHA
+      - name: Lock OTA SHA to TestFlight release
         id: fresh
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin reconcile/claude-main-20260825 --depth=200
-          latest="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 --             packages/mobile/.ota-production-trigger packages/mobile/App.tsx packages/mobile/src packages/mobile/assets packages/music             packages/mobile/package.json package.json package-lock.json .github/workflows/eas-update-production.yml             ':(exclude)packages/mobile/**/__tests__/**'             ':(exclude)packages/mobile/**/*.test.ts'             ':(exclude)packages/mobile/**/*.test.tsx'             ':(exclude)packages/mobile/**/*.spec.ts'             ':(exclude)packages/mobile/**/*.spec.tsx')"
-          if [ "$GITHUB_SHA" = "$latest" ]; then
+          release_sha="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 -- packages/mobile/.eas-build-trigger)"
+          test -n "$release_sha"
+          if [ "$GITHUB_SHA" = "$release_sha" ]; then
             echo "publish=yes" >> "$GITHUB_OUTPUT"
-            echo "Latest mobile-impact SHA: $GITHUB_SHA"
+            echo "Unified TestFlight/OTA release SHA: $GITHUB_SHA"
           else
             echo "publish=no" >> "$GITHUB_OUTPUT"
-            echo "Stale OTA run skipped: $GITHUB_SHA; latest mobile-impact SHA is $latest"
+            echo "OTA skipped for non-release SHA $GITHUB_SHA (release SHA: $release_sha)"
           fi
 
       - name: Guard OTA native compatibility
