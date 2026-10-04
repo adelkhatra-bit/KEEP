@@ -66,16 +66,4 @@ begin
 end;
 $function$;
 
--- Nettoyage conservateur : seulement les récompenses d'arène récentes qui
--- doublonnent un résultat Battle du même profil à quelques secondes près.
-delete from public.notifications reward
-where reward.type='FREE_CREDIT_REWARD'
-  and reward.created_at > now() - interval '7 days'
-  and reward.data->>'sourceTable'='keep_battle_arena_credit_events'
-  and exists (
-    select 1
-    from public.notifications result
-    where result.profile_id=reward.profile_id
-      and result.type in ('BATTLE_ARENA_WIN','BATTLE_ARENA_RESULT')
-      and abs(extract(epoch from (result.created_at-reward.created_at))) <= 10
-  );
+-- Historique conservé volontairement : aucun DELETE de notifications utilisateur.
