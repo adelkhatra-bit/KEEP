@@ -747,10 +747,8 @@ export async function playTrackPreviewSegment(
       preloadedSound = null;
       preloadedKey = null;
       await unloadActive();
-      await configurePreviewAudio();
       try {
         preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));
-        await ensurePlaying(preloaded);
         createdSound = preloaded;
       } catch {
         try { await preloaded.stopAsync(); } catch {}
@@ -761,7 +759,9 @@ export async function playTrackPreviewSegment(
 
     if (!createdSound) {
       await unloadActive();
-      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);
+      // Charger silencieusement : le nouveau morceau n'a pas le droit de
+      // devenir audible tant que la barrière de handoff n'a pas coupé N.
+      createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false);
     }
 
     await awaitNativeHandoffSilence();
@@ -774,6 +774,16 @@ export async function playTrackPreviewSegment(
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange ?? null;
+    try {
+      await ensurePlaying(createdSound);
+    } catch (error) {
+      if (activeSound === createdSound) await unloadActive();
+      throw error;
+    }
+    if (requestEpoch !== playbackRequestEpoch || activeSound !== createdSound) {
+      if (activeSound === createdSound) await unloadActive();
+      return;
+    }
     onStateChange?.(true);
 
     activeTimer = setTimeout(() => {
