@@ -9,6 +9,8 @@ on:
       - '.github/workflows/mobile-web-importmeta-diagnostic.yml'
   workflow_dispatch:
 
+# Régression 04/10 verrouillée : le scénario privé doit exécuter un vrai clic
+# sur le bouton accessible avant d'attendre loki-chat-thread-scroll.
 # Tous les navigateurs CI pointant vers le Supabase de production passent
 # désormais UN PAR UN. Le 02/10, plusieurs Chromium concurrents + le vrai web
 # ont coïncidé avec des /auth/v1/user et /token en 500/504 faute de transaction
