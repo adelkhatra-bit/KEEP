@@ -144,6 +144,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   const micPulse = useRef(new Animated.Value(0)).current;
   const signalScan = useRef(new Animated.Value(0)).current;
   const [screenCopy, setScreenCopy] = useState<{ emptyTitle: string | null; emptySubtitle: string | null }>({ emptyTitle: null, emptySubtitle: null });
+  // Accueil Loki : conserver une accroche ultra compacte (2 lignes maximum)
+  // puis mettre toute la suite du texte remote_config derrière « En savoir plus ».
+  // On ne duplique pas la copy : si le Super Admin la modifie, le découpage suit.
+  const homeFullSubtitle = String(screenCopy.emptySubtitle ?? t('session.emptySubtitle') ?? '').trim();
+  const homeSubtitleParts = homeFullSubtitle.match(/^(.+?[.!?])(?:\s+|$)([\s\S]*)$/);
+  const homeSubtitleLead = (homeSubtitleParts?.[1] || 'Loki reconnaît la musique autour de toi.').trim();
+  const homeSubtitleMore = (homeSubtitleParts?.[2] || 'Garde tes titres, découvre des profils, partage ton univers et retrouve les soirées qui vibrent comme toi.').trim();
   const [planCode, setPlanCode] = useState('FREE');
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
@@ -587,7 +594,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             <LokiMusic3DTitle />
             <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
             <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
-            <Text style={s.idleSubtitle}>{screenCopy.emptySubtitle ?? t('session.emptySubtitle')}</Text>
+            <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
             <TouchableOpacity
               style={s.idleLearnMore}
               onPress={toggleHomeAbout}
@@ -600,7 +607,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             {homeAboutOpen ? (
               <View style={s.idleLearnMorePanel}>
                 <Text style={s.idleLearnMoreBody}>
-                  Loki Music écoute uniquement pendant ta session, identifie les morceaux autour de toi, puis te laisse choisir librement PASSER ou GARDER. GARDER construit progressivement ta bibliothèque, ton profil musical et ton Loki DNA.
+                  {homeSubtitleMore}
                 </Text>
               </View>
             ) : null}
@@ -1208,7 +1215,7 @@ const s = StyleSheet.create({
   premiumText: { color: C.purpleLight, fontSize: 10, fontWeight: '800' },
   idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 24 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
-  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 20, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', maxWidth: 330, marginTop: 10 },
+  idleSubtitle: { color: C.mutedGrey, fontSize: 14, lineHeight: 18, fontWeight: '500', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
   idleLearnMore: { minHeight: 32, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
   idleLearnMoreText: { color: C.purpleLight, fontSize: 11, fontWeight: '900', textDecorationLine: 'underline' },
   idleLearnMorePanel: { width: '100%', maxWidth: 340, marginTop: 2, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
