@@ -32,7 +32,7 @@ describe('Playlist FREE shortfall UX', () => {
   });
 
   it('normalizes Supabase shortage details', () => {
-    expect(service).toContain('[error.message, error.details, error.hint, error.code]');
+    expect(service).toContain('[error?.message, error?.details, error?.hint, error?.code]');
     expect(service).toContain('NOT_ENOUGH_FREE\\s*:\\s*(\\d+)\\s*:\\s*(\\d+)');
   });
 });
