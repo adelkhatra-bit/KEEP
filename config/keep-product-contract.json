@@ -112,7 +112,14 @@
     "helpExpansionMustNotShiftPrimaryControls": true,
     "primaryActionAccessMaxClicks": 1,
     "secondClickReservedForSensitiveConfirmation": true,
-    "sensitiveConfirmations": ["payment", "delete", "logout", "spend-free", "publish", "privacy-destructive-change"],
+    "sensitiveConfirmations": [
+      "payment",
+      "delete",
+      "logout",
+      "spend-free",
+      "publish",
+      "privacy-destructive-change"
+    ],
     "buttonWithoutActionForbidden": true,
     "preferInlineActionOverExtraNavigation": true,
     "sameRulesMobileAndWeb": true,
@@ -893,5 +900,13 @@
       "emailRedirectTo"
     ],
     "enforcedBy": "scripts/verify-source-of-truth.cjs"
+  },
+  "iosCompatibility": {
+    "minimumSupportedVersion": "15.1",
+    "expoSdk": "54",
+    "rule": "Loki Music doit rester installable sur iOS 15.1+ tant que l'architecture Expo SDK 54 et les modules natifs utilisés le permettent. Ne jamais relever le deployment target sans décision explicite utilisateur.",
+    "shazamModuleMinimum": "15.1",
+    "iapModuleMinimum": "15.1",
+    "testflightMinimumMustMatchAppBuild": true
   }
 }
