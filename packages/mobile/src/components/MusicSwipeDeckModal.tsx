@@ -270,8 +270,11 @@ export default function MusicSwipeDeckModal({
               // La fin de l'extrait doit toujours amener le morceau suivant
               // quand la file boucle. PASSER/GARDER restent disponibles pendant
               // l'extrait, mais aucun tap sur le bouton vert n'est requis.
-              if (!loop) return;
-              advanceIndex();
+              // Tous les écrans Swipe / aperçu forment une file audio :
+              // avancer automatiquement tant qu'il reste une carte. "loop"
+              // décide seulement si l'on recommence une nouvelle boucle après
+              // la dernière carte, pas si N doit avancer vers N+1.
+              if (index + 1 < deckTracks.length || loop) advanceIndex();
             },
           );
           // Le morceau visible est maintenant réellement parti : on peut
@@ -305,7 +308,7 @@ export default function MusicSwipeDeckModal({
               () => {
                 if (!alive || playbackGeneration.current !== generation || actionInFlight.current) return;
                 setPreviewEnded(true);
-                if (loop) advanceIndex();
+                if (index + 1 < deckTracks.length || loop) advanceIndex();
               },
             );
             if (nextTrack) {
@@ -360,7 +363,7 @@ export default function MusicSwipeDeckModal({
               endAdvanceTimer.current = null;
               if (!actionInFlight.current) advanceIndex();
             }, 120);
-          } else if (!actionInFlight.current && loop) {
+          } else if (!actionInFlight.current && (index + 1 < deckTracks.length || loop)) {
             advanceIndex();
           }
         },
