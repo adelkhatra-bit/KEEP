@@ -1,6 +1,25 @@
 import { MPEGDecoder } from "npm:mpg123-decoder@1.0.3";
 import { computeFingerprint } from "./audioFingerprint.ts";
 
+function isMp3Payload(bytes: Uint8Array, contentType: string | null): boolean {
+  const type = String(contentType ?? "").toLowerCase();
+  if (type.includes("audio/mpeg") || type.includes("audio/mp3")) return true;
+  // ID3 metadata header.
+  if (bytes.length >= 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true;
+  // MPEG audio frame sync. Useful when CDNs answer application/octet-stream.
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return true;
+  return false;
+}
+
+function isMp4AacPayload(bytes: Uint8Array, contentType: string | null): boolean {
+  const type = String(contentType ?? "").toLowerCase();
+  if (type.includes("audio/mp4") || type.includes("audio/aac") || type.includes("audio/x-m4a")) return true;
+  // ISO BMFF / M4A: size(4) + "ftyp".
+  return bytes.length >= 8
+    && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
+}
+
+
 export type SeedableRecognition = {
   title: string;
   artist: string;
@@ -74,13 +93,36 @@ export async function seedFingerprintMemory(admin: any, rec: SeedableRecognition
 
     const response = await fetch(rec.previewUrl, { signal: AbortSignal.timeout(8000) });
     if (!response.ok) return;
-    const mp3Bytes = new Uint8Array(await response.arrayBuffer());
-    if (mp3Bytes.length < 1000) return;
+    const contentType = response.headers.get("content-type");
+    const audioBytes = new Uint8Array(await response.arrayBuffer());
+    if (audioBytes.length < 1000) return;
+
+    // mpg123 ne sait décoder QUE MPEG audio. Les previews iTunes sont très
+    // souvent M4A/AAC (ftyp) : les envoyer à mpg123 produisait
+    // MPG123_ERR des centaines de fois et polluait les logs. Tant qu'un
+    // décodeur AAC PCM n'est pas embarqué dans l'Edge Runtime, on saute
+    // uniquement l'empreinte locale pour ces previews. Le morceau reste bien
+    // ajouté au catalogue ci-dessus et ACRCloud/ShazamKit continuent de
+    // fonctionner normalement.
+    if (!isMp3Payload(audioBytes, contentType)) {
+      if (!isMp4AacPayload(audioBytes, contentType)) {
+        console.warn("[fingerprintSeed] unsupported preview codec", {
+          contentType: contentType ?? "unknown",
+          urlHost: (() => { try { return new URL(rec.previewUrl!).host; } catch { return "unknown"; } })(),
+        });
+      }
+      return;
+    }
 
     const decoder = new MPEGDecoder();
     await decoder.ready;
-    const { channelData, sampleRate } = decoder.decode(mp3Bytes);
-    decoder.free();
+    let decoded: ReturnType<MPEGDecoder["decode"]>;
+    try {
+      decoded = decoder.decode(audioBytes);
+    } finally {
+      decoder.free();
+    }
+    const { channelData, sampleRate } = decoded;
     if (!channelData?.length || channelData[0].length < 4096) return;
     // Vrai mixage mono (moyenne des canaux), pas juste le canal gauche -- doit
     // correspondre à ce qu'un micro/onglet capte réellement (un seul flux
