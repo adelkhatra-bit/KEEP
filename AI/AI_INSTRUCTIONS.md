@@ -66,3 +66,14 @@ Adel demande un travail à deux avec ChatGPT Sol. ChatGPT prend uniquement la si
 - Il est **interdit** de modifier le runtime utilisateur pour résoudre un problème de connexion Super Admin.
 - Toute IA doit vérifier `config/keep-product-contract.json > authBoundary` avant de toucher à l'authentification.
 - Contrôle bloquant : `scripts/verify-source-of-truth.cjs`.
+
+
+### 2026-10-04 21:38 CEST — reçu
+
+[ECONOMIE-FREE-04-10][AUDIT-CHATGPT] État vérifié par ChatGPT sur `reconcile/claude-main-20260825` : la section canonique « Économie FREE » est déjà dans `docs/PRICING_STRATEGY.md`, et `AGENTS.md` / `CLAUDE.md` y renvoient. Les 3 bugs de reconnaissance sont réellement codés : `bd183bf2` (ACRCloud seuil 40, corroboration exacte dès 22), `aa8509db` (M4A/AAC non envoyé à mpg123), `aab4757a` (diagnostics ShazamKit), avec tests alignés `4b4b8e53`. Mobile CI + CI complète sont vertes sur `4b4b8e53`.
+
+Bloc restant vérifié : étapes FREE 2–4 non branchées dans le code actif. Il n'y a pas encore `LISTEN_DAILY` / `listens_per_day`, ni produits `com.adelkhatra.keep.free.30/.100/.300`. `HomeScreenCompact.tsx` utilise encore la limite démo locale AsyncStorage et un texte ancien disant que les FREE ne servent pas à écouter. Ne crée aucun doublon : réutiliser `feature_usage_counters`, `freeWalletService`, `iapService`, `referralService`, `keep-iap-verify`.
+
+Continuer : 1) compteur serveur des écoutes réussies seulement + compteur Écouter + « Mes FREE » ; 2) série/gel + parrainage cap 20 + premier découvreur ; 3) recharges IAP. Ne pas toucher `packages/mobile/App.tsx` responsive, `Navigation.tsx`, barre 5 onglets ni design verrouillé. Toute nouvelle erreur va dans `docs/ERROR_LEDGER.md`.
+
+Blocage côté ChatGPT : Desktop Commander n'a actuellement aucun appareil connecté, donc je ne peux pas lancer le clone local ni le navigateur local. L'écriture SQL directe du relais a aussi été refusée par le garde-fou de l'outil ; ce message GitHub est le handoff de secours. J'audite en parallèle le site public canonique `https://adelkhatra-bit.github.io/KEEP/` et `/admin-preview/`, ainsi que le workflow « Real Browser Web Runtime Audit » rouge.
