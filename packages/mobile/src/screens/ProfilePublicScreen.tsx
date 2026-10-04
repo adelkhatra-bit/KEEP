@@ -329,6 +329,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(3);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
+  const [ownerPrivateChatOpen, setOwnerPrivateChatOpen] = useState(false);
+  const [ownerMusicInfoOpen, setOwnerMusicInfoOpen] = useState(false);
   // Une seule présentation du Drop : le propriétaire et les visiteurs rendent
   // SellerBoutique. Ainsi tout changement de design reste automatiquement lié.
   const ownerBoutiqueOffers = useMemo<PublicPlaylistSaleOffer[]>(() => playlistSaleOffers
@@ -1439,7 +1441,23 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       );
       return <View style={s.keepList}>
-        <Text style={s.ownerKeepHint}>Loki Music construit ton univers : Vibes et artistes. Tu gardes le contrôle du Public/Privé et des noms.</Text>
+        <View style={s.ownerMusicInfo}>
+          <View style={s.ownerMusicInfoHeader}>
+            <Text style={s.ownerKeepHintCompact}>Loki Music construit ton univers : Vibes et artistes.</Text>
+            <TouchableOpacity
+              style={s.ownerMusicInfoToggle}
+              onPress={() => setOwnerMusicInfoOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityLabel={ownerMusicInfoOpen ? 'Réduire les explications Loki Music' : 'En savoir plus sur Loki Music'}
+            >
+              <Text style={s.ownerMusicInfoToggleText}>{ownerMusicInfoOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.ownerMusicInfoChevron}>{ownerMusicInfoOpen ? '⌃' : '⌄'}</Text>
+            </TouchableOpacity>
+          </View>
+          {ownerMusicInfoOpen ? (
+            <Text style={s.ownerMusicInfoText}>Tu gardes le contrôle du Public/Privé, des noms et de l’organisation de tes morceaux. Tes Garder alimentent automatiquement tes styles et ton univers Loki Music.</Text>
+          ) : null}
+        </View>
         {/* Mission C (23/09/2026) : bascule "Tout / Par genre". "Tout" garde
             la liste plate historique (aucune régression) ; "Par genre" range
             la même collection en dossiers repliables. */}
@@ -1957,48 +1975,59 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired && ownerPrivateChatOffers.length ? (
         <ProfileMotionReveal motionKey={`owner-private-chat-sales:${user.id}:${ownerPrivateChatOffers.length}`} compact style={s.ownerPrivateChatSection}>
-          <View style={s.ownerPrivateChatHeader}>
+          <TouchableOpacity
+            style={s.ownerPrivateChatHeader}
+            onPress={() => setOwnerPrivateChatOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityLabel={ownerPrivateChatOpen ? 'Réduire les ventes privées du chat' : 'Voir les ventes privées du chat'}
+          >
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={s.ownerPrivateChatKicker}>VENTES PRIVÉES DU CHAT</Text>
-              <Text style={s.ownerPrivateChatHint}>Visibles seulement par toi ici. Elles restent liées à leur destinataire dans le chat.</Text>
+              {!ownerPrivateChatOpen ? <Text style={s.ownerPrivateChatCollapsedHint}>Masqué pour garder ton profil compact.</Text> : null}
             </View>
             <Text style={s.ownerPrivateChatCount}>{ownerPrivateChatOffers.length}</Text>
-          </View>
-          {ownerPrivateChatOffers.slice(0, 6).map((offer) => {
-            const price = offer.paymentMode === 'FREE'
-              ? `${offer.freePrice ?? 0} FREE`
-              : offer.paymentMode === 'BOTH'
-                ? `${offer.freePrice ?? 0} FREE ou ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode === 'EUR' ? '€' : offer.currencyCode}`
-                : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode === 'EUR' ? '€' : offer.currencyCode}`;
-            return (
-              <TouchableOpacity
-                key={offer.offerId || offer.playlistId}
-                style={s.ownerPrivateChatCard}
-                onPress={() => {
-                  if (!offer.offerId) return;
-                  unlockWebAudioForGesture();
-                  void loadOwnPlaylistSaleOfferTracks(offer.offerId)
-                    .then((tracks) => tracks.length ? openSelectionSwipe({
-                      title: 'Vente privée du chat',
-                      subtitle: `${price} · ${offer.isActive ? 'active' : 'historique'}`,
-                      tracks,
-                    }) : Alert.alert('Chat', 'Aucun morceau accessible dans cette vente privée.'))
-                    .catch(() => Alert.alert('Chat', 'Impossible d’ouvrir cette vente privée pour le moment.'));
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Ouvrir la vente privée du chat, ${price}, ${offer.isActive ? 'active' : 'historique'}`}
-              >
-                <View style={s.ownerPrivateChatCopy}>
-                  <Text style={s.ownerPrivateChatTitle}>{offer.playlistName || 'Pépite du chat'}</Text>
-                  <Text style={s.ownerPrivateChatMeta}>{offer.trackCount ?? 0} morceau{(offer.trackCount ?? 0) > 1 ? 'x' : ''} · {price}</Text>
-                </View>
-                <View style={[s.ownerPrivateChatStatus, offer.isActive ? s.ownerPrivateChatStatusOn : s.ownerPrivateChatStatusOff]}>
-                  <Text style={s.ownerPrivateChatStatusText}>{offer.isActive ? 'ACTIVE' : 'HISTORIQUE'}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-          {ownerPrivateChatOffers.length > 6 ? <Text style={s.ownerPrivateChatMore}>+ {ownerPrivateChatOffers.length - 6} autre{ownerPrivateChatOffers.length - 6 > 1 ? 's' : ''} dans l’historique Pépites</Text> : null}
+            <Text style={s.ownerPrivateChatToggle}>{ownerPrivateChatOpen ? 'Réduire ⌃' : 'Voir plus ⌄'}</Text>
+          </TouchableOpacity>
+          {ownerPrivateChatOpen ? (
+            <>
+              <Text style={s.ownerPrivateChatHint}>Visibles seulement par toi ici. Elles restent liées à leur destinataire dans le chat.</Text>
+              {ownerPrivateChatOffers.slice(0, 6).map((offer) => {
+                const price = offer.paymentMode === 'FREE'
+                  ? `${offer.freePrice ?? 0} FREE`
+                  : offer.paymentMode === 'BOTH'
+                    ? `${offer.freePrice ?? 0} FREE ou ${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode === 'EUR' ? '€' : offer.currencyCode}`
+                    : `${(offer.priceCents / 100).toFixed(2).replace('.', ',')} ${offer.currencyCode === 'EUR' ? '€' : offer.currencyCode}`;
+                return (
+                  <TouchableOpacity
+                    key={offer.offerId || offer.playlistId}
+                    style={s.ownerPrivateChatCard}
+                    onPress={() => {
+                      if (!offer.offerId) return;
+                      unlockWebAudioForGesture();
+                      void loadOwnPlaylistSaleOfferTracks(offer.offerId)
+                        .then((tracks) => tracks.length ? openSelectionSwipe({
+                          title: 'Vente privée du chat',
+                          subtitle: `${price} · ${offer.isActive ? 'active' : 'historique'}`,
+                          tracks,
+                        }) : Alert.alert('Chat', 'Aucun morceau accessible dans cette vente privée.'))
+                        .catch(() => Alert.alert('Chat', 'Impossible d’ouvrir cette vente privée pour le moment.'));
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ouvrir la vente privée du chat, ${price}, ${offer.isActive ? 'active' : 'historique'}`}
+                  >
+                    <View style={s.ownerPrivateChatCopy}>
+                      <Text style={s.ownerPrivateChatTitle}>{offer.playlistName || 'Pépite du chat'}</Text>
+                      <Text style={s.ownerPrivateChatMeta}>{offer.trackCount ?? 0} morceau{(offer.trackCount ?? 0) > 1 ? 'x' : ''} · {price}</Text>
+                    </View>
+                    <View style={[s.ownerPrivateChatStatus, offer.isActive ? s.ownerPrivateChatStatusOn : s.ownerPrivateChatStatusOff]}>
+                      <Text style={s.ownerPrivateChatStatusText}>{offer.isActive ? 'ACTIVE' : 'HISTORIQUE'}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+              {ownerPrivateChatOffers.length > 6 ? <Text style={s.ownerPrivateChatMore}>+ {ownerPrivateChatOffers.length - 6} autre{ownerPrivateChatOffers.length - 6 > 1 ? 's' : ''} dans l’historique Pépites</Text> : null}
+            </>
+          ) : null}
         </ProfileMotionReveal>
       ) : null}
 
@@ -2555,6 +2584,8 @@ const s=StyleSheet.create({
   topBar:{minHeight:50,paddingHorizontal:18,paddingTop:9,paddingBottom:4,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},kindBadge:{height:24,paddingHorizontal:9,borderRadius:12,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4},kindBadgeText:{color:colors.textPrimary,fontSize:13,lineHeight:16,fontWeight:'900'},kindBadgeEdit:{fontSize:11,lineHeight:14,fontWeight:'900'},actions:{flexDirection:'row',gap:7,alignItems:'center'},iconButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,position:'relative'},iconText:{color:colors.textPrimary,fontSize:18,fontWeight:'700'},bell:{fontSize:16},menuButton:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},menuText:{color:'#FFFFFF',fontSize:28,lineHeight:30,fontWeight:'900'},menuChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900',marginLeft:8},menuBackRow:{minHeight:42,justifyContent:'center',marginBottom:4},menuBackText:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},menuIntro:{color:colors.textMuted,fontSize:12,lineHeight:17,textAlign:'center',marginTop:5,paddingHorizontal:8},menuScrollContent:{paddingBottom:8},menuGroup:{marginBottom:16},menuGroupTitle:{color:colors.textMuted,fontSize:10,fontWeight:'900',letterSpacing:1.2,marginBottom:7,marginLeft:4},menuGroupCard:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,overflow:'hidden'},menuItemRow:{minHeight:64,flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:10},menuItemDivider:{borderBottomWidth:1,borderBottomColor:colors.border},menuItemIcon:{width:36,height:36,borderRadius:12,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',marginRight:10},accountIconOnline:{borderWidth:1,borderColor:colors.success,backgroundColor:`${colors.success}18`},accountIconOffline:{borderWidth:1,borderColor:colors.primaryLight,backgroundColor:`${colors.primary}18`},menuItemIconText:{fontSize:17},menuItemCopy:{flex:1,minWidth:0},menuItemLabel:{color:colors.textPrimary,fontSize:14,fontWeight:'900'},menuItemHint:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},notificationBadge:{position:'absolute',right:-4,top:-5,minWidth:18,height:18,borderRadius:9,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:'#FFF',fontSize:10,fontWeight:'900'},plan:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,alignItems:'center',justifyContent:'center'},planFree:{backgroundColor:`${colors.success}22`,borderColor:colors.success},planExhausted:{backgroundColor:`${colors.danger}22`,borderColor:colors.danger},planPaid:{backgroundColor:`${colors.primary}33`,borderColor:colors.primaryLight},planText:{color:'#FFF',fontSize:12,fontWeight:'900'},
   ownerPrivateChatSection:{marginHorizontal:18,marginTop:10,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:12,gap:8},
   ownerPrivateChatHeader:{flexDirection:'row',alignItems:'center',gap:10},
+  ownerPrivateChatCollapsedHint:{color:colors.textMuted,fontSize:8.5,lineHeight:12,marginTop:2},
+  ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
   ownerPrivateChatKicker:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
   ownerPrivateChatHint:{color:colors.textMuted,fontSize:9,lineHeight:14,marginTop:3},
   ownerPrivateChatCount:{minWidth:30,height:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,color:colors.primaryLight,textAlign:'center',fontSize:11,fontWeight:'900',paddingTop:6},
@@ -2645,6 +2676,13 @@ battleAvailabilityRow:{flexDirection:'row',alignItems:'center',justifyContent:'s
   collectionHeader:{marginHorizontal:18,marginTop:16,flexDirection:'row',alignItems:'baseline',justifyContent:'space-between'},collectionTitle:{color:colors.textPrimary,fontSize:19,fontWeight:'700'},collectionCount:{color:colors.textMuted,fontSize:13,fontWeight:'600'},
   tabsRow:{marginTop:10,paddingHorizontal:10,flexDirection:'row',alignItems:'center',borderBottomWidth:1,borderBottomColor:colors.border},tabs:{flex:1,flexDirection:'row'},tab:{flex:1,alignItems:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:13,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},indicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},filterButton:{marginBottom:8,minHeight:30,paddingHorizontal:12,borderRadius:15,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},filterButtonText:{color:colors.textPrimary,fontSize:12,fontWeight:'800'},
   keepList:{marginHorizontal:18,marginTop:10,gap:7},ownerKeepHint:{color:colors.textMuted,fontSize:12,lineHeight:17,marginBottom:2},
+  ownerMusicInfo:{marginBottom:8,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,paddingVertical:8},
+  ownerMusicInfoHeader:{flexDirection:'row',alignItems:'center',gap:8},
+  ownerKeepHintCompact:{flex:1,color:colors.textSecondary,fontSize:10,lineHeight:14,fontWeight:'800'},
+  ownerMusicInfoToggle:{minHeight:28,paddingHorizontal:7,flexDirection:'row',alignItems:'center',gap:4},
+  ownerMusicInfoToggleText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',textDecorationLine:'underline'},
+  ownerMusicInfoChevron:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},
+  ownerMusicInfoText:{color:colors.textSecondary,fontSize:10,lineHeight:15,marginTop:7},
   // Adel (21/09/2026) : hauteur fixe (64) explicite sur la rangée
   // principale -- plus jamais de variation selon le contenu. Le panneau
   // dépliable (expandedPanel) vit HORS de cette rangée, dans trackCard.
