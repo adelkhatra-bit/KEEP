@@ -39,7 +39,11 @@ export default function ActiveBattleResumeLifecycle() {
         if (!alive || !data.session?.user?.id) return;
 
         const active = await loadMyActiveKeepBattleArena().catch(() => null);
-        if (!alive || !active?.id || active.me?.status !== 'ACTIVE') {
+        // Un salon WAITING n'est pas un Battle en cours. Le reprendre
+        // automatiquement bloquait le lancement du SOLO sur TestFlight en
+        // rouvrant sans cesse un ancien lobby. Seul un match ACTIVE reprend
+        // de force après changement d'app / relance.
+        if (!alive || !active?.id || active.status !== 'ACTIVE' || active.me?.status !== 'ACTIVE') {
           const game = useGameSessionStore.getState();
           if (game.gameMode === 'EN_LIGNE') game.clearGameSession();
           lastResumedArenaId = '';
