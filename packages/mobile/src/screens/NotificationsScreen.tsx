@@ -550,7 +550,9 @@ export default function NotificationsScreen({ navigation, route }: any) {
     if (type === 'PLAN_GIFTED' || type.includes('PLAN')) return 'VOIR MON OFFRE';
     if (eventIdOf(item)) return 'VOIR L’ÉVÉNEMENT';
     const profileUsername = notificationProfileUsername(item);
-    if (profileUsername || notificationProfileId(item)) return 'OUVRIR ICI';
+    // Les notifications liées à un profil affichent leurs actions directement
+    // sous la carte : pas de bouton intermédiaire "OUVRIR ICI".
+    if (profileUsername || notificationProfileId(item)) return null;
     return 'LIRE EN ENTIER';
   };
 
@@ -1119,6 +1121,38 @@ export default function NotificationsScreen({ navigation, route }: any) {
                       : undefined}
                     onOpenProfile={profileUsername ? () => navigation.navigate('PublicProfile', { username: profileUsername }) : undefined}
                   />
+                </View>
+              ) : null}
+              {!isNewKeepNotification(item) && profileUsername ? (
+                <View style={styles.notificationActionRow}>
+                  {notificationProfileId(item) && notificationProfileId(item) !== user?.id ? (
+                    <TouchableOpacity
+                      style={styles.notificationActionButton}
+                      disabled={followBusyProfileId === notificationProfileId(item) || followingProfileIds.has(notificationProfileId(item) as string)}
+                      onPress={() => { void followFromNotification(item); }}
+                      accessibilityRole="button"
+                      accessibilityLabel={followingProfileIds.has(notificationProfileId(item) as string) ? 'Profil déjà suivi' : `Suivre @${profileUsername}`}
+                    >
+                      <Text style={styles.notificationActionButtonText}>
+                        {followingProfileIds.has(notificationProfileId(item) as string)
+                          ? '✓ DÉJÀ SUIVI'
+                          : followBusyProfileId === notificationProfileId(item)
+                            ? 'SUIVI…'
+                            : '+ SUIVRE'}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={[styles.notificationActionButton, { marginTop: 8 }]}
+                    onPress={() => {
+                      if (!item.readAt) void readOne(item);
+                      navigation.navigate('PublicProfile', { username: profileUsername });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Voir le profil de ${profileUsername}`}
+                  >
+                    <Text style={styles.notificationActionButtonText}>VOIR LE PROFIL · @{profileUsername}</Text>
+                  </TouchableOpacity>
                 </View>
               ) : null}
               {isEventInvite(item) && eventIdOf(item) ? (() => {
