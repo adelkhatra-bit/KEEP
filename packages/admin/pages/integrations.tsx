@@ -71,7 +71,7 @@ const STATUS_LABELS: Record<IntegrationStatus, string> = {
   UNKNOWN: 'À tester',
   ACTIVE: 'Actif',
   EXHAUSTED: 'Quota épuisé',
-  ERROR: 'Erreur fournisseur',
+  ERROR: 'Refusée / erreur',
   NOT_CONFIGURED: 'Clé manquante',
 };
 
@@ -143,7 +143,12 @@ export default function Integrations() {
     // ACRCloud est le moteur serveur actif. AudD peut rester absent sans
     // rendre la reconnaissance indisponible : ne jamais le présenter comme
     // une panne bloquante ni le dupliquer dans la zone d'alerte.
-    if (row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive) return false;
+    if (
+      row.key === 'AUDD_API_KEY'
+      && !row.configured
+      && acrCloudActive
+      && (status === 'NOT_CONFIGURED' || status === 'UNKNOWN')
+    ) return false;
     return !row.configured
       || Boolean(row.configurationIssue)
       || status === 'ERROR'
@@ -206,7 +211,7 @@ export default function Integrations() {
       await load(true);
       keepRowVisible(row.key);
     } catch (e: any) {
-      fail(e?.message ?? `Impossible d’enregistrer ${row.label}.`);
+      fail(`REFUSÉE — ${e?.message ?? `Impossible d’enregistrer ${row.label}.`}`);
     } finally {
       setBusy(null);
     }
@@ -247,7 +252,11 @@ export default function Integrations() {
   const renderIntegrationRow = (row: IntegrationRow, urgent = false) => {
     const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
     const feedback = rowFeedback[row.key];
-    const optionalAudd = row.key === 'AUDD_API_KEY' && !row.configured && acrCloudActive;
+    const optionalAudd =
+      row.key === 'AUDD_API_KEY'
+      && !row.configured
+      && acrCloudActive
+      && (status === 'NOT_CONFIGURED' || status === 'UNKNOWN');
     const displayedStatus = optionalAudd ? 'Optionnel · ACRCloud actif' : STATUS_LABELS[status];
     const displayedStatusColor = optionalAudd ? '#c9c3d2' : STATUS_COLORS[status];
     return (
@@ -280,8 +289,18 @@ export default function Integrations() {
           <div style={{ color: '#e7e2ec', fontSize: 12, marginBottom: 8, lineHeight: 1.45 }}>
             La reconnaissance fonctionne déjà avec ACRCloud. Ajoute AudD ici uniquement si tu veux aussi utiliser ton abonnement AudD.
           </div>
-        ) : row.lastError && (status === 'ERROR' || status === 'EXHAUSTED') ? (
-          <div style={{ color: status === 'EXHAUSTED' ? '#ffd08a' : '#ffd6dc', fontSize: 12, marginBottom: 8 }}>
+        ) : row.lastError && (status === 'ERROR' || status === 'EXHAUSTED' || status === 'NOT_CONFIGURED') ? (
+          <div
+            role="status"
+            style={{
+              color: status === 'EXHAUSTED' ? '#fff0c2' : status === 'ERROR' ? '#ffe2e7' : '#f4eef9',
+              fontSize: 12,
+              marginBottom: 8,
+              lineHeight: 1.45,
+              fontWeight: 700,
+            }}
+          >
+            {status === 'ERROR' ? 'Dernier essai refusé : ' : status === 'EXHAUSTED' ? 'Fournisseur reconnu : ' : 'État : '}
             {row.lastError}
           </div>
         ) : null}
@@ -314,6 +333,12 @@ export default function Integrations() {
                 placeholder={row.configured ? 'Nouvelle valeur pour remplacer…' : 'Renseigner la valeur…'}
                 value={values[row.key] ?? ''}
                 onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !busy && (values[row.key] ?? '').trim()) {
+                    e.preventDefault();
+                    void save(row);
+                  }
+                }}
                 style={{ width: '100%', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#fff', borderRadius: 8, padding: '10px 40px 10px 14px' }}
               />
             )}
@@ -339,8 +364,12 @@ export default function Integrations() {
               🎲 Générer
             </button>
           )}
-          <button onClick={() => void save(row)} disabled={busy === row.key || !(values[row.key] ?? '').trim()}>
-            {busy === row.key ? 'Vérification…' : row.configured ? 'Vérifier et remplacer' : 'Vérifier et enregistrer'}
+          <button
+            onClick={() => void save(row)}
+            disabled={busy === row.key || !(values[row.key] ?? '').trim()}
+            style={{ minWidth: 190, fontWeight: 900 }}
+          >
+            {busy === row.key ? 'TEST EN COURS…' : row.configured ? 'TESTER + REMPLACER' : 'TESTER + ENREGISTRER'}
           </button>
           {row.configured && (
             <button onClick={() => void remove(row)} disabled={busy === row.key} style={{ opacity: 0.9 }}>
@@ -367,7 +396,10 @@ export default function Integrations() {
             {feedback.kind === 'ok' ? '✓ ' : '✕ '}{feedback.text}
           </div>
         )}
-        {row.updatedAt && <div style={{ marginTop: 6, fontSize: 11, color: '#c9c3d2' }}>Mis à jour : {new Date(row.updatedAt).toLocaleString('fr-FR')}</div>}
+        <div style={{ marginTop: 7, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: '#e8e3ee' }}>
+          {row.updatedAt ? <span>Enregistrée : {new Date(row.updatedAt).toLocaleString('fr-FR')}</span> : <span>Aucune valeur enregistrée</span>}
+          {row.lastCheckedAt ? <span>Dernier contrôle : {new Date(row.lastCheckedAt).toLocaleString('fr-FR')}</span> : null}
+        </div>
       </div>
     );
   };
