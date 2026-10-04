@@ -14,6 +14,19 @@ describe('Single native playback + fast handoff contract', () => {
     expect(audio).toContain('playbackRequestEpoch += 1');
   });
 
+  it('keeps a registry of every native sound so orphan players cannot overlap after PASSER', () => {
+    expect(audio).toContain('const nativeSoundRegistry = new Set<NativeSound>();');
+    expect(audio).toContain('nativeSoundRegistry.add(created.sound);');
+    expect(audio).toContain('retireEveryNativeSoundExcept(sound);');
+    expect(audio).toContain('retireEveryNativeSoundExcept(null);');
+    expect(audio).toContain('forgetNativeSound(sound);');
+  });
+
+  it('applies the single-player guard to synchronized Battle starts too', () => {
+    expect(audio).toContain('retireEveryNativeSoundExcept(createdSound);');
+    expect(audio).toContain('await awaitNativeHandoffSilence();');
+  });
+
   it('loads Battle previews silently before handoff instead of autoplaying during creation', () => {
     expect(audio).toContain('createSoundWithRetry(previewUrl, effectivePosition, onStatus, false)');
     expect(audio).toContain('await ensurePlaying(createdSound)');
