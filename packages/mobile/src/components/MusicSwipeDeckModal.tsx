@@ -674,8 +674,10 @@ export default function MusicSwipeDeckModal({
               enabled={!controlsLocked}
               onSwipeLeft={() => { void pass(); }}
               onSwipeRight={() => { void requestKeep(); }}
+              onSwipeUp={() => { void pass(); }}
               leftLabel="PASSER"
               rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
+              upLabel="SUIVANT"
               hint={swipeHint}
             >
               <View style={s.card}>
