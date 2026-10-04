@@ -102,7 +102,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
-    listenEconomyStatus, refreshListenEconomyStatus,
+    listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
+    useFreeForNextListen, dismissListenFreePrompt,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -204,10 +205,38 @@ export default function HomeScreenCompact({ navigation }: any) {
   const explainListenEconomy = () => {
     if (!listenEconomyStatus) return;
     const included = `${listenEconomyStatus.used}/${listenEconomyStatus.limit} écoutes reconnues aujourd’hui.`;
-    const extra = listenEconomyStatus.overQuota
-      ? ` Le quota inclus est atteint : chaque nouvelle reconnaissance réussie coûte ${listenEconomyStatus.overQuotaFreeCost} FREE.`
-      : ` Il reste ${listenEconomyStatus.includedRemaining} écoute${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} incluse${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} aujourd’hui.`;
-    Alert.alert('Écoutes du jour', included + extra);
+    if (!listenEconomyStatus.overQuota) {
+      const extra = ` Il reste ${listenEconomyStatus.includedRemaining} écoute${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} incluse${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} aujourd’hui.`;
+      Alert.alert('Écoutes du jour', included + extra);
+      return;
+    }
+    const useOneFree = () => {
+      if (!isActive) startSession();
+      useFreeForNextListen();
+    };
+    const recharge = () => { dismissListenFreePrompt(); navigation.navigate('Offers'); };
+    const premium = () => { dismissListenFreePrompt(); navigation.navigate('Offers', { focusPlan: 'PREMIUM' }); };
+    if (listenEconomyStatus.canPayWithFree && !listenFreeInsufficient) {
+      Alert.alert(
+        'Plus d’écoute incluse aujourd’hui',
+        `La prochaine reconnaissance réussie coûte ${listenEconomyStatus.overQuotaFreeCost} FREE. Ton solde : ${listenEconomyStatus.freeBalance} FREE.`,
+        [
+          { text: `UTILISER ${listenEconomyStatus.overQuotaFreeCost} FREE`, onPress: useOneFree },
+          { text: 'RECHARGER', onPress: recharge },
+          { text: 'PASSER PREMIUM', onPress: premium },
+        ],
+      );
+      return;
+    }
+    Alert.alert(
+      'Plus assez de FREE',
+      `Ton quota de ${listenEconomyStatus.limit} écoutes est utilisé et ton solde FREE ne permet pas une nouvelle reconnaissance.`,
+      [
+        { text: 'PLUS TARD', style: 'cancel', onPress: dismissListenFreePrompt },
+        { text: 'RECHARGER', onPress: recharge },
+        { text: 'PASSER PREMIUM', onPress: premium },
+      ],
+    );
   };
 
   const startListening = () => {
@@ -435,6 +464,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshListenEconomyStatus(); });
     return () => unsubscribe?.();
   }, [isDemoMode, navigation, refreshListenEconomyStatus, user?.id]);
+  useEffect(() => {
+    if (!listenFreeRequired || !listenEconomyStatus) return;
+    explainListenEconomy();
+  }, [listenFreeRequired, listenFreeInsufficient]);
+
   useEffect(() => {
     if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
