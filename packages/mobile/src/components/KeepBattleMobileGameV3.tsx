@@ -387,22 +387,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // libre (réponses en bas, sous le pouce) ; sur ordinateur, plafonné.
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isDesktopBattle = windowWidth >= 900;
-  // Même gabarit Solo/Battle : sur mobile le bloc de manche utilise presque
-  // toute la hauteur utile, sans jamais déformer la jaquette.
-  const roundCardMinHeight = isDesktopBattle ? 640 : Math.max(520, windowHeight - 124);
-  const arenaVisualMax = isDesktopBattle
-    ? 480
-    : Math.max(260, Math.min(windowWidth - 10, roundCardMinHeight - 214));
-  // SOLO mobile: reserve the real bottom-tab/safe-area height. The old
-  // windowHeight-124 minHeight made the card taller than the usable viewport
-  // on iPhone, pushing row 2 of the answers under the 5-tab bar and creating
-  // a large empty band. Online Battle keeps its approved dimensions.
-  const soloRoundCardMinHeight = isDesktopBattle
-    ? roundCardMinHeight
-    : Math.max(500, Math.min(650, windowHeight - 248));
-  const soloVisualMax = isDesktopBattle
-    ? arenaVisualMax
-    : Math.max(260, Math.min(windowWidth - 10, soloRoundCardMinHeight - 216));
+  // DESIGN UNIQUE : le gabarit validé sur iPhone est la source de vérité.
+  // Desktop ne reçoit plus des dimensions de manche différentes : on garde
+  // la même composition carrée/4 réponses et on centre simplement l'ensemble.
+  const battleDesignWidth = Math.min(windowWidth, 430);
+  const roundCardMinHeight = Math.max(520, Math.min(650, windowHeight - 124));
+  const arenaVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, roundCardMinHeight - 214));
+  const soloRoundCardMinHeight = Math.max(500, Math.min(650, windowHeight - 248));
+  const soloVisualMax = Math.max(260, Math.min(battleDesignWidth - 10, soloRoundCardMinHeight - 216));
   const [soloPlayersOpen, setSoloPlayersOpen] = React.useState(false);
   const [themes, setThemes] = React.useState<KeepBattleTheme[]>(FALLBACK_THEMES);
   const [themeCode, setThemeCode] = React.useState('MIX');
@@ -3497,7 +3489,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
 const s = StyleSheet.create({
   root: { width: '100%', flex: 1, paddingBottom: 0, position: 'relative' },
-  rootDesktop: { maxWidth: 760, alignSelf: 'center' },
+  rootDesktop: { maxWidth: 430, alignSelf: 'center' },
   soloSaveBackdrop: { flex: 1, backgroundColor: 'rgba(5,4,10,.76)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   soloSaveCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.backgroundElevated, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14 },
   soloSaveEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.4, textAlign: 'center' },
