@@ -36,5 +36,10 @@
     "mobile-390x844",
     "desktop-1440x900",
     "web-runtime"
-  ]
+  ],
+  "webEntryMode": "qr-only-when-signed-out",
+  "webAuthenticatedRuntime": "shared-packages-mobile-src",
+  "webAccountCreationAllowed": false,
+  "webPasswordLoginAllowed": false,
+  "webRemoteLogout": true
 }
