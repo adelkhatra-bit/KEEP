@@ -592,8 +592,6 @@ export default function HomeScreenCompact({ navigation }: any) {
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
-            <Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>
-            <Text style={s.idleTitle}>{screenCopy.emptyTitle ?? t('session.emptyTitle')}</Text>
             <Text numberOfLines={2} ellipsizeMode="tail" style={s.idleSubtitle}>{homeSubtitleLead}</Text>
             <TouchableOpacity
               style={s.idleLearnMore}
@@ -606,9 +604,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
             {homeAboutOpen ? (
               <View style={s.idleLearnMorePanel}>
-                <Text style={s.idleLearnMoreBody}>
-                  {homeSubtitleMore}
-                </Text>
+                <Text style={s.idleLearnMoreBody}>{screenCopy.emptyTitle ?? t('session.emptyTitle')} {homeSubtitleMore}</Text>
+                <Text style={s.idleLearnMoreBody}>Le micro est utilisé uniquement pendant l’écoute.</Text>
               </View>
             ) : null}
             {error ? <Text style={s.error}>{error}</Text> : null}
@@ -625,7 +622,6 @@ export default function HomeScreenCompact({ navigation }: any) {
                 ◉  IDENTIFIER UN MORCEAU
               </MotionActionButton>
             </View>
-            <Text style={s.idlePrivacy}>Le micro est utilisé uniquement pendant l’écoute.</Text>
             {isDemoMode || musicEngine.isDemoMode ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} ÉCOUTES` : ''}</Text>
