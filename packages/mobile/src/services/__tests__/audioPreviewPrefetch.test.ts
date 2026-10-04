@@ -36,14 +36,17 @@ describe('audioPreviewService -- préchargement de la manche suivante (Battle so
   it('playTrackPreviewSegment consomme un préchargement correspondant à la clé avant de recréer un son', () => {
     expect(preview).toContain('if (preloadedKey === key && preloadedSound) {');
     expect(preview).toContain('preloaded.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, preloaded));');
-    expect(preview).toContain('await ensurePlaying(preloaded);');
+    expect(preview).toContain('createdSound = preloaded;');
+    expect(preview).toContain('await ensurePlaying(createdSound);');
   });
 
   it('un échec de consommation du préchargement retombe sur le chargement normal (pas de blocage)', () => {
     const fnStart = preview.indexOf('export async function playTrackPreviewSegment(');
     const fnBody = preview.slice(fnStart, preview.indexOf('\n}\n', fnStart));
     expect(fnBody).toContain('if (!createdSound) {');
-    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus);');
+    expect(fnBody).toContain('createdSound = await createSoundWithRetry(previewUrl, effectivePosition, onStatus, false);');
+    expect(fnBody).toContain('await awaitNativeHandoffSilence();');
+    expect(fnBody).toContain('await ensurePlaying(createdSound);');
   });
 
   it("KeepBattleMobileGameV3 précharge la manche N+1 dès qu'une réponse est donnée, seulement s'il en reste une", () => {
