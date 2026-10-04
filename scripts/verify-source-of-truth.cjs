@@ -157,6 +157,22 @@ for (const marker of ['packages/mobile/**', '390', '844', '1440', '900']) {
 }
 
 const productContract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
+const uxRules = productContract.uxInteractionRules || {};
+if (uxRules.functionalGreyTextOnDarkForbidden !== true) failures.push('UX DARK BACKGROUND CONTRAST RULE MISSING');
+if (uxRules.permanentLongExplanationsForbidden !== true) failures.push('UX PERMANENT LONG EXPLANATIONS MUST STAY FORBIDDEN');
+if (uxRules.helpExpansionMustNotShiftPrimaryControls !== true) failures.push('UX HELP EXPANSION MUST NOT SHIFT PRIMARY CONTROLS');
+if (Number(uxRules.primaryActionAccessMaxClicks) !== 1) failures.push('UX PRIMARY ACTION MUST STAY ONE-CLICK');
+if (uxRules.secondClickReservedForSensitiveConfirmation !== true) failures.push('UX SECOND CLICK MUST BE RESERVED FOR SENSITIVE CONFIRMATION');
+if (uxRules.buttonWithoutActionForbidden !== true) failures.push('UX BUTTON WITHOUT ACTION MUST STAY FORBIDDEN');
+if (uxRules.preferInlineActionOverExtraNavigation !== true) failures.push('UX INLINE ACTION RULE MISSING');
+if (uxRules.sameRulesMobileAndWeb !== true) failures.push('UX RULES MUST MATCH MOBILE AND WEB');
+const uxColorsSource = read('packages/mobile/src/theme/colors.ts');
+for (const uxMarker of ["textPrimary: '#FFFFFF'", "textSecondary: '#FFFFFF'", "textMuted: '#FFFFFF'"]) {
+  if (!uxColorsSource.includes(uxMarker)) failures.push(`UX HIGH-CONTRAST TOKEN MISSING: ${uxMarker}`);
+}
+const uxHomeSource = read('packages/mobile/src/screens/HomeScreenCompact.tsx');
+if (!uxHomeSource.includes('idleLearnMoreSlot')) failures.push('HOME HELP MUST RESERVE STABLE LAYOUT SPACE');
+if (!uxHomeSource.includes("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'")) failures.push('HOME MUSIC BUBBLES MUST STAY LOWER NEAR TAB BAR');
 if (productContract.profileOwner?.freePlacement !== 'immediately-after-Reprises-in-owner-metrics-bar') failures.push('PRODUCT CONTRACT FREE PLACEMENT MISMATCH');
 if (productContract.profileOwner?.freeBesideProfileKind !== false) failures.push('PRODUCT CONTRACT FREE BESIDE PROFILE KIND MISMATCH');
 if (productContract.profileOwner?.freeImmediatelyAfterReprises !== true) failures.push('PRODUCT CONTRACT FREE AFTER REPRISES MISMATCH');
