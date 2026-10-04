@@ -73,6 +73,7 @@ describe('Non-régression : le correctif micro/audio (a98868f) reste intact apr�
 
 describe('Accueil Loki Pulse — latence TestFlight et verrou audio global', () => {
   const home = readNormalized(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx');
+  const preview = readNormalized(__dirname, '..', 'audioPreviewService.ts');
 
   it("prépare l'extrait dès onPressIn sur Web et TestFlight sans jouer de second son", () => {
     expect(home).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');
