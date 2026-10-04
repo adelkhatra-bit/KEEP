@@ -15,6 +15,12 @@ describe('Fast recognition contract', () => {
     expect(core).toContain('async recognizeAfterMemory');
   });
 
+  it('routes paid server recognition through configured ACRCloud while AudD is disabled', () => {
+    expect(core).toContain('const AUDD_PRIMARY_ENABLED = false;');
+    expect(core).toContain("const acr = await recognitionAttempt('keep-music-fallback'");
+    expect(core).toContain('if (AUDD_PRIMARY_ENABLED) {');
+  });
+
   it('uses a shorter first iOS sample but retains longer retries', () => {
     expect(session).toContain("Platform.OS === 'ios'");
     expect(session).toContain("return 4500;");
