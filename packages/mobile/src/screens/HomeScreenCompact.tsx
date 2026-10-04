@@ -102,6 +102,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
+    listenEconomyStatus, refreshListenEconomyStatus,
     startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
@@ -184,7 +185,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
-  const [demoListenLimit, setDemoListenLimit] = useState(8);
+  const [demoListenLimit, setDemoListenLimit] = useState(3);
   const [demoListenUsed, setDemoListenUsed] = useState(0);
   const demoListenUsedRef = useRef(0);
   const demoSeenTrackIdsRef = useRef<Set<string>>(new Set());
@@ -193,16 +194,29 @@ export default function HomeScreenCompact({ navigation }: any) {
 
   const explainDemo = () => Alert.alert(
     'Mode démo',
-    `Tu peux tester l’identification musicale gratuitement jusqu’à ${demoListenLimit} morceaux sur cet appareil. Les FREE servent ensuite à garder certaines trouvailles sur ton profil ; ils ne sont pas dépensés pour simplement écouter. Crée ou connecte ton compte pour enregistrer ton profil, tes goûts, tes morceaux et continuer sans la limite démo.`,
+    `Tu peux identifier jusqu’à ${demoListenLimit} morceaux trouvés sur cet appareil avant de créer ou connecter un compte. Ensuite, chaque formule inclut un quota quotidien d’écoutes reconnues ; au-delà, une nouvelle reconnaissance réussie coûte 1 FREE.`,
     [
       { text: 'Plus tard', style: 'cancel' },
       { text: 'Créer / se connecter', onPress: () => useAccountGateStore.getState().requestAccount('create') },
     ],
   );
 
+  const explainListenEconomy = () => {
+    if (!listenEconomyStatus) return;
+    const included = `${listenEconomyStatus.used}/${listenEconomyStatus.limit} écoutes reconnues aujourd’hui.`;
+    const extra = listenEconomyStatus.overQuota
+      ? ` Le quota inclus est atteint : chaque nouvelle reconnaissance réussie coûte ${listenEconomyStatus.overQuotaFreeCost} FREE.`
+      : ` Il reste ${listenEconomyStatus.includedRemaining} écoute${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} incluse${listenEconomyStatus.includedRemaining > 1 ? 's' : ''} aujourd’hui.`;
+    Alert.alert('Écoutes du jour', included + extra);
+  };
+
   const startListening = () => {
     if (isDemoMode && demoListenUsedRef.current >= demoListenLimit) {
       explainDemo();
+      return;
+    }
+    if (!isDemoMode && listenEconomyStatus && !listenEconomyStatus.canListen) {
+      explainListenEconomy();
       return;
     }
     startSession();
@@ -216,11 +230,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
     let live = true;
     Promise.all([
-      loadDemoListenLimit().catch(() => 8),
+      loadDemoListenLimit().catch(() => 3),
       AsyncStorage.getItem(DEMO_LISTEN_COUNT_KEY).catch(() => null),
     ]).then(([limit, stored]) => {
       if (!live) return;
-      const safeLimit = Math.max(1, Number(limit) || 8);
+      const safeLimit = Math.max(1, Number(limit) || 3);
       const used = Math.max(0, Number(stored || 0) || 0);
       setDemoListenLimit(safeLimit);
       setDemoListenUsed(Math.min(used, safeLimit));
@@ -415,6 +429,12 @@ export default function HomeScreenCompact({ navigation }: any) {
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
     return () => unsubscribe?.();
   }, [navigation, user?.id]);
+  useEffect(() => {
+    if (isDemoMode || musicEngine.isDemoMode || !user) return undefined;
+    void refreshListenEconomyStatus();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshListenEconomyStatus(); });
+    return () => unsubscribe?.();
+  }, [isDemoMode, navigation, refreshListenEconomyStatus, user?.id]);
   useEffect(() => {
     if (!isActive) return;
     setElapsed(formatElapsed(startedAt));
@@ -664,6 +684,16 @@ export default function HomeScreenCompact({ navigation }: any) {
               <View style={s.demoRow}>
                 <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} ÉCOUTES` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
+                  <Text style={s.demoHelpText}>?</Text>
+                </TouchableOpacity>
+              </View>
+            ) : user && listenEconomyStatus ? (
+              <View style={s.demoRow}>
+                <Text style={s.demo}>
+                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} ÉCOUTES AUJOURD’HUI
+                  {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
+                </Text>
+                <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
               </View>
