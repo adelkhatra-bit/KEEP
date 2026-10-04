@@ -28,7 +28,7 @@ import { musicEngine } from '../services/musicEngine';
 import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '../services/keepLibraryService';
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
-import { loadMyPlaylistSaleOffers, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { loadMyPlaylistSaleOffers, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -377,6 +377,22 @@ export default function ProfilePublicScreen({ navigation }: any) {
     if (opportunityPurchaseBusy) return;
     setOpportunityPurchaseBusy(true);
     try {
+      const overlap = await loadPlaylistSaleOfferOverlap(offer.offerId);
+      if (overlap.ownedCount > 0) {
+        if (overlap.missingCount <= 0) {
+          Alert.alert('Déjà dans ton Loki Music', 'Tu possèdes déjà tous les morceaux de cette collection. Aucun paiement ni FREE ne sera débité.');
+          return;
+        }
+        Alert.alert(
+          'Pas de double achat',
+          `Tu as déjà ${overlap.ownedCount} morceau${overlap.ownedCount > 1 ? 'x' : ''}. Loki ne te les fera pas repayer. Demande seulement les ${overlap.missingCount} morceau${overlap.missingCount > 1 ? 'x' : ''} manquant${overlap.missingCount > 1 ? 's' : ''}.`,
+          [
+            { text: 'ANNULER', style: 'cancel' },
+            { text: 'DEMANDER LES MANQUANTS', onPress: () => { void requestOpportunityMissingTracks(offer); } },
+          ],
+        );
+        return;
+      }
       if (offer.paymentMode === 'FREE') {
         await purchasePlaylistOfferWithFree(offer.offerId);
         const [battleStatus, dailySpend, downloadStatus] = await Promise.all([
@@ -410,8 +426,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       if (!request.payoutLink) throw new Error('PAYOUT_LINK_MISSING');
       const checkoutUrl = buildPayoutCheckoutUrl(request.payoutLink, request.amountCents, request.currencyCode);
       await Linking.openURL(checkoutUrl);
-    } catch {
-      Alert.alert('Paiement', 'Impossible de démarrer le déblocage pour le moment.');
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      if (message.includes('DUPLICATE_TRACK_PURCHASE_BLOCKED')) {
+        Alert.alert('Pas de double achat', 'Cette collection contient de la musique que tu possèdes déjà. Loki bloque le débit et te permet de demander seulement les morceaux manquants.');
+      } else {
+        Alert.alert('Paiement', 'Impossible de démarrer le déblocage pour le moment.');
+      }
     } finally {
       setOpportunityPurchaseBusy(false);
     }
