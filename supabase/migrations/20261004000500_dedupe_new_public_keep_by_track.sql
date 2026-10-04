@@ -1,3 +1,4 @@
+-- ADEL-APPROVED-DESTRUCTIVE: 2026-10-04 suppression uniquement des vraies notifications doublons NEW_PUBLIC_KEEP (même destinataire + même trackId), demandée explicitement pendant l’audit mobile.
 -- Loki Music — dedupe NEW_PUBLIC_KEEP by recipient + track identity.
 -- Distinct tracks must stay distinct even when the visible masked copy is identical.
 -- The same track should not notify the same recipient multiple times within 24h,
