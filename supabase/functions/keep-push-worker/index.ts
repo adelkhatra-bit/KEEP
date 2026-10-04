@@ -39,6 +39,20 @@ function isMoneyNotification(data: Record<string, unknown> | null) {
   return kind === "money" || ["PLAYLIST_SALE_COMPLETED", "EVENT_TICKET_SALE_COMPLETED"].includes(event);
 }
 
+function suppressRedundantPresentation(notification: PendingNotification) {
+  const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
+  const data = notification.data || {};
+  const source = String(data.source || "").toUpperCase();
+  const sourceTable = String(data.sourceTable || data.source_table || "").toLowerCase();
+  const sharedTrackId = String(data.sharedTrackId || data.shared_track_id || "");
+
+  if (type === "AGORA_DIRECT" && sharedTrackId) return true;
+  if (type === "FREE_CREDITED" && source === "ARENA") return true;
+  if (type === "FREE_CREDIT_REWARD" && sourceTable === "keep_battle_arena_credit_events") return true;
+  if (type === "FREE_CREDIT_REWARD" && sourceTable === "admin_credit_grants") return true;
+  return false;
+}
+
 function notificationCategory(notification: PendingNotification) {
   const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
   if (isMoneyNotification(notification.data)) return "money";
@@ -122,6 +136,16 @@ async function processPending() {
     const attemptNumber = Number(notification.push_attempt_count || 0) + 1;
     const now = new Date().toISOString();
     try {
+      if (suppressRedundantPresentation(notification)) {
+        await db.from("notifications").update({
+          pushed_at: now,
+          push_delivery_status: "SUPPRESSED_DUPLICATE",
+          push_attempt_count: attemptNumber,
+          push_last_error: null,
+        }).eq("id", notification.id);
+        continue;
+      }
+
       const { data: rawTokens, error: tokenError } = await db.from("push_tokens").select("id,token").eq("profile_id", notification.profile_id);
       if (tokenError) throw tokenError;
       const all = (rawTokens || []) as PushTokenRow[];
