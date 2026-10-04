@@ -829,10 +829,10 @@ export default function HomeScreenCompact({ navigation }: any) {
               size="small"
               onPress={goNewer}
               disabled={!canGoNewer}
-              accessibilityLabel="Morceau plus récent"
+              accessibilityLabel="Morceau précédent"
               accessibilityHint="Écouter le morceau précédent détecté"
             >
-              ‹  Plus récent
+              ‹  PRÉCÉDENT
             </MotionActionButton>
             <Text style={s.queueNavCount}>{currentIndex + 1} / {tracks.length}</Text>
             <MotionActionButton
@@ -840,10 +840,10 @@ export default function HomeScreenCompact({ navigation }: any) {
               size="small"
               onPress={goOlder}
               disabled={!canGoOlder}
-              accessibilityLabel="Morceau plus ancien"
+              accessibilityLabel="Morceau suivant"
               accessibilityHint="Écouter le morceau suivant détecté"
             >
-              Plus ancien  ›
+              SUIVANT  ›
             </MotionActionButton>
           </View>
         ) : null}
