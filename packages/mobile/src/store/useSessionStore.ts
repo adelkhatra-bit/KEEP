@@ -13,6 +13,7 @@ import { clearSharedMusicSource, getSharedMusicSource } from '../services/shared
 import { prepareRecognitionNotifications } from '../services/recognitionNotificationService';
 import { useSessionHistoryStore } from './useSessionHistoryStore';
 import { advanceMusicPresenceGate, classifyMusicPresence, createMusicPresenceGateState, type MusicPresenceVerdict } from '../services/musicPresence';
+import { listenQuotaMessage, loadListenEconomyStatus, recordListenSuccess, type ListenEconomyStatus } from '../services/listenEconomyService';
 
 const RECOGNITION_TICK_MS = 700;
 // Le serveur autorise 12 fingerprints/minute par identité. Un départ toutes les
@@ -183,6 +184,8 @@ interface SessionStore {
   // (elle reprend automatiquement à la fin de l'extrait) sans jamais
   // toucher à sessionId/tracks/startedAt.
   micPaused: boolean;
+  listenEconomyStatus: ListenEconomyStatus | null;
+  refreshListenEconomyStatus: () => Promise<ListenEconomyStatus | null>;
   pauseListening: () => void;
   resumeListening: () => void;
   startSession: () => void;
@@ -277,6 +280,33 @@ async function applyDetectedTrack(
     status: 'pending',
     detectedAt: new Date().toISOString(),
   };
+
+  // ECONOMIE FREE 04/10 : une écoute n'est comptée qu'après une vraie
+  // reconnaissance, jamais au démarrage du micro ni sur un "aucun résultat".
+  // Le RPC est idempotent par session+entry et débite 1 FREE seulement si le
+  // quota inclus était déjà épuisé. En cas de refus serveur, le morceau n'est
+  // pas ajouté localement : aucun résultat gratuit ne contourne le quota.
+  if (source === 'listen' && !musicEngine.isDemoMode) {
+    try {
+      const economy = await recordListenSuccess('listen:' + sessionIdAtDetection + ':' + entry.id);
+      if (economy) {
+        set({ listenEconomyStatus: economy });
+        if (economy.ok === false) {
+          set({
+            recognizing: false,
+            micLevel: 0,
+            micPaused: true,
+            error: listenQuotaMessage(economy),
+          });
+          return 'inactive';
+        }
+      }
+    } catch {
+      // Une panne temporaire de comptage ne transforme pas une reconnaissance
+      // valide en perte de morceau. Le prochain focus rafraîchira le compteur.
+    }
+  }
+
   lastDetectionAt = Date.now();
   lastMatchAt = lastDetectionAt;
   nextRecognitionAllowedAt = Date.now() + NEW_MATCH_COOLDOWN_MS;
@@ -378,6 +408,17 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   lat: undefined,
   lng: undefined,
   micPaused: false,
+  listenEconomyStatus: null,
+
+  refreshListenEconomyStatus: async () => {
+    try {
+      const status = await loadListenEconomyStatus();
+      if (status) set({ listenEconomyStatus: status });
+      return status;
+    } catch {
+      return get().listenEconomyStatus;
+    }
+  },
 
   pauseListening: () => {
     if (!get().isActive || get().micPaused) return;
@@ -438,6 +479,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
     const tick = async () => {
       if (!get().isActive || get().recognizing || get().micPaused) return;
+      const listenEconomy = get().listenEconomyStatus;
+      if (listenEconomy && !listenEconomy.canListen) {
+        set({
+          recognizing: false,
+          micLevel: 0,
+          micPaused: true,
+          error: listenQuotaMessage(listenEconomy),
+        });
+        return;
+      }
       const now = Date.now();
       if (now < nextRecognitionAllowedAt) return;
       nextRecognitionAllowedAt = now + MIN_RECOGNITION_ATTEMPT_GAP_MS;
