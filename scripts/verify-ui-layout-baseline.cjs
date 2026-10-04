@@ -19,6 +19,12 @@ must(baseline.profileOwner?.certificationMustAppearBesideUsername === true, 'mac
 must(baseline.profileOwner.freePlacement === productContract.profileOwner.freePlacement, 'UI baseline disagrees with canonical product contract');
 must(JSON.stringify(baseline.profileOwner.metricsBarOrder) === JSON.stringify(productContract.profileOwner.metricsBarOrder), 'metrics order disagrees with canonical product contract');
 
+const touchRule = baseline.accessibilityTouchTargets || {};
+must(touchRule.sharedMinimum === 48, 'shared touch target minimum must stay at 48');
+must(productContract.accessibilityTouchTargets?.sharedMinimum === 48, 'product contract touch target minimum must stay at 48');
+const spacingSource = fs.readFileSync(path.join(root, 'packages/mobile/src/theme/spacing.ts'), 'utf8');
+must(spacingSource.includes('export const minTouchTarget = 48;'), 'theme minTouchTarget must stay at 48');
+
 const identityStart = profile.indexOf('<View style={s.identity}>');
 const usernameStart = profile.indexOf('<View style={s.usernameLine}>', identityStart);
 const metaStart = profile.indexOf('<View style={s.profileMetaTopRow}>');
@@ -56,3 +62,4 @@ must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout con
 console.log('KEEP UI baseline: PASS');
 console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
+console.log('accessibility: shared touch targets >= 48 locked');
