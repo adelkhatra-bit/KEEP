@@ -61,6 +61,11 @@ let profilePreloadedSound: NativeSound | null = null;
 let profilePreloadedUrl: string | null = null;
 let webProfilePreload: any = null;
 let webProfilePreloadUrl: string | null = null;
+// Les demandes de lecture sont versionnées : PASSER/ARRÊTER invalide immédiatement
+// une ouverture AV encore en cours afin qu'un ancien morceau ne puisse jamais
+// démarrer après le geste utilisateur.
+let playbackRequestEpoch = 0;
+let profilePreloadEpoch = 0;
 
 // Safari iOS peut rebloquer l'autoplay si un nouvel élément audio est recréé entre
 // deux manches. Sur le web, Loki Battle réutilise donc le même HTMLAudioElement
@@ -506,7 +511,9 @@ export async function toggleTrackPreview(
   onStateChange: (playing: boolean) => void,
   onEnded?: () => void,
 ): Promise<void> {
+  const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
+    if (requestEpoch !== playbackRequestEpoch) return;
     // BUG RÉEL (Adel, 01/09/2026 : "les musiques ne partent pas" puis "j'appuie
     // sur passer, ça bloque", dans le Swipe de Mes Sessions). Cette fonction
     // n'avait pas le même repli web que playTrackPreviewSegment/
@@ -553,19 +560,39 @@ export async function toggleTrackPreview(
       profilePreloadedUrl = null;
       await unloadActive();
       await configurePreviewAudio();
+      if (requestEpoch !== playbackRequestEpoch) {
+        try { await ready.unloadAsync(); } catch {}
+        return;
+      }
       ready.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => onStatus(status, ready));
       try { await ready.setPositionAsync(0); } catch {}
-      await ensurePlaying(ready);
       createdSound = ready;
     } else {
       await unloadActive();
       await configurePreviewAudio();
-      createdSound = await createSoundWithRetry(previewUrl, 0, onStatus);
+      // Créer chargé mais silencieux : si PASSER arrive pendant le chargement,
+      // l'ancien titre est abandonné AVANT tout playAsync, donc aucun chevauchement.
+      createdSound = await createSoundWithRetry(previewUrl, 0, onStatus, false);
+    }
+
+    if (requestEpoch !== playbackRequestEpoch) {
+      try { await createdSound.unloadAsync(); } catch {}
+      return;
     }
 
     activeSound = createdSound;
     activeKey = key;
     activeStateListener = onStateChange;
+    try {
+      await ensurePlaying(createdSound);
+    } catch (error) {
+      if (activeSound === createdSound) await unloadActive();
+      throw error;
+    }
+    if (requestEpoch !== playbackRequestEpoch) {
+      if (activeSound === createdSound) await unloadActive();
+      return;
+    }
     onStateChange(true);
   });
 }
@@ -596,25 +623,36 @@ export async function preloadTrackPreview(previewUrl: string): Promise<void> {
     return;
   }
 
-  return serialize(async () => {
-    if (profilePreloadedSound && profilePreloadedUrl === previewUrl) return;
-    let activePlaying = false;
+  const requestEpoch = ++profilePreloadEpoch;
+  if (profilePreloadedSound && profilePreloadedUrl === previewUrl) return;
+  let activePlaying = false;
     if (activeSound) {
       try {
         const status = await activeSound.getStatusAsync();
         activePlaying = Boolean(status.isLoaded && status.isPlaying);
       } catch {}
     }
-    await discardProfilePreloaded();
-    try {
-      if (!activePlaying) await configurePreviewAudio();
-      const sound = await createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying);
-      profilePreloadedSound = sound;
-      profilePreloadedUrl = previewUrl;
-    } catch {
-      await discardProfilePreloaded();
+  const stale = profilePreloadedSound;
+  profilePreloadedSound = null;
+  profilePreloadedUrl = null;
+  if (stale) {
+    void stale.stopAsync().catch(() => {}).then(() => stale.unloadAsync().catch(() => {}));
+  }
+  try {
+    if (!activePlaying) await configurePreviewAudio();
+    const sound = await createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying);
+    if (requestEpoch !== profilePreloadEpoch) {
+      try { await sound.unloadAsync(); } catch {}
+      return;
     }
-  });
+    profilePreloadedSound = sound;
+    profilePreloadedUrl = previewUrl;
+  } catch {
+    if (requestEpoch === profilePreloadEpoch) {
+      profilePreloadedSound = null;
+      profilePreloadedUrl = null;
+    }
+  }
 }
 
 /**
@@ -842,6 +880,7 @@ export async function scheduleTrackPreviewSegment(
 export function stopTrackPreviewFast(key?: string): void {
   const matchesCurrent = !key || activeKey === key || webAudioKey === key;
   if (!matchesCurrent) return;
+  playbackRequestEpoch += 1;
 
   clearActiveTimer();
 
@@ -880,6 +919,7 @@ export async function stopTrackPreview(key?: string): Promise<void> {
   // file sérialisée conserve ensuite la responsabilité du nettoyage complet.
   const matchesCurrent = !key || activeKey === key || webAudioKey === key;
   if (!matchesCurrent) return;
+  playbackRequestEpoch += 1;
   clearActiveTimer();
   if (!key || webAudioKey === key) {
     const listener = webAudioListener;
