@@ -184,6 +184,14 @@ async function freeDeezer(title: string, artist: string) {
   }
 }
 
+function parseTimecodeSeconds(value: unknown): number | undefined {
+  const raw = String(value ?? "").trim();
+  if (!raw) return undefined;
+  const parts = raw.split(":").map((part) => Number(part));
+  if (!parts.length || parts.some((part) => !Number.isFinite(part) || part < 0)) return undefined;
+  return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
 async function normalizeResult(result: any) {
   if (!result?.title || !result?.artist) return null;
   const apple = result.apple_music ?? null;
@@ -197,6 +205,14 @@ async function normalizeResult(result: any) {
   const deezerId = deezer?.id ?? undefined;
   const artwork = apple?.artwork?.url || spotify?.album?.images?.[0]?.url || catalog?.artworkUrl100
     || deezer?.album?.cover_xl || deezer?.album?.cover_big || undefined;
+  const durationSec = Number(catalog?.trackTimeMillis) > 0
+    ? Number(catalog.trackTimeMillis) / 1000
+    : Number(deezer?.duration) > 0
+      ? Number(deezer.duration)
+      : Number(spotify?.duration_ms) > 0
+        ? Number(spotify.duration_ms) / 1000
+        : undefined;
+  const recognizedOffsetSec = parseTimecodeSeconds(result.timecode);
   const providerIds: Record<string, string> = {};
   if (appleId) providerIds.appleMusic = String(appleId);
   if (spotifyId) providerIds.spotify = String(spotifyId);
@@ -213,6 +229,8 @@ async function normalizeResult(result: any) {
     title: String(result.title),
     artist: String(result.artist),
     album: result.album ? String(result.album) : catalog?.collectionName ? String(catalog.collectionName) : deezer?.album?.title ? String(deezer.album.title) : undefined,
+    durationSec,
+    recognizedOffsetSec,
     isrc: result.isrc ? String(result.isrc) : apple?.isrc ? String(apple.isrc) : spotify?.external_ids?.isrc ? String(spotify.external_ids.isrc) : undefined,
     artworkUrl: artwork ? upscaleArtwork(String(artwork)) : undefined,
     previewUrl: catalog?.previewUrl ? String(catalog.previewUrl) : deezer?.preview ? String(deezer.preview) : undefined,

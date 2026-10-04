@@ -161,6 +161,7 @@ type CatalogEnrichment = {
   appleTrackViewUrl?: string;
   primaryGenre?: string;
   releaseYear?: number;
+  durationSec?: number;
   // Confirmation indépendante par un catalogue public. Un match ACRCloud
   // moyen n’est promu que si le même titre + artiste existe exactement.
   exactCatalogMatch: boolean;
@@ -206,6 +207,9 @@ async function resolveCatalogEnrichment(title: string, artist: string, deezerTra
     appleTrackViewUrl: best?.trackViewUrl ? String(best.trackViewUrl) : undefined,
     primaryGenre: best?.primaryGenreName ? String(best.primaryGenreName) : undefined,
     releaseYear: /^\d{4}/.test(String(best?.releaseDate ?? '')) ? Number(String(best.releaseDate).slice(0, 4)) : undefined,
+    durationSec: Number(best?.trackTimeMillis) > 0
+      ? Number(best.trackTimeMillis) / 1000
+      : Number(deezerTrack?.duration) > 0 ? Number(deezerTrack.duration) : undefined,
     exactCatalogMatch: Boolean(exactItunes || exactDeezer),
   };
 }
@@ -300,6 +304,10 @@ async function normalizeAcrMusicWithEvidence(music: any) {
       title,
       artist: String(artist),
       album: music.album?.name ? String(music.album.name) : undefined,
+      durationSec: enrichment.durationSec,
+      recognizedOffsetSec: Number(music.play_offset_ms) >= 0 && Number.isFinite(Number(music.play_offset_ms))
+        ? Number(music.play_offset_ms) / 1000
+        : undefined,
       isrc: firstString(music.external_ids?.isrc),
       artworkUrl: enrichment.artworkUrl,
       previewUrl: enrichment.previewUrl,

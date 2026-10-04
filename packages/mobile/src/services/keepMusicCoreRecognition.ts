@@ -18,6 +18,8 @@ const PROVIDER_RATE_LIMIT_BACKOFF_MS = 65 * 1000;
 // Économie FREE 04/10/2026 : les fast-paths gratuits restent réactifs, mais
 // aucun fournisseur payant ne doit recevoir plus d'un extrait toutes les 20 s.
 const PAID_PROVIDER_MIN_GAP_MS = 20 * 1000;
+const DEFAULT_RECOGNIZED_TRACK_REMAINING_MS = 75 * 1000;
+const MAX_RECOGNIZED_TRACK_REMAINING_MS = 4 * 60 * 1000;
 // 04/10/2026: AudD renvoie actuellement recognition_not_configured (409) en production.
 // ACRCloud est configuré et devient le moteur serveur prioritaire. AudD reste déployé
 // mais hors du chemin normal tant qu'une clé valide n'est pas explicitement réactivée.
@@ -28,6 +30,7 @@ let primaryUnavailableUntil = 0;
 let recognitionBackoffUntil = 0;
 let fallbackConsensus: RecognitionConsensusState | null = null;
 let lastPaidProviderAttemptAt = 0;
+let paidProviderSuppressedUntil = 0;
 let nextPaidListenUsesFree = false;
 
 export function authorizeNextPaidListenWithFree(): void {
@@ -40,6 +43,33 @@ export function clearNextPaidListenFreeAuthorization(): void {
 
 function paidListenAuthorizationActive(): boolean {
   return nextPaidListenUsesFree;
+}
+
+function estimatedPaidProviderSuppressionMs(recognition: RecognitionResult): number {
+  const durationSec = Number(recognition.durationSec);
+  const offsetSec = Number(recognition.recognizedOffsetSec);
+  if (Number.isFinite(durationSec) && durationSec > 0) {
+    const estimatedRemainingSec = Number.isFinite(offsetSec) && offsetSec >= 0
+      ? Math.max(0, durationSec - offsetSec)
+      : Math.max(45, durationSec * 0.5);
+    return Math.max(
+      PAID_PROVIDER_MIN_GAP_MS,
+      Math.min(MAX_RECOGNIZED_TRACK_REMAINING_MS, (estimatedRemainingSec + 5) * 1000),
+    );
+  }
+  return DEFAULT_RECOGNIZED_TRACK_REMAINING_MS;
+}
+
+/**
+ * Une reconnaissance confirmée ferme les fournisseurs payants jusqu'à la fin
+ * estimée du titre. Les fast-paths gratuits (ShazamKit/mémoire/lien partagé)
+ * restent actifs et peuvent donc détecter le morceau suivant sans coût.
+ */
+export function noteSuccessfulRecognitionForPaidSuppression(recognition: RecognitionResult): void {
+  paidProviderSuppressedUntil = Math.max(
+    paidProviderSuppressedUntil,
+    Date.now() + estimatedPaidProviderSuppressionMs(recognition),
+  );
 }
 
 function deviceTimeZone(): string {
@@ -405,6 +435,7 @@ export async function recognizeWithKeepMemoryFast(audioSample: ArrayBuffer | Blo
     recognitionBackoffUntil = 0;
     fallbackUnavailableUntil = 0;
     armStickyMatch();
+    noteSuccessfulRecognitionForPaidSuppression(memory);
   }
   return memory;
 }
@@ -587,7 +618,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // valide. Cela supprime les 409 AudD observés sur TestFlight/Web sans
     // désactiver la reconnaissance : le même échantillon part directement
     // vers le fournisseur réellement configuré.
-    if (!fallbackKnownUnavailable() && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
+    if (!fallbackKnownUnavailable() && Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS) {
       const useFree = paidListenAuthorizationActive();
       lastPaidProviderAttemptAt = Date.now();
       const acr = await recognitionAttempt('keep-music-fallback', blob, accessToken, deviceId, useFree);
@@ -603,6 +634,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         fallbackUnavailableUntil = 0;
         fallbackConsensus = null;
         recognitionBackoffUntil = 0;
+        noteSuccessfulRecognitionForPaidSuppression(acr.payload.recognition as RecognitionResult);
         return acr.payload.recognition as RecognitionResult;
       }
 
@@ -616,6 +648,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         if (decision.accepted) {
           fallbackUnavailableUntil = 0;
           recognitionBackoffUntil = 0;
+          noteSuccessfulRecognitionForPaidSuppression(decision.accepted);
           return decision.accepted;
         }
       }
@@ -641,7 +674,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     // AudD reste disponible comme palier secondaire mais n'est plus appelé
     // tant qu'il n'est pas explicitement réactivé avec une clé valide.
     if (AUDD_PRIMARY_ENABLED) {
-      const paidReady = Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS;
+      const paidReady = Date.now() >= paidProviderSuppressedUntil && Date.now() - lastPaidProviderAttemptAt >= PAID_PROVIDER_MIN_GAP_MS;
       const audd = Date.now() < primaryUnavailableUntil || !paidReady
         ? { ok: false, status: 409, payload: { error: 'recognition_not_configured_cached' } }
         : await (async () => {
@@ -653,6 +686,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
         primaryUnavailableUntil = 0;
         fallbackConsensus = null;
         recognitionBackoffUntil = 0;
+        noteSuccessfulRecognitionForPaidSuppression(audd.payload.recognition as RecognitionResult);
         return audd.payload.recognition as RecognitionResult;
       }
       if (audd.status === 402 && audd.payload?.error === 'listen_free_required') throw new Error('LISTEN_FREE_REQUIRED');
@@ -666,6 +700,7 @@ export class KeepMusicCoreRecognitionProvider implements MusicRecognitionProvide
     const keyless = await keylessSourceRecognition(accessToken);
     if (keyless) {
       recognitionBackoffUntil = 0;
+      noteSuccessfulRecognitionForPaidSuppression(keyless);
       return keyless;
     }
 

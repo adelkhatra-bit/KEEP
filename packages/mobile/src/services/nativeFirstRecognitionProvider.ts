@@ -1,7 +1,7 @@
 import type { MusicRecognitionProvider, RecognitionResult } from '@keep/music';
 import { recognizeSharedSourceKeyless } from './keylessSharedSourceRecognition';
 import { recognizeWithNativeShazam } from './nativeShazamRecognition';
-import { learnRecognitionInBackground, recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
+import { learnRecognitionInBackground, noteSuccessfulRecognitionForPaidSuppression, recognizeWithKeepMemoryFast } from './keepMusicCoreRecognition';
 
 /**
  * Cascade de reconnaissance Loki, du plus autonome au plus dépendant :
@@ -52,6 +52,7 @@ export class NativeFirstRecognitionProvider implements MusicRecognitionProvider 
       recognizeSharedSourceKeyless(),
     ]);
     if (fast) {
+      noteSuccessfulRecognitionForPaidSuppression(fast);
       const providerTrackId = String(fast.recognitionProviderTrackId ?? '');
       if (!providerTrackId.startsWith('keep-memory:') && !providerTrackId.startsWith('keyless:')) {
         void learnRecognitionInBackground(fast);
