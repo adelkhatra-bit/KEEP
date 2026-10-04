@@ -1,4 +1,5 @@
 import ChatDockHost from './ChatDockHost';
+import KeepVisibilityChoiceModal from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -652,40 +653,18 @@ export default function MusicSwipeDeckModal({
         </>}
       </View>
 
-      {!previewOnly ? <Modal visible={keepPromptOpen} transparent animationType="fade" onRequestClose={cancelKeep}>
-        <View style={s.keepOverlay}>
-          <View style={s.keepPromptCard}>
-            <Text style={s.keepPromptEyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
-            <Text style={s.keepPromptTitle}>Garder ce morceau ?</Text>
-            <Text style={s.keepPromptTrack} numberOfLines={2}>{current?.title} · {current?.artist}</Text>
-            <Text style={s.keepPromptBody}>Choisis seulement si tu veux vraiment le garder. Rien n’est enregistré tant que tu n’as pas choisi.</Text>
-            {keepCostNotice ? (
-              <View style={s.keepCostNotice}>
-                <Text style={s.keepCostNoticeIcon}>⚡</Text>
-                <View style={s.keepCostNoticeCopy}>
-                  <Text style={s.keepCostNoticeTitle}>CONFIRMATION FREE</Text>
-                  <Text style={s.keepCostNoticeText}>{keepCostNotice}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            <TouchableOpacity style={[s.keepChoice, s.keepChoicePublic]} onPress={() => { void confirmKeep('PUBLIC'); }} accessibilityLabel="Visible sur mon profil">
-              <Text style={s.keepChoicePublicTitle}>VISIBLE SUR MON PROFIL</Text>
-              <Text style={s.keepChoiceText}>Tes abonnés pourront voir ce morceau dans ton univers Loki Music.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[s.keepChoice, s.keepChoicePrivate]} onPress={() => { void confirmKeep('PRIVATE'); }} accessibilityLabel="Garder en privé">
-              <Text style={s.keepChoicePrivateTitle}>GARDER EN PRIVÉ</Text>
-              <Text style={s.keepChoiceText}>Le morceau reste pour toi et n’apparaît pas sur ton profil public.</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.keepCancel} onPress={cancelKeep} accessibilityLabel="Annuler sans garder">
-              <Text style={s.keepCancelText}>ANNULER — NE RIEN GARDER</Text>
-            </TouchableOpacity>
-            <Text style={s.keepCancelHint}>Si ce morceau ne t’intéresse pas, ferme cette fenêtre puis choisis PASSER.</Text>
-          </View>
-        </View>
-      </Modal> : null}
+      {!previewOnly ? (
+        <KeepVisibilityChoiceModal
+          visible={keepPromptOpen}
+          title="Garder ce morceau"
+          trackLabel={current ? `${current.title} · ${current.artist}` : null}
+          costFree={keepDebitAmount}
+          busy={processing}
+          onPublic={() => { void confirmKeep('PUBLIC'); }}
+          onPrivate={() => { void confirmKeep('PRIVATE'); }}
+          onCancel={cancelKeep}
+        />
+      ) : null}
 
       {!previewOnly ? <Modal visible={!!keepSuccess} transparent animationType="fade" onRequestClose={() => { void continueAfterKeepSuccess(); }}>
         <View style={s.keepOverlay}>
