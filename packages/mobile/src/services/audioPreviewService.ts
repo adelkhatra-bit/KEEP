@@ -96,9 +96,15 @@ export async function duckActivePreviewForSpeech(targetVolume = 0.14): Promise<n
 
   const element = webAudio;
   if (element && !element.paused) {
-    speechDuckWebElement = element;
-    speechDuckWebVolume = Number.isFinite(element.volume) ? Number(element.volume) : 1;
-    try { element.volume = Math.min(speechDuckWebVolume, safeTarget); } catch {}
+    // Deux prises de parole rapprochées ne doivent jamais mémoriser le volume
+    // déjà ducké comme nouveau "volume normal". Conserver la première valeur
+    // jusqu'à la restauration finale évite qu'un Swipe/Loki Pulse reste à
+    // ~14-16 % de volume après que Loki a parlé.
+    if (speechDuckWebElement !== element || speechDuckWebVolume === null) {
+      speechDuckWebElement = element;
+      speechDuckWebVolume = Number.isFinite(element.volume) ? Number(element.volume) : 1;
+    }
+    try { element.volume = Math.min(speechDuckWebVolume ?? 1, safeTarget); } catch {}
   }
 
   const sound = activeSound;
@@ -106,9 +112,11 @@ export async function duckActivePreviewForSpeech(targetVolume = 0.14): Promise<n
     try {
       const status = await sound.getStatusAsync();
       if (status.isLoaded && status.isPlaying) {
-        speechDuckNativeSound = sound;
-        speechDuckNativeVolume = Number.isFinite((status as any).volume) ? Number((status as any).volume) : 1;
-        await sound.setVolumeAsync(Math.min(speechDuckNativeVolume, safeTarget));
+        if (speechDuckNativeSound !== sound || speechDuckNativeVolume === null) {
+          speechDuckNativeSound = sound;
+          speechDuckNativeVolume = Number.isFinite((status as any).volume) ? Number((status as any).volume) : 1;
+        }
+        await sound.setVolumeAsync(Math.min(speechDuckNativeVolume ?? 1, safeTarget));
       }
     } catch {}
   }
@@ -212,8 +220,12 @@ async function configurePreviewAudio() {
     allowsRecordingIOS: recordingActive,
     playsInSilentModeIOS: true,
     staysActiveInBackground: recordingActive,
-    interruptionModeIOS: InterruptionModeIOS.MixWithOthers,
-    shouldDuckAndroid: true,
+    // Hors capture micro, l'extrait doit être le son principal du téléphone :
+    // ne pas le laisser se battre à bas volume avec Spotify/Tesla/autre audio.
+    // Pendant une vraie capture on conserve MixWithOthers pour ne jamais couper
+    // le microphone au milieu d'une identification.
+    interruptionModeIOS: recordingActive ? InterruptionModeIOS.MixWithOthers : InterruptionModeIOS.DoNotMix,
+    shouldDuckAndroid: recordingActive,
     playThroughEarpieceAndroid: false,
   }), 'AUDIO_MODE', 1800);
 }
@@ -221,6 +233,11 @@ async function configurePreviewAudio() {
 async function ensurePlaying(sound: NativeSound): Promise<void> {
   let status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS');
   if (!status.isLoaded) throw new Error('AUDIO_PREVIEW_NOT_LOADED');
+  // Chaque nouvel extrait repart à volume plein sauf s'il est précisément le
+  // son que Loki est en train de duck-er pour une phrase vocale.
+  if (speechDuckNativeSound !== sound) {
+    try { await withAudioTimeout(sound.setVolumeAsync(1), 'AUDIO_VOLUME_RESET', 900); } catch {}
+  }
   if (!status.isPlaying) {
     try { await withAudioTimeout(sound.playAsync(), 'AUDIO_PLAY', 1800); } catch {}
     await new Promise((resolve) => setTimeout(resolve, 90));
