@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, '..', 'HomeScreenCompact.
 describe('Loki home stable layout contract', () => {
   it('keeps En savoir plus inside a reserved slot so lower content does not jump', () => {
     expect(source).toContain('<View style={s.idleLearnMoreSlot}>');
-    expect(source).toContain('minHeight: 78');
+    expect(source).toContain("idleLearnMoreSlot: { width: '100%', height: 96");
   });
 
   it('keeps Pulse bubbles near the tab bar and slightly larger', () => {
