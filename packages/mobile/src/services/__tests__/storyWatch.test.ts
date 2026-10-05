@@ -163,3 +163,15 @@ describe('classement de la semaine sur les bulles', () => {
     expect(bar).toContain('ranking={ranking}');
   });
 });
+
+describe('barre des 5 onglets toujours visible (Adel 05/10/2026)', () => {
+  it('Navigation affiche la barre persistante sous les écrans empilés, sans doublon sur les onglets', () => {
+    const fs = require('fs'); const path = require('path');
+    const nav = fs.readFileSync(path.join(__dirname, '../../navigation/Navigation.tsx'), 'utf8');
+    expect(nav).toContain('function PersistentTabBar()');
+    expect(nav).toContain("if (rootRoute === 'Main') return null;");
+    expect(nav).toContain('<PersistentTabBar />');
+    for (const label of ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Profil']) expect(nav).toContain(`label: '${label}'`);
+    expect(nav).toContain('confirmLeaveGame(go)');
+  });
+});

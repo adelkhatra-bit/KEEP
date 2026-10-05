@@ -30,10 +30,12 @@ const protectedShell = {
   // `ProblemReportHost` (fenêtre invisible tant qu'on ne la demande pas) à côté de GlobalNotificationBanner. Shell responsive,
   // Navigation.tsx et barre des 5 onglets inchangés et revérifiés.
   'packages/mobile/App.tsx': '0882aebd034371e0257e57d531ddeaedbe35a8a7',
+  // Navigation.tsx (05/10/2026) : modification explicitement demandée par Adel (« la barre de tâche est visible tout le temps ») : barre des 5 onglets
+  // persistante sous les écrans empilés (PersistentTabBar), barre des onglets elle-même inchangée.
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
-  'packages/mobile/src/navigation/Navigation.tsx': 'e6219db1ad1f0fd4b1e65e5e4fb4bfa5facdd722',
+  'packages/mobile/src/navigation/Navigation.tsx': '7f49648977f652ece61bafc632d35e5524a599b7',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
