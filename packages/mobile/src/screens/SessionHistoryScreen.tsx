@@ -31,10 +31,7 @@ export default function SessionHistoryScreen({ navigation }: any) {
     .filter((session) => !isCloudProfileRecoverySession(session))
     .slice()
     .sort((a, b) => {
-      const aPending = pendingTracks(a);
-      const bPending = pendingTracks(b);
-      if ((aPending > 0) !== (bPending > 0)) return aPending > 0 ? -1 : 1;
-      if (aPending !== bPending) return bPending - aPending;
+      // Règle d'Adel (05/10/2026) : la session la plus récente est toujours en haut.
       return new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime();
     }), [sessions]);
   const deleteSession = useSessionHistoryStore((s) => s.deleteSession);

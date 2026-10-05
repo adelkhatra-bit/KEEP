@@ -74,7 +74,9 @@ export default function SessionRecapScreen({ route, navigation }: any) {
 
   const pendingSwipeTracks = useMemo<CanonicalTrack[]>(() => {
     if (!session) return [];
-    return session.tracks.filter((entry) => entry.status === 'pending').map((entry) => entry.track);
+    return session.tracks.filter((entry) => entry.status === 'pending').slice()
+      .sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime())
+      .map((entry) => entry.track);
   }, [session]);
 
   // Adel (02/09/2026) : "dans la session, quand j'efface des choses, pourquoi
@@ -85,12 +87,11 @@ export default function SessionRecapScreen({ route, navigation }: any) {
   // (compteurs, historique), seul l'affichage l'exclut.
   const sortedTracks = useMemo(() => {
     if (!session) return [];
-    const rank = (status: string) => status === 'pending' ? 0 : 1;
-    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => {
-      const statusDiff = rank(a.status) - rank(b.status);
-      if (statusDiff) return statusDiff;
-      return new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime();
-    });
+    // Règle d'Adel (05/10/2026), valable dans tout le système : la musique la
+    // plus récente est TOUJOURS en haut, quel que soit son statut.
+    return session.tracks.filter((entry) => entry.status !== 'passed').sort((a, b) => (
+      new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
+    ));
   }, [session]);
 
   // Adel (20/09/2026) : "swiper ne doit plus supprimer tout de suite -- ça
