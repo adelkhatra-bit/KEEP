@@ -6,7 +6,7 @@ import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
 import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
-import { preloadTrackPreview, stopTrackPreviewFast } from '../services/audioPreviewService';
+import { preloadTrackPreview, stopTrackPreviewFast, toggleTrackPreview } from '../services/audioPreviewService';
 import {
   composeStoryTeaser,
   loadMyPinnableTracks,
@@ -60,6 +60,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [plusOpen, setPlusOpen] = useState(false);
   const [pinnable, setPinnable] = useState<PinnableTrack[] | null>(null);
   const [pinBusy, setPinBusy] = useState('');
+  const [previewing, setPreviewing] = useState('');
   const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
 
   useEffect(() => {
@@ -129,6 +130,16 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   };
   // Adel (05/10/2026) : une musique déjà dans la story ne s'ajoute pas deux fois : on le dit clairement.
   const inStoryIds = new Set((ownStory?.tracks ?? []).map((track) => track.id));
+  // Pré-écoute avant d'ajouter à la story (Adel, 05/10/2026).
+  const previewTrack = (track: PinnableTrack) => {
+    if (!track.previewUrl) {
+      Alert.alert('Pas d’extrait', 'Aucun extrait audio n’est disponible pour cette musique.', [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    const key = `story-plus:${track.trackId}`;
+    void toggleTrackPreview(key, track.previewUrl, (playing) => setPreviewing(playing ? track.trackId : ''), () => setPreviewing('')).catch(() => setPreviewing(''));
+  };
+  const closePlus = () => { stopTrackPreviewFast(); setPreviewing(''); setPlusOpen(false); };
   const pin = async (track: PinnableTrack) => {
     if (inStoryIds.has(track.trackId)) {
       Alert.alert('Déjà dans ta story', `« ${track.title} » est déjà dans ta story des dernières 24 h : inutile de l'ajouter.`, [{ text: 'OK', style: 'cancel' }]);
@@ -138,7 +149,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setPinBusy(track.trackId);
     try {
       await pinStoryTrack(track.trackId);
-      setPlusOpen(false);
+      closePlus();
       refreshOwnStory();
       Alert.alert('Ajoutée à ta story', `« ${track.title} » est la dernière musique de ta story pour 24 h. Ta photo s'allume.`, [{ text: 'OK', style: 'cancel' }]);
     } catch {
@@ -178,26 +189,31 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         />
       </View>
 
-      <Modal visible={plusOpen} transparent animationType="fade" onRequestClose={() => setPlusOpen(false)}>
+      <Modal visible={plusOpen} transparent animationType="fade" onRequestClose={closePlus}>
         <SafeAreaView style={styles.backdrop}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Ajouter à ta story</Text>
-              <TouchableOpacity onPress={() => setPlusOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
+              <TouchableOpacity onPress={closePlus} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
             </View>
             <Text style={styles.plusHelp}>Choisis une de tes musiques en public : elle devient la dernière de ta story pendant 24 h. Tu peux aussi mettre en avant la musique d'un autre membre : garde-la en public, puis ajoute-la ici, il reste identifié.</Text>
             {pinnable === null ? <Text style={styles.viewsEmpty}>Chargement de tes musiques…</Text> : null}
             {pinnable && pinnable.length === 0 ? <Text style={styles.viewsEmpty}>Tu n'as pas encore de musique en public. Garde-en une en Public, elle apparaîtra ici.</Text> : null}
             <ScrollView>
               {(pinnable ?? []).map((track) => (
-                <TouchableOpacity key={track.trackId} style={styles.row} onPress={() => { void pin(track); }} disabled={Boolean(pinBusy)} accessibilityRole="button" accessibilityLabel={`Ajouter ${track.title} à ma story`}>
+                <View key={track.trackId} style={styles.row}>
                   {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>♪</Text></View>}
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.rowCopy}>
                     <Text style={styles.rowName} numberOfLines={1}>{track.title}</Text>
                     <Text style={styles.rowArtist} numberOfLines={1}>{track.artist}</Text>
                   </View>
-                  <Text style={[styles.rowState, inStoryIds.has(track.trackId) ? styles.rowStateSeen : styles.rowStateNew]}>{pinBusy === track.trackId ? '…' : inStoryIds.has(track.trackId) ? '✓ Déjà en story' : '+ Ajouter'}</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity style={styles.previewBtn} onPress={() => previewTrack(track)} accessibilityRole="button" accessibilityLabel={previewing === track.trackId ? `Arrêter l’extrait de ${track.title}` : `Écouter un extrait de ${track.title}`}>
+                    <Text style={styles.previewBtnText}>{previewing === track.trackId ? '■' : '▶'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.addBtn, inStoryIds.has(track.trackId) && styles.addBtnDone]} onPress={() => { void pin(track); }} disabled={Boolean(pinBusy)} accessibilityRole="button" accessibilityLabel={inStoryIds.has(track.trackId) ? `${track.title} est déjà dans ta story` : `Ajouter ${track.title} à ma story`}>
+                    <Text style={[styles.addBtnText, inStoryIds.has(track.trackId) && styles.addBtnTextDone]}>{pinBusy === track.trackId ? '…' : inStoryIds.has(track.trackId) ? '✓ En story' : '+ Ajouter'}</Text>
+                  </TouchableOpacity>
+                </View>
               ))}
             </ScrollView>
           </View>
@@ -296,6 +312,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  rowCopy: { flex: 1, minWidth: 0 },
+  previewBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#1B1230', alignItems: 'center', justifyContent: 'center' },
+  previewBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  addBtn: { flexShrink: 0, minHeight: 44, minWidth: 96, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', alignItems: 'center', justifyContent: 'center' },
+  addBtnDone: { borderColor: '#5C5468', backgroundColor: '#27222E' },
+  addBtnText: { color: '#2DE1C2', fontSize: 13, fontWeight: '900' },
+  addBtnTextDone: { color: '#E6E0EE' },
   teaser: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 8, paddingRight: 8 },
   plusBadge: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#7C5CFC', borderWidth: 2, borderColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
   plusBadgeText: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '900' },

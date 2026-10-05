@@ -2,6 +2,8 @@ import ProfileStoryBar from '../components/ProfileStoryBar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
+import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
+import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import QRCode from 'react-native-qrcode-svg';
 import { canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
@@ -313,6 +315,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
   const [serverOwnKeeps, setServerOwnKeeps] = useState<PublicProfileKeep[]>([]);
+  // Musiques actuellement dans une de MES offres de vente (elles sont masquées d'office tant qu'elles sont en vente).
+  const [offeredTrackIds, setOfferedTrackIds] = useState<Record<string, unknown>>({});
   const [discoveryImpacts, setDiscoveryImpacts] = useState<Record<string, DiscoveryImpact>>({});
   const [creditRemaining, setCreditRemaining] = useState<number | null>(null);
   const [creditUnlimited, setCreditUnlimited] = useState(false);
@@ -976,6 +980,12 @@ export default function ProfilePublicScreen({ navigation }: any) {
     }
     return Array.from(unique.values()).sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
   }, [sessions]);
+  useEffect(() => {
+    let live = true;
+    if (accountRequired || isDemoMode || isLocalGuest) return undefined;
+    void loadMyOfferedTrackIds().then((map) => { if (live) setOfferedTrackIds(map); }).catch(() => {});
+    return () => { live = false; };
+  }, [accountRequired, isDemoMode, isLocalGuest, serverOwnKeeps.length]);
   const canonicalOwnKeeps = useMemo(() => serverOwnKeeps.map((entry) => ({
     id: entry.decisionId,
     track: entry.track,
@@ -990,6 +1000,41 @@ export default function ProfilePublicScreen({ navigation }: any) {
     sourceAvatarUrl: entry.sourceAvatarUrl,
   })), [serverOwnKeeps]);
   const profileKeptTracks = accountRequired ? [] : canonicalOwnKeeps;
+  // Adel (05/10/2026) : « quand je clique sur Privé, explique POURQUOI : en vente, ou parce que j'ai décidé de la mettre en privé ;
+  // et si elle est privée par choix, je veux pouvoir la sortir du privé depuis le profil, sans ouvrir la playlist. »
+  const explainFolderVisibility = (folder: { genre: string; entries: Array<{ track: CanonicalTrack; visibility?: string }> }, badgeLabel: string) => {
+    if (badgeLabel === 'PUBLIC') {
+      Alert.alert('Style public', `Tous les morceaux de ce style sont visibles par les visiteurs du profil de @${user?.username ?? ''}.`, [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    const privateEntries = folder.entries.filter((entry) => entry.visibility !== 'PUBLIC');
+    const inSale = privateEntries.filter((entry) => Boolean(offeredTrackIds[entry.track.id]));
+    const byChoice = privateEntries.filter((entry) => !offeredTrackIds[entry.track.id]);
+    const lines: string[] = [];
+    if (inSale.length) lines.push(`• ${inSale.length} masqué${inSale.length > 1 ? 's' : ''} automatiquement parce qu’${inSale.length > 1 ? 'ils sont' : 'il est'} EN VENTE. Retire-${inSale.length > 1 ? 'les' : 'le'} de l’offre pour ${inSale.length > 1 ? 'les' : 'le'} remettre au public.`);
+    if (byChoice.length) lines.push(`• ${byChoice.length} privé${byChoice.length > 1 ? 's' : ''} parce que TU l’as décidé (pas en vente) : tu peux ${byChoice.length > 1 ? 'les' : 'le'} remettre en public ici.`);
+    if (!lines.length) lines.push('Seul toi vois ces morceaux.');
+    const visitorsNote = badgeLabel === 'PRIVÉ' ? 'Les visiteurs ne voient aucun morceau de ce style.' : 'Les visiteurs voient uniquement les morceaux publics.';
+    const buttons: Array<{ text: string; style?: 'cancel' | 'default'; onPress?: () => void }> = [{ text: 'OK', style: 'cancel' }];
+    if (byChoice.length && !isDemoMode && !isLocalGuest) {
+      buttons.unshift({
+        text: `REPASSER EN PUBLIC (${byChoice.length})`,
+        onPress: () => {
+          void (async () => {
+            try {
+              for (const entry of byChoice) await persistOwnTrackVisibility(entry.track, 'PUBLIC');
+              const keeps = await loadOwnProfileKeeps();
+              setServerOwnKeeps(keeps);
+              Alert.alert('Remis en public', `${byChoice.length} morceau${byChoice.length > 1 ? 'x sont' : ' est'} de nouveau visible${byChoice.length > 1 ? 's' : ''} sur ton profil.`, [{ text: 'OK', style: 'cancel' }]);
+            } catch {
+              Alert.alert('Action impossible', 'La visibilité n’a pas pu être modifiée. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+            }
+          })();
+        },
+      });
+    }
+    Alert.alert(`Style ${badgeLabel === 'PRIVÉ' ? 'privé' : 'mixte'} · ${folder.genre}`, `${lines.join('\n')}\n\n${visitorsNote}`, buttons as any);
+  };
   const ownTrackIdentityKeys = useMemo(() => new Set(profileKeptTracks.map((entry) => {
     const title = entry.track.title.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
     const artist = entry.track.artist.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
@@ -1550,14 +1595,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                     subtitle={`${folder.entries.length} morceau${folder.entries.length > 1 ? 'x' : ''} · ${publicCount} public${publicCount > 1 ? 's' : ''}${privateCount ? ` · ${privateCount} privé${privateCount > 1 ? 's' : ''}` : ''}`}
                     mode="PUBLIC"
                     badgeLabel={badgeLabel}
-                    onBadgePress={() => Alert.alert(
-                      badgeLabel === 'PUBLIC' ? 'Style public' : badgeLabel === 'PRIVÉ' ? 'Style privé' : 'Style mixte',
-                      badgeLabel === 'PUBLIC'
-                        ? `Tous les morceaux de ce style sont visibles par les visiteurs du profil de @${user.username}.`
-                        : badgeLabel === 'PRIVÉ'
-                          ? `Tous les morceaux de ce style sont privés : seul @${user.username} les voit.`
-                          : `Ce style mélange des morceaux publics et privés. Les visiteurs voient uniquement les morceaux publics ; @${user.username} voit l’ensemble.`,
-                    )}
+                    onBadgePress={() => explainFolderVisibility(folder, badgeLabel)}
                     badgeAccessibilityLabel={`${badgeLabel}. Appuyer pour comprendre la visibilité de ce style`}
                     actionLabel={sourceUsername ? `Découvert par ${sourceUsername.replace(/^@+/, '')}` : undefined}
                     onActionPress={sourceUsername ? () => openSourceProfile(sourceUsername) : undefined}
@@ -2392,6 +2430,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
       sourceByTrack={sourceByTrack}
+      allowStoryAdd
       subtitle="Aperçu exact du Swipe proposé à tes abonnés."
       emptyTitle="Aucun morceau public à prévisualiser."
       backLabel="REVENIR AU PROFIL"
@@ -2527,6 +2566,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       sourceUsername={user.username}
       sourceAvatarUrl={user.avatar}
       sourceByTrack={selectionSwipe?.sourceByTrack}
+      allowStoryAdd
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"

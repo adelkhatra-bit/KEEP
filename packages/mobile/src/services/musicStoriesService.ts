@@ -327,14 +327,14 @@ export async function pinStoryTrack(trackId: string): Promise<void> {
   if (error) throw error;
 }
 
-export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; sourceUsername: string | null };
+export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null };
 
 /** Mes musiques gardées en public (les plus récentes d'abord), avec l'utilisateur d'origine quand c'est une reprise. */
 export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTrack[]> {
   if (!supabase || !viewerId) return [];
   const { data, error } = await supabase
     .from('keep_decisions')
-    .select('track_id,created_at,source_user_id,track:tracks(id,title,artist,artwork_url)')
+    .select('track_id,created_at,source_user_id,track:tracks(id,title,artist,artwork_url,preview_url)')
     .eq('profile_id', viewerId)
     .eq('decision', 'KEPT')
     .eq('visibility', 'PUBLIC')
@@ -346,6 +346,7 @@ export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTr
     title: String(row.track?.title ?? ''),
     artist: String(row.track?.artist ?? ''),
     artworkUrl: row.track?.artwork_url ? String(row.track.artwork_url) : null,
+    previewUrl: row.track?.preview_url ? String(row.track.preview_url) : null,
     sourceUsername: null,
   })).filter((row: PinnableTrack) => row.trackId && row.title);
 }
@@ -374,4 +375,21 @@ export function composeStoryTeaser(username: string, seed: string): string {
   const pick = (list: string[], salt: string) => list[mix(`${salt}|${seed}`) % list.length];
   const body = pick(TEASER_PARTS.body, 'b');
   return `${pick(TEASER_PARTS.open, 'o')} ${body.charAt(0).toUpperCase()}${body.slice(1)} ${pick(TEASER_PARTS.tail, 't').replace('{u}', username)}`;
+}
+
+
+/** Identifiants des musiques déjà dans MA story (partages publics + épingles des dernières 24 h) : anti-doublon. */
+export async function loadMyStoryTrackIds(): Promise<Set<string>> {
+  const ids = new Set<string>();
+  if (!supabase) return ids;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const uid = sessionData.session?.user?.id;
+  if (!uid) return ids;
+  const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
+  const [keeps, pins] = await Promise.all([
+    supabase.from('keep_decisions').select('track_id').eq('profile_id', uid).eq('decision', 'KEPT').eq('visibility', 'PUBLIC').gte('created_at', since).limit(200),
+    supabase.from('story_pins').select('track_id').eq('profile_id', uid).gte('pinned_at', since).limit(200),
+  ]);
+  for (const row of [...(keeps.data ?? []), ...(pins.data ?? [])] as any[]) if (row?.track_id) ids.add(String(row.track_id));
+  return ids;
 }

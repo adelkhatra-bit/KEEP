@@ -166,6 +166,26 @@ describe('« + » : musique déjà en story', () => {
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(bar).toContain('inStoryIds.has(track.trackId)');
     expect(bar).toContain('Déjà dans ta story');
-    expect(bar).toContain('✓ Déjà en story');
+    expect(bar).toContain('✓ En story');
+    expect(bar).toContain('previewTrack(track)');
+  });
+});
+
+describe('Découvert par = premier découvreur partout (BUG-005) et pourquoi « Privé »', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+  it('the swipe deck always resolves the origin from the server first-discovery, never from the profile owner', () => {
+    const modal = read('components', 'MusicSwipeDeckModal.tsx');
+    expect(modal).toContain('loadFirstDiscoveryOrigins(deckTracks.map((track) => track.id))');
+    expect(modal).toContain('const canonicalOrigin = current ? firstOrigins[current.id] : undefined;');
+    expect(read('services', 'trackOriginService.ts')).toContain("keep_track_first_discoveries");
+  });
+  it('the private badge explains the reason (in sale vs chosen) and lets the owner make a chosen-private track public', () => {
+    const profile = read('screens', 'ProfilePublicScreen.tsx');
+    expect(profile).toContain('explainFolderVisibility(folder, badgeLabel)');
+    expect(profile).toContain('parce qu’${inSale.length > 1 ?');
+    expect(profile).toContain("persistOwnTrackVisibility(entry.track, 'PUBLIC')");
+  });
+  it('the keep success card says the public keep enters the story automatically (no duplicate button)', () => {
+    expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('Elle entre automatiquement dans ta story (24 h)');
   });
 });

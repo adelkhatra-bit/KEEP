@@ -137,6 +137,7 @@ export function KeepSuccessModal({
           <Text style={s.successTitle}>Merci pour ta découverte</Text>
           {trackLabel ? <Text style={s.successTrack} numberOfLines={2}>{trackLabel}</Text> : null}
           {costFree != null ? <Text style={s.successDebit}>{cost} FREE débités</Text> : null}
+          {visibility === 'PUBLIC' ? <Text style={s.successStory}>✓ Elle entre automatiquement dans ta story (24 h)</Text> : null}
           <Text style={s.successBody}>
             {visibility === 'PUBLIC'
               ? 'Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.'
@@ -159,7 +160,8 @@ const s = StyleSheet.create({
   successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
   successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
   successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
-  successBody: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 },
+  successStory: { color: '#FFFFFF', fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 10 },
+  successBody: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 5 },
   successButton: { width: '100%', minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   successButtonText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: .7 },
   overlay: {

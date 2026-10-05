@@ -5,8 +5,9 @@ import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, Style
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
+import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
-import { isSaleStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadMyStoryTrackIds, pinStoryTrack } from '../services/musicStoriesService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
@@ -41,6 +42,8 @@ type Props = {
   sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }>;
   emptyTitle?: string;
   backLabel?: string;
+  /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
+  allowStoryAdd?: boolean;
   /** Ligne sous le sous-titre (ex. compteur de vues de la story). */
   headerExtra?: React.ReactNode;
   /** Panneau plein cadre par-dessus le Swipe (ex. liste des spectateurs). */
@@ -77,6 +80,7 @@ export default function MusicSwipeDeckModal({
   sourceByTrack,
   emptyTitle = 'Aucun morceau à découvrir.',
   backLabel,
+  allowStoryAdd = false,
   headerExtra,
   overlay,
   loop = true,
@@ -123,7 +127,20 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
-  const currentSource = current ? sourceByTrack?.[current.id] : undefined;
+  // ERR-FIRST-DISCOVERER-097 : « Découvert par » = toujours le PREMIER découvreur (serveur), jamais le propriétaire du profil ouvert.
+  const [firstOrigins, setFirstOrigins] = useState<Record<string, TrackOrigin>>({});
+  const deckTrackIdsKey = deckTracks.map((track) => track.id).join(',');
+  useEffect(() => {
+    let live = true;
+    if (!visible || !deckTracks.length) return undefined;
+    void loadFirstDiscoveryOrigins(deckTracks.map((track) => track.id)).then((origins) => { if (live) setFirstOrigins(origins); }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, deckTrackIdsKey]);
+  const canonicalOrigin = current ? firstOrigins[current.id] : undefined;
+  const currentSource = canonicalOrigin
+    ? { ...(current ? sourceByTrack?.[current.id] : undefined), profileId: canonicalOrigin.profileId, username: canonicalOrigin.username }
+    : (current ? sourceByTrack?.[current.id] : undefined);
   const currentSourceUsername = currentSource?.username || sourceUsername;
   const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
@@ -132,15 +149,29 @@ export default function MusicSwipeDeckModal({
   // Adel (05/10/2026) : « déloyal » -- l'écoute complète d'une musique d'un autre membre n'est offerte qu'après l'avoir gardée (FREE payés) ; sinon on écouterait tout gratuitement puis on la prendrait avec l'écoute.
   const fullListenLocked = !previewOnly && (askVisibilityOnKeep || Boolean(currentSourceUsername)) && !currentAlreadyKept;
   // Adel (05/10/2026) : bouton « Ajouter à ma story » pendant un swipe (mon profil ou celui d'un autre membre). Il faut avoir gardé le morceau en Public (vérifié aussi côté serveur).
-  const canAddToStory = Boolean(current) && !previewOnly && !isSaleStoryTrack(current) && Boolean(askVisibilityOnKeep || currentSourceUsername);
+  // Anti-doublon : on connaît les musiques déjà dans MA story ; celle-ci est alors grisée « déjà dans ta story ».
+  const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let live = true;
+    if (!visible) return undefined;
+    void loadMyStoryTrackIds().then((ids) => { if (live) setStoryIds(ids); }).catch(() => {});
+    return () => { live = false; };
+  }, [visible]);
+  const canAddToStory = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
+  const alreadyInStory = Boolean(current && storyIds.has(current.id));
   const addCurrentToStory = async () => {
     if (!current) return;
-    if (!currentAlreadyKept) {
-      Alert.alert('Garde-la d’abord', 'Pour mettre cette musique dans ta story, garde-la d’abord en Public avec GARDER. Elle sera ensuite proposée dans ta story, et son créateur reste identifié.', [{ text: 'OK', style: 'cancel' }]);
+    if (alreadyInStory) {
+      Alert.alert('Déjà dans ta story', `« ${current.title} » est déjà dans ta story des dernières 24 h : pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    if (!previewOnly && !currentAlreadyKept) {
+      Alert.alert('Garde-la d’abord', 'Pour mettre cette musique dans ta story, garde-la d’abord en Public avec GARDER : elle entre alors automatiquement dans ta story, et son créateur reste identifié.', [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     try {
       await pinStoryTrack(current.id);
+      setStoryIds((previous) => new Set(previous).add(current.id));
       Alert.alert('Ajoutée à ta story', `« ${current.title} » est dans ta story pendant 24 h.`, [{ text: 'OK', style: 'cancel' }]);
     } catch {
       Alert.alert('Ajout impossible', 'Seules les musiques gardées en Public peuvent aller en story. Si tu l’as gardée en Privé, repasse-la en Public depuis ton profil.', [{ text: 'OK', style: 'cancel' }]);
@@ -742,8 +773,8 @@ export default function MusicSwipeDeckModal({
 
           {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {canAddToStory ? (
-            <TouchableOpacity style={s.addStoryButton} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel="Ajouter ce morceau à ma story" testID="deck-add-story">
-              <Text style={s.addStoryText}>＋ AJOUTER À MA STORY</Text>
+            <TouchableOpacity style={[s.addStoryButton, alreadyInStory && s.addStoryButtonDone]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID="deck-add-story">
+              <Text style={[s.addStoryText, alreadyInStory && s.addStoryTextDone]}>{alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : '＋ AJOUTER À MA STORY'}</Text>
             </TouchableOpacity>
           ) : null}
           {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
@@ -849,6 +880,8 @@ const s = StyleSheet.create({
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
+  addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},
   cardCompact:{minHeight:120},
