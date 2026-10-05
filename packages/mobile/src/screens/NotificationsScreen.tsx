@@ -1578,7 +1578,7 @@ const styles = StyleSheet.create({
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
   readText: { color:colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
   cardTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', marginTop: 7 },
-  cardBody: { color:colors.white, fontSize: 15, lineHeight: 22, marginTop: 4 },
+  cardBody: { color:colors.white, fontSize: 16, lineHeight: 24, marginTop: 4 },
   cardBodyRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   cardThumbnail: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.backgroundCard, marginTop: 7 },
   cardTextColumn: { flex: 1, minWidth: 0 },

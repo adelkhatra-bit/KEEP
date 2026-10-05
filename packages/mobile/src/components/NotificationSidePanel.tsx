@@ -890,7 +890,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           ) : (
             <ScrollView contentContainerStyle={s.list} showsVerticalScrollIndicator={false}>
               <View style={s.inboxActions}>
-                <Text style={s.inboxHint}>Appuie pour ouvrir. Utilise × pour supprimer ce qui ne t’est plus utile.</Text>
+                <Text style={s.inboxHint}>Touche une notification pour la lire. SUPPRIMER l’efface définitivement.</Text>
                 <View style={s.inboxActionButtons}>
                   <TouchableOpacity style={s.markAllButton} onPress={() => void markVisibleRead()}><Text style={s.markAllText}>TOUT LIRE</Text></TouchableOpacity>
                   <TouchableOpacity style={[s.markAllButton, s.clearButton]} onPress={() => { void deleteVisibleSection(); }} disabled={!visibleItems.length}><Text style={s.clearText}>EFFACER</Text></TouchableOpacity>
@@ -917,20 +917,27 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                     <TouchableOpacity onPress={() => void toggleNotification(item)} activeOpacity={0.84} accessibilityRole="button" accessibilityState={{ expanded }}>
                       <View style={s.cardTop}>
                         <View style={[s.dot, item.readAt && s.dotRead, locked && s.dotLocked]} />
-                        <Text style={s.cardTitle} numberOfLines={1}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
+                        <Text style={s.cardTitle} numberOfLines={2}>{locked ? '🔒 Notification réservée' : (item.title || 'Loki Music')}</Text>
+                      </View>
+                      {/* Adel 05/10/2026 : « trop serré, pas clair » -- lecture et suppression sur une ligne à part, libellées et bien séparées. */}
+                      <View style={s.cardActions}>
                         <Text style={s.time}>{timeLabel(item.createdAt)}</Text>
-                        <TouchableOpacity
-                          style={s.deleteOne}
-                          onPress={(event) => {
-                            event.stopPropagation?.();
-                            void deleteOne(item);
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel="Supprimer cette notification"
-                        >
-                          <Text style={s.deleteOneText}>×</Text>
-                        </TouchableOpacity>
-                        <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
+                        <View style={s.cardActionsRight}>
+                          <View style={s.readPill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                            <Text style={s.readPillText}>{expanded ? 'RÉDUIRE ⌃' : 'LIRE ⌄'}</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={s.deleteOne}
+                            onPress={(event) => {
+                              event.stopPropagation?.();
+                              void deleteOne(item);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Supprimer cette notification"
+                          >
+                            <Text style={s.deleteOneText}>SUPPRIMER</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                       {!locked && hasLinkedProfile ? (
                         <TouchableOpacity
@@ -1135,7 +1142,7 @@ const s = StyleSheet.create({
   markAllText:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},
   clearSectionButton:{minHeight:44,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,91,107,.08)'},
   clearSectionText:{color:colors.danger,fontSize:13,fontWeight:'900',letterSpacing:.5},
-  deleteOne:{width:44,height:44,borderRadius:15,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  deleteOne:{minWidth:44,minHeight:44,paddingHorizontal:10,borderRadius:14,borderWidth:1,borderColor:colors.danger,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
   deleteOneButton:{alignSelf:'flex-start',minHeight:44,paddingHorizontal:10,borderRadius:15,borderWidth:1,borderColor:colors.danger,alignItems:'center',justifyContent:'center',marginTop:8},
   deleteOneText:{color:colors.danger,fontSize:13,fontWeight:'900',letterSpacing:.5},
   chatAccordion:{marginBottom:10,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
@@ -1172,15 +1179,19 @@ const s = StyleSheet.create({
   card:{padding:12,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated},
   cardUnread:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   cardLocked:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated},
-  cardTop:{flexDirection:'row',alignItems:'center',gap:7},
+  cardTop:{flexDirection:'row',alignItems:'center',gap:9},
+  cardActions:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:10},
+  cardActionsRight:{flexDirection:'row',alignItems:'center',gap:18},
+  readPill:{minHeight:44,paddingHorizontal:14,borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center'},
+  readPillText:{color:colors.white,fontSize:13,fontWeight:'900',letterSpacing:.5},
   dot:{width:8,height:8,borderRadius:4,backgroundColor:colors.keep},
   dotRead:{backgroundColor:colors.textMuted},
   dotLocked:{backgroundColor:colors.primaryLight},
   cardTitle:{flex:1,minWidth:0,color:colors.textPrimary,fontSize:16,fontWeight:'900'},
-  time:{color:colors.textMuted,fontSize:12,fontWeight:'700'},
+  time:{color:colors.textSecondary,fontSize:13,fontWeight:'800'},
   chevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},
   details:{paddingTop:8,marginTop:7,borderTopWidth:1,borderTopColor:colors.border},
-  body:{color:colors.textSecondary,fontSize:15,lineHeight:22},
+  body:{color:colors.textSecondary,fontSize:16,lineHeight:24},
   typeLabel:{color:colors.textMuted,fontSize:13,fontWeight:'900',letterSpacing:.7,marginTop:7},
   lockedDetails:{borderRadius:14,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,padding:10},
   lockedPlan:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:.4},
