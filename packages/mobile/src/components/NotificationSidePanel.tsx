@@ -778,7 +778,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               accessibilityState={{ selected: activeTab === 'MESSAGES' }}
             >
               <View style={s.tabTitleRow}>
-                <Text style={[s.tabText, unreadMessageCount > 0 && s.tabTextUnread, activeTab === 'MESSAGES' && s.tabTextOn]}>MESSAGES</Text>
+                <Text style={[s.tabText, unreadMessageCount > 0 && s.tabTextUnread, activeTab === 'MESSAGES' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>MESSAGES</Text>
                 {messageCount > 0 ? <View style={[s.tabBadge, unreadMessageCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadMessageCount === 0 && s.tabBadgeTextQuiet]}>{messageCount > 99 ? '99+' : messageCount}</Text></View> : null}
               </View>
               <Text style={[s.tabHint, unreadMessageCount > 0 && s.tabHintUnread]}>{unreadMessageCount > 0 ? `${unreadMessageCount} nouveau${unreadMessageCount > 1 ? 'x' : ''}` : (messageCount > 0 ? 'conservés' : 'vide')}</Text>
@@ -790,14 +790,14 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
               accessibilityState={{ selected: activeTab === 'ACTIVITY' }}
             >
               <View style={s.tabTitleRow}>
-                <Text style={[s.tabText, unreadActivityCount > 0 && s.tabTextUnread, activeTab === 'ACTIVITY' && s.tabTextOn]}>ACTIVITÉ</Text>
+                <Text style={[s.tabText, unreadActivityCount > 0 && s.tabTextUnread, activeTab === 'ACTIVITY' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>ACTIVITÉ</Text>
                 {activityCount > 0 ? <View style={[s.tabBadge, unreadActivityCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadActivityCount === 0 && s.tabBadgeTextQuiet]}>{activityCount > 99 ? '99+' : activityCount}</Text></View> : null}
               </View>
               <Text style={[s.tabHint, unreadActivityCount > 0 && s.tabHintUnread]}>{unreadActivityCount > 0 ? `${unreadActivityCount} nouvelle${unreadActivityCount > 1 ? 's' : ''}` : (activityCount > 0 ? 'conservée' : 'vide')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => { void openNotificationTab('SETTINGS'); }} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
-              <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]}>RÉGLAGES</Text>
-              <Text style={s.tabHint}>activer / couper</Text>
+              <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>RÉGLAGES</Text>
+              <Text style={s.tabHint} numberOfLines={1}>options</Text>
             </TouchableOpacity>
           </View>
 
@@ -1120,22 +1120,22 @@ const s = StyleSheet.create({
   tab:{flex:1,minHeight:52,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
   tabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   tabUnread:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',shadowColor:colors.keep,shadowOpacity:.35,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
-  tabTitleRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:5},
-  tabText:{color:colors.textSecondary,fontSize:13,fontWeight:'900',letterSpacing:.5},
+  tabTitleRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,maxWidth:'100%'},
+  tabText:{color:colors.textSecondary,fontSize:13,fontWeight:'900',letterSpacing:.2,flexShrink:1},
   tabTextOn:{color:colors.primaryLight},
   tabTextUnread:{color:colors.keep},
   tabBadge:{minWidth:18,height:18,paddingHorizontal:5,borderRadius:9,backgroundColor:colors.keep,alignItems:'center',justifyContent:'center'},
   tabBadgeText:{color:colors.background,fontSize:13,fontWeight:'900'},
   tabBadgeQuiet:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   tabBadgeTextQuiet:{color:colors.textSecondary},
-  tabHint:{color:colors.textMuted,fontSize:13,fontWeight:'700',marginTop:2},
+  tabHint:{color:colors.textMuted,fontSize:13,fontWeight:'700',marginTop:2,maxWidth:'100%'},
   tabHintUnread:{color:colors.keep,fontWeight:'900'},
   settingsList:{paddingHorizontal:16,paddingBottom:36,gap:10},
   notificationMaster:{minHeight:76,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:12},
   notificationMasterCopy:{flex:1,minWidth:0},
-  inboxActions:{minHeight:44,flexDirection:'row',alignItems:'center',gap:8},
-  inboxHint:{flex:1,color:colors.textSecondary,fontSize:13,lineHeight:18,fontWeight:'700'},
-  inboxActionButtons:{flexDirection:'row',alignItems:'center',gap:6},
+  inboxActions:{flexDirection:'column',alignItems:'stretch',gap:10},
+  inboxHint:{color:colors.textSecondary,fontSize:13,lineHeight:18,fontWeight:'700'},
+  inboxActionButtons:{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:10},
   clearButton:{borderColor:colors.danger,backgroundColor:'rgba(255,95,109,.08)'},
   clearText:{color:colors.danger,fontSize:13,fontWeight:'900'},
   markAllButton:{minHeight:44,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint},
