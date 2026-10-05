@@ -128,3 +128,7 @@ Respecter les espaces dans tout le système : aucun élément collé à un autre
 - Un texte d'aide qui passe sur 2 lignes doit pouvoir le faire sans recouvrir son voisin (marges verticales, pas de hauteur figée).
 - Même règle sur téléphone, tablette et ordinateur ; vérifier avec une capture avant de valider un écran.
 
+
+## 13. Règle anti-pillage : écoute complète seulement après GARDER (décision d'Adel, 05/10/2026 — valable partout)
+
+Dans une story, un swipe social ou Loki Pulse, un membre ne reçoit **aucun accès à l'écoute complète** (Apple Music, Spotify, YouTube, liens externes) d'une musique qu'il n'a pas gardée (FREE payés). Il entend l'extrait ; le titre peut être visible, mais on ne simplifie pas la copie : l'écoute complète ne se débloque qu'avec GARDER, pour que l'écoute et Loki Pulse ne servent pas à piller le travail des autres membres. Le bouton est remplacé par « 🔒 Écoute complète disponible après GARDER » (`MusicSwipeDeckModal` : `fullListenLocked`, verrouillé par test).
