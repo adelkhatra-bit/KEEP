@@ -160,18 +160,33 @@ export async function loadProfileStory(
 ): Promise<MusicStory | null> {
   if (!supabase || !viewer?.id) return null;
   const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('keep_decisions')
-    .select('profile_id,created_at,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on),profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)')
-    .eq('decision', 'KEPT')
-    .eq('visibility', 'PUBLIC')
-    .eq('profile_id', viewer.id)
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw error;
+  const TRACK_COLS = 'id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on';
+  const [decisions, pins] = await Promise.all([
+    supabase
+      .from('keep_decisions')
+      .select(`profile_id,created_at,track:tracks(${TRACK_COLS}),profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)`)
+      .eq('decision', 'KEPT')
+      .eq('visibility', 'PUBLIC')
+      .eq('profile_id', viewer.id)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    // « + » de la story : musiques épinglées à la main (gardées en public), même fenêtre de 24 h.
+    supabase
+      .from('story_pins')
+      .select(`profile_id,pinned_at,track:tracks(${TRACK_COLS})`)
+      .eq('profile_id', viewer.id)
+      .gte('pinned_at', since)
+      .order('pinned_at', { ascending: false })
+      .limit(30),
+  ]);
+  if (decisions.error) throw decisions.error;
+  const profileStub = { username: viewer.username, avatar_url: viewer.avatarUrl ?? null, discovery_hidden: false };
+  const pinRows = (pins.error ? [] : pins.data ?? []).map((row: any) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: profileStub }));
+  // La plus récente d'abord : une épingle récente passe devant.
+  const rows = [...(decisions.data ?? []), ...pinRows].sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
   // viewerId neutre : la règle « jamais soi-même » ne s'applique pas à sa propre story.
-  const shared = rankMusicStories(data ?? [], '__own__', new Set([viewer.id]), new Set())[0] ?? null;
+  const shared = rankMusicStories(rows, '__own__', new Set([viewer.id]), new Set())[0] ?? null;
   const base: MusicStory = shared
     ? { ...shared, username: viewer.username, avatarUrl: viewer.avatarUrl ?? shared.avatarUrl }
     : { profileId: viewer.id, username: viewer.username, avatarUrl: viewer.avatarUrl ?? null, latestAt: '', followed: false, sameStyle: false, tracks: [] };
@@ -302,4 +317,40 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     isFollower: Boolean(row.is_follower),
     isReprise: Boolean(row.is_reprise),
   })).filter((row) => row.viewerId && row.username);
+}
+
+
+/** « + » de la story : épingle une de mes musiques gardées en public (refusé côté serveur sinon). */
+export async function pinStoryTrack(trackId: string): Promise<void> {
+  if (!supabase || !trackId) throw new Error('STORY_PIN_UNAVAILABLE');
+  const { error } = await supabase.rpc('keep_pin_story_track', { p_track_id: trackId });
+  if (error) throw error;
+}
+
+export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; sourceUsername: string | null };
+
+/** Mes musiques gardées en public (les plus récentes d'abord), avec l'utilisateur d'origine quand c'est une reprise. */
+export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTrack[]> {
+  if (!supabase || !viewerId) return [];
+  const { data, error } = await supabase
+    .from('keep_decisions')
+    .select('track_id,created_at,source_user_id,track:tracks(id,title,artist,artwork_url)')
+    .eq('profile_id', viewerId)
+    .eq('decision', 'KEPT')
+    .eq('visibility', 'PUBLIC')
+    .order('created_at', { ascending: false })
+    .limit(40);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    trackId: String(row.track?.id ?? row.track_id ?? ''),
+    title: String(row.track?.title ?? ''),
+    artist: String(row.track?.artist ?? ''),
+    artworkUrl: row.track?.artwork_url ? String(row.track.artwork_url) : null,
+    sourceUsername: null,
+  })).filter((row: PinnableTrack) => row.trackId && row.title);
+}
+
+/** Ordre de lecture (Adel, 05/10/2026) : cercle allumé → on repart de la DERNIÈRE musique ; cercle éteint (déjà vue) → de la PREMIÈRE. */
+export function orderTracksForPlayback<T>(tracksNewestFirst: T[], unseen: boolean): T[] {
+  return unseen ? tracksNewestFirst : [...tracksNewestFirst].reverse();
 }

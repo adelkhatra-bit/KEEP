@@ -8,7 +8,11 @@ import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { stopTrackPreviewFast } from '../services/audioPreviewService';
 import {
+  loadMyPinnableTracks,
   loadMyStoryViewers,
+  orderTracksForPlayback,
+  pinStoryTrack,
+  type PinnableTrack,
   loadOwnStory,
   recordStoryView,
   type StoryViewer,
@@ -51,6 +55,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const [pinnable, setPinnable] = useState<PinnableTrack[] | null>(null);
+  const [pinBusy, setPinBusy] = useState('');
   const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
 
   useEffect(() => {
@@ -91,7 +98,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
     setMoreOpen(null);
-    setOpenStory(story);
+    // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
+    const unseenNow = (seen[story.profileId] || '') < story.latestAt;
+    setOpenStory({ ...story, tracks: orderTracksForPlayback(story.tracks, unseenNow) });
     setViewersOpen(false);
     if (story.profileId === viewer.id) {
       setViewers(null);
@@ -100,18 +109,37 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       void recordStoryView(story.profileId);
     }
     setSeen(await markStorySeen(viewer.id, story));
-  }, [viewer.id]);
+  }, [viewer.id, seen]);
 
   const openOwn = () => {
     if (ownStory) { void open(ownStory); return; }
     Alert.alert('Ta story du jour est terminée', 'Une story dure 24 h. Reposte : partage une musique en public, reprends-en une chez un autre membre ou mets-en une en vente — ta photo se rallume aussitôt.', [{ text: 'OK', style: 'cancel' }]);
   };
 
+  const refreshOwnStory = useCallback(() => { loadOwnStory(viewer).then(setOwnStory).catch(() => {}); }, [viewer.id, viewer.username, viewer.avatarUrl]);
+  const openPlus = () => {
+    setPlusOpen(true);
+    setPinnable(null);
+    loadMyPinnableTracks(viewer.id).then(setPinnable).catch(() => setPinnable([]));
+  };
+  const pin = async (track: PinnableTrack) => {
+    if (pinBusy) return;
+    setPinBusy(track.trackId);
+    try {
+      await pinStoryTrack(track.trackId);
+      setPlusOpen(false);
+      refreshOwnStory();
+      Alert.alert('Ajoutée à ta story', `« ${track.title} » est la dernière musique de ta story pour 24 h. Ta photo s'allume.`, [{ text: 'OK', style: 'cancel' }]);
+    } catch {
+      Alert.alert('Ajout impossible', 'Seules tes musiques gardées en public peuvent aller en story. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+    } finally { setPinBusy(''); }
+  };
   const isOwnOpen = openStory?.profileId === viewer.id;
 
   return (
     <View testID="profile-story-bar" style={styles.barRow}>
       {/* La photo de profil porte l'anneau de ta story : un seul visage, pas de doublon. */}
+      <View style={{ width: avatarSize, height: avatarSize }}>
       <TouchableOpacity
         onPress={openOwn}
         accessibilityRole="button"
@@ -124,6 +152,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             : <View style={[styles.photo, styles.photoFallback, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]}><Text style={styles.photoInitial}>{(viewer.username || 'K').slice(0, 1).toUpperCase()}</Text></View>}
         </StoryRing>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.plusBadge} onPress={openPlus} accessibilityRole="button" accessibilityLabel="Ajouter une musique à ta story" testID="story-plus">
+        <Text style={styles.plusBadgeText}>+</Text>
+      </TouchableOpacity>
+      </View>
       <View style={styles.railWrap}>
         <MusicStoryRail
           stories={stories}
@@ -134,6 +166,32 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           onOpenMore={(hidden) => setMoreOpen(hidden)}
         />
       </View>
+
+      <Modal visible={plusOpen} transparent animationType="fade" onRequestClose={() => setPlusOpen(false)}>
+        <SafeAreaView style={styles.backdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Ajouter à ta story</Text>
+              <TouchableOpacity onPress={() => setPlusOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
+            </View>
+            <Text style={styles.plusHelp}>Choisis une de tes musiques en public : elle devient la dernière de ta story pendant 24 h. Tu peux aussi mettre en avant la musique d'un autre membre : garde-la en public, puis ajoute-la ici, il reste identifié.</Text>
+            {pinnable === null ? <Text style={styles.viewsEmpty}>Chargement de tes musiques…</Text> : null}
+            {pinnable && pinnable.length === 0 ? <Text style={styles.viewsEmpty}>Tu n'as pas encore de musique en public. Garde-en une en Public, elle apparaîtra ici.</Text> : null}
+            <ScrollView>
+              {(pinnable ?? []).map((track) => (
+                <TouchableOpacity key={track.trackId} style={styles.row} onPress={() => { void pin(track); }} disabled={Boolean(pinBusy)} accessibilityRole="button" accessibilityLabel={`Ajouter ${track.title} à ma story`}>
+                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>♪</Text></View>}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowName} numberOfLines={1}>{track.title}</Text>
+                    <Text style={styles.rowArtist} numberOfLines={1}>{track.artist}</Text>
+                  </View>
+                  <Text style={[styles.rowState, styles.rowStateNew]}>{pinBusy === track.trackId ? '…' : '+ Ajouter'}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       <Modal visible={Boolean(moreOpen)} transparent animationType="fade" onRequestClose={() => setMoreOpen(null)}>
         <SafeAreaView style={styles.backdrop}>
@@ -225,6 +283,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  plusBadge: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#7C5CFC', borderWidth: 2, borderColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
+  plusBadgeText: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '900' },
+  plusHelp: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, marginBottom: 12 },
+  rowArtist: { color: '#FFFFFF', fontSize: 13, opacity: 0.8 },
   viewsChip: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center', marginTop: 6, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.primaryFaint },
   viewsChipText: { color: colors.white, fontSize: 13, fontWeight: '900' },
   viewsEmpty: { color: colors.white, fontSize: 15, lineHeight: 22, paddingVertical: 12 },

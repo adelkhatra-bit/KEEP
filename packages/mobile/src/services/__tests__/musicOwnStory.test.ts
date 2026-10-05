@@ -128,3 +128,24 @@ describe('cercle de story sur la photo d\'un profil visité', () => {
     expect(src).toContain('openVisitedStory');
   });
 });
+
+describe('« + » de la story et ordre de lecture', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+  it('orders playback: lit ring → newest first, seen ring → oldest first', () => {
+    const { orderTracksForPlayback } = require('../musicStoriesService');
+    expect(orderTracksForPlayback(['c', 'b', 'a'], true)).toEqual(['c', 'b', 'a']);
+    expect(orderTracksForPlayback(['c', 'b', 'a'], false)).toEqual(['a', 'b', 'c']);
+    const bar = read('components', 'ProfileStoryBar.tsx');
+    expect(bar).toContain('orderTracksForPlayback(story.tracks, unseenNow)');
+    expect(read('screens', 'PublicUserProfileScreen.tsx')).toContain('orderTracksForPlayback(visitedStory.tracks, visitedStoryUnseen)');
+  });
+  it('the + badge opens a simple sheet to pin one of my public musics, server-checked', () => {
+    const bar = read('components', 'ProfileStoryBar.tsx');
+    expect(bar).toContain('testID="story-plus"');
+    expect(bar).toContain('pinStoryTrack(track.trackId)');
+    const sql = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261005160000_story_pins.sql'), 'utf8');
+    expect(sql).toContain('enable row level security');
+    expect(sql).toContain('STORY_PIN_REQUIRES_PUBLIC_KEEP');
+    expect(sql).not.toMatch(/drop\s+(table|column)/i);
+  });
+});

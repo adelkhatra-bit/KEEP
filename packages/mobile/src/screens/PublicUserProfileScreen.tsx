@@ -11,7 +11,7 @@ import { DiscoveryImpact, loadOwnProfileKeeps, loadProfileDiscoveryImpacts, load
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import { useUserStore } from '../store/useUserStore';
 import { StoryRing } from '../components/MusicStoryRail';
-import { isSaleStoryTrack, loadProfileStory, loadSeenStories, markStorySeen, type MusicStory } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadProfileStory, orderTracksForPlayback, loadSeenStories, markStorySeen, type MusicStory } from '../services/musicStoriesService';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
@@ -316,7 +316,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const visitedStoryUnseen = Boolean(visitedStory && visitedStory.tracks.length && visitedStorySeenAt < visitedStory.latestAt);
   const openVisitedStory = () => {
     if (!visitedStory || !visitedStory.tracks.length || !profile) return;
-    setFolderSwipeTracks(visitedStory.tracks);
+    setFolderSwipeTracks(orderTracksForPlayback(visitedStory.tracks, visitedStoryUnseen));
     setFolderSwipeTitle(`Story de @${profile.username}`);
     setSwipeOpen(true);
     if (effectiveViewerId) { setVisitedStorySeenAt(visitedStory.latestAt); void markStorySeen(effectiveViewerId, visitedStory); }
