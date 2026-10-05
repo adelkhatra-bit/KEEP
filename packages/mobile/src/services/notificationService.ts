@@ -210,6 +210,17 @@ export async function deleteNotificationDuplicates(profileId: string, keep: Keep
   return Number(data ?? 0);
 }
 
+/**
+ * Les nouveaux morceaux publics des profils suivis passent par les STORIES de
+ * l'accueil (Adel, 05/10/2026 : « un système de story au lieu des notifications »,
+ * pour désencombrer la cloche). Les lignes restent en base ; seule la cloche et son
+ * compteur ne les affichent plus.
+ */
+const STORY_ROUTED_NOTIFICATION_TYPES = new Set(['NEW_PUBLIC_KEEP']);
+export function isStoryRoutedNotification(item: Pick<KeepNotification, 'type'>): boolean {
+  return STORY_ROUTED_NOTIFICATION_TYPES.has(String(item?.type ?? '').trim().toUpperCase());
+}
+
 export async function loadNotifications(
   profileId: string,
   options: { dedupe?: boolean; unreadOnly?: boolean } = {},
@@ -224,7 +235,7 @@ export async function loadNotifications(
   if (options.unreadOnly) query = query.is('read_at', null);
   const { data, error } = await query;
   if (error) throw error;
-  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item));
+  const visible = (data ?? []).map(mapNotificationRow).filter((item) => !shouldSuppressNotificationPresentation(item) && !isStoryRoutedNotification(item));
   return options.dedupe === false ? visible : dedupeNotifications(visible);
 }
 
@@ -238,7 +249,7 @@ export async function loadUnreadNotificationCount(profileId: string): Promise<nu
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) throw error;
-  return dedupeNotifications((data ?? []).map(mapNotificationRow)).length;
+  return dedupeNotifications((data ?? []).map(mapNotificationRow).filter((item) => !isStoryRoutedNotification(item))).length;
 }
 
 export async function loadLatestUnreadPlanGift(profileId: string): Promise<KeepNotification | null> {
