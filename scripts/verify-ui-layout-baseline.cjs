@@ -75,6 +75,11 @@ must(home.includes('const size = Math.max(96, Math.min(196, Math.round((height -
 must(home.includes("idleSubtitle: { color: colors.white"), 'Listen primary subtitle must use high-contrast text on dark background');
 must(home.includes("idleLearnMoreBody: { color: colors.white"), 'Expanded Listen help must use high-contrast text on dark background');
 
+const battleSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/KeepBattleMobileGameV3.tsx'), 'utf8');
+const visualStyle = (battleSrc.match(/[\s,]visual: \{[^}]*\}/) || [''])[0];
+must(visualStyle.includes('borderRadius: 20') && !/\bheight:\s*\d+/.test(visualStyle), 'Solo/Battle artwork must stay a 1:1 square (no fixed height in s.visual: react-native-web would squash it on desktop)');
+must(battleSrc.includes("testID=\"battle-solo-artwork-square\"") && battleSrc.includes('aspectRatio: 1'), 'Solo artwork square must keep aspectRatio 1');
+
 console.log('KEEP UI baseline: PASS');
 console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
