@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 export type KeepChoiceVisibility = 'PUBLIC' | 'PRIVATE';
 
@@ -43,7 +44,7 @@ export default function KeepChoiceModal({
 }: Props) {
   const trackLine = [trackTitle, trackArtist].filter(Boolean).join(' · ');
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) onCancel(); }}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!busy) onCancel(); }}>
       <View style={s.overlay}>
         <View style={s.card}>
           <Text style={s.eyebrow}>TON MORCEAU · TA VISIBILITÉ</Text>
@@ -107,7 +108,7 @@ export default function KeepChoiceModal({
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

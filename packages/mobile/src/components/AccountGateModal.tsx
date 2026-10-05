@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import UsernameAccountForm from './UsernameAccountForm';
 import WebPairingLifecycle from './WebPairingLifecycle';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
+import KeepModal from './KeepModal';
 
 // Adel (08/09/2026) : "pourquoi ça me met sur le profil ... trouve une
 // solution lorsque tu imposes de la création du compte ... le Popo doit
@@ -33,7 +34,7 @@ function AccountGateModalInner() {
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={close}>
+    <KeepModal visible transparent animationType="fade" onRequestClose={close}>
       <KeyboardAvoidingView
         style={s.backdrop}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -52,7 +53,7 @@ function AccountGateModalInner() {
           </View>
         )}
       </KeyboardAvoidingView>
-    </Modal>
+    </KeepModal>
   );
 }
 

@@ -1,11 +1,12 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Linking, Modal, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Linking, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import SwipeDeck from './SwipeDeck';
 import { loadPlaylistSaleOfferOverlap, loadPlaylistSaleOfferPreviewTracks, PlaylistSaleOverlap, PlaylistSalePreviewTrack, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopAntiShazamPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { acceptMarketplacePaymentTerms } from '../services/musicAgoraService';
+import KeepModal from './KeepModal';
 
 /**
  * Aperçu immersif d'une découverte musicale en vente (Adel, 21/09/2026,
@@ -274,7 +275,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         {/* Hauteur = écran disponible (plus de plancher à 520 px qui poussait le
             bouton de déblocage hors de l'écran sur les petits téléphones). */}
@@ -521,7 +522,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
         </View>
       </View>
       <ChatDockHost active={visible} />
-    </Modal>
+    </KeepModal>
   );
 }
 

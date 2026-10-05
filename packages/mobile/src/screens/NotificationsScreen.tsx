@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import {
@@ -34,6 +34,7 @@ import { openPlaylistPaymentProof } from '../services/playlistPaymentProofServic
 import NewKeepNotificationActions from '../components/NewKeepNotificationActions';
 import { getPushPermissionState, type PushPermissionState } from '../services/pushNotificationService';
 import { isNewKeepNotification, maskedNewKeepCopy } from '../services/newKeepNotification';
+import KeepModal from '../components/KeepModal';
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -1406,7 +1407,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
         } : undefined}
       />
 
-      <Modal
+      <KeepModal
         visible={Boolean(genericDetailItem)}
         transparent
         animationType="fade"
@@ -1456,13 +1457,13 @@ export default function NotificationsScreen({ navigation, route }: any) {
             </ScrollView> : null}
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
       {/* Adel (08/09/2026) : "un popup ... la photo ... du texte avec des
           explications, tenue exigee etc. ... un bouton en savoir plus ...
           et ensuite a partir de la il a les boutons" -- detail complet,
           jamais tronque, avec les memes boutons de reponse. */}
-      <Modal visible={Boolean(detailItem)} transparent animationType="fade" onRequestClose={closeEventDetail}>
+      <KeepModal visible={Boolean(detailItem)} transparent animationType="fade" onRequestClose={closeEventDetail}>
         <View style={styles.detailBackdrop}>
           <View style={styles.detailSheet}>
             <TouchableOpacity style={styles.detailClose} onPress={closeEventDetail} accessibilityLabel="Fermer"><Text style={styles.detailCloseText}>×</Text></TouchableOpacity>
@@ -1495,7 +1496,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
             ) : <Text style={styles.muted}>Cet évènement n’est plus disponible.</Text>}
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 </SafeAreaView>
   );
 }

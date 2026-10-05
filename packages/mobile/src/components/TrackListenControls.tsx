@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { CanonicalTrack } from '@keep/music';
 import { colors } from '../theme/colors';
@@ -9,6 +9,7 @@ import { cancelAudioCapture } from '../services/micCapture';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
+import KeepModal from './KeepModal';
 
 interface Props {
   track: CanonicalTrack;
@@ -208,7 +209,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
       </View>
 
       {Platform.OS === 'web' && embedUrl ? (
-        <Modal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
+        <KeepModal visible={embeddedPlayerOpen} transparent animationType="fade" onRequestClose={() => setEmbeddedPlayerOpen(false)}>
           <View style={styles.embedOverlay}>
             <View style={styles.embedCard}>
               <View style={styles.embedHead}>
@@ -228,7 +229,7 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
               <Text style={styles.embedHint}>Lecteur officiel {embedProviderLabel} intégré -- reste sur Loki Music.</Text>
             </View>
           </View>
-        </Modal>
+        </KeepModal>
       ) : null}
     </>
   );

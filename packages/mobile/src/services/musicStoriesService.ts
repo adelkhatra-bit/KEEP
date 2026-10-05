@@ -33,6 +33,8 @@ export type MusicStory = {
   followed: boolean;
   sameStyle: boolean;
   tracks: CanonicalTrack[];
+  /** Date d'ajout de chaque musique (ISO) : « ajoutée il y a 2 h 03 · encore visible 21 h 57 ». */
+  addedAt?: Record<string, string>;
   /** Dernière connexion connue (ISO) : à égalité de dernière story, le dernier connecté passe devant. */
   lastSeenAt?: string;
   /** Suggestion (ex. a repris une de tes musiques) : pas une story, un raccourci vers son profil. */
@@ -86,6 +88,7 @@ export function rankMusicStories(
     if (String(row.created_at ?? '') > story.latestAt) story.latestAt = String(row.created_at);
     story.sameStyle = story.sameStyle || sameStyleTrack;
     if (story.tracks.length >= MAX_TRACKS_PER_STORY || story.tracks.some((item) => item.id === track.id)) continue;
+    story.addedAt = { ...(story.addedAt ?? {}), [String(track.id)]: String(row.created_at ?? '') };
     story.tracks.push({
       id: String(track.id),
       title,
@@ -298,7 +301,7 @@ export function saleSampleToTrack(sample: { trackId: string; previewUrl: string 
   } as CanonicalTrack;
 }
 
-export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: string; previewUrl: string }>, cap = MAX_SALE_TRACKS_PER_STORY): MusicStory {
+export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: string; previewUrl: string; pinnedAt?: string }>, cap = MAX_SALE_TRACKS_PER_STORY): MusicStory {
   // Doublon + fuite : si la version masquée d'une musique arrive, sa version « vraie » (titre/jaquette) quitte la story.
   const maskedRawIds = new Set(samples.map((sample) => sample.trackId));
   const keptTracks = story.tracks.filter((track) => !maskedRawIds.has(track.id));
@@ -312,7 +315,10 @@ export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: str
       return true;
     })
     .slice(0, cap);
-  return extra.length ? { ...story, tracks: [...story.tracks, ...extra] } : story;
+  if (!extra.length) return story;
+  const addedAt = { ...(story.addedAt ?? {}) };
+  for (const sample of samples) if (sample.pinnedAt) addedAt[`${SALE_TRACK_PREFIX}${sample.trackId}`] = sample.pinnedAt;
+  return { ...story, tracks: [...story.tracks, ...extra], addedAt };
 }
 
 /**

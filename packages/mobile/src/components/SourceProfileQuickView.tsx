@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
+import KeepModal from './KeepModal';
 
 const KIND_LABELS: Record<string, string> = {
   USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
@@ -135,7 +136,7 @@ export default function SourceProfileQuickView({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <View style={s.card}>
           <View style={s.handle} />
@@ -158,7 +159,7 @@ export default function SourceProfileQuickView({
           <TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

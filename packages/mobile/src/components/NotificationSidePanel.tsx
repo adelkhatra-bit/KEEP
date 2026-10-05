@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Image, LayoutAnimation, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
 import { KeepNotification, NotificationPreferences, deleteNotification, loadNotificationPreferences, loadNotifications, markNotificationRead, saveNotificationPreferences, subscribeToNotifications } from '../services/notificationService';
@@ -22,6 +22,7 @@ import { loadPlaylistSalePaymentGuardStatus, markPlaylistSaleBuyerPaid, markPlay
 import { openPlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import { syncMarketplaceDelivery } from '../services/musicProviderSyncService';
 import PayoutCheckoutSheet from './PayoutCheckoutSheet';
+import KeepModal from './KeepModal';
 
 type Props = {
   visible: boolean;
@@ -757,7 +758,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
   const visibleItems = activeTab === 'MESSAGES' ? messageItems : activityItems;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={close}>
+    <KeepModal visible={visible} transparent animationType="none" onRequestClose={close}>
       <View style={s.root}>
         <Pressable style={s.backdrop} onPress={close} accessibilityLabel="Fermer les notifications" />
         <Animated.View style={[s.panel, { transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) }] }]}>
@@ -1088,7 +1089,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
           ) : null}
         </Animated.View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

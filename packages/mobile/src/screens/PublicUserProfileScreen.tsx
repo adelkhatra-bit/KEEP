@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, Animated, Image, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { canonicalArtistIdentity, CanonicalTrack, groupTracksByArtist } from '@keep/music';
 import { supabase } from '../services/supabaseClient';
@@ -55,6 +55,7 @@ import PublicProfilePanel from '../components/PublicProfilePanel';
 import CreatorToolsPanel from '../components/CreatorToolsPanel';
 import HelpLegalPanel from '../components/HelpLegalPanel';
 import NotificationSidePanel from '../components/NotificationSidePanel';
+import KeepModal from '../components/KeepModal';
 
 type PublicKeepTrack = {
   id: string;
@@ -2045,7 +2046,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
           ) : null}
         </View>
 
-        <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
+        <KeepModal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
           <View style={styles.modalBackdrop}><View style={styles.editCard}>
             <Text style={styles.editTitle}>Parcourir par style</Text>
             <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
@@ -2058,7 +2059,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </ScrollView>
             <TouchableOpacity style={styles.cancelButton} onPress={() => setStyleModalOpen(false)}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
           </View></View>
-        </Modal>
+        </KeepModal>
 
         {activeTab === 'TRACKS' ? (
           <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
@@ -2348,7 +2349,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             profileId={profile.id}
             onClose={() => setNotificationPanelOpen(false)}
           />
-          <Modal visible={ownerMenuOpen} transparent animationType="fade" onRequestClose={() => ownerMenuSection === 'ROOT' ? setOwnerMenuOpen(false) : setOwnerMenuSection('ROOT')}>
+          <KeepModal visible={ownerMenuOpen} transparent animationType="fade" onRequestClose={() => ownerMenuSection === 'ROOT' ? setOwnerMenuOpen(false) : setOwnerMenuSection('ROOT')}>
             <View style={styles.modalBackdrop}>
               <View style={styles.editCard}>
                 {ownerMenuSection !== 'ROOT' ? <TouchableOpacity style={styles.ownerMenuBack} onPress={() => setOwnerMenuSection('ROOT')} accessibilityLabel="Retour au menu du profil"><Text style={styles.ownerMenuBackText}>‹ Menu</Text></TouchableOpacity> : null}
@@ -2382,7 +2383,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                 <TouchableOpacity style={styles.cancelButton} onPress={() => { setOwnerMenuOpen(false); setOwnerMenuSection('ROOT'); }}><Text style={styles.cancelText}>Fermer</Text></TouchableOpacity>
               </View>
             </View>
-          </Modal>
+          </KeepModal>
         </>
       ) : null}
 
@@ -2460,7 +2461,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       {/* Adel (09/09/2026) : "meme design que le profil normal" -- meme
           liste "qui a repris" que sur son propre profil (pastille de
           certification + style musical + suivre en retour). */}
-      <Modal visible={repriseListOpen} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
+      <KeepModal visible={repriseListOpen} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.shareSheet, styles.repriseSheet]}>
             <View style={styles.sheetHandle} />
@@ -2486,9 +2487,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <TouchableOpacity style={styles.cancelShare} onPress={() => setRepriseListOpen(false)}><Text style={styles.cancelShareText}>Fermer</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={moderationMenuOpen} transparent animationType="fade" onRequestClose={() => setModerationMenuOpen(false)}>
+      <KeepModal visible={moderationMenuOpen} transparent animationType="fade" onRequestClose={() => setModerationMenuOpen(false)}>
         <View style={styles.moderationOverlay}>
           <View style={styles.moderationCard}>
             <TouchableOpacity style={styles.moderationRow} onPress={() => { setModerationMenuOpen(false); setReportPickerOpen(true); }}>
@@ -2502,9 +2503,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={reportPickerOpen} transparent animationType="fade" onRequestClose={() => setReportPickerOpen(false)}>
+      <KeepModal visible={reportPickerOpen} transparent animationType="fade" onRequestClose={() => setReportPickerOpen(false)}>
         <View style={styles.moderationOverlay}>
           <View style={styles.moderationCard}>
             <Text style={styles.moderationTitle}>Pourquoi signales-tu ce profil ?</Text>
@@ -2518,9 +2519,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={profileEventOpen} transparent animationType="fade" onRequestClose={() => setProfileEventOpen(false)}>
+      <KeepModal visible={profileEventOpen} transparent animationType="fade" onRequestClose={() => setProfileEventOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.shareSheet, styles.profileEventSheet]}>
             <View style={styles.sheetHandle} />
@@ -2577,7 +2578,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <TouchableOpacity style={styles.cancelShare} onPress={() => setProfileEventOpen(false)}><Text style={styles.cancelShareText}>Fermer</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
       <KeepVisibilityChoiceModal
         visible={!!keepPromptTrack}

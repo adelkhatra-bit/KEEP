@@ -3,7 +3,7 @@ import { composeTickerBatch } from '../services/tickerMessageLibrary';
 import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,7 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+import KeepModal from '../components/KeepModal';
 
 // Adel (05/10/2026) : les bandelettes (accueil + écoute) ne sont plus des listes fixes : elles viennent de la bibliothèque composée
 // `tickerMessageLibrary` (plus d'un million de messages, règles du système, défis, communauté, matchs) et ne se répètent pas d'une connexion à l'autre.
@@ -126,11 +127,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
-  // Robot coach (Adel, 05/10/2026) : plus de FREE -> le robot le dit de temps en temps (cooldown 6 h, 2 par jour) et propose de recharger.
-  const knownFreeBalance = listenEconomyStatus?.freeBalance;
-  useEffect(() => {
-    if (user && knownFreeBalance !== undefined && knownFreeBalance <= 0) void robotSay('NO_FREE');
-  }, [user?.id, knownFreeBalance]);
+  // Adel 05/10/2026 : le petit message vert du robot sur l'accueil « ne sert à rien » -> plus de bulle NO_FREE ici (le solde reste visible ailleurs).
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [homeAboutOpen, setHomeAboutOpen] = useState(false);
   const homeAboutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -654,7 +651,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
-          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: 10, marginBottom: 6, borderRadius: 18, borderWidth: 1.5 }} /> : null}
+          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%' }} /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -938,7 +935,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         }}
       />
 
-      <Modal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>Chercher un morceau</Text>
           <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki Music ne peut pas lire ces pages-là.</Text>
@@ -961,9 +958,9 @@ export default function HomeScreenCompact({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View></View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={showEndPrompt} transparent animationType="fade">
+      <KeepModal visible={showEndPrompt} transparent animationType="fade">
         <View style={s.modalOverlay}><View style={s.modalCard}>
           <Text style={s.modalTitle}>{t('session.endPromptTitle')}</Text>
           <Text style={s.modalBody}>Je n’entends plus de musique. Tu écoutes toujours ? Sans réponse, l’écoute s’arrête automatiquement et Loki Music revient à l’accueil dans {silencePromptSeconds} s.</Text>
@@ -972,7 +969,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={finishSession}><Text style={s.modalEndText}>{t('session.endNow')}</Text></TouchableOpacity>
           </View>
         </View></View>
-      </Modal>
+      </KeepModal>
       <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
 </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 import { openProblemReport } from '../services/problemReportService';
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { colors } from '../theme/colors';
@@ -15,6 +15,7 @@ import { getCurrentKeepLocation, KeepApproximateCoordinates, KeepLocationPermiss
 import UsernameAccountForm from '../components/UsernameAccountForm';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import AccountEmailPanel from '../components/AccountEmailPanel';
+import KeepModal from '../components/KeepModal';
 
 const GENDERS: { key: GenderOption; label: string }[] = [
   { key: 'MALE', label: 'Garçon / homme' },
@@ -344,11 +345,11 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       </TouchableOpacity>
     </ScrollView>
 
-    <Modal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></Modal>
+    <KeepModal visible={accountOpen} transparent animationType="fade" onRequestClose={()=>setAccountOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Débloquer mon profil</Text><TouchableOpacity onPress={()=>setAccountOpen(false)}><Text style={s.close}>Plus tard</Text></TouchableOpacity></View><UsernameAccountForm initialMode="create" onSuccess={()=>setAccountOpen(false)} /><TouchableOpacity style={s.continueTrial} onPress={()=>setAccountOpen(false)}><Text style={s.continueTrialText}>Continuer en mode essai</Text></TouchableOpacity></View></View></KeepModal>
 
-    <Modal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>handleCountrySelect(code)}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></Modal>
+    <KeepModal visible={countryOpen} transparent animationType="slide" onRequestClose={()=>setCountryOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Choisir le pays</Text><TouchableOpacity onPress={()=>setCountryOpen(false)}><Text style={s.close}>Fermer</Text></TouchableOpacity></View><ScrollView>{COUNTRIES.map(([code,label])=><TouchableOpacity key={code} style={s.option} onPress={()=>handleCountrySelect(code)}><Text style={s.optionText}>{label}</Text><Text style={s.optionCode}>{code}</Text></TouchableOpacity>)}</ScrollView></View></View></KeepModal>
 
-    <Modal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate} accessibilityRole="button" accessibilityLabel="Valider la date de naissance"><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></Modal>
+    <KeepModal visible={dateOpen} transparent animationType="slide" onRequestClose={()=>setDateOpen(false)}><View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalHeader}><Text style={s.modalTitle}>Date de naissance</Text><TouchableOpacity onPress={()=>setDateOpen(false)}><Text style={s.close}>Annuler</Text></TouchableOpacity></View><View style={s.dateColumns}><DateColumn title="Jour" values={Array.from({length:31},(_,i)=>i+1)} selected={dateDraft.day} onSelect={(v)=>setDateDraft(d=>({...d,day:v}))}/><DateColumn title="Mois" values={Array.from({length:12},(_,i)=>i+1)} selected={dateDraft.month} onSelect={(v)=>setDateDraft(d=>({...d,month:v}))}/><DateColumn title="Année" values={Array.from({length:parsed.currentYear-1920+1},(_,i)=>parsed.currentYear-i)} selected={dateDraft.year} onSelect={(v)=>setDateDraft(d=>({...d,year:v}))}/></View><TouchableOpacity style={s.primary} onPress={confirmDate} accessibilityRole="button" accessibilityLabel="Valider la date de naissance"><Text style={s.primaryText}>Valider la date</Text></TouchableOpacity></View></View></KeepModal>
   </SafeAreaView>;
 }
 

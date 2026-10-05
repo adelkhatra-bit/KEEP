@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-05T11:53:13.603Z
+- Régénéré le : 2026-10-05T17:07:48.310Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `b1a0e66` (b1a0e66560371f01d2835d6fae221fd1bf9b0c46) — docs(ideas): stories on profile, no-scroll Ecouter, Pulse off home, story content with sales (IDEA-011/012)
-- Date du dernier commit : 2026-10-05T11:40:52+00:00
+- Dernier commit : `0c42b49` (0c42b49e2227c990d05fdfb3ded1daf9bfa2b735) — release: story d'abord sinon fiche rapide, robot qui parle (sessions, plus de FREE/Solo), bandelette dans les marges
+- Date du dernier commit : 2026-10-05T16:59:54+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `b1a0e66` (2026-10-05, Claude) — docs(ideas): stories on profile, no-scroll Ecouter, Pulse off home, story content with sales (IDEA-011/012)
-- `6e5eaa4` (2026-10-05, Claude) — docs(ideas): colors/contrast, story content, TestFlight parity requests (IDEA-009/010, OBS-002)
-- `4698313` (2026-10-05, Claude) — release(ios): stories (Ta story + rail), readable notifications (2 lines max), iOS preview audio fix
-- `1e26efd` (2026-10-05, Claude) — merge: integrate PR #46 story rail (MusicStoryRail) with Ta story; adapt layout guard to overlay help
-- `aab6545` (2026-10-05, Claude) — feat(stories): home story rail with own story, lit rings, swipe viewer (IDEA-001 3/4)
-- `b125d76` (2026-10-05, Claude) — feat(notifications): bigger text, 2-line max with En savoir plus, UI readability rules (cahier UI §11)
-- `9413e5c` (2026-10-05, Claude) — docs(ideas): record Adel's story-home precisions and audit gaps (IDEA-001)
-- `e773a6d` (2026-10-05, Claude) — docs(ideas): single ideas inbox for all AI agents (stories, hide-for-sale, tabs, missions)
-- `15385aa` (2026-10-05, adelkhatra-bit) — test(listen): lock iPhone no-scroll budget (overlay help, compact orb)
-- `61bf936` (2026-10-05, adelkhatra-bit) — fix(listen): whole Écouter screen fits an iPhone without scrolling
+- `0c42b49` (2026-10-05, Claude) — release: story d'abord sinon fiche rapide, robot qui parle (sessions, plus de FREE/Solo), bandelette dans les marges
+- `05d1309` (2026-10-05, Claude) — feat(home): bibliothèque intelligente de messages pour les bandelettes (> 1 M de combinaisons, jamais les mêmes), règles du système expliquées
+- `9a5e020` (2026-10-05, Claude) — feat(home): accueil épuré avec bandelette communicative, « À toi de jouer » à l'écoute, ☰ animé + bulle « va vérifier ta session »
+- `5241298` (2026-10-05, Claude) — perf+ui: profil chargé en parallèle, amis sans story grisés, titre retiré de l'accueil, bande lumineuse protégée de l'animation
+- `a043e7a` (2026-10-05, Claude) — fix(ci): hash du shell protégé App.tsx mis à jour (montage ProblemReportHost, 2 lignes non visuelles)
+- `5517494` (2026-10-05, Claude) — feat: accueil « Ça joue quoi ? » + TROUVER LE MORCEAU, ☰ animé quand des sessions sont prêtes, anciens inactifs à la suite (activité réelle)
+- `ce6c491` (2026-10-05, Claude) — release: rangée de stories façon Instagram (photo + « + » défilent, suggestions +👤, vues au bout, dernier connecté d'abord, enchaînement automatique)
+- `5b5b2dc` (2026-10-05, Claude) — feat(stories): rangée façon Instagram — suggestions avec +👤 dans la ligne, stories vues tout au bout, plus de rond Autres
+- `7d6f801` (2026-10-05, Claude) — feat(stories): rangée d'une seule pièce (photo + « + » défilent), dernier connecté d'abord, règles gravées (cahier §14, contrat, garde-fou bloquant)
+- `096cadc` (2026-10-05, Claude) — feat(stories): enchaînement automatique vers la prochaine story non vue (commit local, release après le build iOS en cours)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

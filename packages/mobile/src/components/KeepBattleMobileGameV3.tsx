@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Animated, Image, ImageBackground, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, ImageBackground, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import PresenceDot from './PresenceDot';
 import { playTrackPreviewSegment, preloadTrackPreviewSegment, discardPreloadedTrackPreview, scheduleTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -45,6 +45,7 @@ import ProfileCertificationBadge from './ProfileCertificationBadge';
 import { robotSay } from '../services/robotCoachService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 const ROUND_MS = 10000;
 const SOLO_SHOW_LIVE_PLAYERS = false;
@@ -2016,7 +2017,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   };
 
   const renderSoloSavePrompt = () => (
-    <Modal
+    <KeepModal
       visible={Boolean(soloSavePrompt)}
       transparent
       animationType="fade"
@@ -2058,7 +2059,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           </View>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 
   const openOnline = async () => {
@@ -2316,7 +2317,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         {/* Adel (02/10/2026) : un joueur ne savait pas que la case était cliquable. */}
         <Text style={s.prefsEditPill}>MODIFIER ›</Text>
       </TouchableOpacity>
-      <Modal visible={soloPacksOpen} transparent animationType="fade" onRequestClose={() => setSoloPacksOpen(false)}>
+      <KeepModal visible={soloPacksOpen} transparent animationType="fade" onRequestClose={() => setSoloPacksOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setSoloPacksOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
@@ -2334,8 +2335,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <Text style={s.soloPackBalance}>Ton solde : {soloPacks?.balance ?? 0} Free · Paiement par carte / Apple Pay : bientôt</Text>
           </View>
         </View>
-      </Modal>
-      <Modal visible={prefsPickerOpen} transparent animationType="fade" onRequestClose={() => setPrefsPickerOpen(false)}>
+      </KeepModal>
+      <KeepModal visible={prefsPickerOpen} transparent animationType="fade" onRequestClose={() => setPrefsPickerOpen(false)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setPrefsPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
@@ -2355,7 +2356,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <TouchableOpacity style={s.finishPrimary} onPress={confirmMyPreferences}><Text style={s.finishPrimaryText}>VALIDER</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
     </>
   );
 
@@ -2409,7 +2410,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const renderPlayerStatsModal = () => {
     if (!statsPlayer) return null;
     return (
-      <Modal visible transparent animationType="fade" onRequestClose={() => setStatsPlayer(null)}>
+      <KeepModal visible transparent animationType="fade" onRequestClose={() => setStatsPlayer(null)}>
         <View style={s.statsBackdrop}>
           <View style={s.statsCard}>
             <TouchableOpacity hitSlop={A11Y_TOUCH_HIT_SLOP} style={s.statsClose} onPress={() => setStatsPlayer(null)} accessibilityRole="button" accessibilityLabel="Fermer"><Text style={s.statsCloseText}>×</Text></TouchableOpacity>
@@ -2451,7 +2452,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             </View>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
     );
   };
 

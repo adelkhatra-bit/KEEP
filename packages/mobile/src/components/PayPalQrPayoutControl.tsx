@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { clearMyPayoutQrUrl, pickAndUploadPayoutQr } from '../services/payoutLinkService';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 type Props = {
   profileId: string;
@@ -91,7 +92,7 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
           <Text style={s.helpText}>Le résultat enregistré sera exactement celui montré aux acheteurs dans Loki.</Text>
         </View>
       ) : null}
-      <Modal visible={qrFullscreen && Boolean(qrUrl)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
+      <KeepModal visible={qrFullscreen && Boolean(qrUrl)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
         <View style={s.qrFullscreenBackdrop}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrFullscreen(false)} />
           <View style={s.qrFullscreenCard}>
@@ -99,7 +100,7 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
             <Image source={{ uri: qrUrl }} style={s.qrFullscreenImage} resizeMode="contain" />
           </View>
         </View>
-      </Modal>
+      </KeepModal>
     </View>
   );
 }

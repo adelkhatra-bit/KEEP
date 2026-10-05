@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-import { Image, Modal, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
@@ -39,6 +39,7 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 /**
  * Bulles de stories du PROFIL, à côté de la photo (Adel, 05/10/2026).
@@ -278,7 +279,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         />
       </View>
 
-      <Modal visible={plusOpen} transparent animationType="fade" onRequestClose={closePlus}>
+      <KeepModal visible={plusOpen} transparent animationType="fade" onRequestClose={closePlus}>
         <SafeAreaView style={styles.backdrop}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
@@ -307,7 +308,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             </ScrollView>
           </View>
         </SafeAreaView>
-      </Modal>
+      </KeepModal>
 
       <SourceProfileQuickView
         visible={Boolean(quickUsername)}
@@ -324,6 +325,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
+        trackAddedAt={openStory?.addedAt}
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         headerExtra={!isOwnOpen && openStory ? (
           <Text style={styles.teaser} numberOfLines={compactScreen ? 1 : 2} ellipsizeMode="tail">{composeStoryTeaser(openStory.username, `${openStory.profileId}:${new Date().toISOString().slice(0, 10)}`)}</Text>

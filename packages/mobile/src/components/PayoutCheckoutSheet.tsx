@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { buildPayoutCheckoutUrl, payoutProviderLabel } from '../services/payoutLinkService';
 import { loadPlaylistPaymentProof, pickAndUploadPlaylistPaymentProof, PlaylistPaymentProof } from '../services/playlistPaymentProofService';
 import { colors } from '../theme/colors';
 import { Alert } from '../utils/keepAlert';
+import KeepModal from './KeepModal';
 
 type Props = {
   visible: boolean;
@@ -133,7 +134,7 @@ export default function PayoutCheckoutSheet({
 
   return (
     <>
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
         <View style={s.card}>
@@ -214,8 +215,8 @@ export default function PayoutCheckoutSheet({
           </ScrollView>
         </View>
       </View>
-    </Modal>
-    <Modal visible={qrFullscreen && Boolean(qr)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
+    </KeepModal>
+    <KeepModal visible={qrFullscreen && Boolean(qr)} transparent animationType="fade" onRequestClose={() => setQrFullscreen(false)}>
       <View style={s.qrFullscreenBackdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setQrFullscreen(false)} />
         <View style={s.qrFullscreenCard}>
@@ -227,7 +228,7 @@ export default function PayoutCheckoutSheet({
           <Text style={s.qrFullscreenHint}>Reste appuyé sur le QR pour utiliser les actions de ton téléphone vers PayPal, ou scanne-le depuis un autre appareil. Aucun titre de musique n’est affiché ici.</Text>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
     </>
   );
 }

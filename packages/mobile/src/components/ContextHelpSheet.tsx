@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 export type ContextHelpStep = {
   title: string;
@@ -18,7 +19,7 @@ type Props = {
 
 export default function ContextHelpSheet({ visible, title, intro, steps, footer, onClose }: Props) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop} accessibilityViewIsModal>
         <View style={s.card}>
           <View style={s.handle} />
@@ -48,7 +49,7 @@ export default function ContextHelpSheet({ visible, title, intro, steps, footer,
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

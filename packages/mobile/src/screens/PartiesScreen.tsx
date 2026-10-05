@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PARTIES: forces Pages to rebuild this exact screen source.
 import MotionActionButton from '../components/MotionActionButton';
-import { ActivityIndicator, Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Alert } from '../utils/keepAlert';
 import { createCreatorEvent, loadMyRsvps, loadUpcomingEvents, loadMyEventInvitationIds, loadPendingEventInvitePreviews, setEventRsvp, CreatorEvent, EventAudienceMode, EventRsvpStatus, loadMyPendingEventReviews, submitEventReview, loadEventReviewSummary, PendingEventReview, EventReviewSummary, loadEventRsvpCounts, EventRsvpCounts, updateCreatorEvent, disableCreatorEvent, loadEventParticipants, EventParticipant, pickAndUploadEventImage, loadMyEventTicket, EventTicket, checkinEventTicketByCode, toggleEventCheckin, buildGoogleCalendarUrl, buildEventIcs, loadMyEventOrganizerContact, EVENT_TICKET_PRESET_PRICES_CENTS, setEventTicketPrice, requestEventTicketPurchase, EventTicketPurchaseRequest, markEventTicketPaid, loadMyEventTicketSales, EventTicketTransaction, loadEventPlaylist, EventTrack } from '../services/creatorEventService';
@@ -30,6 +30,7 @@ import WheelPicker from '../components/WheelPicker';
 import StandardBackButton from '../components/StandardBackButton';
 import ContextHelpSheet from '../components/ContextHelpSheet';
 import PayoutCheckoutSheet from '../components/PayoutCheckoutSheet';
+import KeepModal from '../components/KeepModal';
 
 const RSVP_LABEL: Record<EventRsvpStatus, string> = {
   GOING: '✓ Je participe', MAYBE: 'Peut-être', NOT_GOING: 'Je ne participe pas',
@@ -1194,7 +1195,7 @@ export default function PartiesScreen({ navigation, route }: any) {
   // utilisée par Soirées et par l'écran Battle (Adel 02/10/2026).
   const renderRankingModals = () => (
     <>
-    <Modal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
+    <KeepModal visible={Boolean(statsEntry)} transparent animationType="fade" onRequestClose={() => setStatsEntry(null)}>
       <View style={styles.statsBackdrop}>
         <View style={styles.statsCard}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setStatsEntry(null)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
@@ -1264,9 +1265,9 @@ export default function PartiesScreen({ navigation, route }: any) {
           ) : null}
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
+    <KeepModal visible={myRankingOpen} transparent animationType="fade" onRequestClose={() => setMyRankingOpen(false)}>
       <View style={styles.statsBackdrop}><View style={styles.myRankingCard}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setMyRankingOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
         <Text style={styles.statsUsername}>MON CLASSEMENT</Text>
@@ -1335,7 +1336,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           })()}
         </ScrollView>}
       </View></View>
-    </Modal>
+    </KeepModal>
 
     </>
   );
@@ -1361,7 +1362,7 @@ export default function PartiesScreen({ navigation, route }: any) {
           onOpenSession={(sessionId) => { setBattleOpen(false); setPendingArenaId(undefined); navigation.setParams?.({ arenaId: undefined, openBattle: undefined, source: undefined }); stripBattleUrlParams(); navigation.navigate('SessionRecap', { sessionId }); }}
         />
       </View>
-      <Modal visible={battleSummaryOpen} transparent animationType="slide" onRequestClose={() => setBattleSummaryOpen(false)}>
+      <KeepModal visible={battleSummaryOpen} transparent animationType="slide" onRequestClose={() => setBattleSummaryOpen(false)}>
         <View style={styles.backdrop}>
           <View style={styles.sheet}>
             <View style={styles.modalHeader}>
@@ -1371,7 +1372,7 @@ export default function PartiesScreen({ navigation, route }: any) {
             <ScrollView showsVerticalScrollIndicator={false}>{renderLeaderboard()}</ScrollView>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
       {renderRankingModals()}
 </SafeAreaView>;
   }
@@ -1736,7 +1737,7 @@ export default function PartiesScreen({ navigation, route }: any) {
     </ScrollView>
 
     {renderRankingModals()}
-    <Modal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <KeepModal visible={createOpen} transparent animationType="slide" onRequestClose={resetEventForm}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingEventId ? 'Modifier l’événement' : 'Créer un événement'}</Text><TouchableOpacity onPress={resetEventForm}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom de l’événement" placeholderTextColor={colors.textMuted}/>
       {/* Adel (08/09/2026) : "le truc photo tu le remontes un peu plus
           haut" -- juste sous le nom, avant la date. "il puisse ajouter
@@ -1851,10 +1852,10 @@ export default function PartiesScreen({ navigation, route }: any) {
           logique" -- un seul bouton desormais, qui notifie toujours à la
           création. */}
       <TouchableOpacity style={styles.publish} onPress={()=>void publish()} disabled={createBusy}>{createBusy?<ActivityIndicator color={colors.white}/>:<Text style={styles.publishText}>{editingEventId ? 'ENREGISTRER LES MODIFICATIONS' : 'PUBLIER + NOTIFIER'}</Text>}</TouchableOpacity>
-    </ScrollView></View></View></Modal>
+    </ScrollView></View></View></KeepModal>
 
     {/* Adel (08/09/2026) : "voir tous les participants" */}
-    <Modal visible={participantsOpen} transparent animationType="slide" onRequestClose={() => setParticipantsOpen(false)}>
+    <KeepModal visible={participantsOpen} transparent animationType="slide" onRequestClose={() => setParticipantsOpen(false)}>
       <View style={styles.backdrop}><View style={styles.sheet}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>Participants</Text><TouchableOpacity onPress={() => setParticipantsOpen(false)}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View>
         {/* Adel (08/09/2026) : "il y a un code, je sais pas exactement à
@@ -1896,14 +1897,14 @@ export default function PartiesScreen({ navigation, route }: any) {
           )) : <Text style={styles.meta}>Personne n’a encore répondu.</Text>}
         </ScrollView>
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "en savoir plus ... j'ai toute la deroulement du
         texte ... automatiquement quand j'ai fini j'appuie hop et remonte et
         je participe ou pas" -- toutes les photos jamais rognees (resizeMode
         contain), texte integral, puis reponse immediate qui referme le
         detail. */}
-    <Modal visible={eventDetailOpen && !!currentEvent} transparent animationType="slide" onRequestClose={() => setEventDetailOpen(false)}>
+    <KeepModal visible={eventDetailOpen && !!currentEvent} transparent animationType="slide" onRequestClose={() => setEventDetailOpen(false)}>
       <View style={styles.backdrop}><View style={styles.sheet}>
         <View style={styles.modalHeader}><Text style={styles.modalTitle}>{currentEvent?.name}</Text><TouchableOpacity onPress={() => setEventDetailOpen(false)}><Text style={styles.close}>Fermer</Text></TouchableOpacity></View>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -1921,13 +1922,13 @@ export default function PartiesScreen({ navigation, route }: any) {
           </View> : null}
         </ScrollView>
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "il pourra dire que je telecharge mon QR code ...
         l'integrer sur son agenda Google ... comme il sort de Apple" -- billet
         personnel (pseudo + QR) + export agenda (Google + .ics pour Apple/
         Outlook), sans nouvelle dependance native. */}
-    <Modal visible={ticketModalOpen} transparent animationType="fade" onRequestClose={() => setTicketModalOpen(false)}>
+    <KeepModal visible={ticketModalOpen} transparent animationType="fade" onRequestClose={() => setTicketModalOpen(false)}>
       <View style={styles.statsBackdrop}><View style={styles.ticketCard}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fermer" style={styles.statsClose} onPress={() => setTicketModalOpen(false)}><Text style={styles.statsCloseText}>×</Text></TouchableOpacity>
         {ticketLoading ? <ActivityIndicator color={colors.primaryLight} style={{ marginTop: 30 }}/> : myTicket && ticketStillVisible(myTicket) ? <>
@@ -1945,10 +1946,10 @@ export default function PartiesScreen({ navigation, route }: any) {
           </View>
         </> : <Text style={styles.meta}>Billet indisponible (l’évènement est déjà loin derrière nous).</Text>}
       </View></View>
-    </Modal>
+    </KeepModal>
 
     {/* Adel (08/09/2026) : "systeme d'etoile ... un commentaire" */}
-    <Modal visible={!!reviewTarget} transparent animationType="fade" onRequestClose={() => setReviewTarget(null)}>
+    <KeepModal visible={!!reviewTarget} transparent animationType="fade" onRequestClose={() => setReviewTarget(null)}>
       <View style={styles.backdrop}><View style={styles.reviewSheet}>
         <Text style={styles.modalTitle}>{reviewTarget?.name}</Text>
         <Text style={styles.reviewPromptMeta}>{reviewTarget ? new Date(reviewTarget.startsAt).toLocaleDateString('fr-FR') : ''}</Text>
@@ -1963,7 +1964,7 @@ export default function PartiesScreen({ navigation, route }: any) {
         <TouchableOpacity style={styles.publish} onPress={() => void submitReview()} disabled={reviewBusy}>{reviewBusy ? <ActivityIndicator color={colors.white}/> : <Text style={styles.publishText}>ENVOYER MON AVIS</Text>}</TouchableOpacity>
         <TouchableOpacity style={styles.publishSecondary} onPress={() => setReviewTarget(null)}><Text style={styles.publishSecondaryText}>Plus tard</Text></TouchableOpacity>
       </View></View>
-    </Modal>
+    </KeepModal>
 </SafeAreaView>;
 }
 

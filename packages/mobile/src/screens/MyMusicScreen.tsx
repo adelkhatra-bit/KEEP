@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 // KEEP_PUBLIC_RUNTIME_PROBE_PLAYLISTS: forces Pages to rebuild this exact screen source.
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, Modal, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Image, Linking, TextInput, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
 import { analyzeLibrary, canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, groupTracksByArtist, LibraryAnalysis, ProviderPlaylist } from '@keep/music';
@@ -33,6 +33,7 @@ import ContextHelpSheet from '../components/ContextHelpSheet';
 import PayPalQrPayoutControl from '../components/PayPalQrPayoutControl';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
+import KeepModal from '../components/KeepModal';
 
 const ALL_KEEP_VIEW_ID = 'keep-all-music-view';
 type PlaylistWithTracks = { playlist: ProviderPlaylist; tracks: CanonicalTrack[] };
@@ -1793,7 +1794,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
-      <Modal visible={visibilityIntroOpen} transparent animationType="fade" onRequestClose={() => setVisibilityIntroOpen(false)}>
+      <KeepModal visible={visibilityIntroOpen} transparent animationType="fade" onRequestClose={() => setVisibilityIntroOpen(false)}>
         <View style={styles.modalBackdrop}>
           <View style={[styles.editCard, styles.playlistHelpCard]}>
             <View style={styles.playlistHelpHead}>
@@ -1822,7 +1823,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             <TouchableOpacity style={styles.cancelButton} onPress={() => setVisibilityIntroOpen(false)}><Text style={styles.cancelText}>Plus tard</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
       <ContextHelpSheet
         visible={playlistHelpOpen}
@@ -1839,7 +1840,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
         onClose={() => setPlaylistHelpOpen(false)}
       />
 
-      <Modal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
+      <KeepModal visible={!!editing} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         <View style={styles.modalBackdrop}><ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled"><View style={styles.editCard}>
           <Text style={styles.editTitle}>{editing && isSmartAlbumUiId(editing.id) ? 'Renommer ma Vibe' : 'Modifier la collection'}</Text>
           <Text style={styles.editHint}>Le nom et la visibilité restent entièrement sous ton contrôle.</Text>
@@ -1849,7 +1850,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           <TouchableOpacity style={styles.saveButton} onPress={() => void saveEdit()} disabled={savingEdit}>{savingEdit ? <ActivityIndicator color="#fff"/> : <Text style={styles.saveText}>ENREGISTRER</Text>}</TouchableOpacity>
           <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(null)}><Text style={styles.cancelText}>Annuler</Text></TouchableOpacity>
         </View></ScrollView></View>
-      </Modal>
+      </KeepModal>
 
       {/* Adel (16-17/09/2026) : "assure-toi que les montants sont
           pré-écrits pour éviter les bugs ... ça peut se vendre maximum 10
@@ -1857,7 +1858,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           fois pour une playlist entière, un album (groupe par artiste) et
           un seul morceau -- même popup, sellTarget change juste ce qui est
           vendu. */}
-      <Modal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
+      <KeepModal visible={!!sellTarget} transparent animationType="fade" onRequestClose={closeSellModal}>
         <View style={styles.modalBackdrop}>
           <ScrollView contentContainerStyle={styles.saleModalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View style={[styles.editCard, styles.saleWizardCard]}>
@@ -1967,9 +1968,9 @@ export default function MyMusicScreen({ navigation, route }: any) {
             </View>
           </ScrollView>
         </View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={Boolean(purchaseOpen)} transparent animationType="fade" onRequestClose={() => setPurchaseOpen(null)}>
+      <KeepModal visible={Boolean(purchaseOpen)} transparent animationType="fade" onRequestClose={() => setPurchaseOpen(null)}>
         <View style={styles.modalBackdrop}><View style={[styles.editCard, styles.purchaseModalCard]}>
           <View style={styles.purchaseModalHead}>
             <View style={styles.purchaseModalHeadCopy}>
@@ -1991,7 +1992,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
             </ScrollView>
           )}
         </View></View>
-      </Modal>
+      </KeepModal>
 
       {/* Adel (21/09/2026, mission 2/3) : "après paiement, choix immédiat
           Rendre publique / Garder masquée" -- affiché la première fois que
@@ -1999,7 +2000,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           keep_playlist_sale_pending_visibility_choice, une seule fois par
           achat). Les morceaux restent PRIVATE par défaut tant que ce choix
           n'est pas fait -- comportement déjà en place, inchangé. */}
-      <Modal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>
+      <KeepModal visible={!!pendingVisibilityChoice} transparent animationType="fade" onRequestClose={() => {}}>
         <View style={styles.modalBackdrop}><View style={styles.editCard}>
           <Text style={styles.editTitle}>🎉 Découverte débloquée</Text>
           <Text style={styles.editHint}>
@@ -2039,7 +2040,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
           </TouchableOpacity>
           <Text style={styles.editHint}>Modifiable à tout moment plus tard, morceau par morceau, dans « Mes musiques ».</Text>
         </View></View>
-      </Modal>
+      </KeepModal>
 </SafeAreaView>
   );
 }

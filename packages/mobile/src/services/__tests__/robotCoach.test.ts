@@ -29,7 +29,7 @@ describe('Robot coach (Adel 05/10/2026)', () => {
   });
   it('branché : accueil (FREE), Solo (quota) et fiche rapide des bulles sans story', () => {
     const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
-    expect(read('screens', 'HomeScreenCompact.tsx')).toContain("robotSay('NO_FREE')");
+    expect(read('screens', 'HomeScreenCompact.tsx')).not.toContain("robotSay('NO_FREE')"); // Adel 05/10 : plus de bulle verte sur l'accueil
     expect(read('components', 'KeepBattleMobileGameV3.tsx')).toContain("robotSay('NO_SOLO')");
     expect(read('components', 'ProfileStoryBar.tsx')).toContain('setQuickUsername(story.username)');
     expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain('deck-title-profile');

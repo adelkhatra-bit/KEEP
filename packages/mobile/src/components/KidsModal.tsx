@@ -1,13 +1,7 @@
 import React from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 interface KidsModalProps {
   visible: boolean;
@@ -35,7 +29,7 @@ export default function KidsModal({
   cancelEmoji = '✕',
 }: KidsModalProps) {
   return (
-    <Modal
+    <KeepModal
       visible={visible}
       transparent
       animationType="slide"
@@ -72,7 +66,7 @@ export default function KidsModal({
           </View>
         </View>
       </SafeAreaView>
-    </Modal>
+    </KeepModal>
   );
 }
 

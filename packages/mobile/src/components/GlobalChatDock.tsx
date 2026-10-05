@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Keyboard, Modal, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, BackHandler, Keyboard, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
@@ -16,6 +16,7 @@ import { useAccountGateStore } from '../store/useAccountGateStore';
 import { supabase } from '../services/supabaseClient';
 import { buildChatUnreadMap, chatUnreadKey, isChatNotification } from '../services/chatUnread';
 import { useGameSessionStore } from '../store/useGameSessionStore';
+import KeepModal from './KeepModal';
 
 
 function chatNotificationSender(item: KeepNotification): string {
@@ -697,7 +698,7 @@ export default function GlobalChatDock() {
 
   return (
     <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.globalOverlay]}>
-      <Modal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
+      <KeepModal visible={settingsOpen} transparent animationType="fade" onRequestClose={closeSettings}>
         <View style={styles.settingsBackdrop}>
           <View style={styles.settingsSheet}>
             <View style={styles.settingsHeader}>
@@ -815,7 +816,7 @@ export default function GlobalChatDock() {
             </View>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
       {open ? (
         !chatExpanded ? (
@@ -827,7 +828,7 @@ export default function GlobalChatDock() {
           {chatPanel(true)}
         </View>
         ) : (
-        <Modal
+        <KeepModal
           visible
           transparent={false}
           animationType={Platform.OS === 'web' ? 'none' : 'slide'}
@@ -856,7 +857,7 @@ export default function GlobalChatDock() {
           >
             {chatPanel(false)}
           </View>
-        </Modal>
+        </KeepModal>
         )
       ) : null}
 

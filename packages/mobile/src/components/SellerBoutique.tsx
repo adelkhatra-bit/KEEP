@@ -1,10 +1,11 @@
 import ChatDockHost from './ChatDockHost';
 import React, { useMemo, useState } from 'react';
-import { FlatList, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
+import { FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
+import KeepModal from './KeepModal';
 
 // Adel (02/10/2026) : « boutique vendeur » validée (maquette Boutique Pépites
 // Loki). La Boutique musicale met en avant 3 collections « à la une » ;
@@ -338,7 +339,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
         ? 'Touche une collection pour l’écouter directement. Pour modifier une collection publiée, utilise ◆ PÉPITES sur ton profil.'
         : `Merci pour ta visite${viewerName ? ` ${viewerName}` : ''} · écoute, puis garde seulement ce qui te ressemble.`}</Text>
 
-      <Modal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
+      <KeepModal visible={storeOpen} animationType="slide" transparent onRequestClose={() => setStoreOpen(false)}>
         <View style={s.storeBackdrop}>
           <View style={s.store}>
             <View style={s.storeHead}>
@@ -407,7 +408,7 @@ export default function SellerBoutique({ offers, sellerUsername, overlaps, unloc
           </View>
         </View>
         <ChatDockHost active={storeOpen} />
-      </Modal>
+      </KeepModal>
     </View>
   );
 }

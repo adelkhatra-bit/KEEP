@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { consumeWebAuthAndOpenNative, subscribeToNativeAuthLinks } from '../services/authLinkHandoff';
 import { supabase } from '../services/supabaseClient';
 import { createAuthService } from '../services/authService';
 import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 /**
  * Consomme les liens e-mail Supabase sans introduire une nouvelle navigation.
@@ -71,7 +72,7 @@ export default function AuthEmailLinkLifecycle() {
     }
   };
 
-  return <Modal visible={recoveryOpen} transparent animationType="fade" onRequestClose={() => setRecoveryOpen(false)}>
+  return <KeepModal visible={recoveryOpen} transparent animationType="fade" onRequestClose={() => setRecoveryOpen(false)}>
     <View style={styles.backdrop}>
       <View style={styles.card}>
         <Text style={styles.title}>Nouveau mot de passe Loki Music</Text>
@@ -85,7 +86,7 @@ export default function AuthEmailLinkLifecycle() {
         <TouchableOpacity style={styles.cancel} onPress={() => setRecoveryOpen(false)} disabled={busy}><Text style={styles.cancelText}>Plus tard</Text></TouchableOpacity>
       </View>
     </View>
-  </Modal>;
+  </KeepModal>;
 }
 
 const styles = StyleSheet.create({

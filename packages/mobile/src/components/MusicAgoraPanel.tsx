@@ -1,6 +1,6 @@
 import type { CanonicalTrack } from '@keep/music';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, AppState, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Image, InteractionManager, Keyboard, KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
@@ -64,6 +64,7 @@ import { markPlaylistSaleBuyerPaid, markPlaylistSalePaid, PlaylistPurchaseReques
 import { buildPayoutCheckoutUrl, getMyPayoutMethods } from '../services/payoutLinkService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { markNotificationRead } from '../services/notificationService';
+import KeepModal from './KeepModal';
 
 const PAGE_SIZE = 24;
 const LOKI_REACTION_TOKEN = '[[LOKI_REACTION]]';
@@ -2227,7 +2228,7 @@ export default function MusicAgoraPanel({
       </View>
     </View> : compactInboxList ? null : groupInvitePending ? <View style={s.locked}><Text style={s.lockedText}>Accepte l’invitation pour écrire dans ce groupe.</Text></View> : <View style={s.locked}><Text style={s.lockedText}>Écriture indisponible pour ce profil. Vérifie que le compte est actif et que le profil public est autorisé dans le Tchat.</Text></View>}
 
-    <Modal visible={groupCreateOpen} transparent animationType="fade" onRequestClose={() => setGroupCreateOpen(false)}>
+    <KeepModal visible={groupCreateOpen} transparent animationType="fade" onRequestClose={() => setGroupCreateOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.groupSheet}>
         <View style={s.shareHead}>
           <View style={{flex:1}}>
@@ -2271,9 +2272,9 @@ export default function MusicAgoraPanel({
           <Text style={s.groupCreateCtaText}>{groupBusy ? 'CRÉATION…' : `CRÉER · ${groupSelectedIds.length + 1} PERSONNE${groupSelectedIds.length ? 'S' : ''}`}</Text>
         </TouchableOpacity>
       </View></View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={groupMembersOpen} transparent animationType="fade" onRequestClose={() => setGroupMembersOpen(false)}>
+    <KeepModal visible={groupMembersOpen} transparent animationType="fade" onRequestClose={() => setGroupMembersOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.groupSheet}>
         <View style={s.shareHead}>
           <View style={{flex:1}}>
@@ -2329,9 +2330,9 @@ export default function MusicAgoraPanel({
           </>
         ) : null}
       </View></View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
+    <KeepModal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <View style={s.shareHead}><View style={{ flex:1 }}><Text style={s.shareTitle}>Ajouter une pépite</Text><Text style={s.shareHint}>Choisis un morceau. Dans une conversation privée, tu peux l’envoyer gratuitement, demander des FREE ou préparer un paiement conforme au canal disponible.</Text></View><TouchableOpacity onPress={() => setShareOpen(false)}><Text style={s.shareClose}>×</Text></TouchableOpacity></View>
         <ScrollView style={s.shareList} contentContainerStyle={{ gap:7 }}>
@@ -2350,7 +2351,7 @@ export default function MusicAgoraPanel({
           {!shareableTracks.length ? <Text style={s.empty}>Ajoute d’abord une musique à ton profil pour pouvoir la partager.</Text> : null}
         </ScrollView>
       </View></View>
-    </Modal>
+    </KeepModal>
   </KeyboardAvoidingView>;
 }
 

@@ -1,7 +1,7 @@
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -9,6 +9,7 @@ import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOr
 import MysteryArtwork from './MysteryArtwork';
 import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinStoryTrack } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
+import { formatStoryAge } from '../services/storyActivity';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -17,6 +18,7 @@ import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
+import KeepModal from './KeepModal';
 
 function shuffle<T>(input: T[]): T[] {
   const next = [...input];
@@ -53,6 +55,8 @@ type Props = {
   resetKey?: string | null;
   /** Toucher le titre (« Story de @x ») ouvre la fiche du membre, comme sur Instagram. */
   onTitlePress?: () => void;
+  /** Date d'ajout de chaque musique de la story : affiche « ajoutée il y a … · encore visible … ». */
+  trackAddedAt?: Record<string, string>;
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
@@ -96,6 +100,7 @@ export default function MusicSwipeDeckModal({
   onFinished,
   resetKey,
   onTitlePress,
+  trackAddedAt,
   backLabel,
   allowStoryAdd = false,
   headerExtra,
@@ -799,6 +804,7 @@ export default function MusicSwipeDeckModal({
         : '↑ morceau suivant · ← passer · → ajouter à ta collection';
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
+  const storyAgeLine = current && trackAddedAt ? formatStoryAge(trackAddedAt[current.id]) : null;
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
     : subtitle;
@@ -808,7 +814,7 @@ export default function MusicSwipeDeckModal({
       : 'Tu as terminé toutes les nouvelles musiques de ce profil.'
     : emptyTitle;
 
-  return <Modal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
+  return <KeepModal visible={visible} animationType="slide" onRequestClose={() => { void close(); }} presentationStyle="fullScreen">
     <View style={s.outer}>
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -816,6 +822,7 @@ export default function MusicSwipeDeckModal({
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
+          {storyAgeLine ? <Text style={s.storyAge} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
           {headerExtra ? <View style={compactDeck ? s.headerExtraCompact : null}>{headerExtra}</View> : null}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
@@ -909,7 +916,7 @@ export default function MusicSwipeDeckModal({
         />
       ) : null}
 
-      {!previewOnly ? <Modal visible={alreadyKeepInfoOpen} transparent animationType="fade" onRequestClose={closeAlreadyKeepInfo}>
+      {!previewOnly ? <KeepModal visible={alreadyKeepInfoOpen} transparent animationType="fade" onRequestClose={closeAlreadyKeepInfo}>
         <View style={s.keepOverlay}>
           <View style={s.ownerPreviewCard}>
             <Text style={s.alreadyKeepEyebrow}>DOUBLON BLOQUÉ</Text>
@@ -925,9 +932,9 @@ export default function MusicSwipeDeckModal({
             <TouchableOpacity style={s.alreadyKeepStay} onPress={closeAlreadyKeepInfo}><Text style={s.alreadyKeepStayText}>RESTER SUR CE MORCEAU</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal> : null}
+      </KeepModal> : null}
 
-      {previewOnly ? <Modal visible={previewInfoOpen} transparent animationType="fade" onRequestClose={closePreviewInfo}>
+      {previewOnly ? <KeepModal visible={previewInfoOpen} transparent animationType="fade" onRequestClose={closePreviewInfo}>
         <View style={s.keepOverlay}>
           <View style={s.ownerPreviewCard}>
             <Text style={s.ownerPreviewEyebrow}>APERÇU DE TON PROFIL</Text>
@@ -943,12 +950,12 @@ export default function MusicSwipeDeckModal({
             <Text style={s.ownerPreviewHint}>Cette fonction est destinée à tes abonnés.</Text>
           </View>
         </View>
-      </Modal> : null}
+      </KeepModal> : null}
       {overlay ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
     </View>
   <ChatDockHost active={visible} />
-  </Modal>;
+  </KeepModal>;
 }
 
 const s = StyleSheet.create({
@@ -983,6 +990,7 @@ const s = StyleSheet.create({
   gradientCompact:{paddingTop:12,paddingBottom:12},
   fullTrackLocked:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:4,marginBottom:12,paddingVertical:6},
   fullTrackButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#6E4BA3',backgroundColor:'#171020',alignItems:'center',justifyContent:'center',paddingHorizontal:12},fullTrackButtonText:{color:'#D8C5FF',fontSize:11,fontWeight:'900',letterSpacing:.35,textAlign:'center'},decisionBand:{marginHorizontal:-18,backgroundColor:'#050408',borderTopWidth:1,borderTopColor:'#211A2B',paddingHorizontal:18,paddingTop:10,paddingBottom:12},decisionRow:{flexDirection:'row',alignItems:'stretch',gap:7},decisionButton:{flex:1,minHeight:minTouchTarget,borderRadius:14,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:1},passButton:{backgroundColor:colors.pass,borderColor:colors.pass},passButtonText:{color:colors.white,fontSize:13,fontWeight:'900'},backDecisionButton:{backgroundColor:'#171020',borderColor:'#5B3F8C'},backDecisionText:{color:'#CDB7F4',fontSize:12,fontWeight:'900',textAlign:'center'},keepButton:{backgroundColor:colors.keep,borderColor:colors.keep},keepButtonText:{color:colors.black,fontSize:13,fontWeight:'900',textAlign:'center'},keepButtonAlready:{backgroundColor:'#27222E',borderColor:'#5C5468'},keepButtonTextAlready:{color:'#FFFFFF',fontSize:12},
+  storyAge:{color:'#2DE1C2',fontSize:13,lineHeight:18,fontWeight:'800',marginTop:4},
   titleRow:{flexDirection:'row',alignItems:'center',minWidth:0},titleBadge:{marginLeft:8,flexShrink:0},
   empty:{flex:1,alignItems:'center',justifyContent:'center',padding:24},emptyIcon:{fontSize:48,color:colors.primaryLight},emptyTitle:{color:'#F8F6FC',fontSize:16,fontWeight:'900',marginTop:10,textAlign:'center'},preparingHint:{color:'#FFFFFF',fontSize:12,lineHeight:17,textAlign:'center',marginTop:7,maxWidth:300},backButton:{marginTop:18,minHeight:minTouchTarget,paddingHorizontal:22,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},backText:{color:'#FFF',fontWeight:'900',fontSize:13},
   keepOverlay:{flex:1,backgroundColor:'rgba(4,3,8,.82)',alignItems:'center',justifyContent:'center',paddingHorizontal:22},

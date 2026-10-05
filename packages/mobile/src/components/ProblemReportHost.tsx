@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { startShakeDetection, submitProblemReport, subscribeProblemReportOpen, currentScreenName, openProblemReport } from '../services/problemReportService';
+import KeepModal from './KeepModal';
 
 /** Fenêtre « Signaler un problème » : montée une seule fois dans App.tsx (utilisateur connecté). */
 export default function ProblemReportHost() {
@@ -30,7 +31,7 @@ export default function ProblemReportHost() {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
       <KeyboardAvoidingView style={s.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={s.card}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
@@ -54,7 +55,7 @@ export default function ProblemReportHost() {
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </KeepModal>
   );
 }
 

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import KeepModal from './KeepModal';
 
 type PlaylistChoice = { id: string; name: string };
 
@@ -39,7 +40,7 @@ export default function KeepVisibilityChoiceModal({
   const showCost = !editMode && cost > 0;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={s.overlay}>
         <View style={s.card}>
           <Text style={s.eyebrow}>{editMode ? 'VISIBILITÉ' : 'GARDER CE MORCEAU'}</Text>
@@ -105,7 +106,7 @@ export default function KeepVisibilityChoiceModal({
           </TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 
@@ -132,7 +133,7 @@ export function KeepSuccessModal({
 }: SuccessProps) {
   const cost = Math.max(0, Number(costFree || 0));
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { void onContinue(); }}>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={() => { void onContinue(); }}>
       <View style={s.overlay}>
         <View style={s.successCard}>
           <View style={s.successOrb}><Text style={s.successOrbText}>✓</Text></View>
@@ -160,7 +161,7 @@ export function KeepSuccessModal({
           ) : null}
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

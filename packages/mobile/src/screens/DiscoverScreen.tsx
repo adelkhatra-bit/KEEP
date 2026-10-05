@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Modal, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, PanResponder, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import MotionActionButton from '../components/MotionActionButton';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import { CreatorEvent, EventRsvpCounts, EventRsvpStatus, loadEventRsvpCounts, loadMyRsvps, loadUpcomingEvents, setEventRsvp } from '../services/creatorEventService';
 import StandardBackButton from '../components/StandardBackButton';
+import KeepModal from '../components/KeepModal';
 
 const DISCOVERY_RADII = [5, 10, 25, 50, 100, 250, 500, 1000, 5000, 20000];
 const FREE_LOCAL_DISCOVERY_LIMIT = 3;
@@ -738,7 +739,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
         </>}
       </ScrollView>
 
-      <Modal visible={discoverHelpOpen} transparent animationType="fade" onRequestClose={() => setDiscoverHelpOpen(false)}>
+      <KeepModal visible={discoverHelpOpen} transparent animationType="fade" onRequestClose={() => setDiscoverHelpOpen(false)}>
         <View style={styles.discoverHelpBackdrop}>
           <View style={styles.discoverHelpCard}>
             <View style={styles.discoverHelpHead}>
@@ -759,9 +760,9 @@ export default function DiscoverScreen({ navigation, route }: any) {
             <TouchableOpacity style={styles.discoverHelpDone} onPress={() => setDiscoverHelpOpen(false)} accessibilityLabel="Fermer l’aide Découvertes"><Text style={styles.discoverHelpDoneText}>J’AI COMPRIS</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 
-      <Modal visible={eventDetailOpen} transparent animationType="fade" onRequestClose={() => setEventDetailOpen(false)}>
+      <KeepModal visible={eventDetailOpen} transparent animationType="fade" onRequestClose={() => setEventDetailOpen(false)}>
         <View style={styles.eventModalBackdrop}>
           <View style={styles.eventModalCard}>
             <View style={styles.eventModalHandle} />
@@ -786,7 +787,7 @@ export default function DiscoverScreen({ navigation, route }: any) {
             <TouchableOpacity style={styles.eventModalClose} onPress={() => setEventDetailOpen(false)}><Text style={styles.eventModalCloseText}>FERMER</Text></TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
 </SafeAreaView>
   );
 }

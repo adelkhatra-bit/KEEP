@@ -1,7 +1,7 @@
 import ProfileStoryBar from '../components/ProfileStoryBar';
 import { loadStoryAccess } from '../services/storyAccessService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
@@ -67,6 +67,7 @@ import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
+import KeepModal from '../components/KeepModal';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -2517,7 +2518,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       }}
     />
 
-    <Modal visible={pulseTasteOpen} transparent animationType="slide" onRequestClose={() => setPulseTasteOpen(false)}>
+    <KeepModal visible={pulseTasteOpen} transparent animationType="slide" onRequestClose={() => setPulseTasteOpen(false)}>
       <View style={s.pulseTasteBackdrop}>
         <TouchableOpacity
           style={s.pulseTasteBack}
@@ -2539,9 +2540,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           onLater={() => setPulseTasteOpen(false)}
         />
       </View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => (expandedMenuItem ? setExpandedMenuItem(null) : setMenuOpen(false))}>
+    <KeepModal visible={menuOpen} transparent animationType="fade" onRequestClose={() => (expandedMenuItem ? setExpandedMenuItem(null) : setMenuOpen(false))}>
       <View style={s.menuDrawerBackdrop}><View style={s.menuDrawer}>
         <View style={s.sheetHandle} />
         {expandedMenuItem ? (
@@ -2579,9 +2580,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
         )}
         <TouchableOpacity style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 8 }} onPress={() => { setMenuOpen(false); setExpandedMenuItem(null); }}><Text style={{ color: colors.textPrimary, fontSize: 13, fontWeight: '800' }}>Fermer</Text></TouchableOpacity>
       </View></View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
+    <KeepModal visible={styleModalOpen} transparent animationType="fade" onRequestClose={() => setStyleModalOpen(false)}>
       <View style={s.modalBackdrop}><View style={s.shareSheet}>
         <Text style={s.shareTitle}>Parcourir par style</Text>
         <ScrollView style={{ maxHeight: 360, marginTop: 8 }}>
@@ -2614,7 +2615,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </ScrollView>
         <TouchableOpacity style={{ minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 8 }} onPress={() => setStyleModalOpen(false)}><Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '700' }}>Fermer</Text></TouchableOpacity>
       </View></View>
-    </Modal>
+    </KeepModal>
 
     <MusicSwipeDeckModal
       visible={Boolean(selectionSwipe)}
@@ -2643,7 +2644,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     />
 
 
-    <Modal visible={kindPickerOpen} transparent animationType="fade" onRequestClose={() => setKindPickerOpen(false)}>
+    <KeepModal visible={kindPickerOpen} transparent animationType="fade" onRequestClose={() => setKindPickerOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
@@ -2671,9 +2672,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={s.cancelShare} onPress={() => setKindPickerOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={false} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
+    <KeepModal visible={false} transparent animationType="fade" onRequestClose={() => setRepriseListOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={[s.shareSheet, s.repriseSheet]}>
           <View style={s.sheetHandle} />
@@ -2699,7 +2700,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={s.cancelShare} onPress={() => setRepriseListOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 
     <NotificationSidePanel
       visible={notificationPanelOpen}
@@ -2707,7 +2708,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       onClose={() => setNotificationPanelOpen(false)}
     />
 
-    <Modal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
+    <KeepModal visible={shareOpen} transparent animationType="fade" onRequestClose={() => setShareOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.shareSheet}>
           <View style={s.sheetHandle} />
@@ -2723,9 +2724,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
           <TouchableOpacity style={s.cancelShare} onPress={() => setShareOpen(false)}><Text style={s.cancelShareText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 
-    <Modal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
+    <KeepModal visible={qrOpen} transparent animationType="fade" onRequestClose={() => setQrOpen(false)}>
       <View style={s.modalBackdrop}>
         <View style={s.qrShell}>
           <TouchableOpacity style={s.qrCloseTop} onPress={() => setQrOpen(false)} accessibilityLabel="Fermer le QR Loki Music"><Text style={s.qrCloseTopText}>✕</Text></TouchableOpacity>
@@ -2771,7 +2772,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
 </SafeAreaView>;
 }
 
