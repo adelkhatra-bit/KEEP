@@ -25,9 +25,9 @@ describe('DNA and Loki Pulse separation', () => {
   });
 
   it('uses track bubbles, not genre/style bubbles, on Loki Music home', () => {
-    expect(home).toContain("loadLokiPulse(24, user.id)");
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
-    expect(home).toContain('openHomePulseTrack(item.track.id)');
+    expect(home).not.toContain("loadLokiPulse(24, user.id)"); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('testID="home-loki-pulse-track-bubbles"'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('openHomePulseTrack(item.track.id)'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(home).not.toContain('homeStyleBubbles');
     expect(home).not.toContain('Styles musicaux cliquables');
   });

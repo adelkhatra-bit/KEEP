@@ -21,15 +21,9 @@ import { captureTabAudioSample, getMicPermissionStatus, MicPermissionDeniedError
 import { colors } from '../theme/colors';
 import { minTouchTarget, typography } from '../theme/spacing';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
-import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
-import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
-import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
-import MusicStoryRail from '../components/MusicStoryRail';
-import { buildOwnStory, loadMusicStories, loadSeenStories, markStorySeen, MusicStory } from '../services/musicStoriesService';
-import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -112,57 +106,6 @@ export default function HomeScreenCompact({ navigation }: any) {
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
-  const [homePulseItems, setHomePulseItems] = useState<LokiPulseItem[]>([]);
-  const [homePulseOpen, setHomePulseOpen] = useState(false);
-  const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
-  const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
-  // Stories musicales (Adel, 05/10/2026) : rangée façon Instagram en haut d'Écouter.
-  const [musicStories, setMusicStories] = useState<MusicStory[]>([]);
-  const [musicStoriesSeen, setMusicStoriesSeen] = useState<Record<string, string>>({});
-  const [openStory, setOpenStory] = useState<MusicStory | null>(null);
-  // Ta propre story (Adel 05/10/2026) : toutes tes musiques identifiées des 72 h,
-  // privées/masquées incluses, visibles de toi seul. Source locale, sans réseau.
-  const historySessions = useSessionHistoryStore((st) => st.sessions);
-  const ownStory = useMemo(
-    () => (user ? buildOwnStory({ id: user.id, username: user.username, avatarUrl: user.avatar || null }, historySessions) : null),
-    [user?.id, user?.username, user?.avatar, historySessions],
-  );
-  const openOwnStory = () => {
-    if (!user) return;
-    if (!ownStory) {
-      Alert.alert('Ta story', 'Identifie un morceau avec Écouter : il apparaît ici pendant 72 heures, visible de toi seul tant que tu ne le gardes pas en public.', [{ text: 'OK', style: 'cancel' }]);
-      return;
-    }
-    stopTrackPreviewFast();
-    setOpenStory(ownStory);
-    void markStorySeen(user.id, ownStory).then(setMusicStoriesSeen).catch(() => {});
-  };
-  const prewarmHomePulseTrack = (trackId: string) => {
-    // Le preload natif est désormais indépendant de la file de lecture :
-    // dès le contact du doigt, Loki commence à préparer l'extrait choisi.
-    // Aucun son ne joue ici (shouldPlay:false), donc un seul morceau reste
-    // audible dans toute l'application.
-    const item = homePulseItems.find((row) => row.track.id === trackId);
-    if (!item) return;
-    const direct = item.track.previewUrl?.trim();
-    if (direct) {
-      void preloadTrackPreview(direct);
-      return;
-    }
-    void resolveTrackPreviewUrl(item.track)
-      .then((url) => url ? preloadTrackPreview(url) : undefined)
-      .catch(() => {});
-  };
-
-  const openHomePulseTrack = (trackId: string) => {
-    // Un seul son audible dans toute l'app : le tap coupe immédiatement
-    // l'extrait ou le départ programmé précédent, puis le modal démarre
-    // directement le morceau choisi.
-    unlockWebAudioForGesture();
-    stopTrackPreviewFast();
-    setHomePulseSelectedTrackId(trackId);
-    setHomePulseOpen(true);
-  };
   const [homeAboutOpen, setHomeAboutOpen] = useState(false);
   const homeAboutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -459,43 +402,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => { live = false; };
   }, [user?.id]);
   useEffect(() => {
-    let live = true;
-    const refreshHomePulse = async () => {
-      if (!user || isDemoMode || musicEngine.isDemoMode) {
-        if (live) setHomePulseItems([]);
-        return;
-      }
-      try {
-        const items = await loadLokiPulse(24, user.id);
-        if (live) setHomePulseItems(items);
-      } catch {
-        // Conserver les dernières bulles valides en cas de panne réseau/RPC :
-        // une indisponibilité temporaire ne doit jamais vider Loki Pulse.
-      }
-    };
-    void refreshHomePulse();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshHomePulse(); });
-    return () => { live = false; unsubscribe?.(); };
-  }, [isDemoMode, navigation, user?.id]);
-  useEffect(() => {
-    let live = true;
-    const refreshStories = async () => {
-      if (!user || isDemoMode || musicEngine.isDemoMode) {
-        if (live) setMusicStories([]);
-        return;
-      }
-      try {
-        const [stories, seen] = await Promise.all([loadMusicStories(user.id), loadSeenStories(user.id)]);
-        if (live) { setMusicStories(stories); setMusicStoriesSeen(seen); }
-      } catch {
-        // Une panne réseau garde la dernière rangée affichée : jamais d'écran cassé.
-      }
-    };
-    void refreshStories();
-    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshStories(); });
-    return () => { live = false; unsubscribe?.(); };
-  }, [isDemoMode, navigation, user?.id]);
-  useEffect(() => {
     void refreshCreditBadge();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
     return () => unsubscribe?.();
@@ -720,20 +626,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             l'onde. Restyling seul : bouton, erreurs/astuce micro, mention micro,
             MODE DÉMO, test d'onglet et mini-tour sont tous conservés. */}
         <AuroraBackground active />
-        <ScrollView style={s.main} contentContainerStyle={s.idle} showsVerticalScrollIndicator={false} bounces={false}>
-          {!isDemoMode && user ? (
-            <MusicStoryRail
-              stories={musicStories}
-              seen={musicStoriesSeen}
-              own={{ story: ownStory, username: user.username, avatarUrl: user.avatar || null }}
-              onOpenOwn={openOwnStory}
-              onOpen={(story) => {
-                stopTrackPreviewFast();
-                setOpenStory(story);
-                void markStorySeen(user.id, story).then(setMusicStoriesSeen).catch(() => {});
-              }}
-            />
-          ) : null}
+        {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
+        <View style={[s.main, s.idle, s.idleFit]}>
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -793,89 +687,8 @@ export default function HomeScreenCompact({ navigation }: any) {
               <Text style={s.tabTestText}>{tabTestBusy ? 'Capture en cours...' : 'Tester avec le son d’un onglet'}</Text>
             </TouchableOpacity>
           ) : null}
-
-          {!isDemoMode && user && homePulseItems.length ? (
-            <View style={s.homePulseWrap} testID="home-loki-pulse-track-bubbles" accessibilityLabel="Bulles musicales Loki Pulse">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.homePulseRail}>
-                {homePulseItems.slice(0, 8).map((item) => (
-                  <TouchableOpacity
-                    key={item.track.id}
-                    style={s.homePulseCard}
-                    onPressIn={() => prewarmHomePulseTrack(item.track.id)}
-                    onPress={() => openHomePulseTrack(item.track.id)}
-                    accessibilityLabel={`Écouter ${item.track.title}`}
-                  >
-                    <View style={s.homePulseArtworkRing}>
-                      {item.track.artworkUrl
-                        ? <Image source={{ uri: item.track.artworkUrl }} style={s.homePulseArtwork} />
-                        : <View style={[s.homePulseArtwork, s.homePulseFallbackWrap]}><Text style={s.homePulseFallback}>♫</Text></View>}
-                      {item.isNew ? <View style={s.homePulseNewDot}><Text style={s.homePulseNewText}>NEW</Text></View> : null}
-                    </View>
-                    <Text style={s.homePulseTrackTitle} numberOfLines={1}>{item.track.title}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
-        </ScrollView>
+        </View>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
-        <MusicSwipeDeckModal
-          visible={Boolean(openStory)}
-          tracks={openStory?.tracks ?? []}
-          initialTrackId={openStory?.tracks[0]?.id ?? null}
-          title={openStory?.profileId === user?.id ? 'Ta story' : openStory ? `Story de @${openStory.username}` : 'Story'}
-          subtitle={openStory?.profileId === user?.id ? 'Tes musiques identifiées · visibles de toi seul' : `${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${homePulseFreeCost} FREE`}
-          previewOnly={openStory?.profileId === user?.id}
-          sourceUsername={openStory?.profileId === user?.id ? undefined : openStory?.username}
-          sourceAvatarUrl={openStory?.profileId === user?.id ? null : openStory?.avatarUrl ?? null}
-          sourceProfileId={openStory?.profileId === user?.id ? undefined : openStory?.profileId}
-          emptyTitle="Cette story est terminée."
-          backLabel="REVENIR À LOKI MUSIC"
-          askVisibilityOnKeep
-          keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
-          keepDebitAmount={homePulseFreeCost}
-          optimisticPass
-          onKeep={async (track, visibility) => {
-            const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
-            return ok;
-          }}
-          onPass={() => true}
-          onOpenSourceProfile={(username) => { setOpenStory(null); navigation?.navigate?.('PublicProfile', { username }); }}
-          onClose={() => setOpenStory(null)}
-        />
-        <MusicSwipeDeckModal
-          visible={homePulseOpen}
-          tracks={homePulseItems.map((item) => item.track)}
-          initialTrackId={homePulseSelectedTrackId}
-          title="Loki Pulse"
-          subtitle={`Pour toi · GARDER coûte actuellement ${homePulseFreeCost} FREE`}
-          emptyTitle="Aucun morceau Loki Pulse pour le moment."
-          backLabel="REVENIR À LOKI MUSIC"
-          // Adel (02/10/2026) : les bulles de l'accueil ouvraient le Swipe en
-          // mode « aperçu de ton profil » → GARDER affichait toujours « déjà
-          // dans ta collection ». Même GARDER que le profil (débit, choix
-          // Public/Privé, anti-doublon par morceau), PASSER masque gratuitement.
-          askVisibilityOnKeep
-          keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER / MASQUER reste gratuit.`}
-          keepDebitAmount={homePulseFreeCost}
-          optimisticPass
-          onKeep={async (track, visibility) => {
-            const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
-            if (ok) setHomePulseItems((items) => items.filter((item) => item.track.id !== track.id));
-            return ok;
-          }}
-          onPass={(track) => {
-            // UX mobile : PASSER doit être instantané. Le masquage Supabase
-            // reste persistant mais ne bloque plus la carte suivante sur le réseau.
-            setHomePulseItems((items) => items.filter((item) => item.track.id !== track.id));
-            void hideLokiPulseTrack(track.id).catch(() => {});
-            return true;
-          }}
-          onClose={() => {
-            setHomePulseOpen(false);
-            setHomePulseSelectedTrackId(null);
-          }}
-        />
 </SafeAreaView>
     );
   }
@@ -1209,7 +1022,8 @@ function LokiIdleOrb() {
   // Adel (05/10/2026) : sur iPhone (≈844 px) tout l'écran Écouter doit tenir
   // sans faire défiler (stories + orbe + bouton + compteur + bulles Pulse).
   // Ordinateur (≥ 900 px de haut) : orbe inchangé.
-  const size = height < 720 ? 132 : height < 900 ? 150 : 196;
+  // Responsive (Adel 05/10/2026) : l'orbe suit la hauteur de l'écran, de 96 px (petit iPhone) à 196 px (ordinateur).
+  const size = Math.max(96, Math.min(196, Math.round((height - 460) * 0.4)));
   const ring = (d: number) => ({ width: d, height: d, borderRadius: d / 2 });
   const breath = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -1349,16 +1163,6 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8},
-  homePulseRail:{paddingHorizontal:2,paddingTop:2,paddingBottom:0,gap:14},
-  homePulseCard:{width:98,alignItems:'center'},
-  homePulseArtworkRing:{position:'relative',width:86,height:86,borderRadius:43,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
-  homePulseArtwork:{width:'100%',height:'100%',borderRadius:39},
-  homePulseFallbackWrap:{backgroundColor:C.card,alignItems:'center',justifyContent:'center'},
-  homePulseFallback:{color:C.purpleLight,fontSize:20,fontWeight:'900'},
-  homePulseNewDot:{position:'absolute',right:-5,bottom:-2,minWidth:25,height:16,borderRadius:8,paddingHorizontal:4,backgroundColor:C.green,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:C.bg},
-  homePulseNewText:{color:C.bg,fontSize:11,fontWeight:'900',letterSpacing:.4},
-  homePulseTrackTitle:{width:'100%',color:C.text,fontSize:11.5,fontWeight:'900',textAlign:'center',marginTop:5},
   livePanel: { marginBottom: 8 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
@@ -1397,6 +1201,8 @@ const s = StyleSheet.create({
   planPaid: { borderColor: colors.border, backgroundColor: colors.backgroundCard },
   premiumText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
   idle: { flexGrow: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
+  // Sans défilement : le contenu se répartit dans la hauteur disponible, jamais coupé.
+  idleFit: { flexGrow: 1, flexShrink: 1, flexBasis: 0, justifyContent: 'space-evenly', overflow: 'hidden', paddingBottom: 12 },
   idleTitle: { color: C.text, fontSize: 24, lineHeight: 30, fontWeight: '900', letterSpacing: -0.6, textAlign: 'center', maxWidth: 340, marginTop: 10 },
   idleSubtitle: { color: colors.white, fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
   idleLearnMore: { minHeight: minTouchTarget, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },

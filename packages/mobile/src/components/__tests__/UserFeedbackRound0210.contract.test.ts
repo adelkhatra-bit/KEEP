@@ -11,15 +11,11 @@ const profile = read('screens', 'ProfilePublicScreen.tsx');
 const taste = read('components', 'MusicTasteQuestionnaire.tsx');
 
 describe('retours joueurs 02/10', () => {
-  it('Loki Pulse de l’accueil : vrai GARDER (plus le mode aperçu « déjà dans ta collection »)', () => {
-    // Le bloc contrôlé est celui de Loki Pulse (visible={homePulseOpen}) : la story
-    // personnelle (lecture seule, 05/10/2026) a son propre MusicSwipeDeckModal.
-    const pulseStart = home.lastIndexOf('<MusicSwipeDeckModal', home.indexOf('visible={homePulseOpen}'));
-    const block = home.slice(pulseStart, home.indexOf('/>', home.indexOf('onClose={() => {', pulseStart)));
-    expect(block).not.toMatch(/\bpreviewOnly\b/);
-    expect(block).toContain('askVisibilityOnKeep');
-    expect(home).toContain('keepLokiPulseTrack(track,');
+  it('Loki Pulse : vrai GARDER sur le profil (plus de bulles sur l’accueil, Adel 05/10/2026)', () => {
+    expect(home).not.toContain('previewOnly');
+    expect(home).not.toContain('<MusicSwipeDeckModal');
     expect(profile).toContain('keepLokiPulseTrack(track, visibility, freeCostPerKeep)');
+    expect(profile).toContain('askVisibilityOnKeep');
   });
 
   it('Session : PASSER = morceau suivant, rien n’est retiré', () => {

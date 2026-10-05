@@ -137,7 +137,8 @@ if (audioPreviewSource.includes('if (status.isLoaded && status.isPlaying) return
   failures.push('IOS NEXT-PREVIEW PRELOAD MUST NOT BE SKIPPED JUST BECAUSE CURRENT AUDIO IS PLAYING');
 }
 if (!swipeModalSource.includes('optimisticPass?: boolean')) failures.push('MUSIC SWIPE MUST RETAIN OPTIMISTIC PASS SUPPORT');
-if (!homeListenSource.includes('optimisticPass')) failures.push('LOKI PULSE HOME MUST USE OPTIMISTIC PASS');
+// Décision d'Adel 05/10/2026 : Loki Pulse retiré de l'accueil Écouter (reste sur le profil).
+if (homeListenSource.includes('homePulseWrap')) failures.push('LOKI PULSE BUBBLES MUST NOT RETURN TO LISTEN HOME (ADEL 05/10/2026)');
 
 
 const spacingSource = read('packages/mobile/src/theme/spacing.ts');
@@ -184,7 +185,7 @@ for (const uxMarker of ["textPrimary: '#FFFFFF'", "textSecondary: '#FFFFFF'", "t
 }
 const uxHomeSource = read('packages/mobile/src/screens/HomeScreenCompact.tsx');
 if (!uxHomeSource.includes('idleLearnMoreSlot')) failures.push('HOME HELP MUST RESERVE STABLE LAYOUT SPACE');
-if (!uxHomeSource.includes("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'")) failures.push('HOME MUSIC BUBBLES MUST STAY LOWER NEAR TAB BAR');
+if (uxHomeSource.includes('MusicStoryRail')) failures.push('STORIES BELONG ON THE PROFILE, NOT ON LISTEN HOME (ADEL 05/10/2026)');
 if (productContract.profileOwner?.freePlacement !== 'immediately-after-Reprises-in-owner-metrics-bar') failures.push('PRODUCT CONTRACT FREE PLACEMENT MISMATCH');
 if (productContract.profileOwner?.freeBesideProfileKind !== false) failures.push('PRODUCT CONTRACT FREE BESIDE PROFILE KIND MISMATCH');
 if (productContract.profileOwner?.freeImmediatelyAfterReprises !== true) failures.push('PRODUCT CONTRACT FREE AFTER REPRISES MISMATCH');

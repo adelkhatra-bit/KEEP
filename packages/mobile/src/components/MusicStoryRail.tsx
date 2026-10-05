@@ -1,27 +1,35 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
-import type { MusicStory } from '../services/musicStoriesService';
+import { orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
 
 /**
- * Rangée de stories musicales en haut de l'écran Écouter (Adel, 05/10/2026,
- * inspiration accueil Instagram). Un rond = un membre suivi ou un passionné du
- * même style ; la plus récente à gauche. Anneau violet → turquoise animé tant
- * que la story n'est pas vue, gris ensuite. Même code iPhone et ordinateur ;
- * aucun texte sous 11 px, texte blanc sur fond sombre.
+ * Bulles de stories à côté de la photo du profil (Adel, 05/10/2026, inspiré
+ * d'Instagram). Règles : AUCUN défilement ni swipe — tout ce qui tient est
+ * affiché d'un coup, le reste passe derrière « +N ». Cercle coloré animé tant
+ * qu'il y a une nouveauté ; une story VUE se grise, reçoit un ✓ et passe après
+ * les nouveautés. Texte blanc, 11 px minimum, même code iPhone et ordinateur.
  */
 type OwnBubble = { story: MusicStory | null; username: string; avatarUrl?: string | null };
 type Props = {
   stories: MusicStory[];
   seen: Record<string, string>;
   onOpen: (story: MusicStory) => void;
-  /** Ta photo + ta story (toutes tes musiques identifiées, même masquées : visibles de toi seul). */
+  /** Ta photo + ta story (musiques partagées en public + en vente). */
   own?: OwnBubble;
   onOpenOwn?: () => void;
+  /** Ouvre la liste complète quand toutes les bulles ne tiennent pas. */
+  onOpenMore?: (hidden: MusicStory[]) => void;
 };
 
-function StoryRing({ unseen, children }: { unseen: boolean; children: React.ReactNode }) {
+const RING = 60;
+const ITEM = 66;
+const THICK = 5; // contour bien visible : on voit tout de suite qu'une story attend
+const VIVID = ['#FF3D9A', '#FFB020', '#2DE1C2', '#7C5CFC'];
+const GAP = 6;
+
+export function StoryRing({ unseen, children, size = RING }: { unseen: boolean; children: React.ReactNode; size?: number }) {
   const spin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!unseen) return undefined;
@@ -30,23 +38,48 @@ function StoryRing({ unseen, children }: { unseen: boolean; children: React.Reac
     return () => loop.stop();
   }, [spin, unseen]);
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const box = { width: size, height: size, borderRadius: size / 2 };
+  const gap = { width: size - THICK * 2, height: size - THICK * 2, borderRadius: (size - THICK * 2) / 2 };
   return (
-    <View style={s.ringBox}>
+    <View style={[s.glowBox, unseen && s.glowOn, box]}><View style={[s.ringBox, box]}>
       {unseen ? (
         <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate }] }]}>
-          <LinearGradient colors={[colors.primary, colors.success, colors.primaryLight]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.ringGradient} />
+          <LinearGradient colors={VIVID as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.ringGradient, { borderRadius: size / 2 }]} />
         </Animated.View>
-      ) : <View style={s.ringSeen} />}
-      <View style={s.ringGap}>{children}</View>
-    </View>
+      ) : <View style={[s.ringSeen, { borderRadius: size / 2 }]} />}
+      <View style={[s.ringGap, gap]}>{children}</View>
+    </View></View>
   );
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn }: Props) {
+function Avatar({ uri, name }: { uri?: string | null; name: string }) {
+  const size = RING - THICK * 2 - 6;
+  const box = { width: size, height: size, borderRadius: size / 2 };
+  if (uri) return <Image source={{ uri }} style={box} />;
+  return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
+}
+
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, onOpenMore }: Props) {
+  const [width, setWidth] = useState(0);
   if (!stories.length && !own) return null;
+  const ordered = orderStoriesForBar(stories, seen);
+  const ownSlots = own ? 1 : 0;
+  // Tout est visible d'un coup : on affiche ce qui tient, jamais de défilement.
+  const capacity = width > 0 ? Math.max(1, Math.floor((width + GAP) / (ITEM + GAP))) : ownSlots + ordered.length;
+  const overflow = ordered.length + ownSlots > capacity;
+  const visibleCount = overflow ? Math.max(0, capacity - ownSlots - 1) : ordered.length;
+  const visible = ordered.slice(0, visibleCount);
+  const hidden = ordered.slice(visibleCount);
+  const isUnseen = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
+
   return (
-    <View style={s.wrap} testID="home-music-story-rail" accessibilityLabel="Stories musicales">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail}>
+    <View
+      style={s.wrap}
+      testID="home-music-story-rail"
+      accessibilityLabel="Stories musicales"
+      onLayout={(event: LayoutChangeEvent) => setWidth(Math.round(event.nativeEvent.layout.width))}
+    >
+      <View style={s.row}>
         {own ? (
           <TouchableOpacity
             style={s.item}
@@ -55,50 +88,64 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn }
             accessibilityLabel={own.story ? 'Ouvrir ta story' : 'Ta story : aucune musique pour le moment'}
             testID="home-story-own"
           >
-            <StoryRing unseen={Boolean(own.story && (seen[own.story.profileId] || '') < own.story.latestAt)}>
-              {own.avatarUrl
-                ? <Image source={{ uri: own.avatarUrl }} style={s.avatar} />
-                : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{(own.username || '?').slice(0, 1).toUpperCase()}</Text></View>}
+            <StoryRing unseen={Boolean(own.story && isUnseen(own.story))}>
+              <Avatar uri={own.avatarUrl} name={own.username} />
             </StoryRing>
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
-        {stories.map((story) => {
-          const unseen = (seen[story.profileId] || '') < story.latestAt;
-          const initial = story.username.slice(0, 1).toUpperCase();
+        {visible.map((story) => {
+          const unseen = isUnseen(story);
           return (
             <TouchableOpacity
               key={story.profileId}
               style={s.item}
               onPress={() => onOpen(story)}
               accessibilityRole="button"
-              accessibilityLabel={`Écouter la story musicale de ${story.username}`}
+              accessibilityLabel={`Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}`}
+              testID={`home-story-${story.profileId}`}
             >
               <StoryRing unseen={unseen}>
-                {story.avatarUrl
-                  ? <Image source={{ uri: story.avatarUrl }} style={s.avatar} />
-                  : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarInitial}>{initial}</Text></View>}
+                <Avatar uri={story.avatarUrl} name={story.username} />
               </StoryRing>
-              <Text style={s.name} numberOfLines={1}>{story.username}</Text>
+              {!unseen ? <View style={s.seenBadge}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+              <Text style={[s.name, !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+        {overflow ? (
+          <TouchableOpacity
+            style={s.item}
+            onPress={() => onOpenMore?.(hidden)}
+            accessibilityRole="button"
+            accessibilityLabel={`Voir ${hidden.length} autres stories`}
+            testID="home-story-more"
+          >
+            <View style={s.moreCircle}><Text style={s.moreText}>+{hidden.length}</Text></View>
+            <Text style={s.name} numberOfLines={1}>Autres</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     </View>
   );
 }
 
-const RING = 66;
 const s = StyleSheet.create({
-  wrap: { width: '100%', maxWidth: 692, alignSelf: 'center', marginBottom: 6 },
-  rail: { paddingHorizontal: 2, gap: 12 },
-  item: { width: 72, alignItems: 'center' },
-  ringBox: { width: RING, height: RING, borderRadius: RING / 2, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  ringGradient: { flex: 1, borderRadius: RING / 2 },
-  ringSeen: { ...StyleSheet.absoluteFillObject, borderRadius: RING / 2, borderWidth: 2, borderColor: colors.textMutedGrey },
-  ringGap: { width: RING - 6, height: RING - 6, borderRadius: (RING - 6) / 2, backgroundColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
-  avatar: { width: RING - 12, height: RING - 12, borderRadius: (RING - 12) / 2 },
+  wrap: { width: '100%' },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: GAP, flexWrap: 'nowrap', overflow: 'hidden' },
+  item: { width: ITEM, alignItems: 'center', minHeight: 48 },
+  glowBox: { borderRadius: 999 },
+  glowOn: { shadowColor: '#FF3D9A', shadowOpacity: 0.85, shadowRadius: 9, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
+  ringBox: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  ringGradient: { flex: 1 },
+  ringSeen: { ...StyleSheet.absoluteFillObject, borderWidth: 3, borderColor: '#5B5870' },
+  ringGap: { backgroundColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
   avatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: colors.white, fontSize: 20, fontWeight: '900' },
-  name: { marginTop: 5, maxWidth: 72, color: colors.white, fontSize: 11, fontWeight: '800' },
+  avatarInitial: { color: colors.white, fontSize: 18, fontWeight: '900' },
+  name: { marginTop: 4, maxWidth: ITEM, color: colors.white, fontSize: 11, fontWeight: '800' },
+  nameSeen: { opacity: 0.75 },
+  seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
+  seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
+  moreCircle: { width: RING, height: RING, borderRadius: RING / 2, borderWidth: 2, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
+  moreText: { color: colors.white, fontSize: 14, fontWeight: '900' },
 });

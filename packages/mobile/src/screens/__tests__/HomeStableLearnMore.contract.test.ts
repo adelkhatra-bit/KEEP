@@ -10,9 +10,9 @@ describe('Loki home stable layout contract', () => {
   });
 
   it('keeps Pulse bubbles near the tab bar and slightly larger', () => {
-    expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'");
-    expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8}");
-    expect(source).toContain('width:86,height:86');
+    expect(source).not.toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'"); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(source).not.toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8}"); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(source).not.toContain('width:86,height:86'); // plus de bulles Pulse sur Écouter (Adel 05/10/2026)
   });
 
   it('uses high-contrast primary text for the main home explanation', () => {

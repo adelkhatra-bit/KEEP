@@ -15,7 +15,7 @@ describe('music DNA styles and Loki Pulse track bubbles', () => {
   it('keeps Loki Pulse as separate clickable track artwork bubbles', () => {
     expect(profile).toContain('testID="profile-loki-pulse-track-bubbles"');
     expect(profile).toContain('s.lokiPulseArtworkRing');
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
-    expect(home).toContain('s.homePulseArtworkRing');
+    expect(home).not.toContain('testID="home-loki-pulse-track-bubbles"'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('s.homePulseArtworkRing'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
   });
 });

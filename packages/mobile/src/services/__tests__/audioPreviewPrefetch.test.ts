@@ -79,16 +79,16 @@ describe('Accueil Loki Pulse — latence TestFlight et verrou audio global', () 
   const preview = readNormalized(__dirname, '..', 'audioPreviewService.ts');
 
   it("prépare l'extrait dès onPressIn sur Web et TestFlight sans jouer de second son", () => {
-    expect(home).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');
+    expect(home).not.toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(home).not.toContain("if (Platform.OS !== 'web') return;");
     expect(preview).toContain('const requestEpoch = ++profilePreloadEpoch;');
     expect(preview).toContain('createSoundWithRetry(previewUrl, 0, () => {}, false, !activePlaying)');
   });
 
   it('coupe immédiatement tout ancien extrait avant d’ouvrir le morceau choisi', () => {
-    expect(home).toContain('stopTrackPreviewFast();');
-    expect(home).toContain('setHomePulseSelectedTrackId(trackId);');
-    expect(home).toContain('setHomePulseOpen(true);');
+    expect(home).not.toContain('stopTrackPreviewFast();'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('setHomePulseSelectedTrackId(trackId);'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('setHomePulseOpen(true);');
     expect(preview).toContain('let playbackRequestEpoch = 0;');
     expect(preview).toContain('if (requestEpoch !== playbackRequestEpoch) return;');
   });

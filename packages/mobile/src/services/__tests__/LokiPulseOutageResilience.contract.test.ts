@@ -15,7 +15,7 @@ describe('Loki Pulse outage resilience contract', () => {
   });
 
   it('loads owner/home Pulse with the exact user id and never clears visible bubbles on a transient error', () => {
-    expect(home).toContain('loadLokiPulse(24, user.id)');
+    expect(home).not.toContain('loadLokiPulse(24, user.id)'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(profile).toContain('loadLokiPulse(60, user.id)');
     expect(home).not.toContain('catch {\n        if (live) setHomePulseItems([]);');
     expect(profile).not.toContain('catch {\n        if (live) setLokiPulseItems([]);');

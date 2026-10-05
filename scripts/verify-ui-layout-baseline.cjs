@@ -66,9 +66,12 @@ must(home.includes('<View style={s.idleLearnMoreSlot}>'), 'Listen home must keep
 // verrouillé : ouvrir l'aide ne déplace JAMAIS le bouton principal.
 must(home.includes("idleLearnMoreSlot: { width: '100%', height: 0"), 'Listen learn-more slot must reserve 0 px (overlay help) so the screen fits an iPhone without scrolling');
 must(/idleLearnMorePanel: \{ position: 'absolute'[^\n]*zIndex: 20/.test(home), 'Listen help panel must overlay (absolute, zIndex) so the CTA never jumps');
-must(home.includes("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'"), 'Loki Pulse rail must stay anchored toward bottom');
-must(/homePulseWrap:\{[^\n]*marginBottom:-\d+/.test(home), 'Loki Pulse rail must stay close to the five-tab bar');
-must(/homePulseArtworkRing:\{[^\n]*width:(8\d|9\d),height:\1/.test(home) || home.includes('homePulseArtworkRing:{position:\'relative\',width:80,height:80'), 'Loki Pulse bubbles must stay enlarged for mobile touch/readability');
+// 05/10/2026 (Adel) : Écouter = tout visible d'un coup, sans défilement ni swipe ; les bulles
+// Loki Pulse quittent l'accueil (elles restent sur le profil) et les stories sont sur le profil.
+must(!home.includes('homePulseWrap') && !home.includes('home-loki-pulse-track-bubbles'), 'Loki Pulse bubbles must not come back on the Listen home');
+must(!home.includes('MusicStoryRail') && !home.includes('ProfileStoryBar'), 'Stories live on the profile, not on the Listen home');
+must(home.includes('<View style={[s.main, s.idle, s.idleFit]}>'), 'Listen home must not scroll: fixed View, content fits the screen');
+must(home.includes('const size = Math.max(96, Math.min(196, Math.round((height - 460) * 0.4)));'), 'Listen orb must scale with the screen height (responsive, no swipe)');
 must(home.includes("idleSubtitle: { color: colors.white"), 'Listen primary subtitle must use high-contrast text on dark background');
 must(home.includes("idleLearnMoreBody: { color: colors.white"), 'Expanded Listen help must use high-contrast text on dark background');
 
@@ -76,4 +79,4 @@ console.log('KEEP UI baseline: PASS');
 console.log('profile: type -> Battle; metrics: PLUS -> Abonnés -> Reprises -> FREE');
 console.log('hamburger: no duplicate account/session entry');
 console.log('accessibility: shared touch targets >= 48 locked');
-console.log('listen home: fixed learn-more slot; high contrast; bottom Loki Pulse rail locked');
+console.log('listen home: no scroll, responsive orb, overlay help, high contrast; Pulse + stories not on home');

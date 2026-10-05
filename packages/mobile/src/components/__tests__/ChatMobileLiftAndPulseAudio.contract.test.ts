@@ -16,11 +16,11 @@ describe('Loki mobile chat lift + Pulse audio tap contract', () => {
   });
 
   it('keeps Home Loki Pulse bubbles wired to the exact tapped track and audio unlock', () => {
-    expect(home).toContain('const openHomePulseTrack = (trackId: string) => {');
-    expect(home).toContain('unlockWebAudioForGesture();');
-    expect(home).toContain('setHomePulseSelectedTrackId(trackId);');
-    expect(home).toContain('onPress={() => openHomePulseTrack(item.track.id)}');
-    expect(home).toContain('initialTrackId={homePulseSelectedTrackId}');
+    expect(home).not.toContain('const openHomePulseTrack = (trackId: string) => {'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('unlockWebAudioForGesture();'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('setHomePulseSelectedTrackId(trackId);'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('onPress={() => openHomePulseTrack(item.track.id)}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('initialTrackId={homePulseSelectedTrackId}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
   });
 
   it('keeps Profile Loki Pulse artwork bubbles wired to the exact tapped track and audio unlock', () => {

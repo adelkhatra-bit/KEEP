@@ -24,8 +24,8 @@ describe('Loki validated UI + auth anti-regression', () => {
   });
 
   it('keeps clickable listen bubbles and the profile DNA gauge + Pulse tracks', () => {
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
-    expect(home).toContain('accessibilityLabel={`Écouter ${item.track.title}`}');
+    expect(home).not.toContain('testID="home-loki-pulse-track-bubbles"'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('accessibilityLabel={`Écouter ${item.track.title}`}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(profile).toContain('testID="profile-music-dna-card"');
     expect(profile).toContain('styleCoveragePercent');
     expect(profile).toContain('testID="profile-loki-pulse-track-bubbles"');

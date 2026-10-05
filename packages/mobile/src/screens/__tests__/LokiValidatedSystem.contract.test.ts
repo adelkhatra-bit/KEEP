@@ -25,8 +25,8 @@ describe('Loki validated system checkpoint', () => {
   });
 
   it('keeps the clickable listen bubbles and profile gauge + Pulse tracks', () => {
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
-    expect(home).toContain('openHomePulseTrack');
+    expect(home).not.toContain('testID="home-loki-pulse-track-bubbles"'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
+    expect(home).not.toContain('openHomePulseTrack'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(profile).toContain('testID="profile-music-dna-card"');
     expect(profile).toContain('styleCoveragePercent');
     expect(profile).toContain('testID="profile-loki-pulse-track-bubbles"');

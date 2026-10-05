@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-05T02:03:27.805Z
+- Régénéré le : 2026-10-05T11:53:13.603Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `9f9d465` (9f9d4654d2a491a87f769736bfe2449555e4116f) — feat(offers): three-card quick choice, fold long texts, Premium price 4.99 migration
-- Date du dernier commit : 2026-10-05T01:57:52+00:00
+- Dernier commit : `b1a0e66` (b1a0e66560371f01d2835d6fae221fd1bf9b0c46) — docs(ideas): stories on profile, no-scroll Ecouter, Pulse off home, story content with sales (IDEA-011/012)
+- Date du dernier commit : 2026-10-05T11:40:52+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `9f9d465` (2026-10-05, Claude) — feat(offers): three-card quick choice, fold long texts, Premium price 4.99 migration
-- `0bd08e3` (2026-10-05, Claude) — feat(notifications): marketing switch, daily phone-alert cap, instant kick, OTA guard tied to iOS build, Premium in exhausted-Solos window
-- `7fcd8d5` (2026-10-05, Claude) — fix(ios,admin): compile ShazamKit on iOS 15.1, fix marketplace RPC types and /team overflow
-- `550ae15` (2026-10-05, Claude) — fix(web-gate): simulate approved desktop device and check QR screen separately
-- `260f26e` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n9 - viralite, prix, offres simples, notifications actionnables, international (attente VALIDE-PAR-CHATGPT)
-- `f27ee05` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n8 - publication web bloquee + boutique, menu, univers musical (attente VALIDE-PAR-CHATGPT)
-- `2b03b5a` (2026-10-05, adelkhatra-bit) — Mise à jour des instructions AI avec des tests utilisateurs
-- `08f05ad` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n6 - reorganisation onglets (Battle, Tchat) + missions de depart FREE (attente VALIDE-PAR-CHATGPT)
-- `af5c1aa` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n5 - notifications (categories, plafond 8/j, envoi immediat) + garde OTA (attente VALIDE-PAR-CHATGPT)
-- `ca9391e` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n4 - coherence design Loki, lot 4a sans changement visuel (attente VALIDE-PAR-CHATGPT)
+- `b1a0e66` (2026-10-05, Claude) — docs(ideas): stories on profile, no-scroll Ecouter, Pulse off home, story content with sales (IDEA-011/012)
+- `6e5eaa4` (2026-10-05, Claude) — docs(ideas): colors/contrast, story content, TestFlight parity requests (IDEA-009/010, OBS-002)
+- `4698313` (2026-10-05, Claude) — release(ios): stories (Ta story + rail), readable notifications (2 lines max), iOS preview audio fix
+- `1e26efd` (2026-10-05, Claude) — merge: integrate PR #46 story rail (MusicStoryRail) with Ta story; adapt layout guard to overlay help
+- `aab6545` (2026-10-05, Claude) — feat(stories): home story rail with own story, lit rings, swipe viewer (IDEA-001 3/4)
+- `b125d76` (2026-10-05, Claude) — feat(notifications): bigger text, 2-line max with En savoir plus, UI readability rules (cahier UI §11)
+- `9413e5c` (2026-10-05, Claude) — docs(ideas): record Adel's story-home precisions and audit gaps (IDEA-001)
+- `e773a6d` (2026-10-05, Claude) — docs(ideas): single ideas inbox for all AI agents (stories, hide-for-sale, tabs, missions)
+- `15385aa` (2026-10-05, adelkhatra-bit) — test(listen): lock iPhone no-scroll budget (overlay help, compact orb)
+- `61bf936` (2026-10-05, adelkhatra-bit) — fix(listen): whole Écouter screen fits an iPhone without scrolling
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

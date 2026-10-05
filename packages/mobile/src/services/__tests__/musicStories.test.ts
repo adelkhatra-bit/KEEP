@@ -38,14 +38,16 @@ describe('Stories musicales (Adel, 05/10/2026)', () => {
     expect(rankMusicStories(rows, 'me', new Set(), new Set(['hip-hop/rap']))).toHaveLength(MAX_STORY_PROFILES);
   });
 
-  it('écran Écouter : rangée en haut, réutilise le Swipe et l’économie FREE existants, rien supprimé', () => {
+  it('profil : bulles à côté de la photo (plus sur Écouter), Swipe et économie FREE réutilisés, texte >= 11 px', () => {
+    const profile = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'ProfilePublicScreen.tsx'), 'utf8');
+    const identity = profile.indexOf('<View style={s.identityText}>');
+    const bar = profile.indexOf('<ProfileStoryBar');
+    expect(bar).toBeGreaterThan(identity);
+    expect(bar).toBeLessThan(profile.indexOf('<View style={s.usernameLine}>'));
     const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
-    const rail = home.indexOf('<MusicStoryRail');
-    const hero = home.indexOf('<View style={s.idleHero}>');
-    expect(rail).toBeGreaterThan(-1);
-    expect(rail).toBeLessThan(hero);
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
-    expect(home).toContain("const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);");
+    expect(home).not.toContain('MusicStoryRail');
+    const bar_src = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+    expect(bar_src).toContain("keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', freeCost)");
     const railSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
     const sizes = [...railSource.matchAll(/fontSize:\s*(\d+)/g)].map((m) => Number(m[1]));
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);

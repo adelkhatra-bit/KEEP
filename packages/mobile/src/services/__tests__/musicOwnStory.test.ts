@@ -4,55 +4,69 @@ import path from 'path';
 jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
 jest.mock('../supabaseClient', () => ({ supabase: null }));
 
-import { buildOwnStory, STORY_WINDOW_HOURS } from '../musicStoriesService';
+import { STORY_WINDOW_HOURS } from '../musicStoriesService';
 
-const NOW = Date.parse('2026-10-05T12:00:00Z');
-const hoursAgo = (h: number) => new Date(NOW - h * 3600 * 1000).toISOString();
-const track = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `T${id}`, artist: `A${id}`, genres: ['pop'], ...extra }) as any;
 const viewer = { id: 'me', username: 'moi', avatarUrl: null };
 
-describe('story personnelle (buildOwnStory)', () => {
-  it('contains every identified track of the last 72h, private and masked included', () => {
-    const sessions: any[] = [{
-      id: 's1', startedAt: hoursAgo(5), endedAt: null, title: null,
-      tracks: [
-        { id: 'e1', track: track('1'), recommendations: [], status: 'KEPT', visibility: 'PUBLIC', detectedAt: hoursAgo(5) },
-        { id: 'e2', track: track('2'), recommendations: [], status: 'KEPT', visibility: 'PRIVATE', detectedAt: hoursAgo(4) },
-        { id: 'e3', track: track('3'), recommendations: [], status: 'SKIPPED', detectedAt: hoursAgo(3) },
-        { id: 'e4', track: track('4'), recommendations: [], status: 'PENDING', detectedAt: hoursAgo(2) },
-      ],
-    }];
-    const story = buildOwnStory(viewer, sessions, NOW)!;
-    expect(story.tracks.map((t) => t.id)).toEqual(['4', '3', '2', '1']);
-    expect(story.profileId).toBe('me');
-    expect(story.latestAt).toBe(hoursAgo(2));
+describe('story personnelle (loadOwnStory)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const body = src.slice(src.indexOf('export async function loadOwnStory'), src.indexOf('Musiques EN VENTE dans les stories'));
+  it('contains ONLY what the user shared publicly or put on sale (not identified/masked tracks)', () => {
+    expect(body).toContain(".eq('visibility', 'PUBLIC')");
+    expect(body).toContain(".eq('profile_id', viewer.id)");
+    expect(body).toContain('enrichStoriesWithSales(');
+    expect(body).not.toContain('sessions');
+    expect(src).not.toContain('buildOwnStory');
   });
-
-  it('drops tracks older than the window, duplicates and incomplete tracks; null when empty', () => {
-    const old = hoursAgo(STORY_WINDOW_HOURS + 1);
-    const sessions: any[] = [{ id: 's', startedAt: old, endedAt: null, title: null, tracks: [
-      { id: 'a', track: track('1'), recommendations: [], status: 'KEPT', detectedAt: old },
-      { id: 'b', track: track('2'), recommendations: [], status: 'KEPT', detectedAt: hoursAgo(1) },
-      { id: 'c', track: track('2'), recommendations: [], status: 'KEPT', detectedAt: hoursAgo(2) },
-      { id: 'd', track: { id: '3', title: '', artist: 'x' }, recommendations: [], status: 'KEPT', detectedAt: hoursAgo(1) },
-    ] }];
-    expect(buildOwnStory(viewer, sessions, NOW)!.tracks.map((t) => t.id)).toEqual(['2']);
-    expect(buildOwnStory(viewer, [], NOW)).toBeNull();
+  it('returns null without a client, so the profile never breaks offline', async () => {
+    const { loadOwnStory } = require('../musicStoriesService');
+    expect(await loadOwnStory(viewer)).toBeNull();
   });
+  it('keeps the 72h window constant', () => { expect(STORY_WINDOW_HOURS).toBe(72); });
 });
 
-describe('intégration : ta story dans la rangée de l\'accueil', () => {
+describe('intégration : ta story dans la barre du profil', () => {
   const src = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
-  it('the rail shows « Ta story » first and opens the existing Swipe in preview-only mode', () => {
+  it('« Ta story » comes first, seen stories are greyed with a check and sorted last, no scrolling', () => {
     const rail = src('components', 'MusicStoryRail.tsx');
-    expect(rail).toContain('home-story-own');
-    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('stories.map('));
-    const home = src('screens', 'HomeScreenCompact.tsx');
-    expect(home).toContain('buildOwnStory(');
-    expect(home).toContain('previewOnly={openStory?.profileId === user?.id}');
-    expect(home).not.toContain('<StoryRail');
+    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('visible.map('));
+    expect(rail).toContain('orderStoriesForBar(');
+    expect(rail).toContain('seenBadgeText');
+    expect(rail).not.toContain('<ScrollView');
+    expect(rail).not.toContain('horizontal');
+  });
+  it('the profile bar opens the existing Swipe in preview-only mode for your own story', () => {
+    const bar = src('components', 'ProfileStoryBar.tsx');
+    expect(bar).toContain('previewOnly={isOwnOpen}');
+    expect(bar).toContain('loadOwnStory(');
   });
   it('there is a single story-rail component (no duplicate)', () => {
     expect(fs.existsSync(path.join(__dirname, '..', '..', 'components', 'StoryRail.tsx'))).toBe(false);
+  });
+});
+
+describe('musiques en vente dans la story', () => {
+  const { mergeSaleTracks, orderStoriesForBar, isSaleStoryTrack, SALE_TRACK_PREFIX } = require('../musicStoriesService');
+  const story = (id: string, at: string) => ({ profileId: id, username: `u${id}`, avatarUrl: null, latestAt: at, followed: true, sameStyle: false, tracks: [{ id: `t${id}`, title: 'T', artist: 'A' }] });
+
+  it('appends masked, audible sale tracks (title hidden) and never duplicates them', () => {
+    const merged = mergeSaleTracks(story('1', '2026-10-05T10:00:00Z'), [{ trackId: 'x', previewUrl: 'https://a/x.m4a' }, { trackId: 'x', previewUrl: 'https://a/x.m4a' }]);
+    const sale = merged.tracks.filter(isSaleStoryTrack);
+    expect(sale).toHaveLength(1);
+    expect(sale[0].id).toBe(`${SALE_TRACK_PREFIX}x`);
+    expect(sale[0].title).toBe('Musique en vente');
+    expect(sale[0].previewUrl).toBe('https://a/x.m4a');
+  });
+
+  it('puts seen stories last (greyed) and new ones first', () => {
+    const a = story('a', '2026-10-05T10:00:00Z');
+    const b = story('b', '2026-10-05T09:00:00Z');
+    const ordered = orderStoriesForBar([a, b], { a: '2026-10-05T10:00:00Z' });
+    expect(ordered.map((s: any) => s.profileId)).toEqual(['b', 'a']);
+  });
+
+  it('a new track relights a seen story (latestAt moves past the seen mark)', () => {
+    const a = story('a', '2026-10-05T11:00:00Z');
+    expect(orderStoriesForBar([a, story('b', '2026-10-05T09:00:00Z')], { a: '2026-10-05T10:00:00Z' })[0].profileId).toBe('a');
   });
 });

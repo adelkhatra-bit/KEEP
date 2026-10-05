@@ -22,6 +22,6 @@ describe('style bubbles stay in DNA, not Loki Music home', () => {
   it('does not show genre/style bubbles on Loki Music home', () => {
     expect(home).not.toContain('<MusicStyleBubbles');
     expect(home).not.toContain('homeStyleBubbles');
-    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
+    expect(home).not.toContain('testID="home-loki-pulse-track-bubbles"'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
   });
 });
