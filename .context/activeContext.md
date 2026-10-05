@@ -1,5 +1,38 @@
 # KEEP — Contexte actif
 
+## 🔔 À LIRE EN PREMIER — Passe du 05/10/2026 soir (stories, robot, classement, profil, menu) — reprise de conversation
+
+**Langue : français uniquement avec Adel. Il veut un exécutant autonome (« continue, t'arrête pas »), qui teste avant de dire « fait », ne pousse que les modules concernés, et garde app = ordinateur.** Toute nouvelle idée d'Adel → `docs/IDEAS_INBOX.md` AVANT de coder. Les statuts « EN COURS » anciens de l'inbox sont en partie périmés : se fier à `docs/ERROR_LEDGER.md` (ERR-…-143 à 164) et à ce résumé.
+
+### Livré dans le code (branche `reconcile/claude-main-20260825`, tout poussé) — à CONFIRMER SUR IPHONE (aucune preuve iPhone, seulement navigateur 320/390/1440 + tests)
+- **Vues de story façon Instagram** (IDEA-091/098) : vue comptée après 2 s (`storyWatchService.ts`), secondes, musiques vues, écoute, départ en direct, **chapitres** (temps par musique) ; liste « Vues de ta story » (`ProfileStoryBar.tsx`, `formatWatchDetail`), alerte « regarde / est parti » (`StoryVisitorToast.tsx`). Tables/RPC : `story_watch_sessions` (+`chapters`), `keep_story_watch_start`, `keep_story_watch_chapters_ping`, `keep_my_story_viewers_v3` (anciennes `keep_story_watch_ping` / `_v2` gardées pour les vieux téléphones).
+- **Chronomètre 24 h** « ⏱ HH:MM:SS » (`useStoryCountdown.ts`) ; bouton « ajouter à ma story » gris + popup « C'est bon ✓ » ; ordre des bulles : non vues → vues récentes → sans story → suggestions (`MusicStoryRail.tsx`) ; fiche d'un membre sans story centrée avec dernière musique partagée + dernière connexion (`SourceProfileQuickView.tsx`).
+- **Classement de la semaine** (IDEA-094/103) : RPC lecture seule `keep_story_ranking` (top 50) et `keep_my_story_stats` ; badges 🥇🥈🥉⭐✨ sur les bulles, 🔒 à débloquer sur ma photo (fenêtre de progression). Points : 1 partage story, 3 reprise de sa musique, 2 nouvel abonné (7 jours).
+- **Robot intelligent** (IDEA-096/099) : salut avec pseudo, alerte solde FREE bas/vide + moyens d'en gagner, secousse + vibration, **jamais pendant Solo/Battle en ligne, jamais deux messages, bulle balayable** (`robotCoachMessages.ts`, `robotCoachService.ts` `robotWelcome`, `GlobalChatDock.tsx`).
+- **Profil** : onglets Playlists/Artistes en cartes premium comme Styles (`ProfileStyleCard`), Artistes = uniquement les morceaux de l'artiste (`groupEntriesByArtist` dans `services/styleGroups.ts`) ; tri par style extrait (`groupTracksByStyle`) ; bouton « ✓ TERMINÉ » après « Mettre à jour » (Trier ma musique).
+- **Navigation** : barre des 5 onglets **toujours visible** sous les écrans empilés (`PersistentTabBar` dans `Navigation.tsx`, hash du garde-fou mis à jour sur demande d'Adel) ; **menu ☰ plein écran** (plus de hauteur fixe).
+- Économie FREE (décisions d'Adel 05/10) : reprise sociale et partage en story GRATUITS (créateur/premier découvreur identifié), voir ERR-FREE-SOCIAL-147 et `docs/PRICING_STRATEGY.md`.
+
+### Base de production (appliqué via execute_sql, fichiers miroirs dans `supabase/migrations/`)
+20261005270000 … 20261005340000 (ventes en story, candidats découverte, realtime story_pins, reprise sociale gratuite, vues de story, chapitres, classement, mes stats). Toutes additives. **Piège** : `execute_sql` avec `DROP FUNCTION` reste bloqué/expire (60 s) → ne pas supprimer de fonctions, créer de nouvelles versions (v3, `_chapters_ping`).
+
+### Livraison / CI (état au moment de l'écriture)
+- Déclenchement des publications = **ajouter une ligne à `packages/mobile/.eas-build-trigger`** (web + OTA + build iOS ; l'iOS annule/attend selon la concurrence). Pas de trigger = rien n'est publié.
+- Release `5b5da88` (vues/chapitres/robot v1/classement/barre onglets/chrono/fiche membre) lancée ; **commits poussés APRÈS (non livrés tant qu'un nouveau trigger n'est pas ajouté)** : règles du robot (jamais en partie, balayage), menu ☰ plein écran, Artistes par artiste, badge 🔒 + badges lumineux.
+- Build iOS 404 (`e3c877b`) compilé et soumis à TestFlight ; seule l'étape « Synchroniser avec tous les testeurs » a échoué (cause non établie, peut-être traitement Apple en cours) — à vérifier dans TestFlight/App Store Connect.
+- Gardiens Human/Solo/Dual en rouge à cause de la porte QR ordinateur (décision d'Adel en attente : session de test injectée ?).
+
+### À faire / demandes d'Adel non terminées
+1. **Vérification finale TestFlight module par module** (IDEA-102) : stories (rangée, ordre, cercles), lecteur (chrono, badge PAYANT/GRATUIT, bouton gris + popup), vues/chapitres, classement/🔒, robot (salut, solde bas, pas en partie), barre des onglets sur Mes sessions/Notifications/Offres, menu ☰, cartes Playlists/Artistes, tri par style ; app = ordinateur. Ne pousser que les modules concernés.
+2. **Rappeler à Adel : explication QR ordinateur** (IDEA-101 / `docs/ACCOUNT_SECURITY_PLAN.md`) ; réparer le flux QR (23 créés, 0 approuvé), double connexion + localisation + bouton se déconnecter, Google + Homme/Femme, Authenticator TOTP + notification « sécurisez votre compte » (IDEA-073…076).
+3. **Mode Marketing** (IDEA-100/103) : brouillon dans `docs/PRICING_STRATEGY.md` (« Communauté musicale & concours de story »), à valider par Adel avant tout texte dans l'app/les conditions.
+4. IDEA-092 statistiques de communauté (style musical, qui reste le plus longtemps) ; option Super Admin plus tard ; IDEA-071 (collection en vente en story + prix proposé via robot/chat) ; IDEA-025 acheter depuis la story ; IDEA-078 audit global app/ordinateur (boutons, e-mails, Solo/Battle/FREE) ; RIB = App Store Connect > Banking (jamais dans le dépôt) ; hamburger ☰ qui s'agite (IDEA-059/064) pas touché.
+5. Idée en attente de feu vert : le premier partageur voit combien ont écouté sa musique via les stories des reprises.
+
+### Méthode de preuve utilisée (à recréer, /tmp n'est pas conservé)
+Export web Expo → `scripts/fix-web-export.cjs` → copie sous `/KEEP/` servie par `python3 -m http.server`, Playwright avec Supabase simulé (session mockée `sb-rrhqsqzcplvmwxizqnla-auth-token`, route `https://rrhqsqzcplvmwxizqnla.supabase.co/**`), vues 320/390/1440. Avant chaque push : les 7 contrôles (`verify-profile-data-integrity`, `verify-ui-layout-baseline`, `verify-source-of-truth`, `verify-mobile-text-contrast`, `verify-global-user-regression-guard`, `verify-data-preservation`, `verify-product-contract`) depuis la racine, jest + tsc dans `packages/mobile`.
+
+
 ## 05/10/2026 — passe exécutante (n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)
 Voir `PROJECT_STATE.md` > Points ouverts. Cause racine du blocage web : décision « ordinateur = QR uniquement » vs robot sans session (corrigé dans `scripts/web-visible-surface-gate.cjs`). Migrations commitées, non appliquées en production. Barre 5 onglets non touchée.
 

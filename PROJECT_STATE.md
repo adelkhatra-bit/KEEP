@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-05T17:13:23.199Z
+- Régénéré le : 2026-10-05T22:18:34.098Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `4a4f5d4` (4a4f5d47efe0c36e0e899dea437e2d55955a5f17) — fix(ci): gardiens navigateur suivent le libellé « Trouver le morceau », registre des erreurs
-- Date du dernier commit : 2026-10-05T17:10:12+00:00
+- Dernier commit : `a85c0ea` (a85c0ea1e30c6a763a8d58aa736304d36a4ed1a8) — feat(story): badge de classement à débloquer (🔒), badges plus lumineux, fenêtre de progression
+- Date du dernier commit : 2026-10-05T22:17:40+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `4a4f5d4` (2026-10-05, Claude) — fix(ci): gardiens navigateur suivent le libellé « Trouver le morceau », registre des erreurs
-- `0993406` (2026-10-05, Claude) — fix(ui): alertes au-dessus des fenêtres (KeepModal), âge/temps restant des stories, bandelette d'accueil identique à l'écoute
-- `0c42b49` (2026-10-05, Claude) — release: story d'abord sinon fiche rapide, robot qui parle (sessions, plus de FREE/Solo), bandelette dans les marges
-- `05d1309` (2026-10-05, Claude) — feat(home): bibliothèque intelligente de messages pour les bandelettes (> 1 M de combinaisons, jamais les mêmes), règles du système expliquées
-- `9a5e020` (2026-10-05, Claude) — feat(home): accueil épuré avec bandelette communicative, « À toi de jouer » à l'écoute, ☰ animé + bulle « va vérifier ta session »
-- `5241298` (2026-10-05, Claude) — perf+ui: profil chargé en parallèle, amis sans story grisés, titre retiré de l'accueil, bande lumineuse protégée de l'animation
-- `a043e7a` (2026-10-05, Claude) — fix(ci): hash du shell protégé App.tsx mis à jour (montage ProblemReportHost, 2 lignes non visuelles)
-- `5517494` (2026-10-05, Claude) — feat: accueil « Ça joue quoi ? » + TROUVER LE MORCEAU, ☰ animé quand des sessions sont prêtes, anciens inactifs à la suite (activité réelle)
-- `ce6c491` (2026-10-05, Claude) — release: rangée de stories façon Instagram (photo + « + » défilent, suggestions +👤, vues au bout, dernier connecté d'abord, enchaînement automatique)
-- `5b5b2dc` (2026-10-05, Claude) — feat(stories): rangée façon Instagram — suggestions avec +👤 dans la ligne, stories vues tout au bout, plus de rond Autres
+- `a85c0ea` (2026-10-05, Claude) — feat(story): badge de classement à débloquer (🔒), badges plus lumineux, fenêtre de progression
+- `8c42aec` (2026-10-05, Claude) — feat(profil): Artistes = une carte par artiste avec uniquement ses morceaux (public + privé), même design que Styles
+- `19c341b` (2026-10-05, Claude) — fix(menu): le menu ☰ utilise toute la hauteur à chaque ouverture (plus de vide en bas)
+- `5a96dd8` (2026-10-05, Claude) — docs(marketing): brouillon communauté musicale et concours de story (à valider)
+- `08c8a1b` (2026-10-05, Claude) — fix(robot): jamais pendant Solo/Battle en ligne, jamais deux messages, bulle balayable ; idées IDEA-099 à 102
+- `5b5da88` (2026-10-05, Claude) — release: chapitres de story, robot intelligent, classement, barre des onglets persistante, chronomètre 24 h, fiche membre
+- `cc62e10` (2026-10-05, Claude) — feat(story): chapitres — temps exact par musique pour le propriétaire, libellé « N musiques sur M »
+- `d075677` (2026-10-05, Claude) — feat(story): fiche d'un membre sans story — dernière musique partagée et dernière connexion
+- `0c9d881` (2026-10-05, Claude) — feat(robot): salut jeune avec le pseudo à l'ouverture, alerte solde FREE bas avec de quoi en gagner, secousse + vibration
+- `69888e9` (2026-10-05, Claude) — feat(navigation): barre des 5 onglets toujours visible, y compris sous les écrans empilés (Mes sessions, Notifications…)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -152,6 +152,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **🔔 Passe du 05/10/2026 soir (stories/robot/classement/profil/menu) — voir `.context/activeContext.md` (section « À LIRE EN PREMIER »)** : tout est poussé sur la branche, rien n'est confirmé sur iPhone ; commits récents (robot sans partie, menu ☰, Artistes, badge 🔒) non livrés tant qu'un trigger `.eas-build-trigger` n'est pas ajouté ; vérification TestFlight par module, rappel QR ordinateur, mode marketing = restent à faire.
 - **Idées d'Adel** : source unique `docs/IDEAS_INBOX.md` (stories musicales, masquage des musiques en vente, barre à 5 onglets, missions…). Toute IA y note chaque nouvelle idée avant de coder.
 - **Passe du 05/10/2026 (exécutant, propositions Claude n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)** : robot « page noire » corrigé (le site non connecté affiche l'écran QR ordinateur, le robot simule un appareil approuvé) ; build iOS ShazamKit compatible iOS 15.1 ; Super Admin `/team` responsive ; worker push (marketing, plafond 8/24 h) ; garde OTA liée au build iOS réussi ; écran Offres en 3 cartes ; inventaire des routes (`scripts/verify-route-inventory.cjs`). **Migrations commitées mais NON appliquées en production, accord d'Adel requis** : `20261005013000_keep_admin_marketplace_currency_text`, `20261005050000_push_cap_and_instant_kick` (+ déploiement `keep-push-worker`), `20261005060000_premium_price_4_99`. Restent : barre 5 onglets / menu ☰ / missions (6a-6c), boutique + univers musical (n°8.2-8.4), annuels (produits App Store Connect), n°9.3-9.7.
 - **🔴 Connexion impossible (02/10/2026) — base Supabase saturée** : instance
