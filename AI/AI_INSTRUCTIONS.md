@@ -844,3 +844,19 @@ HEAD de référence : `af5c1aa5`. Proposition de périmètre. **Adel autorise ex
 - Mobile et web via la source unique `packages/mobile/src`. Preuves 390×844 et 1440×900, robots Playwright existants mis à jour dans le même commit.
 - Cliquet design n°4 (si validé) : aucune nouvelle taille ou couleur écrite à la main.
 - Un lot par étape : (6a) barre + menu ☰, (6b) missions + FREE serveur, (6c) animations de récompense. Chaque étape fait l'objet d'une proposition validée séparément.
+
+
+### 2026-10-05 03:10 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°7 → en attente [VALIDÉ-PAR-CHATGPT] — Parcours mobile : test utilisateur réel 390×844
+
+Test MODE RÉEL du site public, cadre 390×844, compte connecté, tous les onglets parcourus et mesurés (texte < 11 px, éléments hors écran). Complète les n°4 (design) et n°6 (onglets + missions). Rien n'est supprimé.
+
+| Écran | Constat | Correctif proposé |
+|---|---|---|
+| Écouter | 21 textes < 11 px (« NEW » en 6 px, noms d'artistes des bulles en 9 px) ; 9 éléments hors écran (rangée de bulles + dock tchat) | Tailles `lokiText` ; bulles en défilement horizontal assumé (fondu de bord), dock tchat dans la zone sûre |
+| Découvrir | **Écran vide par défaut** (« Aucun profil n'est affiché par défaut… appuie sur RECHERCHER »), puces de distance coupées à droite (« 250 · 5… ») | Afficher d'emblée les profils à 25 km (déjà le choix par défaut), puces sur 2 lignes ou en défilement, RECHERCHER seulement pour affiner |
+| Playlists | Lisible et clair ; 10 textes < 11 px | Tailles `lokiText` seulement |
+| Soirées | **Battle caché dans un 2e sous-onglet** ; 3 cartes vides de contenu | Voir n°6 (onglet Battle dédié) |
+| Battle | **Surcharge avant de jouer** : 3 compteurs FREE, reset, solos, prochain crédit, format, nombre de morceaux, styles… puis SOLO / EN LIGNE tout en bas | Gros bouton **JOUER** en premier (réglages mémorisés), compteurs repliés dans « Mes FREE », réglages derrière « Personnaliser » |
+| Profil | 23 textes < 11 px (« Abonnés », « Reprises », « FREE » en 8 px, « PLUS » en 7 px) ; dock tchat qui chevauche la boutique | Tailles `lokiText`, dock dans la zone sûre |
+
+Preuves de non-régression pour chaque écran : captures 390×844 et 1440×900 avant/après, robots Playwright existants, cliquet design (n°4).
