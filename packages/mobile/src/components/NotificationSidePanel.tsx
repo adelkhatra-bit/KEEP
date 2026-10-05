@@ -781,7 +781,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <Text style={[s.tabText, unreadMessageCount > 0 && s.tabTextUnread, activeTab === 'MESSAGES' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>MESSAGES</Text>
                 {messageCount > 0 ? <View style={[s.tabBadge, unreadMessageCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadMessageCount === 0 && s.tabBadgeTextQuiet]}>{messageCount > 99 ? '99+' : messageCount}</Text></View> : null}
               </View>
-              <Text style={[s.tabHint, unreadMessageCount > 0 && s.tabHintUnread]}>{unreadMessageCount > 0 ? `${unreadMessageCount} nouveau${unreadMessageCount > 1 ? 'x' : ''}` : (messageCount > 0 ? 'conservés' : 'vide')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.tab, unreadActivityCount > 0 && s.tabUnread, activeTab === 'ACTIVITY' && s.tabOn]}
@@ -793,11 +792,9 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                 <Text style={[s.tabText, unreadActivityCount > 0 && s.tabTextUnread, activeTab === 'ACTIVITY' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>ACTIVITÉ</Text>
                 {activityCount > 0 ? <View style={[s.tabBadge, unreadActivityCount === 0 && s.tabBadgeQuiet]}><Text style={[s.tabBadgeText, unreadActivityCount === 0 && s.tabBadgeTextQuiet]}>{activityCount > 99 ? '99+' : activityCount}</Text></View> : null}
               </View>
-              <Text style={[s.tabHint, unreadActivityCount > 0 && s.tabHintUnread]}>{unreadActivityCount > 0 ? `${unreadActivityCount} nouvelle${unreadActivityCount > 1 ? 's' : ''}` : (activityCount > 0 ? 'conservée' : 'vide')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.tab, activeTab === 'SETTINGS' && s.tabOn]} onPress={() => { void openNotificationTab('SETTINGS'); }} accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'SETTINGS' }}>
               <Text style={[s.tabText, activeTab === 'SETTINGS' && s.tabTextOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>RÉGLAGES</Text>
-              <Text style={s.tabHint} numberOfLines={1}>options</Text>
             </TouchableOpacity>
           </View>
 
@@ -939,7 +936,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                           </TouchableOpacity>
                         </View>
                       </View>
-                      {!locked && hasLinkedProfile ? (
+                      {!locked && hasLinkedProfile && !/@/.test(activityActionLabel(item)) ? (
                         <TouchableOpacity
                           style={s.profileDeepLink}
                           onPress={(event) => {
@@ -974,17 +971,6 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
                           {locked ? null : (
                             <>
                               <Text style={s.body}>{item.body}</Text>
-                              <Text style={s.typeLabel}>{String(item.type || '').replace(/_/g, ' ')}</Text>
-                              {type === 'PROFILE_VIEW' && activityProfileUsername(item) ? (
-                                <TouchableOpacity
-                                  style={s.inlineProfileLink}
-                                  onPress={(event) => { event.stopPropagation?.(); void openActivityProfile(item); }}
-                                  accessibilityRole="link"
-                                  accessibilityLabel={`Voir le profil de ${activityProfileUsername(item)}`}
-                                >
-                                  <Text style={s.inlineProfileLinkText}>Voir @{activityProfileUsername(item)} ›</Text>
-                                </TouchableOpacity>
-                              ) : null}
                               <TouchableOpacity style={s.deleteOneButton} onPress={() => deleteOne(item)} accessibilityLabel="Supprimer cette notification">
                                 <Text style={s.deleteOneText}>SUPPRIMER</Text>
                               </TouchableOpacity>
@@ -1109,7 +1095,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
 const s = StyleSheet.create({
   root:{flex:1,flexDirection:'row',justifyContent:'flex-end'},
   backdrop:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(4,2,9,.62)'},
-  panel:{width:'88%',maxWidth:390,height:'100%',backgroundColor:colors.backgroundCard,borderLeftWidth:2,borderLeftColor:colors.primary,paddingTop:52,shadowColor:colors.primaryLight,shadowOpacity:.35,shadowRadius:24,shadowOffset:{width:-8,height:0},elevation:24},
+  panel:{width:'94%',maxWidth:440,height:'100%',backgroundColor:colors.backgroundCard,borderLeftWidth:2,borderLeftColor:colors.primary,paddingTop:52,shadowColor:colors.primaryLight,shadowOpacity:.35,shadowRadius:24,shadowOffset:{width:-8,height:0},elevation:24},
   header:{paddingHorizontal:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
   headerCopy:{flex:1,minWidth:0},
   eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.4},
@@ -1118,7 +1104,7 @@ const s = StyleSheet.create({
   close:{flexShrink:0,width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   closeText:{color:colors.textPrimary,fontSize:26,lineHeight:28,fontWeight:'700'},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:12,paddingTop:14,paddingBottom:10},
-  tab:{flex:1,minHeight:52,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
+  tab:{flex:1,minHeight:46,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
   tabOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
   tabUnread:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.08)',shadowColor:colors.keep,shadowOpacity:.35,shadowRadius:7,shadowOffset:{width:0,height:0},elevation:4},
   tabTitleRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,maxWidth:'100%'},
@@ -1129,8 +1115,6 @@ const s = StyleSheet.create({
   tabBadgeText:{color:colors.background,fontSize:13,fontWeight:'900'},
   tabBadgeQuiet:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   tabBadgeTextQuiet:{color:colors.textSecondary},
-  tabHint:{color:colors.textMuted,fontSize:13,fontWeight:'700',marginTop:2,maxWidth:'100%'},
-  tabHintUnread:{color:colors.keep,fontWeight:'900'},
   settingsList:{paddingHorizontal:16,paddingBottom:36,gap:10},
   notificationMaster:{minHeight:76,padding:12,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,flexDirection:'row',alignItems:'center',gap:12},
   notificationMasterCopy:{flex:1,minWidth:0},

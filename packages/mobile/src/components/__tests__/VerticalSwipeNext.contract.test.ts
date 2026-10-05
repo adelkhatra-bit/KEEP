@@ -71,3 +71,13 @@ describe('texte à côté d\'un bouton : jamais poussé hors de l\'écran (Adel 
     expect(panel).toContain("inboxActions:{flexDirection:'column'");
   });
 });
+
+describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)', () => {
+  it('adds the current track to the story only after a public keep, and compacts on short screens', () => {
+    const modal = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(modal).toContain('testID="deck-add-story"');
+    expect(modal).toContain('pinStoryTrack(current.id)');
+    expect(modal).toContain('Garde-la d’abord');
+    expect(modal).toContain('const compactDeck = windowHeight < 640;');
+  });
+});
