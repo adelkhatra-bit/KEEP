@@ -21,7 +21,7 @@ describe('Listen home stable layout contract', () => {
 
   it('anchors larger Loki Pulse bubbles toward the five-tab bar without replacing buttons', () => {
     expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'");
-    expect(source).toContain('marginBottom:-76');
+    expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8}");
     expect(source).toContain('homePulseArtworkRing:{position:\'relative\',width:86,height:86');
     expect(source).toContain('IDENTIFIER UN MORCEAU');
     expect(source).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');

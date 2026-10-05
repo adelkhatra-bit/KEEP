@@ -11,7 +11,7 @@ describe('Loki home stable layout contract', () => {
 
   it('keeps Pulse bubbles near the tab bar and slightly larger', () => {
     expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'");
-    expect(source).toContain('marginBottom:-76');
+    expect(source).toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8}");
     expect(source).toContain('width:86,height:86');
   });
 
