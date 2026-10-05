@@ -97,3 +97,13 @@ describe('fiche membre sans story', () => {
     expect(bar).toContain('noStory');
   });
 });
+
+describe('profil : Playlists et Artistes = mêmes cartes premium que Styles (Adel 05/10/2026)', () => {
+  it('utilisent ProfileStyleCard dans la même grille', () => {
+    const fs = require('fs'); const path = require('path');
+    const src = fs.readFileSync(path.join(__dirname, '../../screens/ProfilePublicScreen.tsx'), 'utf8');
+    expect(src).toContain('accessibilityLabel={`Écouter la playlist ${playlist.name}');
+    expect(src).toContain('accessibilityLabel={`Écouter ${item.label}, ${selected.length} morceaux en Swipe`}');
+    expect((src.match(/<ProfileStyleCard/g) || []).length).toBeGreaterThanOrEqual(3);
+  });
+});

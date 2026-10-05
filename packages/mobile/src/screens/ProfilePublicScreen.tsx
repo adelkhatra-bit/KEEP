@@ -1715,25 +1715,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
         </View>
       ) : null;
       if (!displayPlaylists.length) return <View>{vibesHint}<Empty text="Tes Vibes apparaîtront ici automatiquement." /></View>;
-      return <View style={s.list}>{vibesHint}{displayPlaylists.map((playlist) => {
-        const expanded = expandedPlaylistId === playlist.id;
-        const tracks = playlistTracks[playlist.id] ?? [];
+      // Adel (05/10/2026) : « style c'est parfait, fais pareil pour le reste » -- Playlists et Artistes reprennent EXACTEMENT les cartes premium des Styles
+      // (pochette, badge, nombre de morceaux, grille 2 colonnes) ; toucher une carte lance le Swipe.
+      return <View>{vibesHint}<View style={s.ownerStyleGrid}>{displayPlaylists.map((playlist, index) => {
         const preference = preferenceFor(playlistPreferences, providerId, playlist.id);
         const smart = smartAlbums.find((album) => `keep-smart:${album.id}` === playlist.id);
         const isPublic = preference?.isPublic ?? smart?.isPublic ?? false;
-        return <View key={playlist.id} style={s.playlistBlock}>
-          <TouchableOpacity style={s.listRow} onPress={() => void togglePlaylist(playlist)} accessibilityLabel={`Ouvrir ${playlist.name}`}>
-            {playlist.coverUrl ? <Image source={{ uri: playlist.coverUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
-            <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{playlist.name}</Text><Text style={s.playlistCount}>{playlist.trackCount} {playlist.trackCount > 1 ? 'morceaux' : 'morceau'} · {isPublic ? 'Public' : 'Privé'}</Text></View>
-            <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
-          </TouchableOpacity>
-          <View style={s.playlistButtons}>
-            <TouchableOpacity style={s.playlistShareButton} onPress={() => void openPlaylistSwipe(playlist)}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
-            {isPublic ? <TouchableOpacity style={s.playlistShareButtonSecondary} onPress={() => void sharePlaylist(playlist.id, playlist.name)}><Text style={s.playlistShareTextSecondary}>↗ Partager</Text></TouchableOpacity> : null}
-          </View>
-          {expanded ? <View style={s.playlistTracks}>{loadingPlaylistId === playlist.id ? <Text style={s.muted}>Chargement…</Text> : tracks.length ? tracks.map((track) => renderCompactTrack(track, `${playlist.id}-${track.id}`)) : <Text style={s.muted}>Aucun morceau dans cette playlist.</Text>}</View> : null}
-        </View>;
-      })}</View>;
+        return <ProfileStyleCard
+          key={playlist.id}
+          title={playlist.name}
+          subtitle={`${playlist.trackCount} ${playlist.trackCount > 1 ? 'morceaux' : 'morceau'}`}
+          mode={smart ? 'VIBE' : 'PUBLIC'}
+          badgeLabel={isPublic ? 'PUBLIC' : 'PRIVÉ'}
+          actionLabel={isPublic ? '↗ Partager' : undefined}
+          onActionPress={isPublic ? () => void sharePlaylist(playlist.id, playlist.name) : undefined}
+          actionAccessibilityLabel={isPublic ? `Partager la playlist ${playlist.name}` : undefined}
+          artworkUrl={playlist.coverUrl}
+          fullWidth={displayPlaylists.length % 2 === 1 && index === displayPlaylists.length - 1}
+          onPress={() => void openPlaylistSwipe(playlist)}
+          accessibilityLabel={`Écouter la playlist ${playlist.name}, ${playlist.trackCount} morceaux en Swipe`}
+        />;
+      })}</View></View>;
     }
 
     const items = artists;
@@ -1741,21 +1743,19 @@ export default function ProfilePublicScreen({ navigation }: any) {
     // Adel (01/09/2026) : "range les albums comme sur playlist" -- même bloc
     // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
     // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
-    return <View style={s.list}>{items.map((item) => {
+    return <View style={s.ownerStyleGrid}>{items.map((item, index) => {
       const selected = publicSwipeTracks.filter((track) => canonicalArtistIdentity(track) === item.key);
       const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
-      const expanded = expandedGroupItem === item.key;
-      return <View key={item.key} style={s.playlistBlock}>
-        <TouchableOpacity style={s.listRow} onPress={() => setExpandedGroupItem(expanded ? null : item.key)} accessibilityLabel={`Ouvrir ${item.label}`}>
-          {artworkUrl ? <Image source={{ uri: artworkUrl }} style={s.note} /> : <View style={s.note}><Text style={s.noteText}>♪</Text></View>}
-          <View style={s.playlistText}><Text style={s.listText} numberOfLines={1}>{item.label}</Text><Text style={s.playlistCount}>{selected.length} {selected.length > 1 ? 'morceaux' : 'morceau'}</Text></View>
-          <Text style={s.chevron}>{expanded ? '⌃' : '⌄'}</Text>
-        </TouchableOpacity>
-        <View style={s.playlistButtons}>
-          <TouchableOpacity style={s.playlistShareButton} onPress={() => openSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}><Text style={s.playlistShareText}>▶ SWIPE</Text></TouchableOpacity>
-        </View>
-        {expanded ? <View style={s.playlistTracks}>{selected.map((track) => renderCompactTrack(track, `${item.key}-${track.id}`))}</View> : null}
-      </View>;
+      return <ProfileStyleCard
+        key={item.key}
+        title={item.label}
+        subtitle={`${selected.length} ${selected.length > 1 ? 'morceaux' : 'morceau'}`}
+        mode="PUBLIC"
+        artworkUrl={artworkUrl}
+        fullWidth={items.length % 2 === 1 && index === items.length - 1}
+        onPress={() => openSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}
+        accessibilityLabel={`Écouter ${item.label}, ${selected.length} morceaux en Swipe`}
+      />;
     })}</View>;
   };
 

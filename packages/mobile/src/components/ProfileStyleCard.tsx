@@ -163,7 +163,7 @@ export default function ProfileStyleCard({
         </View>
       </View>
       <View style={s.bottom}>
-        <Text style={s.title} numberOfLines={1}>{title}</Text>
+        <Text style={s.title} numberOfLines={2}>{title}</Text>
         <Text style={s.subtitle} numberOfLines={2}>{subtitle}</Text>
         {actionLabel && onActionPress ? (
           <Pressable
