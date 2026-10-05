@@ -309,7 +309,7 @@ describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () =
   it('un seul composant de réactions : cœur ÉTEINT gris au départ, rouge ensuite, « pas aimé » à côté, une réaction par musique', () => {
     const btn = read('../../components/TrackLikeButton.tsx');
     expect(btn).toContain("{liked ? '❤' : '♡'}");
-    expect(btn).toContain("color: '#8E8AA0'");
+    expect(btn).toContain('color: colors.textMuted');
     expect(btn).toContain("heartOn: { color: '#FF2D55' }");
     expect(btn).not.toContain('GlowRing');
     expect(btn).toContain('👎');

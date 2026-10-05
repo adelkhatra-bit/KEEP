@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../theme/colors';
 
 /**
  * Réactions d'une musique, composant unique de l'application (Adel, 05/10/2026) : cœur ÉTEINT gris au départ, rouge quand on aime ;
@@ -43,7 +44,7 @@ const s = StyleSheet.create({
   button: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,.07)', borderWidth: 1.5, borderColor: '#5B5870' },
   buttonSmall: { width: 38, height: 38, borderRadius: 19 },
   buttonOn: { backgroundColor: 'rgba(255,60,90,.22)', borderWidth: 2, borderColor: '#FF3B5C' },
-  heart: { color: '#8E8AA0', fontSize: 24, lineHeight: 28, fontWeight: '900' },
+  heart: { color: colors.textMuted, fontSize: 24, lineHeight: 28, fontWeight: '900' },
   heartOn: { color: '#FF2D55' },
   dislikeIcon: { fontSize: 18, lineHeight: 22, opacity: 0.55 },
   dislikeIconOn: { opacity: 1 },
