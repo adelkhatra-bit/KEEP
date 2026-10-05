@@ -21,5 +21,6 @@ export function formatStoryAge(addedAtIso: string | null | undefined, now = Date
     const m = minutes % 60;
     return h > 0 ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
   };
-  return `Ajoutée il y a ${fmt(elapsedMin)} · encore visible ${fmt(leftMin)}`;
+  // Court, sur UNE seule ligne (Adel 05/10/2026) : « il y a 2 h 03 · reste 21 h 57 ».
+  return `il y a ${fmt(elapsedMin)} · reste ${fmt(leftMin)}`;
 }

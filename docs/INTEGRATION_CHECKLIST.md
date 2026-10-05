@@ -128,3 +128,13 @@ Une intégration n'est terminée que si :
 - `ERROR_LEDGER.md` est à jour ;
 - `AGENT_MESSAGES.md` contient le handoff ;
 - le statut réel (codé/testé/déployé) est clair.
+
+## Vérifications OBLIGATOIRES à chaque nouvelle intégration (Adel, 05/10/2026)
+
+Avant de dire « terminé », contrôler explicitement (navigateur 390×844, 320×568 et 1440×900) et le noter dans le rapport :
+1. **Son** : un extrait démarre à l'ouverture d'une story, à chaque swipe (↑ suivant, → garder) et au retour sur une carte — sur l'application ET sur l'ordinateur. Aucun extrait ne doit rester silencieux sans message.
+2. **Story / GARDER** : GARDER en Public met la musique dans MA story (même si elle était déjà gardée ou gardée en Privé), mon cercle s'allume, les autres bulles ne disparaissent jamais ; « ajouter à ma story » fonctionne en un geste.
+3. **Alertes** : toute alerte apparaît AU-DESSUS de la fenêtre ouverte (KeepModal), jamais derrière.
+4. **Textes courts** : une ligne d'information doit rester sur UNE ligne (numberOfLines=1) à 320, 390 et 1440 ; aucun mot coupé ni qui retombe en dessous.
+5. **Chargement** : le profil s'affiche d'abord depuis la mémoire locale (`profileMemory`), puis le serveur remplace ; pas de nouvelle chaîne d'attentes séquentielles.
+6. **Journal** : un échec de GARDER / story / son doit laisser une ligne `[AUTO]` (`reportAutoDiagnostic`), jamais un échec silencieux.

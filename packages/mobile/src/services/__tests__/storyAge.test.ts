@@ -5,10 +5,10 @@ import { formatStoryAge } from '../storyActivity';
 describe('Âge d\'une story (Adel 05/10/2026)', () => {
   const now = Date.parse('2026-10-05T18:53:00Z');
   it('indique depuis quand et combien de temps encore (fenêtre 24 h)', () => {
-    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('Ajoutée il y a 2 h 03 · encore visible 21 h 57');
+    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('il y a 2 h 03 · reste 21 h 57');
   });
   it('tombe à 0 min restant au-delà de 24 h et ignore une date invalide', () => {
-    expect(formatStoryAge('2026-10-04T10:00:00Z', now)).toContain('encore visible 0 min');
+    expect(formatStoryAge('2026-10-04T10:00:00Z', now)).toContain('reste 0 min');
     expect(formatStoryAge('nope', now)).toBeNull();
     expect(formatStoryAge(null, now)).toBeNull();
   });
@@ -16,6 +16,7 @@ describe('Âge d\'une story (Adel 05/10/2026)', () => {
     const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(deck).toContain('testID="deck-story-age"');
+    expect(deck).toContain('numberOfLines={1} adjustsFontSizeToFit');
     expect(bar).toContain('trackAddedAt={openStory?.addedAt}');
   });
 });
@@ -96,5 +97,12 @@ describe('Cas teyou : épingler l\'identifiant réellement gardé + journal auto
   it('les échecs de mise en story, de GARDER et d\'extrait laissent une trace [AUTO] sans rien demander', () => {
     expect(report).toContain('export function reportAutoDiagnostic');
     expect(report).toContain('if (seen >= 3) return;');
+  });
+});
+
+describe('Ligne d\'âge de story : une seule ligne, courte (Adel 05/10/2026)', () => {
+  it('ne passe jamais sur deux lignes', () => {
+    const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(deck).toContain('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"');
   });
 });
