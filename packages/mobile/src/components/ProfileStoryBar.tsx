@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
@@ -41,6 +42,8 @@ type Props = {
 
 export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size, gender }: Props) {
   const avatarSize = size ?? 80;
+  // Adel (05/10/2026) : « je viens de garder une musique, mon cercle ne s'allume pas » -- la rangée était chargée une seule fois ; elle se recharge maintenant à chaque retour sur le profil.
+  const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
@@ -52,6 +55,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
   useEffect(() => {
     let live = true;
+    if (!isFocused) return undefined;
     void (async () => {
       const seenMap = await loadSeenStories(viewer.id);
       if (live) setSeen(seenMap);
@@ -82,7 +86,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       }
     })();
     return () => { live = false; };
-  }, [viewer.id]);
+  }, [viewer.id, isFocused]);
 
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
