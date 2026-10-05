@@ -96,8 +96,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       if (live) setStories(Array.from(collected.values()));
     };
     void (async () => {
-      const seenMap = await loadSeenStories(viewer.id);
-      if (live) setSeen(seenMap);
+      // Adel (05/10/2026) : profil trop lent. Les « vues » ne bloquent plus le départ des autres chargements (un aller-retour de moins).
+      void loadSeenStories(viewer.id).then((seenMap) => { if (live) setSeen(seenMap); }).catch(() => {});
       // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
       loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
       const relationsPromise = loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
@@ -125,33 +125,41 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           return [...withSales, ...saleOnly];
         } catch { return [] as MusicStory[]; /* Réseau indisponible : la rangée garde ta story locale */ }
       })();
-      const [bubbles, withStories] = await Promise.all([bubblesPromise, storiesPromise]);
-      const everyone = Array.from(collected.values());
-      const ids = Array.from(new Set([viewer.id, ...everyone.map((story) => story.profileId), ...bubbles.map((story) => story.profileId), ...withStories.map((story) => story.profileId)]));
-      // Certifications + activité réelle : deux appels serveur en parallèle pour toute la ligne.
-      const [tierResult, activity] = await Promise.all([
-        (supabase ? Promise.resolve(supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids })).catch(() => null) : Promise.resolve(null)),
-        loadProfilesActivity(ids.filter((id) => id !== viewer.id)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>)),
-      ]);
-      if (!live) return;
-      const tierRows = (tierResult as any)?.data;
-      if (Array.isArray(tierRows)) {
-        const nextTiers: Record<string, ProfileCertificationTier> = {};
-        for (const row of tierRows as Array<{ profile_id: string; certification_tier: string }>) {
-          if (row?.profile_id && row.certification_tier) nextTiers[String(row.profile_id)] = row.certification_tier as ProfileCertificationTier;
+      // Certifications + activité réelle : deux appels serveur en parallèle, lancés dès que des profils sont connus
+      // (amis dès la branche A, puis stories dès la branche B) au lieu d'attendre toute la chaîne.
+      const metaDone = new Set<string>();
+      const applyMeta = async (profileIds: string[]) => {
+        const ids = Array.from(new Set(profileIds)).filter((id) => id && !metaDone.has(id));
+        if (!ids.length) return;
+        ids.forEach((id) => metaDone.add(id));
+        const [tierResult, activity] = await Promise.all([
+          (supabase ? Promise.resolve(supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids })).catch(() => null) : Promise.resolve(null)),
+          loadProfilesActivity(ids.filter((id) => id !== viewer.id)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>)),
+        ]);
+        if (!live) return;
+        const tierRows = (tierResult as any)?.data;
+        if (Array.isArray(tierRows)) {
+          const nextTiers: Record<string, ProfileCertificationTier> = {};
+          for (const row of tierRows as Array<{ profile_id: string; certification_tier: string }>) {
+            if (row?.profile_id && row.certification_tier) nextTiers[String(row.profile_id)] = row.certification_tier as ProfileCertificationTier;
+          }
+          setTiers((previous) => ({ ...previous, ...nextTiers }));
         }
-        setTiers(nextTiers);
-      }
-      // Pastille verte/rouge + tri « dernier actif d'abord » ; les anciens inactifs passent à la suite.
-      const next: Record<string, boolean | undefined> = {};
-      const seenAt: Record<string, string> = {};
-      for (const [id, info] of Object.entries(activity)) {
-        next[id] = info.online;
-        if (info.online) seenAt[id] = new Date().toISOString();
-        else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
-      }
-      setOnline(next);
-      setLastSeenAt(seenAt);
+        // Pastille verte/rouge + tri « dernier actif d'abord » ; les anciens inactifs passent à la suite.
+        const next: Record<string, boolean | undefined> = {};
+        const seenAt: Record<string, string> = {};
+        for (const [id, info] of Object.entries(activity)) {
+          next[id] = info.online;
+          if (info.online) seenAt[id] = new Date().toISOString();
+          else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
+        }
+        setOnline((previous) => ({ ...previous, ...next }));
+        setLastSeenAt((previous) => ({ ...previous, ...seenAt }));
+      };
+      const bubblesMeta = bubblesPromise.then((bubbles) => applyMeta([viewer.id, ...bubbles.map((story) => story.profileId)]));
+      const storiesMeta = storiesPromise.then((withStories) => applyMeta(withStories.map((story) => story.profileId)));
+      await Promise.all([bubblesMeta, storiesMeta]);
+      if (!live) return;
       setActivityKnown(true);
     })();
     return () => { live = false; };

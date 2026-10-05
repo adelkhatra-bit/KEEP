@@ -479,7 +479,7 @@ export function createProfileService(client: SupabaseClient) {
       const safeUsername = user.username.trim() || existingProfile?.username;
       if (!safeUsername) throw new Error('missing_keep_username');
 
-      const { error: profileError } = await client.from('profiles').upsert({
+      const profilePayload = {
         id: user.id,
         username: safeUsername,
         display_name: safeUsername,
@@ -497,7 +497,11 @@ export function createProfileService(client: SupabaseClient) {
         website: keepTextUnlessExplicitlyCleared(user.website, existingProfile?.website, allowClearing),
         favorite_genres: favoriteGenres,
         favorite_artists: favoriteArtists,
-      }, { onConflict: 'id' });
+      };
+      // Adel (05/10/2026) : profil trop lent à charger. Les sauvegardes automatiques (GPS, notifications, refresh de session) réécrivaient
+      // le profil à chaque fois (3 700 écritures observées, 31 ms en moyenne, jusqu'à 240 ms). Rien n'a changé -> aucune écriture.
+      const profileUnchanged = Boolean(existingProfile) && Object.entries(profilePayload).every(([key, value]) => JSON.stringify((existingProfile as any)[key] ?? null) === JSON.stringify(value ?? null));
+      const { error: profileError } = profileUnchanged ? { error: null } : await client.from('profiles').upsert(profilePayload, { onConflict: 'id' });
       if (profileError) throw profileError;
 
       // IMPORTANT : ne plus faire DELETE ALL puis INSERT. Une erreur réseau entre
@@ -505,7 +509,10 @@ export function createProfileService(client: SupabaseClient) {
       // chaque lien, puis on ne supprime les liens absents que lors d'une action
       // utilisateur explicitement destructive.
       const desiredSocialLinks = mergeSocialLinks(existingSocialLinks, user.socialLinks, allowClearing);
-      if (desiredSocialLinks.length > 0) {
+      const socialKey = (links: Array<{ platform: string; url: string; visibility: string; label?: string | null }>) =>
+        JSON.stringify([...links].map((link) => [link.platform, link.url, link.visibility, link.label ?? null]).sort());
+      const socialUnchanged = socialKey(desiredSocialLinks as any) === socialKey(existingSocialLinks as any);
+      if (desiredSocialLinks.length > 0 && !socialUnchanged) {
         const rowsWithLabel = desiredSocialLinks.map((link) => ({
           profile_id: user.id,
           platform: link.platform,
@@ -556,6 +563,8 @@ export function createProfileService(client: SupabaseClient) {
         ? (user.privateInfo.gender || null)
         : (user.privateInfo.gender || existingPrivate?.gender || null);
 
+      const privateUnchanged = Boolean(existingPrivate) && (existingPrivate?.birth_date ?? null) === birthDate && (existingPrivate?.gender ?? null) === gender;
+      if (privateUnchanged) return;
       const { error: privateError } = await client.from('profile_private_info').upsert({
         profile_id: user.id,
         birth_date: birthDate,

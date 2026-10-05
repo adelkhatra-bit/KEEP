@@ -406,7 +406,8 @@ describe('Chargement du profil en parallèle + amis sans story grisés (Adel 05/
   const rail = fsE.readFileSync(pathE.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
   it('les liens, les stories, les certifications et l\'activité partent en parallèle et la rangée se remplit au fil de l\'eau', () => {
     expect(bar).toContain('const bubblesPromise = relationsPromise.then(');
-    expect(bar).toContain('const [bubbles, withStories] = await Promise.all([bubblesPromise, storiesPromise]);');
+    expect(bar).toContain('const bubblesMeta = bubblesPromise.then'); // certifications + activité dès que les amis sont connus (pas d'attente de toute la chaîne)
+    expect(bar).toContain('const storiesMeta = storiesPromise.then');
     expect(bar).toContain('const [tierResult, activity] = await Promise.all([');
     expect(bar).toContain('merge(base);');
   });
