@@ -62,3 +62,12 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
 });
+
+describe('texte à côté d\'un bouton : jamais poussé hors de l\'écran (Adel 05/10/2026)', () => {
+  it('notification panel header text shrinks (flex 1 + minWidth 0) and the close button never shrinks', () => {
+    const panel = require('fs').readFileSync(require('path').join(__dirname, '..', 'NotificationSidePanel.tsx'), 'utf8');
+    expect(panel).toContain("headerCopy:{flex:1,minWidth:0}");
+    expect(panel).toContain("close:{flexShrink:0,");
+    expect(panel).toContain("inboxActions:{flexDirection:'column'");
+  });
+});

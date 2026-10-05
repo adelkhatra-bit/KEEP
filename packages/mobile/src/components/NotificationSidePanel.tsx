@@ -762,7 +762,7 @@ export default function NotificationSidePanel({ visible, profileId, onClose }: P
         <Pressable style={s.backdrop} onPress={close} accessibilityLabel="Fermer les notifications" />
         <Animated.View style={[s.panel, { transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) }] }]}>
           <View style={s.header}>
-            <View>
+            <View style={s.headerCopy}>
               <Text style={s.eyebrow}>LOKI MUSIC</Text>
               <Text style={s.title}>Notifications</Text>
               <Text style={s.headerHint}>Messages, activité et réglages au même endroit.</Text>
@@ -1110,11 +1110,12 @@ const s = StyleSheet.create({
   root:{flex:1,flexDirection:'row',justifyContent:'flex-end'},
   backdrop:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(4,2,9,.62)'},
   panel:{width:'88%',maxWidth:390,height:'100%',backgroundColor:colors.backgroundCard,borderLeftWidth:2,borderLeftColor:colors.primary,paddingTop:52,shadowColor:colors.primaryLight,shadowOpacity:.35,shadowRadius:24,shadowOffset:{width:-8,height:0},elevation:24},
-  header:{paddingHorizontal:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  header:{paddingHorizontal:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12},
+  headerCopy:{flex:1,minWidth:0},
   eyebrow:{color:colors.primaryLight,fontSize:13,fontWeight:'900',letterSpacing:1.4},
   title:{color:colors.textPrimary,fontSize:24,fontWeight:'900',marginTop:2},
   headerHint:{color:colors.textSecondary,fontSize:13,marginTop:3},
-  close:{width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
+  close:{flexShrink:0,width:42,height:42,borderRadius:21,alignItems:'center',justifyContent:'center',backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   closeText:{color:colors.textPrimary,fontSize:26,lineHeight:28,fontWeight:'700'},
   tabs:{flexDirection:'row',gap:6,paddingHorizontal:12,paddingTop:14,paddingBottom:10},
   tab:{flex:1,minHeight:52,borderRadius:15,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,paddingHorizontal:4},
