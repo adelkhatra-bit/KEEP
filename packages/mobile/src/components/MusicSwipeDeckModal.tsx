@@ -16,6 +16,8 @@ import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview,
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
+import GlowRing from './GlowRing';
+import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { useStoryCountdown } from '../services/useStoryCountdown';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
@@ -869,6 +871,12 @@ export default function MusicSwipeDeckModal({
       : currentAlreadyKept
         ? null
         : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
+  // Le robot se tait tant que ce lecteur est ouvert.
+  useEffect(() => {
+    if (!visible) return undefined;
+    useRobotMessageStore.getState().setQuiet(true);
+    return () => useRobotMessageStore.getState().setQuiet(false);
+  }, [visible]);
   const storyAgeLine = useStoryCountdown(current && trackAddedAt ? trackAddedAt[current.id] : null, visible);
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
@@ -914,7 +922,7 @@ export default function MusicSwipeDeckModal({
             >
               <View style={[s.card, compactDeck && s.cardCompact]}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
-                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {priceBadge ? <View pointerEvents="none" testID="deck-price-badge" style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree, { top: currentSourceUsername ? 48 : 12 }]}><Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={1}>{priceBadge.label}</Text></View> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
@@ -933,7 +941,7 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
+          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {renderStoryAdd('main')}
           {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
           {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}

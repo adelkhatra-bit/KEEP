@@ -120,6 +120,7 @@ export default function GlobalChatDock() {
   // Message du robot (Adel, 05/10/2026) : « sessions en attente », « plus de FREE / de Solo » -- une bulle à côté du robot, pas une notification.
   const robotMessage = useRobotMessageStore((state) => state.message);
   const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
+  const robotQuiet = useRobotMessageStore((state) => state.quiet > 0);
   const robotBubble = useRef(new Animated.Value(0)).current;
   const robotShake = useRef(new Animated.Value(0)).current;
   // Balayer la bulle sur le côté la ferme (Adel, 05/10/2026) : un geste rapide, jamais un bouton à viser.
@@ -900,7 +901,7 @@ export default function GlobalChatDock() {
 
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
 
-      {!open && !gameInProgress && robotMessage ? (
+      {!open && !gameInProgress && !robotQuiet && robotMessage ? (
         <Animated.View
           pointerEvents="box-none"
           {...robotSwipe.panHandlers}

@@ -288,3 +288,17 @@ describe('déblocage du badge : mois offert → parrainage ou Premium (Adel 05/1
     expect(svc).toContain("rpc('keep_my_story_stats_v2')");
   });
 });
+
+describe('« Découvert par » mis en avant : contour lumineux qui pulse (Adel 05/10/2026)', () => {
+  it('le contour est superposé aux deux « Découvert par » sans gêner les appuis, et respecte « réduire les animations »', () => {
+    const fs = require('fs'); const path = require('path');
+    const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
+    const glow = fs.readFileSync(path.join(__dirname, '../../components/GlowRing.tsx'), 'utf8');
+    expect(deck).toContain('<GlowRing radius={14} testID="deck-source-glow" />');
+    expect(deck).toContain('<GlowRing radius={21} testID="deck-source-button-glow" />');
+    expect(glow).toContain('pointerEvents="none"');
+    expect(glow).toContain('isReduceMotionEnabled');
+    expect(glow).toContain('Animated.loop');
+    expect(glow).toContain('toValue: 0.15');
+  });
+});

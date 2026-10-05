@@ -15,6 +15,7 @@ export async function robotSay(kind: RobotCoachKind, options: { count?: number; 
   // Règles d'Adel (05/10/2026) : jamais pendant un Solo ni un Battle en ligne (ni message, ni vibration) ; jamais deux messages en même temps.
   if (useGameSessionStore.getState().isGameInProgress) return false;
   if (useRobotMessageStore.getState().message) return false;
+  if (useRobotMessageStore.getState().quiet > 0) return false;
   const now = Date.now();
   let memory: Memory = {};
   try { const raw = await AsyncStorage.getItem(KEY); memory = raw ? JSON.parse(raw) : {}; } catch { memory = {}; }

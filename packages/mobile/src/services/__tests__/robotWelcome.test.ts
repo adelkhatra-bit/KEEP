@@ -5,9 +5,10 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 });
 jest.mock('../../store/useRobotMessageStore', () => {
   let message: any = null;
-  return { useRobotMessageStore: { getState: () => ({ message, say: (kind: string, text: string) => { message = { id: Date.now(), kind, text }; }, dismiss: () => { message = null; } }) } };
+  return { useRobotMessageStore: { getState: () => ({ message, quiet: mockQuiet, say: (kind: string, text: string) => { message = { id: Date.now(), kind, text }; }, dismiss: () => { message = null; } }) } };
 });
 let mockGame = false;
+let mockQuiet = 0;
 jest.mock('../../store/useGameSessionStore', () => ({ useGameSessionStore: { getState: () => ({ isGameInProgress: mockGame }) } }));
 jest.mock('../notificationSoundService', () => ({ playNotificationCue: jest.fn(async () => {}) }));
 
@@ -76,5 +77,21 @@ describe('règles de bonne conduite du robot (Adel 05/10/2026)', () => {
     const dock = fs.readFileSync(path.join(__dirname, '../../components/GlobalChatDock.tsx'), 'utf8');
     expect(dock).toContain('robotSwipe.panHandlers');
     expect(dock).toContain('onMoveShouldSetPanResponderCapture');
+  });
+});
+
+describe('le robot se tait quand un lecteur plein écran est ouvert (Adel 05/10/2026)', () => {
+  it('aucun message tant qu’un Swipe/story est ouvert', async () => {
+    mockQuiet = 1;
+    const r = await run(0, 'p-quiet');
+    mockQuiet = 0;
+    expect(r.kind).toBe('');
+  });
+  it('branché : le lecteur réclame le silence, la bulle est cachée pendant ce temps', () => {
+    const fs = require('fs'); const path = require('path');
+    const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
+    const dock = fs.readFileSync(path.join(__dirname, '../../components/GlobalChatDock.tsx'), 'utf8');
+    expect(deck).toContain('useRobotMessageStore.getState().setQuiet(true)');
+    expect(dock).toContain('!robotQuiet && robotMessage');
   });
 });
