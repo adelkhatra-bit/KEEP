@@ -962,7 +962,7 @@
     "storyWindowHours": 24,
     "rowIsSinglePiece": true,
     "rowIsSinglePieceRule": "La photo de profil (avec le « + ») est le premier élément de la MÊME rangée horizontale que les bulles : toute la ligne défile ensemble (prop `leading` de MusicStoryRail).",
-    "orderRule": "Instagram : stories non vues, la plus récente d'abord ; sans story : dernier connecté d'abord ; suggestions avec bouton « +👤 » ; stories vues tout au bout de la ligne.",
+    "orderRule": "Instagram : stories non vues, la plus récente d'abord ; sans story : dernier connecté d'abord ; suggestions avec bouton « +👤 » ; stories VUES juste après les non vues (avant les membres sans story et les suggestions) : les plus récentes restent toujours visibles (Adel 05/10/2026).",
     "eligibleRelations": [
       "following",
       "followers",

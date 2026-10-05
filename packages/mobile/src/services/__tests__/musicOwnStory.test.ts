@@ -332,7 +332,7 @@ describe('Qui apparaît dans la rangée : uniquement les membres liés à moi (A
   it('une story vue part tout au bout de la ligne, la suivante non vue prend sa place (Instagram)', () => {
     expect(rail).toContain('const unseenFollowed = orderStoriesForBar(');
     expect(rail).toContain('const seenStories = orderStoriesForBar(');
-    expect(rail).toContain('...styleSuggestions, ...seenStories]');
+    expect(rail).toContain('...unseenOthers, ...seenStories, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions]');
     expect(rail).not.toContain('Modal');
   });
 });
@@ -393,7 +393,7 @@ describe('Tri intelligent : les anciens inactifs à la suite (Adel 05/10/2026)',
   it('un membre sans activité depuis 7 jours (ou inconnue) est endormi : sa bulle sans story disparaît de la rangée', () => {
     expect(fsD.readFileSync(pathD.join(__dirname, '..', 'storyActivity.ts'), 'utf8')).toContain('export const DORMANT_AFTER_DAYS = 7;');
     expect(rail).not.toContain('const dormantMembers =');
-    expect(rail).toContain('...seenStories];');
+    expect(rail).toContain('...styleSuggestions];');
   });
   it('un seul appel serveur pour l\'activité réelle (connexion, GARDER, épingle)', () => {
     expect(svc).toContain("rpc('keep_profiles_activity'");

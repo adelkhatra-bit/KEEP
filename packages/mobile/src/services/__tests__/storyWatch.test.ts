@@ -107,3 +107,18 @@ describe('profil : Playlists et Artistes = mêmes cartes premium que Styles (Ade
     expect((src.match(/<ProfileStyleCard/g) || []).length).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('bouton « mettre en story » et ordre de la rangée (Adel 05/10/2026)', () => {
+  const fs = require('fs'); const path = require('path');
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, ...p), 'utf8');
+  it('après un ajout : bouton gris tout de suite + popup « C’est bon »', () => {
+    const deck = read('../../components/MusicSwipeDeckModal.tsx');
+    expect((deck.match(/confirmStoryAdded\(/g) || []).length).toBeGreaterThanOrEqual(4);
+    expect(deck).toContain('C’est bon ✓');
+    expect(deck).toContain('checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit');
+  });
+  it('les stories vues restent avant les membres sans story', () => {
+    const rail = read('../../components/MusicStoryRail.tsx');
+    expect(rail).toContain('...unseenOthers, ...seenStories, ...friendsNoStory');
+  });
+});

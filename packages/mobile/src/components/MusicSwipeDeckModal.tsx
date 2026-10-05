@@ -231,6 +231,7 @@ export default function MusicSwipeDeckModal({
       setStoryIds((previous) => new Set(previous).add(track.id));
       setJustAdded((previous) => new Set(previous).add(track.id));
       setKeepSuccess((previous) => (previous ? { ...previous, visibility: 'PUBLIC' } : previous));
+      confirmStoryAdded(track.title);
     } catch {
       Alert.alert('Ajout impossible', 'La musique n’a pas pu être rendue publique pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
     }
@@ -269,11 +270,14 @@ export default function MusicSwipeDeckModal({
       ],
     );
   };
+  // Adel (05/10/2026) : après un ajout, le bouton passe tout de suite en gris et un petit popup confirme « c'est bon, elle est dans ta story » : on peut continuer.
+  const confirmStoryAdded = (title: string) => Alert.alert('C’est bon ✓', `« ${title} » est dans ta story pendant 24 h. Tu peux continuer.`, [{ text: 'Continuer', style: 'cancel' }]);
   const shareToStory = async (track: CanonicalTrack, fromProfileId: string) => {
     try {
       await pinSharedStoryTrack(track.id, fromProfileId);
       setStoryIds((previous) => new Set(previous).add(track.id));
       setJustAdded((previous) => new Set(previous).add(track.id));
+      confirmStoryAdded(track.title);
     } catch (error: any) {
       reportAutoDiagnostic('STORY_SHARE_FAILED', error);
       Alert.alert('Ajout impossible', String(error?.message ?? '').includes('SALE_PROTECTED') ? 'Cette musique est en vente : elle ne peut pas être partagée.' : 'La musique n’a pas pu être ajoutée pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
@@ -285,6 +289,7 @@ export default function MusicSwipeDeckModal({
       setStoryIds((previous) => new Set(previous).add(current.id));
       // Confirmation affichée DANS la fenêtre (une alerte native peut ne pas s'afficher au-dessus d'une fenêtre déjà ouverte).
       setJustAdded((previous) => new Set(previous).add(current.id));
+      confirmStoryAdded(current.title);
     } catch (error: any) {
       reportAutoDiagnostic('STORY_PIN_FAILED', error);
       // Gardée en Privé : le serveur exige un GARDER public -> on la rend publique (gratuit) puis on l'épingle.
@@ -301,8 +306,8 @@ export default function MusicSwipeDeckModal({
     const checking = !storyIdsReady && !justAddedNow;
     const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
-      <TouchableOpacity disabled={checking} style={[buttonStyle, checking ? s.addStoryButtonDone : justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
-        <Text style={[textStyle, (alreadyInStory || checking) && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
+      <TouchableOpacity disabled={checking} style={[buttonStyle, checking || justAddedNow || alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
+        <Text style={[textStyle, (alreadyInStory || checking || justAddedNow) && s.addStoryTextDone]}>{label}</Text>
       </TouchableOpacity>
       {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
       {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}

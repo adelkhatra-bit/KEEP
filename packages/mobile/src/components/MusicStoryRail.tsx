@@ -96,7 +96,8 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const linkedSuggestions = linkedAll.filter((story) => !dormant(story));
   const styleSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && story.styleMatch && !dormant(story));
   const seenStories = orderStoriesForBar(stories.filter((story) => hasStory(story) && !isUnseen(story)), seen);
-  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories];
+  // Adel (05/10/2026) : « on met toujours les plus récents en visibilité » -- toute bulle AVEC story du jour (vue ou non) passe avant les membres sans story ni les suggestions.
+  const row = [...unseenFollowed, ...unseenOthers, ...seenStories, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions];
   const empty = !row.length && !own && !leading;
 
   // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part au bout, la suivante avance.
