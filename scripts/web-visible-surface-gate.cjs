@@ -18,6 +18,8 @@
  *       BASE_URL = https://adelkhatra-bit.github.io/KEEP  (après publication)
  * Nécessite @playwright/test (ou playwright) et un Chromium installé.
  */
+const gateAuthPages = new WeakSet();
+const gateAuthEnabled = (page) => gateAuthPages.has(page);
 let pw;
 try { pw = require('@playwright/test'); } catch { pw = require('playwright'); }
 const { chromium, devices } = pw;
@@ -46,11 +48,49 @@ const TAB_LABELS = ['Loki Music', 'Découvertes', 'Playlists', 'Soirées', 'Prof
 const LOCAL_SURFACE_ONLY = /^https?:\/\/(127\.0\.0\.1|localhost)(?::\d+)?\//i.test(BASE);
 const PROD_SUPABASE_HOST = 'rrhqsqzcplvmwxizqnla.supabase.co';
 
+// Décision d'Adel (04/10/2026) : sur ordinateur, Loki ne s'ouvre que par QR
+// approuvé depuis le téléphone. Sans session, le site public affiche donc
+// l'écran « Connexion ordinateur » (sans barre d'onglets). Le robot simule
+// un appareil DÉJÀ approuvé (session locale fictive, aucune écriture en base)
+// pour vérifier la vraie surface connectée, et contrôle à part l'écran QR.
+const GATE_USER_ID = '00000000-0000-4000-8000-0000000000a1';
+const b64url = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+function gateSession() {
+  const exp = Math.floor(Date.now() / 1000) + 86400;
+  const user = {
+    id: GATE_USER_ID, aud: 'authenticated', role: 'authenticated', email: 'gate@loki.test',
+    email_confirmed_at: new Date().toISOString(), app_metadata: {}, user_metadata: { username: 'gate' },
+    created_at: new Date().toISOString(),
+  };
+  const jwt = `${b64url({ alg: 'HS256', typ: 'JWT' })}.${b64url({ sub: GATE_USER_ID, role: 'authenticated', aud: 'authenticated', exp })}.gate`;
+  return { user, session: { access_token: jwt, refresh_token: 'gate', token_type: 'bearer', expires_in: 86400, expires_at: exp, user } };
+}
+const GATE_PROFILE = [{
+  id: GATE_USER_ID, username: 'gate', display_name: 'Gate', bio: '', avatar_url: null,
+  country_code: 'FR', city: 'Paris', favorite_genres: ['pop'], onboarding_completed_at: new Date().toISOString(),
+}];
+
+async function seedApprovedDevice(context) {
+  if (!LOCAL_SURFACE_ONLY) return;
+  const { session } = gateSession();
+  await context.addInitScript((value) => {
+    try { localStorage.setItem('sb-rrhqsqzcplvmwxizqnla-auth-token', JSON.stringify(value)); } catch {}
+  }, session);
+}
+
 async function isolateSurfaceGateFromProduction(page) {
   if (!LOCAL_SURFACE_ONLY) return;
   await page.route(`https://${PROD_SUPABASE_HOST}/**`, async (route) => {
     const requestUrl = new URL(route.request().url());
     const path = requestUrl.pathname;
+    if (path === '/auth/v1/user' && gateAuthEnabled(page)) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(gateSession().user) });
+      return;
+    }
+    if (path === '/rest/v1/profiles' && route.request().method() === 'GET' && gateAuthEnabled(page)) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(GATE_PROFILE) });
+      return;
+    }
     // Ce gate valide UNIQUEMENT le rendu/viewport. Il ouvrait auparavant
     // 50+ écrans contre le vrai Supabase à chaque déploiement, exactement au
     // moment où les utilisateurs se connectaient. Sur l'instance Free cela a
@@ -127,7 +167,9 @@ async function measure(page, expectedTab) {
   const browser = await chromium.launch({ headless: true });
   for (const scenario of scenarios) {
     const context = await browser.newContext({ ...scenario.context, locale: 'fr-FR' });
+    await seedApprovedDevice(context);
     const page = await context.newPage();
+    gateAuthPages.add(page);
     await isolateSurfaceGateFromProduction(page);
     for (const route of routes) {
       const url = BASE + route.path;
@@ -161,7 +203,9 @@ async function measure(page, expectedTab) {
   // Aucun reload entre les tailles : on teste le même arbre React monté.
   {
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, locale: 'fr-FR' });
+    await seedApprovedDevice(context);
     const page = await context.newPage();
+    gateAuthPages.add(page);
     await isolateSurfaceGateFromProduction(page);
     await page.goto(BASE + '/Main/Profile/', { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
@@ -186,6 +230,38 @@ async function measure(page, expectedTab) {
       if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
       console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${m.rootHeight}/${m.vh} onglets=${m.visibleTabs.length}/5`);
     }
+    await context.close();
+  }
+
+  // Écran « Connexion ordinateur » (appareil non approuvé) : il doit remplir la
+  // fenêtre et afficher son titre + son bouton, jamais une page noire.
+  for (const scenario of scenarios) {
+    const context = await browser.newContext({ ...scenario.context, locale: 'fr-FR' });
+    const page = await context.newPage();
+    await isolateSurfaceGateFromProduction(page);
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForFunction(() => !document.documentElement.classList.contains('keep-booting'), null, { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2500);
+    const q = await page.evaluate(() => {
+      const root = document.getElementById('root');
+      const vh = window.innerHeight;
+      const text = String(document.body.innerText || '');
+      const foot = [...document.querySelectorAll('div, span')].filter((el) => (el.innerText || '').includes('Aucune création de compte sur ordinateur') && ![...el.children].some((c) => (c.innerText || '').includes('Aucune création')))[0];
+      const r = foot ? foot.getBoundingClientRect() : null;
+      return {
+        vh,
+        rootHeight: root ? Math.round(root.getBoundingClientRect().height) : -1,
+        hasTitle: text.includes('Connexion ordinateur'),
+        footVisible: Boolean(r && r.width > 0 && r.height > 0 && r.bottom <= vh + 2 && r.top >= 0),
+      };
+    });
+    const label = `qr-screen ${scenario.name}`;
+    const problems = [];
+    if (q.rootHeight < q.vh * 0.9) problems.push(`#root = ${q.rootHeight}px pour une fenêtre de ${q.vh}px (page noire)`);
+    if (!q.hasTitle) problems.push('écran « Connexion ordinateur » absent');
+    if (!q.footVisible) problems.push('consigne de l’écran QR hors fenêtre');
+    if (problems.length) failures.push(`${label}: ${problems.join(' ; ')}`);
+    console.log(`${problems.length ? 'FAIL' : 'PASS'} ${label} root=${q.rootHeight}/${q.vh}`);
     await context.close();
   }
 
