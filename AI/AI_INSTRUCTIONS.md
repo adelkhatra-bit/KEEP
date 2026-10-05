@@ -860,3 +860,28 @@ Test MODE RÉEL du site public, cadre 390×844, compte connecté, tous les ongle
 | Profil | 23 textes < 11 px (« Abonnés », « Reprises », « FREE » en 8 px, « PLUS » en 7 px) ; dock tchat qui chevauche la boutique | Tailles `lokiText`, dock dans la zone sûre |
 
 Preuves de non-régression pour chaque écran : captures 390×844 et 1440×900 avant/après, robots Playwright existants, cliquet design (n°4).
+
+
+### 2026-10-05 03:40 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°8 → en attente [VALIDÉ-PAR-CHATGPT] — Publication web bloquée + parcours profil/boutique/goûts
+
+**1. URGENT : le site public est figé sur la release du 04/10 04:12 (`39f38c03`), comme l'iPhone.**
+- La publication web est verrouillée sur le SHA de release. Le run « Web public officiel » #3427 (release `1e044b1`, 04/10 17:31) a **échoué à l'étape 18** « Block black page before publish ». Le robot a bien joué son rôle : rien de cassé n'a été publié.
+- Erreurs du contrôle : sur `android-pixel7`, **« barre des 5 onglets non visible (visibles : Loki Music) »** et « mauvais onglet actif » sur /Main/Listen, /Main/Discover, /Main/MyMusic, /Main/Parties, à l'ouverture comme au rechargement.
+- Conséquence : les corrections faites depuis (par exemple le menu ☰ « 1 appui = la fonction » via `directMenuAction` dans `ProfilePublicScreen.tsx`) sont dans le code mais **invisibles pour les utilisateurs**. Adel voit encore les panneaux intermédiaires avec un 2e bouton et un grand vide noir.
+- À faire par l'agent exécutant : reproduire l'export Expo de `1e044b1` → HEAD dans Chromium Pixel 7 (412×915), corriger la cause racine (barre d'onglets non rendue en Android web), puis republier par la chaîne unique `web-preview-pages.yml`. Ne jamais affaiblir le contrôle.
+
+**2. Boutique musicale (vue visiteur, profil adel4A, MODE RÉEL)**
+- Ça fonctionne : 2 collections publiques affichées, filtres « Tout 2 · FREE 1 · € 1 ».
+- **Bug de données** : le nombre de titres est écrit **dans le nom** à la création (« Ma collection · 8 titres ») alors que la collection en contient 10. La carte affiche « 8 titres » au-dessus de « 10 titres ». Correctif : nom sans compteur, compteur toujours calculé. Pour l'existant, afficher le nom sans le suffixe « · N titres ». Données utilisateur non modifiées.
+- Répétitions : « Boutique musicale » écrit 3 fois, et la Pépite « à la une » répétée dans la grille. Les deux collections portent le même nom « Ma collection ».
+- Sur son propre profil, un bloc « BOUTIQUE MUSICALE 1/1 » montre la collection **d'un autre** (un achat) : le renommer « Mes achats » et le séparer de « Ma boutique ».
+
+**3. « Construis ton univers musical » (Loki Pulse, ☰ > Mes goûts)** : toutes les informations sont utiles (Adel), mais tout est sur un seul écran (préremplissage pays/langue, 3 onglets, recherche, puces sélectionnées, familles de styles, 2 boutons). Proposition : 3 étapes guidées (1. Styles avec grosses bulles et aperçu · 2. Langues/pays déjà remplis, à confirmer · 3. Récapitulatif « Créer mon Pulse ») avec une barre de progression, sans retirer aucun champ.
+
+**4. Règles permanentes à ajouter dans `docs/KEEP_CAHIER_DES_CHARGES_UI.md` §11 (anti-« utilisateur perdu »)**
+- 1 écran = 1 objectif principal et 1 bouton principal visible sans défiler.
+- Aucun panneau intermédiaire qui ne contient qu'un texte + 1 bouton : le 1er appui ouvre la fonction.
+- Pas de grand vide : une fenêtre s'ajuste à son contenu (pas de hauteur fixe).
+- Formulaire de plus de 5 contrôles = étapes avec progression.
+- Jamais de nombre figé dans un nom saisi : les compteurs sont toujours calculés.
+- Un même bloc n'apparaît qu'une fois par écran.
