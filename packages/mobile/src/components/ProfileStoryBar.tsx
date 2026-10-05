@@ -70,6 +70,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
+  const storiesRef = React.useRef<MusicStory[]>([]);
+  storiesRef.current = stories;
   const [seen, setSeen] = useState<Record<string, string>>({});
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
@@ -87,26 +89,40 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (!isFocused) return undefined;
     // Adel (05/10/2026) : « le profil met du temps à charger ». Tout part EN PARALLÈLE et la rangée se remplit au fur et à mesure
     // (amis et suggestions dès que les liens arrivent, stories ensuite) : plus de chaîne d'attentes l'une derrière l'autre.
+    // Adel (05/10/2026) : « quand il a gardé, ça lui a enlevé toutes les bulles » -- chaque rechargement repartait d'une rangée VIDE et
+    // n'affichait que ce qui était déjà revenu ; une branche en échec laissait la rangée vide. Désormais on garde ce qui est affiché
+    // jusqu'à ce que les nouvelles données soient là, et on ne retire jamais une bulle si une des branches a échoué.
+    const previous = new Map(storiesRef.current.map((story) => [story.profileId, story] as const));
     const collected = new Map<string, MusicStory>();
+    let degraded = false;
+    let storiesLoaded = false;
+    // Tant que les stories n'ont pas répondu, une bulle déjà affichée avec ses musiques ne perd pas ses musiques (pas de clignotement).
+    const display = () => [
+      ...Array.from(collected.values()).map((story) => {
+        const before = previous.get(story.profileId);
+        return !storiesLoaded && before && before.tracks.length > 0 && story.tracks.length === 0 ? before : story;
+      }),
+      ...Array.from(previous.values()).filter((story) => !collected.has(story.profileId)),
+    ];
     const merge = (list: MusicStory[]) => {
       for (const story of list) {
         const known = collected.get(story.profileId);
         if (!known || story.tracks.length > known.tracks.length) collected.set(story.profileId, story);
       }
-      if (live) setStories(Array.from(collected.values()));
+      if (live) setStories(display());
     };
     void (async () => {
       // Adel (05/10/2026) : profil trop lent. Les « vues » ne bloquent plus le départ des autres chargements (un aller-retour de moins).
       void loadSeenStories(viewer.id).then((seenMap) => { if (live) setSeen(seenMap); }).catch(() => {});
       // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
       loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
-      const relationsPromise = loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
+      const relationsPromise = loadStoryRelations(viewer.id).catch(() => { degraded = true; return { following: [] as string[], others: [] as string[] }; });
       // Branche A : bulles d'amis, liés et suggestions par style (ne dépendent que des liens).
       const bubblesPromise = relationsPromise.then(async (relations) => {
         const [friends, others, styleFriends] = await Promise.all([
-          loadFriendBubbles(relations.following, [viewer.id]).catch(() => [] as MusicStory[]),
-          loadOthersBubbles(relations.others, [viewer.id]).catch(() => [] as MusicStory[]),
-          loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others]).catch(() => [] as MusicStory[]),
+          loadFriendBubbles(relations.following, [viewer.id]).catch(() => { degraded = true; return [] as MusicStory[]; }),
+          loadOthersBubbles(relations.others, [viewer.id]).catch(() => { degraded = true; return [] as MusicStory[]; }),
+          loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others]).catch(() => { degraded = true; return [] as MusicStory[]; }),
         ]);
         merge([...friends, ...others, ...styleFriends]);
         return [...friends, ...others, ...styleFriends];
@@ -121,9 +137,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             enrichStoriesWithSales(base).catch(() => base),
             loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
           ]);
+          storiesLoaded = true;
           merge([...withSales, ...saleOnly]);
           return [...withSales, ...saleOnly];
-        } catch { return [] as MusicStory[]; /* Réseau indisponible : la rangée garde ta story locale */ }
+        } catch { storiesLoaded = true; degraded = true; return [] as MusicStory[]; /* Réseau indisponible : la rangée garde ce qui est déjà affiché */ }
       })();
       // Certifications + activité réelle : deux appels serveur en parallèle, lancés dès que des profils sont connus
       // (amis dès la branche A, puis stories dès la branche B) au lieu d'attendre toute la chaîne.
@@ -160,6 +177,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       const storiesMeta = storiesPromise.then((withStories) => applyMeta(withStories.map((story) => story.profileId)));
       await Promise.all([bubblesMeta, storiesMeta]);
       if (!live) return;
+      // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
+      if (!degraded) setStories(Array.from(collected.values()));
       setActivityKnown(true);
     })();
     return () => { live = false; };

@@ -214,7 +214,7 @@ describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel
   it('prévient la rangée de stories à chaque ajout (le cercle de la photo s\'allume)', () => {
     expect(svc).toContain('notifyOwnStoryChanged();\n}');
     expect(bar).toContain('subscribeOwnStoryChanged');
-    expect(deck).toContain("if (visibility === 'PUBLIC') notifyOwnStoryChanged();");
+    expect(deck).toContain("if (visibility === 'PUBLIC') {\n          notifyOwnStoryChanged();");
   });
   it('confirme dans la fenêtre (bouton vert + félicitations), pas seulement par alerte', () => {
     expect(deck).toContain('deck-story-congrats');

@@ -630,7 +630,12 @@ export default function MusicSwipeDeckModal({
       const result = await onKeep?.(keptTrack, visibility);
       if (result !== false) {
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
-        if (visibility === 'PUBLIC') notifyOwnStoryChanged();
+        if (visibility === 'PUBLIC') {
+          notifyOwnStoryChanged();
+          // Adel (05/10/2026) : « il a gardé en public mais son cercle ne s'est pas allumé » -- un morceau DÉJÀ gardé auparavant garde son
+          // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
+          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(keptTrack.id).catch(() => {}).finally(() => notifyOwnStoryChanged());
+        }
         if (keepDebitAmount != null && keepDebitAmount > 0) {
           setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });
           return;

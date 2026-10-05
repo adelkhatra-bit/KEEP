@@ -35,3 +35,17 @@ describe('Collection déjà en story = bouton « + » éteint (Adel 05/10/2026)'
     expect(svc).toContain('loadSaleCollectionStoryTracks([uid])');
   });
 });
+
+describe('Rangée de stories : ne se vide jamais + garder en public épingle (Adel 05/10/2026)', () => {
+  const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('un rechargement garde les bulles affichées tant que les données ne sont pas complètes', () => {
+    expect(bar).toContain('const previous = new Map(storiesRef.current.map');
+    expect(bar).toContain('let degraded = false;');
+    expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
+  });
+  it('un GARDER public épingle aussi la musique (même déjà gardée avant) puis rallume le cercle', () => {
+    expect(deck).toContain('void pinStoryTrack(keptTrack.id)');
+    expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
+  });
+});
