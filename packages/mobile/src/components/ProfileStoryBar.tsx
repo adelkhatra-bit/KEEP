@@ -100,7 +100,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
   const openOwn = () => {
     if (ownStory) { void open(ownStory); return; }
-    Alert.alert('Ta story', 'Partage une musique sur ton profil (GARDER en Public) ou mets-en une en vente : elle apparaît ici pendant 24 heures.', [{ text: 'OK', style: 'cancel' }]);
+    Alert.alert('Ta story du jour est terminée', 'Une story dure 24 h. Reposte : partage une musique en public, reprends-en une chez un autre membre ou mets-en une en vente — ta photo se rallume aussitôt.', [{ text: 'OK', style: 'cancel' }]);
   };
 
   const isOwnOpen = openStory?.profileId === viewer.id;
