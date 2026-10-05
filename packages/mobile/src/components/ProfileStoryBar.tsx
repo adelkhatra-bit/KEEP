@@ -46,6 +46,7 @@ import {
 import { colors } from '../theme/colors';
 import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
+import { loadMyLikesOn, loadMyStoryLikeCounts, toggleStoryLike } from '../services/storyLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 
@@ -75,6 +76,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [activityKnown, setActivityKnown] = useState(false);
   const [ranking, setRanking] = useState<Record<string, { rank: number; score: number }>>({});
   const [myStats, setMyStats] = useState<MyStoryStats | null>(null);
+  // J'aime : mes cœurs sur la story ouverte, et (ma story) le nombre de « j'aime » par musique.
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [quickUsername, setQuickUsername] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
@@ -250,6 +254,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     return () => clearInterval(timer);
   }, [viewersOpen]);
 
+  // Ma story ouverte : le nombre de « j'aime » se rafraîchit toutes les 10 s.
+  useEffect(() => {
+    if (!openStory || openStory.profileId !== viewer.id) return undefined;
+    const timer = setInterval(() => { loadMyStoryLikeCounts().then(setLikeCounts).catch(() => {}); }, 10000);
+    return () => clearInterval(timer);
+  }, [openStory, viewer.id]);
+
   // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
   const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
   useEffect(() => { if (!openStory) stopWatch(); }, [openStory, stopWatch]);
@@ -273,12 +284,15 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setViewersOpen(false);
     watchRef.current?.stop();
     watchRef.current = null;
+    setLikedIds(new Set());
     if (story.profileId === viewer.id) {
+      loadMyStoryLikeCounts().then(setLikeCounts).catch(() => {});
       setViewers(null);
       loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
     } else {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
       watchRef.current = watchStoryOf(story.profileId, ordered.length);
+      loadMyLikesOn(story.profileId).then(setLikedIds).catch(() => {});
     }
     setSeen(await markStorySeen(viewer.id, story));
   }, [viewer.id, seen]);
@@ -563,6 +577,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         onPass={() => true}
         onOpenSourceProfile={(username) => { setOpenStory(null); onOpenProfile?.(username); }}
         onWatchEvent={(event) => watchRef.current?.event(event)}
+        likes={openStory ? (isOwnOpen
+          ? { likedIds, counts: likeCounts, readOnly: true, onToggle: async () => {} }
+          : { likedIds, onToggle: async (track) => { await toggleStoryLike(openStory.profileId, track.id); } }) : undefined}
         onClose={() => setOpenStory(null)}
       />
     </View>

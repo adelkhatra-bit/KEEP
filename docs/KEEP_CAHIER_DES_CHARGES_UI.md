@@ -203,3 +203,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Badge/classement : **offert 30 jours** (comptes existants : à partir du 05/10/2026), puis **1 parrainage validé OU une formule payante** pour le garder ; **jamais** appliqué au droit de poster une story. Fonction serveur `keep_story_badge_eligible` ; le classement public n'affiche que les profils éligibles ; `keep_my_story_stats_v2` donne mon état (éligible, jours offerts restants, parrainages validés, Premium).
 - Popup du 🔒 : verrouillé → « Ton mois offert est terminé… parraine 1 ami ou prends Premium » avec boutons **Parrainer un ami** (partage du lien `…/KEEP/?ref=CODE`), **Voir les formules**, Fermer ; pendant le mois offert → « 🎁 Offert encore N jours » ; toujours : mon détail de points et **à quoi sert le classement** (visibilité → abonnés → communauté).
 - Modèle économique : `docs/BUSINESS_SCENARIO.md`.
+
+### §14 decies — J'aime sur les stories (Adel, 05/10/2026, IDEA-106)
+- Un **cœur** aligné sur la ligne des vues (en face de « 👁 N vues » sur ma story) : sur la story d'un autre membre il pulse (contour lumineux rose) tant que la musique en cours n'est pas aimée ; un appui le passe en **cœur rouge** (retour arrière si le serveur refuse), un second appui retire le j'aime. Valable pendant toute la durée de la musique (chapitre).
+- Sur **ma** story : compteur « ❤ N » par musique (rafraîchi toutes les 10 s) ; alerte en direct « ❤ @x a aimé ta musique ». Pas d'auto-j'aime.
+- Données : table `story_likes` (owner, liker, track_id texte — « sale:… » possible —, `active`), RPC `keep_story_like_toggle`, `keep_story_likes_mine`, `keep_my_story_like_counts` ; compteur lisible par le seul propriétaire. Aucune suppression de ligne (la ligne passe active/inactive).

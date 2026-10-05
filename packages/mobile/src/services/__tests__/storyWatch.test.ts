@@ -302,3 +302,28 @@ describe('« Découvert par » mis en avant : contour lumineux qui pulse (Adel 0
     expect(glow).toContain('toValue: 0.15');
   });
 });
+
+describe('J’aime sur les stories (Adel 05/10/2026, IDEA-106)', () => {
+  const fs = require('fs'); const path = require('path');
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, ...p), 'utf8');
+  it('cœur aligné avec les vues, qui pulse tant qu’il n’est pas aimé, rouge une fois aimé, retour arrière si le serveur refuse', () => {
+    const deck = read('../../components/MusicSwipeDeckModal.tsx');
+    expect(deck).toContain('s.headerLikeRow');
+    expect(deck).toContain('testID="deck-like-button"');
+    expect(deck).toContain('{!liked ? <GlowRing radius={22} color="#FF5C8A" testID="deck-like-glow" /> : null}');
+    expect(deck).toContain("{liked ? '❤' : '♡'}");
+    expect(deck).toContain('catch { setLikedLocal(');
+    expect(deck).toContain('testID="deck-like-count"');
+  });
+  it('service : bascule via RPC serveur, jamais d’auto-j’aime, compteur réservé au propriétaire', () => {
+    const svc = read('../storyLikesService.ts');
+    expect(svc).toContain("rpc('keep_story_like_toggle'");
+    expect(svc).toContain("rpc('keep_my_story_like_counts')");
+    expect(svc).toContain("rpc('keep_story_likes_mine'");
+    const bar = read('../../components/ProfileStoryBar.tsx');
+    expect(bar).toContain('readOnly: true');
+    expect(bar).toContain('toggleStoryLike(openStory.profileId, track.id)');
+    const toast = read('../../components/StoryVisitorToast.tsx');
+    expect(toast).toContain('a aimé ta musique');
+  });
+});
