@@ -127,19 +127,33 @@ async function ensureBetaReviewIfNeeded(buildId, outsideTesterCount) {
   }
 
   const outside = allTesters.filter((tester) => !automaticTesterIds.has(tester.id));
+  // Un build pour testeurs externes doit d'abord être soumis à la revue bêta : on la demande AVANT d'assigner les testeurs individuels
+  // (05/10/2026 : deux builds de suite ont échoué ici avec « 409 STATE_ERROR — Tester(s) cannot be assigned »).
+  const review = await ensureBetaReviewIfNeeded(buildId, outside.length);
+
   let newlyAssigned = 0;
+  const notAssignable = [];
   for (const tester of outside) {
     const builds = await relationIds('/v1/betaTesters/' + tester.id + '/relationships/builds?limit=200');
     if (builds.has(buildId)) continue;
-    await api('/v1/betaTesters/' + tester.id + '/relationships/builds', {
-      method:'POST',
-      label:'Assign latest build to tester',
-      body:{ data:[{ type:'builds', id:buildId }] },
-    });
-    newlyAssigned += 1;
+    try {
+      await api('/v1/betaTesters/' + tester.id + '/relationships/builds', {
+        method:'POST',
+        label:'Assign latest build to tester',
+        body:{ data:[{ type:'builds', id:buildId }] },
+      });
+      newlyAssigned += 1;
+    } catch (error) {
+      // Un testeur qui ne peut pas (encore) recevoir le build (invitation non acceptée, revue bêta en cours) ne doit pas faire échouer
+      // toute la publication : le build est déjà dans TestFlight. On le dit clairement et on continue ; toute autre erreur reste fatale.
+      if (error?.status === 409 || /STATE_ERROR/.test(String(error?.safeBody || error?.message || ''))) {
+        notAssignable.push({ id: tester.id, state: tester.attributes?.state || null, inviteType: tester.attributes?.inviteType || null });
+        console.error('::warning::Testeur non assignable au build ' + buildNumber + ' (état Apple : ' + (tester.attributes?.state || 'inconnu') + ') — build disponible via les groupes automatiques ; à vérifier dans App Store Connect.');
+      } else {
+        throw error;
+      }
+    }
   }
-
-  const review = await ensureBetaReviewIfNeeded(buildId, outside.length);
 
   console.log('=== LOKI TESTFLIGHT TESTER SYNC ===');
   console.log(JSON.stringify({
@@ -149,6 +163,7 @@ async function ensureBetaReviewIfNeeded(buildId, outsideTesterCount) {
     testersCoveredByAutomaticGroups:automaticTesterIds.size,
     testersOutsideAutomaticGroups:outside.length,
     newlyAssignedToLatestBuild:newlyAssigned,
+    testersNotAssignable:notAssignable,
     betaReview:review,
   }, null, 2));
   console.log('=== END LOKI TESTFLIGHT TESTER SYNC ===');
