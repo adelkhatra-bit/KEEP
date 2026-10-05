@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
-import MusicStoryRail from './MusicStoryRail';
+import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
 import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
@@ -11,6 +11,7 @@ import {
   enrichStoriesWithSales,
   isSaleStoryTrack,
   loadMusicStories,
+  loadSaleOnlyStories,
   loadSeenStories,
   markStorySeen,
   orderStoriesForBar,
@@ -31,9 +32,12 @@ type Props = {
   onOpenProfile?: (username: string) => void;
   /** Même diamètre que la photo de profil. */
   size?: number;
+  /** Genre de l'utilisateur (donnée privée connue de lui seul) : anneau rose pour une femme, bleu pour un homme. */
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY';
 };
 
-export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size }: Props) {
+export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size, gender }: Props) {
+  const avatarSize = size ?? 80;
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
@@ -46,19 +50,23 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size 
     void (async () => {
       const seenMap = await loadSeenStories(viewer.id);
       if (live) setSeen(seenMap);
+      // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
+      loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
       try {
-        const mine = await loadOwnStory(viewer);
-        if (live) setOwnStory(mine);
         const base = await loadMusicStories(viewer.id);
         if (live) setStories(base);
         // Les musiques en vente arrivent ensuite : la rangée s'affiche sans les attendre.
-        const withSales = await enrichStoriesWithSales(base);
-        if (live) setStories(withSales);
+        const [withSales, saleOnly] = await Promise.all([
+          enrichStoriesWithSales(base).catch(() => base),
+          loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
+        ]);
+        const all = [...withSales, ...saleOnly];
+        if (live) setStories(all);
         // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
-        const presence = await Promise.allSettled(withSales.map((story) => loadProfilePresence(story.profileId)));
+        const presence = await Promise.allSettled(all.map((story) => loadProfilePresence(story.profileId)));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
-          withSales.forEach((story, index) => {
+          all.forEach((story, index) => {
             const result = presence[index];
             if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
           });
@@ -86,17 +94,30 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size 
   const isOwnOpen = openStory?.profileId === viewer.id;
 
   return (
-    <View testID="profile-story-bar">
-      <MusicStoryRail
-        stories={stories}
-        size={size}
-        online={online}
-        seen={seen}
-        own={{ story: ownStory, username: viewer.username, avatarUrl: viewer.avatarUrl }}
-        onOpenOwn={openOwn}
-        onOpen={(story) => { void open(story); }}
-        onOpenMore={(hidden) => setMoreOpen(hidden)}
-      />
+    <View testID="profile-story-bar" style={styles.barRow}>
+      {/* La photo de profil porte l'anneau de ta story : un seul visage, pas de doublon. */}
+      <TouchableOpacity
+        onPress={openOwn}
+        accessibilityRole="button"
+        accessibilityLabel={ownStory ? 'Ouvrir ta story' : 'Ta photo de profil : aucune story pour le moment'}
+        testID="home-story-own"
+      >
+        <StoryRing size={avatarSize} unseen={Boolean(ownStory && (seen[viewer.id] || '') < ownStory.latestAt)} plain={!ownStory} tone={gender === 'FEMALE' ? 'PINK' : gender === 'MALE' ? 'BLUE' : undefined}>
+          {viewer.avatarUrl
+            ? <Image source={{ uri: viewer.avatarUrl }} style={[styles.photo, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]} />
+            : <View style={[styles.photo, styles.photoFallback, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]}><Text style={styles.photoInitial}>{(viewer.username || 'K').slice(0, 1).toUpperCase()}</Text></View>}
+        </StoryRing>
+      </TouchableOpacity>
+      <View style={styles.railWrap}>
+        <MusicStoryRail
+          stories={stories}
+          seen={seen}
+          size={avatarSize}
+          online={online}
+          onOpen={(story) => { void open(story); }}
+          onOpenMore={(hidden) => setMoreOpen(hidden)}
+        />
+      </View>
 
       <Modal visible={Boolean(moreOpen)} transparent animationType="fade" onRequestClose={() => setMoreOpen(null)}>
         <SafeAreaView style={styles.backdrop}>
@@ -162,6 +183,11 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size 
 }
 
 const styles = StyleSheet.create({
+  barRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
+  railWrap: { flex: 1, minWidth: 0, marginLeft: 12 },
+  photo: { backgroundColor: colors.backgroundCard },
+  photoFallback: { alignItems: 'center', justifyContent: 'center' },
+  photoInitial: { color: colors.white, fontSize: 28, fontWeight: '900' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 18 },
   sheet: { maxHeight: '75%', borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

@@ -84,3 +84,23 @@ describe('pastille de présence et taille des bulles', () => {
     expect(read('screens', 'ProfilePublicScreen.tsx')).toContain('size={80}');
   });
 });
+
+describe('photo de profil = bulle de ta story, anneau rose/bleu, boutique seule', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+  it('the profile photo carries the story ring (no second own bubble in the rail)', () => {
+    const bar = read('components', 'ProfileStoryBar.tsx');
+    expect(bar).toContain('<StoryRing size={avatarSize}');
+    expect(bar).not.toContain('own={{');
+    expect(read('screens', 'ProfilePublicScreen.tsx')).not.toContain('s.profileStoryRow');
+  });
+  it('ring is pink for women, blue for men, vivid otherwise; seen stories stay visible (grey), never removed', () => {
+    const rail = read('components', 'MusicStoryRail.tsx');
+    expect(rail).toContain("tone === 'PINK' ? PINK");
+    expect(rail).toContain('ringSeen');
+    expect(read('components', 'ProfileStoryBar.tsx')).toContain("gender === 'FEMALE' ? 'PINK'");
+  });
+  it('followed sellers with shop items but no recent share still get a story', () => {
+    expect(read('services', 'musicStoriesService.ts')).toContain('export async function loadSaleOnlyStories');
+    expect(read('components', 'ProfileStoryBar.tsx')).toContain('loadSaleOnlyStories(');
+  });
+});

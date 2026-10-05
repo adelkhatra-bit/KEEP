@@ -177,7 +177,9 @@ export async function loadOwnStory(
     : { profileId: viewer.id, username: viewer.username, avatarUrl: viewer.avatarUrl ?? null, latestAt: '', followed: false, sameStyle: false, tracks: [] };
   const [withSales] = await enrichStoriesWithSales([base]);
   if (!withSales.tracks.length) return null;
-  return { ...withSales, latestAt: withSales.latestAt || new Date().toISOString() };
+  // Sans partage récent : début du jour (stable), pour que « vue » le reste jusqu'à demain.
+  const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
+  return { ...withSales, latestAt: withSales.latestAt || dayStart.toISOString() };
 }
 
 /**
@@ -228,6 +230,46 @@ export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<Mus
     const result = index < head.length ? results[index] : null;
     return result && result.status === 'fulfilled' ? mergeSaleTracks(story, result.value) : story;
   });
+}
+
+/**
+ * Boutique seule : un profil suivi qui a des musiques en vente mais aucun
+ * partage récent a quand même sa story (Adel, 05/10/2026 : « il y a des
+ * musiques en magasin, je ne les vois pas »). latestAt = début du jour : la
+ * story se rallume chaque jour tant que la boutique est active, et s'éteint
+ * une fois vue.
+ */
+export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory[]): Promise<MusicStory[]> {
+  if (!supabase || !viewerId) return [];
+  const { data: follows } = await supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(200);
+  const have = new Set(existing.map((story) => story.profileId));
+  const ids = (follows ?? []).map((row: any) => String(row.followee_id)).filter((id) => id && id !== viewerId && !have.has(id)).slice(0, MAX_STORIES_WITH_SALES * 2);
+  if (!ids.length) return [];
+  const results = await Promise.allSettled(ids.map((id) => loadPlaylistSaleProfilePreviewSampler(id)));
+  const withSales = ids
+    .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
+    .filter((row) => row.samples.length > 0)
+    .slice(0, MAX_STORIES_WITH_SALES);
+  if (!withSales.length) return [];
+  const { data: profiles } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', withSales.map((row) => row.id));
+  const byId = new Map((profiles ?? []).map((row: any) => [String(row.id), row]));
+  const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
+  const stories: MusicStory[] = [];
+  for (const row of withSales) {
+    const profile: any = byId.get(row.id);
+    if (!profile?.username) continue;
+    const base: MusicStory = {
+      profileId: row.id,
+      username: String(profile.username),
+      avatarUrl: profile.avatar_url ? String(profile.avatar_url) : null,
+      latestAt: dayStart.toISOString(),
+      followed: true,
+      sameStyle: false,
+      tracks: [],
+    };
+    stories.push(mergeSaleTracks(base, row.samples));
+  }
+  return stories.filter((story) => story.tracks.length > 0);
 }
 
 /** Vues en dernier (grisées), nouveautés d'abord ; ordre d'origine conservé dans chaque groupe. */

@@ -30,12 +30,14 @@ type Props = {
 const RING = 60;
 const THICK = 5; // contour bien visible : on voit tout de suite qu'une story attend
 const VIVID = ['#FF3D9A', '#FFB020', '#2DE1C2', '#7C5CFC'];
+const PINK = ['#FF3D9A', '#FF8AC9', '#FF3D9A', '#FFC2E3'];
+const BLUE = ['#2D8CFF', '#6FD3FF', '#2D8CFF', '#A9C8FF'];
 const GAP = 4;
 const DOT = 16;
 const ONLINE_GREEN = '#2DE17A';
 const OFFLINE_RED = '#FF4D5E';
 
-export function StoryRing({ unseen, children, size = RING }: { unseen: boolean; children: React.ReactNode; size?: number }) {
+export function StoryRing({ unseen, children, size = RING, plain = false, tone }: { unseen: boolean; children: React.ReactNode; size?: number; plain?: boolean; tone?: 'PINK' | 'BLUE' }) {
   const spin = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!unseen) return undefined;
@@ -45,12 +47,14 @@ export function StoryRing({ unseen, children, size = RING }: { unseen: boolean; 
   }, [spin, unseen]);
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const box = { width: size, height: size, borderRadius: size / 2 };
+  // plain : pas de story, la photo reste telle quelle (aucun anneau).
+  if (plain) return <View style={box}>{children}</View>;
   const gap = { width: size - THICK * 2, height: size - THICK * 2, borderRadius: (size - THICK * 2) / 2 };
   return (
-    <View style={[s.glowBox, unseen && s.glowOn, box]}><View style={[s.ringBox, box]}>
+    <View style={[s.glowBox, unseen && s.glowOn, tone === 'BLUE' && { shadowColor: '#2D8CFF' }, box]}><View style={[s.ringBox, box]}>
       {unseen ? (
         <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate }] }]}>
-          <LinearGradient colors={VIVID as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.ringGradient, { borderRadius: size / 2 }]} />
+          <LinearGradient colors={(tone === 'PINK' ? PINK : tone === 'BLUE' ? BLUE : VIVID) as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[s.ringGradient, { borderRadius: size / 2 }]} />
         </Animated.View>
       ) : <View style={[s.ringSeen, { borderRadius: size / 2 }]} />}
       <View style={[s.ringGap, gap]}>{children}</View>

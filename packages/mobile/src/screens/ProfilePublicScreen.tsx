@@ -1814,20 +1814,21 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
-          {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
-          <View style={s.identityText}>
-            {/* Stories (Adel 05/10/2026) : bulles à côté de la photo, au-dessus du pseudo (qui descend un peu). Sans défilement. */}
-            {!accountRequired && !isDemoMode ? (
-              <View style={s.profileStoryRow}>
-                <ProfileStoryBar
-                  viewer={{ id: user.id, username: user.username, avatarUrl: user.avatar || null }}
-                  freeCost={freeCostPerKeep}
-                  size={80}
-                  onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
-                />
-              </View>
-            ) : null}
-          </View>
+          {/* Adel 05/10/2026 : la photo de profil EST la bulle de ta story (pas de double photo). */}
+          {!accountRequired && !isDemoMode ? (
+            <ProfileStoryBar
+              viewer={{ id: user.id, username: user.username, avatarUrl: user.avatar || null }}
+              freeCost={freeCostPerKeep}
+              size={80}
+              gender={user.privateInfo?.gender}
+              onOpenProfile={(username) => navigation.navigate('PublicProfile', { username })}
+            />
+          ) : (
+            <>
+              {user.avatar ? <Image source={{uri:user.avatar}} style={s.avatar}/> : <View style={[s.avatar,s.avatarFallback]}><Text style={s.avatarText}>K</Text></View>}
+              <View style={s.identityText} />
+            </>
+          )}
         </View>
         {/* Adel 05/10/2026 : pseudo, certification, type, Battle et ville passent SOUS la photo et les stories, sur toute la largeur. */}
         <View style={s.identityBelow}>
