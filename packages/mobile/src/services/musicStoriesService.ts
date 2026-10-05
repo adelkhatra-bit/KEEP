@@ -473,6 +473,11 @@ export async function loadMyStoryTrackIds(): Promise<Set<string>> {
     supabase.from('story_pins').select('track_id').eq('profile_id', uid).gte('pinned_at', since).limit(200),
   ]);
   for (const row of [...(keeps.data ?? []), ...(pins.data ?? [])] as any[]) if (row?.track_id) ids.add(String(row.track_id));
+  // Adel (05/10/2026) : une musique EN VENTE est déjà dans ta story quand ta boutique l'y met d'office (un échantillon par offre active,
+  // toujours le même). Sans ça, le bouton restait allumé et proposait un ajout inutile.
+  try {
+    for (const sample of await loadPlaylistSaleProfilePreviewSampler(uid)) if (sample?.trackId) ids.add(String(sample.trackId));
+  } catch { /* boutique inconnue : on se fie aux GARDER publics et aux épingles */ }
   return ids;
 }
 

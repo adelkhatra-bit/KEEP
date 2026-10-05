@@ -15,6 +15,7 @@ import {
   composeStoryTeaser,
   loadMyPinnableTracks,
   loadMyStoryViewers,
+  SALE_TRACK_PREFIX,
   loadRepriseSuggestions,
   subscribeOwnStoryChanged,
   orderTracksForPlayback,
@@ -156,7 +157,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     loadMyOfferedTrackIds().then((map) => setOfferedIds(new Set(Object.keys(map)))).catch(() => {});
   };
   // Adel (05/10/2026) : une musique déjà dans la story ne s'ajoute pas deux fois : on le dit clairement.
-  const inStoryIds = new Set((ownStory?.tracks ?? []).map((track) => track.id));
+  const inStoryIds = new Set((ownStory?.tracks ?? []).map((track) => (track.id.startsWith(SALE_TRACK_PREFIX) ? track.id.slice(SALE_TRACK_PREFIX.length) : track.id)));
   // Pré-écoute avant d'ajouter à la story (Adel, 05/10/2026).
   const previewTrack = (track: PinnableTrack) => {
     if (!track.previewUrl) {

@@ -224,7 +224,7 @@ export default function MusicSwipeDeckModal({
       <TouchableOpacity disabled={checking} style={[buttonStyle, checking ? s.addStoryButtonDone : justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking) && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
       </TouchableOpacity>
-      {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.</Text> : null}
+      {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">{alreadyInStory ? '🏷 En vente : elle est déjà dans ta story, jaquette et artiste masqués.' : '🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.'}</Text> : null}
       {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
     </View>;
   };

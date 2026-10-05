@@ -278,3 +278,15 @@ describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () 
     expect(svc).toContain('STORY_WINDOW_HOURS = 24');
   });
 });
+
+describe('Musique en vente déjà en story : bouton éteint (Adel 05/10/2026)', () => {
+  const fs7 = require('fs'); const path7 = require('path');
+  const svc = fs7.readFileSync(path7.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const bar = fs7.readFileSync(path7.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  it("l'échantillon de boutique placé d'office en story compte comme « déjà en story »", () => {
+    expect(svc).toContain('loadPlaylistSaleProfilePreviewSampler(uid)');
+  });
+  it('la feuille « + » reconnaît aussi les cartes sale:<id> comme déjà en story', () => {
+    expect(bar).toContain('track.id.slice(SALE_TRACK_PREFIX.length)');
+  });
+});
