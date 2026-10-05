@@ -336,3 +336,17 @@ describe('Qui apparaît dans la rangée : uniquement les membres liés à moi (A
     expect(rail).not.toContain('Modal');
   });
 });
+
+describe('Ordre par récence + bulles qui glissent (Adel 05/10/2026)', () => {
+  const fsA = require('fs'); const pathA = require('path');
+  const svc = fsA.readFileSync(pathA.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const rail = fsA.readFileSync(pathA.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  it('la story la plus récente passe toujours en premier, dans chaque groupe', () => {
+    expect(svc).toContain('const byRecency =');
+    expect(svc).toContain('stories.filter(isNew).sort(byRecency)');
+  });
+  it('un changement d\'ordre est animé et les hooks restent avant tout retour anticipé', () => {
+    expect(rail).toContain('LayoutAnimation.configureNext');
+    expect(rail.indexOf('LayoutAnimation.configureNext')).toBeLessThan(rail.indexOf('if (empty) return null;'));
+  });
+});

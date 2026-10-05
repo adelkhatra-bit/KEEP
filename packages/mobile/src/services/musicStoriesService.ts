@@ -393,7 +393,9 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
 /** Vues en dernier (grisées), nouveautés d'abord ; ordre d'origine conservé dans chaque groupe. */
 export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, string>): MusicStory[] {
   const isNew = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
-  return [...stories.filter(isNew), ...stories.filter((story) => !isNew(story))];
+  // Adel (05/10/2026) : toujours la story la plus RÉCENTE en premier (l'heure de la dernière story), dans chaque groupe.
+  const byRecency = (a: MusicStory, b: MusicStory) => (a.latestAt < b.latestAt ? 1 : a.latestAt > b.latestAt ? -1 : 0);
+  return [...stories.filter(isNew).sort(byRecency), ...stories.filter((story) => !isNew(story)).sort(byRecency)];
 }
 
 

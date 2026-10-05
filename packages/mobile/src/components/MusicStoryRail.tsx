@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Image, LayoutAnimation, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
@@ -72,7 +72,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const ITEM = size + 2;
   const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
-  if (!stories.length && !own) return null;
+  const empty = !stories.length && !own;
   // Adel (05/10/2026) — toujours la même rangée, toujours dans la même longueur :
   //  1. à côté de la photo : les membres que je SUIS ; les stories non vues d'abord, puis ceux sans story du jour (cercle gris) ;
   //  2. une story VUE passe derrière, dans « Autres », et la suivante non vue prend sa place : on appuie toujours au même endroit ;
@@ -93,6 +93,15 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
     ...notFollowed.filter((story) => !hasStory(story) && story.styleMatch),
   ];
   const unseenOthers = others.filter(isUnseen).length;
+  // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part vers « Autres », la suivante avance.
+  const orderKey = [...main, ...others].map((story) => `${story.profileId}:${isUnseen(story) ? 1 : 0}`).join('|');
+  const lastOrderKey = useRef(orderKey);
+  useEffect(() => {
+    if (lastOrderKey.current !== orderKey) {
+      lastOrderKey.current = orderKey;
+      try { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); } catch { /* animation indisponible : l'ordre change quand même */ }
+    }
+  }, [orderKey]);
 
   const renderStory = (story: MusicStory) => {
     const withStory = hasStory(story);
@@ -117,6 +126,8 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
       </TouchableOpacity>
     );
   };
+
+  if (empty) return null;
 
   return (
     <View style={s.wrap} testID="home-music-story-rail" accessibilityLabel="Stories musicales">
