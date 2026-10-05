@@ -21,13 +21,19 @@ type Props = {
   onOpenOwn?: () => void;
   /** Ouvre la liste complète quand toutes les bulles ne tiennent pas. */
   onOpenMore?: (hidden: MusicStory[]) => void;
+  /** Diamètre des bulles (la même taille que la photo de profil). */
+  size?: number;
+  /** Présence par profil : true = vert, false = rouge, absent = inconnue (aucune pastille, jamais un faux « hors ligne »). */
+  online?: Record<string, boolean | undefined>;
 };
 
 const RING = 60;
-const ITEM = 66;
 const THICK = 5; // contour bien visible : on voit tout de suite qu'une story attend
 const VIVID = ['#FF3D9A', '#FFB020', '#2DE1C2', '#7C5CFC'];
-const GAP = 6;
+const GAP = 4;
+const DOT = 16;
+const ONLINE_GREEN = '#2DE17A';
+const OFFLINE_RED = '#FF4D5E';
 
 export function StoryRing({ unseen, children, size = RING }: { unseen: boolean; children: React.ReactNode; size?: number }) {
   const spin = useRef(new Animated.Value(0)).current;
@@ -52,14 +58,15 @@ export function StoryRing({ unseen, children, size = RING }: { unseen: boolean; 
   );
 }
 
-function Avatar({ uri, name }: { uri?: string | null; name: string }) {
-  const size = RING - THICK * 2 - 6;
+function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string; ring?: number }) {
+  const size = ring - THICK * 2 - 6;
   const box = { width: size, height: size, borderRadius: size / 2 };
   if (uri) return <Image source={{ uri }} style={box} />;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, onOpenMore }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, onOpenMore, size = RING, online }: Props) {
+  const ITEM = size + 2;
   const [width, setWidth] = useState(0);
   if (!stories.length && !own) return null;
   const ordered = orderStoriesForBar(stories, seen);
@@ -82,15 +89,16 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
       <View style={s.row}>
         {own ? (
           <TouchableOpacity
-            style={s.item}
+            style={[s.item, { width: ITEM }]}
             onPress={onOpenOwn}
             accessibilityRole="button"
             accessibilityLabel={own.story ? 'Ouvrir ta story' : 'Ta story : aucune musique pour le moment'}
             testID="home-story-own"
           >
-            <StoryRing unseen={Boolean(own.story && isUnseen(own.story))}>
-              <Avatar uri={own.avatarUrl} name={own.username} />
+            <StoryRing size={size} unseen={Boolean(own.story && isUnseen(own.story))}>
+              <Avatar ring={size} uri={own.avatarUrl} name={own.username} />
             </StoryRing>
+            <View style={[s.presenceDot, { backgroundColor: ONLINE_GREEN, left: size - DOT - 2, top: size - DOT - 2 }]} testID="story-presence-own" />
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
@@ -99,29 +107,30 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
           return (
             <TouchableOpacity
               key={story.profileId}
-              style={s.item}
+              style={[s.item, { width: ITEM }]}
               onPress={() => onOpen(story)}
               accessibilityRole="button"
               accessibilityLabel={`Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}`}
               testID={`home-story-${story.profileId}`}
             >
-              <StoryRing unseen={unseen}>
-                <Avatar uri={story.avatarUrl} name={story.username} />
+              <StoryRing size={size} unseen={unseen}>
+                <Avatar ring={size} uri={story.avatarUrl} name={story.username} />
               </StoryRing>
-              {!unseen ? <View style={s.seenBadge}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+              {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
+              {!unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
               <Text style={[s.name, !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
             </TouchableOpacity>
           );
         })}
         {overflow ? (
           <TouchableOpacity
-            style={s.item}
+            style={[s.item, { width: ITEM }]}
             onPress={() => onOpenMore?.(hidden)}
             accessibilityRole="button"
             accessibilityLabel={`Voir ${hidden.length} autres stories`}
             testID="home-story-more"
           >
-            <View style={s.moreCircle}><Text style={s.moreText}>+{hidden.length}</Text></View>
+            <View style={[s.moreCircle, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.moreText}>+{hidden.length}</Text></View>
             <Text style={s.name} numberOfLines={1}>Autres</Text>
           </TouchableOpacity>
         ) : null}
@@ -133,7 +142,8 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
 const s = StyleSheet.create({
   wrap: { width: '100%' },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: GAP, flexWrap: 'nowrap', overflow: 'hidden' },
-  item: { width: ITEM, alignItems: 'center', minHeight: 48 },
+  item: { alignItems: 'center', minHeight: 48 },
+  presenceDot: { position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2, borderWidth: 2, borderColor: '#0B0A12' },
   glowBox: { borderRadius: 999 },
   glowOn: { shadowColor: '#FF3D9A', shadowOpacity: 0.85, shadowRadius: 9, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   ringBox: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
@@ -142,7 +152,7 @@ const s = StyleSheet.create({
   ringGap: { backgroundColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
   avatarFallback: { backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { color: colors.white, fontSize: 18, fontWeight: '900' },
-  name: { marginTop: 4, maxWidth: ITEM, color: colors.white, fontSize: 11, fontWeight: '800' },
+  name: { marginTop: 4, maxWidth: 84, color: colors.white, fontSize: 11, fontWeight: '800' },
   nameSeen: { opacity: 0.75 },
   seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
   seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },

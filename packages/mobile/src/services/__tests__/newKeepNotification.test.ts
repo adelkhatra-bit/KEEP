@@ -42,8 +42,8 @@ describe('Notification nouveau morceau Loki', () => {
   it('ne révèle jamais le titre ni l’artiste avant ajout, même pour une ancienne notification', () => {
     const copy = maskedNewKeepCopy(oldNotif as any);
     expect(isNewKeepNotification(oldNotif as any)).toBe(true);
-    expect(copy.title).toContain('Nouveau morceau chez');
-    expect(copy.body).toContain('Titre et artiste masqués');
+    expect(copy.title).toContain('a une nouvelle story');
+    expect(copy.body).toContain('avant qu’elle disparaisse');
     expect(`${copy.title} ${copy.body}`).not.toMatch(/Secret Song|Mystery Artist/);
     expect(newKeepNotificationTrackId(oldNotif as any)).toBe('33333333-3333-4333-8333-333333333333');
   });

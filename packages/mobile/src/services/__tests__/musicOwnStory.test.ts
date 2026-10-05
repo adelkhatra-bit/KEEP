@@ -22,7 +22,7 @@ describe('story personnelle (loadOwnStory)', () => {
     const { loadOwnStory } = require('../musicStoriesService');
     expect(await loadOwnStory(viewer)).toBeNull();
   });
-  it('keeps the 72h window constant', () => { expect(STORY_WINDOW_HOURS).toBe(72); });
+  it('keeps the 24h window constant', () => { expect(STORY_WINDOW_HOURS).toBe(24); });
 });
 
 describe('intégration : ta story dans la barre du profil', () => {
@@ -68,5 +68,19 @@ describe('musiques en vente dans la story', () => {
   it('a new track relights a seen story (latestAt moves past the seen mark)', () => {
     const a = story('a', '2026-10-05T11:00:00Z');
     expect(orderStoriesForBar([a, story('b', '2026-10-05T09:00:00Z')], { a: '2026-10-05T10:00:00Z' })[0].profileId).toBe('a');
+  });
+});
+
+describe('pastille de présence et taille des bulles', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+  it('rail shows green/red only when presence is known, never a fake offline', () => {
+    const rail = read('components', 'MusicStoryRail.tsx');
+    expect(rail).toContain('online[story.profileId] !== undefined');
+    expect(rail).toContain('ONLINE_GREEN');
+    expect(rail).toContain('OFFLINE_RED');
+  });
+  it('profile bubbles use the profile photo size and the existing presence RPC (no duplicate source)', () => {
+    expect(read('components', 'ProfileStoryBar.tsx')).toContain('loadProfilePresence(');
+    expect(read('screens', 'ProfilePublicScreen.tsx')).toContain('size={80}');
   });
 });

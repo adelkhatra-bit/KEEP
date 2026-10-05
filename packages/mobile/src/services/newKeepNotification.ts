@@ -54,8 +54,9 @@ export function newKeepNotificationOrigin(notification: KeepNotification): { pro
 export function maskedNewKeepCopy(notification: KeepNotification): { title: string; body: string } {
   const { username } = newKeepNotificationOwner(notification);
   return {
-    title: username ? `Nouveau morceau chez ${username.replace(/^@+/, '')}` : 'Nouveau morceau',
-    body: 'Titre et artiste masqués · écoute le morceau puis ajoute-le gratuitement pour les découvrir.',
+    // Adel (05/10/2026) : peu d'informations, on donne envie d'aller voir la story.
+    title: username ? `@${username.replace(/^@+/, '')} a une nouvelle story` : 'Nouvelle story',
+    body: 'Viens écouter avant qu’elle disparaisse.',
   };
 }
 

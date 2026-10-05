@@ -19,7 +19,8 @@ import { loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
  * l'utilisateur ne soit jamais noyé sous des centaines de stories.
  */
 
-export const STORY_WINDOW_HOURS = 72;
+// Adel (05/10/2026) : uniquement les choses du jour.
+export const STORY_WINDOW_HOURS = 24;
 export const MAX_STORY_PROFILES = 15;
 const MAX_TRACKS_PER_STORY = 10;
 const SEEN_KEY_PREFIX = 'keep:music-stories:seen:v1:';
@@ -150,7 +151,7 @@ export async function markStorySeen(viewerId: string, story: MusicStory): Promis
 
 /**
  * Ta propre story (Adel, 05/10/2026) : UNIQUEMENT ce que tu as partagé sur ton
- * compte (GARDER en Public, 72 h) + tes musiques mises en vente. Les musiques
+ * compte (GARDER en Public, 24 h) + tes musiques mises en vente. Les musiques
  * simplement identifiées ou masquées n'y sont PLUS : elles restent dans ton
  * historique. Aucune musique ne disparaît de ton profil quand la story est vue.
  */

@@ -3,6 +3,7 @@ import { Image, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpac
 import { Alert } from '../utils/keepAlert';
 import MusicStoryRail from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
+import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { stopTrackPreviewFast } from '../services/audioPreviewService';
 import {
@@ -28,9 +29,12 @@ type Props = {
   viewer: { id: string; username: string; avatarUrl?: string | null };
   freeCost: number;
   onOpenProfile?: (username: string) => void;
+  /** Même diamètre que la photo de profil. */
+  size?: number;
 };
 
-export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile }: Props) {
+export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size }: Props) {
+  const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const [seen, setSeen] = useState<Record<string, string>>({});
@@ -50,6 +54,16 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile }: Pro
         // Les musiques en vente arrivent ensuite : la rangée s'affiche sans les attendre.
         const withSales = await enrichStoriesWithSales(base);
         if (live) setStories(withSales);
+        // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
+        const presence = await Promise.allSettled(withSales.map((story) => loadProfilePresence(story.profileId)));
+        if (live) {
+          const next: Record<string, boolean | undefined> = {};
+          withSales.forEach((story, index) => {
+            const result = presence[index];
+            if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
+          });
+          setOnline(next);
+        }
       } catch {
         // Réseau indisponible : la rangée garde ta story locale, jamais d'écran cassé.
       }
@@ -66,7 +80,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile }: Pro
 
   const openOwn = () => {
     if (ownStory) { void open(ownStory); return; }
-    Alert.alert('Ta story', 'Partage une musique sur ton profil (GARDER en Public) ou mets-en une en vente : elle apparaît ici pendant 72 heures.', [{ text: 'OK', style: 'cancel' }]);
+    Alert.alert('Ta story', 'Partage une musique sur ton profil (GARDER en Public) ou mets-en une en vente : elle apparaît ici pendant 24 heures.', [{ text: 'OK', style: 'cancel' }]);
   };
 
   const isOwnOpen = openStory?.profileId === viewer.id;
@@ -75,6 +89,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile }: Pro
     <View testID="profile-story-bar">
       <MusicStoryRail
         stories={stories}
+        size={size}
+        online={online}
         seen={seen}
         own={{ story: ownStory, username: viewer.username, avatarUrl: viewer.avatarUrl }}
         onOpenOwn={openOwn}
