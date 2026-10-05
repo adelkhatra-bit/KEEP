@@ -128,5 +128,5 @@ const styles = StyleSheet.create({
   leftText:{color:'#FF5F83',fontSize:12,fontWeight:'900',letterSpacing:1},
   rightText:{color:'#68F2B1',fontSize:12,fontWeight:'900',letterSpacing:1},
   upText:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1},
-  hint:{marginTop:7,color:'#FFFFFF',fontSize:9,fontWeight:'700',textAlign:'center'},
+  hint:{marginTop:10,color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',textAlign:'center'},
 });

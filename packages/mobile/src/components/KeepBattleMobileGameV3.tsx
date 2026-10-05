@@ -3039,6 +3039,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }, new Map<string, KeepBattleArenaWinner & { wins: number }>()).values()).sort((a, b) => b.wins - a.wins || b.matchNo - a.matchNo).slice(0, 3);
     if (arena.status === 'WAITING' && arena.lastResult) {
       const winner = arena.lastWinner;
+      // Adel (05/10/2026) : « quand personne a gagné, personne a gagné » -- aucun vainqueur ou 0 point = pas de gagnant, ni trophée ni « remporte ».
+      const nobodyWon = !winner || !(Number(winner.score) > 0);
       const myLastResult = arena.lastResult;
       // 01/10/2026 — règle produit verrouillée par Adel :
       // bonus uniquement en Battle multijoueur. Il faut un sans-faute N/N.
@@ -3103,11 +3105,11 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             </Animated.View>
           ) : null}
           <Animated.View style={[s.finishHero, { opacity: celebrationOpacity, transform: [{ scale: celebrationScale }] }]}>
-            <LokiFinishBurst tone="win" />
+            {nobodyWon ? null : <LokiFinishBurst tone="win" />}
             {/* Adel (29/09/2026) : trophée 3D à la place de la photo ; il nargue le perdant. */}
-            <WinnerTrophy3D won={Boolean(arena.lastResult.won)} />
-            <Text style={s.finishTitle}>{winner ? `${winner.username}` : 'BATTLE TERMINÉ'}</Text>
-            <Text style={s.finishSub}>{winner ? 'remporte ce Battle' : 'Résultat enregistré'}</Text>
+            {nobodyWon ? <Text style={s.trophy}>🤝</Text> : <WinnerTrophy3D won={Boolean(arena.lastResult.won)} />}
+            <Text style={s.finishTitle}>{nobodyWon ? 'PERSONNE N’A GAGNÉ' : `${winner!.username}`}</Text>
+            <Text style={s.finishSub}>{nobodyWon ? 'Aucun point marqué : personne ne remporte ce Battle' : 'remporte ce Battle'}</Text>
             <View style={s.finishScore}><Animated.Text style={[s.finishScoreBig, jackpotScoreStyle]}>{winner?.score ?? arena.lastResult.score}</Animated.Text><Text style={s.finishScoreSlash}> pts</Text></View>
             {/* Adel (02/09/2026) : "@adel4A remporte ce Battle / -3 FREE"
                 (rapporté comme un bug) -- le nom/score du haut sont ceux du
