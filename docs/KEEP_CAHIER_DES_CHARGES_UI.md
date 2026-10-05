@@ -198,3 +198,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 octies — Badge à débloquer (Adel, 05/10/2026, IDEA-103)
 - Sur MA photo de profil (haut gauche) : **🔒** tant que je n'ai pas 3 points sur 7 jours ; un appui explique « il te manque N points » avec mon détail (partages en story, reprises, abonnés) et comment gagner (story +1, lien d'affiliation/profil partagé → abonnés +2, reprise de ma musique +3), avec le bouton « Mettre une musique en story ». Débloqué : ✨ (actif), ⭐ (top 10), 🥇🥈🥉 (top 3).
 - Badges des autres bulles : plus lumineux (fond doré, contour et halo), ✨ ajouté pour les membres actifs du top 50 hors top 10. RPC lecture seule `keep_my_story_stats` (mon rang quel que soit mon rang).
+
+### §14 nonies — Déblocage du badge (Adel, 05/10/2026, IDEA-104)
+- Badge/classement : **offert 30 jours** (comptes existants : à partir du 05/10/2026), puis **1 parrainage validé OU une formule payante** pour le garder ; **jamais** appliqué au droit de poster une story. Fonction serveur `keep_story_badge_eligible` ; le classement public n'affiche que les profils éligibles ; `keep_my_story_stats_v2` donne mon état (éligible, jours offerts restants, parrainages validés, Premium).
+- Popup du 🔒 : verrouillé → « Ton mois offert est terminé… parraine 1 ami ou prends Premium » avec boutons **Parrainer un ami** (partage du lien `…/KEEP/?ref=CODE`), **Voir les formules**, Fermer ; pendant le mois offert → « 🎁 Offert encore N jours » ; toujours : mon détail de points et **à quoi sert le classement** (visibilité → abonnés → communauté).
+- Modèle économique : `docs/BUSINESS_SCENARIO.md`.

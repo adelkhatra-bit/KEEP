@@ -513,14 +513,14 @@ export async function loadStoryRanking(): Promise<Record<string, { rank: number;
 }
 
 /** Mes points de la semaine (détail + rang, quel que soit mon rang) : sert au badge à débloquer. */
-export type MyStoryStats = { shares: number; reprises: number; followers: number; score: number; rank: number | null };
+export type MyStoryStats = { shares: number; reprises: number; followers: number; score: number; rank: number | null; eligible: boolean; graceDaysLeft: number; referralsQualified: number; premium: boolean };
 export async function loadMyStoryStats(): Promise<MyStoryStats | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc('keep_my_story_stats');
+  const { data, error } = await supabase.rpc('keep_my_story_stats_v2');
   if (error) throw error;
   const row: any = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
-  return { shares: Number(row.shares) || 0, reprises: Number(row.reprises) || 0, followers: Number(row.followers) || 0, score: Number(row.score) || 0, rank: row.rank == null ? null : Number(row.rank) };
+  return { shares: Number(row.shares) || 0, reprises: Number(row.reprises) || 0, followers: Number(row.followers) || 0, score: Number(row.score) || 0, rank: row.rank == null ? null : Number(row.rank), eligible: row.eligible !== false, graceDaysLeft: Number(row.grace_days_left) || 0, referralsQualified: Number(row.referrals_qualified) || 0, premium: Boolean(row.premium) };
 }
 
 /** Suivi réel façon Instagram (délai de présence, secondes, musiques vues, écoute, départ) : voir services/storyWatchService.ts. */

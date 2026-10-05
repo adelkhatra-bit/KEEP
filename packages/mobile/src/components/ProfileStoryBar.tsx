@@ -45,6 +45,8 @@ import {
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
 import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
+import { shareReferralLink } from '../services/referralShare';
+import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 
 /**
@@ -361,13 +363,22 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       </TouchableOpacity>
       {(() => {
         // Badge à débloquer (Adel 05/10/2026) : 🔒 au départ ; un appui explique comment le débloquer et montre la progression.
-        const stats: MyStoryStats = myStats ?? { shares: 0, reprises: 0, followers: 0, score: 0, rank: null };
-        const badge = ownBadgeFor(stats.rank, stats.score);
+        const stats: MyStoryStats = myStats ?? { shares: 0, reprises: 0, followers: 0, score: 0, rank: null, eligible: true, graceDaysLeft: 0, referralsQualified: 0, premium: false };
+        const badge = ownBadgeFor(stats.rank, stats.score, stats.eligible);
         return (
           <TouchableOpacity
             style={[styles.ownBadge, badge.locked ? styles.ownBadgeLocked : styles.ownBadgeOn]}
             onPress={() => {
               const message = ownBadgeMessage(stats);
+              if (message.needsReferral) {
+                // Verrouillé : parrainer 1 ami (lien d'affiliation) ou voir les formules.
+                Alert.alert(message.title, message.body, [
+                  { text: 'Parrainer un ami', onPress: () => { void shareReferralLink(viewer.username); } },
+                  { text: 'Voir les formules', onPress: () => { try { (navigationRef as any).navigate('Offers'); } catch { /* écran indisponible */ } } },
+                  { text: 'Fermer', style: 'cancel' },
+                ]);
+                return;
+              }
               Alert.alert(message.title, message.body, [{ text: 'Mettre une musique en story', onPress: openPlus }, { text: 'OK', style: 'cancel' }]);
             }}
             accessibilityRole="button"

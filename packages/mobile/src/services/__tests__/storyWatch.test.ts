@@ -253,3 +253,38 @@ describe('badge à débloquer (cadenas) — Adel 05/10/2026', () => {
     expect(bar).toContain('loadMyStoryStats()');
   });
 });
+
+import { ownBadgeFor as ownBadgeFor2, ownBadgeMessage as ownBadgeMessage2 } from '../storyActivity';
+import { buildReferralLink } from '../referralShare';
+describe('déblocage du badge : mois offert → parrainage ou Premium (Adel 05/10/2026)', () => {
+  const base = { shares: 5, reprises: 1, followers: 1, score: 10, rank: 4 };
+  it('verrouillé si le mois offert est fini sans parrainage ni formule, même avec beaucoup de points', () => {
+    expect(ownBadgeFor2(4, 10, false)).toMatchObject({ icon: '🔒', locked: true });
+    const m = ownBadgeMessage2({ ...base, eligible: false, graceDaysLeft: 0, referralsQualified: 0, premium: false });
+    expect(m.needsReferral).toBe(true);
+    expect(m.body).toContain('parraine 1 ami');
+    expect(m.body).toContain('Premium');
+    expect(m.body).toContain('plus tu montes, plus ta bulle est vue');
+  });
+  it('pendant le mois offert : annonce les jours restants et la règle d’après', () => {
+    const m = ownBadgeMessage2({ ...base, eligible: true, graceDaysLeft: 12, referralsQualified: 0, premium: false });
+    expect(m.needsReferral).toBe(false);
+    expect(m.body).toContain('Offert encore 12 jours');
+    expect(m.body).toContain('parrainer 1 ami');
+  });
+  it('un parrainage validé ou Premium retire l’avertissement', () => {
+    expect(ownBadgeMessage2({ ...base, eligible: true, graceDaysLeft: 0, referralsQualified: 1, premium: false }).body).not.toContain('Offert encore');
+    expect(ownBadgeMessage2({ ...base, eligible: true, graceDaysLeft: 12, referralsQualified: 0, premium: true }).body).not.toContain('Offert encore');
+  });
+  it('lien de parrainage = URL canonique + ?ref=CODE', () => {
+    expect(buildReferralLink('kabc123')).toBe('https://adelkhatra-bit.github.io/KEEP/?ref=KABC123');
+    expect(buildReferralLink('')).toBe('https://adelkhatra-bit.github.io/KEEP/');
+  });
+  it('le profil lit les stats v2 et propose « Parrainer un ami »', () => {
+    const fs = require('fs'); const path = require('path');
+    const bar = fs.readFileSync(path.join(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
+    const svc = fs.readFileSync(path.join(__dirname, '../musicStoriesService.ts'), 'utf8');
+    expect(bar).toContain("text: 'Parrainer un ami'");
+    expect(svc).toContain("rpc('keep_my_story_stats_v2')");
+  });
+});

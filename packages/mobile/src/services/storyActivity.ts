@@ -86,29 +86,47 @@ export function formatSince(iso: string | null | undefined, now = Date.now()): s
   return days < 14 ? `il y a ${days} j` : `il y a ${Math.floor(days / 7)} sem.`;
 }
 
-/** Mon badge (Adel 05/10/2026) : 🔒 tant que je n'ai pas 3 points sur 7 jours, puis ✨ (actif), ⭐ (top 10), 🥇🥈🥉 (top 3). */
-export function ownBadgeFor(rank: number | null | undefined, score: number): { icon: string; label: string; locked: boolean } {
+/** Mon badge (Adel 05/10/2026) : 🔒 si verrouillé (mois offert terminé sans parrainage ni formule) ou < 3 points ; puis ✨ (actif), ⭐ (top 10), 🥇🥈🥉 (top 3). */
+export const BADGE_GRACE_DAYS = 30;
+export type MyBadgeStats = { shares: number; reprises: number; followers: number; score: number; rank: number | null; eligible?: boolean; graceDaysLeft?: number; referralsQualified?: number; premium?: boolean };
+export function ownBadgeFor(rank: number | null | undefined, score: number, eligible: boolean = true): { icon: string; label: string; locked: boolean } {
+  if (!eligible) return { icon: '🔒', label: 'Badge verrouillé : parraine un ami pour le débloquer', locked: true };
   const tier = rankBadgeFor(rank, score);
   if (tier) return { ...tier, locked: false };
   if (score >= RANK_MIN_SCORE) return { icon: '✨', label: 'Membre actif de la semaine', locked: false };
   return { icon: '🔒', label: 'Badge à débloquer', locked: true };
 }
 
-/** Texte « comment débloquer / progresser » du badge (points : 1 par partage en story, 3 par reprise de ta musique, 2 par nouvel abonné). */
-export function ownBadgeMessage(stats: { shares: number; reprises: number; followers: number; score: number; rank: number | null }): { title: string; body: string } {
-  const badge = ownBadgeFor(stats.rank, stats.score);
-  const detail = `Cette semaine : ${stats.shares} partage${stats.shares > 1 ? 's' : ''} en story · ${stats.reprises} reprise${stats.reprises > 1 ? 's' : ''} de ta musique · ${stats.followers} nouvel${stats.followers > 1 ? 's' : ''} abonné${stats.followers > 1 ? 's' : ''} = ${stats.score} point${stats.score > 1 ? 's' : ''}.`;
+/** Texte du popup : comment débloquer, la progression et à quoi sert le classement (points : 1 par partage en story, 3 par reprise de ta musique, 2 par nouvel abonné). */
+export function ownBadgeMessage(stats: MyBadgeStats): { title: string; body: string; needsReferral: boolean } {
+  const eligible = stats.eligible !== false;
+  const badge = ownBadgeFor(stats.rank, stats.score, eligible);
+  const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+  const detail = `Cette semaine : ${plural(stats.shares, 'partage', 'partages')} en story · ${plural(stats.reprises, 'reprise', 'reprises')} de ta musique · ${plural(stats.followers, 'nouvel abonné', 'nouveaux abonnés')} = ${plural(stats.score, 'point', 'points')}.`;
+  const why = 'Le classement te rend plus visible : plus tu montes, plus ta bulle est vue, plus tu gagnes d’abonnés et ta communauté musicale grandit.';
+  if (!eligible) {
+    return {
+      title: '🔒 Badge verrouillé',
+      body: `Ton mois offert est terminé. Pour débloquer ton badge et revenir dans le classement : parraine 1 ami (un inscrit validé) ou prends une formule Premium.\n\n${detail}\n\n${why}`,
+      needsReferral: true,
+    };
+  }
+  const grace = (stats.graceDaysLeft ?? 0) > 0 && !stats.premium && (stats.referralsQualified ?? 0) < 1
+    ? `\n\n🎁 Offert encore ${plural(stats.graceDaysLeft ?? 0, 'jour', 'jours')}. Ensuite, il faudra parrainer 1 ami (ou avoir Premium) pour le garder.`
+    : '';
   if (badge.locked) {
     const missing = Math.max(1, RANK_MIN_SCORE - stats.score);
     return {
       title: '🔒 Débloque ton badge',
-      body: `Il te manque ${missing} point${missing > 1 ? 's' : ''}.\n${detail}\n\nGagne des points : mets une musique en story (+1), partage ton profil ou ton lien d’affiliation pour gagner des abonnés (+2 chacun), fais reprendre ta musique (+3). Plus tu montes, plus ta bulle est vue.`,
+      body: `Il te manque ${plural(missing, 'point', 'points')}.\n${detail}\n\nGagne des points : mets une musique en story (+1), partage ton profil ou ton lien d’affiliation pour gagner des abonnés (+2 chacun), fais reprendre ta musique (+3).\n\n${why}${grace}`,
+      needsReferral: false,
     };
   }
   const rankLine = stats.rank ? `Tu es n°${stats.rank} de la semaine.` : 'Tu es dans le classement de la semaine.';
   return {
     title: `${badge.icon} ${badge.label}`,
-    body: `${rankLine}\n${detail}\n\nContinue : chaque partage, reprise et abonné te fait monter, et ta bulle est de plus en plus vue.`,
+    body: `${rankLine}\n${detail}\n\nContinue : chaque partage, reprise et abonné te fait monter.\n\n${why}${grace}`,
+    needsReferral: false,
   };
 }
 

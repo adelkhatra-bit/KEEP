@@ -13,8 +13,10 @@
 - **Navigation** : barre des 5 onglets **toujours visible** sous les écrans empilés (`PersistentTabBar` dans `Navigation.tsx`, hash du garde-fou mis à jour sur demande d'Adel) ; **menu ☰ plein écran** (plus de hauteur fixe).
 - Économie FREE (décisions d'Adel 05/10) : reprise sociale et partage en story GRATUITS (créateur/premier découvreur identifié), voir ERR-FREE-SOCIAL-147 et `docs/PRICING_STRATEGY.md`.
 
+- **Déblocage du badge + business** (IDEA-104) : 30 jours offerts puis 1 parrainage validé ou formule payante (`keep_story_badge_eligible`, `keep_my_story_stats_v2`, popup + « Parrainer un ami »), scénario économique chiffré dans `docs/BUSINESS_SCENARIO.md` (à valider par Adel : règle, prix Premium, commission collections, coûts fixes réels).
+
 ### Base de production (appliqué via execute_sql, fichiers miroirs dans `supabase/migrations/`)
-20261005270000 … 20261005340000 (ventes en story, candidats découverte, realtime story_pins, reprise sociale gratuite, vues de story, chapitres, classement, mes stats). Toutes additives. **Piège** : `execute_sql` avec `DROP FUNCTION` reste bloqué/expire (60 s) → ne pas supprimer de fonctions, créer de nouvelles versions (v3, `_chapters_ping`).
+20261005270000 … 20261005350000 (ventes en story, candidats découverte, realtime story_pins, reprise sociale gratuite, vues de story, chapitres, classement, mes stats). Toutes additives. **Piège** : `execute_sql` avec `DROP FUNCTION` reste bloqué/expire (60 s) → ne pas supprimer de fonctions, créer de nouvelles versions (v3, `_chapters_ping`).
 
 ### Livraison / CI (état au moment de l'écriture)
 - Déclenchement des publications = **ajouter une ligne à `packages/mobile/.eas-build-trigger`** (web + OTA + build iOS ; l'iOS annule/attend selon la concurrence). Pas de trigger = rien n'est publié.
