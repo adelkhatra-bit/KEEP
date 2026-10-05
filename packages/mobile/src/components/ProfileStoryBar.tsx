@@ -452,6 +452,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         <>
                           <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
                           <Text style={styles.rowDetail} numberOfLines={1}>{w.detail}</Text>
+                          {w.chaptersLine ? <Text style={styles.rowDetail} numberOfLines={2} testID={`story-viewer-chapters-${v.viewerId}`}>{w.chaptersLine}</Text> : null}
                         </>
                       ); })()}
                       <View style={styles.rowActions}>

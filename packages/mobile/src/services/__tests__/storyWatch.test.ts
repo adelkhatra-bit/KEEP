@@ -33,7 +33,7 @@ describe('suivi de vue de story façon Instagram', () => {
     await advance(STORY_WATCH_PING_MS);
     tracker.stop();
     const last = calls[calls.length - 1];
-    expect(last[0]).toBe('keep_story_watch_ping');
+    expect(last[0]).toBe('keep_story_watch_chapters_ping');
     expect(last[1]).toMatchObject({ p_session_id: 'sess-1', p_tracks_seen: 2, p_last_track_id: UUID, p_listened: true, p_ended: true });
     expect(last[1].p_seconds).toBeGreaterThanOrEqual(12);
   });
@@ -57,7 +57,7 @@ describe('suivi de vue de story façon Instagram', () => {
     tracker.stop();
     release({ data: 'sess-9', error: null });
     await jest.advanceTimersByTimeAsync(5);
-    expect(calls).toEqual(['keep_story_watch_start', 'keep_story_watch_ping']);
+    expect(calls).toEqual(['keep_story_watch_start', 'keep_story_watch_chapters_ping']);
   });
 });
 
@@ -70,12 +70,12 @@ describe('détail de vue pour le propriétaire', () => {
   it('regarde maintenant', () => {
     const d = formatWatchDetail({ seconds: 8, tracksSeen: 1, tracksTotal: 3, listened: true, watching: true, leftAt: null }, now);
     expect(d.status).toBe('regarde maintenant');
-    expect(d.detail).toBe('8 s · 1/3 musiques · écouté');
+    expect(d.detail).toBe('8 s · 1 musique sur 3 · écouté');
   });
   it('parti avant la fin sans écouter', () => {
     const d = formatWatchDetail({ seconds: 4, tracksSeen: 1, tracksTotal: 4, listened: false, watching: false, leftAt: '2026-10-05T11:57:00Z' }, now);
     expect(d.status).toBe('parti il y a 3 min');
-    expect(d.detail).toBe('4 s · 1/4 musiques · pas écouté');
+    expect(d.detail).toBe('4 s · 1 musique sur 4 · pas écouté');
   });
 });
 
@@ -194,5 +194,35 @@ describe('fiche membre : dernière musique partagée + dernière connexion', () 
     expect(quick).toContain('loadProfilesActivity([nextProfile.id])');
     expect(quick).toContain('testID="quick-last-seen"');
     expect(svc).toContain("export async function loadLastShared");
+  });
+});
+
+describe('chapitres : temps exact passé dans chaque musique (Adel 05/10/2026)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+  it('mesure chaque chapitre de son arrivée jusqu’à la musique suivante', async () => {
+    let t = 0;
+    const calls: Array<[string, any]> = [];
+    const rpc = jest.fn(async (fn: string, args: any) => { calls.push([fn, args]); return { data: fn === 'keep_story_watch_start' ? 'sess-c' : null, error: null }; });
+    const tracker = startStoryWatch('owner', 16, rpc as any, () => t);
+    const advance = async (ms: number) => { t += ms; await jest.advanceTimersByTimeAsync(ms); };
+    tracker.event({ type: 'shown', trackId: 'a', index: 0, total: 16 });
+    await advance(25000);
+    tracker.event({ type: 'shown', trackId: 'b', index: 1, total: 16 });
+    await advance(9000);
+    tracker.stop();
+    const last = calls[calls.length - 1][1];
+    expect(last.p_ended).toBe(true);
+    expect(last.p_tracks_seen).toBe(2);
+    const byIndex = Object.fromEntries(last.p_chapters.map((c: any) => [c.i, c.s]));
+    expect(byIndex[0]).toBe(25);
+    expect(byIndex[1]).toBe(9);
+  });
+  it('affiche « Chapitres : 1 · 25 s  2 · 9 s » pour le propriétaire, 4 au plus', () => {
+    const base = { seconds: 34, tracksSeen: 2, tracksTotal: 16, listened: true, watching: false, leftAt: null };
+    expect(formatWatchDetail({ ...base, chapters: [{ index: 0, seconds: 25 }, { index: 1, seconds: 9 }] }).chaptersLine).toBe('Chapitres : 1 · 25 s  2 · 9 s');
+    const many = Array.from({ length: 6 }, (_, i) => ({ index: i, seconds: 3 }));
+    expect(formatWatchDetail({ ...base, chapters: many }).chaptersLine).toBe('Chapitres : 1 · 3 s  2 · 3 s  3 · 3 s  4 · 3 s … +2');
+    expect(formatWatchDetail({ ...base }).chaptersLine).toBeNull();
   });
 });

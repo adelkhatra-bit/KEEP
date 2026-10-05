@@ -498,7 +498,7 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
 export const loadOwnStory = loadProfileStory;
 
 /** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
-export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null };
+export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters: Array<{ index: number; seconds: number }> };
 
 /** Classement de la semaine (partages en story + reprises de sa musique + nouveaux abonnés) : top 50, lecture seule côté serveur. */
 export async function loadStoryRanking(): Promise<Record<string, { rank: number; score: number }>> {
@@ -521,7 +521,7 @@ export function watchStoryOf(ownerId: string, tracksTotal: number) {
 
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc('keep_my_story_viewers_v2');
+  const { data, error } = await supabase.rpc('keep_my_story_viewers_v3');
   if (error) throw error;
   return (Array.isArray(data) ? data : []).map((row: any) => ({
     viewerId: String(row.viewer_id),
@@ -536,6 +536,7 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     listened: Boolean(row.listened),
     watching: Boolean(row.watching),
     leftAt: row.left_at ? String(row.left_at) : null,
+    chapters: (Array.isArray(row.chapters) ? row.chapters : []).map((c: any) => ({ index: Number(c?.i) || 0, seconds: Number(c?.s) || 0 })).sort((a: any, b: any) => a.index - b.index),
   })).filter((row) => row.viewerId && row.username);
 }
 

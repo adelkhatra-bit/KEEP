@@ -42,18 +42,23 @@ export function formatWatchDuration(seconds: number): string {
 }
 
 export function formatWatchDetail(
-  v: { seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null },
+  v: { seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null; chapters?: Array<{ index: number; seconds: number }> },
   now: number = Date.now(),
-): { status: string; detail: string } {
+): { status: string; detail: string; chaptersLine: string | null } {
   const status = v.watching
     ? 'regarde maintenant'
     : v.leftAt
       ? `parti ${formatStoryAge(v.leftAt, now)}`
       : 'a regardé';
   const parts = [formatWatchDuration(v.seconds)];
-  if (v.tracksTotal > 0) parts.push(`${Math.min(v.tracksSeen, v.tracksTotal)}/${v.tracksTotal} musique${v.tracksTotal > 1 ? 's' : ''}`);
+  if (v.tracksTotal > 0) parts.push(`${Math.min(v.tracksSeen, v.tracksTotal)} musique${Math.min(v.tracksSeen, v.tracksTotal) > 1 ? 's' : ''} sur ${v.tracksTotal}`);
   parts.push(v.listened ? 'écouté' : 'pas écouté');
-  return { status, detail: parts.join(' · ') };
+  // Chapitres : le temps exact passé sur chaque musique (Adel 05/10/2026). Au plus 4 affichés, le reste résumé.
+  const chapters = (v.chapters ?? []).filter((c) => c.seconds > 0);
+  const chaptersLine = chapters.length
+    ? `Chapitres : ${chapters.slice(0, 4).map((c) => `${c.index + 1} · ${formatWatchDuration(c.seconds)}`).join('  ')}${chapters.length > 4 ? ` … +${chapters.length - 4}` : ''}`
+    : null;
+  return { status, detail: parts.join(' · '), chaptersLine };
 }
 
 /** Badge de classement sur la bulle (Adel 05/10/2026) : top 3 = médailles, top 10 = étoile ; il faut au moins 3 points sur 7 jours pour être reconnu. */
