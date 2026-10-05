@@ -19,12 +19,13 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   publish:
     name: Publish production OTA
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -49,19 +50,47 @@ jobs:
         id: compatible
         if: steps.fresh.outputs.publish == 'yes'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          baseline="$(git log -1 --format=%H -- packages/mobile/.eas-build-trigger || true)"
-          if [ -z "$baseline" ]; then
+          # 05/10/2026 (lot n°5) : l'ancienne garde comparait HEAD au dernier
+          # commit .eas-build-trigger, c'est-à-dire à lui-même : le diff natif
+          # était toujours vide. Une OTA a ainsi été publiée alors que le build
+          # iOS de la même release avait échoué (JS demandant un module natif
+          # absent du binaire installé). Nouvelle règle :
+          #  1. l'OTA attend le build iOS de CETTE release et n'est publiée que
+          #     s'il a réussi ;
+          #  2. la comparaison natif/dépendances se fait avec la dernière
+          #     release dont le build iOS a RÉUSSI.
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/auto-eas-build.yml/runs"
+          deadline=$((SECONDS + 2700))
+          state=""
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            state="$(gh api "$runs?head_sha=$GITHUB_SHA&per_page=5" --jq '.workflow_runs[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
+            case "$state" in
+              "completed success") break ;;
+              "completed "*) echo "iOS build of this release did not succeed ($state): OTA blocked."; echo "publish=no" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            esac
+            sleep 30
+          done
+          if [ "$state" != "completed success" ]; then
             echo "publish=no" >> "$GITHUB_OUTPUT"
-            echo "No full TestFlight build baseline: OTA blocked."
+            echo "No completed iOS build for this release (last state: '${state}'): OTA blocked."
             exit 0
           fi
-          changed="$(git diff --name-only "$baseline"..HEAD)"
-          printf '%s\n' "$changed"
-          if printf '%s\n' "$changed" | grep -Eq '^(package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/)|packages/music/package\.json)'; then
+          baseline="$(gh api "$runs?branch=reconcile/claude-main-20260825&status=success&per_page=20" --jq '[.workflow_runs[] | select(.head_sha != env.GITHUB_SHA)][0].head_sha // empty')"
+          if [ -z "$baseline" ]; then
             echo "publish=no" >> "$GITHUB_OUTPUT"
-            echo "Native/dependency-sensitive change detected since the last full TestFlight build: OTA blocked."
+            echo "No earlier successful TestFlight build baseline: OTA blocked."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$baseline"
+          changed="$(git diff --name-only "$baseline" "$GITHUB_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/|modules/)|packages/music/package\.json)'; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Native/dependency-sensitive change since the last successful TestFlight build ($baseline): OTA blocked."
             exit 0
           fi
           echo "publish=yes" >> "$GITHUB_OUTPUT"

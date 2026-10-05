@@ -1989,11 +1989,12 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         const resetLabel = status.resetsAt ? new Date(status.resetsAt).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) : 'demain';
         Alert.alert(
           'Tes parties Solo du jour sont terminées',
-          `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible.`,
+          `Tu as joué tes ${status.limit ?? 0} parties incluses aujourd'hui. Prochain rechargement : ${resetLabel}. Le Battle en ligne reste disponible : choisis EN LIGNE pour jouer tout de suite.`,
+          // Règles §9 : 3 boutons au maximum. « Jouer en BATTLE » est dans le texte.
           [
             { text: 'OK', style: 'cancel' },
             { text: 'Acheter des Solos', onPress: () => { void openSoloPacks(); } },
-            { text: 'Jouer en BATTLE', onPress: () => { void openOnline(); } },
+            ...(onOpenOffers ? [{ text: 'Passer Premium', onPress: () => { onOpenOffers(); } }] : []),
           ],
         );
       }

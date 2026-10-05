@@ -79,9 +79,24 @@ function suppressRedundantPresentation(notification: PendingNotification) {
   return false;
 }
 
+// Promotions : réglées par l'interrupteur « promos » (marketing_enabled).
+// Pour un profil FREE le trigger SQL force marketing_enabled=true : seuls les
+// abonnés peuvent donc les couper (décision d'Adel du 05/10/2026, lot n°5).
+const MARKETING_NOTIFICATION_TYPES = new Set([
+  "LOKI_PULSE_NEW",
+  "PLAYLIST_SALE_NEW_OFFER",
+  "CHAT_ACTIVATION_AVAILABLE",
+]);
+function isMarketingNotification(notification: PendingNotification) {
+  const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
+  if (MARKETING_NOTIFICATION_TYPES.has(type)) return true;
+  return type === "ADMIN_BROADCAST" && String(notification.data?.kind || notification.data?.category || "").toLowerCase() === "promo";
+}
+
 function notificationCategory(notification: PendingNotification) {
   const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
   if (isMoneyNotification(notification.data)) return "money";
+  if (isMarketingNotification(notification)) return "marketing";
   if (type.includes("BATTLE")) return "battle";
   if (type.includes("EVENT")) return "events";
   // Adel (02/10/2026) : tout le tchat (privé, groupes, invitations, offres)
@@ -93,12 +108,42 @@ function notificationCategory(notification: PendingNotification) {
 }
 async function deliveryPreference(profileId: string, notification: PendingNotification) {
   const category = notificationCategory(notification);
-  const { data } = await db.from("notification_preferences").select("system_enabled,social_enabled,events_enabled,money_enabled,battle_enabled,music_enabled,money_sound,social_sound,battle_sound,music_sound,events_sound").eq("profile_id", profileId).maybeSingle();
+  const { data } = await db.from("notification_preferences").select("system_enabled,social_enabled,events_enabled,money_enabled,battle_enabled,music_enabled,marketing_enabled,money_sound,social_sound,battle_sound,music_sound,events_sound").eq("profile_id", profileId).maybeSingle();
   if (!data) return { enabled: true, sound: category === "money" ? "keep_money.wav" : "default", channelId: category === "money" ? "money" : "default" };
-  const enabled = category === "money" ? data.money_enabled !== false : category === "battle" ? data.battle_enabled !== false : category === "music" ? data.music_enabled !== false : category === "events" ? data.events_enabled !== false : category === "social" ? data.social_enabled !== false : data.system_enabled !== false;
+  const enabled = category === "marketing" ? data.marketing_enabled !== false : category === "money" ? data.money_enabled !== false : category === "battle" ? data.battle_enabled !== false : category === "music" ? data.music_enabled !== false : category === "events" ? data.events_enabled !== false : category === "social" ? data.social_enabled !== false : data.system_enabled !== false;
   const soundPref = category === "money" ? data.money_sound : category === "battle" ? data.battle_sound : category === "music" ? data.music_sound : category === "events" ? data.events_sound : category === "social" ? data.social_sound : "DEFAULT";
   return { enabled, sound: soundPref === "SILENT" ? null : soundPref === "MONEY" ? "keep_money.wav" : "default", channelId: soundPref === "MONEY" ? "money" : "default" };
 }
+// Plafond d'alertes téléphone par profil et par 24 h (lot n°5, décision d'Adel
+// du 05/10/2026 : 8). Réglable via remote_config.push_daily_cap. Les messages
+// directs et l'argent ne sont jamais plafonnés ; au-delà, la notification reste
+// visible dans l'app (statut CAPPED_IN_APP) sans alerte sur le téléphone.
+const DEFAULT_PUSH_DAILY_CAP = 8;
+let capCache: { value: number; at: number } | null = null;
+async function pushDailyCap() {
+  if (capCache && Date.now() - capCache.at < 60_000) return capCache.value;
+  let value = DEFAULT_PUSH_DAILY_CAP;
+  try {
+    const { data } = await db.from("remote_config").select("value").eq("key", "push_daily_cap").maybeSingle();
+    const parsed = Number(typeof data?.value === "object" && data?.value !== null ? (data.value as any).value : data?.value);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 100) value = Math.floor(parsed);
+  } catch { /* valeur par défaut */ }
+  capCache = { value, at: Date.now() };
+  return value;
+}
+function isCapExempt(notification: PendingNotification) {
+  const type = String(notification.type || notification.data?.type || notification.data?.event || "").toUpperCase();
+  return type === "AGORA_DIRECT" || notificationCategory(notification) === "money";
+}
+async function overDailyCap(notification: PendingNotification) {
+  if (isCapExempt(notification)) return false;
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { count, error } = await db.from("notifications").select("id", { count: "exact", head: true })
+    .eq("profile_id", notification.profile_id).in("push_delivery_status", ["SENT", "DELIVERED"]).gte("pushed_at", since);
+  if (error) return false; // en cas de doute on livre : jamais de perte silencieuse
+  return Number(count || 0) >= await pushDailyCap();
+}
+
 function invalidatesExpoToken(code: string, _message: string) {
   // DeviceNotRegistered signifie réellement que CE token n'est plus valable.
   // BadEnvironmentKeyInToken / InvalidCredentials signalent au contraire un
@@ -202,6 +247,10 @@ async function processPending() {
       const pref = await deliveryPreference(notification.profile_id, notification);
       if (!pref.enabled) {
         await db.from("notifications").update({ pushed_at: now, push_delivery_status: "DISABLED_BY_USER", push_attempt_count: attemptNumber, push_last_error: null }).eq("id", notification.id);
+        continue;
+      }
+      if (await overDailyCap(notification)) {
+        await db.from("notifications").update({ pushed_at: now, push_delivery_status: "CAPPED_IN_APP", push_attempt_count: attemptNumber, push_last_error: null }).eq("id", notification.id);
         continue;
       }
       const messages = valid.map(({ token: to }) => ({

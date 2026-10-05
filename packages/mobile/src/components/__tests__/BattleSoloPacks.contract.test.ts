@@ -39,4 +39,10 @@ describe('packs de Solos', () => {
     expect(game).toContain('Paiement par carte / Apple Pay : bientôt');
     expect(game).toContain("Aucun Free n’a été débité, réessaie dans un instant.");
   });
+
+  it('the exhausted-Solos window keeps 3 buttons max and offers Premium (lot n°5)', () => {
+    expect(game).toContain("{ text: 'Passer Premium', onPress: () => { onOpenOffers(); } }");
+    expect(game).not.toContain("{ text: 'Jouer en BATTLE', onPress");
+    expect(game).toContain('choisis EN LIGNE pour jouer tout de suite');
+  });
 });
