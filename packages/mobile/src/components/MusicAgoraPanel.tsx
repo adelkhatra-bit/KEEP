@@ -5,9 +5,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import { blockUser } from '../services/moderationService';
+import { loadProfilePresence } from '../services/profilePresenceService';
 import TrackPreviewButton from './TrackPreviewButton';
 import { commitKeep } from '../services/keepTrackAction';
 import {
+  markMusicAgoraDirectRead,
+  loadPeerDirectReadId,
   clearConversationForMe,
   directConversationKey,
   groupConversationKey,
@@ -147,6 +150,10 @@ export default function MusicAgoraPanel({
   const [groupPeople, setGroupPeople] = useState<MusicAgoraGroupPerson[]>([]);
   const [groupSelectedIds, setGroupSelectedIds] = useState<string[]>([]);
   const [groupMembersOpen, setGroupMembersOpen] = useState(false);
+  // Adel (05/10/2026) : pastille verte/rouge de présence + accusé « Vu / En attente » dans les messages privés.
+  const [presenceByProfile, setPresenceByProfile] = useState<Record<string, boolean | undefined>>({});
+  const [peerReadId, setPeerReadId] = useState(0);
+
   const [groupMembers, setGroupMembers] = useState<MusicAgoraGroupMember[]>([]);
   const [groupBusy, setGroupBusy] = useState(false);
   const [chatMode, setChatMode] = useState<'MESSAGES' | 'PLACE'>(compact ? 'MESSAGES' : 'PLACE');
@@ -491,6 +498,24 @@ export default function MusicAgoraPanel({
   // conversation marque ses messages lus ; un message qui arrive pendant
   // qu'elle est ouverte est lu aussitôt.
   const unreadByTarget = useGlobalChatStore((state) => state.unreadByTarget);
+  const presenceIdsKey = [replyTarget?.profileId ?? '', ...conversations.slice(0, 30).map((item) => item.profileId)].join(',');
+  useEffect(() => {
+    if (!enabled || !presenceIdsKey.replace(/,/g, '')) return undefined;
+    let live = true;
+    const ids = Array.from(new Set(presenceIdsKey.split(',').filter(Boolean)));
+    const load = async () => {
+      const results = await Promise.allSettled(ids.map((id) => loadProfilePresence(id)));
+      if (!live) return;
+      setPresenceByProfile((previous) => {
+        const next = { ...previous };
+        ids.forEach((id, index) => { const r = results[index]; if (r.status === 'fulfilled' && r.value.known) next[id] = r.value.online; });
+        return next;
+      });
+    };
+    void load();
+    const timer = setInterval(() => { void load(); }, 30000);
+    return () => { live = false; clearInterval(timer); };
+  }, [enabled, presenceIdsKey]);
   const openThreadKey = activeGroup?.id && activeGroup.myStatus === 'ACTIVE'
     ? `g:${activeGroup.id}`
     : replyTarget?.profileId ? `p:${replyTarget.profileId}` : null;
@@ -789,6 +814,13 @@ export default function MusicAgoraPanel({
       setMessages(rows);
       setHasMore(rows.length === PAGE_SIZE);
       if (chatMode === 'MESSAGES') void refreshInbox();
+      // Accusé de lecture : je marque comme lus les messages de l'autre que je viens de voir, et je relis jusqu'où l'autre a lu les miens.
+      if (chatMode === 'MESSAGES' && !activeGroup?.id && replyTarget?.profileId && currentProfileId) {
+        const peerId = replyTarget.profileId;
+        const lastFromPeer = rows.filter((row) => row.profileId === peerId).reduce((max, row) => Math.max(max, row.id), 0);
+        if (lastFromPeer > 0 && AppState.currentState === 'active') void markMusicAgoraDirectRead(peerId, lastFromPeer);
+        void loadPeerDirectReadId(peerId, currentProfileId).then((id) => { if (activeThreadKeyRef.current === requestThreadKey) setPeerReadId(id); });
+      }
     } catch {
       // En rafraîchissement silencieux on garde toujours le contenu déjà visible.
       // En ouverture initiale mobile on garde le composeur utilisable plutôt
@@ -1253,6 +1285,7 @@ export default function MusicAgoraPanel({
     if (inboxFilter === 'GROUPS' && group.myStatus !== 'ACTIVE') return false;
     return inboxMatches(`${group.name} ${group.ownerUsername} ${group.lastBody}`);
   });
+  const lastOwnDirectId = replyTarget && !activeGroup ? messages.filter((row) => row.profileId === currentProfileId).reduce((max, row) => Math.max(max, row.id), 0) : 0;
   const visibleInboxConversations = conversations.filter((item) => {
     if (inboxFilter === 'GROUPS' || inboxFilter === 'INVITES') return false;
     return inboxMatches(`${item.username} ${item.lastBody}`);
@@ -1357,9 +1390,12 @@ export default function MusicAgoraPanel({
           {activeGroup ? (
             <View style={s.compactThreadAvatar}><Text style={s.compactThreadAvatarText}>👥</Text></View>
           ) : replyTarget ? (
-            activeDirectConversation?.avatarUrl
-              ? <Image source={{ uri: activeDirectConversation.avatarUrl }} style={s.compactThreadAvatar} />
-              : <View style={[s.compactThreadAvatar, s.avatarFallback]}><Text style={s.avatarText}>{replyTarget.username.slice(0,1).toUpperCase()}</Text></View>
+            <View style={s.presenceWrap}>
+              {activeDirectConversation?.avatarUrl
+                ? <Image source={{ uri: activeDirectConversation.avatarUrl }} style={s.compactThreadAvatar} />
+                : <View style={[s.compactThreadAvatar, s.avatarFallback]}><Text style={s.avatarText}>{replyTarget.username.slice(0,1).toUpperCase()}</Text></View>}
+              {presenceByProfile[replyTarget.profileId] !== undefined ? <View style={[s.presenceDot, presenceByProfile[replyTarget.profileId] ? s.presenceOn : s.presenceOff]} testID="chat-thread-presence" accessibilityLabel={presenceByProfile[replyTarget.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
+            </View>
           ) : chatMode === 'PLACE' ? (
             <View style={s.compactThreadAvatar}><Text style={s.compactThreadAvatarText}>◎</Text></View>
           ) : null}
@@ -1575,7 +1611,7 @@ export default function MusicAgoraPanel({
               accessibilityRole="button"
               accessibilityLabel={`Ouvrir la conversation avec ${item.username}`}
             >
-              {item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}
+              <View style={s.presenceWrap}>{item.avatarUrl ? <Image source={{ uri: item.avatarUrl }} style={s.conversationAvatar}/> : <View style={[s.conversationAvatar,s.avatarFallback]}><Text style={s.avatarText}>{item.username.slice(0,1).toUpperCase()}</Text></View>}{presenceByProfile[item.profileId] !== undefined ? <View style={[s.presenceDot, presenceByProfile[item.profileId] ? s.presenceOn : s.presenceOff]} testID={`chat-presence-${item.profileId}`} accessibilityLabel={presenceByProfile[item.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}</View>
               <View style={s.conversationCopy}>
                 <View style={s.conversationTop}><Text style={s.conversationName}>@{item.username}</Text><Text style={s.conversationTime}>{ago(item.lastCreatedAt)}</Text></View>
                 <Text style={[s.conversationPreview, typingByKey[`p:${item.profileId}`] && s.typingPreview]} numberOfLines={1}>{typingByKey[`p:${item.profileId}`] ? 'écrit…' : <>{item.lastSharedTrackId ? '♫ ' : ''}{musicAgoraBodyPreview(item.lastBody || 'Musique partagée')}</>}</Text>
@@ -1793,6 +1829,11 @@ export default function MusicAgoraPanel({
           ) : null}
 
           {replyTarget ? <Text style={s.directBubbleTime}>{ago(message.createdAt)}</Text> : null}
+          {replyTarget && !activeGroup && message.profileId === currentProfileId && message.id === lastOwnDirectId ? (
+            <Text style={[s.receipt, message.id <= peerReadId ? s.receiptSeen : s.receiptWaiting]} testID="chat-read-receipt" accessibilityLabel={message.id <= peerReadId ? 'Message vu' : 'Message en attente de lecture'}>
+              {message.id <= peerReadId ? '✓✓ Vu' : '⏳ En attente'}
+            </Text>
+          ) : null}
           {message.profileId !== currentProfileId ? (
             <View style={s.messageActions}>
               <TouchableOpacity
@@ -2329,6 +2370,13 @@ const s=StyleSheet.create({
   compactTitle:{color:colors.textPrimary,fontSize:18,fontWeight:'900',letterSpacing:.25},
   compactMeta:{color:colors.textSecondary,fontSize:13,lineHeight:18,marginTop:2},
   compactBadge:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.8},
+  presenceWrap:{position:'relative'},
+  presenceDot:{position:'absolute',right:-1,bottom:-1,width:14,height:14,borderRadius:7,borderWidth:2,borderColor:'#0B0A12'},
+  presenceOn:{backgroundColor:'#2DE17A'},
+  presenceOff:{backgroundColor:'#FF4D5E'},
+  receipt:{alignSelf:'flex-end',fontSize:12,fontWeight:'900',marginTop:2},
+  receiptSeen:{color:'#2DE17A'},
+  receiptWaiting:{color:'#FFB020'},
   compactHeaderAction:{minWidth:38,height:38,paddingHorizontal:7,borderRadius:19,borderWidth:1,borderColor:colors.info,backgroundColor:colors.infoFaint,alignItems:'center',justifyContent:'center'},
   compactHeaderActionText:{color:colors.info,fontSize:17,fontWeight:'900'},
   compactClose:{width:38,height:38,borderRadius:19,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},

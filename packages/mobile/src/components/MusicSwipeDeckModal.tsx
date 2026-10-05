@@ -177,6 +177,8 @@ export default function MusicSwipeDeckModal({
   const currentOffered = Boolean(current && offeredIds.has(current.id));
   const canAddToStory = storyAddContext;
   const justAddedNow = Boolean(current && justAdded.has(current.id));
+  // Aperçu propriétaire = exactement ce que voient les abonnés : une musique de MA boutique y est masquée (animation « pochette mystère »), jamais en clair.
+  const ownerMasked = Boolean(previewOnly && currentOffered && current && !isSaleStoryTrack(current));
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
   // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
   const makeKeptPublicAndStory = async () => {
@@ -203,6 +205,18 @@ export default function MusicSwipeDeckModal({
       Alert.alert('Garde-la d’abord', 'Pour mettre cette musique dans ta story, garde-la d’abord en Public avec GARDER : elle entre alors automatiquement dans ta story, et son créateur reste identifié.', [{ text: 'OK', style: 'cancel' }]);
       return;
     }
+    // Adel (05/10/2026) : « êtes-vous sûr de la mettre en story ? » -- un seul tap ne publie jamais sans confirmation.
+    const track = current;
+    Alert.alert(
+      'Mettre en story ?',
+      `« ${track.title} » sera visible pendant 24 heures dans ta story : tes abonnés pourront l’écouter.${currentOffered ? ' Elle est en vente : jaquette et nom de l’artiste restent masqués.' : ''}`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Oui, mettre en story', onPress: () => { void pinCurrentToStory(track); } },
+      ],
+    );
+  };
+  const pinCurrentToStory = async (current: CanonicalTrack) => {
     try {
       await pinStoryTrack(current.id);
       setStoryIds((previous) => new Set(previous).add(current.id));
@@ -806,7 +820,7 @@ export default function MusicSwipeDeckModal({
               fill
             >
               <View style={[s.card, compactDeck && s.cardCompact]}>
-                {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption="Titre masqué · garde pour révéler" /> : <Text style={s.coverK}>K</Text>}</View>}
+                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption="Titre masqué · garde pour révéler" /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
@@ -815,9 +829,9 @@ export default function MusicSwipeDeckModal({
                       <Text style={s.manualPlayText}>{previewEnded ? '↻ RÉÉCOUTER' : '▶ ÉCOUTER L’EXTRAIT'}</Text>
                     </TouchableOpacity>
                   ) : null}
-                  <Text style={s.trackTitle} numberOfLines={2}>{current.title}</Text>
-                  <Text style={s.artist} numberOfLines={1}>{current.artist}</Text>
-                  {current.album ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
+                  <Text style={s.trackTitle} numberOfLines={2}>{ownerMasked ? 'Musique en vente' : current.title}</Text>
+                  <Text style={s.artist} numberOfLines={1}>{ownerMasked ? 'Ta boutique' : current.artist}</Text>
+                  {current.album && !ownerMasked ? <Text style={s.album} numberOfLines={1}>{current.album}</Text> : null}
                 </View>
               </View>
             </SwipeDeck>

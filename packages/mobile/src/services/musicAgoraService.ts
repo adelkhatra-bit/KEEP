@@ -427,6 +427,24 @@ export async function clearConversationForMe(key: string): Promise<void> {
   conversationPrefsCache = null;
 }
 
+/**
+ * Accusé de lecture (Adel, 05/10/2026) : j'ai ouvert la conversation → mon dernier message lu est enregistré ; l'autre voit « Vu ».
+ * Best-effort : jamais bloquant pour le chat.
+ */
+export async function markMusicAgoraDirectRead(peerProfileId: string, messageId: number): Promise<void> {
+  if (!supabase || !peerProfileId || !messageId) return;
+  try { await supabase.rpc('keep_agora_mark_direct_read', { p_peer: peerProfileId, p_message_id: messageId }); } catch { /* accusé non enregistré */ }
+}
+
+/** Dernier de MES messages que l'autre a lu (0 = rien lu / inconnu → « En attente »). */
+export async function loadPeerDirectReadId(peerProfileId: string, myProfileId: string): Promise<number> {
+  if (!supabase || !peerProfileId || !myProfileId) return 0;
+  try {
+    const { data } = await supabase.from('music_agora_direct_reads').select('last_read_message_id').eq('reader_id', peerProfileId).eq('peer_id', myProfileId).maybeSingle();
+    return Number((data as any)?.last_read_message_id ?? 0) || 0;
+  } catch { return 0; }
+}
+
 export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgoraConversation[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_agora_my_conversations', { p_limit: limit });

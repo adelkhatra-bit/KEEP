@@ -144,7 +144,11 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
   if (pinData.length) {
     const { data: pinProfiles } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', Array.from(new Set(pinData.map((row) => String(row.profile_id)))));
     const byId = new Map((pinProfiles ?? []).map((row: any) => [String(row.id), row]));
-    pinRows = pinData.map((row) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: byId.get(String(row.profile_id)) })).filter((row) => row.profile);
+    const maskedByProfile = await loadMaskedStoryPins(Array.from(byId.keys())).catch(() => new Map<string, Array<{ trackId: string }>>());
+    pinRows = pinData
+      .filter((row) => !(maskedByProfile.get(String(row.profile_id)) ?? []).some((masked) => masked.trackId === String(row.track?.id ?? '')))
+      .map((row) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: byId.get(String(row.profile_id)) }))
+      .filter((row) => row.profile);
   }
   const rows = [...(decisions.data ?? []), ...pinRows]
     .filter((row: any) => !row?.profile?.discovery_hidden || followedIds.has(String(row.profile_id)))
@@ -197,22 +201,36 @@ export async function loadProfileStory(
       .from('story_pins')
       .select(`profile_id,pinned_at,masked,track:tracks(${TRACK_COLS})`)
       .eq('profile_id', viewer.id)
-      .eq('masked', false)
       .gte('pinned_at', since)
       .order('pinned_at', { ascending: false })
       .limit(30),
   ]);
   if (decisions.error) throw decisions.error;
   const profileStub = { username: viewer.username, avatar_url: viewer.avatarUrl ?? null, discovery_hidden: false };
-  const pinRows = (pins.error ? [] : pins.data ?? []).map((row: any) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: profileStub }));
+  // Une épingle masquée / en vente ne s'affiche JAMAIS avec son vrai titre : elle revient par enrichStoriesWithSales (carte « Musique en vente »).
+  const maskedOwn = await loadMaskedStoryPins([viewer.id]).catch(() => new Map<string, Array<{ trackId: string }>>());
+  const maskedOwnIds = new Set((maskedOwn.get(viewer.id) ?? []).map((row) => row.trackId));
+  const pinRows = (pins.error ? [] : pins.data ?? [])
+    .filter((row: any) => !maskedOwnIds.has(String(row.track?.id ?? '')) && !row.masked)
+    .map((row: any) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: profileStub }));
   // La plus récente d'abord : une épingle récente passe devant.
-  const rows = [...(decisions.data ?? []), ...pinRows].sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
+  const allRows = [...(decisions.data ?? []), ...pinRows].sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
+  // Musique à moi EN VENTE (même gardée en public) : jamais en clair dans ma story, elle y passe masquée (« Musique en vente »).
+  let offeredOwn = new Set<string>();
+  try { offeredOwn = new Set(Object.keys(await loadMyOfferedTrackIds())); } catch { /* ventes inconnues : lecture normale */ }
+  const maskedFromRows = allRows
+    .filter((row: any) => offeredOwn.has(String(row.track?.id ?? '')) && row.track?.preview_url)
+    .map((row: any) => ({ trackId: String(row.track.id), previewUrl: String(row.track.preview_url), pinnedAt: String(row.created_at) }));
+  const rows = allRows.filter((row: any) => !offeredOwn.has(String(row.track?.id ?? '')));
   // viewerId neutre : la règle « jamais soi-même » ne s'applique pas à sa propre story.
   const shared = rankMusicStories(rows, '__own__', new Set([viewer.id]), new Set())[0] ?? null;
   const base: MusicStory = shared
     ? { ...shared, username: viewer.username, avatarUrl: viewer.avatarUrl ?? shared.avatarUrl }
     : { profileId: viewer.id, username: viewer.username, avatarUrl: viewer.avatarUrl ?? null, latestAt: '', followed: false, sameStyle: false, tracks: [] };
-  const [withSales] = await enrichStoriesWithSales([base]);
+  const [enriched] = await enrichStoriesWithSales([base]);
+  const newestMasked = maskedFromRows.map((row) => row.pinnedAt).sort().pop() ?? '';
+  const merged = maskedFromRows.length ? mergeSaleTracks(enriched, maskedFromRows, MAX_MASKED_PINS_PER_STORY) : enriched;
+  const withSales = newestMasked && newestMasked > (merged.latestAt || '') ? { ...merged, latestAt: newestMasked } : merged;
   if (!withSales.tracks.length) return null;
   // Sans partage récent : début du jour (stable), pour que « vue » le reste jusqu'à demain.
   const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
@@ -249,6 +267,10 @@ export function saleSampleToTrack(sample: { trackId: string; previewUrl: string 
 }
 
 export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: string; previewUrl: string }>, cap = MAX_SALE_TRACKS_PER_STORY): MusicStory {
+  // Doublon + fuite : si la version masquée d'une musique arrive, sa version « vraie » (titre/jaquette) quitte la story.
+  const maskedRawIds = new Set(samples.map((sample) => sample.trackId));
+  const keptTracks = story.tracks.filter((track) => !maskedRawIds.has(track.id));
+  story = keptTracks.length === story.tracks.length ? story : { ...story, tracks: keptTracks };
   const known = new Set(story.tracks.map((track) => track.id));
   const extra = samples
     .map((sample) => saleSampleToTrack(sample, story.username))
@@ -268,18 +290,11 @@ export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: str
 export async function loadMaskedStoryPins(profileIds: string[]): Promise<Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>> {
   const out = new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
   if (!supabase || !profileIds.length) return out;
-  const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
-  const { data, error } = await supabase
-    .from('story_pins')
-    .select('profile_id,track_id,pinned_at,track:tracks(preview_url)')
-    .eq('masked', true)
-    .in('profile_id', profileIds)
-    .gte('pinned_at', since)
-    .order('pinned_at', { ascending: false })
-    .limit(60);
+  // Le serveur décide ce qui est masqué (épinglé en vente OU musique d'une offre active) : jamais le lecteur.
+  const { data, error } = await supabase.rpc('keep_story_masked_pins', { p_profile_ids: profileIds });
   if (error) return out;
   for (const row of (data ?? []) as any[]) {
-    const previewUrl = row?.track?.preview_url ? String(row.track.preview_url) : '';
+    const previewUrl = row?.preview_url ? String(row.preview_url) : '';
     if (!previewUrl || !row?.profile_id || !row?.track_id) continue;
     const list = out.get(String(row.profile_id)) ?? [];
     list.push({ trackId: String(row.track_id), previewUrl, pinnedAt: String(row.pinned_at) });
@@ -486,6 +501,32 @@ export async function loadMyStoryTrackIds(): Promise<Set<string>> {
  * Suggestions « ils ont repris tes musiques » (Adel, 05/10/2026) : les membres qui ont GARDÉ une musique dont tu es le premier découvreur.
  * Affichés à côté des stories (jamais comme une story : appui = leur profil). Les plus récents d'abord, sans doublon.
  */
+export async function loadFollowingIds(viewerId: string): Promise<string[]> {
+  if (!supabase || !viewerId) return [];
+  const { data } = await supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(500);
+  return (data ?? []).map((row: any) => String(row.followee_id)).filter(Boolean);
+}
+
+/**
+ * Amis par défaut dans la rangée (Adel, 05/10/2026) : les membres que je suis ont TOUJOURS leur bulle, même sans story du jour
+ * (cercle gris) ; elle s'allume quand ils en publient une. Appui sans story = leur profil.
+ */
+export async function loadFriendBubbles(followingIds: string[], excludeIds: string[] = [], limit = 40): Promise<MusicStory[]> {
+  if (!supabase || !followingIds.length) return [];
+  const skip = new Set(excludeIds);
+  const ids = followingIds.filter((id) => !skip.has(id)).slice(0, limit);
+  if (!ids.length) return [];
+  const { data } = await supabase.from('profiles').select('id,username,avatar_url').in('id', ids);
+  const byId = new Map((data ?? []).map((row: any) => [String(row.id), row]));
+  const out: MusicStory[] = [];
+  for (const id of ids) {
+    const profile: any = byId.get(id);
+    if (!profile?.username) continue;
+    out.push({ profileId: id, username: String(profile.username), avatarUrl: profile.avatar_url ? String(profile.avatar_url) : null, latestAt: '', followed: true, sameStyle: false, tracks: [] });
+  }
+  return out;
+}
+
 export async function loadRepriseSuggestions(viewerId: string, excludeIds: string[] = [], limit = 8): Promise<MusicStory[]> {
   if (!supabase || !viewerId) return [];
   const { data, error } = await supabase

@@ -17,6 +17,8 @@ import {
   loadMyStoryViewers,
   SALE_TRACK_PREFIX,
   loadRepriseSuggestions,
+  loadFollowingIds,
+  loadFriendBubbles,
   subscribeOwnStoryChanged,
   orderTracksForPlayback,
   pinStoryTrack,
@@ -69,7 +71,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [pinBusy, setPinBusy] = useState('');
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   const [previewing, setPreviewing] = useState('');
-  const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
+  const [suggestions, setSuggestions] = useState<MusicStory[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   // Certification affichée à côté du nom dans le lecteur de story (Adel 05/10/2026, style Instagram).
   const [tiers, setTiers] = useState<Record<string, ProfileCertificationTier>>({});
 
@@ -90,12 +93,15 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
         ]);
         const all = [...withSales, ...saleOnly];
-        // Suggestions : les membres qui ont repris mes musiques, à côté des stories (appui = leur profil).
-        const suggestions = await loadRepriseSuggestions(viewer.id, [viewer.id, ...all.map((story) => story.profileId)]).catch(() => [] as MusicStory[]);
-        if (live) setStories([...all, ...suggestions]);
+        // Amis par défaut (bulle grise sans story) + suggestions d'amis (ont repris mes musiques, pas encore suivis).
+        const storyIds = all.map((story) => story.profileId);
+        const following = await loadFollowingIds(viewer.id).catch(() => [] as string[]);
+        const friends = await loadFriendBubbles(following, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
+        const suggestions = await loadRepriseSuggestions(viewer.id, [viewer.id, ...following, ...storyIds]).catch(() => [] as MusicStory[]);
+        if (live) { setStories([...all, ...friends]); setSuggestions(suggestions); }
         try {
           if (!supabase) throw new Error('offline');
-          const ids = Array.from(new Set([viewer.id, ...all.map((story) => story.profileId), ...suggestions.map((story) => story.profileId)]));
+          const ids = Array.from(new Set([viewer.id, ...storyIds, ...friends.map((story) => story.profileId), ...suggestions.map((story) => story.profileId)]));
           const { data: tierRows } = await supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids });
           if (live && Array.isArray(tierRows)) {
             const nextTiers: Record<string, ProfileCertificationTier> = {};
@@ -106,10 +112,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           }
         } catch { /* sans certification connue : aucun badge */ }
         // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
-        const presence = await Promise.allSettled([...all, ...suggestions].map((story) => loadProfilePresence(story.profileId)));
+        const presence = await Promise.allSettled([...all, ...friends, ...suggestions].map((story) => loadProfilePresence(story.profileId)));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
-          [...all, ...suggestions].forEach((story, index) => {
+          [...all, ...friends, ...suggestions].forEach((story, index) => {
             const result = presence[index];
             if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
           });
@@ -124,9 +130,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
-    setMoreOpen(null);
+    setSuggestionsOpen(false);
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
-    if (story.suggestion) { onOpenProfile?.(story.username); return; }
+    // Suggestion ou ami sans story du jour : pas de story à lire, on va sur son profil.
+    if (story.suggestion || story.tracks.length === 0) { setSuggestionsOpen(false); onOpenProfile?.(story.username); return; }
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
@@ -187,7 +194,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const isOwnOpen = openStory?.profileId === viewer.id;
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
-    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion)
+    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion && story.tracks.length > 0)
         .sort((a, b) => Number((seen[a.profileId] || '') < a.latestAt) === Number((seen[b.profileId] || '') < b.latestAt) ? 0 : ((seen[a.profileId] || '') < a.latestAt ? -1 : 1))
     : [];
   const nextStory = nextStories[0] ?? null;
@@ -220,7 +227,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           size={avatarSize}
           online={online}
           onOpen={(story) => { void open(story); }}
-          onOpenMore={(hidden) => setMoreOpen(hidden)}
+          suggestionCount={suggestions.length}
+          onOpenSuggestions={() => setSuggestionsOpen(true)}
         />
       </View>
 
@@ -255,28 +263,27 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={Boolean(moreOpen)} transparent animationType="fade" onRequestClose={() => setMoreOpen(null)}>
+      {/* Suggestions d'amis (Adel, 05/10/2026) : ils ont repris mes musiques et je ne les suis pas encore -- bulles qui défilent en longueur. */}
+      <Modal visible={suggestionsOpen} transparent animationType="fade" onRequestClose={() => setSuggestionsOpen(false)}>
         <SafeAreaView style={styles.backdrop}>
-          <View style={styles.sheet}>
+          <View style={styles.sheet} testID="story-suggestions-sheet">
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Toutes les stories</Text>
-              <TouchableOpacity onPress={() => setMoreOpen(null)} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}>
+              <Text style={styles.sheetTitle}>Suggestions d’amis</Text>
+              <TouchableOpacity onPress={() => setSuggestionsOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}>
                 <Text style={styles.sheetCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView>
-              {[...orderStoriesForBar((moreOpen ?? []).filter((item) => !item.suggestion), seen), ...(moreOpen ?? []).filter((item) => item.suggestion)].map((story) => {
-                const unseen = !story.suggestion && (seen[story.profileId] || '') < story.latestAt;
-                return (
-                  <TouchableOpacity key={story.profileId} style={styles.row} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Story de ${story.username}`}>
-                    {story.avatarUrl
-                      ? <Image source={{ uri: story.avatarUrl }} style={styles.rowAvatar} />
-                      : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
-                    <Text style={styles.rowName} numberOfLines={1}>@{story.username}</Text>
-                    <Text style={[styles.rowState, unseen ? styles.rowStateNew : styles.rowStateSeen]}>{story.suggestion ? '↻ a repris ta musique' : unseen ? 'Nouveau' : '✓ Vue'}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <Text style={styles.viewsEmpty}>Ils ont repris tes musiques et tu ne les suis pas encore. Touche une bulle pour voir leur profil et t’abonner.</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
+              {suggestions.map((story) => (
+                <TouchableOpacity key={story.profileId} style={styles.suggestItem} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Voir le profil de ${story.username}`}>
+                  {story.avatarUrl
+                    ? <Image source={{ uri: story.avatarUrl }} style={styles.suggestAvatar} />
+                    : <View style={[styles.suggestAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
+                  <Text style={styles.suggestName} numberOfLines={1}>@{story.username}</Text>
+                  <Text style={styles.suggestHint} numberOfLines={1}>↻ a repris ta musique</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         </SafeAreaView>
@@ -399,6 +406,11 @@ const styles = StyleSheet.create({
   photoInitial: { color: colors.white, fontSize: 28, fontWeight: '900' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 18 },
   sheet: { maxHeight: '75%', borderRadius: 20, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, padding: 14 },
+  suggestRow: { gap: 14, paddingVertical: 12, paddingRight: 8 },
+  suggestItem: { alignItems: 'center', width: 96 },
+  suggestAvatar: { width: 76, height: 76, borderRadius: 38, borderWidth: 3, borderStyle: 'dashed', borderColor: '#B79CFF' },
+  suggestName: { color: colors.white, fontSize: 13, fontWeight: '900', marginTop: 6, maxWidth: 96 },
+  suggestHint: { color: '#B79CFF', fontSize: 11, fontWeight: '800', marginTop: 2, maxWidth: 96 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   sheetTitle: { color: colors.white, fontSize: 18, fontWeight: '900' },
   sheetClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

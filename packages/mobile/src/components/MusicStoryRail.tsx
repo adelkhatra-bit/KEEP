@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
@@ -20,7 +20,9 @@ type Props = {
   own?: OwnBubble;
   onOpenOwn?: () => void;
   /** Ouvre la liste complète quand toutes les bulles ne tiennent pas. */
-  onOpenMore?: (hidden: MusicStory[]) => void;
+  /** Nombre de suggestions d'amis (reprises de mes musiques, pas encore suivis) : rond « Suggestions » en fin de rangée. */
+  suggestionCount?: number;
+  onOpenSuggestions?: () => void;
   /** Diamètre des bulles (la même taille que la photo de profil). */
   size?: number;
   /** Présence par profil : true = vert, false = rouge, absent = inconnue (aucune pastille, jamais un faux « hors ligne »). */
@@ -69,33 +71,19 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, onOpenMore, size = RING, online }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, suggestionCount = 0, onOpenSuggestions }: Props) {
   const ITEM = size + 2;
-  const [width, setWidth] = useState(0);
-  if (!stories.length && !own) return null;
-  // Les suggestions (ils ont repris tes musiques) viennent toujours APRÈS les vraies stories.
-  const ordered = [...orderStoriesForBar(stories.filter((story) => !story.suggestion), seen), ...stories.filter((story) => story.suggestion)];
-  const ownSlots = own ? 1 : 0;
-  // Tout est visible d'un coup : on affiche ce qui tient, jamais de défilement.
-  const capacity = width > 0 ? Math.max(1, Math.floor((width + GAP) / (ITEM + GAP))) : ownSlots + ordered.length;
-  const overflow = ordered.length + ownSlots > capacity;
-  const suggestions = ordered.filter((story) => story.suggestion);
-  const realOrdered = ordered.filter((story) => !story.suggestion);
-  // Adel (05/10/2026) : « je ne vois pas les suggestions » -- quand tout ne tient pas, UNE suggestion (reprise de tes musiques) reste toujours visible à côté des stories.
-  const reserveSuggestion = overflow && suggestions.length > 0 && capacity - ownSlots >= 3;
-  const visibleReal = overflow ? Math.max(0, capacity - ownSlots - 1 - (reserveSuggestion ? 1 : 0)) : realOrdered.length;
-  const visible = overflow ? [...realOrdered.slice(0, visibleReal), ...(reserveSuggestion ? suggestions.slice(0, 1) : [])] : ordered;
-  const hidden = overflow ? [...realOrdered.slice(visibleReal), ...suggestions.slice(reserveSuggestion ? 1 : 0)] : [];
-  const isUnseen = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
+  if (!stories.length && !own && !suggestionCount) return null;
+  // Adel (05/10/2026) : « je swipe sur le côté et je vois tout ». Une seule rangée qui défile en longueur :
+  // stories à lire d'abord (nouveautés devant), puis les amis sans story du jour (bulle grise), puis le rond « Suggestions ».
+  const withStory = stories.filter((story) => story.tracks.length > 0);
+  const friendsOnly = stories.filter((story) => story.tracks.length === 0);
+  const ordered = [...orderStoriesForBar(withStory, seen), ...friendsOnly];
+  const isUnseen = (story: MusicStory) => story.tracks.length > 0 && (seen[story.profileId] || '') < story.latestAt;
 
   return (
-    <View
-      style={s.wrap}
-      testID="home-music-story-rail"
-      accessibilityLabel="Stories musicales"
-      onLayout={(event: LayoutChangeEvent) => setWidth(Math.round(event.nativeEvent.layout.width))}
-    >
-      <View style={s.row}>
+    <View style={s.wrap} testID="home-music-story-rail" accessibilityLabel="Stories musicales">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row} keyboardShouldPersistTaps="handled" testID="story-rail-scroll">
         {own ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}
@@ -111,50 +99,50 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
-        {visible.map((story) => {
-          const suggestion = Boolean(story.suggestion);
-          const unseen = !suggestion && isUnseen(story);
+        {ordered.map((story) => {
+          const hasStory = story.tracks.length > 0;
+          const unseen = isUnseen(story);
           return (
             <TouchableOpacity
               key={story.profileId}
               style={[s.item, { width: ITEM }]}
               onPress={() => onOpen(story)}
               accessibilityRole="button"
-              accessibilityLabel={suggestion ? `Suggestion : ${story.username} a repris une de tes musiques` : `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}`}
+              accessibilityLabel={hasStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : `Profil de ${story.username}, pas de story pour le moment`}
               testID={`home-story-${story.profileId}`}
             >
-              {suggestion
-                ? <View style={[s.suggestRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>
-                : <StoryRing size={size} unseen={unseen}>
-                    <Avatar ring={size} uri={story.avatarUrl} name={story.username} />
-                  </StoryRing>}
+              {hasStory
+                ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
+                : <View style={[s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
               {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
-              {suggestion ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>↻</Text></View> : !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
-              <Text style={[s.name, !unseen && !suggestion && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
-              {suggestion ? <Text style={s.suggestCaption} numberOfLines={1}>↻ a repris</Text> : null}
+              {hasStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+              <Text style={[s.name, hasStory && !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
             </TouchableOpacity>
           );
         })}
-        {overflow ? (
+        {suggestionCount > 0 ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}
-            onPress={() => onOpenMore?.(hidden)}
+            onPress={onOpenSuggestions}
             accessibilityRole="button"
-            accessibilityLabel={`Voir ${hidden.length} autres stories`}
-            testID="home-story-more"
+            accessibilityLabel={`Suggestions d’amis : ${suggestionCount} membre${suggestionCount > 1 ? 's' : ''} ont repris tes musiques`}
+            testID="home-story-suggestions"
           >
-            <View style={[s.moreCircle, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.moreText}>+{hidden.length}</Text></View>
-            <Text style={s.name} numberOfLines={1}>Autres</Text>
+            <View style={[s.suggestRing, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.suggestIcon}>👥</Text></View>
+            <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2, width: 22, height: 22, borderRadius: 11 }]}><Text style={s.seenBadgeText}>{suggestionCount > 9 ? '9+' : suggestionCount}</Text></View>
+            <Text style={[s.name, s.suggestCaption]} numberOfLines={1}>Suggestions</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
   wrap: { width: '100%' },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: GAP, flexWrap: 'nowrap', overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: GAP, paddingRight: 8 },
+  friendRing: { borderWidth: 2, borderColor: '#5B5870', alignItems: 'center', justifyContent: 'center' },
+  suggestIcon: { fontSize: 26 },
   item: { alignItems: 'center', minHeight: 48 },
   presenceDot: { position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2, borderWidth: 2, borderColor: '#0B0A12' },
   glowBox: { borderRadius: 999 },

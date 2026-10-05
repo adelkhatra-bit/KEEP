@@ -27,13 +27,12 @@ describe('story personnelle (loadOwnStory)', () => {
 
 describe('intégration : ta story dans la barre du profil', () => {
   const src = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
-  it('« Ta story » comes first, seen stories are greyed with a check and sorted last, no scrolling', () => {
+  it('« Ta story » comes first, seen stories are greyed with a check and sorted last; the rail scrolls sideways (Adel 05/10/2026: « je swipe sur le côté et je vois tout »)', () => {
     const rail = src('components', 'MusicStoryRail.tsx');
-    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('visible.map('));
+    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('ordered.map('));
     expect(rail).toContain('orderStoriesForBar(');
     expect(rail).toContain('seenBadgeText');
-    expect(rail).not.toContain('<ScrollView');
-    expect(rail).not.toContain('horizontal');
+    expect(rail).toContain('<ScrollView horizontal');
   });
   it('the profile bar opens the existing Swipe in preview-only mode for your own story', () => {
     const bar = src('components', 'ProfileStoryBar.tsx');
@@ -270,8 +269,9 @@ describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () 
   it('les membres qui ont repris mes musiques sont proposés à côté des stories, une suggestion toujours visible', () => {
     expect(svc).toContain('loadRepriseSuggestions');
     expect(svc).toContain(".eq('source_user_id', viewerId)");
-    expect(rail).toContain('reserveSuggestion');
-    expect(bar).toContain('if (story.suggestion) { onOpenProfile?.(story.username); return; }');
+    expect(rail).toContain('suggestionCount');
+    expect(rail).toContain('testID="home-story-suggestions"');
+    expect(bar).toContain('if (story.suggestion || story.tracks.length === 0)');
   });
   it('une story vue reste visible (grisée) dans les 24 h', () => {
     expect(rail).toContain('déjà vue');
@@ -288,5 +288,34 @@ describe('Musique en vente déjà en story : bouton éteint (Adel 05/10/2026)', 
   });
   it('la feuille « + » reconnaît aussi les cartes sale:<id> comme déjà en story', () => {
     expect(bar).toContain('track.id.slice(SALE_TRACK_PREFIX.length)');
+  });
+});
+
+
+describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon masqué (Adel 05/10/2026)", () => {
+  const fs8 = require('fs'); const path8 = require('path');
+  const read = (...p: string[]) => fs8.readFileSync(path8.join(__dirname, '..', '..', ...p), 'utf8');
+  const rail = read('components', 'MusicStoryRail.tsx');
+  const bar = read('components', 'ProfileStoryBar.tsx');
+  const svc = read('services', 'musicStoriesService.ts');
+  it('la rangée défile en longueur et finit par le rond « Suggestions »', () => {
+    expect(rail).toContain('<ScrollView horizontal');
+    expect(rail).toContain('Suggestions');
+    expect(bar).toContain('contentContainerStyle={styles.suggestRow}');
+    expect(bar).toContain('horizontal showsHorizontalScrollIndicator={false}');
+  });
+  it('mes amis (que je suis) ont toujours leur bulle, grise sans story', () => {
+    expect(svc).toContain('loadFriendBubbles');
+    expect(rail).toContain('friendRing');
+  });
+  it('les suggestions excluent les membres que je suis déjà', () => {
+    expect(bar).toContain('loadRepriseSuggestions(viewer.id, [viewer.id, ...following, ...storyIds])');
+  });
+  it('une musique masquée ne reste jamais en clair à côté de sa carte masquée (doublon + fuite)', () => {
+    expect(svc).toContain('maskedRawIds');
+    expect(svc).toContain("rpc('keep_story_masked_pins'");
+  });
+  it('la mise en story demande confirmation', () => {
+    expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain("'Mettre en story ?'");
   });
 });
