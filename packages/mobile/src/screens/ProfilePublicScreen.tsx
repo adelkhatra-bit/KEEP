@@ -6,7 +6,7 @@ import { Alert } from '../utils/keepAlert';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import QRCode from 'react-native-qrcode-svg';
-import { canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, groupTracksByArtist, ProviderPlaylist } from '@keep/music';
+import { canonicalArtistIdentity, canonicalTrackIdentity, CanonicalTrack, computeMusicDNA, DnaSourceDecision, ProviderPlaylist } from '@keep/music';
 import { useUserStore } from '../store/useUserStore';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -53,6 +53,7 @@ import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
+import { groupEntriesByArtist } from '../services/styleGroups';
 import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
 import LoginPill from '../components/LoginPill';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -1219,7 +1220,9 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // reconnaissance différentes) comme deux artistes distincts. Insensible aux
   // accents/majuscules/espaces, regroupe aussi un featuring sous l'artiste
   // principal (jamais un doublon "Artiste" + "Artiste feat. Invité").
-  const artists = useMemo(() => groupTracksByArtist(publicKeptTracks.map((entry) => entry.track)).map((group) => ({ key: group.key, label: group.name })).sort((a, b) => a.label.localeCompare(b.label)), [publicKeptTracks]);
+  // Adel (05/10/2026) : « si c'est Jul, il n'y a que du Jul à l'intérieur » -- une carte par artiste PRINCIPAL (le « feat. » reste chez l'artiste principal),
+  // avec UNIQUEMENT ses morceaux (publics ET privés, comme les Styles) ; même clé d'identité que groupTracksByArtist.
+  const artistFolders = useMemo(() => groupEntriesByArtist(profileKeptTracks), [profileKeptTracks]);
   // Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style ...
   // une autre brique" -- même filtre gratuit et instantané que côté profil
   // visiteur (PublicUserProfileScreen), ajouté SANS toucher à la liste
@@ -1738,23 +1741,24 @@ export default function ProfilePublicScreen({ navigation }: any) {
       })}</View></View>;
     }
 
-    const items = artists;
+    const items = artistFolders;
     if (!items.length) return <Empty text="Tes artistes apparaîtront ici." />;
-    // Adel (01/09/2026) : "range les albums comme sur playlist" -- même bloc
-    // encadré, même bouton ▶ SWIPE dédié et même dépli inline des morceaux
-    // que l'onglet Vibes, plutôt qu'une simple ligne avec une note générique.
+    // Même carte premium que les Styles (Adel 05/10/2026), un artiste = uniquement ses morceaux.
     return <View style={s.ownerStyleGrid}>{items.map((item, index) => {
-      const selected = publicSwipeTracks.filter((track) => canonicalArtistIdentity(track) === item.key);
-      const artworkUrl = selected.find((track) => track.artworkUrl)?.artworkUrl;
+      const publicCount = item.entries.filter((entry) => entry.visibility === 'PUBLIC').length;
+      const privateCount = item.entries.length - publicCount;
+      const badgeLabel = privateCount === 0 ? 'PUBLIC' : publicCount === 0 ? 'PRIVÉ' : `MIXTE · ${privateCount} PRIVÉ${privateCount > 1 ? 'S' : ''}`;
+      const artworkUrl = item.entries.map((entry) => entry.track.artworkUrl).find((value): value is string => Boolean(value));
       return <ProfileStyleCard
         key={item.key}
         title={item.label}
-        subtitle={`${selected.length} ${selected.length > 1 ? 'morceaux' : 'morceau'}`}
+        subtitle={`${item.entries.length} morceau${item.entries.length > 1 ? 'x' : ''}`}
         mode="PUBLIC"
+        badgeLabel={badgeLabel}
         artworkUrl={artworkUrl}
         fullWidth={items.length % 2 === 1 && index === items.length - 1}
-        onPress={() => openSelectionSwipe({ title: item.label, subtitle: 'Tous les morceaux de cet artiste dans ta collection.', tracks: selected })}
-        accessibilityLabel={`Écouter ${item.label}, ${selected.length} morceaux en Swipe`}
+        onPress={() => openSelectionSwipe({ title: item.label, subtitle: `Tous les morceaux de ${item.label} dans ta collection.`, tracks: item.entries.map((entry) => entry.track) })}
+        accessibilityLabel={`Écouter ${item.label}, ${item.entries.length} morceaux en Swipe`}
       />;
     })}</View>;
   };
