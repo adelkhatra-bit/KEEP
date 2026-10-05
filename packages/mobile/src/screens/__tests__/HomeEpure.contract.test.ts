@@ -20,10 +20,17 @@ describe('Accueil épuré + bandelette + robot des sessions (Adel 05/10/2026)', 
     expect(home).toContain("livePanel: { marginBottom: 8, overflow: 'hidden', zIndex: 1 }");
     expect(fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'LedTicker.tsx'), 'utf8')).toContain('zIndex: 20');
   });
-  it('le « robot » prévient (bulle qui glisse) et un appui mène directement aux sessions', () => {
-    expect(home).toContain('testID="home-sessions-nudge"');
-    expect(home).toContain('Va vérifier ta session');
-    expect(home).toMatch(/setNudgeOpen\(false\); navigation\.navigate\('SessionHistory'\)/);
+  it('le robot du Tchat prévient des sessions (bulle, vibration, son) et un appui mène aux sessions', () => {
+    expect(home).toContain("robotSay('SESSIONS'");
+    const dock = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'GlobalChatDock.tsx'), 'utf8');
+    expect(dock).toContain('testID="robot-says"');
+    expect(dock).toContain('ROBOT_ACTIONS[robotMessage.kind]');
+    const svc = fs.readFileSync(path.join(__dirname, '..', '..', 'services', 'robotCoachService.ts'), 'utf8');
+    expect(svc).toContain('Vibration.vibrate');
+    expect(svc).toContain("playNotificationCue('DEFAULT')");
+  });
+  it('la bandelette de l\'accueil a des marges et un contour arrondi complet', () => {
+    expect(home).toContain("style={{ alignSelf: 'stretch', width: '100%', marginTop: 10, marginBottom: 6, borderRadius: 18, borderWidth: 1.5 }}");
   });
   it('le ☰ s\'anime avec une pastille quand des sessions sont prêtes', () => {
     expect(home).toContain('testID="home-sessions-menu"');

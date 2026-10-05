@@ -1,5 +1,6 @@
 import LedTicker from '../components/LedTicker';
 import { composeTickerBatch } from '../services/tickerMessageLibrary';
+import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -125,6 +126,11 @@ export default function HomeScreenCompact({ navigation }: any) {
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
+  // Robot coach (Adel, 05/10/2026) : plus de FREE -> le robot le dit de temps en temps (cooldown 6 h, 2 par jour) et propose de recharger.
+  const knownFreeBalance = listenEconomyStatus?.freeBalance;
+  useEffect(() => {
+    if (user && knownFreeBalance !== undefined && knownFreeBalance <= 0) void robotSay('NO_FREE');
+  }, [user?.id, knownFreeBalance]);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [homeAboutOpen, setHomeAboutOpen] = useState(false);
   const homeAboutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -648,7 +654,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
-          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" /> : null}
+          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: 10, marginBottom: 6, borderRadius: 18, borderWidth: 1.5 }} /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -974,24 +980,14 @@ export default function HomeScreenCompact({ navigation }: any) {
 
 function TopBar({ navigation, readyCount = 0, title }: any) {
   const readyPulse = useRef(new Animated.Value(0.45)).current;
-  // Adel (05/10/2026) : « le robot envoie un petit message qui souffle sur le côté : va vérifier ta session ; un appui mène direct au bon endroit ».
-  // La bulle glisse depuis le bord quand des sessions deviennent prêtes (ou que leur nombre augmente), reste quelques secondes, puis se range.
-  const [nudgeOpen, setNudgeOpen] = useState(false);
-  const nudgeSlide = useRef(new Animated.Value(0)).current;
+  // Adel (05/10/2026) : quand des sessions deviennent prêtes, le ROBOT du Tchat le dit (bulle à côté de lui, vibration courte + son discret) ;
+  // un appui sur la bulle ouvre directement les sessions. Le ☰ pulse en plus pour le signaler.
   const lastReady = useRef(0);
   useEffect(() => {
     const increased = readyCount > lastReady.current;
     lastReady.current = readyCount;
-    if (!readyCount) { setNudgeOpen(false); return undefined; }
-    if (!increased) return undefined;
-    setNudgeOpen(true);
-    nudgeSlide.setValue(0);
-    Animated.spring(nudgeSlide, { toValue: 1, friction: 6, tension: 90, useNativeDriver: Platform.OS !== 'web' }).start();
-    const timer = setTimeout(() => {
-      Animated.timing(nudgeSlide, { toValue: 0, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start(() => setNudgeOpen(false));
-    }, 9000);
-    return () => clearTimeout(timer);
-  }, [readyCount, nudgeSlide]);
+    if (increased && readyCount > 0) void robotSay('SESSIONS', { count: readyCount });
+  }, [readyCount]);
   useEffect(() => {
     if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
     const loop = Animated.loop(Animated.sequence([
@@ -1022,22 +1018,6 @@ function TopBar({ navigation, readyCount = 0, title }: any) {
         {readyCount > 0 ? <View style={s.roundBadge} pointerEvents="none"><Text style={s.roundBadgeText}>{readyCount > 9 ? '9+' : readyCount}</Text></View> : null}
       </TouchableOpacity>
     </View>
-    {nudgeOpen && readyCount > 0 ? (
-      <Animated.View
-        style={[s.nudge, { opacity: nudgeSlide, transform: [{ translateX: nudgeSlide.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] }]}
-        testID="home-sessions-nudge"
-      >
-        <TouchableOpacity
-          onPress={() => { setNudgeOpen(false); navigation.navigate('SessionHistory'); }}
-          accessibilityRole="button"
-          accessibilityLabel="Va vérifier ta session : ouvrir mes sessions"
-          style={s.nudgeInner}
-        >
-          <Text style={s.nudgeRobot}>🤖</Text>
-          <Text style={s.nudgeText} numberOfLines={2}>Va vérifier ta session : {readyCount} morceau{readyCount > 1 ? 'x' : ''} t’attend{readyCount > 1 ? 'ent' : ''}</Text>
-        </TouchableOpacity>
-      </Animated.View>
-    ) : null}
   </View>;
 }
 

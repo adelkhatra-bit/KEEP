@@ -6,9 +6,9 @@ import { Animated, Easing, LayoutChangeEvent, Platform, StyleSheet, Text, View }
  * partager et être crédité, sans prendre de place. Texte blanc 14 px sur fond sombre (lisible),
  * défilement lent en boucle. Jamais interactive : pointerEvents none.
  */
-type Props = { messages: string[]; testID?: string };
+type Props = { messages: string[]; testID?: string; style?: any };
 
-export default function LedTicker({ messages, testID = 'led-ticker' }: Props) {
+export default function LedTicker({ messages, testID = 'led-ticker', style }: Props) {
   const text = `${messages.join('   ✦   ')}   ✦   `;
   const [textWidth, setTextWidth] = useState(0);
   const x = useRef(new Animated.Value(0)).current;
@@ -27,7 +27,7 @@ export default function LedTicker({ messages, testID = 'led-ticker' }: Props) {
   }, [textWidth, x]);
 
   return (
-    <View style={s.band} testID={testID} pointerEvents="none" accessibilityRole="text" accessibilityLabel={messages.join('. ')}>
+    <View style={[s.band, style]} testID={testID} pointerEvents="none" accessibilityRole="text" accessibilityLabel={messages.join('. ')}>
       <Animated.View style={[s.track, { transform: [{ translateX: x }] }]}>
         <Text style={s.text} numberOfLines={1} onLayout={(event: LayoutChangeEvent) => setTextWidth(Math.round(event.nativeEvent.layout.width))}>{text}</Text>
         <Text style={s.text} numberOfLines={1}>{text}</Text>

@@ -9,6 +9,8 @@ import { KeepNotification, loadNotificationPreferences, loadNotifications, subsc
 import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
+import { useRobotMessageStore } from '../store/useRobotMessageStore';
+import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { supabase } from '../services/supabaseClient';
@@ -111,6 +113,17 @@ export default function GlobalChatDock() {
   const pulse = useRef(new Animated.Value(1)).current;
   const drawerPeek = useRef(new Animated.Value(0)).current;
   const nudge = useRef(new Animated.Value(0)).current;
+  // Message du robot (Adel, 05/10/2026) : « sessions en attente », « plus de FREE / de Solo » -- une bulle à côté du robot, pas une notification.
+  const robotMessage = useRobotMessageStore((state) => state.message);
+  const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
+  const robotBubble = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!robotMessage) { robotBubble.setValue(0); return undefined; }
+    robotBubble.setValue(0);
+    Animated.spring(robotBubble, { toValue: 1, friction: 7, tension: 90, useNativeDriver: false }).start();
+    const timer = setTimeout(() => dismissRobotMessage(), 12000);
+    return () => clearTimeout(timer);
+  }, [robotMessage?.id, robotBubble, dismissRobotMessage]);
   const lastNudgeUnread = useRef(0);
   // Signal « nouveaux messages » (maquette validée 02/10/2026) : contour du
   // bouton qui s'allume tant qu'il reste du non-lu, halo qui clignote autour
@@ -861,6 +874,27 @@ export default function GlobalChatDock() {
 
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
 
+      {!open && !gameInProgress && robotMessage ? (
+        <Animated.View
+          pointerEvents="box-none"
+          style={[styles.robotSays, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }] }]}
+        >
+          <TouchableOpacity
+            testID="robot-says"
+            onPress={() => {
+              const action = ROBOT_ACTIONS[robotMessage.kind];
+              dismissRobotMessage();
+              try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Le robot dit : ${robotMessage.text}`}
+            style={styles.robotSaysInner}
+          >
+            <Text style={styles.robotSaysText}>🤖 {robotMessage.text}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      ) : null}
+
       {!open && unreadCount > 0 && !gameInProgress ? (
         <Animated.View
           pointerEvents="box-none"
@@ -981,6 +1015,9 @@ const styles = StyleSheet.create({
   sideChoiceTextOn:{color:colors.keep},
 
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
+  robotSays:{position:'absolute',zIndex:89,maxWidth:260,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
+  robotSaysInner:{paddingVertical:10,paddingHorizontal:12},
+  robotSaysText:{color:colors.textPrimary,fontSize:13,lineHeight:18,fontWeight:'800'},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
   chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},

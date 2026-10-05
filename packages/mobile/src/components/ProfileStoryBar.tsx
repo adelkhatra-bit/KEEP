@@ -5,6 +5,7 @@ import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
+import SourceProfileQuickView from './SourceProfileQuickView';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { supabase } from '../services/supabaseClient';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
@@ -63,6 +64,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [activityKnown, setActivityKnown] = useState(false);
+  const [quickUsername, setQuickUsername] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
@@ -158,7 +160,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     stopTrackPreviewFast();
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
     // Suggestion ou ami sans story du jour : pas de story à lire, on va sur son profil.
-    if (story.suggestion || story.tracks.length === 0) { onOpenProfile?.(story.username); return; }
+    // Story d'abord (même à revoir) ; sans story, une fiche rapide s'ouvre par-dessus (suivre / voir le profil) : jamais une page qui s'ouvre d'office.
+    if (story.suggestion || story.tracks.length === 0) { setQuickUsername(story.username); return; }
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
@@ -306,11 +309,22 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         </SafeAreaView>
       </Modal>
 
+      <SourceProfileQuickView
+        visible={Boolean(quickUsername)}
+        username={quickUsername ?? ''}
+        currentUserId={viewer.id}
+        accountRequired={false}
+        onClose={() => setQuickUsername(null)}
+        onOpenFull={(username) => { setQuickUsername(null); onOpenProfile?.(username); }}
+        onRequireAccount={() => setQuickUsername(null)}
+      />
+
       <MusicSwipeDeckModal
         visible={Boolean(openStory)}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
         resetKey={openStory?.profileId ?? null}
+        onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         headerExtra={!isOwnOpen && openStory ? (
           <Text style={styles.teaser} numberOfLines={compactScreen ? 1 : 2} ellipsizeMode="tail">{composeStoryTeaser(openStory.username, `${openStory.profileId}:${new Date().toISOString().slice(0, 10)}`)}</Text>
         ) : isOwnOpen ? (

@@ -42,6 +42,7 @@ import { buildPublicProfileLink, shareBattleInvite, shareBattleResult, shareProf
 import { KeepSession, SessionTrackEntry } from '../types';
 import { supabase } from '../services/supabaseClient';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
+import { robotSay } from '../services/robotCoachService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { colors } from '../theme/colors';
 
@@ -611,6 +612,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     }
   }, []);
   const soloExhausted = Boolean(soloQuotaCopy(soloDailyStatus)?.exhausted);
+  // Robot coach (Adel, 05/10/2026) : plus de Solo -> le robot le dit de temps en temps (cooldown 6 h, 2 par jour), sans prise de tête.
+  React.useEffect(() => { if (soloExhausted) void robotSay('NO_SOLO'); }, [soloExhausted]);
   React.useEffect(() => {
     if (!soloExhausted || soloPacks) return;
     let live = true;

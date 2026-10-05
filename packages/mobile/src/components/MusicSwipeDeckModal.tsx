@@ -51,6 +51,8 @@ type Props = {
   onFinished?: () => void;
   /** Change quand une AUTRE file (autre story) remplace la précédente sans fermer la fenêtre : la file est préparée à nouveau. */
   resetKey?: string | null;
+  /** Toucher le titre (« Story de @x ») ouvre la fiche du membre, comme sur Instagram. */
+  onTitlePress?: () => void;
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
@@ -93,6 +95,7 @@ export default function MusicSwipeDeckModal({
   endExtra,
   onFinished,
   resetKey,
+  onTitlePress,
   backLabel,
   allowStoryAdd = false,
   headerExtra,
@@ -811,7 +814,7 @@ export default function MusicSwipeDeckModal({
       <View style={s.header}>
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
-          <View style={s.titleRow}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
+          <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
           {headerExtra ? <View style={compactDeck ? s.headerExtraCompact : null}>{headerExtra}</View> : null}
         </View>
