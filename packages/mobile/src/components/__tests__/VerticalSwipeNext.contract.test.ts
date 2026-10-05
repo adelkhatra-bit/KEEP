@@ -35,3 +35,12 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('>ARRÊTER</Text>');
   });
 });
+
+describe('écoute complète : seulement après GARDER (Adel 05/10/2026)', () => {
+  it('locks the full-listen button for other members\' tracks until they are kept', () => {
+    const modal = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(modal).toContain('const fullListenLocked = !previewOnly && (askVisibilityOnKeep || Boolean(currentSourceUsername)) && !currentAlreadyKept;');
+    expect(modal).toContain('fullTrackDestination && !fullListenLocked');
+    expect(modal).toContain('Écoute complète disponible après GARDER');
+  });
+});
