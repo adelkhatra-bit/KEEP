@@ -29,10 +29,10 @@ describe('intégration : ta story dans la barre du profil', () => {
   const src = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
   it('« Ta story » comes first, seen stories are greyed with a check and sorted last; the rail scrolls sideways (Adel 05/10/2026: « je swipe sur le côté et je vois tout »)', () => {
     const rail = src('components', 'MusicStoryRail.tsx');
-    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('ordered.map('));
+    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('main.map(renderStory)'));
     expect(rail).toContain('orderStoriesForBar(');
     expect(rail).toContain('seenBadgeText');
-    expect(rail).toContain('<ScrollView horizontal');
+    expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
   });
   it('the profile bar opens the existing Swipe in preview-only mode for your own story', () => {
     const bar = src('components', 'ProfileStoryBar.tsx');
@@ -267,10 +267,9 @@ describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () 
     expect(svc).toContain('pinRows');
   });
   it('les membres qui ont repris mes musiques sont proposés à côté des stories, une suggestion toujours visible', () => {
-    expect(svc).toContain('loadRepriseSuggestions');
+    expect(svc).toContain('loadStoryRelations');
     expect(svc).toContain(".eq('source_user_id', viewerId)");
-    expect(rail).toContain('suggestionCount');
-    expect(rail).toContain('testID="home-story-suggestions"');
+    expect(rail).toContain('testID="home-story-others"');
     expect(bar).toContain('if (story.suggestion || story.tracks.length === 0)');
   });
   it('une story vue reste visible (grisée) dans les 24 h', () => {
@@ -299,17 +298,16 @@ describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon
   const bar = read('components', 'ProfileStoryBar.tsx');
   const svc = read('services', 'musicStoriesService.ts');
   it('la rangée défile en longueur et finit par le rond « Suggestions »', () => {
-    expect(rail).toContain('<ScrollView horizontal');
-    expect(rail).toContain('Suggestions');
-    expect(bar).toContain('contentContainerStyle={styles.suggestRow}');
-    expect(bar).toContain('horizontal showsHorizontalScrollIndicator={false}');
+    expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
+    expect(rail).toContain('Autres');
+    expect(rail).toContain('showsHorizontalScrollIndicator={false}');
   });
   it('mes amis (que je suis) ont toujours leur bulle, grise sans story', () => {
     expect(svc).toContain('loadFriendBubbles');
     expect(rail).toContain('friendRing');
   });
   it('les suggestions excluent les membres que je suis déjà', () => {
-    expect(bar).toContain('loadRepriseSuggestions(viewer.id, [viewer.id, ...following, ...storyIds])');
+    expect(bar).toContain('loadOthersBubbles(relations.others, [viewer.id, ...storyIds])');
   });
   it('une musique masquée ne reste jamais en clair à côté de sa carte masquée (doublon + fuite)', () => {
     expect(svc).toContain('maskedRawIds');
@@ -317,5 +315,24 @@ describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon
   });
   it('la mise en story demande confirmation', () => {
     expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain("'Mettre en story ?'");
+  });
+});
+
+
+describe('Qui apparaît dans la rangée : uniquement les membres liés à moi (Adel 05/10/2026)', () => {
+  const fs9 = require('fs'); const path9 = require('path');
+  const svc = fs9.readFileSync(path9.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const rail = fs9.readFileSync(path9.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  it('abonnés, abonnements et reprises (dans les deux sens) ; plus de « même style »', () => {
+    expect(svc).toContain("supabase.from('follows').select('follower_id,created_at').eq('followee_id', viewerId)");
+    expect(svc).toContain("eq('source_user_id', viewerId)");
+    expect(svc).toContain("eq('profile_id', viewerId).eq('decision', 'KEPT').not('source_user_id', 'is', null)");
+    expect(svc).toContain('rankMusicStories(rows, viewerId, eligibleIds, new Set())');
+  });
+  it('une story vue passe dans « Autres », la suivante non vue prend sa place ; « Autres » se déroule dans la longueur', () => {
+    expect(rail).toContain('...orderStoriesForBar(followed.filter(isUnseen), seen)');
+    expect(rail).toContain('followed.filter((story) => hasStory(story) && !isUnseen(story))');
+    expect(rail).toContain('{expanded ? others.map(renderStory) : null}');
+    expect(rail).not.toContain('Modal');
   });
 });

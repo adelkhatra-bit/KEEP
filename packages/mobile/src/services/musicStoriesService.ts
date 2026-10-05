@@ -108,11 +108,38 @@ export function rankMusicStories(
     .slice(0, MAX_STORY_PROFILES);
 }
 
+/**
+ * Qui peut apparaître dans ma rangée (Adel, 05/10/2026) : uniquement les membres LIÉS à moi.
+ *  - ceux que je suis ;
+ *  - ceux qui me suivent (« il s'est abonné » = comme abonné) ;
+ *  - ceux qui ont repris une de mes musiques ;
+ *  - ceux dont j'ai repris une musique.
+ * Un membre sans aucun lien (même s'il aime le même style) n'envoie ni story ni notification.
+ */
+export type StoryRelations = { following: string[]; others: string[] };
+export async function loadStoryRelations(viewerId: string): Promise<StoryRelations> {
+  if (!supabase || !viewerId) return { following: [], others: [] };
+  const [followingRes, followersRes, reprisersRes, sourcesRes] = await Promise.all([
+    supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(500),
+    supabase.from('follows').select('follower_id,created_at').eq('followee_id', viewerId).order('created_at', { ascending: false }).limit(200),
+    supabase.from('keep_decisions').select('profile_id,created_at').eq('source_user_id', viewerId).eq('decision', 'KEPT').neq('profile_id', viewerId).order('created_at', { ascending: false }).limit(200),
+    supabase.from('keep_decisions').select('source_user_id,created_at').eq('profile_id', viewerId).eq('decision', 'KEPT').not('source_user_id', 'is', null).neq('source_user_id', viewerId).order('created_at', { ascending: false }).limit(200),
+  ]);
+  const following = (followingRes.data ?? []).map((row: any) => String(row.followee_id)).filter(Boolean);
+  const followingSet = new Set(following);
+  const others: string[] = [];
+  const add = (id: unknown) => { const v = String(id ?? ''); if (v && v !== viewerId && !followingSet.has(v) && !others.includes(v)) others.push(v); };
+  for (const row of (reprisersRes.data ?? []) as any[]) add(row.profile_id);
+  for (const row of (followersRes.data ?? []) as any[]) add(row.follower_id);
+  for (const row of (sourcesRes.data ?? []) as any[]) add(row.source_user_id);
+  return { following, others: others.slice(0, 60) };
+}
+
 export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> {
   if (!supabase || !viewerId) return [];
   const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
 
-  const [decisions, follows, me, pins] = await Promise.all([
+  const [decisions, relations, pins] = await Promise.all([
     supabase
       .from('keep_decisions')
       .select('profile_id,created_at,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on),profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)')
@@ -122,8 +149,7 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
       .neq('profile_id', viewerId)
       .order('created_at', { ascending: false })
       .limit(300),
-    supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(1000),
-    supabase.from('profiles').select('favorite_genres,inferred_genres').eq('id', viewerId).maybeSingle(),
+    loadStoryRelations(viewerId).catch(() => ({ following: [] as string[], others: [] as string[] })),
     // Adel (05/10/2026) : « si dans les 24 h un utilisateur a utilisé une story, je la verrai automatiquement » : les musiques épinglées
     // avec le « + » comptent comme les GARDER publics (les épingles masquées / en vente passent par enrichStoriesWithSales).
     supabase
@@ -137,8 +163,9 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
   ]);
   if (decisions.error) throw decisions.error;
 
-  const followedIds = new Set((follows.data ?? []).map((row: any) => String(row.followee_id)));
-  const viewerGenres = new Set([...toList((me.data as any)?.favorite_genres), ...toList((me.data as any)?.inferred_genres)]);
+  const followingSet = new Set(relations.following);
+  // Éligibles = membres liés à moi (je les suis, ils me suivent, reprises dans un sens ou l'autre). Jamais le « même style » seul.
+  const eligibleIds = new Set([...relations.following, ...relations.others]);
   let pinRows: any[] = [];
   const pinData = pins.error ? [] : (pins.data ?? []) as any[];
   if (pinData.length) {
@@ -151,9 +178,10 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
       .filter((row) => row.profile);
   }
   const rows = [...(decisions.data ?? []), ...pinRows]
-    .filter((row: any) => !row?.profile?.discovery_hidden || followedIds.has(String(row.profile_id)))
+    .filter((row: any) => !row?.profile?.discovery_hidden || followingSet.has(String(row.profile_id)))
     .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
-  return rankMusicStories(rows, viewerId, followedIds, viewerGenres);
+  return rankMusicStories(rows, viewerId, eligibleIds, new Set())
+    .map((story) => ({ ...story, followed: followingSet.has(story.profileId) }));
 }
 
 /** Anneau gris une fois la story vue jusqu'à sa dernière nouveauté. */
@@ -527,26 +555,18 @@ export async function loadFriendBubbles(followingIds: string[], excludeIds: stri
   return out;
 }
 
-export async function loadRepriseSuggestions(viewerId: string, excludeIds: string[] = [], limit = 8): Promise<MusicStory[]> {
-  if (!supabase || !viewerId) return [];
-  const { data, error } = await supabase
-    .from('keep_decisions')
-    .select('profile_id,created_at,profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)')
-    .eq('source_user_id', viewerId)
-    .eq('decision', 'KEPT')
-    .neq('profile_id', viewerId)
-    .order('created_at', { ascending: false })
-    .limit(60);
-  if (error) return [];
+export async function loadOthersBubbles(otherIds: string[], excludeIds: string[] = [], limit = 40): Promise<MusicStory[]> {
+  if (!supabase || !otherIds.length) return [];
   const skip = new Set(excludeIds);
+  const ids = otherIds.filter((id) => !skip.has(id)).slice(0, limit);
+  if (!ids.length) return [];
+  const { data } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', ids);
+  const byId = new Map((data ?? []).map((row: any) => [String(row.id), row]));
   const out: MusicStory[] = [];
-  for (const row of (data ?? []) as any[]) {
-    const id = String(row?.profile_id ?? '');
-    const username = String(row?.profile?.username ?? '').trim();
-    if (!id || !username || skip.has(id) || row?.profile?.discovery_hidden) continue;
-    skip.add(id);
-    out.push({ profileId: id, username, avatarUrl: row.profile.avatar_url ? String(row.profile.avatar_url) : null, latestAt: String(row.created_at ?? ''), followed: false, sameStyle: false, tracks: [], suggestion: true });
-    if (out.length >= limit) break;
+  for (const id of ids) {
+    const profile: any = byId.get(id);
+    if (!profile?.username || profile.discovery_hidden) continue;
+    out.push({ profileId: id, username: String(profile.username), avatarUrl: profile.avatar_url ? String(profile.avatar_url) : null, latestAt: '', followed: false, sameStyle: false, tracks: [], suggestion: true });
   }
   return out;
 }

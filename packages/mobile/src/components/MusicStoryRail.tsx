@@ -20,9 +20,6 @@ type Props = {
   own?: OwnBubble;
   onOpenOwn?: () => void;
   /** Ouvre la liste complète quand toutes les bulles ne tiennent pas. */
-  /** Nombre de suggestions d'amis (reprises de mes musiques, pas encore suivis) : rond « Suggestions » en fin de rangée. */
-  suggestionCount?: number;
-  onOpenSuggestions?: () => void;
   /** Diamètre des bulles (la même taille que la photo de profil). */
   size?: number;
   /** Présence par profil : true = vert, false = rouge, absent = inconnue (aucune pastille, jamais un faux « hors ligne »). */
@@ -71,19 +68,66 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, suggestionCount = 0, onOpenSuggestions }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online }: Props) {
   const ITEM = size + 2;
-  if (!stories.length && !own && !suggestionCount) return null;
-  // Adel (05/10/2026) : « je swipe sur le côté et je vois tout ». Une seule rangée qui défile en longueur :
-  // stories à lire d'abord (nouveautés devant), puis les amis sans story du jour (bulle grise), puis le rond « Suggestions ».
-  const withStory = stories.filter((story) => story.tracks.length > 0);
-  const friendsOnly = stories.filter((story) => story.tracks.length === 0);
-  const ordered = [...orderStoriesForBar(withStory, seen), ...friendsOnly];
-  const isUnseen = (story: MusicStory) => story.tracks.length > 0 && (seen[story.profileId] || '') < story.latestAt;
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
+  if (!stories.length && !own) return null;
+  // Adel (05/10/2026) — toujours la même rangée, toujours dans la même longueur :
+  //  1. à côté de la photo : les membres que je SUIS ; les stories non vues d'abord, puis ceux sans story du jour (cercle gris) ;
+  //  2. une story VUE passe derrière, dans « Autres », et la suivante non vue prend sa place : on appuie toujours au même endroit ;
+  //  3. « Autres » se déroule dans la longueur (même rangée, on glisse sur le côté) : stories vues, puis les membres liés à moi
+  //     (reprise dans un sens ou dans l'autre, ou abonnés à moi) que je ne suis pas.
+  const hasStory = (story: MusicStory) => story.tracks.length > 0;
+  const isUnseen = (story: MusicStory) => hasStory(story) && (seen[story.profileId] || '') < story.latestAt;
+  const followed = stories.filter((story) => story.followed);
+  const notFollowed = stories.filter((story) => !story.followed);
+  const main = [
+    ...orderStoriesForBar(followed.filter(isUnseen), seen),
+    ...followed.filter((story) => !hasStory(story)),
+  ];
+  const others = [
+    ...followed.filter((story) => hasStory(story) && !isUnseen(story)),
+    ...orderStoriesForBar(notFollowed.filter(hasStory), seen),
+    ...notFollowed.filter((story) => !hasStory(story)),
+  ];
+  const unseenOthers = others.filter(isUnseen).length;
+
+  const renderStory = (story: MusicStory) => {
+    const withStory = hasStory(story);
+    const unseen = isUnseen(story);
+    const dashed = !story.followed && !withStory;
+    return (
+      <TouchableOpacity
+        key={story.profileId}
+        style={[s.item, { width: ITEM }]}
+        onPress={() => onOpen(story)}
+        accessibilityRole="button"
+        accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : `Profil de ${story.username}, pas de story pour le moment`}
+        testID={`home-story-${story.profileId}`}
+      >
+        {withStory
+          ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
+          : <View style={[dashed ? s.suggestRing : s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
+        {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
+        {withStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+        {dashed ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>↻</Text></View> : null}
+        <Text style={[s.name, withStory && !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={s.wrap} testID="home-music-story-rail" accessibilityLabel="Stories musicales">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row} keyboardShouldPersistTaps="handled" testID="story-rail-scroll">
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.row}
+        keyboardShouldPersistTaps="handled"
+        testID="story-rail-scroll"
+        onContentSizeChange={() => { if (expanded) scrollRef.current?.scrollToEnd({ animated: true }); }}
+      >
         {own ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}
@@ -99,40 +143,22 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
-        {ordered.map((story) => {
-          const hasStory = story.tracks.length > 0;
-          const unseen = isUnseen(story);
-          return (
-            <TouchableOpacity
-              key={story.profileId}
-              style={[s.item, { width: ITEM }]}
-              onPress={() => onOpen(story)}
-              accessibilityRole="button"
-              accessibilityLabel={hasStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : `Profil de ${story.username}, pas de story pour le moment`}
-              testID={`home-story-${story.profileId}`}
-            >
-              {hasStory
-                ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
-                : <View style={[s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
-              {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
-              {hasStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
-              <Text style={[s.name, hasStory && !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {suggestionCount > 0 ? (
+        {main.map(renderStory)}
+        {others.length > 0 ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}
-            onPress={onOpenSuggestions}
+            onPress={() => setExpanded((value) => !value)}
             accessibilityRole="button"
-            accessibilityLabel={`Suggestions d’amis : ${suggestionCount} membre${suggestionCount > 1 ? 's' : ''} ont repris tes musiques`}
-            testID="home-story-suggestions"
+            accessibilityState={{ expanded }}
+            accessibilityLabel={expanded ? 'Réduire les autres stories' : `Autres : ${others.length} membre${others.length > 1 ? 's' : ''}${unseenOthers ? `, ${unseenOthers} nouveauté${unseenOthers > 1 ? 's' : ''}` : ''}`}
+            testID="home-story-others"
           >
-            <View style={[s.suggestRing, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.suggestIcon}>👥</Text></View>
-            <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2, width: 22, height: 22, borderRadius: 11 }]}><Text style={s.seenBadgeText}>{suggestionCount > 9 ? '9+' : suggestionCount}</Text></View>
-            <Text style={[s.name, s.suggestCaption]} numberOfLines={1}>Suggestions</Text>
+            <View style={[s.moreCircle, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.moreText}>{expanded ? '‹' : `+${others.length}`}</Text></View>
+            {!expanded && unseenOthers > 0 ? <View style={[s.seenBadge, s.newBadge, { top: 2, right: 2, width: 22, height: 22, borderRadius: 11 }]}><Text style={s.newBadgeText}>{unseenOthers > 9 ? '9+' : unseenOthers}</Text></View> : null}
+            <Text style={s.name} numberOfLines={1}>{expanded ? 'Réduire' : 'Autres'}</Text>
           </TouchableOpacity>
         ) : null}
+        {expanded ? others.map(renderStory) : null}
       </ScrollView>
     </View>
   );
@@ -160,6 +186,8 @@ const s = StyleSheet.create({
   suggestRing: { borderWidth: 3, borderStyle: 'dashed', borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.22)', alignItems: 'center', justifyContent: 'center' },
   suggestCaption: { color: '#B79CFF', fontSize: 11, fontWeight: '900', marginTop: -1 },
   suggestBadge: { backgroundColor: colors.primaryLight },
+  newBadge: { backgroundColor: '#FF3D9A' },
+  newBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   moreCircle: { width: RING, height: RING, borderRadius: RING / 2, borderWidth: 2, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   moreText: { color: colors.white, fontSize: 14, fontWeight: '900' },
 });

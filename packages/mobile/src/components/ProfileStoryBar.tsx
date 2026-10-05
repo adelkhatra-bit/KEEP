@@ -16,8 +16,8 @@ import {
   loadMyPinnableTracks,
   loadMyStoryViewers,
   SALE_TRACK_PREFIX,
-  loadRepriseSuggestions,
-  loadFollowingIds,
+  loadStoryRelations,
+  loadOthersBubbles,
   loadFriendBubbles,
   subscribeOwnStoryChanged,
   orderTracksForPlayback,
@@ -71,8 +71,6 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [pinBusy, setPinBusy] = useState('');
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   const [previewing, setPreviewing] = useState('');
-  const [suggestions, setSuggestions] = useState<MusicStory[]>([]);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   // Certification affichée à côté du nom dans le lecteur de story (Adel 05/10/2026, style Instagram).
   const [tiers, setTiers] = useState<Record<string, ProfileCertificationTier>>({});
 
@@ -95,10 +93,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         const all = [...withSales, ...saleOnly];
         // Amis par défaut (bulle grise sans story) + suggestions d'amis (ont repris mes musiques, pas encore suivis).
         const storyIds = all.map((story) => story.profileId);
-        const following = await loadFollowingIds(viewer.id).catch(() => [] as string[]);
-        const friends = await loadFriendBubbles(following, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
-        const suggestions = await loadRepriseSuggestions(viewer.id, [viewer.id, ...following, ...storyIds]).catch(() => [] as MusicStory[]);
-        if (live) { setStories([...all, ...friends]); setSuggestions(suggestions); }
+        const relations = await loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
+        const friends = await loadFriendBubbles(relations.following, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
+        const suggestions = await loadOthersBubbles(relations.others, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
+        if (live) setStories([...all, ...friends, ...suggestions]);
         try {
           if (!supabase) throw new Error('offline');
           const ids = Array.from(new Set([viewer.id, ...storyIds, ...friends.map((story) => story.profileId), ...suggestions.map((story) => story.profileId)]));
@@ -130,10 +128,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
-    setSuggestionsOpen(false);
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
     // Suggestion ou ami sans story du jour : pas de story à lire, on va sur son profil.
-    if (story.suggestion || story.tracks.length === 0) { setSuggestionsOpen(false); onOpenProfile?.(story.username); return; }
+    if (story.suggestion || story.tracks.length === 0) { onOpenProfile?.(story.username); return; }
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
@@ -227,8 +224,6 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           size={avatarSize}
           online={online}
           onOpen={(story) => { void open(story); }}
-          suggestionCount={suggestions.length}
-          onOpenSuggestions={() => setSuggestionsOpen(true)}
         />
       </View>
 
@@ -257,32 +252,6 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                     <Text style={[styles.addBtnText, inStoryIds.has(track.trackId) && styles.addBtnTextDone]}>{pinBusy === track.trackId ? '…' : inStoryIds.has(track.trackId) ? '✓ En story' : '+ Ajouter'}</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Suggestions d'amis (Adel, 05/10/2026) : ils ont repris mes musiques et je ne les suis pas encore -- bulles qui défilent en longueur. */}
-      <Modal visible={suggestionsOpen} transparent animationType="fade" onRequestClose={() => setSuggestionsOpen(false)}>
-        <SafeAreaView style={styles.backdrop}>
-          <View style={styles.sheet} testID="story-suggestions-sheet">
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Suggestions d’amis</Text>
-              <TouchableOpacity onPress={() => setSuggestionsOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}>
-                <Text style={styles.sheetCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.viewsEmpty}>Ils ont repris tes musiques et tu ne les suis pas encore. Touche une bulle pour voir leur profil et t’abonner.</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
-              {suggestions.map((story) => (
-                <TouchableOpacity key={story.profileId} style={styles.suggestItem} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Voir le profil de ${story.username}`}>
-                  {story.avatarUrl
-                    ? <Image source={{ uri: story.avatarUrl }} style={styles.suggestAvatar} />
-                    : <View style={[styles.suggestAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
-                  <Text style={styles.suggestName} numberOfLines={1}>@{story.username}</Text>
-                  <Text style={styles.suggestHint} numberOfLines={1}>↻ a repris ta musique</Text>
-                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -342,7 +311,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           </View>
         ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
-        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${freeCost} FREE`}
+        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Lié à toi par une reprise ou un abonnement'} · GARDER coûte ${freeCost} FREE`}
         previewOnly={isOwnOpen}
         sourceUsername={isOwnOpen ? undefined : openStory?.username}
         sourceAvatarUrl={isOwnOpen ? null : openStory?.avatarUrl ?? null}
