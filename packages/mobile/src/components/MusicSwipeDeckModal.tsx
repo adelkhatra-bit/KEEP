@@ -175,7 +175,7 @@ export default function MusicSwipeDeckModal({
   }, [visible]);
   const storyAddContext = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
   const currentOffered = Boolean(current && offeredIds.has(current.id));
-  const canAddToStory = storyAddContext && !currentOffered;
+  const canAddToStory = storyAddContext;
   const justAddedNow = Boolean(current && justAdded.has(current.id));
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
   // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
@@ -196,7 +196,7 @@ export default function MusicSwipeDeckModal({
     if (!current) return;
     if (alreadyInStory && justAddedNow) return;
     if (alreadyInStory) {
-      Alert.alert('Déjà dans ta story', `« ${current.title} » est déjà dans ta story des dernières 24 h : pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
+      Alert.alert('Elle y était déjà', `« ${current.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout. Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     if (!previewOnly && !currentAlreadyKept) {
@@ -214,20 +214,18 @@ export default function MusicSwipeDeckModal({
   };
   // Bouton « story » : allumé tant qu'on peut ajouter, vert + message de félicitations juste après, gris « déjà » seulement ensuite.
   const renderStoryAdd = (kind: 'main' | 'popup') => {
-    if (storyAddContext && currentOffered) {
-      return <View style={s.storySaleNote} testID="deck-story-sale-note"><Text style={s.storySaleNoteTitle}>🏷 EN VENTE · DÉJÀ GÉRÉE PAR TA BOUTIQUE</Text><Text style={s.storySaleNoteText}>Cette musique est en vente : dans ta story, sa jaquette et le nom de l’artiste restent masqués automatiquement.</Text></View>;
-    }
     if (!canAddToStory) return null;
     const popup = kind === 'popup';
     const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
     const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
     const checking = !storyIdsReady && !justAddedNow;
-    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : (popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY (AJOUTÉE PLUS TÔT)' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
       <TouchableOpacity disabled={checking} style={[buttonStyle, checking ? s.addStoryButtonDone : justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking) && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
       </TouchableOpacity>
-      {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Bravo ! Ta musique est dans ta story pendant 24 h. Ta photo s’allume sur ton profil.</Text> : null}
+      {currentOffered && !justAddedNow ? <Text style={s.storySaleNote2} testID="deck-story-sale-note">🏷 Cette musique est en vente : dans ta story, la jaquette et le nom de l’artiste restent masqués.</Text> : null}
+      {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Tu viens de l’ajouter à ta story : elle sera visible pendant 24 heures. Ta photo s’allume sur ton profil.</Text> : null}
     </View>;
   };
   const openFullTrack = useCallback(() => {
@@ -938,6 +936,7 @@ const s = StyleSheet.create({
   addStoryButtonJust:{borderColor:'#68F2B1',backgroundColor:'#12B76A'},
   addStoryTextJust:{color:'#04170E'},
   storyCongrats:{color:'#68F2B1',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:6,marginBottom:8,marginTop:-2},
+  storySaleNote2:{color:'#FFB020',fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginHorizontal:6,marginBottom:8,marginTop:-2},
   storySaleNote:{marginHorizontal:4,marginBottom:8,marginTop:6,borderRadius:14,borderWidth:1,borderColor:'#FFB020',backgroundColor:'rgba(255,176,32,.10)',padding:10},
   storySaleNoteTitle:{color:'#FFB020',fontSize:12,fontWeight:'900',textAlign:'center'},
   storySaleNoteText:{color:'#FFFFFF',fontSize:13,lineHeight:18,textAlign:'center',marginTop:3},

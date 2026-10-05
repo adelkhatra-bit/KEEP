@@ -87,7 +87,7 @@ describe('succès du GARDER : mettre en story / déjà en story (Adel 05/10/2026
     const fs = require('fs'); const path = require('path');
     const modal = fs.readFileSync(path.join(__dirname, '..', 'KeepVisibilityChoiceModal.tsx'), 'utf8');
     expect(modal).toContain('＋ METTRE EN STORY (LA RENDRE PUBLIQUE)');
-    expect(modal).toContain('✓ DÉJÀ DANS TA STORY · 24 h');
+    expect(modal).toContain('✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h');
     const deck = fs.readFileSync(path.join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
     expect(deck).toContain('makeKeptPublicAndStory');
     expect(deck).toContain("persistOwnTrackVisibility(track, 'PUBLIC')");

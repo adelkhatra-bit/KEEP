@@ -165,7 +165,7 @@ describe('« + » : musique déjà en story', () => {
   it('tells the user a track is already in the story instead of adding it twice', () => {
     const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
     expect(bar).toContain('inStoryIds.has(track.trackId)');
-    expect(bar).toContain('Déjà dans ta story');
+    expect(bar).toContain('Elle y était déjà');
     expect(bar).toContain('✓ En story');
     expect(bar).toContain('previewTrack(track)');
   });
@@ -186,7 +186,7 @@ describe('Découvert par = premier découvreur partout (BUG-005) et pourquoi « 
     expect(profile).toContain("persistOwnTrackVisibility(entry.track, 'PUBLIC')");
   });
   it('the keep success card says the public keep enters the story automatically (no duplicate button)', () => {
-    expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('✓ DÉJÀ DANS TA STORY · 24 h');
+    expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h');
   });
 });
 
@@ -224,7 +224,7 @@ describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel
   });
   it('explique qu\'une musique en vente est masquée automatiquement', () => {
     expect(deck).toContain('deck-story-sale-note');
-    expect(bar).toContain('offeredIds.has(track.trackId)');
+    expect(bar).toContain('track.inSale');
   });
 });
 
@@ -239,5 +239,20 @@ describe('Privé en vente ≠ masqué volontairement (Adel 05/10/2026)', () => {
   });
   it('seules les musiques PUBLIC entrent dans la story ; le privé volontaire n\'y entre jamais', () => {
     expect(svc).toContain(".eq('visibility', 'PUBLIC')");
+  });
+});
+
+describe('Musique en vente → story masquée (Adel 05/10/2026)', () => {
+  const fs5 = require('fs'); const path5 = require('path');
+  const svc = fs5.readFileSync(path5.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const mig = fs5.readFileSync(path5.join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261005210000_story_pin_sale_masked.sql'), 'utf8');
+  it('une épingle masquée ne montre jamais le vrai titre : elle devient une carte « Musique en vente »', () => {
+    expect(svc).toContain('loadMaskedStoryPins');
+    expect(svc).toContain(".eq('masked', false)");
+    expect(svc).toContain('mergeSaleTracks(mergeSaleTracks(story, pins');
+  });
+  it('le serveur accepte une musique en vente et la marque masquée', () => {
+    expect(mig).toContain('masked boolean');
+    expect(mig).toContain('v_offered');
   });
 });

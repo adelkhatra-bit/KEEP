@@ -1,7 +1,7 @@
 import type { CanonicalTrack } from '@keep/music';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
-import { loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
+import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -174,8 +174,9 @@ export async function loadProfileStory(
     // « + » de la story : musiques épinglées à la main (gardées en public), même fenêtre de 24 h.
     supabase
       .from('story_pins')
-      .select(`profile_id,pinned_at,track:tracks(${TRACK_COLS})`)
+      .select(`profile_id,pinned_at,masked,track:tracks(${TRACK_COLS})`)
       .eq('profile_id', viewer.id)
+      .eq('masked', false)
       .gte('pinned_at', since)
       .order('pinned_at', { ascending: false })
       .limit(30),
@@ -206,6 +207,7 @@ export async function loadProfileStory(
  */
 export const SALE_TRACK_PREFIX = 'sale:';
 const MAX_SALE_TRACKS_PER_STORY = 3;
+const MAX_MASKED_PINS_PER_STORY = 6;
 const MAX_STORIES_WITH_SALES = 8;
 
 export function isSaleStoryTrack(track: { id?: string } | null | undefined): boolean {
@@ -225,7 +227,7 @@ export function saleSampleToTrack(sample: { trackId: string; previewUrl: string 
   } as CanonicalTrack;
 }
 
-export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: string; previewUrl: string }>): MusicStory {
+export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: string; previewUrl: string }>, cap = MAX_SALE_TRACKS_PER_STORY): MusicStory {
   const known = new Set(story.tracks.map((track) => track.id));
   const extra = samples
     .map((sample) => saleSampleToTrack(sample, story.username))
@@ -234,16 +236,51 @@ export function mergeSaleTracks(story: MusicStory, samples: Array<{ trackId: str
       known.add(track.id); // jamais deux fois la même musique dans une story
       return true;
     })
-    .slice(0, MAX_SALE_TRACKS_PER_STORY);
+    .slice(0, cap);
   return extra.length ? { ...story, tracks: [...story.tracks, ...extra] } : story;
+}
+
+/**
+ * Musiques EN VENTE mises en story à la main (Adel, 05/10/2026) : toujours masquées (jaquette, artiste), jamais le vrai titre.
+ * Elles passent devant l'échantillon aléatoire de la boutique et rallument le cercle (latestAt = date de l'ajout).
+ */
+export async function loadMaskedStoryPins(profileIds: string[]): Promise<Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>> {
+  const out = new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
+  if (!supabase || !profileIds.length) return out;
+  const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('story_pins')
+    .select('profile_id,track_id,pinned_at,track:tracks(preview_url)')
+    .eq('masked', true)
+    .in('profile_id', profileIds)
+    .gte('pinned_at', since)
+    .order('pinned_at', { ascending: false })
+    .limit(60);
+  if (error) return out;
+  for (const row of (data ?? []) as any[]) {
+    const previewUrl = row?.track?.preview_url ? String(row.track.preview_url) : '';
+    if (!previewUrl || !row?.profile_id || !row?.track_id) continue;
+    const list = out.get(String(row.profile_id)) ?? [];
+    list.push({ trackId: String(row.track_id), previewUrl, pinnedAt: String(row.pinned_at) });
+    out.set(String(row.profile_id), list);
+  }
+  return out;
 }
 
 export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<MusicStory[]> {
   const head = stories.slice(0, MAX_STORIES_WITH_SALES);
-  const results = await Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId)));
+  const [results, masked] = await Promise.all([
+    Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId))),
+    loadMaskedStoryPins(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>()),
+  ]);
   return stories.map((story, index) => {
     const result = index < head.length ? results[index] : null;
-    return result && result.status === 'fulfilled' ? mergeSaleTracks(story, result.value) : story;
+    const pins = masked.get(story.profileId) ?? [];
+    const sampler = result && result.status === 'fulfilled' ? result.value : [];
+    if (!pins.length && !sampler.length) return story;
+    const merged = mergeSaleTracks(mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY), sampler);
+    const newest = pins[0]?.pinnedAt;
+    return newest && newest > (merged.latestAt || '') ? { ...merged, latestAt: newest } : merged;
   });
 }
 
@@ -339,7 +376,7 @@ export function notifyOwnStoryChanged(): void {
   ownStoryListeners.forEach((listener) => { try { listener(); } catch { /* un abonné défaillant ne bloque pas les autres */ } });
 }
 
-export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null };
+export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null; inSale?: boolean };
 
 /** Mes musiques gardées en public (les plus récentes d'abord), avec l'utilisateur d'origine quand c'est une reprise. */
 export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTrack[]> {
@@ -353,14 +390,26 @@ export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTr
     .order('created_at', { ascending: false })
     .limit(40);
   if (error) throw error;
-  return (data ?? []).map((row: any) => ({
+  const toRow = (row: any, inSale: boolean): PinnableTrack => ({
     trackId: String(row.track?.id ?? row.track_id ?? ''),
     title: String(row.track?.title ?? ''),
     artist: String(row.track?.artist ?? ''),
     artworkUrl: row.track?.artwork_url ? String(row.track.artwork_url) : null,
     previewUrl: row.track?.preview_url ? String(row.track.preview_url) : null,
     sourceUsername: null,
-  })).filter((row: PinnableTrack) => row.trackId && row.title);
+    inSale,
+  });
+  // Adel (05/10/2026) : une musique EN VENTE peut aller en story (toujours masquée). Elle est listée avec les autres, marquée « en vente ».
+  let offeredIds = new Set<string>();
+  try { offeredIds = new Set(Object.keys(await loadMyOfferedTrackIds())); } catch { /* sans ventes connues : liste publique seule */ }
+  const rows = (data ?? []).map((row: any) => toRow(row, offeredIds.has(String(row.track?.id ?? row.track_id ?? ''))));
+  const have = new Set(rows.map((row: PinnableTrack) => row.trackId));
+  const missing = [...offeredIds].filter((id) => !have.has(id)).slice(0, 40);
+  if (missing.length) {
+    const { data: tracks } = await supabase.from('tracks').select('id,title,artist,artwork_url,preview_url').in('id', missing);
+    for (const track of tracks ?? []) rows.push(toRow({ track }, true));
+  }
+  return rows.filter((row: PinnableTrack) => row.trackId && row.title);
 }
 
 /** Ordre de lecture (Adel, 05/10/2026) : cercle allumé → on repart de la DERNIÈRE musique ; cercle éteint (déjà vue) → de la PREMIÈRE. */

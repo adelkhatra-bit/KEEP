@@ -164,11 +164,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const closePlus = () => { stopTrackPreviewFast(); setPreviewing(''); setPlusOpen(false); };
   const pin = async (track: PinnableTrack) => {
     if (inStoryIds.has(track.trackId)) {
-      Alert.alert('Déjà dans ta story', `« ${track.title} » est déjà dans ta story des dernières 24 h : inutile de l'ajouter.`, [{ text: 'OK', style: 'cancel' }]);
-      return;
-    }
-    if (offeredIds.has(track.trackId)) {
-      Alert.alert('Musique en vente', `« ${track.title} » est en vente : elle apparaît déjà dans ta story avec la jaquette et le nom de l’artiste masqués. Rien à ajouter.`, [{ text: 'OK', style: 'cancel' }]);
+      Alert.alert('Elle y était déjà', `« ${track.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout.`, [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     if (pinBusy) return;
@@ -177,7 +173,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       await pinStoryTrack(track.trackId);
       closePlus();
       refreshOwnStory();
-      Alert.alert('Ajoutée à ta story', `« ${track.title} » est la dernière musique de ta story pour 24 h. Ta photo s'allume.`, [{ text: 'OK', style: 'cancel' }]);
+      Alert.alert('✅ Ajoutée à ta story', `Tu viens d’ajouter « ${track.title} » à ta story : elle sera visible pendant 24 heures.${track.inSale ? ' Elle est en vente : jaquette et artiste restent masqués.' : ''} Ta photo s’allume.`, [{ text: 'OK', style: 'cancel' }]);
     } catch {
       Alert.alert('Ajout impossible', 'Seules tes musiques gardées en public peuvent aller en story. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
     } finally { setPinBusy(''); }
@@ -238,7 +234,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                   {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>♪</Text></View>}
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowName} numberOfLines={1}>{track.title}</Text>
-                    <Text style={styles.rowArtist} numberOfLines={1}>{track.artist}</Text>
+                    <Text style={styles.rowArtist} numberOfLines={1}>{track.inSale ? '🏷 En vente · masquée dans la story' : track.artist}</Text>
                   </View>
                   <TouchableOpacity style={styles.previewBtn} onPress={() => previewTrack(track)} accessibilityRole="button" accessibilityLabel={previewing === track.trackId ? `Arrêter l’extrait de ${track.title}` : `Écouter un extrait de ${track.title}`}>
                     <Text style={styles.previewBtnText}>{previewing === track.trackId ? '■' : '▶'}</Text>

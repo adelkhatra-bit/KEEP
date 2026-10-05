@@ -154,8 +154,8 @@ export function KeepSuccessModal({
             </TouchableOpacity>
           ) : null}
           {visibility === 'PUBLIC' ? (
-            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Déjà dans ta story pendant 24 heures">
-              <Text style={s.successStoryPillText}>✓ DÉJÀ DANS TA STORY · 24 h</Text>
+            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Tu viens de l’ajouter à ta story, visible pendant 24 heures">
+              <Text style={s.successStoryPillText}>✅ TU VIENS DE L’AJOUTER À TA STORY · 24 h</Text>
             </View>
           ) : null}
         </View>
