@@ -50,4 +50,16 @@ describe('Conflit micro/audio -- audioPreviewService ne coupe plus une capture m
     expect(play).toBeGreaterThan(cancel);
   });
 
+  it('TestFlight Profil (Adel, 05/10/2026) : ARRÊTER publie « plus d’enregistrement » avant tout await', () => {
+    // pauseListening() n'attend pas cancelAudioCapture() puis lance l'extrait :
+    // le drapeau doit donc être faux dès l'appel, sinon l'extrait configure iOS
+    // en allowsRecordingIOS:true (son dans l'écouteur, "Play ne démarre pas").
+    const start = mic.indexOf('export async function cancelAudioCapture(): Promise<void> {');
+    const flag = mic.indexOf("if (Platform.OS !== 'web') nativeRecordingModeDesired = false;", start);
+    const firstAwait = mic.indexOf('await ', start);
+    expect(start).toBeGreaterThan(-1);
+    expect(flag).toBeGreaterThan(start);
+    expect(flag).toBeLessThan(firstAwait);
+  });
+
 });
