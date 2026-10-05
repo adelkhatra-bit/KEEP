@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-02T16:08:01.114Z
+- Régénéré le : 2026-10-05T02:03:27.805Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `b9b81e22` (b9b81e22b9902aa2900968dbe6d23015349a5521) — fix(ci): serialize production-backed browser audits
-- Date du dernier commit : 2026-10-02T17:59:03+02:00
+- Dernier commit : `9f9d465` (9f9d4654d2a491a87f769736bfe2449555e4116f) — feat(offers): three-card quick choice, fold long texts, Premium price 4.99 migration
+- Date du dernier commit : 2026-10-05T01:57:52+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `b9b81e22` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
-- `3b5e9946` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
-- `0c769216` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
-- `9e777b5a` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
-- `23808035` (2026-10-02, adelkhatra-bit) — fix(ci): serialize production-backed browser audits
-- `9d286fc3` (2026-10-02, adelkhatra-bit) — test(scale): lock auth priority and safe Battle polling
-- `d07d847f` (2026-10-02, adelkhatra-bit) — fix(scale): reduce Soirees Battle fallback polling
-- `8eefc958` (2026-10-02, adelkhatra-bit) — fix(scale): stop Battle lobby from starving auth
-- `2a2cead9` (2026-10-02, adelkhatra-bit) — fix(auth): bound login requests so users never hang on spinner
-- `623d195b` (2026-10-02, adelkhatra-bit) — fix(auth): reserve network lane for full login and profile bootstrap
+- `9f9d465` (2026-10-05, Claude) — feat(offers): three-card quick choice, fold long texts, Premium price 4.99 migration
+- `0bd08e3` (2026-10-05, Claude) — feat(notifications): marketing switch, daily phone-alert cap, instant kick, OTA guard tied to iOS build, Premium in exhausted-Solos window
+- `7fcd8d5` (2026-10-05, Claude) — fix(ios,admin): compile ShazamKit on iOS 15.1, fix marketplace RPC types and /team overflow
+- `550ae15` (2026-10-05, Claude) — fix(web-gate): simulate approved desktop device and check QR screen separately
+- `260f26e` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n9 - viralite, prix, offres simples, notifications actionnables, international (attente VALIDE-PAR-CHATGPT)
+- `f27ee05` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n8 - publication web bloquee + boutique, menu, univers musical (attente VALIDE-PAR-CHATGPT)
+- `2b03b5a` (2026-10-05, adelkhatra-bit) — Mise à jour des instructions AI avec des tests utilisateurs
+- `08f05ad` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n6 - reorganisation onglets (Battle, Tchat) + missions de depart FREE (attente VALIDE-PAR-CHATGPT)
+- `af5c1aa` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n5 - notifications (categories, plafond 8/j, envoi immediat) + garde OTA (attente VALIDE-PAR-CHATGPT)
+- `ca9391e` (2026-10-05, adelkhatra-bit) — docs(ai): proposition Claude n4 - coherence design Loki, lot 4a sans changement visuel (attente VALIDE-PAR-CHATGPT)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -152,6 +152,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 ## 4. Points ouverts
 
+- **Passe du 05/10/2026 (exécutant, propositions Claude n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)** : robot « page noire » corrigé (le site non connecté affiche l'écran QR ordinateur, le robot simule un appareil approuvé) ; build iOS ShazamKit compatible iOS 15.1 ; Super Admin `/team` responsive ; worker push (marketing, plafond 8/24 h) ; garde OTA liée au build iOS réussi ; écran Offres en 3 cartes ; inventaire des routes (`scripts/verify-route-inventory.cjs`). **Migrations commitées mais NON appliquées en production, accord d'Adel requis** : `20261005013000_keep_admin_marketplace_currency_text`, `20261005050000_push_cap_and_instant_kick` (+ déploiement `keep-push-worker`), `20261005060000_premium_price_4_99`. Restent : barre 5 onglets / menu ☰ / missions (6a-6c), boutique + univers musical (n°8.2-8.4), annuels (produits App Store Connect), n°9.3-9.7.
 - **🔴 Connexion impossible (02/10/2026) — base Supabase saturée** : instance
   Micro (1 Go), quota d'I/O disque épuisé (checkpoint de 48 Ko = 11 s, Auth
   « context deadline exceeded » / « failed to connect localhost:5432 »). Action

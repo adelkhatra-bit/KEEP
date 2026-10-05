@@ -391,6 +391,8 @@ index 8e7d078a..66176a79 100644
  }
 ```
 
+**[VALIDÉ-PAR-CLAUDE]** (n°1, exécuté le 05/10/2026 sur ordre d'Adel) — Patch B (build iOS ShazamKit) et Patch A (`team.tsx`) appliqués tels quels, typecheck admin OK. La migration marketplace `20261005013000_*` est **commitée mais NON appliquée en production** (écriture prod = accord explicite d'Adel requis). Build iOS : preuve = run Auto EAS Build vert + TestFlight (non compilable ici).
+
 
 ### 2026-10-05 01:55 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°2 → en attente [VALIDÉ-PAR-CHATGPT] — Économie FREE v2 (regard marketing + utilisateur)
 
@@ -821,6 +823,8 @@ HEAD de référence : `ca9391e4`. Proposition de périmètre seulement (pas de c
 
 Tests prévus : tests Deno du worker (catégories, plafond, exemptions) ; migration vérifiée par `verify-migrations` ; contrat jest pour la fenêtre Solos ; mesure live des statuts dans `push_delivery_attempts` après déploiement.
 
+**[VALIDÉ-PAR-CLAUDE]** (n°5, exécuté le 05/10/2026) — Fait : catégorie marketing lue par le worker, plafond 8/24 h (`push_daily_cap`, DM et argent exemptés, statut `CAPPED_IN_APP`), trigger de réveil immédiat (anti-rafale 2 s), garde OTA liée au build iOS réussi, « Passer Premium » dans la fenêtre Solos. Constat : le verrou FREE de l'interrupteur promos existait déjà (trigger SQL + `NotificationsScreen`), et `NEW_PUBLIC_KEEP`/`LOKI_PULSE_NEW` sont déjà « in-app only » (le regroupement 5.3 n'a donc pas d'objet). Découvert : le worker écrivait `SUPPRESSED_DUPLICATE`, absent de la contrainte SQL (ERR-PUSH-STATUS-CONSTRAINT-089). **Migration `20261005050000_*` et déploiement de la fonction non faits en production** (accord d'Adel requis).
+
 
 ### 2026-10-05 02:55 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°6 → en attente [VALIDÉ-PAR-CHATGPT] — Réorganisation « app qui parle d'elle-même » (demande explicite d'Adel)
 
@@ -844,6 +848,8 @@ HEAD de référence : `af5c1aa5`. Proposition de périmètre. **Adel autorise ex
 - Mobile et web via la source unique `packages/mobile/src`. Preuves 390×844 et 1440×900, robots Playwright existants mis à jour dans le même commit.
 - Cliquet design n°4 (si validé) : aucune nouvelle taille ou couleur écrite à la main.
 - Un lot par étape : (6a) barre + menu ☰, (6b) missions + FREE serveur, (6c) animations de récompense. Chaque étape fait l'objet d'une proposition validée séparément.
+
+**[VALIDÉ-PAR-CLAUDE]** (n°6, étape sûre uniquement, choix d'Adel du 05/10/2026) — Livré : `scripts/verify-route-inventory.cjs` + `config/route-inventory.json` (aucune route ne peut disparaître, aucun bouton ne peut viser une route inconnue), branché dans `web-preview-pages.yml`. **Barre à 5 onglets / menu ☰ / missions NON modifiés** : le Battle est lié à `PartiesScreen` (garde « Quitter la partie », disponibilité, audio, notifications). Lot 6a à rejouer à part, validé écran par écran, avec test iPhone réel.
 
 
 ### 2026-10-05 03:10 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°7 → en attente [VALIDÉ-PAR-CHATGPT] — Parcours mobile : test utilisateur réel 390×844
@@ -886,6 +892,8 @@ Preuves de non-régression pour chaque écran : captures 390×844 et 1440×900 a
 - Jamais de nombre figé dans un nom saisi : les compteurs sont toujours calculés.
 - Un même bloc n'apparaît qu'une fois par écran.
 
+**[VALIDÉ-PAR-CLAUDE]** (n°8, exécuté le 05/10/2026) — Cause racine reproduite en local (Chromium PC/tablette/Pixel 7) : depuis la décision « ordinateur = QR uniquement », le site non connecté affiche « Connexion ordinateur » sans barre d'onglets ; le robot n'avait pas de session. `web-visible-surface-gate.cjs` simule un appareil approuvé + contrôle l'écran QR séparément, sans affaiblir le contrôle (ERR-PAGES-VISIBLE-TABS-GATE-078). Points 2-4 (boutique, univers musical, règles §11) non traités dans cette passe.
+
 
 ### 2026-10-05 04:00 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°9 → en attente [VALIDÉ-PAR-CHATGPT] — Moteur « donner l'envie d'avoir envie » (devise d'Adel)
 
@@ -900,3 +908,5 @@ Adel valide (05/10 04:00) : objectif viralité + revenus. Proposition de périm�
 7. **Mesure gratuite** (PostHog, offre gratuite, connecteur déjà présent) : retour J1/J7/J30, missions terminées, partages, conversions vers Offres, pour piloter avec des chiffres.
 
 Ordre conseillé : n°8 → n°1 → n°5 → n°9.1-9.2 → n°6 → n°9.3-9.7.
+
+**[VALIDÉ-PAR-CLAUDE]** (n°9.1-9.2 seulement, exécuté le 05/10/2026) — Écran Offres : 3 cartes (Gratuit · Premium · Recharger FREE), textes longs repliés dans « En savoir plus » (rien supprimé), contrat jest. Migration `20261005060000_premium_price_4_99.sql` commitée, **non appliquée en production**; le prix réellement débité reste celui d'App Store Connect. Abonnements annuels / badge −33 % **non faits** : il n'existe pas de produits annuels App Store Connect (le code ne lit que `MONTHLY`). 9.3-9.7 non traités.

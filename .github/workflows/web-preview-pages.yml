@@ -94,6 +94,10 @@ jobs:
         if: steps.fresh.outputs.build == 'yes'
         run: node scripts/verify-source-of-truth.cjs
 
+      - name: Verify route inventory (nothing disappears)
+        if: steps.fresh.outputs.build == 'yes'
+        run: node scripts/verify-route-inventory.cjs
+
       - name: Prove public deployment source
         if: steps.fresh.outputs.build == 'yes'
         shell: bash

@@ -1,5 +1,8 @@
 # KEEP — Contexte actif
 
+## 05/10/2026 — passe exécutante (n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)
+Voir `PROJECT_STATE.md` > Points ouverts. Cause racine du blocage web : décision « ordinateur = QR uniquement » vs robot sans session (corrigé dans `scripts/web-visible-surface-gate.cjs`). Migrations commitées, non appliquées en production. Barre 5 onglets non touchée.
+
 Dernière mise à jour : 28 septembre 2026 — 22:50 UTC (session CRITICAL FIX + OTA DEPLOYMENT).
 
 Ce fichier résume l'état de travail à court terme. Il doit être actualisé à la fin de chaque session importante. Le code, les migrations et les guides agents restent prioritaires en cas d'écart.
