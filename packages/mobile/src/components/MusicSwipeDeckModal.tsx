@@ -896,10 +896,10 @@ export default function MusicSwipeDeckModal({
     if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
     nudgeTimer.current = setTimeout(() => setNudge(null), 5200);
   };
-  const reactTo = async (reaction: 'LIKE' | 'DISLIKE') => {
+  const reactTo = async (reaction: 'LIKE' | 'MEH' | 'DISLIKE') => {
     if (!current) return;
     const ok = await trackLikes.react(current.id, reaction);
-    if (ok) showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : 'AFTER_DISLIKE');
+    if (ok) showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : reaction === 'MEH' ? 'AFTER_MEH' : 'AFTER_DISLIKE');
   };
   const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
   const reactedRef = useRef(trackLikes.reacted);
@@ -950,9 +950,11 @@ export default function MusicSwipeDeckModal({
                 const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
                 if (likeMode === 'count-only' || isSelf) {
                   const dislikeCount = trackLikes.dislikeCounts[key] ?? 0;
-                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime et ${dislikeCount} pas aimé sur cette musique`}><Text style={s.likeCountText}>❤ {count} · 👎 {dislikeCount}</Text></View>;
+                  const mehCount = trackLikes.mehCounts[key] ?? 0;
+                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime, ${mehCount} bof et ${dislikeCount} pas aimé sur cette musique`}><Text style={s.likeCountText}>❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}</Text></View>;
                 }
-                return <TrackLikeButton liked={trackLikes.liked.has(key)} disliked={trackLikes.disliked.has(key)} count={count} onPress={() => { void reactTo('LIKE'); }} onDislike={() => { void reactTo('DISLIKE'); }} />;
+                const reaction = trackLikes.liked.has(key) ? 'LIKE' : trackLikes.meh.has(key) ? 'MEH' : trackLikes.disliked.has(key) ? 'DISLIKE' : null;
+                return <TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} />;
               })() : null}
             </View>
           ) : null}
@@ -1121,7 +1123,7 @@ const s = StyleSheet.create({
   addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
-  nudgePill:{position:'absolute',top:70,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:8,paddingHorizontal:14,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
+  nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:8,paddingHorizontal:14,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
   nudgeText:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center'},
   headerLikeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
   likeCount:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1.5,borderColor:'#FF5C8A',backgroundColor:'rgba(255,92,138,.14)',alignItems:'center',justifyContent:'center'},

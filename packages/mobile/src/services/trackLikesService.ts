@@ -40,31 +40,40 @@ export async function addTrackLike(profileId: string, trackId: string): Promise<
   if (error) throw error;
 }
 
-/** « Pas aimé » : ajout seulement (aucune suppression depuis un lecteur) ; table `track_dislikes`, visible par son auteur ; le partageur ne reçoit que des compteurs. */
-export async function addTrackDislike(profileId: string, trackId: string): Promise<void> {
+export type NegativeReaction = 'DISLIKE' | 'MEH';
+
+/** « Pas aimé » ou « Bof » : ajout seulement (aucune suppression depuis un lecteur) ; table `track_dislikes` (colonne `reaction`), visible par son auteur ; le partageur ne reçoit que des compteurs. */
+export async function addTrackNegative(profileId: string, trackId: string, reaction: NegativeReaction): Promise<void> {
   const key = likeKey(trackId);
-  if (!supabase || !profileId || !key) throw new Error('TRACK_DISLIKE_UNAVAILABLE');
-  const { error } = await supabase.from('track_dislikes').upsert({ profile_id: profileId, track_id: key }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
+  if (!supabase || !profileId || !key) throw new Error('TRACK_REACTION_UNAVAILABLE');
+  const { error } = await supabase.from('track_dislikes').upsert({ profile_id: profileId, track_id: key, reaction }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
   if (error) throw error;
 }
 
-export async function loadMyDislikesAmong(profileId: string, trackIds: string[]): Promise<Set<string>> {
-  const out = new Set<string>();
+export async function loadMyNegativesAmong(profileId: string, trackIds: string[]): Promise<{ disliked: Set<string>; meh: Set<string> }> {
+  const out = { disliked: new Set<string>(), meh: new Set<string>() };
   const ids = Array.from(new Set(trackIds.map(likeKey).filter(Boolean))).slice(0, 80);
   if (!supabase || !profileId || !ids.length) return out;
-  const { data, error } = await supabase.from('track_dislikes').select('track_id').eq('profile_id', profileId).in('track_id', ids);
+  const { data, error } = await supabase.from('track_dislikes').select('track_id,reaction').eq('profile_id', profileId).in('track_id', ids);
   if (error) throw error;
-  for (const row of (data ?? []) as any[]) if (row?.track_id) out.add(String(row.track_id));
+  for (const row of (data ?? []) as any[]) {
+    if (!row?.track_id) continue;
+    (String(row.reaction) === 'MEH' ? out.meh : out.disliked).add(String(row.track_id));
+  }
   return out;
 }
 
-/** Nombre de « pas aimé » sur MES musiques partagées (compteurs seulement, réservé au partageur). */
-export async function loadMyDislikeCounts(trackIds: string[]): Promise<Record<string, number>> {
-  const out: Record<string, number> = {};
+/** Nombre de « pas aimé » et de « bof » sur MES musiques partagées (compteurs seulement, réservé au partageur). */
+export async function loadMyReactionCounts(trackIds: string[]): Promise<{ dislikes: Record<string, number>; mehs: Record<string, number> }> {
+  const out = { dislikes: {} as Record<string, number>, mehs: {} as Record<string, number> };
   const ids = Array.from(new Set(trackIds.map(likeKey).filter(Boolean))).slice(0, 80);
   if (!supabase || !ids.length) return out;
-  const { data, error } = await supabase.rpc('keep_my_track_dislike_counts', { p_track_ids: ids });
+  const { data, error } = await supabase.rpc('keep_my_track_reaction_counts', { p_track_ids: ids });
   if (error) throw error;
-  for (const row of (data ?? []) as any[]) if (row?.track_id) out[String(row.track_id)] = Number(row.dislikes) || 0;
+  for (const row of (data ?? []) as any[]) {
+    if (!row?.track_id) continue;
+    out.dislikes[String(row.track_id)] = Number(row.dislikes) || 0;
+    out.mehs[String(row.track_id)] = Number(row.mehs) || 0;
+  }
   return out;
 }

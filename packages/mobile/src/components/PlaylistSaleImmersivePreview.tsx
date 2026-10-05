@@ -375,7 +375,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
 
           {!tracksLoading && !tracksUnavailable && likeMeId && !likeDemo && !likeGuest && !ownerMode && tracks?.[trackIndex] ? (
             <View style={{ alignItems: 'center', marginTop: 6 }} testID="sale-like-row">
-              <TrackLikeButton liked={saleLikes.liked.has(tracks[trackIndex].trackId)} disliked={saleLikes.disliked.has(tracks[trackIndex].trackId)} count={saleLikes.counts[tracks[trackIndex].trackId] ?? 0} onPress={() => { void saleLikes.react(tracks[trackIndex].trackId, 'LIKE'); }} onDislike={() => { void saleLikes.react(tracks[trackIndex].trackId, 'DISLIKE'); }} testID="sale-like-button" />
+              <TrackLikeButton reaction={saleLikes.liked.has(tracks[trackIndex].trackId) ? 'LIKE' : saleLikes.meh.has(tracks[trackIndex].trackId) ? 'MEH' : saleLikes.disliked.has(tracks[trackIndex].trackId) ? 'DISLIKE' : null} count={saleLikes.counts[tracks[trackIndex].trackId] ?? 0} onReact={(kind) => { void saleLikes.react(tracks[trackIndex].trackId, kind); }} testID="sale-like-button" />
             </View>
           ) : null}
 

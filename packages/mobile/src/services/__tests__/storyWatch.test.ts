@@ -306,20 +306,21 @@ describe('« Découvert par » mis en avant : contour lumineux qui pulse (Adel 0
 describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () => {
   const fs = require('fs'); const path = require('path');
   const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, ...p), 'utf8');
-  it('un seul composant de réactions : cœur ÉTEINT gris au départ, rouge ensuite, « pas aimé » à côté, une réaction par musique', () => {
+  it('un seul composant de réactions 3D : 👎 😐 ❤ qui flottent tant qu’on n’a pas réagi ; déjà réagi = seul le choisi reste allumé, sans redemander', () => {
     const btn = read('../../components/TrackLikeButton.tsx');
-    expect(btn).toContain("{liked ? '❤' : '♡'}");
-    expect(btn).toContain('color: colors.textMuted');
-    expect(btn).toContain("heartOn: { color: '#FF2D55' }");
-    expect(btn).not.toContain('GlowRing');
-    expect(btn).toContain('👎');
-    expect(btn).toContain('disabled={locked}');
+    expect(btn).toContain("perspective: 520");
+    expect(btn).toContain('rotateY');
+    expect(btn).toContain('Animated.loop');
+    expect(btn).toContain('isReduceMotionEnabled');
+    for (const glyph of ["'👎'", "'😐'", "'❤'"]) expect(btn).toContain(glyph);
+    expect(btn).toContain('// Déjà réagi : seul le bouton choisi reste allumé, on ne redemande pas.');
+    expect(btn).toContain('if (reaction) {');
     expect(btn).toContain('deck-like-badge-count');
   });
   it('présent dans TOUS les lecteurs : Swipe (stories, profils, sessions, y compris musiques payantes) et aperçu des collections en vente ; absent de ma propre collection', () => {
     const deck = read('../../components/MusicSwipeDeckModal.tsx');
     expect(deck).toContain("likeMode = 'auto'");
-    expect(deck).toContain('<TrackLikeButton liked={trackLikes.liked.has(key)} disliked={trackLikes.disliked.has(key)}');
+    expect(deck).toContain('<TrackLikeButton reaction={reaction} count={count}');
     expect(deck).toContain('testID="deck-like-count"');
     expect(read('../../components/PlaylistSaleImmersivePreview.tsx')).toContain('testID="sale-like-button"');
     expect(read('../../components/ProfileStoryBar.tsx')).toContain("likeMode={isOwnOpen ? 'count-only' : 'auto'}");
@@ -338,7 +339,7 @@ describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () =
 import { composeNudge, nudgeCombinationCount } from '../likeNudges';
 describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel 05/10/2026)', () => {
   it('beaucoup de combinaisons, courts, avec cœur ou pouce', () => {
-    for (const kind of ['PLAYING', 'SKIPPED', 'AFTER_LIKE', 'AFTER_DISLIKE'] as const) {
+    for (const kind of ['PLAYING', 'SKIPPED', 'AFTER_LIKE', 'AFTER_DISLIKE', 'AFTER_MEH'] as const) {
       expect(nudgeCombinationCount(kind)).toBeGreaterThanOrEqual(100);
       const lines = new Set(Array.from({ length: 80 }, (_, i) => composeNudge(kind, `s${i}`)));
       expect(lines.size).toBeGreaterThan(25);
@@ -355,15 +356,15 @@ describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel
     const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
     expect(deck).toContain("showNudge('SKIPPED')");
     expect(deck).toContain("showNudge('PLAYING')");
-    expect(deck).toContain("showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : 'AFTER_DISLIKE')");
+    expect(deck).toContain("showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : reaction === 'MEH' ? 'AFTER_MEH' : 'AFTER_DISLIKE')");
     expect(deck).toContain('testID="deck-like-nudge"');
-    expect(deck).toContain('❤ {count} · 👎 {dislikeCount}');
+    expect(deck).toContain('❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}');
   });
   it('« pas aimé » : ajout seulement, compteurs réservés au partageur, aucune suppression côté lecteur', () => {
     const fs = require('fs'); const path = require('path');
     const svc = fs.readFileSync(path.join(__dirname, '../trackLikesService.ts'), 'utf8');
     expect(svc).toContain("from('track_dislikes')");
-    expect(svc).toContain("rpc('keep_my_track_dislike_counts'");
+    expect(svc).toContain("rpc('keep_my_track_reaction_counts'");
     expect(svc).not.toMatch(/\.delete\s*\(/);
   });
 });
