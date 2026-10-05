@@ -500,6 +500,15 @@ export function releaseCaptureResources(): void {
 export async function cancelAudioCapture(): Promise<void> {
   cancellationVersion += 1;
   activeDelayCancel?.();
+  // BUG RÉEL TestFlight (Adel, 05/10/2026 : "j'appuie sur Play sur mon profil,
+  // la musique ne démarre pas", alors que l'ordinateur marche). pauseListening()
+  // appelle cancelAudioCapture() sans l'attendre puis lance aussitôt l'extrait.
+  // Le drapeau ne repassait à false qu'APRÈS stopRecordingQuietly() : l'extrait
+  // lisait donc encore isNativeRecordingModeActive() === true et configurait iOS
+  // en allowsRecordingIOS:true (son routé vers l'écouteur, quasi inaudible).
+  // On publie l'intention « plus d'enregistrement » dès l'arrêt demandé ; une
+  // nouvelle capture la repasse à true via ensurePermission().
+  if (Platform.OS !== 'web') nativeRecordingModeDesired = false;
 
   const recording = activeRecording;
   activeRecording = null;
