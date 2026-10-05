@@ -265,6 +265,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         visible={Boolean(openStory)}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
+        resetKey={openStory?.profileId ?? null}
         headerExtra={!isOwnOpen && openStory ? (
           <Text style={styles.teaser} numberOfLines={compactScreen ? 1 : 2} ellipsizeMode="tail">{composeStoryTeaser(openStory.username, `${openStory.profileId}:${new Date().toISOString().slice(0, 10)}`)}</Text>
         ) : isOwnOpen ? (
@@ -294,6 +295,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           </SafeAreaView>
         ) : null}
         titleBadge={openTier && openTier !== 'UNVERIFIED' ? <ProfileCertificationBadge tier={openTier} compact /> : null}
+        onFinished={() => {
+          // Enchaînement façon Instagram : la story finie, on passe tout de suite à la prochaine NON vue (la plus récente d'abord).
+          if (!openStory) return;
+          const upcoming = orderStoriesForBar(stories.filter((story) => !story.suggestion && story.tracks.length > 0 && story.profileId !== openStory.profileId && story.profileId !== viewer.id && (seen[story.profileId] || '') < story.latestAt), seen)[0];
+          if (upcoming) void open(upcoming);
+        }}
         endExtra={nextStory ? (
           <View style={styles.nextBox}>
             <TouchableOpacity style={styles.nextButton} onPress={() => { void open(nextStory); }} accessibilityRole="button" accessibilityLabel={`Voir la story de ${nextStory.username}`} testID="story-next">

@@ -47,6 +47,10 @@ type Props = {
   titleBadge?: React.ReactNode;
   /** Contenu proposé quand il n'y a plus de morceau (ex. story suivante) ; s'affiche sous le titre de fin. */
   endExtra?: React.ReactNode;
+  /** Appelé une fois quand le dernier morceau a été vu (file terminée) : enchaînement automatique vers la story suivante. */
+  onFinished?: () => void;
+  /** Change quand une AUTRE file (autre story) remplace la précédente sans fermer la fenêtre : la file est préparée à nouveau. */
+  resetKey?: string | null;
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
@@ -87,6 +91,8 @@ export default function MusicSwipeDeckModal({
   emptyTitle = 'Aucun morceau à découvrir.',
   titleBadge,
   endExtra,
+  onFinished,
+  resetKey,
   backLabel,
   allowStoryAdd = false,
   headerExtra,
@@ -135,6 +141,16 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
+  // Adel (05/10/2026) : « à chaque fois que je swipe ça passe automatiquement à l'autre utilisateur » -- la file terminée prévient le parent une seule fois par ouverture.
+  const onFinishedRef = useRef(onFinished);
+  onFinishedRef.current = onFinished;
+  const finishedRound = useRef(-1);
+  useEffect(() => {
+    if (!visible || preparingDeck || current || !deckTracks.length || finishedRound.current === round) return undefined;
+    finishedRound.current = round;
+    const timer = setTimeout(() => { onFinishedRef.current?.(); }, 450);
+    return () => clearTimeout(timer);
+  }, [visible, preparingDeck, current, deckTracks.length, round]);
   // ERR-FIRST-DISCOVERER-097 : « Découvert par » = toujours le PREMIER découvreur (serveur), jamais le propriétaire du profil ouvert.
   const [firstOrigins, setFirstOrigins] = useState<Record<string, TrackOrigin>>({});
   const deckTrackIdsKey = deckTracks.map((track) => track.id).join(',');
@@ -253,6 +269,7 @@ export default function MusicSwipeDeckModal({
   // morceaux publics restent écoutables, même déjà présents chez le visiteur.
   const socialDiscoveryMode = !previewOnly && askVisibilityOnKeep && loop;
 
+  const lastResetKey = useRef<string | null>(resetKey ?? null);
   const advanceIndex = useCallback(() => {
     setIndex((currentIndex) => {
       if (currentIndex + 1 >= deckTracks.length) {
@@ -278,6 +295,7 @@ export default function MusicSwipeDeckModal({
       setPreparingDeck(false);
       return () => { alive = false; };
     }
+    if (resetKey !== lastResetKey.current) { lastResetKey.current = resetKey ?? null; wasVisible.current = false; }
     if (wasVisible.current) return () => { alive = false; };
     wasVisible.current = true;
     setPreparingDeck(true);
@@ -318,7 +336,7 @@ export default function MusicSwipeDeckModal({
 
     void prepare();
     return () => { alive = false; };
-  }, [visible, loop, socialDiscoveryMode, initialTrackId]);
+  }, [visible, loop, socialDiscoveryMode, initialTrackId, resetKey]);
 
   useEffect(() => {
     let alive = true;

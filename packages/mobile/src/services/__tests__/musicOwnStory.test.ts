@@ -350,3 +350,21 @@ describe('Ordre par récence + bulles qui glissent (Adel 05/10/2026)', () => {
     expect(rail.indexOf('LayoutAnimation.configureNext')).toBeLessThan(rail.indexOf('if (empty) return null;'));
   });
 });
+
+describe('Enchaînement automatique des stories (Adel 05/10/2026)', () => {
+  const fsB = require('fs'); const pathB = require('path');
+  const deck = fsB.readFileSync(pathB.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  const bar = fsB.readFileSync(pathB.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  it('la fin d\'une file prévient le parent une seule fois par ouverture', () => {
+    expect(deck).toContain('finishedRound.current === round');
+    expect(deck).toContain('onFinishedRef.current?.()');
+  });
+  it('une autre story remplace la file sans fermer la fenêtre (resetKey)', () => {
+    expect(deck).toContain('resetKey !== lastResetKey.current');
+    expect(bar).toContain('resetKey={openStory?.profileId ?? null}');
+  });
+  it('on passe à la prochaine story NON vue, la plus récente d\'abord, jamais en boucle sur les vues', () => {
+    expect(bar).toContain('(seen[story.profileId] || \'\') < story.latestAt');
+    expect(bar).toContain('onFinished={() => {');
+  });
+});
