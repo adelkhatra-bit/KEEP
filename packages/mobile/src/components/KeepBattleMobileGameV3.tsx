@@ -1408,6 +1408,21 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     answeredRoundRef.current = soloIndex;
     recordSoloAnswer('__TIMEOUT__'); void stopTrackPreview(); animateResult();
   }, [solo, audioReady, soloAnswer, soloIndex, animateResult, recordSoloAnswer, now]);
+  // Adel (05/10/2026) : « il faut que ce soit instantané » -- la manche N+1 est préchargée dès que la manche N JOUE (pas seulement après la réponse) :
+  // le téléchargement a toute la durée de la manche pour se faire. Même clé que le préchargement après réponse (déjà-prêt = ignoré).
+  React.useEffect(() => {
+    if (!solo) return;
+    // Première manche : l'extrait se télécharge pendant la préparation de la partie.
+    if (!audioReady && soloIndex === 0 && !soloAnswer) {
+      const first = solo.rounds[0];
+      if (first?.previewUrl) void preloadTrackPreviewSegment(soloRoundPreviewKey(first.trackId, 0), first.previewUrl, 0).catch(() => {});
+      return;
+    }
+    if (!audioReady || soloAnswer) return;
+    const nextRound = solo.rounds[soloIndex + 1];
+    if (!nextRound?.previewUrl) return;
+    void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0).catch(() => {});
+  }, [solo, audioReady, soloIndex]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     // Une réponse coupe immédiatement l'extrait courant et préchauffe N+1

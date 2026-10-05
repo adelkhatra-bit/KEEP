@@ -49,3 +49,18 @@ describe('Single native playback + fast handoff contract', () => {
     expect(battle).toContain('stopTrackPreviewFast();');
   });
 });
+
+describe('Solo instantané : préchargement précoce, web compris (Adel 05/10/2026)', () => {
+  const fs = require('fs'); const path = require('path');
+  const battleSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'KeepBattleMobileGameV3.tsx'), 'utf8');
+  const audioSrc = fs.readFileSync(path.join(__dirname, '..', 'audioPreviewService.ts'), 'utf8');
+  it('preloads round 0 during preparation and round N+1 as soon as round N plays', () => {
+    expect(battleSrc).toContain('Première manche : l\'extrait se télécharge pendant la préparation de la partie.');
+    expect(battleSrc).toContain('const nextRound = solo.rounds[soloIndex + 1];');
+    expect(battleSrc).toContain('soloRoundPreviewKey(first.trackId, 0)');
+  });
+  it('web no longer skips segment preloading (a second <audio> warms the browser cache)', () => {
+    expect(audioSrc).toContain('warmWebSegment(previewUrl);');
+    expect(audioSrc).not.toContain('if (!previewUrl || canUseWebAudio()) return;\n  return serialize');
+  });
+});

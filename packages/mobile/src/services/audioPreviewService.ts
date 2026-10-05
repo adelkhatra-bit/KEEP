@@ -838,12 +838,35 @@ export async function playTrackPreviewSegment(
  * un échec ne bloque rien, playTrackPreviewSegment retombera simplement sur
  * son chargement normal quand cette clé sera jouée pour de vrai.
  */
+let webSegmentWarm: { url: string; element: any } | null = null;
+function warmWebSegment(previewUrl: string) {
+  try {
+    if (webSegmentWarm && webSegmentWarm.url === previewUrl) return;
+    const HtmlAudio = (globalThis as any).Audio;
+    if (!HtmlAudio) return;
+    const element = new HtmlAudio();
+    element.preload = 'auto';
+    element.muted = true;
+    element.playsInline = true;
+    element.src = previewUrl;
+    try { element.load(); } catch {}
+    webSegmentWarm = { url: previewUrl, element };
+  } catch {}
+}
+
 export async function preloadTrackPreviewSegment(
   key: string,
   previewUrl: string,
   positionMillis: number,
 ): Promise<void> {
-  if (!previewUrl || canUseWebAudio()) return;
+  if (!previewUrl) return;
+  if (canUseWebAudio()) {
+    // Adel (05/10/2026) : sur ordinateur AUCUN préchargement n'existait pour le Solo : chaque manche attendait le téléchargement
+    // complet de son extrait. Un second élément <audio> réchauffe le cache du navigateur ; l'élément partagé relit ensuite le
+    // même fichier sans réseau (démarrage quasi instantané).
+    warmWebSegment(previewUrl);
+    return;
+  }
   return serialize(async () => {
     if (preloadedKey === key && preloadedSound) return;
     // iOS/TestFlight : préparer N+1 sans reconfigurer l'AudioSession
