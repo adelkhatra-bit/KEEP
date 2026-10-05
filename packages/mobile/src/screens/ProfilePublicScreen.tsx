@@ -34,6 +34,8 @@ import { KeepPlaylistPreference, loadPlaylistPreferences, preferenceFor } from '
 import { isSmartAlbumUiId, loadOwnSmartAlbums, loadSmartAlbumTracks, persistEnrichedGenres, refreshOwnSmartAlbums, smartAlbumAsProviderPlaylist, SmartAlbumRecord } from '../services/smartAlbumService';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadMyPlaylistSaleOffers, loadOwnPlaylistSaleOfferTracks, loadPlaylistSaleOfferOverlap, loadPlaylistSaleOffersForProfile, PublicPlaylistSaleOffer, PlaylistSaleOffer, purchasePlaylistOfferWithFree, requestMissingPlaylistSaleTracks, requestPlaylistPurchase } from '../services/playlistSaleService';
+import { readProfileMemory, writeProfileMemory } from '../services/profileMemory';
+import { readOwnProfileKeepsCache } from '../services/publicProfileStateService';
 import { DiscoveryImpact, loadOwnProfileKeeps, loadOwnProfileSnapshot, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileSnapshot, OwnProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileKeep, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import SocialPlatformIcon, { SOCIAL_BRAND_COLORS } from '../components/SocialPlatformIcon';
 import TrackPreviewButton from '../components/TrackPreviewButton';
@@ -666,11 +668,27 @@ export default function ProfilePublicScreen({ navigation }: any) {
       // Une panne d'un RPC ne doit JAMAIS transformer le profil en profil vide.
       // Chaque bloc conserve son dernier état valide et se remplace seulement
       // quand sa propre source serveur répond correctement.
-      if (publicState.status === 'fulfilled') setPublicSnapshot(publicState.value);
-      if (ownState.status === 'fulfilled') setOwnSnapshot(ownState.value);
+      if (publicState.status === 'fulfilled') { setPublicSnapshot(publicState.value); writeProfileMemory(user.id, 'public', publicState.value); }
+      if (ownState.status === 'fulfilled') { setOwnSnapshot(ownState.value); writeProfileMemory(user.id, 'own', ownState.value); }
       if (ownKeeps.status === 'fulfilled') setServerOwnKeeps(ownKeeps.value);
-      if (impacts.status === 'fulfilled') setDiscoveryImpacts(impacts.value);
+      if (impacts.status === 'fulfilled') { setDiscoveryImpacts(impacts.value); writeProfileMemory(user.id, 'impacts', impacts.value); }
     };
+    // Mémoire locale : la dernière version connue s'affiche TOUT DE SUITE ; le serveur la remplace ensuite (jamais l'inverse).
+    if (user && !accountRequired) {
+      const memoryUserId = user.id;
+      void Promise.all([
+        readProfileMemory<PublicProfileSnapshot>(memoryUserId, 'public'),
+        readProfileMemory<OwnProfileSnapshot>(memoryUserId, 'own'),
+        readOwnProfileKeepsCache(memoryUserId),
+        readProfileMemory<Record<string, DiscoveryImpact>>(memoryUserId, 'impacts'),
+      ]).then(([cachedPublic, cachedOwn, cachedKeeps, cachedImpacts]) => {
+        if (!live) return;
+        if (cachedPublic) setPublicSnapshot((previous) => previous ?? cachedPublic);
+        if (cachedOwn) setOwnSnapshot((previous) => previous ?? cachedOwn);
+        if (cachedKeeps?.length) setServerOwnKeeps((previous) => (previous.length ? previous : cachedKeeps));
+        if (cachedImpacts) setDiscoveryImpacts((previous) => (Object.keys(previous).length ? previous : cachedImpacts));
+      }).catch(() => {});
+    }
     void refreshCanonicalProfileState();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCanonicalProfileState(); });
     return () => { live = false; unsubscribe?.(); };

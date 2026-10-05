@@ -252,6 +252,10 @@ function ownKeepsCacheKey(profileId: string) {
   return `${OWN_PROFILE_KEEPS_CACHE_PREFIX}:${profileId}`;
 }
 
+export async function readOwnProfileKeepsCache(profileId: string): Promise<PublicProfileKeep[] | null> {
+  return readOwnKeepsCache(profileId);
+}
+
 async function readOwnKeepsCache(profileId: string): Promise<PublicProfileKeep[] | null> {
   if (!profileId) return null;
   try {

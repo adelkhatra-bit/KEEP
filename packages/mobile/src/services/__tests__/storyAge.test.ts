@@ -70,3 +70,18 @@ describe('Partager en story une musique reprise + design masqué unique (Adel 05
     expect(sale).not.toContain('s.mysteryLock');
   });
 });
+
+describe('Mémoire locale du profil : affichage instantané (Adel 05/10/2026)', () => {
+  const mem = fs.readFileSync(path.join(__dirname, '..', 'profileMemory.ts'), 'utf8');
+  const screen = fs.readFileSync(path.join(__dirname, '..', '..', 'screens', 'ProfilePublicScreen.tsx'), 'utf8');
+  const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  it('la mémoire ne remplace jamais une donnée serveur : elle ne sert que si l\'état est encore vide', () => {
+    expect(mem).toContain('MAX_AGE_MS = 7 * 24 * 3600 * 1000');
+    expect(screen).toContain('setPublicSnapshot((previous) => previous ?? cachedPublic)');
+    expect(screen).toContain("setServerOwnKeeps((previous) => (previous.length ? previous : cachedKeeps))");
+  });
+  it('profil et rangée de stories sont écrits en mémoire seulement avec des données serveur complètes', () => {
+    expect(screen).toContain("writeProfileMemory(user.id, 'public', publicState.value)");
+    expect(bar).toContain("if (!degraded) writeProfileMemory(viewer.id, 'story-rail'");
+  });
+});

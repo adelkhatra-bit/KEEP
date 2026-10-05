@@ -1,3 +1,4 @@
+import { readProfileMemory, writeProfileMemory } from '../services/profileMemory';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { Image, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -93,6 +94,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     // n'affichait que ce qui était déjà revenu ; une branche en échec laissait la rangée vide. Désormais on garde ce qui est affiché
     // jusqu'à ce que les nouvelles données soient là, et on ne retire jamais une bulle si une des branches a échoué.
     const previous = new Map(storiesRef.current.map((story) => [story.profileId, story] as const));
+    // Mémoire locale (Adel 05/10/2026 : « le chargement est très long ») : la dernière rangée connue s'affiche tout de suite,
+    // le serveur la remplace ensuite. Les musiques de plus de 24 h ne sont jamais réaffichées (fenêtre de story).
+    void readProfileMemory<MusicStory[]>(viewer.id, 'story-rail').then((cached) => {
+      if (!live || !cached?.length) return;
+      for (const story of cached) if (!previous.has(story.profileId) && !collected.has(story.profileId)) previous.set(story.profileId, story);
+      if (collected.size === 0) setStories(display());
+    }).catch(() => {});
     const collected = new Map<string, MusicStory>();
     let degraded = false;
     let storiesLoaded = false;
@@ -179,6 +187,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       if (!live) return;
       // Données complètes : on retire alors les bulles qui ont disparu côté serveur (story expirée, désabonnement).
       if (!degraded) setStories(Array.from(collected.values()));
+      // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
+      if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
       setActivityKnown(true);
     })();
     return () => { live = false; };
