@@ -120,3 +120,11 @@ Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web
 3. **L'écriture ne doit pas être trop petite.** Notifications : titre ≥ 16, texte ≥ 14, liens et boutons ≥ 13, étiquettes ≥ 11. Une ligne de hauteur (`lineHeight`) n'est jamais plus petite que la taille du texte.
 4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-mobile-text-contrast.cjs`.
 5. À étendre au reste de l'interface écran par écran, sans casser le design validé.
+
+## 12. Règle permanente des espaces (décision d'Adel, 05/10/2026 — valable partout)
+
+Respecter les espaces dans tout le système : aucun élément collé à un autre ni rogné par lui. Une jaquette ou une carte ne touche jamais l'en-tête ni le sous-titre ; un texte d'aide ne recouvre jamais un bouton.
+- Au moins **16 px** entre un en-tête et le contenu qui suit, au moins **12 px** entre un texte d'aide et le bouton suivant.
+- Un texte d'aide qui passe sur 2 lignes doit pouvoir le faire sans recouvrir son voisin (marges verticales, pas de hauteur figée).
+- Même règle sur téléphone, tablette et ordinateur ; vérifier avec une capture avant de valider un écran.
+
