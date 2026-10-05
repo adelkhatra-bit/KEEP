@@ -12,7 +12,7 @@ describe('HomeScreenCompact Loki Music branding contract', () => {
   });
 
   it('keeps microphone guidance inside the actual listening flow', () => {
-    expect(source).toContain('IDENTIFIER UN MORCEAU');
+    expect(source).toContain('TROUVER LE MORCEAU');
     expect(source).toContain('Le micro est utilisé uniquement pendant l’écoute.');
   });
 });

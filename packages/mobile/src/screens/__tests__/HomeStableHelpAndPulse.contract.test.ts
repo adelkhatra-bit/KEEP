@@ -23,7 +23,7 @@ describe('Listen home stable layout contract', () => {
     expect(source).not.toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'"); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(source).not.toContain("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8}"); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
     expect(source).not.toContain('homePulseArtworkRing:{position:\'relative\',width:86,height:86'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
-    expect(source).toContain('IDENTIFIER UN MORCEAU');
+    expect(source).toContain('TROUVER LE MORCEAU');
     expect(source).not.toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}'); // Adel 05/10/2026 : plus de bulles Loki Pulse sur Écouter (elles restent sur le profil)
   });
 

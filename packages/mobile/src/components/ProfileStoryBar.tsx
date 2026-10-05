@@ -17,6 +17,7 @@ import {
   loadMyStoryViewers,
   SALE_TRACK_PREFIX,
   loadStoryRelations,
+  loadProfilesActivity,
   loadStyleSuggestions,
   loadOthersBubbles,
   loadFriendBubbles,
@@ -61,6 +62,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   // Adel (05/10/2026) : « je viens de garder une musique, mon cercle ne s'allume pas » -- la rangée était chargée une seule fois ; elle se recharge maintenant à chaque retour sur le profil.
   const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
+  const [activityKnown, setActivityKnown] = useState(false);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
@@ -114,22 +116,19 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             setTiers(nextTiers);
           }
         } catch { /* sans certification connue : aucun badge */ }
-        // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
-        const presence = await Promise.allSettled([...all, ...friends, ...suggestions, ...styleFriends].map((story) => loadProfilePresence(story.profileId)));
+        // Activité réelle (un seul appel serveur) : pastille verte/rouge + tri « dernier actif d'abord » ; les anciens inactifs passent à la suite.
+        const activity = await loadProfilesActivity([...all, ...friends, ...suggestions, ...styleFriends].map((story) => story.profileId)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
           const seenAt: Record<string, string> = {};
-          [...all, ...friends, ...suggestions, ...styleFriends].forEach((story, index) => {
-            const result = presence[index];
-            if (result.status === 'fulfilled' && result.value.known) {
-              next[story.profileId] = result.value.online;
-              // En ligne maintenant = « vu à l'instant » : le dernier connecté passe devant.
-              if (result.value.online) seenAt[story.profileId] = new Date().toISOString();
-              else if (result.value.lastSeenAt) seenAt[story.profileId] = String(result.value.lastSeenAt);
-            }
-          });
+          for (const [id, info] of Object.entries(activity)) {
+            next[id] = info.online;
+            if (info.online) seenAt[id] = new Date().toISOString();
+            else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
+          }
           setOnline(next);
           setLastSeenAt(seenAt);
+          setActivityKnown(true);
         }
       } catch {
         // Réseau indisponible : la rangée garde ta story locale, jamais d'écran cassé.
@@ -247,6 +246,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     <View testID="profile-story-bar" style={styles.barRow}>
       <View style={styles.railWrap}>
         <MusicStoryRail
+          activityKnown={activityKnown}
           stories={stories.map((story) => (lastSeenAt[story.profileId] ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
           seen={seen}
           size={avatarSize}

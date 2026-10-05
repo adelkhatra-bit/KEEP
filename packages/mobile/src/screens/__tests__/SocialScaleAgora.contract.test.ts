@@ -62,7 +62,7 @@ describe('Social scale and musical agora contracts',()=>{
     const home=read('screens','HomeScreenCompact.tsx');
     expect(home).toContain("Loki reconnaît la musique autour de toi.");
     expect(home).toContain('En savoir plus');
-    expect(home).toContain('IDENTIFIER UN MORCEAU');
+    expect(home).toContain('TROUVER LE MORCEAU');
     expect(home).not.toContain('<Text style={s.idleKicker}>TON RADAR MUSICAL & SOCIAL</Text>');
   });
 });

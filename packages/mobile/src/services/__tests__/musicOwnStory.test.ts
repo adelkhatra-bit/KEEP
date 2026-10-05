@@ -79,7 +79,7 @@ describe('pastille de présence et taille des bulles', () => {
     expect(rail).toContain('OFFLINE_RED');
   });
   it('profile bubbles use the profile photo size and the existing presence RPC (no duplicate source)', () => {
-    expect(read('components', 'ProfileStoryBar.tsx')).toContain('loadProfilePresence(');
+    expect(read('components', 'ProfileStoryBar.tsx')).toContain('loadProfilesActivity(');
     expect(read('screens', 'ProfilePublicScreen.tsx')).toContain('size={80}');
   });
 });
@@ -331,7 +331,7 @@ describe('Qui apparaît dans la rangée : uniquement les membres liés à moi (A
   it('une story vue part tout au bout de la ligne, la suivante non vue prend sa place (Instagram)', () => {
     expect(rail).toContain('const unseenFollowed = orderStoriesForBar(');
     expect(rail).toContain('const seenStories = orderStoriesForBar(');
-    expect(rail).toContain('...styleSuggestions, ...seenStories]');
+    expect(rail).toContain('...styleSuggestions, ...seenStories, ...dormantMembers]');
     expect(rail).not.toContain('Modal');
   });
 });
@@ -381,5 +381,20 @@ describe('Suggestions façon Instagram : bouton « +👤 » dans la ligne (Adel 
     expect(rail).toContain('+👤');
     expect(bar).toContain("rpc('keep_follow_profile'");
     expect(bar).toContain('followed: true, suggestion: false, styleMatch: false');
+  });
+});
+
+
+describe('Tri intelligent : les anciens inactifs à la suite (Adel 05/10/2026)', () => {
+  const fsD = require('fs'); const pathD = require('path');
+  const rail = fsD.readFileSync(pathD.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  const svc = fsD.readFileSync(pathD.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  it('un membre sans activité depuis 14 jours (ou inconnue) est endormi, jamais devant', () => {
+    expect(fsD.readFileSync(pathD.join(__dirname, '..', 'storyActivity.ts'), 'utf8')).toContain('export const DORMANT_AFTER_DAYS = 14;');
+    expect(rail).toContain('const dormantMembers =');
+    expect(rail).toContain('...seenStories, ...dormantMembers]');
+  });
+  it('un seul appel serveur pour l\'activité réelle (connexion, GARDER, épingle)', () => {
+    expect(svc).toContain("rpc('keep_profiles_activity'");
   });
 });

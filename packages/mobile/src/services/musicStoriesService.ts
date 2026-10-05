@@ -599,3 +599,24 @@ export async function loadStyleSuggestions(viewerId: string, excludeIds: string[
   }
   return out;
 }
+
+
+/**
+ * Tri intelligent par activité réelle (Adel, 05/10/2026) : un ancien abonné inactif ne passe jamais devant. Activité = dernière connexion,
+ * dernier GARDER ou dernière épingle de story (RPC serveur `keep_profiles_activity`, un seul appel pour tout le lot).
+ * Au-delà de DORMANT_AFTER_DAYS sans activité (ou activité inconnue), le membre est « endormi » : il reste dans la ligne mais à la suite.
+ */
+import { DORMANT_AFTER_DAYS, isDormantMember } from './storyActivity';
+export { DORMANT_AFTER_DAYS, isDormantMember };
+export async function loadProfilesActivity(profileIds: string[]): Promise<Record<string, { lastActiveAt: string | null; online: boolean }>> {
+  const out: Record<string, { lastActiveAt: string | null; online: boolean }> = {};
+  if (!supabase || !profileIds.length) return out;
+  const ids = Array.from(new Set(profileIds)).slice(0, 200);
+  const { data, error } = await supabase.rpc('keep_profiles_activity', { p_profile_ids: ids });
+  if (error) return out;
+  for (const row of (data ?? []) as any[]) {
+    if (!row?.profile_id) continue;
+    out[String(row.profile_id)] = { lastActiveAt: row.last_active_at ? String(row.last_active_at) : null, online: Boolean(row.is_online) };
+  }
+  return out;
+}

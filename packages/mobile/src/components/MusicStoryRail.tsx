@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, LayoutAnimation, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
-import { orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
+import { isDormantMember, orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
 
 /**
  * Bulles de stories à côté de la photo du profil (Adel, 05/10/2026, inspiré
@@ -29,6 +29,8 @@ type Props = {
   /** Suivre directement un membre non suivi (bouton « +👤 » sur sa bulle, comme Instagram). */
   onFollow?: (story: MusicStory) => void | Promise<void>;
   followBusyId?: string | null;
+  /** Vrai quand l'activité des membres est connue : sans elle, on ne range personne parmi les « endormis ». */
+  activityKnown?: boolean;
 };
 
 const RING = 60;
@@ -73,7 +75,7 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId, activityKnown = false }: Props) {
   const ITEM = size + 2;
   // Adel (05/10/2026) — EXACTEMENT comme Instagram : une seule rangée, toute d'une pièce (photo + « + » comprise), qui défile sur le côté.
   //  1. stories non vues, la plus récente d'abord (mes abonnements, puis les membres liés) ;
@@ -86,11 +88,16 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const byLastSeen = (a: MusicStory, b: MusicStory) => (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '');
   const unseenFollowed = orderStoriesForBar(stories.filter((story) => story.followed && isUnseen(story)), seen);
   const unseenOthers = orderStoriesForBar(stories.filter((story) => !story.followed && isUnseen(story)), seen);
-  const friendsNoStory = stories.filter((story) => story.followed && !hasStory(story)).sort(byLastSeen);
-  const linkedSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && !story.styleMatch).sort(byLastSeen);
+  // Anciens inactifs (aucune activité depuis > 14 jours) : ils restent dans la ligne mais TOUT À LA SUITE, jamais devant.
+  const dormant = (story: MusicStory) => activityKnown && isDormantMember(story.lastSeenAt || null);
+  const friendsNoStoryAll = stories.filter((story) => story.followed && !hasStory(story)).sort(byLastSeen);
+  const friendsNoStory = friendsNoStoryAll.filter((story) => !dormant(story));
+  const linkedAll = stories.filter((story) => !story.followed && !hasStory(story) && !story.styleMatch).sort(byLastSeen);
+  const linkedSuggestions = linkedAll.filter((story) => !dormant(story));
   const styleSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && story.styleMatch);
   const seenStories = orderStoriesForBar(stories.filter((story) => hasStory(story) && !isUnseen(story)), seen);
-  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories];
+  const dormantMembers = [...friendsNoStoryAll.filter(dormant), ...linkedAll.filter(dormant)];
+  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories, ...dormantMembers];
   const empty = !row.length && !own && !leading;
 
   // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part au bout, la suivante avance.

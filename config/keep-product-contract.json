@@ -976,10 +976,13 @@
     "rowOrder": [
       "unseen stories followed (recent first)",
       "unseen stories of linked members",
-      "followed without story (last connected first)",
-      "linked suggestions (follow pill)",
+      "active followed without story (last active first)",
+      "active linked suggestions (follow pill)",
       "style suggestions (follow pill)",
-      "seen stories (very end)"
-    ]
+      "seen stories",
+      "dormant members (no activity > 14 days) — very last, never in front"
+    ],
+    "dormantAfterDays": 14,
+    "activitySource": "rpc keep_profiles_activity (connexion, GARDER, épingle de story)"
   }
 }

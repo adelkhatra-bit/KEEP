@@ -670,15 +670,15 @@ export default function HomeScreenCompact({ navigation }: any) {
                 variant="primary"
                 size="large"
                 onPress={startListening}
-                accessibilityLabel="Identifier un morceau"
+                accessibilityLabel="Trouver le morceau qui joue"
                 accessibilityHint="Loki Music capte avec le micro du téléphone la musique jouée autour de toi"
               >
-                ◉  IDENTIFIER UN MORCEAU
+                ◉  TROUVER LE MORCEAU
               </MotionActionButton>
             </View>
             {isDemoMode || musicEngine.isDemoMode ? (
               <View style={s.demoRow}>
-                <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} IDENTIFIÉS` : ''}</Text>
+                <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} TROUVAILLES` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
@@ -686,7 +686,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : user && listenEconomyStatus ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>
-                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} IDENTIFIÉS AUJOURD’HUI
+                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} TROUVAILLES AUJOURD’HUI
                   {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
                 </Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
@@ -965,6 +965,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 }
 
 function TopBar({ navigation, readyCount = 0 }: any) {
+  const narrowTop = useWindowDimensions().width < 360;
   const readyPulse = useRef(new Animated.Value(0.45)).current;
   useEffect(() => {
     if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
@@ -977,7 +978,7 @@ function TopBar({ navigation, readyCount = 0 }: any) {
   }, [readyCount, readyPulse]);
 
   return <View style={s.topBar}>
-    <Text style={s.brand} numberOfLines={1}>Identifier</Text>
+    <Text style={[s.brand, { flexShrink: 1 }, narrowTop && { fontSize: 26, lineHeight: 32 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Ça joue quoi ?</Text>
     <View style={s.topBarActions}>
       {readyCount > 0 ? (
         <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
@@ -987,8 +988,12 @@ function TopBar({ navigation, readyCount = 0 }: any) {
           </Animated.View>
         </TouchableOpacity>
       ) : null}
-      <TouchableOpacity style={s.round} onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel="Ouvrir mes sessions">
-        <Text style={s.roundText}>☰</Text>
+      {/* Adel (05/10/2026) : le ☰ s'anime (halo qui pulse + pastille du nombre) quand des sessions sont prêtes : l'utilisateur comprend qu'il a quelque chose à ouvrir. */}
+      <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={readyCount > 0 ? `Ouvrir mes sessions : ${readyCount} morceau${readyCount > 1 ? 'x' : ''} prêt${readyCount > 1 ? 's' : ''}` : 'Ouvrir mes sessions'} testID="home-sessions-menu">
+        <Animated.View style={[s.round, readyCount > 0 && s.roundReady, readyCount > 0 && { transform: [{ scale: readyPulse.interpolate({ inputRange: [0.45, 1], outputRange: [1, 1.1] }) }] }]}>
+          <Text style={s.roundText}>☰</Text>
+        </Animated.View>
+        {readyCount > 0 ? <View style={s.roundBadge} pointerEvents="none"><Text style={s.roundBadgeText}>{readyCount > 9 ? '9+' : readyCount}</Text></View> : null}
       </TouchableOpacity>
     </View>
   </View>;
@@ -1206,6 +1211,9 @@ const s = StyleSheet.create({
   readyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
   readyText: { color: C.green, fontSize: 11, fontWeight: '900', flexShrink: 1 },
   round: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  roundReady: { borderColor: '#2DE1C2', shadowColor: '#2DE1C2', shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 10 },
+  roundBadge: { position: 'absolute', top: -6, right: -6, minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 5, backgroundColor: '#FF3D9A', borderWidth: 2, borderColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
+  roundBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   roundText: { color: colors.white, fontSize: 28, lineHeight: 30, fontWeight: '900' },
   brand: { ...typography.h1, color: C.text, flexShrink: 1 },
   premium: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
