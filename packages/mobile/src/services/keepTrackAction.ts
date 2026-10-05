@@ -12,7 +12,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { withRetry } from './retry';
 import { ensureDownloadCreditAvailable } from './creditService';
-import { recordKeepDecision } from './keepMusicCoreRecognition';
+import { recordKeepDecision, updateKeepDecisionVisibility } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
 
@@ -62,11 +62,18 @@ export async function commitKeep(
   if (!userState.isDemoMode && !userState.isLocalGuest) {
     const existing = await checkOwnKeepLibrary(track).catch(() => null);
     if (existing?.exists && existing.match) {
+      // Adel (05/10/2026) : « il l'a gardé en public pour sa story mais rien ne s'est passé » -- un morceau déjà gardé en PRIVÉ restait
+      // privé même quand on choisissait Public (donc jamais en story). Le choix explicite Public rend la décision existante publique, sans débit.
+      let alreadyVisibility = existing.match.visibility ?? visibility;
+      if (options?.visibility === 'PUBLIC' && alreadyVisibility !== 'PUBLIC' && existing.match.decisionId) {
+        const upgraded = await updateKeepDecisionVisibility(existing.match.decisionId, 'PUBLIC').catch(() => false);
+        if (upgraded) alreadyVisibility = 'PUBLIC';
+      }
       return {
         targetPlaylistId: existing.match.playlistId || 'keep-profile',
         playlistName: existing.match.playlistName || 'Mes Gardés',
         downloaded: false,
-        visibility: existing.match.visibility ?? visibility,
+        visibility: alreadyVisibility,
         keepDecisionId: existing.match.decisionId,
         profileSyncFailed: false,
         alreadyKept: true,

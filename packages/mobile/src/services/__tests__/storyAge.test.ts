@@ -49,3 +49,11 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
     expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
   });
 });
+
+describe('GARDER public d\'un morceau déjà gardé en privé (Adel 05/10/2026)', () => {
+  it('rend la décision existante publique, sans débit, pour entrer en story', () => {
+    const keep = fs.readFileSync(path.join(__dirname, '..', 'keepTrackAction.ts'), 'utf8');
+    expect(keep).toContain("options?.visibility === 'PUBLIC' && alreadyVisibility !== 'PUBLIC'");
+    expect(keep).toContain("updateKeepDecisionVisibility(existing.match.decisionId, 'PUBLIC')");
+  });
+});
