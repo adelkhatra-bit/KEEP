@@ -73,14 +73,19 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const ITEM = size + 2;
   const [width, setWidth] = useState(0);
   if (!stories.length && !own) return null;
-  const ordered = orderStoriesForBar(stories, seen);
+  // Les suggestions (ils ont repris tes musiques) viennent toujours APRÈS les vraies stories.
+  const ordered = [...orderStoriesForBar(stories.filter((story) => !story.suggestion), seen), ...stories.filter((story) => story.suggestion)];
   const ownSlots = own ? 1 : 0;
   // Tout est visible d'un coup : on affiche ce qui tient, jamais de défilement.
   const capacity = width > 0 ? Math.max(1, Math.floor((width + GAP) / (ITEM + GAP))) : ownSlots + ordered.length;
   const overflow = ordered.length + ownSlots > capacity;
-  const visibleCount = overflow ? Math.max(0, capacity - ownSlots - 1) : ordered.length;
-  const visible = ordered.slice(0, visibleCount);
-  const hidden = ordered.slice(visibleCount);
+  const suggestions = ordered.filter((story) => story.suggestion);
+  const realOrdered = ordered.filter((story) => !story.suggestion);
+  // Adel (05/10/2026) : « je ne vois pas les suggestions » -- quand tout ne tient pas, UNE suggestion (reprise de tes musiques) reste toujours visible à côté des stories.
+  const reserveSuggestion = overflow && suggestions.length > 0 && capacity - ownSlots >= 3;
+  const visibleReal = overflow ? Math.max(0, capacity - ownSlots - 1 - (reserveSuggestion ? 1 : 0)) : realOrdered.length;
+  const visible = overflow ? [...realOrdered.slice(0, visibleReal), ...(reserveSuggestion ? suggestions.slice(0, 1) : [])] : ordered;
+  const hidden = overflow ? [...realOrdered.slice(visibleReal), ...suggestions.slice(reserveSuggestion ? 1 : 0)] : [];
   const isUnseen = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
 
   return (
@@ -107,21 +112,24 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
           </TouchableOpacity>
         ) : null}
         {visible.map((story) => {
-          const unseen = isUnseen(story);
+          const suggestion = Boolean(story.suggestion);
+          const unseen = !suggestion && isUnseen(story);
           return (
             <TouchableOpacity
               key={story.profileId}
               style={[s.item, { width: ITEM }]}
               onPress={() => onOpen(story)}
               accessibilityRole="button"
-              accessibilityLabel={`Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}`}
+              accessibilityLabel={suggestion ? `Suggestion : ${story.username} a repris une de tes musiques` : `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}`}
               testID={`home-story-${story.profileId}`}
             >
-              <StoryRing size={size} unseen={unseen}>
-                <Avatar ring={size} uri={story.avatarUrl} name={story.username} />
-              </StoryRing>
+              {suggestion
+                ? <View style={[s.suggestRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>
+                : <StoryRing size={size} unseen={unseen}>
+                    <Avatar ring={size} uri={story.avatarUrl} name={story.username} />
+                  </StoryRing>}
               {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
-              {!unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+              {suggestion ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>↻</Text></View> : !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
               <Text style={[s.name, !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
             </TouchableOpacity>
           );
@@ -160,6 +168,8 @@ const s = StyleSheet.create({
   nameSeen: { opacity: 0.75 },
   seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
   seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
+  suggestRing: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  suggestBadge: { backgroundColor: colors.primaryLight },
   moreCircle: { width: RING, height: RING, borderRadius: RING / 2, borderWidth: 2, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   moreText: { color: colors.white, fontSize: 14, fontWeight: '900' },
 });

@@ -256,3 +256,25 @@ describe('Musique en vente → story masquée (Adel 05/10/2026)', () => {
     expect(mig).toContain('v_offered');
   });
 });
+
+describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () => {
+  const fs6 = require('fs'); const path6 = require('path');
+  const read = (...p: string[]) => fs6.readFileSync(path6.join(__dirname, '..', '..', ...p), 'utf8');
+  const svc = read('services', 'musicStoriesService.ts');
+  const rail = read('components', 'MusicStoryRail.tsx');
+  const bar = read('components', 'ProfileStoryBar.tsx');
+  it('les musiques épinglées par un autre membre comptent dans sa story (24 h)', () => {
+    expect(svc).toContain(".from('story_pins')");
+    expect(svc).toContain('pinRows');
+  });
+  it('les membres qui ont repris mes musiques sont proposés à côté des stories, une suggestion toujours visible', () => {
+    expect(svc).toContain('loadRepriseSuggestions');
+    expect(svc).toContain(".eq('source_user_id', viewerId)");
+    expect(rail).toContain('reserveSuggestion');
+    expect(bar).toContain('if (story.suggestion) { onOpenProfile?.(story.username); return; }');
+  });
+  it('une story vue reste visible (grisée) dans les 24 h', () => {
+    expect(rail).toContain('déjà vue');
+    expect(svc).toContain('STORY_WINDOW_HOURS = 24');
+  });
+});

@@ -15,6 +15,7 @@ import {
   composeStoryTeaser,
   loadMyPinnableTracks,
   loadMyStoryViewers,
+  loadRepriseSuggestions,
   subscribeOwnStoryChanged,
   orderTracksForPlayback,
   pinStoryTrack,
@@ -88,10 +89,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
         ]);
         const all = [...withSales, ...saleOnly];
-        if (live) setStories(all);
+        // Suggestions : les membres qui ont repris mes musiques, à côté des stories (appui = leur profil).
+        const suggestions = await loadRepriseSuggestions(viewer.id, [viewer.id, ...all.map((story) => story.profileId)]).catch(() => [] as MusicStory[]);
+        if (live) setStories([...all, ...suggestions]);
         try {
           if (!supabase) throw new Error('offline');
-          const ids = Array.from(new Set([viewer.id, ...all.map((story) => story.profileId)]));
+          const ids = Array.from(new Set([viewer.id, ...all.map((story) => story.profileId), ...suggestions.map((story) => story.profileId)]));
           const { data: tierRows } = await supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids });
           if (live && Array.isArray(tierRows)) {
             const nextTiers: Record<string, ProfileCertificationTier> = {};
@@ -102,10 +105,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           }
         } catch { /* sans certification connue : aucun badge */ }
         // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
-        const presence = await Promise.allSettled(all.map((story) => loadProfilePresence(story.profileId)));
+        const presence = await Promise.allSettled([...all, ...suggestions].map((story) => loadProfilePresence(story.profileId)));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
-          all.forEach((story, index) => {
+          [...all, ...suggestions].forEach((story, index) => {
             const result = presence[index];
             if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
           });
@@ -121,6 +124,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
     setMoreOpen(null);
+    // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
+    if (story.suggestion) { onOpenProfile?.(story.username); return; }
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
     const ordered = orderTracksForPlayback(story.tracks, unseenNow);
@@ -181,7 +186,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const isOwnOpen = openStory?.profileId === viewer.id;
   // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
   const nextStories = openStory
-    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id)
+    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id && !story.suggestion)
         .sort((a, b) => Number((seen[a.profileId] || '') < a.latestAt) === Number((seen[b.profileId] || '') < b.latestAt) ? 0 : ((seen[a.profileId] || '') < a.latestAt ? -1 : 1))
     : [];
   const nextStory = nextStories[0] ?? null;
@@ -259,15 +264,15 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
               </TouchableOpacity>
             </View>
             <ScrollView>
-              {orderStoriesForBar(moreOpen ?? [], seen).map((story) => {
-                const unseen = (seen[story.profileId] || '') < story.latestAt;
+              {[...orderStoriesForBar((moreOpen ?? []).filter((item) => !item.suggestion), seen), ...(moreOpen ?? []).filter((item) => item.suggestion)].map((story) => {
+                const unseen = !story.suggestion && (seen[story.profileId] || '') < story.latestAt;
                 return (
                   <TouchableOpacity key={story.profileId} style={styles.row} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Story de ${story.username}`}>
                     {story.avatarUrl
                       ? <Image source={{ uri: story.avatarUrl }} style={styles.rowAvatar} />
                       : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
                     <Text style={styles.rowName} numberOfLines={1}>@{story.username}</Text>
-                    <Text style={[styles.rowState, unseen ? styles.rowStateNew : styles.rowStateSeen]}>{unseen ? 'Nouveau' : '✓ Vue'}</Text>
+                    <Text style={[styles.rowState, unseen ? styles.rowStateNew : styles.rowStateSeen]}>{story.suggestion ? '↻ a repris ta musique' : unseen ? 'Nouveau' : '✓ Vue'}</Text>
                   </TouchableOpacity>
                 );
               })}

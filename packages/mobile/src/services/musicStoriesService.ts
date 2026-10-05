@@ -33,6 +33,8 @@ export type MusicStory = {
   followed: boolean;
   sameStyle: boolean;
   tracks: CanonicalTrack[];
+  /** Suggestion (ex. a repris une de tes musiques) : pas une story, un raccourci vers son profil. */
+  suggestion?: boolean;
 };
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase();
@@ -110,7 +112,7 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
   if (!supabase || !viewerId) return [];
   const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
 
-  const [decisions, follows, me] = await Promise.all([
+  const [decisions, follows, me, pins] = await Promise.all([
     supabase
       .from('keep_decisions')
       .select('profile_id,created_at,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on),profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)')
@@ -122,12 +124,31 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
       .limit(300),
     supabase.from('follows').select('followee_id').eq('follower_id', viewerId).limit(1000),
     supabase.from('profiles').select('favorite_genres,inferred_genres').eq('id', viewerId).maybeSingle(),
+    // Adel (05/10/2026) : « si dans les 24 h un utilisateur a utilisé une story, je la verrai automatiquement » : les musiques épinglées
+    // avec le « + » comptent comme les GARDER publics (les épingles masquées / en vente passent par enrichStoriesWithSales).
+    supabase
+      .from('story_pins')
+      .select('profile_id,pinned_at,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on)')
+      .eq('masked', false)
+      .gte('pinned_at', since)
+      .neq('profile_id', viewerId)
+      .order('pinned_at', { ascending: false })
+      .limit(100),
   ]);
   if (decisions.error) throw decisions.error;
 
   const followedIds = new Set((follows.data ?? []).map((row: any) => String(row.followee_id)));
   const viewerGenres = new Set([...toList((me.data as any)?.favorite_genres), ...toList((me.data as any)?.inferred_genres)]);
-  const rows = (decisions.data ?? []).filter((row: any) => !row?.profile?.discovery_hidden || followedIds.has(String(row.profile_id)));
+  let pinRows: any[] = [];
+  const pinData = pins.error ? [] : (pins.data ?? []) as any[];
+  if (pinData.length) {
+    const { data: pinProfiles } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', Array.from(new Set(pinData.map((row) => String(row.profile_id)))));
+    const byId = new Map((pinProfiles ?? []).map((row: any) => [String(row.id), row]));
+    pinRows = pinData.map((row) => ({ profile_id: row.profile_id, created_at: row.pinned_at, track: row.track, profile: byId.get(String(row.profile_id)) })).filter((row) => row.profile);
+  }
+  const rows = [...(decisions.data ?? []), ...pinRows]
+    .filter((row: any) => !row?.profile?.discovery_hidden || followedIds.has(String(row.profile_id)))
+    .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
   return rankMusicStories(rows, viewerId, followedIds, viewerGenres);
 }
 
@@ -453,4 +474,33 @@ export async function loadMyStoryTrackIds(): Promise<Set<string>> {
   ]);
   for (const row of [...(keeps.data ?? []), ...(pins.data ?? [])] as any[]) if (row?.track_id) ids.add(String(row.track_id));
   return ids;
+}
+
+
+/**
+ * Suggestions « ils ont repris tes musiques » (Adel, 05/10/2026) : les membres qui ont GARDÉ une musique dont tu es le premier découvreur.
+ * Affichés à côté des stories (jamais comme une story : appui = leur profil). Les plus récents d'abord, sans doublon.
+ */
+export async function loadRepriseSuggestions(viewerId: string, excludeIds: string[] = [], limit = 8): Promise<MusicStory[]> {
+  if (!supabase || !viewerId) return [];
+  const { data, error } = await supabase
+    .from('keep_decisions')
+    .select('profile_id,created_at,profile:profiles!keep_decisions_profile_id_fkey(username,avatar_url,discovery_hidden)')
+    .eq('source_user_id', viewerId)
+    .eq('decision', 'KEPT')
+    .neq('profile_id', viewerId)
+    .order('created_at', { ascending: false })
+    .limit(60);
+  if (error) return [];
+  const skip = new Set(excludeIds);
+  const out: MusicStory[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const id = String(row?.profile_id ?? '');
+    const username = String(row?.profile?.username ?? '').trim();
+    if (!id || !username || skip.has(id) || row?.profile?.discovery_hidden) continue;
+    skip.add(id);
+    out.push({ profileId: id, username, avatarUrl: row.profile.avatar_url ? String(row.profile.avatar_url) : null, latestAt: String(row.created_at ?? ''), followed: false, sameStyle: false, tracks: [], suggestion: true });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
