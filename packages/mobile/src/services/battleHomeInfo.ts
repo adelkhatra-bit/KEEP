@@ -145,10 +145,10 @@ export function soloCostNotice(status: SoloDailyStatusLike | null): string | nul
 export const ABANDON_RANKING_NOTE = 'Abandonner compte aussi dans ton classement : va au bout de tes parties pour garder une bonne place.';
 
 export function soloQuitNotice(status: SoloDailyStatusLike | null): string {
-  if (!status || status.unlimited) return `Ta partie en cours sera perdue (aucun Free gagné). ${ABANDON_RANKING_NOTE}`;
+  if (!status || status.unlimited) return `Ta partie en cours sera perdue : aucun Free gagné et ses morceaux ne seront pas gardés dans tes sessions. ${ABANDON_RANKING_NOTE}`;
   const limit = Math.max(0, status.limit ?? 0);
   const left = Math.max(0, status.remaining ?? 0);
-  return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie. ${ABANDON_RANKING_NOTE}`;
+  return `Cette partie Solo est déjà comptée et ne sera pas rendue. Il te restera ${left} Solo${left > 1 ? 's' : ''} sur ${limit} aujourd'hui, et tu ne gagnes aucun Free sur cette partie ; ses morceaux ne seront pas gardés dans tes sessions. ${ABANDON_RANKING_NOTE}`;
 }
 
 // Adel (29/09/2026) : « qu'on sache pourquoi on a gagné… même résultat
