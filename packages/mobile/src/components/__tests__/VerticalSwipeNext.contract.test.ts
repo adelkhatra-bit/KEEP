@@ -93,3 +93,12 @@ describe('succès du GARDER : mettre en story / déjà en story (Adel 05/10/2026
     expect(deck).toContain("persistOwnTrackVisibility(track, 'PUBLIC')");
   });
 });
+
+describe('fenêtre « Déjà dans ta collection » : bouton mettre en story au-dessus de COMPRIS (Adel 05/10/2026)', () => {
+  it('shows the story button (grey when already in story) above the violet button in both info popups', () => {
+    const deck = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(deck).toContain('testID="deck-info-add-story"');
+    expect(deck.indexOf('deck-info-add-story')).toBeLessThan(deck.indexOf('<Text style={s.ownerPreviewOkText}>COMPRIS</Text>'));
+    expect(deck.match(/deck-info-add-story/g)?.length).toBe(2);
+  });
+});
