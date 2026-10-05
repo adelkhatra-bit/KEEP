@@ -885,3 +885,18 @@ Preuves de non-régression pour chaque écran : captures 390×844 et 1440×900 a
 - Formulaire de plus de 5 contrôles = étapes avec progression.
 - Jamais de nombre figé dans un nom saisi : les compteurs sont toujours calculés.
 - Un même bloc n'apparaît qu'une fois par écran.
+
+
+### 2026-10-05 04:00 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°9 → en attente [VALIDÉ-PAR-CHATGPT] — Moteur « donner l'envie d'avoir envie » (devise d'Adel)
+
+Adel valide (05/10 04:00) : objectif viralité + revenus. Proposition de périmètre, un lot validé à chaque fois, et rien n'est supprimé.
+
+1. **Prix (décision à confirmer en base + App Store Connect, même commit)** : Premium **4,99 €/mois** (doc stratégie) au lieu de 2,99 € actif dans `plan_prices` ; annuels **activés** (Premium 39,99 €, Creator 79 €, Venue 279 €) et mis en avant avec le badge « −33 % ». Les prix restent réglables dans le Super Admin.
+2. **Écran Offres lisible par un enfant de 13 ans** : 3 cartes en haut (**Gratuit · Premium · Recharger FREE**), une phrase et un prix chacune. Les textes longs (« Ta mission… », « Comment Loki grandit… ») passent dans « En savoir plus ». Packs 30/100/300 FREE visibles (badge « Le plus choisi » sur 100).
+3. **Notifications iPhone actionnables** (nouveau build requis) : catégories `expo-notifications` avec boutons. « ▶ Écouter » (nouveau KEEP / Pulse) ouvre directement la lecture ; « ＋ Suivre en retour » (nouvel abonné) agit sans ouvrir l'app ; « Répondre » (tchat). Chaque bouton respecte les interrupteurs et le plafond de la n°5.
+4. **Partage viral** : carte image « Mon Loki de la semaine » (top découvertes, rang Battle, badge premier découvreur, lien de parrainage) à partager en 1 clic vers TikTok/Instagram ; bouton « Défie un ami » juste après une victoire Battle ou une 1re découverte.
+5. **Série quotidienne + gel** (déjà décidé dans l'économie FREE) visible sur Écouter, avec animation de récompense.
+6. **International** : langue détectée automatiquement (langue de l'appareil, réglable), interface traduite (`packages/mobile/src/i18n` existant), **traduction automatique des messages du tchat** à la demande (« Traduire »), devise et prix App Store par pays. Le contenu musical n'est pas traduit.
+7. **Mesure gratuite** (PostHog, offre gratuite, connecteur déjà présent) : retour J1/J7/J30, missions terminées, partages, conversions vers Offres, pour piloter avec des chiffres.
+
+Ordre conseillé : n°8 → n°1 → n°5 → n°9.1-9.2 → n°6 → n°9.3-9.7.
