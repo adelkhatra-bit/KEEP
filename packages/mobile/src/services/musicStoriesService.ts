@@ -35,6 +35,8 @@ export type MusicStory = {
   tracks: CanonicalTrack[];
   /** Suggestion (ex. a repris une de tes musiques) : pas une story, un raccourci vers son profil. */
   suggestion?: boolean;
+  /** Suggestion d'ami par style musical (aucun lien encore) : appui = profil, jamais de story. */
+  styleMatch?: boolean;
 };
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase();
@@ -567,6 +569,29 @@ export async function loadOthersBubbles(otherIds: string[], excludeIds: string[]
     const profile: any = byId.get(id);
     if (!profile?.username || profile.discovery_hidden) continue;
     out.push({ profileId: id, username: String(profile.username), avatarUrl: profile.avatar_url ? String(profile.avatar_url) : null, latestAt: '', followed: false, sameStyle: false, tracks: [], suggestion: true });
+  }
+  return out;
+}
+
+
+/**
+ * Suggestions d'amis PAR STYLE (Adel, 05/10/2026) : proposées seulement quand l'utilisateur a fait son style musical (genres/artistes favoris).
+ * Source unique serveur `keep_discovery_match_candidates` (profils publics, non masqués, avec genres ou artistes en commun, classés par score).
+ * Jamais des membres déjà suivis, déjà liés, ni soi-même.
+ */
+export async function loadStyleSuggestions(viewerId: string, excludeIds: string[] = [], limit = 12): Promise<MusicStory[]> {
+  if (!supabase || !viewerId) return [];
+  const { data, error } = await supabase.rpc('keep_discovery_match_candidates', { p_limit: 30 });
+  if (error) return [];
+  const skip = new Set([viewerId, ...excludeIds]);
+  const out: MusicStory[] = [];
+  for (const row of (Array.isArray(data) ? data : []) as any[]) {
+    const id = String(row?.profile_id ?? '');
+    const username = String(row?.username ?? '').trim();
+    if (!id || !username || skip.has(id)) continue;
+    skip.add(id);
+    out.push({ profileId: id, username, avatarUrl: row.avatar_url ? String(row.avatar_url) : null, latestAt: '', followed: false, sameStyle: true, tracks: [], suggestion: true, styleMatch: true });
+    if (out.length >= limit) break;
   }
   return out;
 }

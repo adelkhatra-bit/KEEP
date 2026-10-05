@@ -17,6 +17,7 @@ import {
   loadMyStoryViewers,
   SALE_TRACK_PREFIX,
   loadStoryRelations,
+  loadStyleSuggestions,
   loadOthersBubbles,
   loadFriendBubbles,
   subscribeOwnStoryChanged,
@@ -96,10 +97,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         const relations = await loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
         const friends = await loadFriendBubbles(relations.following, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
         const suggestions = await loadOthersBubbles(relations.others, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
-        if (live) setStories([...all, ...friends, ...suggestions]);
+        // Suggestions d'amis par style musical : seulement des membres de SON style, jamais ceux déjà suivis ou liés.
+        const styleFriends = await loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others, ...storyIds]).catch(() => [] as MusicStory[]);
+        if (live) setStories([...all, ...friends, ...suggestions, ...styleFriends]);
         try {
           if (!supabase) throw new Error('offline');
-          const ids = Array.from(new Set([viewer.id, ...storyIds, ...friends.map((story) => story.profileId), ...suggestions.map((story) => story.profileId)]));
+          const ids = Array.from(new Set([viewer.id, ...storyIds, ...friends.map((story) => story.profileId), ...suggestions.map((story) => story.profileId), ...styleFriends.map((story) => story.profileId)]));
           const { data: tierRows } = await supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids });
           if (live && Array.isArray(tierRows)) {
             const nextTiers: Record<string, ProfileCertificationTier> = {};
@@ -110,10 +113,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           }
         } catch { /* sans certification connue : aucun badge */ }
         // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
-        const presence = await Promise.allSettled([...all, ...friends, ...suggestions].map((story) => loadProfilePresence(story.profileId)));
+        const presence = await Promise.allSettled([...all, ...friends, ...suggestions, ...styleFriends].map((story) => loadProfilePresence(story.profileId)));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
-          [...all, ...friends, ...suggestions].forEach((story, index) => {
+          [...all, ...friends, ...suggestions, ...styleFriends].forEach((story, index) => {
             const result = presence[index];
             if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
           });

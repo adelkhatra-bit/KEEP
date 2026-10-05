@@ -11,6 +11,7 @@ import { DiscoveryImpact, loadOwnProfileKeeps, loadProfileDiscoveryImpacts, load
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import { useUserStore } from '../store/useUserStore';
 import { StoryRing } from '../components/MusicStoryRail';
+import { loadStoryAccess } from '../services/storyAccessService';
 import { isSaleStoryTrack, loadProfileStory, orderTracksForPlayback, loadSeenStories, markStorySeen, type MusicStory } from '../services/musicStoriesService';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -306,13 +307,16 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   useEffect(() => {
     let live = true;
     setVisitedStory(null);
-    if (!profile?.id || isDemoMode) return undefined;
-    void loadProfileStory({ id: profile.id, username: profile.username, avatarUrl: profile.avatar || null })
-      .then((story) => { if (live) setVisitedStory(story ? { ...story, tracks: story.tracks.filter((track) => !isSaleStoryTrack(track)) } : null); })
-      .catch(() => {});
+    if (!profile?.id || isDemoMode || isLocalGuest || !effectiveViewerId) return undefined;
+    // Stories : comptes réels avec e-mail vérifié uniquement (jamais démo / invité).
+    void loadStoryAccess().then((allowed) => {
+      if (!allowed || !live) return undefined;
+      return loadProfileStory({ id: profile.id, username: profile.username, avatarUrl: profile.avatar || null })
+        .then((story) => { if (live) setVisitedStory(story ? { ...story, tracks: story.tracks.filter((track) => !isSaleStoryTrack(track)) } : null); });
+    }).catch(() => {});
     if (effectiveViewerId) void loadSeenStories(effectiveViewerId).then((seen) => { if (live) setVisitedStorySeenAt(seen[profile.id] || ''); }).catch(() => {});
     return () => { live = false; };
-  }, [profile?.id, profile?.username, profile?.avatar, effectiveViewerId, isDemoMode]);
+  }, [profile?.id, profile?.username, profile?.avatar, effectiveViewerId, isDemoMode, isLocalGuest]);
   const visitedStoryUnseen = Boolean(visitedStory && visitedStory.tracks.length && visitedStorySeenAt < visitedStory.latestAt);
   const openVisitedStory = () => {
     if (!visitedStory || !visitedStory.tracks.length || !profile) return;

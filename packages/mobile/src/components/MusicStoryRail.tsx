@@ -89,7 +89,8 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const others = [
     ...followed.filter((story) => hasStory(story) && !isUnseen(story)),
     ...orderStoriesForBar(notFollowed.filter(hasStory), seen),
-    ...notFollowed.filter((story) => !hasStory(story)),
+    ...notFollowed.filter((story) => !hasStory(story) && !story.styleMatch),
+    ...notFollowed.filter((story) => !hasStory(story) && story.styleMatch),
   ];
   const unseenOthers = others.filter(isUnseen).length;
 
@@ -103,7 +104,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
         style={[s.item, { width: ITEM }]}
         onPress={() => onOpen(story)}
         accessibilityRole="button"
-        accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : `Profil de ${story.username}, pas de story pour le moment`}
+        accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : story.styleMatch ? `Suggestion d’ami : ${story.username} aime les mêmes styles que toi` : `Profil de ${story.username}, pas de story pour le moment`}
         testID={`home-story-${story.profileId}`}
       >
         {withStory
@@ -111,7 +112,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
           : <View style={[dashed ? s.suggestRing : s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
         {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
         {withStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
-        {dashed ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>↻</Text></View> : null}
+        {dashed ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>{story.styleMatch ? '✨' : '↻'}</Text></View> : null}
         <Text style={[s.name, withStory && !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
       </TouchableOpacity>
     );

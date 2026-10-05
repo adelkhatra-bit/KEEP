@@ -1,4 +1,5 @@
 import ProfileStoryBar from '../components/ProfileStoryBar';
+import { loadStoryAccess } from '../services/storyAccessService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -311,6 +312,14 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const refreshPlaylists = usePlaylistStore((s) => s.refresh);
   const [activeTab, setActiveTab] = useState<ProfileTab>('TRACKS');
   const accountRequired = !effectiveAuthenticatedUserId;
+  // Stories + suggestions d'amis : comptes réels avec e-mail vérifié uniquement (jamais démo / invité / anonyme).
+  const [storiesUnlocked, setStoriesUnlocked] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (accountRequired || isDemoMode || isLocalGuest) { setStoriesUnlocked(false); return undefined; }
+    void loadStoryAccess().then((ok) => { if (live) setStoriesUnlocked(ok); });
+    return () => { live = false; };
+  }, [accountRequired, isDemoMode, isLocalGuest, effectiveAuthenticatedUserId]);
   const [planCode, setPlanCode] = useState('FREE');
   const [publicSnapshot, setPublicSnapshot] = useState<PublicProfileSnapshot | null>(null);
   const [ownSnapshot, setOwnSnapshot] = useState<OwnProfileSnapshot | null>(null);
@@ -1901,7 +1910,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       <ProfileMotionReveal motionKey={`owner-hero:${user.id}`} delay={40} style={s.hero}>
         <View style={s.identity}>
           {/* Adel 05/10/2026 : la photo de profil EST la bulle de ta story (pas de double photo). */}
-          {!accountRequired && !isDemoMode ? (
+          {!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked ? (
             <ProfileStoryBar
               viewer={{ id: user.id, username: user.username, avatarUrl: user.avatar || null }}
               freeCost={freeCostPerKeep}
