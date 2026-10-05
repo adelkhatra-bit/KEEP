@@ -41,10 +41,10 @@ describe('Battle result voice and Solo exit contract', () => {
   });
 
   it('rotates online result phrases instead of repeating the same copy every match', () => {
-    expect(battle).toContain('BATTLE_RESULT_MESSAGE_USED');
+    // Adel (05/10/2026) : phrases composées (briques) au lieu de petits pools : voir battleLineLibrary.test.ts.
     expect(battle).toContain('BATTLE_RESULT_MESSAGE_CACHE');
-    expect(battle).toContain('used.has(index)');
-    expect(battle).toContain('BATTLE_RESULT_MESSAGE_LAST');
+    expect(battle).toContain("composeBattleLine(bucket, cacheKey)");
+    expect(battle).toContain("composeBattleLine('NOBODY'");
   });
 
   it('requires explicit confirmation before refusing an in-arena rematch', () => {

@@ -19,7 +19,7 @@ describe('fin de match Battle', () => {
     expect(battle).toContain('<View style={s.matchRankLegend}>');
   });
   it('la phrase d’ambiance suit la vraie raison (jamais « réflexes » pour une victoire aux bonnes réponses)', () => {
-    expect(battle).toContain("battleResultMessage(arena.id, arena.lastResult.matchNo, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'))");
+    expect(battle).toContain("battleResultMessage(arena.id, arena.lastResult.matchNo, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'), nobodyWon)");
     expect(battle).toContain('const BATTLE_WIN_MESSAGES_ACCURACY = [');
   });
 });

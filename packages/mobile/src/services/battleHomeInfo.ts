@@ -347,3 +347,56 @@ export function soloRechargeCopy(packs: SoloPackLike[] | null | undefined, _stat
     full: `Packs disponibles : ${offers}. Le pack choisi est crédité immédiatement sur ton stock de Solos. Chaque partie consomme 1 Solo. Les Solos achetés restent sur ton compte jusqu’à utilisation. Aucun pack ne se renouvelle automatiquement : quand ce stock est épuisé, il faut acheter un nouveau pack.`,
   };
 }
+
+// Adel (05/10/2026) : « on n'a pas l'impression que ce soit toujours les mêmes
+// textes ». Les fins de Battle composent maintenant leur phrase à partir de
+// briques (ouverture + corps + clin d'œil) : des dizaines de milliers de
+// combinaisons par issue, stables pour un résultat donné (seed), sans resservir
+// la dernière phrase. Issues : gagnant, perdant, personne n'a gagné.
+export type BattleLineKind = 'WIN_SPEED' | 'WIN_ACCURACY' | 'LOSE_SPEED' | 'LOSE_ACCURACY' | 'NOBODY';
+
+const LINE_PARTS: Record<BattleLineKind, { open: string[]; body: string[]; tail: string[] }> = {
+  WIN_SPEED: {
+    open: ['Éclair !', 'Boum !', 'Quel réflexe !', 'Chrono en feu !', 'Vitesse lumière !', 'Waouh !', 'Imbattable au buzzer !', 'Même pas eu le temps de cligner !'],
+    body: ['tu as répondu avant tout le monde', 'ton oreille a pris une longueur d’avance', 'personne n’a pu suivre ton rythme', 'tu as trouvé avant la fin du refrain', 'tes réflexes ont fait la différence', 'tu étais déjà sur la bonne réponse', 'la vitesse était de ton côté', 'tu as doublé tout le monde dans la dernière ligne droite'],
+    tail: ['continue comme ça.', 'les autres vont vouloir leur revanche.', 'le trophée te va bien.', 'la communauté va en parler.', 'garde cette énergie pour la prochaine.', 'bien joué, champion.'],
+  },
+  WIN_ACCURACY: {
+    open: ['Oreille en or !', 'Précision chirurgicale !', 'Bravo !', 'Sans trembler !', 'Belle démonstration !', 'Quel instinct !', 'Du grand art !', 'Respect !'],
+    body: ['tu as reconnu plus de morceaux que les autres', 'rien ne t’a échappé', 'ton sens du rythme a fait la différence', 'tes bonnes réponses ont écrasé le score', 'tu connais vraiment ta musique', 'tu as gardé la tête froide jusqu’au bout', 'ton oreille est affûtée comme un diamant', 'tu as dominé ce Battle'],
+    tail: ['le trophée est pour toi.', 'garde ce niveau.', 'tu peux le refaire quand tu veux.', 'les perdants vont réclamer une revanche.', 'une légende en préparation.', 'continue, ça se voit que tu aimes ça.'],
+  },
+  LOSE_SPEED: {
+    open: ['Pas de chance !', 'Si près !', 'Aïe !', 'Serré !', 'Presque !', 'Une fraction de seconde !', 'Ouch !', 'Dommage !'],
+    body: ['ton adversaire a eu la détente plus rapide', 'il t’a devancé de très peu', 'quelques millisecondes ont tout changé', 'ton oreille était bonne, le chrono moins', 'il a buzzé juste avant toi', 'la vitesse a joué contre toi cette fois', 'tu étais sur la bonne réponse, juste un poil trop tard', 'le match s’est joué à rien'],
+    tail: ['prends ta revanche.', 'la prochaine est pour toi.', 'on y retourne tout de suite ?', 'un peu plus vite et c’est gagné.', 'tu as tout pour le battre.', 'ce n’est que partie remise.'],
+  },
+  LOSE_ACCURACY: {
+    open: ['Pas cette fois !', 'Petite défaite !', 'Ça arrive !', 'Courage !', 'Belle tentative !', 'Tu t’es battu !', 'Dommage !', 'Ce n’est pas fini !'],
+    body: ['il a reconnu quelques morceaux de plus que toi', 'les pièges de Loki t’ont eu', 'ça se joue à très peu de bonnes réponses', 'ton oreille progresse à chaque partie', 'les morceaux étaient vicieux', 'tu tiens de bonnes bases', 'tu as montré de belles choses', 'la chance n’était pas de ton côté'],
+    tail: ['retente ta chance.', 'la revanche t’attend.', 'tu vas faire mieux, je le sens.', 'chaque partie t’affûte.', 'reviens plus fort.', 'prochaine manche, prochain trophée.'],
+  },
+  NOBODY: {
+    open: ['Personne n’a gagné !', 'Aucun vainqueur !', 'Match sans trophée !', 'Égalité générale !', 'Tout le monde repart bredouille !', 'Silence côté trophée !', 'Pas de gagnant cette fois !'],
+    body: ['aucun point n’a été marqué', 'personne n’a trouvé de bonne réponse', 'les morceaux ont gagné cette fois', 'la musique a pris le dessus sur tout le monde', 'le trophée reste sur l’étagère', 'Loki garde le trophée pour la prochaine', 'les oreilles ont besoin d’un échauffement'],
+    tail: ['on remet ça ?', 'la revanche est ouverte pour tout le monde.', 'prochaine manche, prochain champion.', 'qui osera relancer ?', 'à vous de jouer.', 'nouvelle partie, nouvelles chances.'],
+  },
+};
+
+export function composeBattleLine(kind: BattleLineKind, seed: string): string {
+  const parts = LINE_PARTS[kind];
+  // Chaque brique a son propre hachage (préfixe + avalanche) : sans cela les choix seraient corrélés et on retomberait sur quelques phrases.
+  const mix = (text: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+    return h >>> 0;
+  };
+  const pick = (list: string[], salt: string) => list[mix(`${salt}|${kind}|${seed}`) % list.length];
+  return `${pick(parts.open, 'o')} ${pick(parts.body, 'b').replace(/^./, (c) => c.toUpperCase())}, ${pick(parts.tail, 't')}`;
+}
+
+export const battleLineCombinationCount = (kind: BattleLineKind): number => {
+  const p = LINE_PARTS[kind];
+  return p.open.length * p.body.length * p.tail.length;
+};

@@ -25,7 +25,7 @@ import { acknowledgeKeepBattleArenaPresence, buildKeepBattleArenaInviteLink, can
 import { KeepBattleOpenSalon, loadOpenBattleSalons } from '../services/keepBattleSalonService';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
 import { buyKeepBattleSoloPack, consumeKeepBattleSoloDailyStart, KeepBattleSoloPack, KeepBattleSoloPackOffer, KeepBattleSoloPacks, KeepBattleSoloRound, loadKeepBattleSoloDailyStatus, loadKeepBattleSoloPack, loadKeepBattleSoloPacks, loadMyFreeRechargeInfo } from '../services/keepBattleExperienceService';
-import { answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloIdleDetected, soloIdleNotice, soloCostNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy, soloEncouragement } from '../services/battleHomeInfo';
+import { composeBattleLine, answerVisualState, dedupeAnswerChoices, formatFreeRecharge, nextMonthlyFreeRecharge, sameAnswer, battleWinReason, SOLO_IDLE_AUTO_CLOSE_MS, soloIdleDetected, soloIdleNotice, soloCostNotice, arenaMissWarning, ABANDON_RANKING_NOTE, soloPlanRuleCopy, soloRechargeCopy, soloQuitNotice, soloQuotaCopy, soloEncouragement } from '../services/battleHomeInfo';
 import MoreInfoLine from './MoreInfoLine';
 import ContextHelpSheet from './ContextHelpSheet';
 import LokiFinishBurst from './LokiFinishBurst';
@@ -165,36 +165,16 @@ const BATTLE_RESULT_MESSAGE_USED: Record<BattleResultMessageBucket, Set<number>>
 const BATTLE_RESULT_MESSAGE_LAST: Partial<Record<BattleResultMessageBucket, number>> = {};
 const BATTLE_RESULT_MESSAGE_CACHE = new Map<string, string>();
 
-function battleResultMessage(arenaId: string, matchNo: number, won: boolean, bySpeed: boolean): string {
+function battleResultMessage(arenaId: string, matchNo: number, won: boolean, bySpeed: boolean, nobody = false): string {
+  if (nobody) return composeBattleLine('NOBODY', `${arenaId}:${matchNo}`);
   const bucket: BattleResultMessageBucket = won
     ? (bySpeed ? 'WIN_SPEED' : 'WIN_ACCURACY')
     : (bySpeed ? 'LOSE_SPEED' : 'LOSE_ACCURACY');
-  const pool = won
-    ? (bySpeed ? BATTLE_WIN_MESSAGES_SPEED : BATTLE_WIN_MESSAGES_ACCURACY)
-    : (bySpeed ? BATTLE_LOSE_MESSAGES_SPEED : BATTLE_LOSE_MESSAGES_ACCURACY);
-  // Une revanche est une nouvelle partie. La phrase reste stable pour CE
-  // résultat précis, mais une autre partie ne réutilise pas une phrase du
-  // même pool tant que toutes n'ont pas été servies. À l'épuisement, on
-  // recommence sans répéter immédiatement la dernière.
+  // Adel (05/10/2026) : phrases COMPOSÉES (ouverture + corps + conclusion) pour ne plus voir toujours les mêmes textes ; stable pour CE résultat.
   const cacheKey = `${arenaId}:${matchNo}:${bucket}`;
   const cached = BATTLE_RESULT_MESSAGE_CACHE.get(cacheKey);
   if (cached) return cached;
-
-  const used = BATTLE_RESULT_MESSAGE_USED[bucket];
-  if (used.size >= pool.length) {
-    const last = BATTLE_RESULT_MESSAGE_LAST[bucket];
-    used.clear();
-    if (last != null && pool.length > 1) used.add(last);
-  }
-
-  let index = hashSeed(cacheKey) % pool.length;
-  for (let offset = 0; offset < pool.length && used.has(index); offset += 1) {
-    index = (index + 1) % pool.length;
-  }
-  used.add(index);
-  BATTLE_RESULT_MESSAGE_LAST[bucket] = index;
-
-  const text = pool[index];
+  const text = composeBattleLine(bucket, cacheKey);
   BATTLE_RESULT_MESSAGE_CACHE.set(cacheKey, text);
   if (BATTLE_RESULT_MESSAGE_CACHE.size > 160) {
     const oldest = BATTLE_RESULT_MESSAGE_CACHE.keys().next().value;
@@ -3120,7 +3100,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
             <LokiMascotVoice
               correct={arena.lastResult.won ? arena.roundCount : 0}
               total={arena.roundCount}
-              textOverride={battleResultMessage(arena.id, arena.lastResult.matchNo, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'))}
+              textOverride={battleResultMessage(arena.id, arena.lastResult.matchNo, arena.lastResult.won, (battleWinReason(arena.lastMatchResults) || '').startsWith('⚡'), nobodyWon)}
               moodOverride={arena.lastResult.won ? 'party' : 'oops'}
               compact
             />
