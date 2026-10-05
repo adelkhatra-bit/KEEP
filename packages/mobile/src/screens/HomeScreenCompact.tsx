@@ -27,6 +27,7 @@ import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stop
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
+import StoryRail from '../components/StoryRail';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -664,6 +665,11 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
   };
 
+  // Stories musicales (Adel 05/10/2026) : ta photo + ta story, puis celles des
+  // profils suivis. Hauteur réservée (96) : aucun saut de mise en page. Affichée
+  // dans les deux états de l'accueil (veille et écoute).
+  const storyRail = user ? <StoryRail viewer={{ id: user.id, username: user.username, avatarUrl: user.avatar || null }} freeCost={homePulseFreeCost} /> : null;
+
   if (showMicPrimer) {
     return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
   }
@@ -672,6 +678,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
         <TopBar navigation={navigation} readyCount={detected} />
+        {storyRail}
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -824,6 +831,7 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
       <TopBar navigation={navigation} readyCount={detected} />
+      {storyRail}
 
       <ScrollView
         style={s.main}

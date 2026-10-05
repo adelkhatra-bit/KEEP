@@ -1,6 +1,7 @@
 import type { CanonicalTrack } from '@keep/music';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import type { KeepSession } from '../types';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -145,4 +146,48 @@ export async function markStorySeen(viewerId: string, story: MusicStory): Promis
   seen[story.profileId] = story.latestAt;
   try { await AsyncStorage.setItem(`${SEEN_KEY_PREFIX}${viewerId}`, JSON.stringify(seen)); } catch {}
   return seen;
+}
+
+/**
+ * Ta propre story (Adel, 05/10/2026) : TOUTES les musiques identifiées par
+ * l'utilisateur dans les dernières STORY_WINDOW_HOURS — gardées en public,
+ * en privé, masquées ou simplement identifiées. Source locale (sessions) :
+ * aucune requête réseau et rien n'est jamais montré aux autres membres.
+ * Les doublons sont fusionnés ; la plus récente d'abord.
+ */
+export function buildOwnStory(
+  viewer: { id: string; username: string; avatarUrl?: string | null },
+  sessions: KeepSession[],
+  now: number = Date.now(),
+): MusicStory | null {
+  const since = now - STORY_WINDOW_HOURS * 3600 * 1000;
+  const entries: Array<{ at: string; track: CanonicalTrack }> = [];
+  for (const session of sessions ?? []) {
+    for (const entry of session?.tracks ?? []) {
+      const at = String(entry?.detectedAt ?? '');
+      const time = Date.parse(at);
+      if (!entry?.track?.id || !Number.isFinite(time) || time < since) continue;
+      if (!String(entry.track.title ?? '').trim() || !String(entry.track.artist ?? '').trim()) continue;
+      entries.push({ at, track: entry.track });
+    }
+  }
+  if (!entries.length) return null;
+  entries.sort((a, b) => (a.at < b.at ? 1 : -1));
+  const seen = new Set<string>();
+  const tracks: CanonicalTrack[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.track.id)) continue;
+    seen.add(entry.track.id);
+    tracks.push(entry.track);
+    if (tracks.length >= MAX_TRACKS_PER_STORY) break;
+  }
+  return {
+    profileId: viewer.id,
+    username: viewer.username,
+    avatarUrl: viewer.avatarUrl ?? null,
+    latestAt: entries[0].at,
+    followed: false,
+    sameStyle: false,
+    tracks,
+  };
 }
