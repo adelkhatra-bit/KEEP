@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -182,6 +182,15 @@ export default function OffersScreen({ navigation, route }: any) {
   const [battleExpanded, setBattleExpanded] = useState(false);
   const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
+  // Lot n°9.2 (05/10/2026) : l'écran doit se lire en 5 secondes. Trois cartes
+  // en haut ; les textes longs passent dans « En savoir plus » (rien n'est supprimé).
+  const [introExpanded, setIntroExpanded] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const scrollToSection = (key: string) => {
+    const y = sectionY.current[key];
+    if (typeof y === 'number') scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [soloHistoryVisible, setSoloHistoryVisible] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
@@ -400,7 +409,7 @@ export default function OffersScreen({ navigation, route }: any) {
         <View style={s.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
           <View style={s.requiredPlanRow}>
@@ -421,6 +430,46 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.quickStartText}>1 · ÉCOUTE : reconnais des morceaux ou découvre les sélections disponibles.  2 · GARDE : chaque pépite enrichit ton univers musical.  3 · PARTAGE : ton profil devient une porte d’entrée vers tes découvertes et les actions éligibles peuvent rapporter des Fruits.  4 · JOUE : Solo et Battle permettent de tenter de gagner des Free.  5 · RECOMMENCE : plus ton univers musical grandit, plus ton profil donne de choses à découvrir à ta communauté.</Text>
           </View>
         </View> : <>
+          <View style={s.quickChoiceRow} accessibilityRole="summary">
+            <View style={s.quickChoiceCard} testID="offers-quick-free">
+              <Text style={s.quickChoiceTitle}>Gratuit</Text>
+              <Text style={s.quickChoiceText}>Écoute et découvre. Gagne des FREE en jouant.</Text>
+              <Text style={s.quickChoicePrice}>0 €</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.quickChoiceCard, s.quickChoiceCardPrimary]}
+              testID="offers-quick-premium"
+              onPress={() => { setExpandedPlanCode('PREMIUM'); scrollToSection('plans'); }}
+              accessibilityRole="button"
+              accessibilityLabel="Voir Premium"
+            >
+              <Text style={s.quickChoiceTitle}>Premium</Text>
+              <Text style={s.quickChoiceText}>Plus d’écoutes et de FREE chaque mois.</Text>
+              <Text style={s.quickChoicePrice}>{visiblePlans.find((plan) => plan.code === 'PREMIUM') ? money(visiblePlans.find((plan) => plan.code === 'PREMIUM') as KeepPlan) : 'Voir le prix'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={s.quickChoiceCard}
+              testID="offers-quick-recharge"
+              onPress={() => scrollToSection('recharge')}
+              accessibilityRole="button"
+              accessibilityLabel="Recharger des FREE"
+            >
+              <Text style={s.quickChoiceTitle}>Recharger FREE</Text>
+              <Text style={s.quickChoiceText}>Un pack, une fois. Pas d’abonnement.</Text>
+              <Text style={s.quickChoicePrice}>30 · 100 · 300</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={s.disclosureButton}
+            onPress={() => setIntroExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
+            accessibilityState={{ expanded: introExpanded }}
+          >
+            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
+            <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {introExpanded ? <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>Loki Music</Text>
             <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
@@ -462,7 +511,7 @@ export default function OffersScreen({ navigation, route }: any) {
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Même si le titre est ensuite repris ou redécouvert, le premier découvreur enregistré pour ce titre reste la référence d’origine.</Text></View>
             </View> : null}
           </View>
-
+          </> : null}
 
           <View style={s.battleCard}>
             <View style={s.battleHeader}>
@@ -603,7 +652,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.battleDetailText}>💎 Premier découvreur : +1 FREE quand un autre membre garde ta découverte, jusqu’à 20 par mois.</Text>
             <Text style={s.battleDetailText}>📅 Bonus mensuel automatique selon ta formule.</Text>
           </View>
-          <View style={s.rechargeBox}>
+          <View style={s.rechargeBox} onLayout={(event) => { sectionY.current.recharge = event.nativeEvent.layout.y; }}>
             <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
             <Text style={s.rechargeTitle}>Choisis ton pack</Text>
             <Text style={s.rechargeIntro}>Achat ponctuel. Le solde est crédité uniquement après validation Apple ou Google.</Text>
@@ -634,7 +683,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </View>
         </>}
 
-        {!focusPlan ? <Text style={s.paidSectionTitle}>PREMIUM & PRO</Text> : null}
+        {!focusPlan ? <Text style={s.paidSectionTitle} onLayout={(event) => { sectionY.current.plans = event.nativeEvent.layout.y; }}>PREMIUM & PRO</Text> : null}
 
         {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
           const active = plan.code === currentPlan;
@@ -764,6 +813,12 @@ const s = StyleSheet.create({
   eventChoiceHintText: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
   choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 8 },
   choiceHintText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
+  quickChoiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  quickChoiceCard: { flexGrow: 1, flexBasis: 150, minWidth: 140, padding: 12, borderRadius: 14, backgroundColor: '#17141F', borderWidth: 1, borderColor: '#2A2438', gap: 4 },
+  quickChoiceCardPrimary: { borderColor: colors.primaryLight, backgroundColor: '#1D1830' },
+  quickChoiceTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  quickChoiceText: { color: '#CFC8E6', fontSize: 12, lineHeight: 17 },
+  quickChoicePrice: { color: colors.primaryLight, fontSize: 14, fontWeight: '900', marginTop: 2 },
   quickStartBox:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#101D17',borderWidth:1,borderColor:'#2C8A60'},quickStartEyebrow:{color:'#7CF2B9',fontSize:9,fontWeight:'900',letterSpacing:.8},quickStartTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:4},quickStartText:{color:colors.textPrimary,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:5},
   promiseCard: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
