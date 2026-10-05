@@ -1,4 +1,7 @@
 import MysteryArtwork from './MysteryArtwork';
+import TrackLikeButton from './TrackLikeButton';
+import { useUserStore } from '../store/useUserStore';
+import { useTrackLikes } from '../services/useTrackLikes';
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Linking, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
@@ -91,6 +94,11 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
   const previewKeyRef = useRef(`playlist-sale-immersive:${offer.playlistId}`);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tracksRef = useRef<PlaylistSalePreviewTrack[] | null>(null);
+  // Le cœur « j'aime » reste GRATUIT sur une musique payante (Adel 05/10/2026) : signal pour l'algorithme (style, recommandations).
+  const likeMeId = useUserStore((state) => state.user?.id);
+  const likeDemo = useUserStore((state) => state.isDemoMode);
+  const likeGuest = useUserStore((state) => state.isLocalGuest);
+  const saleLikes = useTrackLikes(likeMeId, (tracks ?? []).map((row) => row.trackId), visible && Boolean(likeMeId) && !likeDemo && !likeGuest && !ownerMode);
 
   function clearCountdown() {
     if (countdownRef.current) {
@@ -364,6 +372,12 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
               </Text>
             </TouchableOpacity>
           </SwipeDeck>
+
+          {!tracksLoading && !tracksUnavailable && likeMeId && !likeDemo && !likeGuest && !ownerMode && tracks?.[trackIndex] ? (
+            <View style={{ alignItems: 'center', marginTop: 6 }} testID="sale-like-row">
+              <TrackLikeButton liked={saleLikes.liked.has(tracks[trackIndex].trackId)} count={saleLikes.counts[tracks[trackIndex].trackId] ?? 0} onPress={() => { void saleLikes.toggle(tracks[trackIndex].trackId); }} testID="sale-like-button" />
+            </View>
+          ) : null}
 
           {!tracksLoading && !tracksUnavailable ? (
             <View style={[s.previewControls, compact && s.previewControlsCompact]}>

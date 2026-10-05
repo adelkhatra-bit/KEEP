@@ -2646,6 +2646,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       sourceAvatarUrl={user.avatar}
       sourceByTrack={selectionSwipe?.sourceByTrack}
       allowStoryAdd
+      likeMode="off"
       subtitle={selectionSwipe?.subtitle ?? 'Ta sélection.'}
       emptyTitle="Aucun morceau dans cette sélection."
       backLabel="REVENIR AU PROFIL"

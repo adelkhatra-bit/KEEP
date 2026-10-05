@@ -24,7 +24,7 @@ export default function StoryVisitorToast() {
     const client = supabase;
     const ownerId = user.id;
     let live = true;
-    const show = async (viewerId: string, kind: 'start' | 'left' | 'like', seconds = 0) => {
+    const show = async (viewerId: string, kind: 'start' | 'left', seconds = 0) => {
       const now = Date.now();
       // Un même visiteur ne re-déclenche pas la même alerte pendant 30 s.
       const key = `${viewerId}:${kind}`;
@@ -36,7 +36,7 @@ export default function StoryVisitorToast() {
         if (data?.username) name = `@${String(data.username)}`;
       } catch { /* nom inconnu : message générique */ }
       if (!live) return;
-      setMessage(kind === 'start' ? `👁 ${name} regarde ta story` : kind === 'like' ? `❤ ${name} a aimé ta musique` : `${name} est parti · ${formatWatchDuration(seconds)}`);
+      setMessage(kind === 'start' ? `👁 ${name} regarde ta story` : `${name} est parti · ${formatWatchDuration(seconds)}`);
       slide.setValue(0);
       Animated.timing(slide, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
       if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -51,11 +51,6 @@ export default function StoryVisitorToast() {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'story_watch_sessions', filter: `owner_id=eq.${ownerId}` }, (payload: any) => {
           const viewerId = String(payload?.new?.viewer_id ?? '');
           if (viewerId && viewerId !== ownerId) void show(viewerId, 'start');
-        })
-        // « J'aime » reçu en direct (Adel, 05/10/2026) : « ❤ @x a aimé ta musique ».
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'story_likes', filter: `owner_id=eq.${ownerId}` }, (payload: any) => {
-          const row = payload?.new;
-          if (row?.liker_id && row.liker_id !== ownerId && row.active !== false) void show(String(row.liker_id), 'like');
         })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'story_watch_sessions', filter: `owner_id=eq.${ownerId}` }, (payload: any) => {
           const viewerId = String(payload?.new?.viewer_id ?? '');

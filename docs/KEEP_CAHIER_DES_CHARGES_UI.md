@@ -204,7 +204,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Popup du 🔒 : verrouillé → « Ton mois offert est terminé… parraine 1 ami ou prends Premium » avec boutons **Parrainer un ami** (partage du lien `…/KEEP/?ref=CODE`), **Voir les formules**, Fermer ; pendant le mois offert → « 🎁 Offert encore N jours » ; toujours : mon détail de points et **à quoi sert le classement** (visibilité → abonnés → communauté).
 - Modèle économique : `docs/BUSINESS_SCENARIO.md`.
 
-### §14 decies — J'aime sur les stories (Adel, 05/10/2026, IDEA-106)
-- Un **cœur** aligné sur la ligne des vues (en face de « 👁 N vues » sur ma story) : sur la story d'un autre membre il pulse (contour lumineux rose) tant que la musique en cours n'est pas aimée ; un appui le passe en **cœur rouge** (retour arrière si le serveur refuse), un second appui retire le j'aime. Valable pendant toute la durée de la musique (chapitre).
-- Sur **ma** story : compteur « ❤ N » par musique (rafraîchi toutes les 10 s) ; alerte en direct « ❤ @x a aimé ta musique ». Pas d'auto-j'aime.
-- Données : table `story_likes` (owner, liker, track_id texte — « sale:… » possible —, `active`), RPC `keep_story_like_toggle`, `keep_story_likes_mine`, `keep_my_story_like_counts` ; compteur lisible par le seul propriétaire. Aucune suppression de ligne (la ligne passe active/inactive).
+### §14 decies — Le cœur « j'aime » PARTOUT (Adel, 05/10/2026, IDEA-106/107)
+- Un **cœur** (composant unique `TrackLikeButton`) dans TOUS les lecteurs de musique : Swipe des stories (y compris **musiques payantes** : le j'aime est la seule action gratuite), profils de membres, sessions, aperçu des **collections en vente** ; absent de ma propre collection (`likeMode="off"`). Il pulse (contour rose) tant que la musique n'est pas aimée, devient **rouge** une fois aimé (retour arrière si le serveur refuse), avec le nombre de j'aime dans une pastille.
+- Sur **ma** story : compteur « ❤ N » en face des vues (`likeMode="count-only"`).
+- **Une seule table de données : `track_likes (profile_id, track_id)`**, déjà lue par l'algorithme (affinités musicales, notifications boutique) et par le profil d'un membre ; l'id enregistré est l'id réel (« sale:… » → id). Aucune nouvelle table : `story_likes` (créée puis abandonnée le même jour, jamais utilisée en production) est à ignorer.
+- Usage prévu : signal de style musical et d'affinité des abonnés → proposer des musiques à installer sur son profil (payées en FREE) ; recommandations = à construire.

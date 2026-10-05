@@ -17,7 +17,11 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
+import TrackLikeButton from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
+import { useUserStore } from '../store/useUserStore';
+import { useTrackLikes } from '../services/useTrackLikes';
+import { likeKey } from '../services/trackLikeKey';
 import { useStoryCountdown } from '../services/useStoryCountdown';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
@@ -68,8 +72,8 @@ type Props = {
   allowStoryAdd?: boolean;
   /** Ligne sous le sous-titre (ex. compteur de vues de la story). */
   headerExtra?: React.ReactNode;
-  /** J'aime sur la musique en cours (stories) : cœur aligné avec les vues ; `readOnly` = ma propre story (compteur seulement). */
-  likes?: { likedIds: Set<string>; counts?: Record<string, number>; readOnly?: boolean; onToggle: (track: CanonicalTrack, liked: boolean) => Promise<boolean | void> };
+  /** Cœur « j'aime » (partout, y compris musiques payantes) : `auto` = cœur ; `count-only` = compteur seulement (ma propre story) ; `off` = aucun (ma propre collection). */
+  likeMode?: 'auto' | 'off' | 'count-only';
   /** Panneau plein cadre par-dessus le Swipe (ex. liste des spectateurs). */
   overlay?: React.ReactNode;
   loop?: boolean;
@@ -115,7 +119,7 @@ export default function MusicSwipeDeckModal({
   backLabel,
   allowStoryAdd = false,
   headerExtra,
-  likes,
+  likeMode = 'auto',
   overlay,
   loop = true,
   askVisibilityOnKeep = false,
@@ -874,17 +878,12 @@ export default function MusicSwipeDeckModal({
       : currentAlreadyKept
         ? null
         : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
-  // J'aime : état local optimiste, repart de l'état serveur à chaque ouverture.
-  const [likedLocal, setLikedLocal] = useState<Set<string>>(new Set());
-  const likedSource = likes?.likedIds;
-  useEffect(() => { setLikedLocal(new Set(likedSource ?? [])); }, [likedSource, visible, resetKey]);
-  const toggleLike = async (track: CanonicalTrack) => {
-    if (!likes || likes.readOnly) return;
-    const wasLiked = likedLocal.has(track.id);
-    setLikedLocal((previous) => { const next = new Set(previous); if (wasLiked) next.delete(track.id); else next.add(track.id); return next; });
-    try { await likes.onToggle(track, !wasLiked); }
-    catch { setLikedLocal((previous) => { const next = new Set(previous); if (wasLiked) next.add(track.id); else next.delete(track.id); return next; }); }
-  };
+  // J'aime partout (Adel 05/10/2026) : table unique `track_likes`, état optimiste avec retour arrière (useTrackLikes).
+  const likeMeId = useUserStore((state) => state.user?.id);
+  const likeDemo = useUserStore((state) => state.isDemoMode);
+  const likeGuest = useUserStore((state) => state.isLocalGuest);
+  const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
+  const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive);
   // Le robot se tait tant que ce lecteur est ouvert.
   useEffect(() => {
     if (!visible) return undefined;
@@ -910,29 +909,17 @@ export default function MusicSwipeDeckModal({
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
-          {headerExtra || likes ? (
+          {headerExtra || (likesActive && current) ? (
             <View style={s.headerLikeRow}>
               <View style={[{ flexShrink: 1 }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
-              {likes && current ? (() => {
-                const trackKey = current.id;
-                const count = likes.counts?.[trackKey] ?? 0;
-                if (likes.readOnly) {
-                  return likes.counts ? <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime sur cette musique`}><Text style={s.likeCountText}>❤ {count}</Text></View> : null;
+              {likesActive && current ? (() => {
+                const key = likeKey(current.id);
+                const count = trackLikes.counts[key] ?? 0;
+                const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
+                if (likeMode === 'count-only' || isSelf) {
+                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime sur cette musique`}><Text style={s.likeCountText}>❤ {count}</Text></View>;
                 }
-                const liked = likedLocal.has(trackKey);
-                return (
-                  <TouchableOpacity
-                    style={[s.likeButton, liked && s.likeButtonOn]}
-                    onPress={() => { void toggleLike(current); }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: liked }}
-                    accessibilityLabel={liked ? 'Tu aimes cette musique. Appuie pour retirer ton j’aime' : 'J’aime cette musique'}
-                    testID="deck-like-button"
-                  >
-                    {!liked ? <GlowRing radius={22} color="#FF5C8A" testID="deck-like-glow" /> : null}
-                    <Text style={[s.likeHeart, liked && s.likeHeartOn]}>{liked ? '❤' : '♡'}</Text>
-                  </TouchableOpacity>
-                );
+                return <TrackLikeButton liked={trackLikes.liked.has(key)} count={count} onPress={() => { void trackLikes.toggle(current.id); }} />;
               })() : null}
             </View>
           ) : null}
@@ -1101,10 +1088,6 @@ const s = StyleSheet.create({
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
   headerLikeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
-  likeButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,92,138,.12)'},
-  likeButtonOn:{backgroundColor:'rgba(255,60,90,.22)',borderWidth:2,borderColor:'#FF3B5C'},
-  likeHeart:{color:'#FF5C8A',fontSize:24,lineHeight:28,fontWeight:'900'},
-  likeHeartOn:{color:'#FF2D55'},
   likeCount:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1.5,borderColor:'#FF5C8A',backgroundColor:'rgba(255,92,138,.14)',alignItems:'center',justifyContent:'center'},
   likeCountText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},
