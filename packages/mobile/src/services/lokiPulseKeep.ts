@@ -13,12 +13,17 @@ export async function keepLokiPulseTrack(
   track: CanonicalTrack,
   visibility: 'PUBLIC' | 'PRIVATE',
   freeCostPerKeep: number,
+  from?: { profileId: string; username?: string },
 ): Promise<{ ok: boolean; alreadyKept: boolean }> {
   try {
+    // Adel (05/10/2026) : « je suis identifié dessus » -- un GARDER depuis la story de @x enregistre @x comme source (créateur identifié) ;
+    // sans cela le morceau était gardé SANS aucun créateur (source_user_id vide en base : cas teyou).
     const result = await commitKeep(track, [], undefined, {
       visibility,
       consumeCredit: true,
-      context: { source: 'loki_pulse', recommendation: 'personalized_profile_rail' },
+      context: from?.profileId
+        ? { source: 'story', recommendation: 'story_swipe', sourceProfileId: from.profileId, sourceUsername: from.username }
+        : { source: 'loki_pulse', recommendation: 'personalized_profile_rail' },
     });
     await markLokiPulseTrackKept(track.id).catch(() => {});
     if (result.alreadyKept) {

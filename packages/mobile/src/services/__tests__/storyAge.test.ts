@@ -132,3 +132,18 @@ describe('Rangée de stories : une erreur serveur n\'est plus lue comme « aucun
     expect(bar).toContain("reportAutoDiagnostic('STORY_RELATIONS_FAILED', error)");
   });
 });
+
+describe('Créateur identifié + rafraîchissement des bulles (Adel 05/10/2026)', () => {
+  const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const keep = fs.readFileSync(path.join(__dirname, '..', 'lokiPulseKeep.ts'), 'utf8');
+  it('un GARDER depuis une story enregistre le propriétaire de la story comme source', () => {
+    expect(keep).toContain("source: 'story'");
+    expect(keep).toContain('sourceProfileId: from.profileId');
+  });
+  it('la rangée se recharge en direct (Realtime), au retour dans l\'app et toutes les 90 s, au plus 1 fois / 5 s', () => {
+    expect(bar).toContain("table: 'story_pins'");
+    expect(bar).toContain('setInterval(bump, 90000)');
+    expect(bar).toContain('if (now - lastBumpRef.current < 5000) return;');
+    expect(bar).toContain("state === 'active'");
+  });
+});

@@ -2,7 +2,7 @@ import { readProfileMemory, writeProfileMemory } from '../services/profileMemory
 import { reportAutoDiagnostic } from '../services/problemReportService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
-import { Image, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, Image, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
@@ -73,6 +73,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
+  const [reloadTick, setReloadTick] = useState(0);
+  const lastBumpRef = React.useRef(0);
   storiesRef.current = stories;
   const [seen, setSeen] = useState<Record<string, string>>({});
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
@@ -202,6 +204,29 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     };
     void run(0);
     return () => { live = false; if (retryTimer) clearTimeout(retryTimer); };
+  }, [viewer.id, isFocused, reloadTick]);
+
+  // Adel (05/10/2026) : « assure-toi que les bulles se rafraîchissent vite » -- une nouvelle story d'un membre n'apparaissait qu'au retour sur l'écran.
+  // Rechargement : en direct (Realtime sur story_pins), au retour dans l'app, et toutes les 90 s tant que l'écran est visible ; jamais plus d'une fois / 5 s.
+  useEffect(() => {
+    if (!isFocused) return undefined;
+    const bump = () => {
+      const now = Date.now();
+      if (now - lastBumpRef.current < 5000) return;
+      lastBumpRef.current = now;
+      setReloadTick((value) => value + 1);
+    };
+    let channel: any = null;
+    try {
+      if (supabase) channel = supabase.channel(`story-pins-${viewer.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'story_pins' }, bump).subscribe();
+    } catch { /* Realtime indisponible : l'intervalle et le retour dans l'app suffisent */ }
+    const interval = setInterval(bump, 90000);
+    const appState = AppState.addEventListener('change', (state) => { if (state === 'active') bump(); });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+      try { if (channel && supabase) void supabase.removeChannel(channel); } catch { /* déjà fermé */ }
+    };
   }, [viewer.id, isFocused]);
 
   const open = useCallback(async (story: MusicStory) => {
@@ -442,7 +467,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           </View>
         ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
-        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Lié à toi par une reprise ou un abonnement'} · GARDER coûte ${freeCost} FREE`}
+        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Lié à toi par une reprise ou un abonnement'} · ${freeCost} FREE`}
         previewOnly={isOwnOpen}
         sourceUsername={isOwnOpen ? undefined : openStory?.username}
         sourceAvatarUrl={isOwnOpen ? null : openStory?.avatarUrl ?? null}
@@ -462,7 +487,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             if (seller) onOpenProfile?.(seller);
             return false;
           }
-          const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', freeCost);
+          const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', freeCost, openStory && openStory.profileId !== viewer.id ? { profileId: openStory.profileId, username: openStory.username } : undefined);
           return ok;
         }}
         onPass={() => true}

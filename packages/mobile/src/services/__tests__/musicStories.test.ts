@@ -47,7 +47,7 @@ describe('Stories musicales (Adel, 05/10/2026)', () => {
     const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
     expect(home).not.toContain('MusicStoryRail');
     const bar_src = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
-    expect(bar_src).toContain("keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', freeCost)");
+    expect(bar_src).toContain("keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', freeCost, openStory && openStory.profileId !== viewer.id");
     const railSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
     const sizes = [...railSource.matchAll(/fontSize:\s*(\d+)/g)].map((m) => Number(m[1]));
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
