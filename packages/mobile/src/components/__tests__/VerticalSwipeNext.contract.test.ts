@@ -44,3 +44,19 @@ describe('écoute complète : seulement après GARDER (Adel 05/10/2026)', () => 
     expect(modal).toContain('Écoute complète disponible après GARDER');
   });
 });
+
+describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapte (Adel 05/10/2026)', () => {
+  const read = (f: string) => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8');
+  it('never recreates the PanResponder during a gesture (callbacks go through a ref)', () => {
+    const deck = read('SwipeDeck.tsx');
+    expect(deck).toContain('const latest = useRef({ enabled, onSwipeLeft, onSwipeRight, onSwipeUp });');
+    expect(deck).toContain('const responder = useRef(PanResponder.create({');
+    expect(deck).not.toContain('useMemo(() => PanResponder.create');
+  });
+  it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
+    const modal = read('MusicSwipeDeckModal.tsx');
+    expect(modal).toContain("card:{flex:1,minHeight:200,maxHeight:560,");
+    expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
+    expect(modal).toMatch(/hint=""\s+fill/);
+  });
+});
