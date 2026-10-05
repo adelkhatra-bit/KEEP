@@ -163,3 +163,9 @@ Avant de créer un fichier/service/store/RPC :
 - Test fonctionnel ciblé.
 - CI : distinguer clairement les erreurs causées par le commit des bloqueurs externes/préexistants.
 - Ajouter/mettre à jour l'erreur dans `docs/ERROR_LEDGER.md`.
+
+
+## Stories (05/10/2026) — propriétaires uniques
+- Rangée : `packages/mobile/src/components/MusicStoryRail.tsx` (ordre, « Autres », `leading`). Barre profil + enchaînement + « + » : `components/ProfileStoryBar.tsx`. Lecteur : `components/MusicSwipeDeckModal.tsx` (`onFinished`, `resetKey`, bouton story, `MysteryArtwork`).
+- Données et règles : `services/musicStoriesService.ts` (`loadStoryRelations`, `loadMusicStories`, `orderStoriesForBar`, `loadMaskedStoryPins`, `loadStyleSuggestions`). Accès : `services/storyEligibility.ts` + `storyAccessService.ts`.
+- Règles écrites : `docs/KEEP_CAHIER_DES_CHARGES_UI.md` §14, contrat `storiesExperience`, contrôle `verify-product-contract.cjs`. Tests : `services/__tests__/musicOwnStory.test.ts`, `storyAccess.contract.test.ts`.

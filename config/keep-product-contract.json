@@ -934,5 +934,44 @@
     "shazamModuleMinimum": "15.1",
     "iapModuleMinimum": "15.1",
     "testflightMinimumMustMatchAppBuild": true
+  },
+  "storiesExperience": {
+    "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
+    "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
+    "storyWindowHours": 24,
+    "rowIsSinglePiece": true,
+    "rowIsSinglePieceRule": "La photo de profil (avec le « + ») est le premier élément de la MÊME rangée horizontale que les bulles : toute la ligne défile ensemble (prop `leading` de MusicStoryRail).",
+    "orderRule": "Stories : la plus récente d'abord (date de dernière story, puis dernière connexion). Sans story du jour : le dernier connecté d'abord.",
+    "seenStoriesGoToOthers": true,
+    "othersExpandsInlineHorizontally": true,
+    "noModalForRail": true,
+    "eligibleRelations": [
+      "following",
+      "followers",
+      "reprisers_of_my_music",
+      "sources_of_music_I_reprised"
+    ],
+    "sameStyleStoriesAllowed": false,
+    "accountGate": "email_confirmed_and_not_anonymous",
+    "neverInDemoOrLocalGuest": true,
+    "autoChainToNextUnseenStory": true,
+    "styleFriendSuggestions": {
+      "rpc": "keep_discovery_match_candidates",
+      "onlyAfterStyleDeclared": true,
+      "excludeFollowedAndLinked": true,
+      "neverShowStories": true
+    },
+    "maskedStoryTracks": {
+      "serverDecidesRpc": "keep_story_masked_pins",
+      "neverClearAndMaskedDuplicate": true,
+      "cardAnimation": "MysteryArtwork"
+    },
+    "chatSaleExpiryHours": 24,
+    "privateReasonsMustBeDistinct": [
+      "EN_VENTE",
+      "MASQUEE_VOLONTAIREMENT"
+    ],
+    "publicKeepEntersStoryAutomatically": true,
+    "privateNeverEntersStory": true
   }
 }

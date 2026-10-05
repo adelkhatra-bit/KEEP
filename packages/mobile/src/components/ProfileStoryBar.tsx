@@ -61,6 +61,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   // Adel (05/10/2026) : « je viens de garder une musique, mon cercle ne s'allume pas » -- la rangée était chargée une seule fois ; elle se recharge maintenant à chaque retour sur le profil.
   const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
+  const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const [seen, setSeen] = useState<Record<string, string>>({});
@@ -116,11 +117,18 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         const presence = await Promise.allSettled([...all, ...friends, ...suggestions, ...styleFriends].map((story) => loadProfilePresence(story.profileId)));
         if (live) {
           const next: Record<string, boolean | undefined> = {};
+          const seenAt: Record<string, string> = {};
           [...all, ...friends, ...suggestions, ...styleFriends].forEach((story, index) => {
             const result = presence[index];
-            if (result.status === 'fulfilled' && result.value.known) next[story.profileId] = result.value.online;
+            if (result.status === 'fulfilled' && result.value.known) {
+              next[story.profileId] = result.value.online;
+              // En ligne maintenant = « vu à l'instant » : le dernier connecté passe devant.
+              if (result.value.online) seenAt[story.profileId] = new Date().toISOString();
+              else if (result.value.lastSeenAt) seenAt[story.profileId] = String(result.value.lastSeenAt);
+            }
           });
           setOnline(next);
+          setLastSeenAt(seenAt);
         }
       } catch {
         // Réseau indisponible : la rangée garde ta story locale, jamais d'écran cassé.
@@ -200,10 +208,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const nextStory = nextStories[0] ?? null;
   const openTier = openStory ? tiers[openStory.profileId] : undefined;
 
-  return (
-    <View testID="profile-story-bar" style={styles.barRow}>
-      {/* La photo de profil porte l'anneau de ta story : un seul visage, pas de doublon. */}
-      <View style={{ width: avatarSize, height: avatarSize }}>
+  // Adel (05/10/2026) : la photo (avec le « + ») fait partie de la MÊME rangée que les bulles : toute la ligne défile ensemble, comme Instagram.
+  const leadingPhoto = (
+    <View style={{ width: avatarSize, height: avatarSize, marginRight: 4 }}>
       <TouchableOpacity
         onPress={openOwn}
         accessibilityRole="button"
@@ -220,13 +227,18 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         <Text style={styles.plusBadgeText}>+</Text>
       </TouchableOpacity>
       </View>
+  );
+
+  return (
+    <View testID="profile-story-bar" style={styles.barRow}>
       <View style={styles.railWrap}>
         <MusicStoryRail
-          stories={stories}
+          stories={stories.map((story) => (lastSeenAt[story.profileId] ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
           seen={seen}
           size={avatarSize}
           online={online}
           onOpen={(story) => { void open(story); }}
+          leading={leadingPhoto}
         />
       </View>
 
@@ -379,7 +391,7 @@ const styles = StyleSheet.create({
   badgeFollower: { backgroundColor: '#2DE1C2' },
   badgeReprise: { backgroundColor: '#FFB020' },
   barRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
-  railWrap: { flex: 1, minWidth: 0, marginLeft: 12 },
+  railWrap: { flex: 1, minWidth: 0 },
   photo: { backgroundColor: colors.backgroundCard },
   photoFallback: { alignItems: 'center', justifyContent: 'center' },
   photoInitial: { color: colors.white, fontSize: 28, fontWeight: '900' },

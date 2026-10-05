@@ -33,6 +33,8 @@ export type MusicStory = {
   followed: boolean;
   sameStyle: boolean;
   tracks: CanonicalTrack[];
+  /** Dernière connexion connue (ISO) : à égalité de dernière story, le dernier connecté passe devant. */
+  lastSeenAt?: string;
   /** Suggestion (ex. a repris une de tes musiques) : pas une story, un raccourci vers son profil. */
   suggestion?: boolean;
   /** Suggestion d'ami par style musical (aucun lien encore) : appui = profil, jamais de story. */
@@ -394,7 +396,7 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
 export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, string>): MusicStory[] {
   const isNew = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
   // Adel (05/10/2026) : toujours la story la plus RÉCENTE en premier (l'heure de la dernière story), dans chaque groupe.
-  const byRecency = (a: MusicStory, b: MusicStory) => (a.latestAt < b.latestAt ? 1 : a.latestAt > b.latestAt ? -1 : 0);
+  const byRecency = (a: MusicStory, b: MusicStory) => (a.latestAt < b.latestAt ? 1 : a.latestAt > b.latestAt ? -1 : (b.lastSeenAt || '').localeCompare(a.lastSeenAt || ''));
   return [...stories.filter(isNew).sort(byRecency), ...stories.filter((story) => !isNew(story)).sort(byRecency)];
 }
 

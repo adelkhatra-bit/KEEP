@@ -24,6 +24,8 @@ type Props = {
   size?: number;
   /** Présence par profil : true = vert, false = rouge, absent = inconnue (aucune pastille, jamais un faux « hors ligne »). */
   online?: Record<string, boolean | undefined>;
+  /** Premier élément de la rangée, qui défile avec elle (ta photo avec le « + »). */
+  leading?: React.ReactNode;
 };
 
 const RING = 60;
@@ -68,11 +70,11 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading }: Props) {
   const ITEM = size + 2;
   const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef<ScrollView | null>(null);
-  const empty = !stories.length && !own;
+  const empty = !stories.length && !own && !leading;
   // Adel (05/10/2026) — toujours la même rangée, toujours dans la même longueur :
   //  1. à côté de la photo : les membres que je SUIS ; les stories non vues d'abord, puis ceux sans story du jour (cercle gris) ;
   //  2. une story VUE passe derrière, dans « Autres », et la suivante non vue prend sa place : on appuie toujours au même endroit ;
@@ -82,14 +84,16 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const isUnseen = (story: MusicStory) => hasStory(story) && (seen[story.profileId] || '') < story.latestAt;
   const followed = stories.filter((story) => story.followed);
   const notFollowed = stories.filter((story) => !story.followed);
+  // Sans story du jour : le dernier connecté d'abord (pas besoin d'aller au bout de la ligne pour trouver quelqu'un d'actif).
+  const byLastSeen = (a: MusicStory, b: MusicStory) => (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '');
   const main = [
     ...orderStoriesForBar(followed.filter(isUnseen), seen),
-    ...followed.filter((story) => !hasStory(story)),
+    ...followed.filter((story) => !hasStory(story)).sort(byLastSeen),
   ];
   const others = [
     ...followed.filter((story) => hasStory(story) && !isUnseen(story)),
     ...orderStoriesForBar(notFollowed.filter(hasStory), seen),
-    ...notFollowed.filter((story) => !hasStory(story) && !story.styleMatch),
+    ...notFollowed.filter((story) => !hasStory(story) && !story.styleMatch).sort(byLastSeen),
     ...notFollowed.filter((story) => !hasStory(story) && story.styleMatch),
   ];
   const unseenOthers = others.filter(isUnseen).length;
@@ -140,6 +144,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
         testID="story-rail-scroll"
         onContentSizeChange={() => { if (expanded) scrollRef.current?.scrollToEnd({ animated: true }); }}
       >
+        {leading ?? null}
         {own ? (
           <TouchableOpacity
             style={[s.item, { width: ITEM }]}

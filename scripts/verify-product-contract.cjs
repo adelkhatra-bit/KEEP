@@ -366,6 +366,27 @@ must(packageJson.scripts?.['integration:postflight']?.includes('verify-product-c
   must(reloads > 0 && reloads === guarded, `MISE À JOUR: chaque rechargement de AppUpdateBanner doit passer par runWhenNoGameInProgress (${guarded}/${reloads}). Une mise à jour en pleine partie fait perdre la mise du joueur.`);
 }
 
+
+// ---- Stories (décision d'Adel du 05/10/2026, contrat storiesExperience) ----
+const storyRail = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicStoryRail.tsx'), 'utf8');
+const storyBar = fs.readFileSync(path.join(root, 'packages/mobile/src/components/ProfileStoryBar.tsx'), 'utf8');
+const storyService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/musicStoriesService.ts'), 'utf8');
+const storyDeck = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
+const storyEligibility = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyEligibility.ts'), 'utf8');
+const se = contract.storiesExperience;
+must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
+must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
+must(!storyRail.includes('Modal'), 'stories: la rangée ne doit pas ouvrir de fenêtre (Autres se déroule dans la longueur)');
+must(storyService.includes('const byRecency =') && storyService.includes('stories.filter(isNew).sort(byRecency)'), 'stories: la plus récente doit rester la première');
+must(storyRail.includes('...orderStoriesForBar(followed.filter(isUnseen), seen)') && storyRail.includes('followed.filter((story) => hasStory(story) && !isUnseen(story))'), 'stories: non vues d\'abord, vues rangées dans Autres');
+must(storyService.includes('rankMusicStories(rows, viewerId, eligibleIds, new Set())') && storyService.includes('loadStoryRelations'), 'stories: seuls les membres liés (abonnements, abonnés, reprises) — jamais le même style seul');
+must(storyEligibility.includes('is_anonymous') && storyEligibility.includes('email_confirmed_at'), 'stories: compte réel avec e-mail vérifié uniquement');
+must(profile.includes('!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked') && visitorProfile.includes('isDemoMode || isLocalGuest || !effectiveViewerId'), 'stories: jamais en démo ni invité');
+must(storyBar.includes('onFinished={() => {') && storyDeck.includes('finishedRound.current === round'), 'stories: enchaînement automatique vers la prochaine story non vue');
+must(storyService.includes("rpc('keep_discovery_match_candidates'") && storyBar.includes('loadStyleSuggestions('), 'stories: suggestions d\'amis par style (RPC serveur)');
+must(storyService.includes("rpc('keep_story_masked_pins'") && storyService.includes('maskedRawIds'), 'stories: musique en vente masquée côté serveur, jamais en double ni en clair');
+must(storyDeck.includes('MysteryArtwork'), 'stories: l\'animation pochette mystère des musiques masquées doit rester');
+
 if (failures.length) {
   console.error('\nKEEP PRODUCT CONTRACT FAILED\n');
   for (const failure of failures) console.error('- ' + failure);

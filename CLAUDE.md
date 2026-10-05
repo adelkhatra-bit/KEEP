@@ -1,6 +1,9 @@
 ## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
 Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
 
+## 📖 STORIES — RÈGLES CANONIQUES (Adel, 05/10/2026)
+Avant toute modification des stories, de la rangée de bulles, des suggestions d'amis ou de « mettre en story » : lire `docs/KEEP_CAHIER_DES_CHARGES_UI.md` §14 et `config/keep-product-contract.json` > `storiesExperience`. Contrôle bloquant : `scripts/verify-product-contract.cjs`. Ne jamais les affaiblir sans demande explicite d'Adel.
+
 ## BIBLIOTHÈQUE PRODUIT CANONIQUE — À LIRE EN PREMIER
 Avant toute action, lire `config/keep-product-contract.json`. C'est la bibliothèque machine anti-régression de KEEP. Si un ancien commentaire, test, message agent ou document contredit la décision explicite la plus récente d'Adel et ce contrat, il est obsolète et doit être corrigé dans le même commit. Une correction UI ne doit jamais modifier des données utilisateur réelles (certification, FREE, profil) pour « faire correspondre » l'écran.
 
