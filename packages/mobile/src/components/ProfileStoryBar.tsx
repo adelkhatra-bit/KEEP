@@ -82,57 +82,74 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   useEffect(() => {
     let live = true;
     if (!isFocused) return undefined;
+    // Adel (05/10/2026) : « le profil met du temps à charger ». Tout part EN PARALLÈLE et la rangée se remplit au fur et à mesure
+    // (amis et suggestions dès que les liens arrivent, stories ensuite) : plus de chaîne d'attentes l'une derrière l'autre.
+    const collected = new Map<string, MusicStory>();
+    const merge = (list: MusicStory[]) => {
+      for (const story of list) {
+        const known = collected.get(story.profileId);
+        if (!known || story.tracks.length > known.tracks.length) collected.set(story.profileId, story);
+      }
+      if (live) setStories(Array.from(collected.values()));
+    };
     void (async () => {
       const seenMap = await loadSeenStories(viewer.id);
       if (live) setSeen(seenMap);
       // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
       loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
-      try {
-        const base = await loadMusicStories(viewer.id);
-        if (live) setStories(base);
-        // Les musiques en vente arrivent ensuite : la rangée s'affiche sans les attendre.
-        const [withSales, saleOnly] = await Promise.all([
-          enrichStoriesWithSales(base).catch(() => base),
-          loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
+      const relationsPromise = loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
+      // Branche A : bulles d'amis, liés et suggestions par style (ne dépendent que des liens).
+      const bubblesPromise = relationsPromise.then(async (relations) => {
+        const [friends, others, styleFriends] = await Promise.all([
+          loadFriendBubbles(relations.following, [viewer.id]).catch(() => [] as MusicStory[]),
+          loadOthersBubbles(relations.others, [viewer.id]).catch(() => [] as MusicStory[]),
+          loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others]).catch(() => [] as MusicStory[]),
         ]);
-        const all = [...withSales, ...saleOnly];
-        // Amis par défaut (bulle grise sans story) + suggestions d'amis (ont repris mes musiques, pas encore suivis).
-        const storyIds = all.map((story) => story.profileId);
-        const relations = await loadStoryRelations(viewer.id).catch(() => ({ following: [] as string[], others: [] as string[] }));
-        const friends = await loadFriendBubbles(relations.following, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
-        const suggestions = await loadOthersBubbles(relations.others, [viewer.id, ...storyIds]).catch(() => [] as MusicStory[]);
-        // Suggestions d'amis par style musical : seulement des membres de SON style, jamais ceux déjà suivis ou liés.
-        const styleFriends = await loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others, ...storyIds]).catch(() => [] as MusicStory[]);
-        if (live) setStories([...all, ...friends, ...suggestions, ...styleFriends]);
+        merge([...friends, ...others, ...styleFriends]);
+        return [...friends, ...others, ...styleFriends];
+      });
+      // Branche B : les stories (musiques), puis leur enrichissement boutique.
+      const storiesPromise = (async () => {
         try {
-          if (!supabase) throw new Error('offline');
-          const ids = Array.from(new Set([viewer.id, ...storyIds, ...friends.map((story) => story.profileId), ...suggestions.map((story) => story.profileId), ...styleFriends.map((story) => story.profileId)]));
-          const { data: tierRows } = await supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids });
-          if (live && Array.isArray(tierRows)) {
-            const nextTiers: Record<string, ProfileCertificationTier> = {};
-            for (const row of tierRows as Array<{ profile_id: string; certification_tier: string }>) {
-              if (row?.profile_id && row.certification_tier) nextTiers[String(row.profile_id)] = row.certification_tier as ProfileCertificationTier;
-            }
-            setTiers(nextTiers);
-          }
-        } catch { /* sans certification connue : aucun badge */ }
-        // Activité réelle (un seul appel serveur) : pastille verte/rouge + tri « dernier actif d'abord » ; les anciens inactifs passent à la suite.
-        const activity = await loadProfilesActivity([...all, ...friends, ...suggestions, ...styleFriends].map((story) => story.profileId)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>));
-        if (live) {
-          const next: Record<string, boolean | undefined> = {};
-          const seenAt: Record<string, string> = {};
-          for (const [id, info] of Object.entries(activity)) {
-            next[id] = info.online;
-            if (info.online) seenAt[id] = new Date().toISOString();
-            else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
-          }
-          setOnline(next);
-          setLastSeenAt(seenAt);
-          setActivityKnown(true);
+          const relations = await relationsPromise;
+          const base = await loadMusicStories(viewer.id, relations);
+          merge(base);
+          const [withSales, saleOnly] = await Promise.all([
+            enrichStoriesWithSales(base).catch(() => base),
+            loadSaleOnlyStories(viewer.id, base).catch(() => [] as MusicStory[]),
+          ]);
+          merge([...withSales, ...saleOnly]);
+          return [...withSales, ...saleOnly];
+        } catch { return [] as MusicStory[]; /* Réseau indisponible : la rangée garde ta story locale */ }
+      })();
+      const [bubbles, withStories] = await Promise.all([bubblesPromise, storiesPromise]);
+      const everyone = Array.from(collected.values());
+      const ids = Array.from(new Set([viewer.id, ...everyone.map((story) => story.profileId), ...bubbles.map((story) => story.profileId), ...withStories.map((story) => story.profileId)]));
+      // Certifications + activité réelle : deux appels serveur en parallèle pour toute la ligne.
+      const [tierResult, activity] = await Promise.all([
+        (supabase ? Promise.resolve(supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids })).catch(() => null) : Promise.resolve(null)),
+        loadProfilesActivity(ids.filter((id) => id !== viewer.id)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>)),
+      ]);
+      if (!live) return;
+      const tierRows = (tierResult as any)?.data;
+      if (Array.isArray(tierRows)) {
+        const nextTiers: Record<string, ProfileCertificationTier> = {};
+        for (const row of tierRows as Array<{ profile_id: string; certification_tier: string }>) {
+          if (row?.profile_id && row.certification_tier) nextTiers[String(row.profile_id)] = row.certification_tier as ProfileCertificationTier;
         }
-      } catch {
-        // Réseau indisponible : la rangée garde ta story locale, jamais d'écran cassé.
+        setTiers(nextTiers);
       }
+      // Pastille verte/rouge + tri « dernier actif d'abord » ; les anciens inactifs passent à la suite.
+      const next: Record<string, boolean | undefined> = {};
+      const seenAt: Record<string, string> = {};
+      for (const [id, info] of Object.entries(activity)) {
+        next[id] = info.online;
+        if (info.online) seenAt[id] = new Date().toISOString();
+        else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
+      }
+      setOnline(next);
+      setLastSeenAt(seenAt);
+      setActivityKnown(true);
     })();
     return () => { live = false; };
   }, [viewer.id, isFocused]);

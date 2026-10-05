@@ -122,7 +122,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
           accessibilityRole="button"
           accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : story.styleMatch ? `Suggestion d’ami : ${story.username} aime les mêmes styles que toi` : story.followed ? `Profil de ${story.username}, pas de story pour le moment` : `Voir le profil de ${story.username}`}
           testID={`home-story-${story.profileId}`}
-          style={{ alignItems: 'center' }}
+          style={{ alignItems: 'center', opacity: !withStory && story.followed ? 0.55 : 1 }}
         >
           {withStory
             ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>

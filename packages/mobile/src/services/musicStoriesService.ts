@@ -139,7 +139,7 @@ export async function loadStoryRelations(viewerId: string): Promise<StoryRelatio
   return { following, others: others.slice(0, 60) };
 }
 
-export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> {
+export async function loadMusicStories(viewerId: string, knownRelations?: StoryRelations): Promise<MusicStory[]> {
   if (!supabase || !viewerId) return [];
   const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
 
@@ -153,7 +153,7 @@ export async function loadMusicStories(viewerId: string): Promise<MusicStory[]> 
       .neq('profile_id', viewerId)
       .order('created_at', { ascending: false })
       .limit(300),
-    loadStoryRelations(viewerId).catch(() => ({ following: [] as string[], others: [] as string[] })),
+    knownRelations ? Promise.resolve(knownRelations) : loadStoryRelations(viewerId).catch(() => ({ following: [] as string[], others: [] as string[] })),
     // Adel (05/10/2026) : « si dans les 24 h un utilisateur a utilisé une story, je la verrai automatiquement » : les musiques épinglées
     // avec le « + » comptent comme les GARDER publics (les épingles masquées / en vente passent par enrichStoriesWithSales).
     supabase

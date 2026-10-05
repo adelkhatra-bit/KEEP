@@ -965,7 +965,6 @@ export default function HomeScreenCompact({ navigation }: any) {
 }
 
 function TopBar({ navigation, readyCount = 0 }: any) {
-  const narrowTop = useWindowDimensions().width < 360;
   const readyPulse = useRef(new Animated.Value(0.45)).current;
   useEffect(() => {
     if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
@@ -978,8 +977,8 @@ function TopBar({ navigation, readyCount = 0 }: any) {
   }, [readyCount, readyPulse]);
 
   return <View style={s.topBar}>
-    <Text style={[s.brand, { flexShrink: 1 }, narrowTop && { fontSize: 26, lineHeight: 32 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Ça joue quoi ?</Text>
-    <View style={s.topBarActions}>
+    {/* Adel (05/10/2026) : plus de titre sur l'accueil (la bande lumineuse et le bouton suffisent) ; le menu reste à droite. */}
+    <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
       {readyCount > 0 ? (
         <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
           <Animated.View style={[s.readyPill, { opacity: readyPulse }]}>
@@ -1183,7 +1182,7 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  livePanel: { marginBottom: 8 },
+  livePanel: { marginBottom: 8, overflow: 'hidden', zIndex: 1 },
   aurora: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   blob: { position: 'absolute', borderRadius: 999 },
   blob1: { width: 320, height: 320, backgroundColor: C.purple, top: -60, left: -80, opacity: 0.20 },

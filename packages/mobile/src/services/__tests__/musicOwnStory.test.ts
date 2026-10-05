@@ -306,7 +306,7 @@ describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon
     expect(rail).toContain('friendRing');
   });
   it('les suggestions excluent les membres que je suis déjà', () => {
-    expect(bar).toContain('loadOthersBubbles(relations.others, [viewer.id, ...storyIds])');
+    expect(bar).toContain('loadOthersBubbles(relations.others, [viewer.id])');
   });
   it('une musique masquée ne reste jamais en clair à côté de sa carte masquée (doublon + fuite)', () => {
     expect(svc).toContain('maskedRawIds');
@@ -396,5 +396,21 @@ describe('Tri intelligent : les anciens inactifs à la suite (Adel 05/10/2026)',
   });
   it('un seul appel serveur pour l\'activité réelle (connexion, GARDER, épingle)', () => {
     expect(svc).toContain("rpc('keep_profiles_activity'");
+  });
+});
+
+
+describe('Chargement du profil en parallèle + amis sans story grisés (Adel 05/10/2026)', () => {
+  const fsE = require('fs'); const pathE = require('path');
+  const bar = fsE.readFileSync(pathE.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const rail = fsE.readFileSync(pathE.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  it('les liens, les stories, les certifications et l\'activité partent en parallèle et la rangée se remplit au fil de l\'eau', () => {
+    expect(bar).toContain('const bubblesPromise = relationsPromise.then(');
+    expect(bar).toContain('const [bubbles, withStories] = await Promise.all([bubblesPromise, storiesPromise]);');
+    expect(bar).toContain('const [tierResult, activity] = await Promise.all([');
+    expect(bar).toContain('merge(base);');
+  });
+  it('un membre sans story est grisé', () => {
+    expect(rail).toContain('opacity: !withStory && story.followed ? 0.55 : 1');
   });
 });
