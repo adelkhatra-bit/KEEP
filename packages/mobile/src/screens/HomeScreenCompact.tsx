@@ -26,6 +26,17 @@ import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 
+// Adel (05/10/2026) : bandelette communicative de l'accueil (défis, communauté, matchs) -- l'accueil reste épuré, les messages passent ici.
+const HOME_TICKER_MESSAGES = [
+  'Défie un ami en Battle : le meilleur oreille gagne',
+  'Gagne ta communauté : chaque reprise de ta musique te fait gagner un abonné',
+  'Match musical : trouve les membres qui aiment les mêmes sons que toi',
+  'Garde en public, ta musique entre en story pendant 24 h',
+  'Un ami a repris ta musique ? Tu es crédité comme le premier',
+  'Ouvre une session : tes morceaux sont triés, prêts à garder',
+  'Mets une pépite en vente : ta communauté l’écoute avant de la garder',
+];
+
 const IDENTIFY_TICKER_MESSAGES = [
   'Bravo ! Identifie un morceau et partage-le sur ton profil',
   'Ta musique est identifiée comme la première',
@@ -109,6 +120,8 @@ function formatElapsed(startedAt: string | null) {
 }
 
 export default function HomeScreenCompact({ navigation }: any) {
+  // La bandelette de l'accueil n'est affichée que si l'écran a la place (jamais au détriment du bouton ou du compteur).
+  const roomForHomeTicker = useWindowDimensions().height >= 700;
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
@@ -641,6 +654,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
+          {roomForHomeTicker ? <LedTicker messages={HOME_TICKER_MESSAGES} testID="home-led-ticker" /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -728,7 +742,7 @@ export default function HomeScreenCompact({ navigation }: any) {
   return (
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
-      <TopBar navigation={navigation} readyCount={detected} />
+      <TopBar navigation={navigation} readyCount={detected} title="À toi de jouer" />
 
       <ScrollView
         style={s.main}
@@ -964,8 +978,26 @@ export default function HomeScreenCompact({ navigation }: any) {
   );
 }
 
-function TopBar({ navigation, readyCount = 0 }: any) {
+function TopBar({ navigation, readyCount = 0, title }: any) {
   const readyPulse = useRef(new Animated.Value(0.45)).current;
+  // Adel (05/10/2026) : « le robot envoie un petit message qui souffle sur le côté : va vérifier ta session ; un appui mène direct au bon endroit ».
+  // La bulle glisse depuis le bord quand des sessions deviennent prêtes (ou que leur nombre augmente), reste quelques secondes, puis se range.
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const nudgeSlide = useRef(new Animated.Value(0)).current;
+  const lastReady = useRef(0);
+  useEffect(() => {
+    const increased = readyCount > lastReady.current;
+    lastReady.current = readyCount;
+    if (!readyCount) { setNudgeOpen(false); return undefined; }
+    if (!increased) return undefined;
+    setNudgeOpen(true);
+    nudgeSlide.setValue(0);
+    Animated.spring(nudgeSlide, { toValue: 1, friction: 6, tension: 90, useNativeDriver: Platform.OS !== 'web' }).start();
+    const timer = setTimeout(() => {
+      Animated.timing(nudgeSlide, { toValue: 0, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start(() => setNudgeOpen(false));
+    }, 9000);
+    return () => clearTimeout(timer);
+  }, [readyCount, nudgeSlide]);
   useEffect(() => {
     if (!readyCount) { readyPulse.stopAnimation(); readyPulse.setValue(0.45); return undefined; }
     const loop = Animated.loop(Animated.sequence([
@@ -977,7 +1009,8 @@ function TopBar({ navigation, readyCount = 0 }: any) {
   }, [readyCount, readyPulse]);
 
   return <View style={s.topBar}>
-    {/* Adel (05/10/2026) : plus de titre sur l'accueil (la bande lumineuse et le bouton suffisent) ; le menu reste à droite. */}
+    {/* Adel (05/10/2026) : plus de gros titre sur l'accueil ; pendant l'écoute, un tout petit « À toi de jouer ». Le menu reste à droite. */}
+    {title ? <Text style={s.topTitle} numberOfLines={1}>{title}</Text> : null}
     <View style={[s.topBarActions, { marginLeft: 'auto' }]}>
       {readyCount > 0 ? (
         <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>
@@ -995,6 +1028,22 @@ function TopBar({ navigation, readyCount = 0 }: any) {
         {readyCount > 0 ? <View style={s.roundBadge} pointerEvents="none"><Text style={s.roundBadgeText}>{readyCount > 9 ? '9+' : readyCount}</Text></View> : null}
       </TouchableOpacity>
     </View>
+    {nudgeOpen && readyCount > 0 ? (
+      <Animated.View
+        style={[s.nudge, { opacity: nudgeSlide, transform: [{ translateX: nudgeSlide.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] }]}
+        testID="home-sessions-nudge"
+      >
+        <TouchableOpacity
+          onPress={() => { setNudgeOpen(false); navigation.navigate('SessionHistory'); }}
+          accessibilityRole="button"
+          accessibilityLabel="Va vérifier ta session : ouvrir mes sessions"
+          style={s.nudgeInner}
+        >
+          <Text style={s.nudgeRobot}>🤖</Text>
+          <Text style={s.nudgeText} numberOfLines={2}>Va vérifier ta session : {readyCount} morceau{readyCount > 1 ? 'x' : ''} t’attend{readyCount > 1 ? 'ent' : ''}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    ) : null}
   </View>;
 }
 
@@ -1205,6 +1254,11 @@ const s = StyleSheet.create({
   sectionCountText: { color: C.purpleLight, fontSize: 11, fontWeight: '900' },
   topBar: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingTop: 6, paddingBottom: 4 },
   topBarSpacer: { width: 44 },
+  topTitle: { color: '#E6E0EE', fontSize: 15, fontWeight: '800', letterSpacing: 0.6, flexShrink: 1 },
+  nudge: { position: 'absolute', right: 10, top: 62, zIndex: 40, maxWidth: 260 },
+  nudgeInner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#1B1230', borderWidth: 1.5, borderColor: '#2DE1C2', shadowColor: '#2DE1C2', shadowOpacity: 0.5, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 12 },
+  nudgeRobot: { fontSize: 22 },
+  nudgeText: { flexShrink: 1, color: '#FFFFFF', fontSize: 14, lineHeight: 19, fontWeight: '800' },
   topBarActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   readyPill: { minHeight: 36, maxWidth: 132, paddingHorizontal: 10, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: C.green },
   readyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
