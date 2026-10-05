@@ -26,6 +26,9 @@ type Props = {
   online?: Record<string, boolean | undefined>;
   /** Premier élément de la rangée, qui défile avec elle (ta photo avec le « + »). */
   leading?: React.ReactNode;
+  /** Suivre directement un membre non suivi (bouton « +👤 » sur sa bulle, comme Instagram). */
+  onFollow?: (story: MusicStory) => void | Promise<void>;
+  followBusyId?: string | null;
 };
 
 const RING = 60;
@@ -70,35 +73,28 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId }: Props) {
   const ITEM = size + 2;
-  const [expanded, setExpanded] = useState(false);
+  // Adel (05/10/2026) — EXACTEMENT comme Instagram : une seule rangée, toute d'une pièce (photo + « + » comprise), qui défile sur le côté.
+  //  1. stories non vues, la plus récente d'abord (mes abonnements, puis les membres liés) ;
+  //  2. mes abonnements sans story du jour (le dernier connecté d'abord) ;
+  //  3. suggestions d'amis (liens par reprise/abonnement, puis style musical) avec le bouton « suivre » intégré ;
+  //  4. les stories DÉJÀ VUES tout au bout : dès qu'une story est vue, sa bulle disparaît d'ici et part au fond de la ligne.
   const scrollRef = useRef<ScrollView | null>(null);
-  const empty = !stories.length && !own && !leading;
-  // Adel (05/10/2026) — toujours la même rangée, toujours dans la même longueur :
-  //  1. à côté de la photo : les membres que je SUIS ; les stories non vues d'abord, puis ceux sans story du jour (cercle gris) ;
-  //  2. une story VUE passe derrière, dans « Autres », et la suivante non vue prend sa place : on appuie toujours au même endroit ;
-  //  3. « Autres » se déroule dans la longueur (même rangée, on glisse sur le côté) : stories vues, puis les membres liés à moi
-  //     (reprise dans un sens ou dans l'autre, ou abonnés à moi) que je ne suis pas.
   const hasStory = (story: MusicStory) => story.tracks.length > 0;
   const isUnseen = (story: MusicStory) => hasStory(story) && (seen[story.profileId] || '') < story.latestAt;
-  const followed = stories.filter((story) => story.followed);
-  const notFollowed = stories.filter((story) => !story.followed);
-  // Sans story du jour : le dernier connecté d'abord (pas besoin d'aller au bout de la ligne pour trouver quelqu'un d'actif).
   const byLastSeen = (a: MusicStory, b: MusicStory) => (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '');
-  const main = [
-    ...orderStoriesForBar(followed.filter(isUnseen), seen),
-    ...followed.filter((story) => !hasStory(story)).sort(byLastSeen),
-  ];
-  const others = [
-    ...followed.filter((story) => hasStory(story) && !isUnseen(story)),
-    ...orderStoriesForBar(notFollowed.filter(hasStory), seen),
-    ...notFollowed.filter((story) => !hasStory(story) && !story.styleMatch).sort(byLastSeen),
-    ...notFollowed.filter((story) => !hasStory(story) && story.styleMatch),
-  ];
-  const unseenOthers = others.filter(isUnseen).length;
-  // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part vers « Autres », la suivante avance.
-  const orderKey = [...main, ...others].map((story) => `${story.profileId}:${isUnseen(story) ? 1 : 0}`).join('|');
+  const unseenFollowed = orderStoriesForBar(stories.filter((story) => story.followed && isUnseen(story)), seen);
+  const unseenOthers = orderStoriesForBar(stories.filter((story) => !story.followed && isUnseen(story)), seen);
+  const friendsNoStory = stories.filter((story) => story.followed && !hasStory(story)).sort(byLastSeen);
+  const linkedSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && !story.styleMatch).sort(byLastSeen);
+  const styleSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && story.styleMatch);
+  const seenStories = orderStoriesForBar(stories.filter((story) => hasStory(story) && !isUnseen(story)), seen);
+  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories];
+  const empty = !row.length && !own && !leading;
+
+  // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part au bout, la suivante avance.
+  const orderKey = row.map((story) => `${story.profileId}:${isUnseen(story) ? 1 : 0}:${story.followed ? 1 : 0}`).join('|');
   const lastOrderKey = useRef(orderKey);
   useEffect(() => {
     if (lastOrderKey.current !== orderKey) {
@@ -111,23 +107,36 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
     const withStory = hasStory(story);
     const unseen = isUnseen(story);
     const dashed = !story.followed && !withStory;
+    const canFollow = !story.followed && Boolean(onFollow);
     return (
-      <TouchableOpacity
-        key={story.profileId}
-        style={[s.item, { width: ITEM }]}
-        onPress={() => onOpen(story)}
-        accessibilityRole="button"
-        accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : story.styleMatch ? `Suggestion d’ami : ${story.username} aime les mêmes styles que toi` : `Profil de ${story.username}, pas de story pour le moment`}
-        testID={`home-story-${story.profileId}`}
-      >
-        {withStory
-          ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
-          : <View style={[dashed ? s.suggestRing : s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
-        {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
-        {withStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
-        {dashed ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>{story.styleMatch ? '✨' : '↻'}</Text></View> : null}
-        <Text style={[s.name, withStory && !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
-      </TouchableOpacity>
+      <View key={story.profileId} style={[s.item, { width: ITEM }]}>
+        <TouchableOpacity
+          onPress={() => onOpen(story)}
+          accessibilityRole="button"
+          accessibilityLabel={withStory ? `Story musicale de ${story.username}${unseen ? ', nouveauté' : ', déjà vue'}` : story.styleMatch ? `Suggestion d’ami : ${story.username} aime les mêmes styles que toi` : story.followed ? `Profil de ${story.username}, pas de story pour le moment` : `Voir le profil de ${story.username}`}
+          testID={`home-story-${story.profileId}`}
+          style={{ alignItems: 'center' }}
+        >
+          {withStory
+            ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
+            : <View style={[dashed ? s.suggestRing : s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
+          {online && online[story.profileId] !== undefined && !canFollow ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
+          {withStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
+          <Text style={[s.name, withStory && !unseen && s.nameSeen, canFollow && { marginTop: 14 }]} numberOfLines={1}>{story.username}</Text>
+        </TouchableOpacity>
+        {canFollow ? (
+          <TouchableOpacity
+            style={[s.followPill, { left: ITEM / 2 - 22, top: size - 20 }]}
+            onPress={() => { void onFollow?.(story); }}
+            disabled={followBusyId === story.profileId}
+            accessibilityRole="button"
+            accessibilityLabel={`Suivre ${story.username}`}
+            testID={`story-follow-${story.profileId}`}
+          >
+            <Text style={s.followPillText}>{followBusyId === story.profileId ? '…' : '+👤'}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
     );
   };
 
@@ -142,7 +151,6 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
         contentContainerStyle={s.row}
         keyboardShouldPersistTaps="handled"
         testID="story-rail-scroll"
-        onContentSizeChange={() => { if (expanded) scrollRef.current?.scrollToEnd({ animated: true }); }}
       >
         {leading ?? null}
         {own ? (
@@ -160,22 +168,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
-        {main.map(renderStory)}
-        {others.length > 0 ? (
-          <TouchableOpacity
-            style={[s.item, { width: ITEM }]}
-            onPress={() => setExpanded((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            accessibilityLabel={expanded ? 'Réduire les autres stories' : `Autres : ${others.length} membre${others.length > 1 ? 's' : ''}${unseenOthers ? `, ${unseenOthers} nouveauté${unseenOthers > 1 ? 's' : ''}` : ''}`}
-            testID="home-story-others"
-          >
-            <View style={[s.moreCircle, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.moreText}>{expanded ? '‹' : `+${others.length}`}</Text></View>
-            {!expanded && unseenOthers > 0 ? <View style={[s.seenBadge, s.newBadge, { top: 2, right: 2, width: 22, height: 22, borderRadius: 11 }]}><Text style={s.newBadgeText}>{unseenOthers > 9 ? '9+' : unseenOthers}</Text></View> : null}
-            <Text style={s.name} numberOfLines={1}>{expanded ? 'Réduire' : 'Autres'}</Text>
-          </TouchableOpacity>
-        ) : null}
-        {expanded ? others.map(renderStory) : null}
+        {row.map(renderStory)}
       </ScrollView>
     </View>
   );
@@ -202,6 +195,8 @@ const s = StyleSheet.create({
   seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
   suggestRing: { borderWidth: 3, borderStyle: 'dashed', borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.22)', alignItems: 'center', justifyContent: 'center' },
   suggestCaption: { color: '#B79CFF', fontSize: 11, fontWeight: '900', marginTop: -1 },
+  followPill: { position: 'absolute', minWidth: 44, height: 28, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
+  followPillText: { color: '#14101D', fontSize: 14, fontWeight: '900' },
   suggestBadge: { backgroundColor: colors.primaryLight },
   newBadge: { backgroundColor: '#FF3D9A' },
   newBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },

@@ -23,6 +23,6 @@ describe('Stories + suggestions : comptes réels avec e-mail vérifié uniquemen
     expect(svc).toContain("rpc('keep_discovery_match_candidates'");
     const bar = read('components', 'ProfileStoryBar.tsx');
     expect(bar).toContain('loadStyleSuggestions(viewer.id, [...relations.following, ...relations.others, ...storyIds])');
-    expect(read('components', 'MusicStoryRail.tsx')).toContain("story.styleMatch ? '✨' : '↻'");
+    expect(read('components', 'MusicStoryRail.tsx')).toContain('styleSuggestions');
   });
 });

@@ -61,6 +61,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   // Adel (05/10/2026) : « je viens de garder une musique, mon cercle ne s'allume pas » -- la rangée était chargée une seule fois ; elle se recharge maintenant à chaque retour sur le profil.
   const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
+  const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
   const [stories, setStories] = useState<MusicStory[]>([]);
@@ -158,6 +159,19 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setSeen(await markStorySeen(viewer.id, story));
   }, [viewer.id, seen]);
 
+  // Suivre directement depuis la bulle (comme Instagram) : la bulle rejoint mes abonnements sans quitter l'écran.
+  const followMember = async (story: MusicStory) => {
+    if (!supabase || followBusy) return;
+    setFollowBusy(story.profileId);
+    try {
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: story.profileId });
+      if (error) throw error;
+      setStories((previous) => previous.map((item) => (item.profileId === story.profileId ? { ...item, followed: true, suggestion: false, styleMatch: false } : item)));
+    } catch {
+      Alert.alert('Abonnement impossible', 'L’abonnement n’a pas pu être enregistré. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+    } finally { setFollowBusy(null); }
+  };
+
   const openOwn = () => {
     if (ownStory) { void open(ownStory); return; }
     Alert.alert('Ta story du jour est terminée', 'Une story dure 24 h. Reposte : partage une musique en public, reprends-en une chez un autre membre ou mets-en une en vente — ta photo se rallume aussitôt.', [{ text: 'OK', style: 'cancel' }]);
@@ -239,6 +253,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           online={online}
           onOpen={(story) => { void open(story); }}
           leading={leadingPhoto}
+          onFollow={followMember}
+          followBusyId={followBusy}
         />
       </View>
 

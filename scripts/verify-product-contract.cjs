@@ -376,9 +376,10 @@ const storyEligibility = fs.readFileSync(path.join(root, 'packages/mobile/src/se
 const se = contract.storiesExperience;
 must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
 must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
-must(!storyRail.includes('Modal'), 'stories: la rangée ne doit pas ouvrir de fenêtre (Autres se déroule dans la longueur)');
+must(!storyRail.includes('Modal') && !storyRail.includes('home-story-others'), 'stories: la rangée ne doit ni ouvrir de fenêtre ni avoir de rond « Autres » (tout est dans la ligne, façon Instagram)');
 must(storyService.includes('const byRecency =') && storyService.includes('stories.filter(isNew).sort(byRecency)'), 'stories: la plus récente doit rester la première');
-must(storyRail.includes('...orderStoriesForBar(followed.filter(isUnseen), seen)') && storyRail.includes('followed.filter((story) => hasStory(story) && !isUnseen(story))'), 'stories: non vues d\'abord, vues rangées dans Autres');
+must(storyRail.includes('const unseenFollowed = orderStoriesForBar(') && storyRail.includes('const seenStories = orderStoriesForBar(') && storyRail.includes('...styleSuggestions, ...seenStories]'), 'stories: non vues d\'abord, stories vues tout au bout de la ligne');
+must(storyRail.includes('story-follow-') && storyBar.includes("rpc('keep_follow_profile'"), 'stories: suggestions avec bouton « +👤 » pour suivre directement');
 must(storyService.includes('rankMusicStories(rows, viewerId, eligibleIds, new Set())') && storyService.includes('loadStoryRelations'), 'stories: seuls les membres liés (abonnements, abonnés, reprises) — jamais le même style seul');
 must(storyEligibility.includes('is_anonymous') && storyEligibility.includes('email_confirmed_at'), 'stories: compte réel avec e-mail vérifié uniquement');
 must(profile.includes('!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked') && visitorProfile.includes('isDemoMode || isLocalGuest || !effectiveViewerId'), 'stories: jamais en démo ni invité');

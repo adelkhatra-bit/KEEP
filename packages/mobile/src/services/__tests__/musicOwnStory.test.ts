@@ -29,7 +29,7 @@ describe('intégration : ta story dans la barre du profil', () => {
   const src = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
   it('« Ta story » comes first, seen stories are greyed with a check and sorted last; the rail scrolls sideways (Adel 05/10/2026: « je swipe sur le côté et je vois tout »)', () => {
     const rail = src('components', 'MusicStoryRail.tsx');
-    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('main.map(renderStory)'));
+    expect(rail.indexOf('home-story-own')).toBeLessThan(rail.indexOf('row.map(renderStory)'));
     expect(rail).toContain('orderStoriesForBar(');
     expect(rail).toContain('seenBadgeText');
     expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
@@ -269,7 +269,7 @@ describe('Stories des autres + suggestions « reprise » (Adel 05/10/2026)', () 
   it('les membres qui ont repris mes musiques sont proposés à côté des stories, une suggestion toujours visible', () => {
     expect(svc).toContain('loadStoryRelations');
     expect(svc).toContain(".eq('source_user_id', viewerId)");
-    expect(rail).toContain('testID="home-story-others"');
+    expect(rail).toContain('testID={`story-follow-${story.profileId}`}');
     expect(bar).toContain('if (story.suggestion || story.tracks.length === 0)');
   });
   it('une story vue reste visible (grisée) dans les 24 h', () => {
@@ -299,7 +299,6 @@ describe("Rangée d'amis par défaut + suggestions horizontales + pas de doublon
   const svc = read('services', 'musicStoriesService.ts');
   it('la rangée défile en longueur et finit par le rond « Suggestions »', () => {
     expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
-    expect(rail).toContain('Autres');
     expect(rail).toContain('showsHorizontalScrollIndicator={false}');
   });
   it('mes amis (que je suis) ont toujours leur bulle, grise sans story', () => {
@@ -329,10 +328,10 @@ describe('Qui apparaît dans la rangée : uniquement les membres liés à moi (A
     expect(svc).toContain("eq('profile_id', viewerId).eq('decision', 'KEPT').not('source_user_id', 'is', null)");
     expect(svc).toContain('rankMusicStories(rows, viewerId, eligibleIds, new Set())');
   });
-  it('une story vue passe dans « Autres », la suivante non vue prend sa place ; « Autres » se déroule dans la longueur', () => {
-    expect(rail).toContain('...orderStoriesForBar(followed.filter(isUnseen), seen)');
-    expect(rail).toContain('followed.filter((story) => hasStory(story) && !isUnseen(story))');
-    expect(rail).toContain('{expanded ? others.map(renderStory) : null}');
+  it('une story vue part tout au bout de la ligne, la suivante non vue prend sa place (Instagram)', () => {
+    expect(rail).toContain('const unseenFollowed = orderStoriesForBar(');
+    expect(rail).toContain('const seenStories = orderStoriesForBar(');
+    expect(rail).toContain('...styleSuggestions, ...seenStories]');
     expect(rail).not.toContain('Modal');
   });
 });
@@ -366,5 +365,21 @@ describe('Enchaînement automatique des stories (Adel 05/10/2026)', () => {
   it('on passe à la prochaine story NON vue, la plus récente d\'abord, jamais en boucle sur les vues', () => {
     expect(bar).toContain('(seen[story.profileId] || \'\') < story.latestAt');
     expect(bar).toContain('onFinished={() => {');
+  });
+});
+
+
+describe('Suggestions façon Instagram : bouton « +👤 » dans la ligne (Adel 05/10/2026)', () => {
+  const fsC = require('fs'); const pathC = require('path');
+  const rail = fsC.readFileSync(pathC.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  const bar = fsC.readFileSync(pathC.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  it('pas de rond « Autres » ni de fenêtre : tout est dans la ligne', () => {
+    expect(rail).not.toContain('home-story-others');
+    expect(rail).not.toContain('Modal');
+  });
+  it('suivre directement depuis la bulle, la bulle rejoint mes abonnements', () => {
+    expect(rail).toContain('+👤');
+    expect(bar).toContain("rpc('keep_follow_profile'");
+    expect(bar).toContain('followed: true, suggestion: false, styleMatch: false');
   });
 });
