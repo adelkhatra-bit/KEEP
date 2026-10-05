@@ -9,7 +9,7 @@ describe('Listen home stable layout contract', () => {
     const cta = source.indexOf('<View style={s.idleCta}>', help);
     expect(help).toBeGreaterThan(-1);
     expect(cta).toBeGreaterThan(help);
-    expect(source).toContain("idleLearnMoreSlot: { width: '100%', height: 108");
+    expect(source).toContain("idleLearnMoreSlot: { width: '100%', height: 0");
     expect(source).toContain("idleLearnMorePanel: { position: 'absolute', top: 2");
   });
 
@@ -25,5 +25,10 @@ describe('Listen home stable layout contract', () => {
     expect(source).toContain('homePulseArtworkRing:{position:\'relative\',width:86,height:86');
     expect(source).toContain('IDENTIFIER UN MORCEAU');
     expect(source).toContain('onPressIn={() => prewarmHomePulseTrack(item.track.id)}');
+  });
+
+  it('iPhone 844 px : tout l’écran Écouter tient sans défiler (Adel, 05/10/2026)', () => {
+    expect(source).toContain('const size = height < 720 ? 132 : height < 900 ? 150 : 196;');
+    expect(source).not.toContain("idleLearnMoreSlot: { width: '100%', height: 108");
   });
 });
