@@ -104,3 +104,18 @@ describe('photo de profil = bulle de ta story, anneau rose/bleu, boutique seule'
     expect(read('components', 'ProfileStoryBar.tsx')).toContain('loadSaleOnlyStories(');
   });
 });
+
+describe('qui a vu ma story', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+  it('records a view when opening someone else\'s story and lists viewers (abonné / reprise) inside your own story viewer', () => {
+    const bar = read('components', 'ProfileStoryBar.tsx');
+    expect(bar).toContain('recordStoryView(story.profileId)');
+    expect(bar).toContain('loadMyStoryViewers()');
+    expect(bar).toContain('Abonné');
+    expect(bar).toContain('Reprise');
+    expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain('overlay?: React.ReactNode');
+    const sql = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261005140000_story_views.sql'), 'utf8');
+    expect(sql).toContain('enable row level security');
+    expect(sql).not.toMatch(/drop\s+(table|column)/i);
+  });
+});

@@ -277,3 +277,26 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
   const isNew = (story: MusicStory) => (seen[story.profileId] || '') < story.latestAt;
   return [...stories.filter(isNew), ...stories.filter((story) => !isNew(story))];
 }
+
+
+/** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
+export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean };
+
+export async function recordStoryView(ownerId: string): Promise<void> {
+  if (!supabase || !ownerId) return;
+  try { await supabase.rpc('keep_record_story_view', { p_owner_id: ownerId }); } catch {}
+}
+
+export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('keep_my_story_viewers');
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map((row: any) => ({
+    viewerId: String(row.viewer_id),
+    username: String(row.username ?? ''),
+    avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+    viewedAt: String(row.viewed_at ?? ''),
+    isFollower: Boolean(row.is_follower),
+    isReprise: Boolean(row.is_reprise),
+  })).filter((row) => row.viewerId && row.username);
+}

@@ -39,6 +39,10 @@ type Props = {
   sourceByTrack?: Record<string, { profileId?: string; username?: string; avatarUrl?: string | null }>;
   emptyTitle?: string;
   backLabel?: string;
+  /** Ligne sous le sous-titre (ex. compteur de vues de la story). */
+  headerExtra?: React.ReactNode;
+  /** Panneau plein cadre par-dessus le Swipe (ex. liste des spectateurs). */
+  overlay?: React.ReactNode;
   loop?: boolean;
   askVisibilityOnKeep?: boolean;
   previewOnly?: boolean;
@@ -71,6 +75,8 @@ export default function MusicSwipeDeckModal({
   sourceByTrack,
   emptyTitle = 'Aucun morceau à découvrir.',
   backLabel,
+  headerExtra,
+  overlay,
   loop = true,
   askVisibilityOnKeep = false,
   previewOnly = false,
@@ -668,6 +674,7 @@ export default function MusicSwipeDeckModal({
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <Text style={s.title}>{title}</Text>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
+          {headerExtra}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
       </View>
@@ -789,6 +796,7 @@ export default function MusicSwipeDeckModal({
           </View>
         </View>
       </Modal> : null}
+      {overlay ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
   <ChatDockHost active={visible} />
   </Modal>;

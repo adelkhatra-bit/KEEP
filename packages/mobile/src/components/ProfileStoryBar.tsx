@@ -7,7 +7,10 @@ import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { stopTrackPreviewFast } from '../services/audioPreviewService';
 import {
+  loadMyStoryViewers,
   loadOwnStory,
+  recordStoryView,
+  type StoryViewer,
   enrichStoriesWithSales,
   isSaleStoryTrack,
   loadMusicStories,
@@ -43,6 +46,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [stories, setStories] = useState<MusicStory[]>([]);
   const [seen, setSeen] = useState<Record<string, string>>({});
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
+  const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
+  const [viewersOpen, setViewersOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
 
   useEffect(() => {
@@ -83,6 +88,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     stopTrackPreviewFast();
     setMoreOpen(null);
     setOpenStory(story);
+    setViewersOpen(false);
+    if (story.profileId === viewer.id) {
+      setViewers(null);
+      loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
+    } else {
+      void recordStoryView(story.profileId);
+    }
     setSeen(await markStorySeen(viewer.id, story));
   }, [viewer.id]);
 
@@ -150,6 +162,32 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         visible={Boolean(openStory)}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
+        headerExtra={isOwnOpen ? (
+          <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
+            <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
+          </TouchableOpacity>
+        ) : null}
+        overlay={isOwnOpen && viewersOpen ? (
+          <SafeAreaView style={styles.backdrop}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>Vues de ta story</Text>
+                <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
+              </View>
+              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Personne n’a encore vu ta story aujourd’hui.</Text> : null}
+              <ScrollView>
+                {(viewers ?? []).map((v) => (
+                  <View key={v.viewerId} style={styles.row}>
+                    {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
+                    <Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>
+                    {v.isFollower ? <Text style={[styles.badge, styles.badgeFollower]}>Abonné</Text> : null}
+                    {v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>Reprise</Text> : null}
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </SafeAreaView>
+        ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
         subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${freeCost} FREE`}
         previewOnly={isOwnOpen}
@@ -183,6 +221,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  viewsChip: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center', marginTop: 6, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: colors.primaryFaint },
+  viewsChipText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  viewsEmpty: { color: colors.white, fontSize: 15, lineHeight: 22, paddingVertical: 12 },
+  badge: { fontSize: 12, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden', color: '#04130F' },
+  badgeFollower: { backgroundColor: '#2DE1C2' },
+  badgeReprise: { backgroundColor: '#FFB020' },
   barRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
   railWrap: { flex: 1, minWidth: 0, marginLeft: 12 },
   photo: { backgroundColor: colors.backgroundCard },
