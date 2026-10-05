@@ -4,6 +4,9 @@ import { Image, Modal, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet
 import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
+import ProfileCertificationBadge from './ProfileCertificationBadge';
+import { supabase } from '../services/supabaseClient';
+import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { preloadTrackPreview, stopTrackPreviewFast, toggleTrackPreview } from '../services/audioPreviewService';
@@ -62,6 +65,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [pinBusy, setPinBusy] = useState('');
   const [previewing, setPreviewing] = useState('');
   const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
+  // Certification affichée à côté du nom dans le lecteur de story (Adel 05/10/2026, style Instagram).
+  const [tiers, setTiers] = useState<Record<string, ProfileCertificationTier>>({});
 
   useEffect(() => {
     let live = true;
@@ -81,6 +86,18 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         ]);
         const all = [...withSales, ...saleOnly];
         if (live) setStories(all);
+        try {
+          if (!supabase) throw new Error('offline');
+          const ids = Array.from(new Set([viewer.id, ...all.map((story) => story.profileId)]));
+          const { data: tierRows } = await supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids });
+          if (live && Array.isArray(tierRows)) {
+            const nextTiers: Record<string, ProfileCertificationTier> = {};
+            for (const row of tierRows as Array<{ profile_id: string; certification_tier: string }>) {
+              if (row?.profile_id && row.certification_tier) nextTiers[String(row.profile_id)] = row.certification_tier as ProfileCertificationTier;
+            }
+            setTiers(nextTiers);
+          }
+        } catch { /* sans certification connue : aucun badge */ }
         // Pastille verte/rouge : présence réelle (même source que le profil public). Inconnue = pas de pastille.
         const presence = await Promise.allSettled(all.map((story) => loadProfilePresence(story.profileId)));
         if (live) {
@@ -157,6 +174,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     } finally { setPinBusy(''); }
   };
   const isOwnOpen = openStory?.profileId === viewer.id;
+  // Enchaînement (Adel 05/10/2026) : la story terminée, on propose tout de suite la suivante (non vues d'abord, la story vue repasse derrière).
+  const nextStories = openStory
+    ? stories.filter((story) => story.profileId !== openStory.profileId && story.profileId !== viewer.id)
+        .sort((a, b) => Number((seen[a.profileId] || '') < a.latestAt) === Number((seen[b.profileId] || '') < b.latestAt) ? 0 : ((seen[a.profileId] || '') < a.latestAt ? -1 : 1))
+    : [];
+  const nextStory = nextStories[0] ?? null;
+  const openTier = openStory ? tiers[openStory.profileId] : undefined;
 
   return (
     <View testID="profile-story-bar" style={styles.barRow}>
@@ -279,6 +303,26 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             </View>
           </SafeAreaView>
         ) : null}
+        titleBadge={openTier && openTier !== 'UNVERIFIED' ? <ProfileCertificationBadge tier={openTier} compact /> : null}
+        endExtra={nextStory ? (
+          <View style={styles.nextBox}>
+            <TouchableOpacity style={styles.nextButton} onPress={() => { void open(nextStory); }} accessibilityRole="button" accessibilityLabel={`Voir la story de ${nextStory.username}`} testID="story-next">
+              <Text style={styles.nextButtonText} numberOfLines={1}>STORY SUIVANTE · @{nextStory.username}</Text>
+            </TouchableOpacity>
+            {nextStories.length > 1 ? (
+              <View style={styles.nextBubbles}>
+                {nextStories.slice(1, 5).map((story) => (
+                  <TouchableOpacity key={story.profileId} onPress={() => { void open(story); }} accessibilityRole="button" accessibilityLabel={`Story de ${story.username}`} style={styles.nextBubble}>
+                    {story.avatarUrl
+                      ? <Image source={{ uri: story.avatarUrl }} style={styles.nextBubbleImg} />
+                      : <View style={[styles.nextBubbleImg, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{story.username.slice(0, 1).toUpperCase()}</Text></View>}
+                    <Text style={styles.nextBubbleName} numberOfLines={1}>@{story.username}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
         subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${freeCost} FREE`}
         previewOnly={isOwnOpen}
@@ -319,6 +363,13 @@ const styles = StyleSheet.create({
   addBtnDone: { borderColor: '#5C5468', backgroundColor: '#27222E' },
   addBtnText: { color: '#2DE1C2', fontSize: 13, fontWeight: '900' },
   addBtnTextDone: { color: '#E6E0EE' },
+  nextBox: { alignSelf: 'stretch', alignItems: 'center', marginTop: 14, paddingHorizontal: 8 },
+  nextButton: { alignSelf: 'stretch', minHeight: 46, borderRadius: 23, borderWidth: 1.5, borderColor: '#FFFFFF', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  nextButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: .3 },
+  nextBubbles: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginTop: 14 },
+  nextBubble: { alignItems: 'center', width: 64 },
+  nextBubbleImg: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#FF5BA7' },
+  nextBubbleName: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', marginTop: 4, maxWidth: 64 },
   teaser: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 8, paddingRight: 8 },
   plusBadge: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#7C5CFC', borderWidth: 2, borderColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
   plusBadgeText: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '900' },

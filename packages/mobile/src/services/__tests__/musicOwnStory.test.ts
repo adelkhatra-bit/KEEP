@@ -189,3 +189,19 @@ describe('Découvert par = premier découvreur partout (BUG-005) et pourquoi « 
     expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('✓ DÉJÀ DANS TA STORY · 24 h');
   });
 });
+
+describe('Certification + enchaînement des stories (Adel 05/10/2026)', () => {
+  const fs2 = require('fs'); const path2 = require('path');
+  const bar = fs2.readFileSync(path2.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const deck = fs2.readFileSync(path2.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('affiche la certification à côté du nom sans masquer le titre', () => {
+    expect(bar).toContain('titleBadge={openTier');
+    expect(bar).toContain("keep_public_certification_tiers");
+    expect(deck).toContain('titleBadge ?');
+    expect(deck).toContain('flexShrink:1');
+  });
+  it('propose la story suivante (non vues d\'abord) une fois la story terminée', () => {
+    expect(bar).toContain('testID="story-next"');
+    expect(deck).toContain('{endExtra}');
+  });
+});
