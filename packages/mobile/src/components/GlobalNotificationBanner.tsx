@@ -923,7 +923,7 @@ export default function GlobalNotificationBanner() {
           <View style={styles.copy}>
             <View style={styles.eyebrowRow}><Text style={styles.paymentEyebrow}>PAIEMENT À VÉRIFIER</Text></View>
             <Text style={styles.title} numberOfLines={1}>{current.title}</Text>
-            <Text style={styles.body} numberOfLines={3}>{displayBody}</Text>
+            <Text style={styles.body} numberOfLines={2}>{displayBody}</Text>
             <View style={styles.battleActions}>
               <TouchableOpacity disabled={respondBusy} style={[styles.battleNo, respondBusy && styles.battleDisabled]} onPress={() => animateOut()} accessibilityRole="button" accessibilityLabel="Vérifier le paiement plus tard">
                 <Text style={styles.battleNoText}>PLUS TARD</Text>
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
   battleInviteCard: { width: '100%', maxWidth: 420, borderRadius: 18, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: 'rgba(21,16,31,.98)', paddingHorizontal: 12, paddingVertical: 11, shadowColor: '#000', shadowOpacity: .42, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 42 },
   battleInviteCopy: { minWidth: 0 },
   battleInviteTitle: { color: '#FFF', fontSize: 14, lineHeight: 18, fontWeight: '900', marginTop: 2 },
-  battleInviteBody: { color: '#FFF', fontSize: 11, lineHeight: 15, fontWeight: '700', marginTop: 2 },
+  battleInviteBody: { color: '#FFF', fontSize: 13, lineHeight: 18, fontWeight: '700', marginTop: 2 },
   battleInviteActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   battleInviteNo: { flex: 1, minHeight: 36, borderRadius: 14, borderWidth: 1, borderColor: '#8A7795', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center' },
   battleInviteNoText: { color: '#FFF', fontSize: 11, fontWeight: '900' },
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
   },
   eventBanner: { borderColor: '#7C5CFC' },
   paymentBanner: { borderColor: '#2DE1C2' },
-  paymentEyebrow: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  paymentEyebrow: { color: '#2DE1C2', fontSize: 11, fontWeight: '900', letterSpacing: 1.1 },
   paymentConfirm: { flex: 1, minHeight: 38, borderRadius: 14, backgroundColor: '#2DE1C2', alignItems: 'center', justifyContent: 'center' },
   paymentConfirmText: { color: '#0B0712', fontSize: 11, fontWeight: '900' },
   freeCreditBanner: { borderWidth: 2, borderColor: '#2DE1C2', backgroundColor: 'rgba(18, 35, 37, 0.98)', shadowColor: '#2DE1C2', shadowOpacity: 0.45, shadowRadius: 18 },
@@ -1031,10 +1031,10 @@ const styles = StyleSheet.create({
   freeCreditIcon: { fontSize: 28 },
   freeCreditSpark: { position: 'absolute', top: 4, left: 6, color: '#E5F266', fontSize: 13, fontWeight: '900' },
   freeCreditSparkRight: { left: undefined, right: 5, top: 34 },
-  freeCreditEyebrow: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  freeCreditEyebrow: { color: '#2DE1C2', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   freeCreditTitle: { color: '#FFFFFF', fontSize: 15, lineHeight: 19, fontWeight: '900', marginTop: 2 },
-  freeCreditBody: { color: '#D8FFF6', fontSize: 11, lineHeight: 15, marginTop: 2, fontWeight: '800' },
-  eventEyebrow: { color: '#B79CFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
+  freeCreditBody: { color: '#D8FFF6', fontSize: 13, lineHeight: 18, marginTop: 2, fontWeight: '800' },
+  eventEyebrow: { color: '#B79CFF', fontSize: 11, fontWeight: '900', letterSpacing: 1.1 },
   closeButton: { position: 'absolute', top: 6, right: 6, zIndex: 5, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   closeButtonText: { color: '#FFF', fontSize: 15, lineHeight: 16, fontWeight: '700' },
   artwork: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#21162E' },
@@ -1048,8 +1048,8 @@ const styles = StyleSheet.create({
   battleYesText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
   battleDisabled: { opacity: 0.62 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  eyebrow: { color: '#68F2B1', fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  eyebrow: { color: '#68F2B1', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   closeHint: { color:'#FFFFFF', fontSize: 8, fontWeight: '700' },
-  title: { color: '#F8F6FC', fontSize: 13, lineHeight: 18, fontWeight: '900', marginTop: 2 },
-  body: { color:'#FFFFFF', fontSize: 11, lineHeight: 15, marginTop: 2 },
+  title: { color: '#F8F6FC', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 2 },
+  body: { color:'#FFFFFF', fontSize: 13, lineHeight: 18, marginTop: 2 },
 });

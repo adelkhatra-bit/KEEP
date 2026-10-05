@@ -13,11 +13,25 @@ describe('Notifications readable-action contract', () => {
     expect(source).toContain("detailYoutube: { alignSelf: 'flex-start', marginTop: 14, minHeight: 44");
   });
 
-  it('does not use muted gray or sub-11pt labels for interactive notification controls', () => {
-    expect(source).toContain('chatSurfaceChipText:{color:colors.textPrimary,fontSize:11');
-    expect(source).toContain('notificationActionButtonText: { color: colors.white, fontSize: 11');
-    expect(source).toContain('rsvpButtonText: { fontSize: 11');
-    expect(source).toContain('readAction: { color: colors.primaryLight, fontSize: 11');
-    expect(source).toContain('deleteOneText: { color: colors.danger, fontSize: 11');
+  const sizeOf = (style: string) => {
+    const match = source.match(new RegExp(`${style}:\\s*\\{[^}]*?fontSize:\\s*(\\d+(?:\\.\\d+)?)`));
+    return match ? Number(match[1]) : 0;
+  };
+
+  it('does not use muted gray or tiny labels for interactive notification controls (Adel 05/10/2026 : écriture plus grande)', () => {
+    for (const style of ['chatSurfaceChipText', 'notificationActionButtonText', 'rsvpButtonText', 'readAction', 'deleteOneText']) {
+      expect(sizeOf(style)).toBeGreaterThanOrEqual(11);
+    }
+    for (const style of ['notificationActionButtonText', 'readAction', 'deleteOneText', 'cardMoreLink', 'cardProfileLink']) {
+      expect(sizeOf(style)).toBeGreaterThanOrEqual(13);
+    }
+    expect(sizeOf('cardBody')).toBeGreaterThanOrEqual(14);
+    expect(sizeOf('cardTitle')).toBeGreaterThanOrEqual(16);
+  });
+
+  it('never shows more than 2 lines of notification text: the rest goes behind « En savoir plus »', () => {
+    expect(source).toContain('numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}');
+    expect(source).toContain("'En savoir plus ›'");
+    expect(source).not.toMatch(/styles\.cardBody\} numberOfLines=\{3\}/);
   });
 });

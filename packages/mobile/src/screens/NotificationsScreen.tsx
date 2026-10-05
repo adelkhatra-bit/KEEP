@@ -151,6 +151,13 @@ export default function NotificationsScreen({ navigation, route }: any) {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
   const [items, setItems] = useState<KeepNotification[]>([]);
+  // Règle d'Adel (05/10/2026) : jamais plus de 2 lignes de texte, sinon « En savoir plus ».
+  const [expandedNotificationIds, setExpandedNotificationIds] = useState<Set<string>>(() => new Set());
+  const toggleNotificationExpanded = (id: string) => setExpandedNotificationIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [prefs, setPrefs] = useState<NotificationPreferences>({ systemEnabled: true, djEnabled: true, socialEnabled: true, marketingEnabled: false, eventsEnabled: true, moneyEnabled: true, battleEnabled: true, musicEnabled: true, moneySound: 'MONEY', socialSound: 'DEFAULT', battleSound: 'DEFAULT', musicSound: 'DEFAULT', eventsSound: 'DEFAULT' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1088,7 +1095,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <View style={styles.cardBodyRow}>
                       <View style={styles.cardTextColumn}>
                         <Text style={styles.cardTitle}>Notification réservée · {notificationPlanLabel(requiredPlan)}</Text>
-                        <Text style={styles.cardBody} numberOfLines={3}>Cette notification est présentée avec un cadenas. Appuie pour voir la formule qui la débloque.</Text>
+                        <Text style={styles.cardBody} numberOfLines={2}>Cette notification est présentée avec un cadenas. Appuie pour voir la formule qui la débloque.</Text>
                       </View>
                     </View>
                     <View style={styles.cardBottomRow}>
@@ -1145,7 +1152,12 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   <View style={styles.cardTextColumn}>
                     {/* Nouveau morceau d'un profil suivi : titre masqué jusqu'au GARDER (Adel 02/10/2026). */}
                     <Text style={styles.cardTitle}>{isNewKeepNotification(item) ? maskedNewKeepCopy(item).title : item.title}</Text>
-                    <Text style={styles.cardBody} numberOfLines={3}>{notificationBody}</Text>
+                    <Text style={styles.cardBody} numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}>{notificationBody}</Text>
+                    {String(notificationBody || '').length > 78 ? (
+                      <TouchableOpacity onPress={() => toggleNotificationExpanded(item.id)} accessibilityRole="button" accessibilityLabel={expandedNotificationIds.has(item.id) ? 'Réduire la notification' : 'En savoir plus sur la notification'}>
+                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Réduire ‹' : 'En savoir plus ›'}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </View>
                 {gifted ? (
@@ -1510,7 +1522,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xl },
   back: { color: colors.textPrimary, fontSize: 38, lineHeight: 40 },
   title: { ...typography.h2, color: colors.textPrimary, textAlign: 'center' },
-  subtitle: { color:colors.white, fontSize: 11, textAlign: 'center', marginTop: 2 },
+  subtitle: { color:colors.white, fontSize: 13, textAlign: 'center', marginTop: 2 },
   moreButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   moreText: { color: colors.primaryLight, fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   notice: { position: 'absolute', zIndex: 20, top: 12, alignSelf: 'center', maxWidth: '78%', backgroundColor: 'rgba(27,19,41,.96)', borderWidth: 1, borderColor: colors.primary, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
@@ -1547,11 +1559,11 @@ const styles = StyleSheet.create({
   sectionTitleNoMargin: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
   clearText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
   newKeepActions: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
-  preferenceHint: { color:colors.white, fontSize: 11, lineHeight: 15, marginBottom: spacing.md },
+  preferenceHint: { color:colors.white, fontSize: 13, lineHeight: 18, marginBottom: spacing.md },
   preference: { minHeight: 56, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, marginBottom: spacing.sm },
   preferenceCopy: { flex: 1, minWidth: 0 },
-  preferenceLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
-  preferenceItemHint: { color: colors.white, fontSize: 11, lineHeight: 15, marginTop: 3 },
+  preferenceLabel: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  preferenceItemHint: { color: colors.white, fontSize: 13, lineHeight: 18, marginTop: 3 },
   card: { backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border, borderRadius: 16, marginBottom: spacing.sm, overflow: 'hidden' },
   cardUnread: { borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,0.14)' },
   cardGifted: { borderColor: '#D6B36A', backgroundColor: 'rgba(214,179,106,.10)' },
@@ -1561,32 +1573,32 @@ const styles = StyleSheet.create({
   giftHint: { color: '#F1E7C7', fontSize: 10, lineHeight: 15, marginTop: 6 },
   cardMain: { padding: spacing.md, paddingBottom: spacing.sm },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardType: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  cardType: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   readState: { minWidth: 24, alignItems: 'flex-end' },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
-  readText: { color:colors.white, fontSize: 8, fontWeight: '900', letterSpacing: .8 },
-  cardTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '900', marginTop: 7 },
-  cardBody: { color:colors.white, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  readText: { color:colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
+  cardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '900', marginTop: 7 },
+  cardBody: { color:colors.white, fontSize: 14, lineHeight: 20, marginTop: 4 },
   cardBodyRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   cardThumbnail: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.backgroundCard, marginTop: 7 },
   cardTextColumn: { flex: 1, minWidth: 0 },
-  cardMoreLink: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', marginTop: 6 },
-  cardDate: { color:colors.white, fontSize: 10 },
+  cardMoreLink: { color: colors.primaryLight, fontSize: 13, fontWeight: '900', marginTop: 6 },
+  cardDate: { color:colors.white, fontSize: 12 },
   cardBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  cardProfileLink: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
+  cardProfileLink: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
   battleTheme: { marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,0.10)', paddingHorizontal: 10, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  battleThemeLabel: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  battleThemeValue: { color: colors.warning, fontSize: 12, fontWeight: '900' },
+  battleThemeLabel: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
+  battleThemeValue: { color: colors.warning, fontSize: 14, fontWeight: '900' },
   battleActions: { flexDirection: 'row', gap: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.md },
   notificationActionRow: { paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
   notificationActionButton: { minHeight: 44, borderRadius: 13, borderWidth: 1, borderColor: colors.primaryLight, backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  notificationActionButtonText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
+  notificationActionButtonText: { color: colors.white, fontSize: 13, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
   paymentActionRow: { flexDirection: 'row', gap: 7, paddingHorizontal: spacing.md, paddingTop: 4, paddingBottom: spacing.sm },
   paymentActionButton: { flex: 1, minHeight: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   paymentActionPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  paymentActionPrimaryText: { color: colors.white, fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  paymentActionPrimaryText: { color: colors.white, fontSize: 13, fontWeight: '900', textAlign: 'center' },
   paymentActionSecondary: { backgroundColor: colors.backgroundCard, borderColor: colors.primaryLight },
-  paymentActionSecondaryText: { color: colors.primaryLight, fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  paymentActionSecondaryText: { color: colors.primaryLight, fontSize: 13, fontWeight: '900', textAlign: 'center' },
   paymentActionConfirm: { backgroundColor: 'rgba(45,225,194,.16)', borderColor: colors.keep },
   cancelPaymentButton:{width:'100%',minHeight:44,borderRadius:13,borderWidth:1,borderColor:colors.danger,backgroundColor:'rgba(255,92,114,.08)',alignItems:'center',justifyContent:'center',marginTop:6,paddingHorizontal:10},
   cancelPaymentButtonText:{color:colors.danger,fontSize:11,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
@@ -1618,11 +1630,11 @@ const styles = StyleSheet.create({
   battleAction: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   battleRefuse: { backgroundColor: colors.backgroundCard, borderColor: colors.danger },
   battleAccept: { backgroundColor: colors.warning, borderColor: colors.warning },
-  battleRefuseText: { color: colors.white, fontSize: 11, fontWeight: '900' },
-  battleAcceptText: { color: colors.black, fontSize: 11, fontWeight: '900' },
+  battleRefuseText: { color: colors.white, fontSize: 13, fontWeight: '900' },
+  battleAcceptText: { color: colors.black, fontSize: 13, fontWeight: '900' },
   cardFooter: { minHeight: 44, paddingHorizontal: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  readAction: { color: colors.primaryLight, fontSize: 11, fontWeight: '800' },
-  deleteOneText: { color: colors.danger, fontSize: 11, fontWeight: '900' },
+  readAction: { color: colors.primaryLight, fontSize: 13, fontWeight: '800' },
+  deleteOneText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
   empty: { alignItems: 'center', paddingVertical: spacing.xxl, backgroundColor: colors.backgroundElevated, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   emptyIcon: { color: colors.primaryLight, fontSize: 28, marginBottom: spacing.sm },
   muted: { color:colors.white, fontSize: 12, textAlign: 'center' },

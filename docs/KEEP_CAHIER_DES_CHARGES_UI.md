@@ -112,3 +112,11 @@ Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web
 - Chaque bouton visible doit déclencher une action réelle, un état, une ouverture ou une confirmation. Aucun bouton décoratif/inactif.
 - Les mêmes règles s’appliquent à 390×844 et 1440×900 via la source partagée `packages/mobile/src`.
 - Les textes et parcours doivent rester compréhensibles sans apprentissage préalable, y compris pour un enfant d’environ 10 ans.
+
+## 11. Règles permanentes de lisibilité (décision d'Adel, 05/10/2026 — valable partout)
+
+1. **Jamais de texte sombre sur fond sombre**, ni de noir sur gris. Sur fond sombre : texte blanc ou très clair. Le texte noir n'est autorisé que sur un fond clair ou une couleur vive (ex. bouton vert/jaune).
+2. **Jamais plus de 2 lignes de texte affichées.** Au-delà : « En savoir plus ». Cette règle protège le design : un bloc ne grandit pas à cause d'un long texte.
+3. **L'écriture ne doit pas être trop petite.** Notifications : titre ≥ 16, texte ≥ 14, liens et boutons ≥ 13, étiquettes ≥ 11. Une ligne de hauteur (`lineHeight`) n'est jamais plus petite que la taille du texte.
+4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-mobile-text-contrast.cjs`.
+5. À étendre au reste de l'interface écran par écran, sans casser le design validé.
