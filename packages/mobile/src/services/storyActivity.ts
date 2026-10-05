@@ -44,3 +44,15 @@ export function formatWatchDetail(
   parts.push(v.listened ? 'écouté' : 'pas écouté');
   return { status, detail: parts.join(' · ') };
 }
+
+/** Fenêtre « profil sans story du jour » (Adel 05/10/2026) : depuis quand la personne n'a rien partagé, en une ligne. */
+export function formatLastShared(lastSharedIso: string | null | undefined, now = Date.now()): string {
+  if (!lastSharedIso) return 'Rien partagé pour l’instant';
+  const at = new Date(lastSharedIso).getTime();
+  if (!Number.isFinite(at)) return 'Rien partagé pour l’instant';
+  const hours = Math.max(0, Math.floor((now - at) / 3600000));
+  if (hours < 1) return 'Dernier partage : à l’instant';
+  if (hours < 24) return `Dernier partage : il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return days < 14 ? `Dernier partage : il y a ${days} j` : `Dernier partage : il y a ${Math.floor(days / 7)} sem.`;
+}

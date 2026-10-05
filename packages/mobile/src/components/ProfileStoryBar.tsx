@@ -406,6 +406,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
       <SourceProfileQuickView
         visible={Boolean(quickUsername)}
+        noStory
         username={quickUsername ?? ''}
         currentUserId={viewer.id}
         accountRequired={false}

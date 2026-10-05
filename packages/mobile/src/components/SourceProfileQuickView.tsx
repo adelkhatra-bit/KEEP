@@ -6,6 +6,7 @@ import { radius } from '../theme/spacing';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import KeepModal from './KeepModal';
+import { formatLastShared } from '../services/storyActivity';
 
 const KIND_LABELS: Record<string, string> = {
   USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
@@ -30,6 +31,8 @@ type Props = {
   onClose: () => void;
   onOpenFull: (username: string) => void;
   onRequireAccount: (username: string) => void;
+  /** Fiche ouverte depuis une bulle sans story du jour : slogan + « dernier partage il y a … ». */
+  noStory?: boolean;
 };
 
 export default function SourceProfileQuickView({
@@ -40,12 +43,14 @@ export default function SourceProfileQuickView({
   onClose,
   onOpenFull,
   onRequireAccount,
+  noStory = false,
 }: Props) {
   const [profile, setProfile] = useState<QuickProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [message, setMessage] = useState('');
+  const [lastShared, setLastShared] = useState<string | null | undefined>(undefined);
   // Adel (07/09/2026) : "la certif doit être présentée partout" -- cette
   // fenêtre rapide n'affichait jamais le badge de certification. Calculée en
   // direct (jamais figée) via la même RPC que le reste de l'app.
@@ -60,6 +65,7 @@ export default function SourceProfileQuickView({
     setProfile(null);
     setIsFollowing(false);
     setCertificationTier('UNVERIFIED');
+    setLastShared(undefined);
 
     const loadProfile = async () => {
       try {
@@ -73,6 +79,11 @@ export default function SourceProfileQuickView({
         if (!error && data?.[0]) {
           const nextProfile = data[0] as QuickProfile;
           setProfile(nextProfile);
+          if (noStory) {
+            Promise.resolve(client.from('story_pins').select('pinned_at').eq('profile_id', nextProfile.id).eq('masked', false).order('pinned_at', { ascending: false }).limit(1))
+              .then(({ data: pinRows }) => { if (live) setLastShared(pinRows?.[0]?.pinned_at ?? null); })
+              .catch(() => { if (live) setLastShared(null); });
+          }
           Promise.resolve(client.rpc('keep_public_certification_tiers', { p_profile_ids: [nextProfile.id] }))
             .then(({ data: tierRows }) => {
               const row = Array.isArray(tierRows) ? tierRows[0] : null;
@@ -96,7 +107,7 @@ export default function SourceProfileQuickView({
 
     void loadProfile();
     return () => { live = false; };
-  }, [accountRequired, currentUserId, username, visible]);
+  }, [accountRequired, currentUserId, noStory, username, visible]);
 
   const toggleFollow = async () => {
     if (!profile || followBusy) return;
@@ -135,13 +146,18 @@ export default function SourceProfileQuickView({
     <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <View style={s.card}>
-          <View style={s.handle} />
           {loading ? <ActivityIndicator color={colors.primaryLight} /> : profile ? <>
             {profile.avatar_url
               ? <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
               : <View style={[s.avatar, s.avatarFallback]}><Text style={s.avatarText}>{profile.username.slice(0, 1).toUpperCase()}</Text></View>}
             <View style={s.usernameRow}><Text style={s.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact showLabel /></View>
             <Text style={s.meta}>{[profile.display_name, profile.kind ? (KIND_LABELS[profile.kind] ?? profile.kind) : null, profile.city, profile.country_code].filter(Boolean).join(' · ')}</Text>
+            {noStory ? (
+              <View style={s.noStoryBox} testID="quick-no-story">
+                <Text style={s.noStoryTitle}>💤 Pas de story du jour</Text>
+                {lastShared !== undefined ? <Text style={s.noStoryDetail}>{formatLastShared(lastShared)}</Text> : null}
+              </View>
+            ) : null}
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
             {message ? <Text style={s.message}>{message}</Text> : null}
 
@@ -160,7 +176,7 @@ export default function SourceProfileQuickView({
 }
 
 const s = StyleSheet.create({
-  backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'flex-end',alignItems:'center',padding:14},
+  backdrop:{flex:1,backgroundColor:'rgba(3,2,7,.78)',justifyContent:'center',alignItems:'center',padding:14},
   card:{width:'100%',maxWidth:440,borderRadius:24,borderWidth:1,borderColor:'#40354E',backgroundColor:'#151020',padding:18,paddingBottom:20,alignItems:'center'},
   handle:{width:42,height:4,borderRadius:2,backgroundColor:'#51445F',marginBottom:16},
   avatar:{width:70,height:70,borderRadius:35,backgroundColor:colors.backgroundCard},
@@ -168,6 +184,9 @@ const s = StyleSheet.create({
   usernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
   username:{color:colors.textPrimary,fontSize:21,fontWeight:'900'},
   meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4,textAlign:'center'},
+  noStoryBox:{alignSelf:'stretch',marginTop:10,paddingVertical:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#40354E',alignItems:'center',gap:2},
+  noStoryTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
+  noStoryDetail:{color:'#D9C7FF',fontSize:11,fontWeight:'700'},
   bio:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
   message:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginVertical:8},
   follow:{width:'100%',minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:12},

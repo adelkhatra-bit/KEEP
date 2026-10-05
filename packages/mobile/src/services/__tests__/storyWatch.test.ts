@@ -78,3 +78,22 @@ describe('détail de vue pour le propriétaire', () => {
     expect(d.detail).toBe('4 s · 1/4 musiques · pas écouté');
   });
 });
+
+import { formatLastShared } from '../storyActivity';
+describe('fiche membre sans story', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  it('dit depuis quand rien n’a été partagé', () => {
+    expect(formatLastShared(null, now)).toBe('Rien partagé pour l’instant');
+    expect(formatLastShared('2026-10-05T07:00:00Z', now)).toBe('Dernier partage : il y a 5 h');
+    expect(formatLastShared('2026-10-01T12:00:00Z', now)).toBe('Dernier partage : il y a 4 j');
+    expect(formatLastShared('2026-09-14T12:00:00Z', now)).toBe('Dernier partage : il y a 3 sem.');
+  });
+  it('la fiche est centrée et affichée pour les bulles sans story', () => {
+    const fs = require('fs'); const path = require('path');
+    const quick = fs.readFileSync(path.join(__dirname, '../../components/SourceProfileQuickView.tsx'), 'utf8');
+    const bar = fs.readFileSync(path.join(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
+    expect(quick).toContain("justifyContent:'center'");
+    expect(quick).toContain('Pas de story du jour');
+    expect(bar).toContain('noStory');
+  });
+});
