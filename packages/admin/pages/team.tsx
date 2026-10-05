@@ -183,7 +183,7 @@ export default function TeamPage() {
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Aucun lien magique n’est envoyé. Si l’adresse n’a pas encore de compte Loki Music, un compte est créé avec un mot de passe temporaire affiché une seule fois. Si elle a déjà un compte Loki Music, son compte utilisateur est conservé et seul le rôle d’administration est ajouté.
         </p>
-        <form onSubmit={createMember} style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) minmax(220px,1fr) auto', gap: 10 }}>
+        <form onSubmit={createMember} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 10 }}>
           <input type="email" placeholder="collaborateur@email.fr" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           <select value={role} onChange={(e) => setRole(e.target.value as typeof role)} style={inputStyle}>
             {ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -263,7 +263,7 @@ export default function TeamPage() {
           <div style={{ color:'var(--text-muted)', fontSize:12 }}>Nouveau mot de passe généré</div>
           <div style={{ marginTop:6, fontFamily:'monospace', fontSize:17, fontWeight:900, wordBreak:'break-all' }}>{generatedPassword}</div>
         </div>}
-        <form onSubmit={changeOwnPassword} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10 }}>
+        <form onSubmit={changeOwnPassword} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10 }}>
           <input type={showPassword ? 'text' : 'password'} placeholder="Nouveau mot de passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={inputStyle} />
           <input type={showPassword ? 'text' : 'password'} placeholder="Confirmer" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} />
           <button type="button" onClick={() => setShowPassword((value) => !value)}>{showPassword ? 'Masquer' : 'Voir'}</button>
@@ -274,7 +274,7 @@ export default function TeamPage() {
   );
 }
 
-const inputStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px' };
+const inputStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '10px 14px', minWidth: 0, maxWidth: '100%' };
 const smallInputStyle: React.CSSProperties = { ...inputStyle, padding: '7px 10px' };
 const th: React.CSSProperties = { textAlign: 'left', padding: '10px 8px', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' };
 const td: React.CSSProperties = { padding: '12px 8px', borderBottom: '1px solid var(--border)' };
