@@ -26,7 +26,10 @@ const protectedShell = {
   // une seule ligne — le robot est monté via RootChatDock (ChatDockHost) au
   // lieu de GlobalChatDock directement, pour qu'un aperçu ouvert l'héberge.
   // Shell responsive, Navigation.tsx et barre 5 onglets inchangés.
-  'packages/mobile/App.tsx': '6dba90f57c13d7ddacece091de093816568ebe48',
+  // App.tsx (05/10/2026, demande d'Adel « secouer le téléphone / signaler un problème ») : deux lignes seulement — import et montage de
+  // `ProblemReportHost` (fenêtre invisible tant qu'on ne la demande pas) à côté de GlobalNotificationBanner. Shell responsive,
+  // Navigation.tsx et barre des 5 onglets inchangés et revérifiés.
+  'packages/mobile/App.tsx': '0882aebd034371e0257e57d531ddeaedbe35a8a7',
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
