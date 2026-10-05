@@ -70,7 +70,19 @@ jobs:
             state="$(gh api "$runs?head_sha=$GITHUB_SHA&per_page=5" --jq '.workflow_runs[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
             case "$state" in
               "completed success") break ;;
-              "completed "*) echo "iOS build of this release did not succeed ($state): OTA blocked."; echo "publish=no" >> "$GITHUB_OUTPUT"; exit 0 ;;
+              "completed "*)
+                # Décision d'Adel (05/10/2026) : un build compilé et envoyé à App Store
+                # Connect dont SEULE l'étape finale (synchronisation des testeurs /
+                # notification) échoue reste un binaire valide : l'OTA n'est pas bloquée.
+                run_id="$(gh api "$runs?head_sha=$GITHUB_SHA&per_page=5" --jq '.workflow_runs[0].id' 2>/dev/null || true)"
+                failed_steps="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" --jq '[.jobs[].steps[] | select(.conclusion == "failure") | .name] | .[]' 2>/dev/null || true)"
+                echo "Failed iOS build steps: ${failed_steps:-<none readable>}"
+                if [ -n "$failed_steps" ] && ! printf '%s\n' "$failed_steps" | grep -Eqv 'Synchroniser le nouveau build|Notify on failure'; then
+                  echo "iOS binary was built and uploaded; only the tester-sync/notify step failed: OTA allowed."
+                  state="completed success"
+                  break
+                fi
+                echo "iOS build of this release did not succeed ($state): OTA blocked."; echo "publish=no" >> "$GITHUB_OUTPUT"; exit 0 ;;
             esac
             sleep 30
           done
