@@ -8,6 +8,17 @@ export function isDormantMember(lastActiveAt: string | null | undefined, now = D
   return now - at > DORMANT_AFTER_DAYS * 86400 * 1000;
 }
 
+/** Chronomètre 24 h d'une musique de story (Adel, 05/10/2026) : « 23:41:07 » = temps de vie restant ; 00:00:00 une fois terminée. */
+export const STORY_LIFETIME_MS = 24 * 3600000;
+export function formatStoryCountdown(addedAtIso: string | null | undefined, now = Date.now()): string | null {
+  if (!addedAtIso) return null;
+  const at = new Date(addedAtIso).getTime();
+  if (!Number.isFinite(at)) return null;
+  const total = Math.max(0, Math.floor((at + STORY_LIFETIME_MS - now) / 1000));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+}
+
 /**
  * Âge d'une musique de story (Adel, 05/10/2026) : on dit SEULEMENT depuis quand elle est en ligne — « il y a 29 min », « il y a 2 h ».
  * L'utilisateur sait qu'une story dure 24 h : plus elle est ancienne, plus il comprend qu'elle va bientôt finir. Aucune durée restante.

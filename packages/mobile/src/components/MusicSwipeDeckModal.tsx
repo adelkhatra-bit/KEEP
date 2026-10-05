@@ -11,12 +11,12 @@ import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOr
 import MysteryArtwork from './MysteryArtwork';
 import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinSharedStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
-import { formatStoryAge } from '../services/storyActivity';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
+import { useStoryCountdown } from '../services/useStoryCountdown';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
 import { minTouchTarget } from '../theme/spacing';
@@ -869,7 +869,7 @@ export default function MusicSwipeDeckModal({
       : currentAlreadyKept
         ? null
         : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
-  const storyAgeLine = current && trackAddedAt ? formatStoryAge(trackAddedAt[current.id]) : null;
+  const storyAgeLine = useStoryCountdown(current && trackAddedAt ? trackAddedAt[current.id] : null, visible);
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
     : subtitle;

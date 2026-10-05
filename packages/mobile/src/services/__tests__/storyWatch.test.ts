@@ -122,3 +122,22 @@ describe('bouton « mettre en story » et ordre de la rangée (Adel 05/10/2026)'
     expect(rail).toContain('...unseenOthers, ...seenStories, ...friendsNoStory');
   });
 });
+
+import { formatStoryCountdown } from '../storyActivity';
+describe('chronomètre 24 h de la story', () => {
+  const added = '2026-10-05T10:00:00Z';
+  it('décompte le temps restant', () => {
+    expect(formatStoryCountdown(added, Date.parse('2026-10-05T10:00:00Z'))).toBe('24:00:00');
+    expect(formatStoryCountdown(added, Date.parse('2026-10-05T10:29:00Z'))).toBe('23:31:00');
+    expect(formatStoryCountdown(added, Date.parse('2026-10-06T09:59:53Z'))).toBe('00:00:07');
+  });
+  it('s’arrête à zéro et ignore une date invalide', () => {
+    expect(formatStoryCountdown(added, Date.parse('2026-10-07T10:00:00Z'))).toBe('00:00:00');
+    expect(formatStoryCountdown('nope')).toBeNull();
+    expect(formatStoryCountdown(null)).toBeNull();
+  });
+  it('le deck affiche le chronomètre', () => {
+    const fs = require('fs'); const path = require('path');
+    expect(fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8')).toContain('useStoryCountdown(');
+  });
+});
