@@ -156,7 +156,8 @@ describe('slogans de story', () => {
     expect(composeStoryTeaser('alice', 'p:2026-10-05')).toContain('alice');
     const set = new Set(Array.from({ length: 80 }, (_, i) => composeStoryTeaser('bob', `p${i}:d`)));
     expect(set.size).toBeGreaterThan(20);
-    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8')).toContain('numberOfLines={compactScreen ? 1 : 2} ellipsizeMode="tail">{composeStoryTeaser(');
+    // Adel 05/10/2026 : « tu écris trop » -- la phrase d'accroche n'est plus montrée sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8')).not.toContain('{composeStoryTeaser(openStory.username');
   });
 });
 

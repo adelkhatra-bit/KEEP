@@ -399,9 +399,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         resetKey={openStory?.profileId ?? null}
         trackAddedAt={openStory?.addedAt}
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
-        headerExtra={!isOwnOpen && openStory ? (
-          <Text style={styles.teaser} numberOfLines={compactScreen ? 1 : 2} ellipsizeMode="tail">{composeStoryTeaser(openStory.username, `${openStory.profileId}:${new Date().toISOString().slice(0, 10)}`)}</Text>
-        ) : isOwnOpen ? (
+        // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
+        headerExtra={isOwnOpen ? (
           <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
             <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
           </TouchableOpacity>
@@ -467,7 +466,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           </View>
         ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
-        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : `${openStory?.followed ? 'Tu le suis' : 'Lié à toi par une reprise ou un abonnement'} · ${freeCost} FREE`}
+        subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : undefined}
         previewOnly={isOwnOpen}
         sourceUsername={isOwnOpen ? undefined : openStory?.username}
         sourceAvatarUrl={isOwnOpen ? null : openStory?.avatarUrl ?? null}

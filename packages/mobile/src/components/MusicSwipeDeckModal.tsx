@@ -272,7 +272,7 @@ export default function MusicSwipeDeckModal({
     const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
     const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
     const checking = !storyIdsReady && !justAddedNow;
-    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY (AJOUTÉE PLUS TÔT)' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ EN STORY' : (currentOffered ? '＋ METTRE EN STORY (MASQUÉE)' : popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
       <TouchableOpacity disabled={checking} style={[buttonStyle, checking ? s.addStoryButtonDone : justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
         <Text style={[textStyle, (alreadyInStory || checking) && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
@@ -818,13 +818,9 @@ export default function MusicSwipeDeckModal({
   // Petits écrans (hauteur < 640) : on compacte pour que RIEN ne se recouvre (une seule ligne de slogan, carte plus basse).
   const { height: windowHeight } = useWindowDimensions();
   const compactDeck = windowHeight < 640;
-  const swipeHint = previewOnly
-    ? '↑ morceau suivant · ← passer · → garder'
-    : currentAlreadyKept
-      ? '↑ morceau suivant · ← passer · déjà dans ta collection'
-      : askVisibilityOnKeep
-        ? '↑ morceau suivant · ← passer · → garder (profil ou privé)'
-        : '↑ morceau suivant · ← passer · → ajouter à ta collection';
+  const swipeHint = currentAlreadyKept && !previewOnly
+    ? '↑ suivant · ← passer'
+    : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
   const storyAgeLine = current && trackAddedAt ? formatStoryAge(trackAddedAt[current.id]) : null;
@@ -907,7 +903,7 @@ export default function MusicSwipeDeckModal({
                 disabled={controlsLocked}
                 accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>

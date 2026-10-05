@@ -20,7 +20,7 @@ describe('TikTok-style upward swipe contract', () => {
     expect(modal).toContain('onSwipeUp={() => {');
     expect(modal).toContain('void advance().finally');
     expect(modal).toContain('upLabel="SUIVANT"');
-    expect(modal).toContain('↑ morceau suivant');
+    expect(modal).toContain('↑ suivant · ← passer');
   });
 
   it('maps swipe up to next detected track in Listen too', () => {

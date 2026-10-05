@@ -147,3 +147,17 @@ describe('Créateur identifié + rafraîchissement des bulles (Adel 05/10/2026)'
     expect(bar).toContain("state === 'active'");
   });
 });
+
+describe('Lecteur de story minimal (Adel 05/10/2026)', () => {
+  const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  it('plus de phrase d\'accroche ni de sous-titre sur la story d\'un autre ; le coût est sur GARDER', () => {
+    expect(bar).toContain("subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : undefined}");
+    expect(deck).toContain('→ garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : \'\'}');
+  });
+  it('indications courtes', () => {
+    expect(deck).toContain('↑ suivant · ← passer · → garder');
+    expect(deck).toContain("'↑ suivant · ← passer'");
+    expect(deck).toContain("'✓ DÉJÀ EN STORY'");
+  });
+});
