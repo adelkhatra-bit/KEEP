@@ -60,8 +60,12 @@ must(!profile.includes("{ key: 'account'"), 'Compte entry reintroduced in hambur
 must(!profile.includes("AccountActionsPanel"), 'duplicate account/session panel reintroduced in hamburger');
 must(settings.includes("Se déconnecter de Loki Music ?"), 'canonical logout control missing from profile settings');
 
-must(home.includes('<View style={s.idleLearnMoreSlot}>'), 'Listen home must reserve a fixed learn-more slot');
-must(home.includes("idleLearnMoreSlot: { width: '100%', height: 108"), 'Listen learn-more slot height must stay fixed so CTA does not jump');
+must(home.includes('<View style={s.idleLearnMoreSlot}>'), 'Listen home must keep the learn-more slot');
+// 05/10/2026 (Adel : « écran Écouter sans défilement sur iPhone ») : l'aide s'ouvre
+// PAR-DESSUS (surimpression) au lieu de réserver 108 px. Le but d'origine reste
+// verrouillé : ouvrir l'aide ne déplace JAMAIS le bouton principal.
+must(home.includes("idleLearnMoreSlot: { width: '100%', height: 0"), 'Listen learn-more slot must reserve 0 px (overlay help) so the screen fits an iPhone without scrolling');
+must(/idleLearnMorePanel: \{ position: 'absolute'[^\n]*zIndex: 20/.test(home), 'Listen help panel must overlay (absolute, zIndex) so the CTA never jumps');
 must(home.includes("homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto'"), 'Loki Pulse rail must stay anchored toward bottom');
 must(/homePulseWrap:\{[^\n]*marginBottom:-\d+/.test(home), 'Loki Pulse rail must stay close to the five-tab bar');
 must(/homePulseArtworkRing:\{[^\n]*width:(8\d|9\d),height:\1/.test(home) || home.includes('homePulseArtworkRing:{position:\'relative\',width:80,height:80'), 'Loki Pulse bubbles must stay enlarged for mobile touch/readability');

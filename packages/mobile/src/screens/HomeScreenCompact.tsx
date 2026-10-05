@@ -27,7 +27,9 @@ import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stop
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
-import StoryRail from '../components/StoryRail';
+import MusicStoryRail from '../components/MusicStoryRail';
+import { buildOwnStory, loadMusicStories, loadSeenStories, markStorySeen, MusicStory } from '../services/musicStoriesService';
+import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -114,6 +116,27 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  // Stories musicales (Adel, 05/10/2026) : rangée façon Instagram en haut d'Écouter.
+  const [musicStories, setMusicStories] = useState<MusicStory[]>([]);
+  const [musicStoriesSeen, setMusicStoriesSeen] = useState<Record<string, string>>({});
+  const [openStory, setOpenStory] = useState<MusicStory | null>(null);
+  // Ta propre story (Adel 05/10/2026) : toutes tes musiques identifiées des 72 h,
+  // privées/masquées incluses, visibles de toi seul. Source locale, sans réseau.
+  const historySessions = useSessionHistoryStore((st) => st.sessions);
+  const ownStory = useMemo(
+    () => (user ? buildOwnStory({ id: user.id, username: user.username, avatarUrl: user.avatar || null }, historySessions) : null),
+    [user?.id, user?.username, user?.avatar, historySessions],
+  );
+  const openOwnStory = () => {
+    if (!user) return;
+    if (!ownStory) {
+      Alert.alert('Ta story', 'Identifie un morceau avec Écouter : il apparaît ici pendant 72 heures, visible de toi seul tant que tu ne le gardes pas en public.', [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    stopTrackPreviewFast();
+    setOpenStory(ownStory);
+    void markStorySeen(user.id, ownStory).then(setMusicStoriesSeen).catch(() => {});
+  };
   const prewarmHomePulseTrack = (trackId: string) => {
     // Le preload natif est désormais indépendant de la file de lecture :
     // dès le contact du doigt, Loki commence à préparer l'extrait choisi.
@@ -455,6 +478,24 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [isDemoMode, navigation, user?.id]);
   useEffect(() => {
+    let live = true;
+    const refreshStories = async () => {
+      if (!user || isDemoMode || musicEngine.isDemoMode) {
+        if (live) setMusicStories([]);
+        return;
+      }
+      try {
+        const [stories, seen] = await Promise.all([loadMusicStories(user.id), loadSeenStories(user.id)]);
+        if (live) { setMusicStories(stories); setMusicStoriesSeen(seen); }
+      } catch {
+        // Une panne réseau garde la dernière rangée affichée : jamais d'écran cassé.
+      }
+    };
+    void refreshStories();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshStories(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [isDemoMode, navigation, user?.id]);
+  useEffect(() => {
     void refreshCreditBadge();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
     return () => unsubscribe?.();
@@ -665,11 +706,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     }
   };
 
-  // Stories musicales (Adel 05/10/2026) : ta photo + ta story, puis celles des
-  // profils suivis. Hauteur réservée (96) : aucun saut de mise en page. Affichée
-  // dans les deux états de l'accueil (veille et écoute).
-  const storyRail = user ? <StoryRail viewer={{ id: user.id, username: user.username, avatarUrl: user.avatar || null }} freeCost={homePulseFreeCost} /> : null;
-
   if (showMicPrimer) {
     return <MicPermissionPrimerScreen onAuthorized={dismissMicPrimer} onLater={dismissMicPrimer} />;
   }
@@ -678,7 +714,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     return (
       <SafeAreaView style={s.container}><PersonalThemeBackdrop />
         <TopBar navigation={navigation} readyCount={detected} />
-        {storyRail}
         {/* Accueil Écouter (Adel 29/09/2026 : "cette page n'est pas belle") --
             aligné sur la maquette validée docs/mockups/EcouteRedesign.html :
             fond aurora, pastilles micro/veille, grand cercle Loki "L" entouré de
@@ -686,6 +721,19 @@ export default function HomeScreenCompact({ navigation }: any) {
             MODE DÉMO, test d'onglet et mini-tour sont tous conservés. */}
         <AuroraBackground active />
         <ScrollView style={s.main} contentContainerStyle={s.idle} showsVerticalScrollIndicator={false} bounces={false}>
+          {!isDemoMode && user ? (
+            <MusicStoryRail
+              stories={musicStories}
+              seen={musicStoriesSeen}
+              own={{ story: ownStory, username: user.username, avatarUrl: user.avatar || null }}
+              onOpenOwn={openOwnStory}
+              onOpen={(story) => {
+                stopTrackPreviewFast();
+                setOpenStory(story);
+                void markStorySeen(user.id, story).then(setMusicStoriesSeen).catch(() => {});
+              }}
+            />
+          ) : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -772,6 +820,30 @@ export default function HomeScreenCompact({ navigation }: any) {
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
         <MusicSwipeDeckModal
+          visible={Boolean(openStory)}
+          tracks={openStory?.tracks ?? []}
+          initialTrackId={openStory?.tracks[0]?.id ?? null}
+          title={openStory?.profileId === user?.id ? 'Ta story' : openStory ? `Story de @${openStory.username}` : 'Story'}
+          subtitle={openStory?.profileId === user?.id ? 'Tes musiques identifiées · visibles de toi seul' : `${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${homePulseFreeCost} FREE`}
+          previewOnly={openStory?.profileId === user?.id}
+          sourceUsername={openStory?.profileId === user?.id ? undefined : openStory?.username}
+          sourceAvatarUrl={openStory?.profileId === user?.id ? null : openStory?.avatarUrl ?? null}
+          sourceProfileId={openStory?.profileId === user?.id ? undefined : openStory?.profileId}
+          emptyTitle="Cette story est terminée."
+          backLabel="REVENIR À LOKI MUSIC"
+          askVisibilityOnKeep
+          keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
+          keepDebitAmount={homePulseFreeCost}
+          optimisticPass
+          onKeep={async (track, visibility) => {
+            const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
+            return ok;
+          }}
+          onPass={() => true}
+          onOpenSourceProfile={(username) => { setOpenStory(null); navigation?.navigate?.('PublicProfile', { username }); }}
+          onClose={() => setOpenStory(null)}
+        />
+        <MusicSwipeDeckModal
           visible={homePulseOpen}
           tracks={homePulseItems.map((item) => item.track)}
           initialTrackId={homePulseSelectedTrackId}
@@ -831,7 +903,6 @@ export default function HomeScreenCompact({ navigation }: any) {
     <SafeAreaView style={s.container}><PersonalThemeBackdrop />
       <AuroraBackground active={isActive && !micIdle} />
       <TopBar navigation={navigation} readyCount={detected} />
-      {storyRail}
 
       <ScrollView
         style={s.main}
@@ -1135,7 +1206,10 @@ function LokiIdleOrb() {
   // Petits écrans (iPhone SE, 568 px) : cercle réduit pour que le bouton
   // ACTIVER LE MICRO reste visible sans défiler au-dessus de la barre d'onglets.
   const { height } = useWindowDimensions();
-  const size = height < 720 ? 132 : 196;
+  // Adel (05/10/2026) : sur iPhone (≈844 px) tout l'écran Écouter doit tenir
+  // sans faire défiler (stories + orbe + bouton + compteur + bulles Pulse).
+  // Ordinateur (≥ 900 px de haut) : orbe inchangé.
+  const size = height < 720 ? 132 : height < 900 ? 150 : 196;
   const ring = (d: number) => ({ width: d, height: d, borderRadius: d / 2 });
   const breath = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -1327,8 +1401,10 @@ const s = StyleSheet.create({
   idleSubtitle: { color: colors.white, fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
   idleLearnMore: { minHeight: minTouchTarget, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
   idleLearnMoreText: { color: C.purpleLight, fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' },
-  idleLearnMoreSlot: { width: '100%', height: 108, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' },
-  idleLearnMorePanel: { position: 'absolute', top: 2, width: '100%', maxWidth: 340, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
+  // L'aide « En savoir plus » s'ouvre PAR-DESSUS (aucune place réservée) :
+  // la page ne bouge pas et 108 px sont rendus au contenu sur mobile.
+  idleLearnMoreSlot: { width: '100%', height: 0, alignItems: 'center', justifyContent: 'flex-start', position: 'relative', zIndex: 20 },
+  idleLearnMorePanel: { position: 'absolute', top: 2, width: '100%', maxWidth: 340, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: 'rgba(124,92,252,0.45)', zIndex: 20, elevation: 8 },
   idleLearnMoreBody: { color: colors.white, fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center' },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },

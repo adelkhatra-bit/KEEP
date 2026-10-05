@@ -12,7 +12,10 @@ const taste = read('components', 'MusicTasteQuestionnaire.tsx');
 
 describe('retours joueurs 02/10', () => {
   it('Loki Pulse de l’accueil : vrai GARDER (plus le mode aperçu « déjà dans ta collection »)', () => {
-    const block = home.slice(home.indexOf('<MusicSwipeDeckModal'), home.indexOf('/>', home.indexOf('onClose={() => {', home.indexOf('<MusicSwipeDeckModal'))));
+    // Le bloc contrôlé est celui de Loki Pulse (visible={homePulseOpen}) : la story
+    // personnelle (lecture seule, 05/10/2026) a son propre MusicSwipeDeckModal.
+    const pulseStart = home.lastIndexOf('<MusicSwipeDeckModal', home.indexOf('visible={homePulseOpen}'));
+    const block = home.slice(pulseStart, home.indexOf('/>', home.indexOf('onClose={() => {', pulseStart)));
     expect(block).not.toMatch(/\bpreviewOnly\b/);
     expect(block).toContain('askVisibilityOnKeep');
     expect(home).toContain('keepLokiPulseTrack(track,');

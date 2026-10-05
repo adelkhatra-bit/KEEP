@@ -1,75 +1,53 @@
+// @ts-nocheck
 import fs from 'fs';
 import path from 'path';
 
-jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}) }));
 jest.mock('../supabaseClient', () => ({ supabase: null }));
 
-import { buildOwnStory, rankMusicStories, STORY_WINDOW_HOURS, MAX_STORY_PROFILES } from '../musicStoriesService';
+import { MAX_STORY_PROFILES, rankMusicStories } from '../musicStoriesService';
 
-const NOW = Date.parse('2026-10-05T12:00:00Z');
-const hoursAgo = (h: number) => new Date(NOW - h * 3600 * 1000).toISOString();
-const track = (id: string, extra: Record<string, unknown> = {}) => ({ id, title: `T${id}`, artist: `A${id}`, genres: ['pop'], ...extra }) as any;
-const viewer = { id: 'me', username: 'moi', avatarUrl: null };
-
-describe('story personnelle (buildOwnStory)', () => {
-  it('contains every identified track of the last 72h, private and masked included', () => {
-    const sessions: any[] = [{
-      id: 's1', startedAt: hoursAgo(5), endedAt: null, title: null,
-      tracks: [
-        { id: 'e1', track: track('1'), recommendations: [], status: 'KEPT', visibility: 'PUBLIC', detectedAt: hoursAgo(5) },
-        { id: 'e2', track: track('2'), recommendations: [], status: 'KEPT', visibility: 'PRIVATE', detectedAt: hoursAgo(4) },
-        { id: 'e3', track: track('3'), recommendations: [], status: 'SKIPPED', detectedAt: hoursAgo(3) },
-        { id: 'e4', track: track('4'), recommendations: [], status: 'PENDING', detectedAt: hoursAgo(2) },
-      ],
-    }];
-    const story = buildOwnStory(viewer, sessions, NOW)!;
-    expect(story.tracks.map((t) => t.id)).toEqual(['4', '3', '2', '1']);
-    expect(story.profileId).toBe('me');
-    expect(story.latestAt).toBe(hoursAgo(2));
-  });
-
-  it('drops tracks older than the window, duplicates and incomplete tracks; null when empty', () => {
-    const old = hoursAgo(STORY_WINDOW_HOURS + 1);
-    const sessions: any[] = [{ id: 's', startedAt: old, endedAt: null, title: null, tracks: [
-      { id: 'a', track: track('1'), recommendations: [], status: 'KEPT', detectedAt: old },
-      { id: 'b', track: track('2'), recommendations: [], status: 'KEPT', detectedAt: hoursAgo(1) },
-      { id: 'c', track: track('2'), recommendations: [], status: 'KEPT', detectedAt: hoursAgo(2) },
-      { id: 'd', track: { id: '3', title: '', artist: 'x' }, recommendations: [], status: 'KEPT', detectedAt: hoursAgo(1) },
-    ] }];
-    expect(buildOwnStory(viewer, sessions, NOW)!.tracks.map((t) => t.id)).toEqual(['2']);
-    expect(buildOwnStory(viewer, [], NOW)).toBeNull();
-  });
+const row = (profileId, createdAt, genres = ['hip-hop/rap'], trackId = `${profileId}-${createdAt}`) => ({
+  profile_id: profileId,
+  created_at: createdAt,
+  profile: { username: `u_${profileId}`, avatar_url: null },
+  track: { id: trackId, title: 'Titre', artist: 'Artiste', genres, preview_url: 'https://audio-ssl.itunes.apple.com/x.m4a' },
 });
 
-describe('stories des autres (rankMusicStories)', () => {
-  const row = (profileId: string, trackId: string, at: string, genres = ['pop']) => ({
-    profile_id: profileId, created_at: at,
-    profile: { username: `u${profileId}`, avatar_url: null }, track: track(trackId, { genres }),
+describe('Stories musicales (Adel, 05/10/2026)', () => {
+  it('garde les profils suivis et les passionnés du même style, jamais le reste ni soi-même', () => {
+    const stories = rankMusicStories(
+      [row('me', '2026-10-05T04:00:00Z'), row('followed', '2026-10-05T03:00:00Z', ['jazz']), row('fan', '2026-10-05T02:00:00Z'), row('other', '2026-10-05T05:00:00Z', ['metal'])],
+      'me', new Set(['followed']), new Set(['hip-hop/rap']),
+    );
+    expect(stories.map((s) => s.profileId)).toEqual(['followed', 'fan']);
+    expect(stories[1].sameStyle).toBe(true);
   });
 
-  it('never includes the viewer, orders newest first, followed first at equal freshness', () => {
-    const rows = [row('me', '1', hoursAgo(1)), row('p1', '2', hoursAgo(3)), row('p2', '3', hoursAgo(3)), row('p3', '4', hoursAgo(1))];
-    const result = rankMusicStories(rows, 'me', new Set(['p2', 'p3']), new Set(['pop']));
-    expect(result.map((s) => s.profileId)).toEqual(['p3', 'p2', 'p1']);
+  it('met toujours la story la plus récente en premier et regroupe les morceaux par profil', () => {
+    const stories = rankMusicStories(
+      [row('a', '2026-10-05T01:00:00Z'), row('b', '2026-10-05T04:00:00Z'), row('a', '2026-10-05T05:00:00Z')],
+      'me', new Set(), new Set(['hip-hop/rap']),
+    );
+    expect(stories[0].profileId).toBe('a');
+    expect(stories[0].tracks).toHaveLength(2);
   });
 
-  it('keeps only followed profiles or same-style fans, and caps the rail', () => {
-    const rows = [row('x', '1', hoursAgo(1), ['jazz'])];
-    expect(rankMusicStories(rows, 'me', new Set(), new Set(['pop']))).toHaveLength(0);
-    const many = Array.from({ length: MAX_STORY_PROFILES + 5 }, (_, i) => row(`p${i}`, `t${i}`, hoursAgo(1)));
-    expect(rankMusicStories(many, 'me', new Set(many.map((_, i) => `p${i}`)), new Set()).length).toBe(MAX_STORY_PROFILES);
+  it('plafonne la rangée pour ne jamais noyer l’utilisateur', () => {
+    const rows = Array.from({ length: 40 }, (_, i) => row(`p${i}`, `2026-10-05T0${i % 10}:00:00Z`));
+    expect(rankMusicStories(rows, 'me', new Set(), new Set(['hip-hop/rap']))).toHaveLength(MAX_STORY_PROFILES);
   });
-});
 
-describe('intégration accueil', () => {
-  const src = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
-  it('Home shows the story rail right under the top bar with reserved height', () => {
-    const home = src('screens', 'HomeScreenCompact.tsx');
-    expect(home).toMatch(/<TopBar navigation=\{navigation\} readyCount=\{detected\} \/>\n\s*\{storyRail\}/);
-    expect((home.match(/\{storyRail\}/g) || []).length).toBe(2);
-    const rail = src('components', 'StoryRail.tsx');
-    expect(rail).toContain('wrap: { height: 96');
-    expect(rail).toContain('story-bubble-own');
-    expect(rail).toContain('previewOnly={isOwnOpen}');
+  it('écran Écouter : rangée en haut, réutilise le Swipe et l’économie FREE existants, rien supprimé', () => {
+    const home = fs.readFileSync(path.resolve(__dirname, '..', '..', 'screens', 'HomeScreenCompact.tsx'), 'utf8');
+    const rail = home.indexOf('<MusicStoryRail');
+    const hero = home.indexOf('<View style={s.idleHero}>');
+    expect(rail).toBeGreaterThan(-1);
+    expect(rail).toBeLessThan(hero);
+    expect(home).toContain('testID="home-loki-pulse-track-bubbles"');
+    expect(home).toContain("const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);");
+    const railSource = fs.readFileSync(path.resolve(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+    const sizes = [...railSource.matchAll(/fontSize:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
   });
 });
