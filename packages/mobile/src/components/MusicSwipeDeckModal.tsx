@@ -59,6 +59,8 @@ type Props = {
   onTitlePress?: () => void;
   /** Date d'ajout de chaque musique de la story : affiche « ajoutée il y a … · encore visible … ». */
   trackAddedAt?: Record<string, string>;
+  /** Musiques EN VENTE d'une story (clé « sale:<id> ») : nombre de titres + prix pour l'étiquette PAYANT. */
+  saleInfoByTrackId?: Record<string, { count: number; priceLabel: string; mode: 'MONEY' | 'FREE' | 'BOTH' }>;
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
@@ -103,6 +105,7 @@ export default function MusicSwipeDeckModal({
   resetKey,
   onTitlePress,
   trackAddedAt,
+  saleInfoByTrackId,
   backLabel,
   allowStoryAdd = false,
   headerExtra,
@@ -841,7 +844,13 @@ export default function MusicSwipeDeckModal({
   const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
     ? null
     : isSaleStoryTrack(current)
-      ? { label: '💳 PAYANT · PAYPAL', paid: true }
+      ? (() => {
+          const info = saleInfoByTrackId?.[current.id];
+          if (!info) return { label: '💳 PAYANT', paid: true };
+          const titles = `${info.count} titre${info.count > 1 ? 's' : ''}`;
+          // Gratuit en FREE seulement : pas de PayPal ; sinon « PAYANT » + nombre de titres + prix (PayPal en €).
+          return info.mode === 'FREE' ? { label: `🪙 ${info.priceLabel} · ${titles}`, paid: true } : { label: `💳 PAYANT · ${titles} · ${info.priceLabel}`, paid: true };
+        })()
       : currentAlreadyKept
         ? null
         : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };

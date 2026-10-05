@@ -226,3 +226,5 @@ priorité. Le Super Admin (`/admin-preview/`) n'est pas concerné.
    puis branchement `keep-iap-verify`.
 5. Mise à jour `config/keep-product-contract.json > creditRules` et des
    gardes CI dans le même commit que le code ; preuves sur 390×844 et 1440×900.
+
+> **Clause à reprendre dans les CGU (Adel 05/10/2026)** : toute musique reprise gratuitement depuis le profil ou la story d'un membre reste associée au nom du **premier découvreur** (affiché « Découvert par @… »). Une collection en vente donne accès à la **sélection d'écoute** d'un membre ; l'acheteur n'achète pas les titres eux-mêmes (« Tu achètes son écoute, pas les titres »).

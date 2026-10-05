@@ -1,3 +1,5 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({ getItem: jest.fn(async () => null), setItem: jest.fn(async () => undefined) }));
+jest.mock('../supabaseClient', () => ({ supabase: null }));
 import fs from 'fs';
 import path from 'path';
 import { formatStoryAge } from '../storyActivity';
@@ -169,7 +171,8 @@ describe('Étiquettes PAYANT / GRATUIT et bulles inactives (Adel 05/10/2026)', (
   const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
   const rail = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
   it('chaque musique d\'une story d\'un autre dit clairement PAYANT ou GRATUIT', () => {
-    expect(deck).toContain("label: '💳 PAYANT · PAYPAL'");
+    expect(deck).toContain("label: `💳 PAYANT · ${titles} · ${info.priceLabel}`");
+    expect(deck).toContain('saleInfoByTrackId');
     expect(deck).toContain("label: '🎁 GRATUIT · POUR TON PROFIL'");
     expect(deck).toContain('testID="deck-price-badge"');
   });
@@ -210,5 +213,28 @@ describe('Reprises sociales gratuites + partage en story gratuit + alerte visite
   it('plus de « extraits gratuits » dans les textes', () => {
     const sale = fs.readFileSync(path.join(root, 'components', 'PlaylistSaleImmersivePreview.tsx'), 'utf8');
     expect(sale).not.toContain('extraits gratuitement');
+  });
+});
+
+describe('Musique en vente dans une story : titres + prix, sélection (pas les titres) (Adel 05/10/2026)', () => {
+  const { formatSaleOfferPrice, buildSaleInfo, saleSampleToTrack } = require('../musicStoriesService');
+  it('prix lisible PayPal / FREE / les deux', () => {
+    expect(formatSaleOfferPrice('MONEY', 200, null, 'EUR')).toBe('2,00 €');
+    expect(formatSaleOfferPrice('FREE', 0, 3, 'EUR')).toBe('3 FREE');
+    expect(formatSaleOfferPrice('BOTH', 150, 5, 'EUR')).toBe('1,50 € ou 5 FREE');
+  });
+  it('chaque musique en vente est rattachée à son offre (sinon la plus récente du vendeur)', () => {
+    const offers = [
+      { offerId: 'o2', count: 5, mode: 'MONEY', priceLabel: '2,00 €' },
+      { offerId: 'o1', count: 10, mode: 'FREE', priceLabel: '3 FREE' },
+    ];
+    const info = buildSaleInfo([{ trackId: 'a', offerId: 'o1' }, { trackId: 'b' }], offers);
+    expect(info['sale:a']).toEqual({ count: 10, priceLabel: '3 FREE', mode: 'FREE' });
+    expect(info['sale:b']).toEqual({ count: 5, priceLabel: '2,00 €', mode: 'MONEY' });
+  });
+  it('la carte dit « Sélection de @x » et que l\'on achète l\'écoute, pas les titres', () => {
+    const track = saleSampleToTrack({ trackId: 't1', previewUrl: 'u' }, 'bruno');
+    expect(track.artist).toBe('Sélection de @bruno');
+    expect(track.album).toBe('Tu achètes son écoute, pas les titres');
   });
 });

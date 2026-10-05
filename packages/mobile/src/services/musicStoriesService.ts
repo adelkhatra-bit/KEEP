@@ -41,7 +41,22 @@ export type MusicStory = {
   suggestion?: boolean;
   /** Suggestion d'ami par style musical (aucun lien encore) : appui = profil, jamais de story. */
   styleMatch?: boolean;
+  /** Infos d'achat des musiques EN VENTE de cette story (clé = id « sale:<id> ») : nombre de titres et prix, pour l'étiquette PAYANT. */
+  saleInfo?: Record<string, SaleStoryInfo>;
 };
+
+export type SaleStoryInfo = { count: number; priceLabel: string; mode: 'MONEY' | 'FREE' | 'BOTH' };
+
+/** Prix lisible d'une offre : « 2,00 € » (PayPal), « 3 FREE » ou « 2,00 € ou 3 FREE ». */
+export function formatSaleOfferPrice(mode: string, priceCents: number, freePrice: number | null, currencyCode = 'EUR'): string {
+  const symbol = ({ EUR: '€', USD: '$', GBP: '£' } as Record<string, string>)[String(currencyCode).toUpperCase()] ?? String(currencyCode).toUpperCase();
+  const money = `${(Math.max(0, priceCents) / 100).toFixed(2).replace('.', ',')} ${symbol}`;
+  const free = `${Math.max(0, Number(freePrice ?? 0))} FREE`;
+  const normalized = String(mode).toUpperCase();
+  if (normalized === 'FREE') return free;
+  if (normalized === 'BOTH') return `${money} ou ${free}`;
+  return money;
+}
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase();
 
@@ -297,7 +312,9 @@ export function saleSampleToTrack(sample: { trackId: string; previewUrl: string 
   return {
     id: `${SALE_TRACK_PREFIX}${sample.trackId}`,
     title: 'Musique en vente',
-    artist: `Boutique de @${sellerUsername}`,
+    // Adel 05/10/2026 : l'acheteur n'achète PAS les musiques, il achète le savoir-faire d'écoute d'un membre (sa sélection).
+    artist: `Sélection de @${sellerUsername}`,
+    album: 'Tu achètes son écoute, pas les titres',
     previewUrl: sample.previewUrl,
     genres: [],
     providerIds: {},
@@ -350,8 +367,8 @@ export async function loadMaskedStoryPins(profileIds: string[]): Promise<Map<str
  * Collections mises en vente depuis moins de 24 h : TOUS leurs titres (masqués) entrent en story, pour que l'acheteur
  * voie ce qu'il a déjà avant d'acheter. Le serveur filtre l'offre (active, ouverte à moi, < 24 h).
  */
-export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promise<Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>> {
-  const out = new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
+export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promise<Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string; offerId?: string }>>> {
+  const out = new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string; offerId?: string }>>();
   if (!supabase || !profileIds.length) return out;
   const { data, error } = await supabase.rpc('keep_playlist_sale_story_tracks', { p_seller_ids: profileIds, p_limit: MAX_COLLECTION_TRACKS_PER_STORY });
   if (error) return out;
@@ -359,7 +376,38 @@ export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promi
     const previewUrl = row?.preview_url ? String(row.preview_url) : '';
     if (!previewUrl || !row?.seller_id || !row?.track_id) continue;
     const list = out.get(String(row.seller_id)) ?? [];
-    list.push({ trackId: String(row.track_id), previewUrl, pinnedAt: String(row.listed_at) });
+    list.push({ trackId: String(row.track_id), previewUrl, pinnedAt: String(row.listed_at), offerId: row.offer_id ? String(row.offer_id) : undefined });
+    out.set(String(row.seller_id), list);
+  }
+  return out;
+}
+
+/** Associe chaque musique en vente d'une story à son offre (nombre de titres + prix) ; sans offre connue : l'offre la plus récente du vendeur. */
+export function buildSaleInfo(
+  items: Array<{ trackId: string; offerId?: string }>,
+  offers: Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>,
+): Record<string, SaleStoryInfo> {
+  const out: Record<string, SaleStoryInfo> = {};
+  if (!offers.length) return out;
+  const byId = new Map(offers.map((offer) => [offer.offerId, offer] as const));
+  for (const item of items) {
+    const offer = (item.offerId ? byId.get(item.offerId) : undefined) ?? offers[0];
+    out[`${SALE_TRACK_PREFIX}${item.trackId}`] = { count: offer.count, priceLabel: offer.priceLabel, mode: offer.mode };
+  }
+  return out;
+}
+
+/** Offres actives de ces vendeurs : nombre de titres + prix (une seule requête). */
+export async function loadSaleOffersMeta(sellerIds: string[]): Promise<Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>> {
+  const out = new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>();
+  if (!supabase || !sellerIds.length) return out;
+  const { data, error } = await supabase.rpc('keep_playlist_sale_story_offers', { p_seller_ids: sellerIds });
+  if (error) return out;
+  for (const row of (data ?? []) as any[]) {
+    if (!row?.seller_id || !row?.offer_id) continue;
+    const mode = (String(row.payment_mode ?? 'MONEY').toUpperCase() === 'FREE' ? 'FREE' : String(row.payment_mode).toUpperCase() === 'BOTH' ? 'BOTH' : 'MONEY') as 'MONEY' | 'FREE' | 'BOTH';
+    const list = out.get(String(row.seller_id)) ?? [];
+    list.push({ offerId: String(row.offer_id), count: Number(row.track_count ?? 0), mode, priceLabel: formatSaleOfferPrice(mode, Number(row.price_cents ?? 0), row.free_price == null ? null : Number(row.free_price), String(row.currency_code ?? 'EUR')) });
     out.set(String(row.seller_id), list);
   }
   return out;
@@ -368,10 +416,11 @@ export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promi
 export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<MusicStory[]> {
   const head = stories.slice(0, MAX_STORIES_WITH_SALES);
   const emptyMap = () => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
-  const [results, masked, collections] = await Promise.all([
+  const [results, masked, collections, offersBySeller] = await Promise.all([
     Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId))),
     loadMaskedStoryPins(head.map((story) => story.profileId)).catch(emptyMap),
     loadSaleCollectionStoryTracks(head.map((story) => story.profileId)).catch(emptyMap),
+    loadSaleOffersMeta(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>()),
   ]);
   return stories.map((story, index) => {
     const result = index < head.length ? results[index] : null;
@@ -383,7 +432,9 @@ export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<Mus
     const withCollection = mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY);
     const merged = mergeSaleTracks(withCollection, sampler);
     const newest = [pins[0]?.pinnedAt, collection[0]?.pinnedAt].filter(Boolean).sort().pop();
-    return newest && newest > (merged.latestAt || '') ? { ...merged, latestAt: newest } : merged;
+    const saleInfo = buildSaleInfo([...pins.map((pin) => ({ trackId: pin.trackId })), ...collection, ...sampler], offersBySeller.get(story.profileId) ?? []);
+    const withInfo = Object.keys(saleInfo).length ? { ...merged, saleInfo: { ...(merged.saleInfo ?? {}), ...saleInfo } } : merged;
+    return newest && newest > (withInfo.latestAt || '') ? { ...withInfo, latestAt: newest } : withInfo;
   });
 }
 
@@ -402,6 +453,7 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
   if (!ids.length) return [];
   const results = await Promise.allSettled(ids.map((id) => loadPlaylistSaleProfilePreviewSampler(id)));
   const collections = await loadSaleCollectionStoryTracks(ids).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>());
+  const offersBySeller = await loadSaleOffersMeta(ids).catch(() => new Map<string, Array<{ offerId: string; count: number; mode: 'MONEY' | 'FREE' | 'BOTH'; priceLabel: string }>>());
   const withSales = ids
     .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
     .filter((row) => row.samples.length > 0)
@@ -424,7 +476,9 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
       tracks: [],
     };
     const collection = collections.get(row.id) ?? [];
-    const merged = mergeSaleTracks(mergeSaleTracks(base, collection, MAX_COLLECTION_TRACKS_PER_STORY), row.samples);
+    const saleInfo = buildSaleInfo([...collection, ...(row.samples as Array<{ trackId: string; offerId?: string }>)], offersBySeller.get(row.id) ?? []);
+    const mergedPlain = mergeSaleTracks(mergeSaleTracks(base, collection, MAX_COLLECTION_TRACKS_PER_STORY), row.samples);
+    const merged = Object.keys(saleInfo).length ? { ...mergedPlain, saleInfo } : mergedPlain;
     stories.push(collection[0]?.pinnedAt ? { ...merged, latestAt: collection[0].pinnedAt } : merged);
   }
   return stories.filter((story) => story.tracks.length > 0);

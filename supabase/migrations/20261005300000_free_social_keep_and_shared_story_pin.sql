@@ -107,3 +107,24 @@ begin
     alter publication supabase_realtime add table public.story_views;
   end if;
 end $$;
+
+-- Étiquette « PAYANT · N titres · prix » dans les stories (Adel 05/10/2026) : lecture seule des offres actives (nombre de titres + prix).
+create or replace function public.keep_playlist_sale_story_offers(p_seller_ids uuid[])
+returns table(seller_id uuid, offer_id uuid, playlist_name text, payment_mode text, price_cents integer, free_price integer, currency_code text, track_count integer, created_at timestamptz)
+language sql
+stable
+security definer
+set search_path = 'public', 'auth'
+as $function$
+  select pso.seller_id, pso.id, pso.playlist_name, pso.payment_mode::text, pso.price_cents::integer, pso.free_price::integer, pso.currency_code::text,
+         (select count(*)::integer from public.playlist_sale_offer_tracks pst where pst.offer_id = pso.id) as track_count,
+         pso.created_at
+  from public.playlist_sale_offers pso
+  where pso.seller_id = any(p_seller_ids)
+    and pso.is_active = true
+    and (pso.target_buyer_id is null or pso.target_buyer_id = auth.uid())
+  order by pso.created_at desc
+  limit 200;
+$function$;
+revoke all on function public.keep_playlist_sale_story_offers(uuid[]) from public, anon;
+grant execute on function public.keep_playlist_sale_story_offers(uuid[]) to authenticated;
