@@ -12,6 +12,8 @@ import { navigateToSharedProfile, navigationRef } from '../navigation/navigation
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
+import { robotWelcome } from '../services/robotCoachService';
+import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { supabase } from '../services/supabaseClient';
@@ -119,9 +121,24 @@ export default function GlobalChatDock() {
   const robotMessage = useRobotMessageStore((state) => state.message);
   const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
   const robotBubble = useRef(new Animated.Value(0)).current;
+  const robotShake = useRef(new Animated.Value(0)).current;
+  // Accueil du robot : un seul message utile à l'ouverture (solde FREE bas/vide, sinon un salut avec le pseudo), 5 s après le démarrage.
+  const welcomeUserId = !isDemoMode && !isLocalGuest ? user?.id ?? null : null;
+  const welcomeUsername = user?.username ?? '';
   useEffect(() => {
-    if (!robotMessage) { robotBubble.setValue(0); return undefined; }
+    if (!welcomeUserId) return undefined;
+    const timer = setTimeout(() => { void robotWelcome(welcomeUserId, welcomeUsername, async () => (await loadMyFreeWalletStatus()).balance); }, 5000);
+    return () => clearTimeout(timer);
+  }, [welcomeUserId, welcomeUsername]);
+  useEffect(() => {
+    if (!robotMessage) { robotBubble.setValue(0); robotShake.setValue(0); return undefined; }
     robotBubble.setValue(0);
+    // Le robot s'agite : petite secousse qui s'amortit (jamais plus d'une seconde).
+    robotShake.setValue(0);
+    Animated.sequence([
+      Animated.delay(250),
+      ...[1, -1, 0.8, -0.8, 0.5, -0.5, 0].map((value) => Animated.timing(robotShake, { toValue: value, duration: 70, useNativeDriver: false })),
+    ]).start();
     Animated.spring(robotBubble, { toValue: 1, friction: 7, tension: 90, useNativeDriver: false }).start();
     const timer = setTimeout(() => dismissRobotMessage(), 12000);
     return () => clearTimeout(timer);
@@ -881,13 +898,16 @@ export default function GlobalChatDock() {
       {!open && !gameInProgress && robotMessage ? (
         <Animated.View
           pointerEvents="box-none"
-          style={[styles.robotSays, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }] }]}
+          style={[styles.robotSays, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }, { rotate: robotShake.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) }] }]}
         >
           <TouchableOpacity
             testID="robot-says"
             onPress={() => {
               const action = ROBOT_ACTIONS[robotMessage.kind];
+              const kind = robotMessage.kind;
               dismissRobotMessage();
+              // Salut : l'appui ouvre directement le salon / le Tchat pour parler à ses amis.
+              if (kind === 'GREETING') { useGlobalChatStore.getState().open(); return; }
               try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
             }}
             accessibilityRole="button"

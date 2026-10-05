@@ -186,3 +186,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 sexies — Classement sur les bulles (Adel, 05/10/2026)
 - Classement de la semaine (7 jours glissants) : 1 pt par partage en story, 3 pts par reprise de sa musique par un autre membre, 2 pts par nouvel abonné ; top 50 des profils publics (RPC lecture seule `keep_story_ranking`).
 - Badge discret en haut à gauche de la bulle : 🥇🥈🥉 (top 3), ⭐ (top 10) ; minimum 3 points. Aucun badge si le classement est indisponible. Ne remplace ni le ✓ « vu » (haut droite) ni la pastille de présence (bas droite).
+
+### §16 bis — Robot intelligent et jeune (Adel, 05/10/2026, IDEA-096)
+- À l'ouverture de l'app (5 s après le démarrage, une fois par lancement et par compte) le robot dit UN message utile : solde FREE à 0 → « plus de FREE » (avec de quoi en gagner : Battle, parrainage) ; solde ≤ 3 → « il ne te reste que N FREE » + comment en gagner ; sinon un **salut jeune avec le pseudo** (« Salut @pseudo 👋 t'es motivé ? … va dire coucou dans le salon »). Un appui sur le salut ouvre le salon/Tchat ; solde bas/vide → Offres.
+- Le robot s'agite (secousse amortie < 1 s) et fait vibrer le téléphone (sans son pour le salut). Jamais envahissant : salut 2 fois/jour max et 6 h d'écart, solde bas 1 fois/jour (12 h), solde vide 2 fois/jour (6 h). Phrases composées, jamais toujours les mêmes. Code : `robotCoachMessages.ts`, `robotCoachService.ts` (`robotWelcome`), `GlobalChatDock.tsx`.

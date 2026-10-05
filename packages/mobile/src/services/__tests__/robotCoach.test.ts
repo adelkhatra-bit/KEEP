@@ -35,3 +35,46 @@ describe('Robot coach (Adel 05/10/2026)', () => {
     expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain('deck-title-profile');
   });
 });
+
+describe('Robot intelligent et jeune (Adel 05/10/2026)', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  it('salut personnel avec le pseudo, jeune, jamais la même phrase', () => {
+    const lines = Array.from({ length: 80 }, (_, i) => composeRobotLine('GREETING', `g${i}`, 0, '@teyou'));
+    expect(new Set(lines).size).toBeGreaterThan(20);
+    for (const line of lines) {
+      expect(line).toContain('@teyou 👋');
+      expect(line.length).toBeLessThanOrEqual(120);
+    }
+    expect(lines.some((line) => /salon|amis|collègues|communauté|musique/i.test(line))).toBe(true);
+    expect(composeRobotLine('GREETING', 'x', 0, '')).toMatch(/👋/);
+    expect(robotCoachCombinationCount('GREETING')).toBeGreaterThanOrEqual(100);
+  });
+  it('solde bas : dit le nombre restant et propose d’en gagner (Battle / parrainage)', () => {
+    const lines = Array.from({ length: 60 }, (_, i) => composeRobotLine('LOW_FREE', `l${i}`, 2));
+    for (const line of lines) { expect(line).toContain('2 FREE'); expect(line).not.toContain('{n}'); expect(line.length).toBeLessThanOrEqual(110); }
+    expect(lines.some((line) => /Battle|Parraine|lien/.test(line))).toBe(true);
+    expect(composeRobotLine('LOW_FREE', 'z', 1)).not.toContain('1 FREE restants');
+  });
+  it('plus de FREE : propose aussi d’en gagner, pas seulement de recharger', () => {
+    const lines = Array.from({ length: 80 }, (_, i) => composeRobotLine('NO_FREE', `n${i}`));
+    expect(lines.some((line) => /Battle|parrain/i.test(line))).toBe(true);
+  });
+  it('jamais envahissant : salut 2/jour et 6 h d’écart, solde bas 1/jour et 12 h', () => {
+    expect(canRobotSpeak({ GREETING: { lastAt: now - 3600 * 1000, day: '2026-10-05', count: 1 } }, 'GREETING', now)).toBe(false);
+    expect(canRobotSpeak({ GREETING: { lastAt: now - 7 * 3600 * 1000, day: '2026-10-05', count: 2 } }, 'GREETING', now)).toBe(false);
+    expect(canRobotSpeak({ GREETING: { lastAt: now - 7 * 3600 * 1000, day: '2026-10-05', count: 1 } }, 'GREETING', now)).toBe(true);
+    expect(canRobotSpeak({ LOW_FREE: { lastAt: now - 13 * 3600 * 1000, day: '2026-10-05', count: 1 } }, 'LOW_FREE', now)).toBe(false);
+    expect(ROBOT_ACTIONS.LOW_FREE.route).toBe('Offers');
+  });
+  it('branché : accueil à l’ouverture, secousse, vibration, appui du salut = salon', () => {
+    const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
+    const dock = read('components', 'GlobalChatDock.tsx');
+    expect(dock).toContain('robotWelcome(welcomeUserId, welcomeUsername');
+    expect(dock).toContain('robotShake');
+    expect(dock).toContain("if (kind === 'GREETING') { useGlobalChatStore.getState().open(); return; }");
+    const svc = read('services', 'robotCoachService.ts');
+    expect(svc).toContain('Vibration.vibrate(kind ===');
+    expect(svc).toContain("robotSay('LOW_FREE'");
+    expect(svc).toContain("robotSay('GREETING'");
+  });
+});
