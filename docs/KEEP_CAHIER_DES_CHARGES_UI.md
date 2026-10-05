@@ -194,3 +194,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 septies — Stories en chapitres (Adel, 05/10/2026, IDEA-098)
 - Chaque musique d'une story est un **chapitre**. Le propriétaire voit, par spectateur : « a vu N musiques sur M » (jamais « 1/16 », trop ambigu) et **le temps exact passé dans chaque chapitre** (de son arrivée à la musique suivante) : « Chapitres : 1 · 25 s  2 · 9 s » (4 au plus puis « … +N »).
 - Le spectateur ne voit jamais ce suivi. Table `story_watch_sessions.chapters` (jsonb), RPC `keep_story_watch_chapters_ping` (fusion par chapitre, valeurs bornées) et `keep_my_story_viewers_v3` (réservée au propriétaire). Les anciennes fonctions (ping, v2) restent pour les téléphones pas encore à jour.
+
+### §14 octies — Badge à débloquer (Adel, 05/10/2026, IDEA-103)
+- Sur MA photo de profil (haut gauche) : **🔒** tant que je n'ai pas 3 points sur 7 jours ; un appui explique « il te manque N points » avec mon détail (partages en story, reprises, abonnés) et comment gagner (story +1, lien d'affiliation/profil partagé → abonnés +2, reprise de ma musique +3), avec le bouton « Mettre une musique en story ». Débloqué : ✨ (actif), ⭐ (top 10), 🥇🥈🥉 (top 3).
+- Badges des autres bulles : plus lumineux (fond doré, contour et halo), ✨ ajouté pour les membres actifs du top 50 hors top 10. RPC lecture seule `keep_my_story_stats` (mon rang quel que soit mon rang).

@@ -69,7 +69,7 @@ export function rankBadgeFor(rank: number | undefined | null, score: number | un
   if (rank === 2) return { icon: '🥈', label: 'N°2 de la semaine' };
   if (rank === 3) return { icon: '🥉', label: 'N°3 de la semaine' };
   if (rank <= 10) return { icon: '⭐', label: `Top 10 de la semaine · n°${rank}` };
-  return null;
+  return { icon: '✨', label: 'Membre actif de la semaine' };
 }
 
 /** Durée écoulée courte : « il y a 5 h », « il y a 3 j », « il y a 2 sem. » (activité des membres, Adel 05/10/2026). */
@@ -84,6 +84,32 @@ export function formatSince(iso: string | null | undefined, now = Date.now()): s
   if (hours < 24) return `il y a ${hours} h`;
   const days = Math.floor(hours / 24);
   return days < 14 ? `il y a ${days} j` : `il y a ${Math.floor(days / 7)} sem.`;
+}
+
+/** Mon badge (Adel 05/10/2026) : 🔒 tant que je n'ai pas 3 points sur 7 jours, puis ✨ (actif), ⭐ (top 10), 🥇🥈🥉 (top 3). */
+export function ownBadgeFor(rank: number | null | undefined, score: number): { icon: string; label: string; locked: boolean } {
+  const tier = rankBadgeFor(rank, score);
+  if (tier) return { ...tier, locked: false };
+  if (score >= RANK_MIN_SCORE) return { icon: '✨', label: 'Membre actif de la semaine', locked: false };
+  return { icon: '🔒', label: 'Badge à débloquer', locked: true };
+}
+
+/** Texte « comment débloquer / progresser » du badge (points : 1 par partage en story, 3 par reprise de ta musique, 2 par nouvel abonné). */
+export function ownBadgeMessage(stats: { shares: number; reprises: number; followers: number; score: number; rank: number | null }): { title: string; body: string } {
+  const badge = ownBadgeFor(stats.rank, stats.score);
+  const detail = `Cette semaine : ${stats.shares} partage${stats.shares > 1 ? 's' : ''} en story · ${stats.reprises} reprise${stats.reprises > 1 ? 's' : ''} de ta musique · ${stats.followers} nouvel${stats.followers > 1 ? 's' : ''} abonné${stats.followers > 1 ? 's' : ''} = ${stats.score} point${stats.score > 1 ? 's' : ''}.`;
+  if (badge.locked) {
+    const missing = Math.max(1, RANK_MIN_SCORE - stats.score);
+    return {
+      title: '🔒 Débloque ton badge',
+      body: `Il te manque ${missing} point${missing > 1 ? 's' : ''}.\n${detail}\n\nGagne des points : mets une musique en story (+1), partage ton profil ou ton lien d’affiliation pour gagner des abonnés (+2 chacun), fais reprendre ta musique (+3). Plus tu montes, plus ta bulle est vue.`,
+    };
+  }
+  const rankLine = stats.rank ? `Tu es n°${stats.rank} de la semaine.` : 'Tu es dans le classement de la semaine.';
+  return {
+    title: `${badge.icon} ${badge.label}`,
+    body: `${rankLine}\n${detail}\n\nContinue : chaque partage, reprise et abonné te fait monter, et ta bulle est de plus en plus vue.`,
+  };
 }
 
 /** Fenêtre « profil sans story du jour » (Adel 05/10/2026) : depuis quand la personne n'a rien partagé, en une ligne. */

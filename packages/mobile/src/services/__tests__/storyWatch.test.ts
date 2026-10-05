@@ -149,7 +149,7 @@ describe('classement de la semaine sur les bulles', () => {
     expect(rankBadgeFor(2, 4)?.icon).toBe('🥈');
     expect(rankBadgeFor(3, 3)?.icon).toBe('🥉');
     expect(rankBadgeFor(7, 5)?.icon).toBe('⭐');
-    expect(rankBadgeFor(11, 9)).toBeNull();
+    expect(rankBadgeFor(11, 9)?.icon).toBe('✨');
     expect(rankBadgeFor(1, 2)).toBeNull();
     expect(rankBadgeFor(undefined, 10)).toBeNull();
   });
@@ -157,7 +157,7 @@ describe('classement de la semaine sur les bulles', () => {
     const fs = require('fs'); const path = require('path');
     const rail = fs.readFileSync(path.join(__dirname, '../../components/MusicStoryRail.tsx'), 'utf8');
     const bar = fs.readFileSync(path.join(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
-    expect(rail).toContain('rankBadge: { position: \'absolute\', left: 0, top: 0');
+    expect(rail).toContain("rankBadge: { position: 'absolute', left: -2, top: -2");
     expect(rail).toContain('testID={`story-rank-${profileId}`}');
     expect(bar).toContain('loadStoryRanking()');
     expect(bar).toContain('ranking={ranking}');
@@ -224,5 +224,32 @@ describe('chapitres : temps exact passé dans chaque musique (Adel 05/10/2026)',
     const many = Array.from({ length: 6 }, (_, i) => ({ index: i, seconds: 3 }));
     expect(formatWatchDetail({ ...base, chapters: many }).chaptersLine).toBe('Chapitres : 1 · 3 s  2 · 3 s  3 · 3 s  4 · 3 s … +2');
     expect(formatWatchDetail({ ...base }).chaptersLine).toBeNull();
+  });
+});
+
+import { ownBadgeFor, ownBadgeMessage } from '../storyActivity';
+describe('badge à débloquer (cadenas) — Adel 05/10/2026', () => {
+  it('🔒 au départ, ✨ dès 3 points, ⭐/médailles selon le rang', () => {
+    expect(ownBadgeFor(null, 0)).toMatchObject({ icon: '🔒', locked: true });
+    expect(ownBadgeFor(40, 2)).toMatchObject({ icon: '🔒', locked: true });
+    expect(ownBadgeFor(30, 3)).toMatchObject({ icon: '✨', locked: false });
+    expect(ownBadgeFor(8, 6)).toMatchObject({ icon: '⭐', locked: false });
+    expect(ownBadgeFor(1, 57)).toMatchObject({ icon: '🥇', locked: false });
+  });
+  it('explique comment débloquer avec la progression', () => {
+    const m = ownBadgeMessage({ shares: 1, reprises: 0, followers: 0, score: 1, rank: 20 });
+    expect(m.title).toContain('🔒');
+    expect(m.body).toContain('Il te manque 2 points');
+    expect(m.body).toMatch(/story/);
+    expect(m.body).toMatch(/lien d’affiliation/);
+    const done = ownBadgeMessage({ shares: 4, reprises: 1, followers: 1, score: 9, rank: 5 });
+    expect(done.title).toContain('⭐');
+    expect(done.body).toContain('n°5');
+  });
+  it('branché sur le profil : badge au-dessus de la photo, lu depuis le serveur', () => {
+    const fs = require('fs'); const path = require('path');
+    const bar = fs.readFileSync(path.join(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
+    expect(bar).toContain('testID="story-own-badge"');
+    expect(bar).toContain('loadMyStoryStats()');
   });
 });

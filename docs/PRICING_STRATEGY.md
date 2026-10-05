@@ -251,3 +251,10 @@ priorité. Le Super Admin (`/admin-preview/`) n'est pas concerné.
 **Clause pour les conditions des offres (proposition)** : « Le classement des stories est calculé sur les 7 derniers jours à partir de tes partages, des reprises de ta musique par d'autres membres et de tes nouveaux abonnés. Les badges de classement sont informatifs ; Loki Music peut corriger ou retirer un classement obtenu par des moyens abusifs. »
 
 **À décider par Adel** : récompense concrète (FREE ? mise en avant ?), badge pour tous ou seulement certaines formules, texte exact des conditions, emplacement du récapitulatif dans Offres (carte « Ta communauté »).
+
+**Boucles d'engagement proposées (IDEA-103, brouillon)** — gratuites pour tous au départ, les formules payantes donnent « la même chose en plus confortable » plus tard :
+1. **Verrou à débloquer** : le 🔒 de ton badge (première récompense en 3 points) ; chaque action visible rapproche d'un palier.
+2. **Progression visible** : « il te manque N points », classement de la semaine, médaille sur ta bulle.
+3. **Retour quotidien** : story 24 h (chronomètre), série quotidienne (+FREE, à implémenter), robot qui salue sans harceler (plafonds par jour).
+4. **Communauté** : abonnés, reprises, vues détaillées de ta story ; plus elle grandit, plus d'options se débloquent (paliers `growth_followers_reward_*`).
+5. **Garde-fous** : jamais de pression excessive (messages plafonnés), aucune récompense d'argent promise, le classement reste lisible et corrigeable en cas d'abus.

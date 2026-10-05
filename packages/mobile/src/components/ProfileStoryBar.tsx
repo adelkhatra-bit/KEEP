@@ -31,6 +31,8 @@ import {
   loadOwnStory,
   watchStoryOf,
   loadStoryRanking,
+  loadMyStoryStats,
+  type MyStoryStats,
   type StoryViewer,
   enrichStoriesWithSales,
   isSaleStoryTrack,
@@ -42,7 +44,7 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
-import { formatWatchDetail } from '../services/storyActivity';
+import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import KeepModal from './KeepModal';
 
 /**
@@ -70,6 +72,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [activityKnown, setActivityKnown] = useState(false);
   const [ranking, setRanking] = useState<Record<string, { rank: number; score: number }>>({});
+  const [myStats, setMyStats] = useState<MyStoryStats | null>(null);
   const [quickUsername, setQuickUsername] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
@@ -210,6 +213,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     };
     // Classement de la semaine : badge discret sur les bulles (échec = aucun badge, jamais bloquant).
     void loadStoryRanking().then((map) => { if (live) setRanking(map); }).catch(() => {});
+    void loadMyStoryStats().then((stats) => { if (live) setMyStats(stats); }).catch(() => {});
     void run(0);
     return () => { live = false; if (retryTimer) clearTimeout(retryTimer); };
   }, [viewer.id, isFocused, reloadTick]);
@@ -355,6 +359,25 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             : <View style={[styles.photo, styles.photoFallback, { width: ownStory ? avatarSize - 16 : avatarSize, height: ownStory ? avatarSize - 16 : avatarSize, borderRadius: avatarSize / 2 }]}><Text style={styles.photoInitial}>{(viewer.username || 'K').slice(0, 1).toUpperCase()}</Text></View>}
         </StoryRing>
       </TouchableOpacity>
+      {(() => {
+        // Badge à débloquer (Adel 05/10/2026) : 🔒 au départ ; un appui explique comment le débloquer et montre la progression.
+        const stats: MyStoryStats = myStats ?? { shares: 0, reprises: 0, followers: 0, score: 0, rank: null };
+        const badge = ownBadgeFor(stats.rank, stats.score);
+        return (
+          <TouchableOpacity
+            style={[styles.ownBadge, badge.locked ? styles.ownBadgeLocked : styles.ownBadgeOn]}
+            onPress={() => {
+              const message = ownBadgeMessage(stats);
+              Alert.alert(message.title, message.body, [{ text: 'Mettre une musique en story', onPress: openPlus }, { text: 'OK', style: 'cancel' }]);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`${badge.label}. Appuie pour voir comment progresser`}
+            testID="story-own-badge"
+          >
+            <Text style={styles.ownBadgeText}>{badge.icon}</Text>
+          </TouchableOpacity>
+        );
+      })()}
       <TouchableOpacity style={styles.plusBadge} onPress={openPlus} accessibilityRole="button" accessibilityLabel="Ajouter une musique à ta story" testID="story-plus">
         <Text style={styles.plusBadgeText}>+</Text>
       </TouchableOpacity>
@@ -584,6 +607,10 @@ const styles = StyleSheet.create({
   rowActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   viewProfileBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,0.18)', alignItems: 'center', justifyContent: 'center' },
   viewProfileText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  ownBadge: { position: 'absolute', left: -2, top: -2, minWidth: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, zIndex: 3 },
+  ownBadgeLocked: { backgroundColor: '#2A2140', borderColor: '#B79CFF' },
+  ownBadgeOn: { backgroundColor: '#3A2A00', borderColor: '#FFD166', shadowColor: '#FFD166', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
+  ownBadgeText: { fontSize: 13, lineHeight: 16 },
   rowName: { color: colors.white, fontSize: 15, fontWeight: '800' },
   rowStatus: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
   rowStatusLive: { color: '#35e08a' },
