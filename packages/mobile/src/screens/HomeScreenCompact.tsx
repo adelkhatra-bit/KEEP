@@ -1,3 +1,4 @@
+import LedTicker from '../components/LedTicker';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,6 +25,13 @@ import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
 import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
+
+const IDENTIFY_TICKER_MESSAGES = [
+  'Bravo ! Identifie un morceau et partage-le sur ton profil',
+  'Ta musique est identifiée comme la première',
+  'Chaque membre qui la prend te crédite sur son profil',
+  'Plus on te reprend, plus ta communauté grandit',
+];
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -665,7 +673,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             </View>
             {isDemoMode || musicEngine.isDemoMode ? (
               <View style={s.demoRow}>
-                <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} ÉCOUTES` : ''}</Text>
+                <Text style={s.demo}>MODE DÉMO{isDemoMode ? ` · ${Math.min(demoListenUsed, demoListenLimit)}/${demoListenLimit} IDENTIFIÉS` : ''}</Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainDemo} accessibilityRole="button" accessibilityLabel="À quoi servent le mode démo et les FREE ?">
                   <Text style={s.demoHelpText}>?</Text>
                 </TouchableOpacity>
@@ -673,7 +681,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             ) : user && listenEconomyStatus ? (
               <View style={s.demoRow}>
                 <Text style={s.demo}>
-                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} ÉCOUTES AUJOURD’HUI
+                  {listenEconomyStatus.used}/{listenEconomyStatus.limit} IDENTIFIÉS AUJOURD’HUI
                   {listenEconomyStatus.overQuota ? ` · +${listenEconomyStatus.overQuotaFreeCost} FREE / MORCEAU` : ''}
                 </Text>
                 <TouchableOpacity style={s.demoHelp} onPress={explainListenEconomy} accessibilityRole="button" accessibilityLabel="Comprendre le quota d’écoutes et les FREE">
@@ -730,6 +738,8 @@ export default function HomeScreenCompact({ navigation }: any) {
             navigateur pouvait refuser la permission (bannière rouge juste en
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
+        {/* Adel (05/10/2026) : bande lumineuse défilante -- slogans qui encouragent à identifier, partager et être crédité. */}
+        <LedTicker messages={IDENTIFY_TICKER_MESSAGES} />
         <View style={s.livePanel}>
           {/* Refonte écran d'écoute (maquette validée docs/mockups/EcouteRedesign.html,
               23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore
@@ -962,7 +972,7 @@ function TopBar({ navigation, readyCount = 0 }: any) {
   }, [readyCount, readyPulse]);
 
   return <View style={s.topBar}>
-    <Text style={s.brand} numberOfLines={1}>Écouter</Text>
+    <Text style={s.brand} numberOfLines={1}>Identifier</Text>
     <View style={s.topBarActions}>
       {readyCount > 0 ? (
         <TouchableOpacity onPress={() => navigation.navigate('SessionHistory')} accessibilityRole="button" accessibilityLabel={`${readyCount} morceaux prêts à écouter et trier`}>

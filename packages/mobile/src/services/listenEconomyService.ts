@@ -77,8 +77,8 @@ export async function recordListenSuccess(sourceKey: string, allowFree = false):
 }
 
 export function listenQuotaMessage(status: ListenEconomyStatus): string {
-  if (status.isAnonymous) return 'Tu as utilisé tes ' + status.limit + ' écoutes invitées. Crée ou connecte ton compte pour continuer.';
-  if (status.overQuota && !status.canPayWithFree) return 'Tes ' + status.limit + ' écoutes incluses du jour sont utilisées. Recharge tes FREE ou passe à une formule supérieure pour continuer.';
+  if (status.isAnonymous) return 'Tu as utilisé tes ' + status.limit + ' identifications invitées. Crée ou connecte ton compte pour continuer.';
+  if (status.overQuota && !status.canPayWithFree) return 'Tes ' + status.limit + ' identifications incluses du jour sont utilisées. Recharge tes FREE ou passe à une formule supérieure pour continuer.';
   if (status.overQuota) return 'Quota inclus atteint. La prochaine reconnaissance réussie coûte ' + status.overQuotaFreeCost + ' FREE.';
-  return status.used + '/' + status.limit + ' écoutes aujourd’hui';
+  return status.used + '/' + status.limit + ' identifiés aujourd’hui';
 }
