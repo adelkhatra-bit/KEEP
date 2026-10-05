@@ -8,6 +8,7 @@ import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
 import { isSaleStoryTrack, loadMyStoryTrackIds, pinStoryTrack } from '../services/musicStoriesService';
+import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
@@ -159,6 +160,19 @@ export default function MusicSwipeDeckModal({
   }, [visible]);
   const canAddToStory = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
+  // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
+  const makeKeptPublicAndStory = async () => {
+    const track = current;
+    if (!track) return;
+    try {
+      await persistOwnTrackVisibility(track, 'PUBLIC');
+      await pinStoryTrack(track.id);
+      setStoryIds((previous) => new Set(previous).add(track.id));
+      setKeepSuccess((previous) => (previous ? { ...previous, visibility: 'PUBLIC' } : previous));
+    } catch {
+      Alert.alert('Ajout impossible', 'La musique n’a pas pu être rendue publique pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+    }
+  };
   const addCurrentToStory = async () => {
     if (!current) return;
     if (alreadyInStory) {
@@ -819,6 +833,7 @@ export default function MusicSwipeDeckModal({
           trackLabel={keepSuccess ? `${keepSuccess.title} · ${keepSuccess.artist}` : null}
           costFree={keepDebitAmount}
           visibility={keepSuccess?.visibility}
+          onMakePublicStory={() => { void makeKeptPublicAndStory(); }}
           continueLabel="CONTINUER"
           onContinue={continueAfterKeepSuccess}
         />

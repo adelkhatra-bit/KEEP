@@ -284,9 +284,16 @@ export async function prepareAudioSessionForSpeech(): Promise<void> {
   await configurePreviewAudio();
 }
 
+// Adel (05/10/2026) : « je swipe, une nouvelle musique démarre » -- reconfigurer la session audio iOS à CHAQUE extrait coûte
+// 100-300 ms. Pendant une série de swipes (quelques secondes entre deux extraits, jamais de capture micro dans un swipe), la
+// configuration n'a pas changé : on ne la refait que si le mode (enregistrement ou non) a changé ou après 8 secondes.
+let lastPreviewAudioConfig: { recording: boolean; at: number } | null = null;
+const PREVIEW_AUDIO_CONFIG_TTL_MS = 8000;
+
 async function configurePreviewAudio() {
   const { Audio, InterruptionModeIOS } = getNativeExpoAV();
   const recordingActive = isNativeRecordingModeActive();
+  if (lastPreviewAudioConfig && lastPreviewAudioConfig.recording === recordingActive && Date.now() - lastPreviewAudioConfig.at < PREVIEW_AUDIO_CONFIG_TTL_MS) return;
   await withAudioTimeout(Audio.setAudioModeAsync({
     allowsRecordingIOS: recordingActive,
     playsInSilentModeIOS: true,
@@ -299,6 +306,7 @@ async function configurePreviewAudio() {
     shouldDuckAndroid: recordingActive,
     playThroughEarpieceAndroid: false,
   }), 'AUDIO_MODE', 1800);
+  lastPreviewAudioConfig = { recording: recordingActive, at: Date.now() };
 }
 
 async function ensurePlaying(sound: NativeSound): Promise<void> {

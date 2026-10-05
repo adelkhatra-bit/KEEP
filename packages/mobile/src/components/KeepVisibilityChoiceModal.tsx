@@ -117,6 +117,8 @@ type SuccessProps = {
   visibility?: 'PUBLIC' | 'PRIVATE' | null;
   continueLabel?: string;
   onContinue: () => void | Promise<void>;
+  /** Gardé en Privé : propose de le rendre public ET de le mettre en story (anti-doublon géré par l'appelant). */
+  onMakePublicStory?: () => void | Promise<void>;
 };
 
 export function KeepSuccessModal({
@@ -126,6 +128,7 @@ export function KeepSuccessModal({
   visibility,
   continueLabel = 'PARFAIT',
   onContinue,
+  onMakePublicStory,
 }: SuccessProps) {
   const cost = Math.max(0, Number(costFree || 0));
   return (
@@ -145,6 +148,11 @@ export function KeepSuccessModal({
           <TouchableOpacity style={s.successButton} onPress={() => { void onContinue(); }} accessibilityLabel="Fermer la confirmation">
             <Text style={s.successButtonText}>{continueLabel}</Text>
           </TouchableOpacity>
+          {visibility === 'PRIVATE' && onMakePublicStory ? (
+            <TouchableOpacity style={s.successStoryAdd} onPress={() => { void onMakePublicStory(); }} accessibilityRole="button" accessibilityLabel="Rendre publique et mettre en story">
+              <Text style={s.successStoryAddText}>＋ METTRE EN STORY (LA RENDRE PUBLIQUE)</Text>
+            </TouchableOpacity>
+          ) : null}
           {visibility === 'PUBLIC' ? (
             <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Déjà dans ta story pendant 24 heures">
               <Text style={s.successStoryPillText}>✓ DÉJÀ DANS TA STORY · 24 h</Text>
@@ -164,6 +172,8 @@ const s = StyleSheet.create({
   successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
   successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
   successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
+  successStoryAdd: { width: '100%', minHeight: 44, borderRadius: 22, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#1B1230', alignItems: 'center', justifyContent: 'center', marginTop: 10, paddingHorizontal: 12 },
+  successStoryAddText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: .4, textAlign: 'center' },
   successStoryPill: { width: '100%', minHeight: 44, borderRadius: 22, borderWidth: 1, borderColor: '#5C5468', backgroundColor: '#27222E', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   successStoryPillText: { color: '#E6E0EE', fontSize: 13, fontWeight: '900', letterSpacing: .5, textAlign: 'center' },
   successStory: { color: '#FFFFFF', fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 10 },
