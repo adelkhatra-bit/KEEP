@@ -563,21 +563,19 @@ export async function loadMyStoryTrackIds(): Promise<Set<string>> {
   const uid = sessionData.session?.user?.id;
   if (!uid) return ids;
   const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
-  const [keeps, pins] = await Promise.all([
+  // Adel (05/10/2026) : « PATIENTE… VÉRIFICATION DE TA STORY » restait affiché -- 4 requêtes s'enchaînaient l'une après l'autre. Elles partent
+  // maintenant TOUTES ensemble ; une panne de l'une ne bloque pas les autres.
+  const [keeps, pins, sampler, collections] = await Promise.all([
     supabase.from('keep_decisions').select('track_id').eq('profile_id', uid).eq('decision', 'KEPT').eq('visibility', 'PUBLIC').gte('created_at', since).limit(200),
     supabase.from('story_pins').select('track_id').eq('profile_id', uid).gte('pinned_at', since).limit(200),
+    // Une musique EN VENTE est déjà dans ta story quand ta boutique l'y met d'office (un échantillon par offre active).
+    loadPlaylistSaleProfilePreviewSampler(uid).catch(() => [] as Array<{ trackId: string }>),
+    // Une collection mise en vente < 24 h est ENTIÈRE dans la story : tous ses titres comptent comme déjà en story.
+    loadSaleCollectionStoryTracks([uid]).catch(() => new Map<string, Array<{ trackId: string }>>()),
   ]);
   for (const row of [...(keeps.data ?? []), ...(pins.data ?? [])] as any[]) if (row?.track_id) ids.add(String(row.track_id));
-  // Adel (05/10/2026) : une musique EN VENTE est déjà dans ta story quand ta boutique l'y met d'office (un échantillon par offre active,
-  // toujours le même). Sans ça, le bouton restait allumé et proposait un ajout inutile.
-  try {
-    for (const sample of await loadPlaylistSaleProfilePreviewSampler(uid)) if (sample?.trackId) ids.add(String(sample.trackId));
-  } catch { /* boutique inconnue : on se fie aux GARDER publics et aux épingles */ }
-  // Adel (05/10/2026) : « ça m'a proposé de mettre en story des musiques que j'avais déjà » -> une collection mise en vente < 24 h est
-  // désormais ENTIÈRE dans la story : tous ses titres comptent comme déjà en story.
-  try {
-    for (const rows of (await loadSaleCollectionStoryTracks([uid])).values()) for (const row of rows) ids.add(row.trackId);
-  } catch { /* collections inconnues */ }
+  for (const sample of sampler as any[]) if (sample?.trackId) ids.add(String(sample.trackId));
+  for (const rows of collections.values()) for (const row of rows) ids.add(row.trackId);
   return ids;
 }
 

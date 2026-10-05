@@ -4,14 +4,14 @@ import { formatStoryAge } from '../storyActivity';
 
 describe('Âge d\'une story (Adel 05/10/2026)', () => {
   const now = Date.parse('2026-10-05T18:53:00Z');
-  it('indique depuis quand et combien de temps encore (fenêtre 24 h)', () => {
-    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('reste 22 h');
+  it('dit seulement depuis quand la musique est en ligne, jamais le temps restant', () => {
+    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('il y a 2 h');
+    expect(formatStoryAge('2026-10-05T18:24:00Z', now)).toBe('il y a 29 min');
+    expect(formatStoryAge('2026-10-05T18:52:40Z', now)).toBe('à l’instant');
+    expect(formatStoryAge('2026-10-05T18:50:00Z', now)).toBe('il y a 3 min');
+    expect(formatStoryAge('2026-10-04T19:00:00Z', now)).toBe('il y a 23 h');
   });
-  it('tombe à 0 min restant au-delà de 24 h et ignore une date invalide', () => {
-    expect(formatStoryAge('2026-10-04T10:00:00Z', now)).toBe('reste 0 min');
-    expect(formatStoryAge('2026-10-05T18:50:00Z', now)).toBe('reste 24 h');
-    expect(formatStoryAge('2026-10-05T17:50:00Z', now)).toBe('reste 23 h');
-    expect(formatStoryAge('2026-10-04T19:30:00Z', now)).toBe('reste 37 min');
+  it('ignore une date invalide', () => {
     expect(formatStoryAge('nope', now)).toBeNull();
     expect(formatStoryAge(null, now)).toBeNull();
   });

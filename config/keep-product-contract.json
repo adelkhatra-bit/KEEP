@@ -951,7 +951,7 @@
   },
   "storiesExperience": {
     "unfollowOnlyFromProfilePage": true,
-    "storyAgeLineFormat": "reste N h (heures pleines qui descendent 24 h → 1 h, puis minutes), une seule ligne, aucune autre phrase verte",
+    "storyAgeLineFormat": "il y a N min / il y a N h (SEULEMENT depuis quand la musique est en ligne, jamais le temps restant : l'utilisateur sait qu'une story dure 24 h), une seule ligne",
     "storyPriceBadgesRequired": ["💳 PAYANT · PAYPAL (musique en vente)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
     "storyReaderHasNoTeaserSentenceForOthers": true,
     "viewersListShowsViewProfileNotFollowBadge": true,

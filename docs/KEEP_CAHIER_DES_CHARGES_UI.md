@@ -172,7 +172,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - La liste « Vues de ta story » montre, pour chaque spectateur : son nom, « A repris » (s'il a déjà repris un de tes morceaux — ce n'est pas un événement du jour) et un bouton **Voir le profil ›**. Plus de badge « Abonné ».
 
 ### §14 quater — Lecteur de story : règles de lecture (Adel, 05/10/2026)
-- **Durée** : une seule ligne verte « ⏱ reste 24 h » qui descend en heures pleines (23 h, 22 h… 1 h) puis en minutes ; rien d'autre en vert.
+- **Ancienneté** (décision d'Adel du 05/10, remplace « reste 24 h ») : une seule ligne verte « ⏱ il y a 29 min » / « il y a 2 h », SEULEMENT depuis quand la musique est en ligne ; jamais la durée restante (l'utilisateur sait qu'une story dure 24 h) ; rien d'autre en vert.
 - **Étiquettes obligatoires** sur chaque musique d'une story d'un autre : « 💳 PAYANT · PAYPAL » (musique en vente) ou « 🎁 GRATUIT · POUR TON PROFIL » (musique publique à garder ; le coût en FREE reste dit dans l'indication « → garder · 3 FREE »). Jamais d'ambiguïté sur ce qui est payant.
 - **Aucune phrase d'accroche** sur la story d'un autre ; le créateur crédité est le découvreur d'origine.
 - **Bulles inactives** : un membre sans activité depuis plus de **7 jours** voit sa bulle (sans story) disparaître de la rangée, et revenir dès qu'il se reconnecte. Un membre avec une story n'est jamais masqué.

@@ -9,15 +9,15 @@ export function isDormantMember(lastActiveAt: string | null | undefined, now = D
 }
 
 /**
- * Durée restante d'une musique de story (Adel, 05/10/2026) : une story dure 24 h pile depuis l'ajout ; on n'affiche QUE le temps restant,
- * en heures pleines qui descendent (24 h → 23 h → … → 1 h), puis en minutes sous l'heure : « reste 24 h », « reste 23 h », « reste 42 min ».
+ * Âge d'une musique de story (Adel, 05/10/2026) : on dit SEULEMENT depuis quand elle est en ligne — « il y a 29 min », « il y a 2 h ».
+ * L'utilisateur sait qu'une story dure 24 h : plus elle est ancienne, plus il comprend qu'elle va bientôt finir. Aucune durée restante.
  */
-export function formatStoryAge(addedAtIso: string | null | undefined, now = Date.now(), windowHours = 24): string | null {
+export function formatStoryAge(addedAtIso: string | null | undefined, now = Date.now()): string | null {
   if (!addedAtIso) return null;
   const at = new Date(addedAtIso).getTime();
   if (!Number.isFinite(at)) return null;
   const elapsedMin = Math.max(0, Math.floor((now - at) / 60000));
-  const leftMin = Math.max(0, windowHours * 60 - elapsedMin);
-  if (leftMin >= 60) return `reste ${Math.ceil(leftMin / 60)} h`;
-  return `reste ${leftMin} min`;
+  if (elapsedMin < 1) return 'à l’instant';
+  if (elapsedMin < 60) return `il y a ${elapsedMin} min`;
+  return `il y a ${Math.floor(elapsedMin / 60)} h`;
 }

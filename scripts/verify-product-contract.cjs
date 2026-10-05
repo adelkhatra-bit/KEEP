@@ -383,7 +383,7 @@ must(storyBar.includes('Voir le profil ›') && !storyBar.includes('>Abonné<'),
 const storyActivitySrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyActivity.ts'), 'utf8');
 const storyDeckSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
 must(se && se.storyReaderHasNoTeaserSentenceForOthers === true && Array.isArray(se.storyPriceBadgesRequired) && se.storyAgeLineFormat, 'storiesExperience: règles de lecture de story absentes du contrat');
-must(storyActivitySrc.includes('`reste ${Math.ceil(leftMin / 60)} h`') && storyDeckSrc.includes('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"'), 'stories: la durée restante doit rester « reste N h » sur UNE ligne');
+must(storyActivitySrc.includes('`il y a ${Math.floor(elapsedMin / 60)} h`') && !storyActivitySrc.includes('reste ${') && storyDeckSrc.includes('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"'), 'stories: la ligne verte dit seulement « il y a N min / h » (jamais le temps restant), sur UNE ligne');
 must(storyDeckSrc.includes('PAYANT · PAYPAL') && storyDeckSrc.includes('GRATUIT · POUR TON PROFIL') && storyDeckSrc.includes('deck-price-badge'), 'stories: chaque musique d\'une story doit afficher PAYANT (PayPal) ou GRATUIT, lisiblement');
 must(!storyBar.includes('{composeStoryTeaser(openStory.username'), 'stories: pas de phrase d\'accroche sur la story d\'un autre (elle induisait en erreur)');
 // Décisions d'Adel du 05/10/2026 : reprise sociale GRATUITE (créateur identifié) et partage en story GRATUIT ; musiques en vente toujours payantes.

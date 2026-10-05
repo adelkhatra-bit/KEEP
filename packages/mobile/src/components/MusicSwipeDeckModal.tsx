@@ -193,11 +193,13 @@ export default function MusicSwipeDeckModal({
     if (!visible) return undefined;
     setStoryIdsReady(false);
     // Adel (05/10/2026) : le bouton « Patiente… » tant que la vérification n'est pas finie (sinon « déjà en story » apparaissait une minute après l'ajout).
+    // Filet de sécurité : jamais plus de 4 s d'attente (réseau lent) ; le bouton redevient utilisable et le serveur refuse tout doublon.
+    const readyTimer = setTimeout(() => { if (live) setStoryIdsReady(true); }, 4000);
     void loadMyStoryTrackIds().then((ids) => { if (live) { setStoryIds(ids); setStoryIdsReady(true); } }).catch(() => { if (live) setStoryIdsReady(true); });
     // Musiques en vente : le système les masque seul dans la story ; on prévient l'utilisateur au lieu d'un ajout silencieux.
     void loadMyOfferedTrackIds().then((map) => { if (live) setOfferedIds(new Set(Object.keys(map))); }).catch(() => {});
     setJustAdded(new Set());
-    return () => { live = false; };
+    return () => { live = false; clearTimeout(readyTimer); };
   }, [visible]);
   const storyAddContext = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
   const currentOffered = Boolean(current && offeredIds.has(current.id));
