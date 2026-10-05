@@ -1267,7 +1267,7 @@ const s = StyleSheet.create({
   pulseStage: { marginTop: 8, alignItems: 'center', justifyContent: 'center' },
   startIcon: { color: colors.white, fontSize: 12, marginBottom: 2, fontWeight: '900' },
   idlePrivacy: { color: C.mutedGrey, fontSize: 12, textAlign: 'center', marginTop: 12, maxWidth: 300 },
-  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-76},
+  homePulseWrap:{width:'100%',maxWidth:692,marginTop:'auto',paddingTop:4,marginBottom:-8},
   homePulseRail:{paddingHorizontal:2,paddingTop:2,paddingBottom:0,gap:14},
   homePulseCard:{width:98,alignItems:'center'},
   homePulseArtworkRing:{position:'relative',width:86,height:86,borderRadius:43,borderWidth:2,borderColor:C.purpleLight,padding:3,backgroundColor:'rgba(124,92,252,.12)'},
