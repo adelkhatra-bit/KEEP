@@ -1,6 +1,8 @@
 import type { CanonicalTrack } from '@keep/music';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import { mergeTasteRecommendations } from './tasteMerge';
+export { mergeTasteRecommendations } from './tasteMerge';
 
 export type LokiPulseItem = {
   track: CanonicalTrack;
@@ -95,6 +97,21 @@ export async function requestLokiPulseCatalogExpansion(): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Recommandations automatiques par le GOÛT (Adel 05/10/2026, « machine de guerre ») : le serveur (keep_recommend_for_me) croise mes GARDER, ❤ / 😐 / 👎, mes partages
+ * et mes abonnements pour proposer des musiques à mon style ; elles passent en tête du Pulse. Additif : en cas d'erreur, le Pulse reste celui d'avant.
+ */
+export async function loadTasteRecommendations(limit = 12): Promise<LokiPulseItem[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase.rpc('keep_recommend_for_me', { p_limit: Math.max(1, Math.min(limit, 30)) });
+    if (error) return [];
+    return normalizePulseRows((Array.isArray(data) ? data : []).map((row: any) => ({ ...row, relevance_score: row?.score, is_new: false })));
+  } catch {
+    return [];
+  }
+}
+
 export async function loadLokiPulse(limit = 36, profileId?: string): Promise<LokiPulseItem[]> {
   if (!supabase) return [];
   const safeLimit = Math.max(4, Math.min(limit, 60));
@@ -121,7 +138,7 @@ export async function loadLokiPulse(limit = 36, profileId?: string): Promise<Lok
       await requestLokiPulseCatalogExpansion();
       const retry = await supabase.rpc('keep_loki_pulse', { p_limit: safeLimit });
       if (!retry.error) {
-        const refreshed = normalizePulseRows(retry.data);
+        const refreshed = mergeTasteRecommendations(normalizePulseRows(retry.data), await loadTasteRecommendations(), safeLimit);
         if (profileId && refreshed.length) await writePulseCache(profileId, refreshed);
         return refreshed;
       }
@@ -132,8 +149,9 @@ export async function loadLokiPulse(limit = 36, profileId?: string): Promise<Lok
   } else {
     void requestLokiPulseCatalogExpansion().catch(() => {});
   }
-  if (profileId && initialItems.length) await writePulseCache(profileId, initialItems);
-  return initialItems.length ? initialItems : cached;
+  const personalized = mergeTasteRecommendations(initialItems, await loadTasteRecommendations(), safeLimit);
+  if (profileId && personalized.length) await writePulseCache(profileId, personalized);
+  return personalized.length ? personalized : cached;
 }
 
 export async function hideLokiPulseTrack(trackId: string): Promise<void> {

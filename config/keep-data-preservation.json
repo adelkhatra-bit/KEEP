@@ -58,5 +58,12 @@
   "forbiddenCommands": [
     "supabase db reset",
     "supabase db push"
+  ],
+  "explicitDeletionExceptions": [
+    {
+      "path": "packages/mobile/src/services/trackLikesService.ts",
+      "marker": "KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction",
+      "reason": "Adel 05/10/2026 : « impérativement l'utilisateur peut aimer puis se tromper, il faut qu'il puisse des-aimer ». Retrait par l'utilisateur de SA PROPRE réaction (RLS profile_id = auth.uid()), une ligne à la fois, uniquement track_likes / track_dislikes."
+    }
   ]
 }

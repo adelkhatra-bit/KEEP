@@ -356,7 +356,7 @@ describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel
     const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
     expect(deck).toContain("showNudge('SKIPPED')");
     expect(deck).toContain("showNudge('PLAYING')");
-    expect(deck).toContain("showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : reaction === 'MEH' ? 'AFTER_MEH' : 'AFTER_DISLIKE')");
+    expect(deck).toContain('showNudge({ thanks: reaction })');
     expect(deck).toContain('testID="deck-like-nudge"');
     expect(deck).toContain('❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}');
   });
@@ -365,7 +365,9 @@ describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel
     const svc = fs.readFileSync(path.join(__dirname, '../trackLikesService.ts'), 'utf8');
     expect(svc).toContain("from('track_dislikes')");
     expect(svc).toContain("rpc('keep_my_track_reaction_counts'");
-    expect(svc).not.toMatch(/\.delete\s*\(/);
+    // Retrait par l'utilisateur de SA PROPRE réaction : seul endroit autorisé, avec le marqueur d'exception approuvé par Adel.
+    expect(svc).toContain('KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction');
+    expect((svc.match(/\.delete\s*\(/g) || []).length).toBe(1);
   });
 });
 
@@ -383,5 +385,40 @@ describe('popup « Donne ton avis 😉 » à chaque musique (Adel 05/10/2026, ID
     expect(deck).toContain('testID="deck-like-ask"');
     expect(deck).toContain('Animated.delay(2800)');
     expect(deck).toContain('if (ok) hideAsk();');
+  });
+});
+
+import { composeThanks } from '../likeNudges';
+import { isUuidKey } from '../trackLikeKey';
+describe('merci par son nom, changer d’avis, recommandations de goût (Adel 05/10/2026, IDEA-112)', () => {
+  it('le remerciement porte le nom du partageur, sinon « Merci @toi »', () => {
+    for (const kind of ['LIKE', 'MEH', 'DISLIKE'] as const) {
+      for (let i = 0; i < 12; i += 1) {
+        expect(composeThanks(kind, `s${i}`, '@bruno', 'teyou')).toContain('@bruno');
+        expect(composeThanks(kind, `s${i}`, null, '@teyou')).toContain('@teyou');
+      }
+    }
+    expect(new Set(Array.from({ length: 40 }, (_, i) => composeThanks('LIKE', `z${i}`, 'bruno', 'me'))).size).toBeGreaterThan(3);
+  });
+  it('les réactions ne s’enregistrent que sur des musiques du catalogue (UUID)', () => {
+    expect(isUuidKey('0b0be418-12c6-4fa5-8567-c9d97376dbf7')).toBe(true);
+    expect(isUuidKey('apple:123')).toBe(false);
+    expect(isUuidKey('t1')).toBe(false);
+  });
+  it('des-aimer : un appui sur la réaction allumée la retire ; une exception de garde-fou ciblée existe', () => {
+    const fs = require('fs'); const path = require('path');
+    const btn = fs.readFileSync(path.join(__dirname, '../../components/TrackLikeButton.tsx'), 'utf8');
+    const hook = fs.readFileSync(path.join(__dirname, '../useTrackLikes.ts'), 'utf8');
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../../../config/keep-data-preservation.json'), 'utf8'));
+    expect(btn).toContain('onPress={onClear}');
+    expect(hook).toContain('const clear = useCallback');
+    expect(cfg.explicitDeletionExceptions[0].path).toBe('packages/mobile/src/services/trackLikesService.ts');
+  });
+  it('le Pulse passe les recommandations de goût devant, sans doublon', () => {
+    const { mergeTasteRecommendations } = require('../tasteMerge');
+    const item = (id: string, score: number) => ({ track: { id, title: id, artist: 'a' }, relevanceScore: score, isNew: false });
+    const merged = mergeTasteRecommendations([item('a', 1), item('b', 1)], [item('b', 9), item('c', 8)], 4);
+    expect(merged.map((x: any) => x.track.id)).toEqual(['b', 'c', 'a']);
+    expect(mergeTasteRecommendations([item('a', 1)], [], 4).map((x: any) => x.track.id)).toEqual(['a']);
   });
 });

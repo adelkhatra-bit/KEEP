@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { addTrackLike, addTrackNegative, loadLikeCounts, loadMyNegativesAmong, loadMyLikesAmong, loadMyReactionCounts } from './trackLikesService';
+import { addTrackLike, addTrackNegative, loadLikeCounts, loadMyNegativesAmong, loadMyLikesAmong, loadMyReactionCounts, removeTrackReaction } from './trackLikesService';
 import { likeKey } from './trackLikeKey';
 
 export type TrackReaction = 'LIKE' | 'MEH' | 'DISLIKE';
 
 /**
  * Réactions d'une liste de musiques (Adel 05/10/2026) : aimer / bof / pas aimé, compteurs, ajout optimiste avec retour arrière.
- * Une musique ne reçoit qu'UNE réaction depuis un lecteur : déjà réagi = on garde l'état allumé et on ne redemande pas ; pas de retrait d'ici (donnée de goût protégée).
+ * Une musique ne reçoit qu'UNE réaction à la fois : déjà réagi = on garde l'état allumé et on ne redemande pas ; un appui sur la réaction allumée la retire (changer d'avis).
  */
 export function useTrackLikes(profileId: string | null | undefined, trackIds: string[], active: boolean, withOwnerCounts = false) {
   const [liked, setLiked] = useState<Set<string>>(new Set());
@@ -44,5 +44,24 @@ export function useTrackLikes(profileId: string | null | undefined, trackIds: st
       return false;
     } finally { busy.current.delete(key); }
   }, [profileId, liked, disliked, meh]);
-  return { liked, disliked, meh, counts, dislikeCounts, mehCounts, react, reacted };
+  // Changer d'avis (Adel 05/10/2026) : retire MA réaction (retour arrière si le serveur refuse) puis les trois choix reviennent.
+  const clear = useCallback(async (trackId: string): Promise<boolean> => {
+    const key = likeKey(trackId);
+    if (!profileId || !key || busy.current.has(key)) return false;
+    const was: TrackReaction | null = liked.has(key) ? 'LIKE' : meh.has(key) ? 'MEH' : disliked.has(key) ? 'DISLIKE' : null;
+    if (!was) return false;
+    busy.current.add(key);
+    const setSet = was === 'LIKE' ? setLiked : was === 'MEH' ? setMeh : setDisliked;
+    setSet((previous) => { const next = new Set(previous); next.delete(key); return next; });
+    if (was === 'LIKE') setCounts((previous) => ({ ...previous, [key]: Math.max(0, (previous[key] ?? 0) - 1) }));
+    try {
+      await removeTrackReaction(profileId, key, was === 'LIKE' ? 'LIKE' : 'NEGATIVE');
+      return true;
+    } catch {
+      setSet((previous) => new Set(previous).add(key));
+      if (was === 'LIKE') setCounts((previous) => ({ ...previous, [key]: (previous[key] ?? 0) + 1 }));
+      return false;
+    } finally { busy.current.delete(key); }
+  }, [profileId, liked, disliked, meh]);
+  return { liked, disliked, meh, counts, dislikeCounts, mehCounts, react, clear, reacted };
 }

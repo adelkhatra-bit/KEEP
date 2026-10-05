@@ -2,6 +2,7 @@ import MysteryArtwork from './MysteryArtwork';
 import TrackLikeButton from './TrackLikeButton';
 import { useUserStore } from '../store/useUserStore';
 import { useTrackLikes } from '../services/useTrackLikes';
+import { isUuidKey, likeKey } from '../services/trackLikeKey';
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Linking, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
@@ -373,9 +374,9 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
             </TouchableOpacity>
           </SwipeDeck>
 
-          {!tracksLoading && !tracksUnavailable && likeMeId && !likeDemo && !likeGuest && !ownerMode && tracks?.[trackIndex] ? (
+          {!tracksLoading && !tracksUnavailable && likeMeId && !likeDemo && !likeGuest && !ownerMode && tracks?.[trackIndex] && isUuidKey(likeKey(tracks[trackIndex].trackId)) ? (
             <View style={{ alignItems: 'center', marginTop: 6 }} testID="sale-like-row">
-              <TrackLikeButton reaction={saleLikes.liked.has(tracks[trackIndex].trackId) ? 'LIKE' : saleLikes.meh.has(tracks[trackIndex].trackId) ? 'MEH' : saleLikes.disliked.has(tracks[trackIndex].trackId) ? 'DISLIKE' : null} count={saleLikes.counts[tracks[trackIndex].trackId] ?? 0} onReact={(kind) => { void saleLikes.react(tracks[trackIndex].trackId, kind); }} testID="sale-like-button" />
+              <TrackLikeButton reaction={saleLikes.liked.has(tracks[trackIndex].trackId) ? 'LIKE' : saleLikes.meh.has(tracks[trackIndex].trackId) ? 'MEH' : saleLikes.disliked.has(tracks[trackIndex].trackId) ? 'DISLIKE' : null} count={saleLikes.counts[tracks[trackIndex].trackId] ?? 0} onReact={(kind) => { void saleLikes.react(tracks[trackIndex].trackId, kind); }} onClear={() => { void saleLikes.clear(tracks[trackIndex].trackId); }} testID="sale-like-button" />
             </View>
           ) : null}
 

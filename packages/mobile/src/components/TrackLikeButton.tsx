@@ -7,7 +7,8 @@ export type ReactionKind = 'LIKE' | 'MEH' | 'DISLIKE';
 /**
  * Réactions d'une musique, composant unique de l'application (Adel, 05/10/2026, IDEA-110) : trois boutons « 3D » glossy — pas aimé 👎, bof 😐, aimé ❤ —
  * qui flottent doucement (bascule en perspective) tant qu'on n'a pas donné son avis, pour qu'on comprenne qu'on peut réagir.
- * Une seule réaction par musique : une fois donnée, seul le bouton choisi reste ALLUMÉ (rouge / ambre / violet) et on ne redemande pas.
+ * Une seule réaction par musique : une fois donnée, seul le bouton choisi reste ALLUMÉ (rouge / ambre / violet) et on ne redemande pas ;
+ * un appui sur ce bouton allumé retire l'avis (changer d'avis / des-aimer) et les trois choix reviennent.
  */
 const OPTIONS: Array<{ kind: ReactionKind; glyph: string; lit: [string, string]; rim: string; label: string; done: string; suffix: string }> = [
   { kind: 'DISLIKE', glyph: '👎', lit: ['#9B7BFF', '#5B3FD1'], rim: '#B79CFF', label: 'Je n’aime pas cette musique', done: 'Tu n’as pas aimé cette musique', suffix: '-dislike' },
@@ -42,7 +43,7 @@ function ReactionOrb({ option, active, dimmed, onPress, count, testID, delay, ca
       activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityState={{ selected: active, disabled: !onPress }}
-      accessibilityLabel={active ? option.done : option.label}
+      accessibilityLabel={active ? `${option.done}. Appuie pour changer d’avis` : option.label}
       testID={testID}
       style={dimmed ? s.dimmed : undefined}
     >
@@ -57,7 +58,7 @@ function ReactionOrb({ option, active, dimmed, onPress, count, testID, delay, ca
   );
 }
 
-export default function TrackLikeButton({ reaction, count, onReact, testID = 'deck-like-button' }: { reaction: ReactionKind | null; count: number; onReact: (kind: ReactionKind) => void; testID?: string }) {
+export default function TrackLikeButton({ reaction, count, onReact, onClear, testID = 'deck-like-button' }: { reaction: ReactionKind | null; count: number; onReact: (kind: ReactionKind) => void; onClear?: () => void; testID?: string }) {
   const [calm, setCalm] = useState(false);
   useEffect(() => {
     let live = true;
@@ -67,7 +68,7 @@ export default function TrackLikeButton({ reaction, count, onReact, testID = 'de
   // Déjà réagi : seul le bouton choisi reste allumé, on ne redemande pas.
   if (reaction) {
     const option = OPTIONS.find((item) => item.kind === reaction)!;
-    return <View style={s.row}><ReactionOrb option={option} active dimmed={false} count={count} testID={`${testID}${option.suffix}`} delay={0} calm /></View>;
+    return <View style={s.row}><ReactionOrb option={option} active dimmed={false} onPress={onClear} count={count} testID={`${testID}${option.suffix}`} delay={0} calm /></View>;
   }
   return (
     <View style={s.row} testID={`${testID}-trio`}>

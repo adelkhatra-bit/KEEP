@@ -221,3 +221,9 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Le partageur voit sur sa story « ❤ N · 😐 K · 👎 M » (compteurs, jamais l'identité). Données : ❤ → `track_likes` ; 😐 / 👎 → `track_dislikes.reaction` (`MEH` / `DISLIKE`) ; RPC `keep_my_track_reaction_counts` (limitée aux musiques que j'ai partagées).
 - Messages d'encouragement : un type supplémentaire « après un bof ».
 - **Popup « Donne ton avis 😉 »** (IDEA-111) : 1,4 s après chaque nouvelle musique, une petite bulle jaune sous les trois boutons (« Donne ton avis 😉 », « Tu en penses quoi ? 😏 »…, 64 variantes) apparaît, reste ~3 s puis disparaît seule ; jamais si l'utilisateur a déjà réagi ; elle s'efface dès qu'il réagit. L'en-tête du lecteur passe au-dessus du corps (`zIndex`) pour qu'elle reste visible.
+
+### §14 terdecies — Merci par son nom, changer d'avis, recommandations (Adel, 05/10/2026, IDEA-112)
+- Après un avis, le message est un **remerciement par son nom** : « @bruno te remercie pour ton ❤ 🙌 » (le partageur) ; sans partageur connu : « Merci @toi ».
+- **Changer d'avis / des-aimer (impératif)** : un appui sur la réaction allumée la retire et les trois choix reviennent. Retrait = suppression de SA PROPRE ligne (RLS), seul usage autorisé par une exception ciblée du garde-fou (`explicitDeletionExceptions` dans `config/keep-data-preservation.json`, marqueur `KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction`).
+- Les réactions ne s'enregistrent que sur les musiques du catalogue Loki (UUID) ; sinon les boutons sont masqués.
+- Recommandations automatiques « machine de guerre » : voir `docs/ALGORITHM_DATA.md` (profil de goût + `keep_recommend_for_me` en tête du Loki Pulse).

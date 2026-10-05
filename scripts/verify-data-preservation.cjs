@@ -76,7 +76,9 @@ function addedLines(range, file) {
 
 function isExplicitDeletionFlow(file, text) {
   const allowedPath = CONFIG.explicitDeletionPaths.some((prefix) => file.startsWith(prefix));
-  return allowedPath && text.includes(CONFIG.explicitDeletionMarker);
+  if (allowedPath && text.includes(CONFIG.explicitDeletionMarker)) return true;
+  // Exceptions ciblées et approuvées (fichier précis + marqueur dédié) : voir `explicitDeletionExceptions` dans config/keep-data-preservation.json.
+  return (CONFIG.explicitDeletionExceptions || []).some((entry) => file === entry.path && text.includes(entry.marker));
 }
 
 function isExactMigrationRelocation(file, range) {

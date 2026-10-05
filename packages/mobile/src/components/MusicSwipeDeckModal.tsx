@@ -21,8 +21,8 @@ import TrackLikeButton from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { useUserStore } from '../store/useUserStore';
 import { useTrackLikes } from '../services/useTrackLikes';
-import { nextNudge, type NudgeKind } from '../services/likeNudges';
-import { likeKey } from '../services/trackLikeKey';
+import { nextNudge, nextThanks, type NudgeKind } from '../services/likeNudges';
+import { isUuidKey, likeKey } from '../services/trackLikeKey';
 import { useStoryCountdown } from '../services/useStoryCountdown';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
 import { colors } from '../theme/colors';
@@ -884,6 +884,7 @@ export default function MusicSwipeDeckModal({
         : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
   // J'aime partout (Adel 05/10/2026) : table unique `track_likes`, état optimiste avec retour arrière (useTrackLikes).
   const likeMeId = useUserStore((state) => state.user?.id);
+  const myUsername = useUserStore((state) => state.user?.username);
   const likeDemo = useUserStore((state) => state.isDemoMode);
   const likeGuest = useUserStore((state) => state.isLocalGuest);
   const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
@@ -891,8 +892,8 @@ export default function MusicSwipeDeckModal({
   // Petits messages d'encouragement (Adel 05/10/2026) : pendant l'écoute, à la fin sans réaction, après un j'aime / pas aimé. Jamais les mêmes.
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showNudge = (kind: NudgeKind) => {
-    setNudge(nextNudge(kind));
+  const showNudge = (kind: NudgeKind | { thanks: 'LIKE' | 'MEH' | 'DISLIKE' }) => {
+    setNudge(typeof kind === 'string' ? nextNudge(kind) : nextThanks(kind.thanks, currentSourceUsername, myUsername));
     if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
     nudgeTimer.current = setTimeout(() => setNudge(null), 5200);
   };
@@ -900,7 +901,7 @@ export default function MusicSwipeDeckModal({
     if (!current) return;
     const ok = await trackLikes.react(current.id, reaction);
     if (ok) hideAsk();
-    if (ok) showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : reaction === 'MEH' ? 'AFTER_MEH' : 'AFTER_DISLIKE');
+    if (ok) showNudge({ thanks: reaction });
   };
   // Petit popup « Donne ton avis 😉 » (Adel 05/10/2026) : apparaît près des boutons à chaque nouvelle musique, puis disparaît seul ; jamais si on a déjà réagi.
   const [ask, setAsk] = useState<string | null>(null);
@@ -916,7 +917,7 @@ export default function MusicSwipeDeckModal({
     ]).start(({ finished }) => { if (finished) setAsk(null); });
   };
   const hideAsk = () => { askFade.stopAnimation(); setAsk(null); };
-  const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
+  const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && isUuidKey(likeKey(current?.id ?? '')) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
   const reactedRef = useRef(trackLikes.reacted);
   reactedRef.current = trackLikes.reacted;
   const previousTrackRef = useRef<string | null>(null);
@@ -958,11 +959,11 @@ export default function MusicSwipeDeckModal({
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
-          {headerExtra || (likesActive && current) ? (
+          {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={s.headerLikeRow}>
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 1 }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
-              {likesActive && current ? (() => {
+              {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
                 const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
@@ -972,7 +973,7 @@ export default function MusicSwipeDeckModal({
                   return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime, ${mehCount} bof et ${dislikeCount} pas aimé sur cette musique`}><Text style={s.likeCountText}>❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}</Text></View>;
                 }
                 const reaction = trackLikes.liked.has(key) ? 'LIKE' : trackLikes.meh.has(key) ? 'MEH' : trackLikes.disliked.has(key) ? 'DISLIKE' : null;
-                return <TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} />;
+                return <TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} />;
               })() : null}
             </View>
           ) : null}
