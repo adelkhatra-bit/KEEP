@@ -19,3 +19,12 @@ describe('Âge d\'une story (Adel 05/10/2026)', () => {
     expect(bar).toContain('trackAddedAt={openStory?.addedAt}');
   });
 });
+
+describe('Collection entière en story (Adel 05/10/2026)', () => {
+  const svc = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  it('lit toutes les musiques d\'une collection < 24 h via le serveur et les masque', () => {
+    expect(svc).toContain("supabase.rpc('keep_playlist_sale_story_tracks'");
+    expect(svc).toContain('MAX_COLLECTION_TRACKS_PER_STORY');
+    expect(svc).toContain('mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY)');
+  });
+});

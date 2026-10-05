@@ -160,3 +160,9 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Un appui sur une bulle** : story d'abord (même déjà vue, pour la revoir) ; **sans story**, une **fiche rapide** s'ouvre par-dessus (suivre, voir le profil complet) — jamais une page de profil qui s'ouvre d'office. Dans le lecteur de story, toucher « Story de @x › » ouvre la même fiche.
 - **Le robot du Tchat parle** (bulle à côté de lui, jamais une notification) : sessions en attente (+ vibration courte et son discret) ; plus de FREE / plus de Solo (au plus 2 fois par jour, 6 h d'écart, phrases variées) avec un appui qui mène aux sessions ou aux offres. Code : `robotCoachMessages.ts`, `robotCoachService.ts`, `useRobotMessageStore.ts`, `GlobalChatDock.tsx`.
 - **Bandelettes** : toujours à l'intérieur des marges de l'écran, avec un contour arrondi complet (jamais collées au bord).
+
+### §14 bis — Collection en vente = entière en story (Adel, 05/10/2026)
+- Une collection mise en vente entre **en entier** dans la story de son vendeur pendant 24 h (20 titres → 20, 60 → 60, plafond technique 100/story), titres masqués (« Musique en vente »), jamais le vrai titre/jaquette. Source serveur : `keep_playlist_sale_story_tracks` (offre active, ouverte à l'acheteur, < 24 h).
+- À l'achat, l'acheteur voit ce qu'il a déjà et ce qui lui manque (`loadPlaylistSaleOfferOverlap`) ; l'achat d'un doublon reste bloqué.
+- Les musiques partagées en **conversation privée** ne vont JAMAIS en story (confidentialité) ; seules les musiques d'un salon public pourraient y entrer (non implémenté, IDEA-070).
+- À faire (IDEA-071) : proposition de prix pour les titres manquants via notifications + robot, puis chat direct.

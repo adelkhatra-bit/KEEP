@@ -248,7 +248,7 @@ describe('Musique en vente → story masquée (Adel 05/10/2026)', () => {
   it('une épingle masquée ne montre jamais le vrai titre : elle devient une carte « Musique en vente »', () => {
     expect(svc).toContain('loadMaskedStoryPins');
     expect(svc).toContain(".eq('masked', false)");
-    expect(svc).toContain('mergeSaleTracks(mergeSaleTracks(story, pins');
+    expect(svc).toContain('mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY)'); // les épingles passent d'abord, puis la collection entière, puis l'échantillon
   });
   it('le serveur accepte une musique en vente et la marque masquée', () => {
     expect(mig).toContain('masked boolean');

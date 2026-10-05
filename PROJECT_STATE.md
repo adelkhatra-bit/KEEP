@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-05T17:07:48.310Z
+- Régénéré le : 2026-10-05T17:13:23.199Z
 - Branche : `reconcile/claude-main-20260825`
-- Dernier commit : `0c42b49` (0c42b49e2227c990d05fdfb3ded1daf9bfa2b735) — release: story d'abord sinon fiche rapide, robot qui parle (sessions, plus de FREE/Solo), bandelette dans les marges
-- Date du dernier commit : 2026-10-05T16:59:54+00:00
+- Dernier commit : `4a4f5d4` (4a4f5d47efe0c36e0e899dea437e2d55955a5f17) — fix(ci): gardiens navigateur suivent le libellé « Trouver le morceau », registre des erreurs
+- Date du dernier commit : 2026-10-05T17:10:12+00:00
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,6 +124,8 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `4a4f5d4` (2026-10-05, Claude) — fix(ci): gardiens navigateur suivent le libellé « Trouver le morceau », registre des erreurs
+- `0993406` (2026-10-05, Claude) — fix(ui): alertes au-dessus des fenêtres (KeepModal), âge/temps restant des stories, bandelette d'accueil identique à l'écoute
 - `0c42b49` (2026-10-05, Claude) — release: story d'abord sinon fiche rapide, robot qui parle (sessions, plus de FREE/Solo), bandelette dans les marges
 - `05d1309` (2026-10-05, Claude) — feat(home): bibliothèque intelligente de messages pour les bandelettes (> 1 M de combinaisons, jamais les mêmes), règles du système expliquées
 - `9a5e020` (2026-10-05, Claude) — feat(home): accueil épuré avec bandelette communicative, « À toi de jouer » à l'écoute, ☰ animé + bulle « va vérifier ta session »
@@ -132,8 +134,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `5517494` (2026-10-05, Claude) — feat: accueil « Ça joue quoi ? » + TROUVER LE MORCEAU, ☰ animé quand des sessions sont prêtes, anciens inactifs à la suite (activité réelle)
 - `ce6c491` (2026-10-05, Claude) — release: rangée de stories façon Instagram (photo + « + » défilent, suggestions +👤, vues au bout, dernier connecté d'abord, enchaînement automatique)
 - `5b5b2dc` (2026-10-05, Claude) — feat(stories): rangée façon Instagram — suggestions avec +👤 dans la ligne, stories vues tout au bout, plus de rond Autres
-- `7d6f801` (2026-10-05, Claude) — feat(stories): rangée d'une seule pièce (photo + « + » défilent), dernier connecté d'abord, règles gravées (cahier §14, contrat, garde-fou bloquant)
-- `096cadc` (2026-10-05, Claude) — feat(stories): enchaînement automatique vers la prochaine story non vue (commit local, release après le build iOS en cours)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par

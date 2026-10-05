@@ -282,6 +282,8 @@ export async function loadProfileStory(
 export const SALE_TRACK_PREFIX = 'sale:';
 const MAX_SALE_TRACKS_PER_STORY = 3;
 const MAX_MASKED_PINS_PER_STORY = 6;
+/** Collection entière en story pendant 24 h (Adel 05/10/2026) : 60 titres en vente = 60 dans la story. */
+const MAX_COLLECTION_TRACKS_PER_STORY = 100;
 const MAX_STORIES_WITH_SALES = 8;
 
 export function isSaleStoryTrack(track: { id?: string } | null | undefined): boolean {
@@ -341,19 +343,43 @@ export async function loadMaskedStoryPins(profileIds: string[]): Promise<Map<str
   return out;
 }
 
+/**
+ * Collections mises en vente depuis moins de 24 h : TOUS leurs titres (masqués) entrent en story, pour que l'acheteur
+ * voie ce qu'il a déjà avant d'acheter. Le serveur filtre l'offre (active, ouverte à moi, < 24 h).
+ */
+export async function loadSaleCollectionStoryTracks(profileIds: string[]): Promise<Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>> {
+  const out = new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
+  if (!supabase || !profileIds.length) return out;
+  const { data, error } = await supabase.rpc('keep_playlist_sale_story_tracks', { p_seller_ids: profileIds, p_limit: MAX_COLLECTION_TRACKS_PER_STORY });
+  if (error) return out;
+  for (const row of (data ?? []) as any[]) {
+    const previewUrl = row?.preview_url ? String(row.preview_url) : '';
+    if (!previewUrl || !row?.seller_id || !row?.track_id) continue;
+    const list = out.get(String(row.seller_id)) ?? [];
+    list.push({ trackId: String(row.track_id), previewUrl, pinnedAt: String(row.listed_at) });
+    out.set(String(row.seller_id), list);
+  }
+  return out;
+}
+
 export async function enrichStoriesWithSales(stories: MusicStory[]): Promise<MusicStory[]> {
   const head = stories.slice(0, MAX_STORIES_WITH_SALES);
-  const [results, masked] = await Promise.all([
+  const emptyMap = () => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>();
+  const [results, masked, collections] = await Promise.all([
     Promise.allSettled(head.map((story) => loadPlaylistSaleProfilePreviewSampler(story.profileId))),
-    loadMaskedStoryPins(head.map((story) => story.profileId)).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>()),
+    loadMaskedStoryPins(head.map((story) => story.profileId)).catch(emptyMap),
+    loadSaleCollectionStoryTracks(head.map((story) => story.profileId)).catch(emptyMap),
   ]);
   return stories.map((story, index) => {
     const result = index < head.length ? results[index] : null;
     const pins = masked.get(story.profileId) ?? [];
+    const collection = collections.get(story.profileId) ?? [];
     const sampler = result && result.status === 'fulfilled' ? result.value : [];
-    if (!pins.length && !sampler.length) return story;
-    const merged = mergeSaleTracks(mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY), sampler);
-    const newest = pins[0]?.pinnedAt;
+    if (!pins.length && !sampler.length && !collection.length) return story;
+    const withPins = mergeSaleTracks(story, pins, MAX_MASKED_PINS_PER_STORY);
+    const withCollection = mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY);
+    const merged = mergeSaleTracks(withCollection, sampler);
+    const newest = [pins[0]?.pinnedAt, collection[0]?.pinnedAt].filter(Boolean).sort().pop();
     return newest && newest > (merged.latestAt || '') ? { ...merged, latestAt: newest } : merged;
   });
 }
@@ -372,6 +398,7 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
   const ids = (follows ?? []).map((row: any) => String(row.followee_id)).filter((id) => id && id !== viewerId && !have.has(id)).slice(0, MAX_STORIES_WITH_SALES * 2);
   if (!ids.length) return [];
   const results = await Promise.allSettled(ids.map((id) => loadPlaylistSaleProfilePreviewSampler(id)));
+  const collections = await loadSaleCollectionStoryTracks(ids).catch(() => new Map<string, Array<{ trackId: string; previewUrl: string; pinnedAt: string }>>());
   const withSales = ids
     .map((id, index) => ({ id, samples: results[index].status === 'fulfilled' ? (results[index] as PromiseFulfilledResult<Array<{ trackId: string; previewUrl: string }>>).value : [] }))
     .filter((row) => row.samples.length > 0)
@@ -393,7 +420,9 @@ export async function loadSaleOnlyStories(viewerId: string, existing: MusicStory
       sameStyle: false,
       tracks: [],
     };
-    stories.push(mergeSaleTracks(base, row.samples));
+    const collection = collections.get(row.id) ?? [];
+    const merged = mergeSaleTracks(mergeSaleTracks(base, collection, MAX_COLLECTION_TRACKS_PER_STORY), row.samples);
+    stories.push(collection[0]?.pinnedAt ? { ...merged, latestAt: collection[0].pinnedAt } : merged);
   }
   return stories.filter((story) => story.tracks.length > 0);
 }
