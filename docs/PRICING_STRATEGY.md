@@ -228,3 +228,26 @@ priorité. Le Super Admin (`/admin-preview/`) n'est pas concerné.
    gardes CI dans le même commit que le code ; preuves sur 390×844 et 1440×900.
 
 > **Clause à reprendre dans les CGU (Adel 05/10/2026)** : toute musique reprise gratuitement depuis le profil ou la story d'un membre reste associée au nom du **premier découvreur** (affiché « Découvert par @… »). Une collection en vente donne accès à la **sélection d'écoute** d'un membre ; l'acheteur n'achète pas les titres eux-mêmes (« Tu achètes son écoute, pas les titres »).
+
+## Communauté musicale & concours de story — BROUILLON MARKETING (Adel, 05/10/2026 — IDEA-100, à valider avant publication)
+
+> Statut : **BROUILLON** à valider par Adel. Aucun texte ci-dessous n'est encore dans l'app ni dans les conditions publiées.
+> Base technique déjà livrée : classement 7 jours (`keep_story_ranking` : 1 pt par partage en story, 3 pts par reprise de sa musique, 2 pts par nouvel abonné ; top 50), badges 🥇🥈🥉 (top 3) et ⭐ (top 10) sur la bulle, vues de story détaillées (temps, chapitres, écoute).
+
+**Promesse (une phrase)** : « Plus tu partages ta musique, plus ta communauté grandit : ceux qui te suivent écoutent ce que tu aimes, et tu peux leur conseiller tes soirées, tes événements et tes lieux préférés. »
+
+**Les 4 avantages à expliquer aux utilisateurs**
+1. **Ton historique** : tout ce que tu as découvert et partagé reste dans ton profil (reportage de ton goût musical).
+2. **Ta communauté** : chaque abonné et chaque reprise de ta musique la fait grandir ; tu vois qui t'écoute, combien de temps, jusqu'où (stats de story).
+3. **Le concours de story** : chaque semaine, les membres qui partagent le plus, font le plus reprendre leur musique et gagnent le plus d'abonnés montent au classement ; la médaille ou l'étoile s'affiche sur leur bulle, donc ils sont plus vus.
+4. **Des options qui se débloquent** : plus la communauté grandit, plus de fonctions s'ouvrent (paliers d'abonnés existants `growth_followers_reward_*`) ; la communauté peut ensuite suivre ses conseils pour des soirées, événements et établissements.
+
+**Règles du concours (proposition)**
+- Période : 7 jours glissants, recalculé en continu ; classement visible par la médaille/étoile sur la bulle.
+- Points : voir ci-dessus ; seuls les profils publics et non masqués de la découverte comptent ; minimum 3 points pour apparaître.
+- Loyauté : un partage compte une fois par musique ; les reprises et abonnements d'un compte à lui-même ne comptent pas ; Loki Music peut retirer des points en cas d'abus (faux comptes, échanges de reprises).
+- Récompenses : visibilité (badge, place dans la rangée) ; aucune promesse de gain d'argent. Toute récompense en FREE doit passer par `docs/PRICING_STRATEGY.md > Économie FREE` et rester réglable depuis le Super Admin.
+
+**Clause pour les conditions des offres (proposition)** : « Le classement des stories est calculé sur les 7 derniers jours à partir de tes partages, des reprises de ta musique par d'autres membres et de tes nouveaux abonnés. Les badges de classement sont informatifs ; Loki Music peut corriger ou retirer un classement obtenu par des moyens abusifs. »
+
+**À décider par Adel** : récompense concrète (FREE ? mise en avant ?), badge pour tous ou seulement certaines formules, texte exact des conditions, emplacement du récapitulatif dans Offres (carte « Ta communauté »).
