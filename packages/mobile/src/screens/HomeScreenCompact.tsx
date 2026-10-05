@@ -651,7 +651,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
-          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%' }} /> : null}
+          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" style={{ alignSelf: 'stretch', width: '100%', marginTop: -16 }} /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />

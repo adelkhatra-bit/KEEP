@@ -30,7 +30,7 @@ describe('Accueil épuré + bandelette + robot des sessions (Adel 05/10/2026)', 
     expect(svc).toContain("playNotificationCue('DEFAULT')");
   });
   it('la bandelette de l\'accueil est la MÊME que celle de l\'écoute (style par défaut, seulement étirée)', () => {
-    expect(home).toContain("style={{ alignSelf: 'stretch', width: '100%' }}");
+    expect(home).toContain("style={{ alignSelf: 'stretch', width: '100%', marginTop: -16 }}");
     expect(home).not.toContain('borderRadius: 18, borderWidth: 1.5');
     expect(home).not.toContain("robotSay('NO_FREE')");
   });
