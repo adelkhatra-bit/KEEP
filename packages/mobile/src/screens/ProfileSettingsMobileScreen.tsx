@@ -1,3 +1,4 @@
+import { openProblemReport } from '../services/problemReportService';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -323,6 +324,7 @@ export default function ProfileSettingsMobileScreen({ navigation }: any) {
       <TouchableOpacity style={s.primary} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color={colors.white}/> : <Text style={s.primaryText}>{accountRequired ? 'CRÉER MON COMPTE POUR ENREGISTRER' : isLocalGuest ? 'Enregistrer sur cet appareil' : 'Enregistrer les modifications'}</Text>}</TouchableOpacity>
 
       <TouchableOpacity style={s.playlists} onPress={()=>goToTab('MyMusic')}><Text style={s.playlistsText}>← Revenir aux Playlists</Text></TouchableOpacity>
+      {hasRealAccount ? <TouchableOpacity style={s.playlists} onPress={openProblemReport} accessibilityRole="button" accessibilityLabel="Signaler un problème" testID="settings-report-problem"><Text style={s.playlistsText}>⚠ Signaler un problème (ou secoue le téléphone)</Text></TouchableOpacity> : null}
       {/* Adel (16-17/09/2026) : "Réglages avancés" n'est plus un écran à
           part -- ses fonctions (réseaux, créateur, aide, compte) sont
           toutes directement dans le menu ☰ du profil. Pour un compte

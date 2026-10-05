@@ -159,12 +159,15 @@ export default function MusicSwipeDeckModal({
   // Adel (05/10/2026) : bouton « Ajouter à ma story » pendant un swipe (mon profil ou celui d'un autre membre). Il faut avoir gardé le morceau en Public (vérifié aussi côté serveur).
   // Anti-doublon : on connaît les musiques déjà dans MA story ; celle-ci est alors grisée « déjà dans ta story ».
   const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
+  const [storyIdsReady, setStoryIdsReady] = useState(false);
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
   const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     let live = true;
     if (!visible) return undefined;
-    void loadMyStoryTrackIds().then((ids) => { if (live) setStoryIds(ids); }).catch(() => {});
+    setStoryIdsReady(false);
+    // Adel (05/10/2026) : le bouton « Patiente… » tant que la vérification n'est pas finie (sinon « déjà en story » apparaissait une minute après l'ajout).
+    void loadMyStoryTrackIds().then((ids) => { if (live) { setStoryIds(ids); setStoryIdsReady(true); } }).catch(() => { if (live) setStoryIdsReady(true); });
     // Musiques en vente : le système les masque seul dans la story ; on prévient l'utilisateur au lieu d'un ajout silencieux.
     void loadMyOfferedTrackIds().then((map) => { if (live) setOfferedIds(new Set(Object.keys(map))); }).catch(() => {});
     setJustAdded(new Set());
@@ -218,10 +221,11 @@ export default function MusicSwipeDeckModal({
     const popup = kind === 'popup';
     const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
     const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
-    const label = justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : (popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    const checking = !storyIdsReady && !justAddedNow;
+    const label = checking ? '⏳ PATIENTE… VÉRIFICATION DE TA STORY' : justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : (popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
     return <View>
-      <TouchableOpacity style={[buttonStyle, justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
-        <Text style={[textStyle, alreadyInStory && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
+      <TouchableOpacity disabled={checking} style={[buttonStyle, checking ? s.addStoryButtonDone : justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={checking ? 'Vérification de ta story en cours' : alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
+        <Text style={[textStyle, (alreadyInStory || checking) && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
       </TouchableOpacity>
       {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Bravo ! Ta musique est dans ta story pendant 24 h. Ta photo s’allume sur ton profil.</Text> : null}
     </View>;

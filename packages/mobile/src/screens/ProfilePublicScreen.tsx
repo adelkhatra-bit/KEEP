@@ -1404,6 +1404,17 @@ export default function ProfilePublicScreen({ navigation }: any) {
     // asynchrone de l'extrait. Il déverrouille l'élément audio web partagé afin
     // que la première carte puisse réellement démarrer seule sur Safari/iOS.
     unlockWebAudioForGesture();
+    // Adel (05/10/2026) : « sur TestFlight, quand j'appuie sur Aperçu la musique ne part pas assez vite ». L'extrait du premier morceau
+    // se résout et se précharge dès le tap, pendant l'animation d'ouverture du lecteur (le lecteur reprend le même extrait déjà prêt).
+    const first = publicSwipeTracks[0];
+    if (first) {
+      void (async () => {
+        try {
+          const url = first.previewUrl?.trim() || await resolveTrackPreviewUrl(first);
+          if (url) await preloadTrackPreview(url);
+        } catch {}
+      })();
+    }
     setProfileSwipeOpen(true);
   };
 
