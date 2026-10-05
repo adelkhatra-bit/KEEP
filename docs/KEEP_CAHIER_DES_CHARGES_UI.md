@@ -209,3 +209,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Sur **ma** story : compteur « ❤ N » en face des vues (`likeMode="count-only"`).
 - **Une seule table de données : `track_likes (profile_id, track_id)`**, déjà lue par l'algorithme (affinités musicales, notifications boutique) et par le profil d'un membre ; l'id enregistré est l'id réel (« sale:… » → id). Aucune nouvelle table : `story_likes` (créée puis abandonnée le même jour, jamais utilisée en production) est à ignorer.
 - Usage prévu : signal de style musical et d'affinité des abonnés → proposer des musiques à installer sur son profil (payées en FREE) ; recommandations = à construire.
+
+### §14 undecies — Réactions : aimer / ne pas aimer, partout où l'on swipe (Adel, 05/10/2026, IDEA-109)
+- Composant unique `TrackLikeButton` : **cœur éteint gris** au départ (plus de contour qui pulse), **rouge** au toucher ; à côté un bouton **👎 « pas aimé »**. **Une seule réaction par musique**, définitive depuis un lecteur (garde-fou données protégées) ; le nombre de j'aime est dans une pastille.
+- Petits messages d'encouragement (`likeNudges.ts`, ≥ 100 combinaisons par type, mots de jeunes, **jamais les mêmes** : mémoire des 8 derniers) : pendant l'écoute (9 s sans réaction), quand on **zappe sans réagir** (« tu n'as pas kiffé ? dis-le avec un 👎 »), après un j'aime / un pas aimé. Bulle courte sous la ligne des badges, 5 s, sans bloquer les appuis.
+- Données : j'aime → `track_likes` (existante) ; pas aimé → `track_dislikes` (nouvelle, additive, visible par son auteur) ; le partageur lit des **compteurs** « ❤ N · 👎 M » sur sa story (RPC `keep_my_track_dislike_counts`, limitée aux musiques qu'il a partagées), jamais l'identité de qui n'a pas aimé.

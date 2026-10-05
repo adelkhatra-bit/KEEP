@@ -39,3 +39,32 @@ export async function addTrackLike(profileId: string, trackId: string): Promise<
   const { error } = await supabase.from('track_likes').upsert({ profile_id: profileId, track_id: key }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
   if (error) throw error;
 }
+
+/** « Pas aimé » : ajout seulement (aucune suppression depuis un lecteur) ; table `track_dislikes`, visible par son auteur ; le partageur ne reçoit que des compteurs. */
+export async function addTrackDislike(profileId: string, trackId: string): Promise<void> {
+  const key = likeKey(trackId);
+  if (!supabase || !profileId || !key) throw new Error('TRACK_DISLIKE_UNAVAILABLE');
+  const { error } = await supabase.from('track_dislikes').upsert({ profile_id: profileId, track_id: key }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
+  if (error) throw error;
+}
+
+export async function loadMyDislikesAmong(profileId: string, trackIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  const ids = Array.from(new Set(trackIds.map(likeKey).filter(Boolean))).slice(0, 80);
+  if (!supabase || !profileId || !ids.length) return out;
+  const { data, error } = await supabase.from('track_dislikes').select('track_id').eq('profile_id', profileId).in('track_id', ids);
+  if (error) throw error;
+  for (const row of (data ?? []) as any[]) if (row?.track_id) out.add(String(row.track_id));
+  return out;
+}
+
+/** Nombre de « pas aimé » sur MES musiques partagées (compteurs seulement, réservé au partageur). */
+export async function loadMyDislikeCounts(trackIds: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  const ids = Array.from(new Set(trackIds.map(likeKey).filter(Boolean))).slice(0, 80);
+  if (!supabase || !ids.length) return out;
+  const { data, error } = await supabase.rpc('keep_my_track_dislike_counts', { p_track_ids: ids });
+  if (error) throw error;
+  for (const row of (data ?? []) as any[]) if (row?.track_id) out[String(row.track_id)] = Number(row.dislikes) || 0;
+  return out;
+}

@@ -21,6 +21,7 @@ import TrackLikeButton from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { useUserStore } from '../store/useUserStore';
 import { useTrackLikes } from '../services/useTrackLikes';
+import { nextNudge, type NudgeKind } from '../services/likeNudges';
 import { likeKey } from '../services/trackLikeKey';
 import { useStoryCountdown } from '../services/useStoryCountdown';
 import { recordProfileSwipeListen } from '../services/profileSwipeListenService';
@@ -137,6 +138,9 @@ export default function MusicSwipeDeckModal({
   const [round, setRound] = useState(0);
   const onWatchEventRef = useRef(onWatchEvent);
   onWatchEventRef.current = onWatchEvent;
+  // Musiques dont l'écoute a vraiment démarré (pour le petit message « tu zappes sans réagir ? »).
+  const listenedIdsRef = useRef(new Set<string>());
+  const markListened = (trackId: string) => { listenedIdsRef.current.add(trackId); onWatchEventRef.current?.({ type: 'listen', trackId }); };
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -467,7 +471,7 @@ export default function MusicSwipeDeckModal({
             previewUrl,
             (playing) => {
               if (playing && currentSourceProfileId) {
-                void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
+                void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
               }
             },
             () => {
@@ -509,7 +513,7 @@ export default function MusicSwipeDeckModal({
               refreshedUrl,
               (playing) => {
                 if (playing && currentSourceProfileId) {
-                  void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
+                  void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
                 }
               },
               () => {
@@ -546,7 +550,7 @@ export default function MusicSwipeDeckModal({
                     retryUrl,
                     (playing) => {
                       if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
+                        void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
                       }
                     },
                     () => {
@@ -611,7 +615,7 @@ export default function MusicSwipeDeckModal({
         resolvedPreviewUrl,
         (playing) => {
           if (playing && currentSourceProfileId) {
-            void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
+            void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
           }
         },
         () => {
@@ -643,7 +647,7 @@ export default function MusicSwipeDeckModal({
           refreshedUrl,
           (playing) => {
             if (playing && currentSourceProfileId) {
-              void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
+              void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
             }
           },
           () => {
@@ -883,7 +887,35 @@ export default function MusicSwipeDeckModal({
   const likeDemo = useUserStore((state) => state.isDemoMode);
   const likeGuest = useUserStore((state) => state.isLocalGuest);
   const likesActive = visible && Boolean(likeMeId) && !likeDemo && !likeGuest && likeMode !== 'off';
-  const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive);
+  const trackLikes = useTrackLikes(likeMeId, deckTracks.map((track) => track.id), likesActive, true);
+  // Petits messages d'encouragement (Adel 05/10/2026) : pendant l'écoute, à la fin sans réaction, après un j'aime / pas aimé. Jamais les mêmes.
+  const [nudge, setNudge] = useState<string | null>(null);
+  const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNudge = (kind: NudgeKind) => {
+    setNudge(nextNudge(kind));
+    if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
+    nudgeTimer.current = setTimeout(() => setNudge(null), 5200);
+  };
+  const reactTo = async (reaction: 'LIKE' | 'DISLIKE') => {
+    if (!current) return;
+    const ok = await trackLikes.react(current.id, reaction);
+    if (ok) showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : 'AFTER_DISLIKE');
+  };
+  const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
+  const reactedRef = useRef(trackLikes.reacted);
+  reactedRef.current = trackLikes.reacted;
+  const previousTrackRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = current?.id ?? null;
+    const previous = previousTrackRef.current;
+    previousTrackRef.current = id;
+    if (!nudgesOn || !id) { setNudge(null); return undefined; }
+    if (previous && previous !== id && listenedIdsRef.current.has(previous) && !reactedRef.current(previous)) showNudge('SKIPPED');
+    const timer = setTimeout(() => { if (!reactedRef.current(id)) showNudge('PLAYING'); }, 9000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, nudgesOn]);
+  useEffect(() => () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }, []);
   // Le robot se tait tant que ce lecteur est ouvert.
   useEffect(() => {
     if (!visible) return undefined;
@@ -917,9 +949,10 @@ export default function MusicSwipeDeckModal({
                 const count = trackLikes.counts[key] ?? 0;
                 const isSelf = Boolean(likeMeId) && currentSourceProfileId === likeMeId;
                 if (likeMode === 'count-only' || isSelf) {
-                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime sur cette musique`}><Text style={s.likeCountText}>❤ {count}</Text></View>;
+                  const dislikeCount = trackLikes.dislikeCounts[key] ?? 0;
+                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime et ${dislikeCount} pas aimé sur cette musique`}><Text style={s.likeCountText}>❤ {count} · 👎 {dislikeCount}</Text></View>;
                 }
-                return <TrackLikeButton liked={trackLikes.liked.has(key)} count={count} onPress={() => { void trackLikes.toggle(current.id); }} />;
+                return <TrackLikeButton liked={trackLikes.liked.has(key)} disliked={trackLikes.disliked.has(key)} count={count} onPress={() => { void reactTo('LIKE'); }} onDislike={() => { void reactTo('DISLIKE'); }} />;
               })() : null}
             </View>
           ) : null}
@@ -930,6 +963,7 @@ export default function MusicSwipeDeckModal({
       <View style={s.body}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
+            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={2}>{nudge}</Text></View> : null}
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
               enabled={!controlsLocked}
@@ -1087,6 +1121,8 @@ const s = StyleSheet.create({
   addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
+  nudgePill:{position:'absolute',top:70,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:8,paddingHorizontal:14,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
+  nudgeText:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center'},
   headerLikeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
   likeCount:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1.5,borderColor:'#FF5C8A',backgroundColor:'rgba(255,92,138,.14)',alignItems:'center',justifyContent:'center'},
   likeCountText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},

@@ -306,16 +306,20 @@ describe('« Découvert par » mis en avant : contour lumineux qui pulse (Adel 0
 describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () => {
   const fs = require('fs'); const path = require('path');
   const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, ...p), 'utf8');
-  it('un seul bouton cœur : pulse tant que non aimé, rouge ensuite, compteur dans une pastille', () => {
+  it('un seul composant de réactions : cœur ÉTEINT gris au départ, rouge ensuite, « pas aimé » à côté, une réaction par musique', () => {
     const btn = read('../../components/TrackLikeButton.tsx');
-    expect(btn).toContain('{!liked ? <GlowRing radius={22} color="#FF5C8A" testID="deck-like-glow" /> : null}');
     expect(btn).toContain("{liked ? '❤' : '♡'}");
+    expect(btn).toContain("color: '#8E8AA0'");
+    expect(btn).toContain("heartOn: { color: '#FF2D55' }");
+    expect(btn).not.toContain('GlowRing');
+    expect(btn).toContain('👎');
+    expect(btn).toContain('disabled={locked}');
     expect(btn).toContain('deck-like-badge-count');
   });
   it('présent dans TOUS les lecteurs : Swipe (stories, profils, sessions, y compris musiques payantes) et aperçu des collections en vente ; absent de ma propre collection', () => {
     const deck = read('../../components/MusicSwipeDeckModal.tsx');
     expect(deck).toContain("likeMode = 'auto'");
-    expect(deck).toContain('<TrackLikeButton liked={trackLikes.liked.has(key)}');
+    expect(deck).toContain('<TrackLikeButton liked={trackLikes.liked.has(key)} disliked={trackLikes.disliked.has(key)}');
     expect(deck).toContain('testID="deck-like-count"');
     expect(read('../../components/PlaylistSaleImmersivePreview.tsx')).toContain('testID="sale-like-button"');
     expect(read('../../components/ProfileStoryBar.tsx')).toContain("likeMode={isOwnOpen ? 'count-only' : 'auto'}");
@@ -328,5 +332,38 @@ describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () =
     const { likeKey } = require('../trackLikeKey');
     expect(likeKey('sale:abc-123')).toBe('abc-123');
     expect(likeKey('plain-id')).toBe('plain-id');
+  });
+});
+
+import { composeNudge, nudgeCombinationCount } from '../likeNudges';
+describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel 05/10/2026)', () => {
+  it('beaucoup de combinaisons, courts, avec cœur ou pouce', () => {
+    for (const kind of ['PLAYING', 'SKIPPED', 'AFTER_LIKE', 'AFTER_DISLIKE'] as const) {
+      expect(nudgeCombinationCount(kind)).toBeGreaterThanOrEqual(100);
+      const lines = new Set(Array.from({ length: 80 }, (_, i) => composeNudge(kind, `s${i}`)));
+      expect(lines.size).toBeGreaterThan(25);
+      for (const line of lines) expect(line.length).toBeLessThanOrEqual(110);
+    }
+    expect(composeNudge('SKIPPED', 'a')).toMatch(/👎|❤|réaction|kiff|délire|zappe/i);
+  });
+  it('ne répète jamais un des derniers messages', () => {
+    const seen: string[] = [];
+    for (let i = 0; i < 8; i += 1) { const line = composeNudge('PLAYING', `x${i % 2}`, seen); expect(seen).not.toContain(line); seen.push(line); }
+  });
+  it('branché dans le lecteur : pendant l’écoute (9 s), au zapping sans réaction, après un j’aime / pas aimé', () => {
+    const fs = require('fs'); const path = require('path');
+    const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(deck).toContain("showNudge('SKIPPED')");
+    expect(deck).toContain("showNudge('PLAYING')");
+    expect(deck).toContain("showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : 'AFTER_DISLIKE')");
+    expect(deck).toContain('testID="deck-like-nudge"');
+    expect(deck).toContain('❤ {count} · 👎 {dislikeCount}');
+  });
+  it('« pas aimé » : ajout seulement, compteurs réservés au partageur, aucune suppression côté lecteur', () => {
+    const fs = require('fs'); const path = require('path');
+    const svc = fs.readFileSync(path.join(__dirname, '../trackLikesService.ts'), 'utf8');
+    expect(svc).toContain("from('track_dislikes')");
+    expect(svc).toContain("rpc('keep_my_track_dislike_counts'");
+    expect(svc).not.toMatch(/\.delete\s*\(/);
   });
 });
