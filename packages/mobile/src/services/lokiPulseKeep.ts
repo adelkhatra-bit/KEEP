@@ -20,7 +20,9 @@ export async function keepLokiPulseTrack(
     // sans cela le morceau était gardé SANS aucun créateur (source_user_id vide en base : cas teyou).
     const result = await commitKeep(track, [], undefined, {
       visibility,
-      consumeCredit: true,
+      // Depuis la story / le profil d'un autre membre : reprise GRATUITE (décision d'Adel 05/10/2026), créateur identifié.
+      consumeCredit: !from?.profileId,
+      socialFree: from?.profileId ? { sourceProfileId: from.profileId } : undefined,
       context: from?.profileId
         ? { source: 'story', recommendation: 'story_swipe', sourceProfileId: from.profileId, sourceUsername: from.username }
         : { source: 'loki_pulse', recommendation: 'personalized_profile_rail' },

@@ -10,6 +10,7 @@ import { speakLokiText } from '../services/lokiSpeechService';
 import { playNotificationCue, primeNotificationAudio } from '../services/notificationSoundService';
 import { navigateToSharedProfile, navigationRef } from '../navigation/navigationRef';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
+import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -872,6 +873,8 @@ export default function GlobalChatDock() {
           <Text style={styles.chatTypingText} numberOfLines={1}>✍️ @{latestTyping.username} {latestTyping.groupName ? `écrit dans ${latestTyping.groupName}…` : 'est en train d’écrire…'}</Text>
         </TouchableOpacity>
       ) : null}
+
+      <StoryVisitorToast />
 
       {!open ? <Animated.View pointerEvents="none" testID="loki-chat-edge-glow" style={[styles.edgeGlow, { opacity: edge }]} /> : null}
 

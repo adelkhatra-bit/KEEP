@@ -25,7 +25,7 @@ const BOUTIQUE_MARKETING_HOOKS = [
   'Écoute l’aperçu, garde seulement ce qui te ressemble.',
   'Une sélection pensée pour te faire découvrir autre chose.',
   'Quelques titres, une ambiance, peut-être ta prochaine pépite.',
-  'Teste le mix avant de décider : l’aperçu reste gratuit.',
+  'Teste le mix avant de décider.',
   'Découvre l’univers du créateur avant de débloquer la sélection.',
 ];
 

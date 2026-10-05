@@ -395,7 +395,7 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                       ? 'Aucun paiement ni FREE nécessaire : tous les morceaux sont déjà dans ta musique.'
                     : partiallyOwned
                       ? `Tu as déjà ${overlap?.ownedCount ?? 0} morceau${(overlap?.ownedCount ?? 0) > 1 ? 'x' : ''}. Ils ne seront jamais ajoutés en double. Le Drop sert à révéler uniquement ce qui te manque.`
-                      : `Tu écoutes les extraits gratuitement. Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
+                      : `Le bouton ci-dessous sert uniquement à révéler cette collection et à ajouter ses morceaux à ton Loki Music.`}
                 </Text>
               </>
             ) : null}

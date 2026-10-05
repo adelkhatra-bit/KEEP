@@ -49,11 +49,13 @@ describe('Loki FREE debit contract', () => {
 
   it('locks the final product rule in the canonical contract', () => {
     expect(contract.creditRules.KEEP).toBe(-3);
-    expect(contract.creditRules.keepAppliesToSources).toEqual(
-      expect.arrayContaining(['listen', 'profile', 'public_profile_swipe', 'loki_pulse']),
-    );
+    expect(contract.creditRules.keepAppliesToSources).toEqual(expect.arrayContaining(['listen', 'loki_pulse']));
+    // Décision d'Adel du 05/10/2026 : reprendre une musique PUBLIQUE d'un autre membre est gratuit (créateur identifié) ; partager en story aussi.
+    expect(contract.creditRules.socialFreeKeep.charge).toBe(0);
+    expect(contract.creditRules.socialFreeKeep.sources).toEqual(expect.arrayContaining(['story', 'public_profile', 'public_profile_swipe']));
+    expect(contract.creditRules.shareToOwnStoryIsFree.charge).toBe(0);
     expect(contract.creditRules.alreadyOwnedDuplicate).toBe(0);
-    expect(contract.profileOwner.freeDetailsPanel.socialProfileKeepsAlsoDebit).toBe(true);
+    expect(contract.profileOwner.freeDetailsPanel.socialProfileKeepsAlsoDebit).toBe(false);
     expect(contract.profileOwner.freeDetailsPanel.alreadyOwnedDuplicateNeverDebits).toBe(true);
     expect(contract.profileOwner.freeDetailsPanel.dailySpendCountsAuthoritativeLedgerEvents).toBe(true);
   });

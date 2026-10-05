@@ -65,6 +65,13 @@ depuis Super Admin sans déploiement (`usage_limits.limit_key =
 
 ---
 
+## Reprises sociales GRATUITES — décision d'Adel du 05/10/2026 (CANONIQUE, complète et corrige la ligne « GARDER : −3 »)
+
+- **Garder une musique rendue PUBLIQUE par un autre membre (depuis son profil ou sa story) est GRATUIT** : aucun FREE débité. La musique est marquée du nom du **premier découvreur** ; l'utilisateur la garde en Public ou en Privé.
+- **Partager une musique d'un autre dans MA story est GRATUIT** et ne demande même pas de la garder (publicité pour le premier découvreur, qui reste identifié).
+- **Restent payants** : les musiques en vente (PayPal ou FREE selon l'offre), la reconnaissance au-delà du quota, un GARDER issu d'une écoute (`listen`) ou de Loki Pulse (−3).
+- Implémentation : RPC `keep_commit_social_free_decision` (plafond 200/24 h) et `keep_pin_shared_story_track` ; contrat `creditRules.socialFreeKeep` / `shareToOwnStoryIsFree`.
+
 ## Économie FREE — décision d'Adel du 04/10/2026 (CANONIQUE)
 
 > **Statut : DÉCIDÉ — À IMPLÉMENTER.** Toute IA (Claude Code, Codex, ChatGPT,

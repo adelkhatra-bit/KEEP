@@ -466,6 +466,14 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
 
 
 /** « + » de la story : épingle une de mes musiques gardées en public (refusé côté serveur sinon). */
+/** Partager dans MA story une musique PUBLIQUE d'un autre membre : gratuit, sans la garder ; son créateur reste identifié (Adel 05/10/2026). */
+export async function pinSharedStoryTrack(trackId: string, fromProfileId: string): Promise<void> {
+  if (!supabase || !trackId || !fromProfileId) throw new Error('STORY_PIN_UNAVAILABLE');
+  const { error } = await supabase.rpc('keep_pin_shared_story_track', { p_track_id: trackId, p_from_profile_id: fromProfileId });
+  if (error) throw error;
+  notifyOwnStoryChanged();
+}
+
 export async function pinStoryTrack(trackId: string): Promise<void> {
   if (!supabase || !trackId) throw new Error('STORY_PIN_UNAVAILABLE');
   const { error } = await supabase.rpc('keep_pin_story_track', { p_track_id: trackId });

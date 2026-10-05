@@ -477,8 +477,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         backLabel="REVENIR AU PROFIL"
         loop={false}
         askVisibilityOnKeep
-        keepCostNotice={`GARDER ce morceau débitera ${freeCost} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
-        keepDebitAmount={freeCost}
+        // Décision d'Adel (05/10/2026) : garder une musique publique d'un autre membre est GRATUIT (créateur identifié) -> aucun débit ni avertissement de coût.
+        keepCostNotice={undefined}
+        keepDebitAmount={0}
         optimisticPass
         onKeep={async (track, visibility) => {
           // Musique en vente : jamais de GARDER direct, on ouvre la boutique du vendeur.

@@ -9,7 +9,7 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
-import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinStoryTrack } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinSharedStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { formatStoryAge } from '../services/storyActivity';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
@@ -228,15 +228,17 @@ export default function MusicSwipeDeckModal({
       return;
     }
     if (!previewOnly && !currentAlreadyKept) {
-      // Adel (05/10/2026) : « il a appuyé sur partager en story et rien ne s'est passé » -- au lieu d'un refus, UN seul geste :
-      // garder en Public (coût FREE annoncé) puis mettre en story ; le créateur d'origine reste identifié.
-      const toKeep = current;
+      // Décision d'Adel (05/10/2026) : partager la musique d'un autre dans MA story est GRATUIT et ne demande pas de la garder
+      // (pub pour son créateur, qui reste identifié). Aucun FREE débité.
+      const toShare = current;
+      const fromId = currentSourceProfileId;
+      if (!fromId) { Alert.alert('Ajout impossible', 'Cette musique n’a pas de source publique à partager.', [{ text: 'OK', style: 'cancel' }]); return; }
       Alert.alert(
-        'Garder en public et mettre en story ?',
-        `« ${toKeep.title} » sera gardée en Public sur ton profil${keepDebitAmount ? ` (${keepDebitAmount} FREE débité${keepDebitAmount > 1 ? 's' : ''})` : ''} puis ajoutée à ta story pendant 24 h. Son créateur reste identifié.`,
+        'Mettre en story ?',
+        `« ${toShare.title} » sera visible 24 h dans ta story. Gratuit : son créateur reste identifié.`,
         [
           { text: 'Annuler', style: 'cancel' },
-          { text: 'Oui, garder et partager', onPress: () => { void confirmKeep('PUBLIC'); } },
+          { text: 'Oui, mettre en story', onPress: () => { void shareToStory(toShare, fromId); } },
         ],
       );
       return;
@@ -251,6 +253,16 @@ export default function MusicSwipeDeckModal({
         { text: 'Oui, mettre en story', onPress: () => { void pinCurrentToStory(track); } },
       ],
     );
+  };
+  const shareToStory = async (track: CanonicalTrack, fromProfileId: string) => {
+    try {
+      await pinSharedStoryTrack(track.id, fromProfileId);
+      setStoryIds((previous) => new Set(previous).add(track.id));
+      setJustAdded((previous) => new Set(previous).add(track.id));
+    } catch (error: any) {
+      reportAutoDiagnostic('STORY_SHARE_FAILED', error);
+      Alert.alert('Ajout impossible', String(error?.message ?? '').includes('SALE_PROTECTED') ? 'Cette musique est en vente : elle ne peut pas être partagée.' : 'La musique n’a pas pu être ajoutée pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+    }
   };
   const pinCurrentToStory = async (current: CanonicalTrack) => {
     try {

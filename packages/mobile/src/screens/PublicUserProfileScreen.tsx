@@ -1729,7 +1729,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     }
     try {
       const origin = tracks.find((item) => item.trackId === canonical.id);
-      await commitKeep(canonical, [], undefined, { visibility, context: {
+      await commitKeep(canonical, [], undefined, { visibility, consumeCredit: !profile?.id, socialFree: profile?.id ? { sourceProfileId: profile.id } : undefined, context: {
         source: 'public_profile_swipe',
         sourceProfileId: origin?.sourceProfileId || origin?.sourceUserId || profile?.id,
         sourceUsername: origin?.sourceUsername || profile?.username,
@@ -1793,7 +1793,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
     };
     setAddingTrackIds((current) => new Set(current).add(track.trackId));
     try {
-      await commitKeep(canonical, [], undefined, { visibility, context: { source: 'public_profile', sourceProfileId: profile?.id } });
+      await commitKeep(canonical, [], undefined, { visibility, consumeCredit: !profile?.id, socialFree: profile?.id ? { sourceProfileId: profile.id } : undefined, context: { source: 'public_profile', sourceProfileId: profile?.id } });
       setViewerKeepTrackIds((current) => new Set(current).add(track.trackId));
       maybeSuggestFollow();
       setKeepSuccessTrack({ track, visibility });

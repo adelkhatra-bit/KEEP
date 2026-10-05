@@ -66,7 +66,7 @@ describe('Partager en story une musique reprise + design masqué unique (Adel 05
   const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
   const sale = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx'), 'utf8');
   it('« ajouter à ma story » sur une musique non gardée garde en Public puis épingle, et répare une garde privée', () => {
-    expect(deck).toContain("void confirmKeep('PUBLIC')");
+    expect(deck).toContain('void shareToStory(toShare, fromId)');
     expect(deck).toContain('STORY_PIN_REQUIRES_PUBLIC_KEEP');
   });
   it('l\'aperçu de collection utilise le même orbe animé que les stories (plus l\'ancien cadenas)', () => {
@@ -176,5 +176,39 @@ describe('Étiquettes PAYANT / GRATUIT et bulles inactives (Adel 05/10/2026)', (
   it('les membres inactifs > 7 jours sans story sont retirés de la rangée', () => {
     expect(rail).toContain('story.styleMatch && !dormant(story)');
     expect(rail).not.toContain('...dormantMembers');
+  });
+});
+
+describe('Reprises sociales gratuites + partage en story gratuit + alerte visiteur (Adel 05/10/2026)', () => {
+  const root = path.join(__dirname, '..', '..');
+  const keep = fs.readFileSync(path.join(root, 'services', 'keepTrackAction.ts'), 'utf8');
+  const pulse = fs.readFileSync(path.join(root, 'services', 'lokiPulseKeep.ts'), 'utf8');
+  const bar = fs.readFileSync(path.join(root, 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  const deck = fs.readFileSync(path.join(root, 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  const profile = fs.readFileSync(path.join(root, 'screens', 'PublicUserProfileScreen.tsx'), 'utf8');
+  const dock = fs.readFileSync(path.join(root, 'components', 'GlobalChatDock.tsx'), 'utf8');
+  const toast = fs.readFileSync(path.join(root, 'components', 'StoryVisitorToast.tsx'), 'utf8');
+  const svc = fs.readFileSync(path.join(root, 'services', 'musicStoriesService.ts'), 'utf8');
+  it('garder une musique publique d\'un autre membre passe par la RPC gratuite, sans débit, depuis la story et le profil', () => {
+    expect(keep).toContain("rpc('keep_commit_social_free_decision'");
+    expect(pulse).toContain('consumeCredit: !from?.profileId');
+    expect(bar).toContain('keepDebitAmount={0}');
+    expect(bar).not.toContain('débitera ${freeCost} FREE');
+    expect(profile).toContain('socialFree: profile?.id ? { sourceProfileId: profile.id } : undefined');
+  });
+  it('partager la musique d\'un autre dans MA story est gratuit et ne demande pas de la garder', () => {
+    expect(svc).toContain("rpc('keep_pin_shared_story_track'");
+    expect(deck).toContain('Gratuit : son créateur reste identifié.');
+    expect(deck).toContain('pinSharedStoryTrack(track.id, fromProfileId)');
+  });
+  it('petite alerte « regarde ta story » reçue en direct par le propriétaire, sans toucher ni blocage', () => {
+    expect(toast).toContain("table: 'story_views'");
+    expect(toast).toContain('regarde ta story');
+    expect(toast).toContain('pointerEvents="none"');
+    expect(dock).toContain('<StoryVisitorToast />');
+  });
+  it('plus de « extraits gratuits » dans les textes', () => {
+    const sale = fs.readFileSync(path.join(root, 'components', 'PlaylistSaleImmersivePreview.tsx'), 'utf8');
+    expect(sale).not.toContain('extraits gratuitement');
   });
 });

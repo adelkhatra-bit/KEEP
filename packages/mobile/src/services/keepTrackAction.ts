@@ -39,6 +39,8 @@ export async function commitKeep(
   chosenPlaylistId?: string,
   options?: {
     visibility?: KeepVisibility;
+    /** Décision d'Adel (05/10/2026) : reprise GRATUITE d'une musique rendue publique par un autre membre (profil ou story), marquée du premier découvreur. */
+    socialFree?: { sourceProfileId: string };
     context?: Record<string, unknown>;
     /** false est réservé aux opérations système explicites. Un GARDER utilisateur coûte des FREE, quelle que soit sa provenance. */
     consumeCredit?: boolean;
@@ -87,6 +89,34 @@ export async function commitKeep(
         alreadyKept: true,
       };
     }
+  }
+
+  // Reprise sociale GRATUITE (Adel 05/10/2026) : la musique est publique chez un autre membre -> aucun FREE, créateur d'origine identifié.
+  // Réservé aux comptes réels ; une musique en vente (SALE_PROTECTED) ou non publique est refusée par le serveur, jamais facturée en douce.
+  if (options?.socialFree?.sourceProfileId && !userState.isDemoMode && !userState.isLocalGuest) {
+    // Chargement tardif : ce module est aussi utilisé par des tests/écrans qui n'ont pas besoin du client Supabase.
+    const { supabase } = require('./supabaseClient');
+    if (!supabase) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    const { data, error } = await supabase.rpc('keep_commit_social_free_decision', {
+      p_track_id: track.id,
+      p_source_profile_id: options.socialFree.sourceProfileId,
+      p_visibility: visibility,
+      p_context: options?.context ?? {},
+    });
+    if (error) throw error;
+    const decisionId = (data as any)?.decisionId ? String((data as any).decisionId) : '';
+    if (!decisionId) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    keptTrackIdByInputId.set(track.id, String((data as any).trackId ?? track.id));
+    await usePlaylistStore.getState().refresh().catch(() => {});
+    return {
+      targetPlaylistId: 'keep-profile',
+      playlistName: 'Mes Gardés',
+      downloaded: false,
+      visibility: ((data as any).visibility as KeepVisibility) ?? visibility,
+      keepDecisionId: decisionId,
+      profileSyncFailed: false,
+      alreadyKept: Boolean((data as any).deduplicated),
+    };
   }
 
   // Chemin unique : tout NOUVEAU GARDER utilisateur coûte le même nombre

@@ -33,10 +33,24 @@
     "cancelKeepMustNeverDebit": true,
     "keepAppliesToSources": [
       "listen",
-      "profile",
-      "public_profile_swipe",
       "loki_pulse"
     ],
+    "socialFreeKeep": {
+      "decidedBy": "Adel 05/10/2026",
+      "charge": 0,
+      "sources": ["story", "public_profile", "public_profile_swipe", "follow_notification"],
+      "requires": "musique PUBLIQUE chez un autre membre (GARDER public ou épingle claire < 24 h) et PAS en vente (SALE_PROTECTED)",
+      "attribution": "marquée du nom du PREMIER découvreur ; l'utilisateur la garde en public ou en privé",
+      "serverRpc": "keep_commit_social_free_decision",
+      "dailyLimit": 200
+    },
+    "shareToOwnStoryIsFree": {
+      "decidedBy": "Adel 05/10/2026",
+      "charge": 0,
+      "needsKeep": false,
+      "serverRpc": "keep_pin_shared_story_track",
+      "reason": "publicité pour le premier découvreur, qui reste identifié"
+    },
     "alreadyOwnedDuplicate": 0,
     "listenAfterDailyQuota": -1,
     "listenCountsOnlyOnSuccessfulRecognition": true,
@@ -94,7 +108,7 @@
         "battle-free-lost-today"
       ],
       "allNewKeepsDebitConfiguredFree": true,
-      "socialProfileKeepsAlsoDebit": true,
+      "socialProfileKeepsAlsoDebit": false,
       "alreadyOwnedDuplicateNeverDebits": true,
       "dailySpendCountsAuthoritativeLedgerEvents": true,
       "primaryBalanceRemainsBesideProfileKind": false

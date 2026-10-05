@@ -386,6 +386,10 @@ must(se && se.storyReaderHasNoTeaserSentenceForOthers === true && Array.isArray(
 must(storyActivitySrc.includes('`reste ${Math.ceil(leftMin / 60)} h`') && storyDeckSrc.includes('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"'), 'stories: la durée restante doit rester « reste N h » sur UNE ligne');
 must(storyDeckSrc.includes('PAYANT · PAYPAL') && storyDeckSrc.includes('GRATUIT · POUR TON PROFIL') && storyDeckSrc.includes('deck-price-badge'), 'stories: chaque musique d\'une story doit afficher PAYANT (PayPal) ou GRATUIT, lisiblement');
 must(!storyBar.includes('{composeStoryTeaser(openStory.username'), 'stories: pas de phrase d\'accroche sur la story d\'un autre (elle induisait en erreur)');
+// Décisions d'Adel du 05/10/2026 : reprise sociale GRATUITE (créateur identifié) et partage en story GRATUIT ; musiques en vente toujours payantes.
+const keepActionSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/keepTrackAction.ts'), 'utf8');
+must(contract.creditRules.socialFreeKeep && contract.creditRules.socialFreeKeep.charge === 0 && contract.creditRules.shareToOwnStoryIsFree && contract.creditRules.shareToOwnStoryIsFree.charge === 0, 'creditRules: reprise sociale et partage en story doivent rester gratuits (décision d\'Adel 05/10/2026)');
+must(keepActionSrc.includes("keep_commit_social_free_decision") && storyService.includes("keep_pin_shared_story_track") && storyBar.includes('keepDebitAmount={0}'), 'stories: GARDER depuis une story / un profil et le partage en story ne doivent débiter aucun FREE');
 must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
 must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
 must(!storyRail.includes('Modal') && !storyRail.includes('home-story-others'), 'stories: la rangée ne doit ni ouvrir de fenêtre ni avoir de rond « Autres » (tout est dans la ligne, façon Instagram)');
