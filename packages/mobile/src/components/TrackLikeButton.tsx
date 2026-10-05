@@ -10,7 +10,7 @@ export default function TrackLikeButton({ liked, count, onPress, testID = 'deck-
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: liked }}
-      accessibilityLabel={liked ? 'Tu aimes cette musique. Appuie pour retirer ton j’aime' : 'J’aime cette musique'}
+      accessibilityLabel={liked ? 'Tu aimes cette musique' : 'J’aime cette musique'}
       testID={testID}
     >
       {!liked ? <GlowRing radius={22} color="#FF5C8A" testID="deck-like-glow" /> : null}

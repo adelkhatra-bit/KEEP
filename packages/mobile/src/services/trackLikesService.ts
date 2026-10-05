@@ -29,15 +29,13 @@ export async function loadLikeCounts(trackIds: string[]): Promise<Record<string,
   return out;
 }
 
-/** Ajoute (liked = true) ou retire mon j'aime ; lève l'erreur pour permettre le retour en arrière à l'écran. */
-export async function setTrackLike(profileId: string, trackId: string, liked: boolean): Promise<void> {
+/**
+ * Ajoute mon j'aime ; lève l'erreur pour permettre le retour en arrière à l'écran.
+ * Un j'aime posé depuis un lecteur n'est pas retiré d'ici (donnée de goût protégée : aucune suppression côté lecteur) ; le retrait existe sur le profil d'un membre.
+ */
+export async function addTrackLike(profileId: string, trackId: string): Promise<void> {
   const key = likeKey(trackId);
   if (!supabase || !profileId || !key) throw new Error('TRACK_LIKE_UNAVAILABLE');
-  if (liked) {
-    const { error } = await supabase.from('track_likes').upsert({ profile_id: profileId, track_id: key }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
-    if (error) throw error;
-  } else {
-    const { error } = await supabase.from('track_likes').delete().eq('profile_id', profileId).eq('track_id', key);
-    if (error) throw error;
-  }
+  const { error } = await supabase.from('track_likes').upsert({ profile_id: profileId, track_id: key }, { onConflict: 'profile_id,track_id', ignoreDuplicates: true });
+  if (error) throw error;
 }
