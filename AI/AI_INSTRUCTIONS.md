@@ -820,3 +820,27 @@ HEAD de référence : `ca9391e4`. Proposition de périmètre seulement (pas de c
 6. Fenêtre « Solos épuisés » : ajouter « Passer Premium » (AlertHost, règles §9, 3 boutons maximum : Acheter des Solos · Passer Premium · OK). Le bouton « Jouer en BATTLE » passe dans le texte.
 
 Tests prévus : tests Deno du worker (catégories, plafond, exemptions) ; migration vérifiée par `verify-migrations` ; contrat jest pour la fenêtre Solos ; mesure live des statuts dans `push_delivery_attempts` après déploiement.
+
+
+### 2026-10-05 02:55 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°6 → en attente [VALIDÉ-PAR-CHATGPT] — Réorganisation « app qui parle d'elle-même » (demande explicite d'Adel)
+
+HEAD de référence : `af5c1aa5`. Proposition de périmètre. **Adel autorise explicitement (05/10 02:50) la modification de la barre des 5 onglets et de `Navigation.tsx`** pour ce lot, avec une règle absolue : **rien n'est supprimé**, tout ce qui existe reste accessible en 1 clic. Budget serré : uniquement le code existant et des outils gratuits.
+
+**Constat (MODE RÉEL)**
+- Onglets actuels : Loki Music (Écouter) · Découvertes · Playlists · Soirées · Profil. **Battle est rangé dans « Soirées »** (`PartiesScreen`), le **tchat** n'est qu'une petite bulle flottante (`GlobalChatDock`), et le bouton **☰ ouvre « Mes Sessions »** au lieu d'un menu.
+- Supabase : **1 profil sur 17 a `onboarding_completed_at`** rempli. 8 sur 17 suivent quelqu'un. Les nouveaux utilisateurs se perdent (retour d'Adel).
+
+**Décisions d'Adel (fenêtres de choix)**
+1. Nouvelle barre : **Écouter · Découvrir · Battle · Tchat · Profil**.
+   - Découvrir contient l'existant Découvertes + Soirées/Événements + Pépites/Drop (sous-onglets en haut).
+   - Battle = l'écran Battle actuel (solo, défis, arène), sorti de Soirées.
+   - Tchat = la liste des conversations (`MusicAgoraPanel`) en plein écran. La bulle flottante reste pour répondre vite.
+   - Profil contient l'existant + Playlists + Ma musique + Mes Sessions.
+   - ☰ devient un vrai menu : Mes FREE · Offres · Notifications · Réglages · Aide · Mes Sessions.
+2. **Missions de départ + FREE** (modèle Duolingo) : une carte « Tes 5 premières missions » sur Écouter. Écoute un morceau → GARDE-le → lance un Battle → rejoins un groupe → invite un ami. Chaque mission rapporte des FREE côté serveur (idempotent, valeurs dans `remote_config`), avec une animation de récompense, puis la carte disparaît. `onboarding_completed_at` est rempli à la 5e mission.
+
+**Garde-fous**
+- Inventaire avant/après de **toutes les routes et tous les boutons** (script dans le même lot) : la PR échoue si une destination existante disparaît.
+- Mobile et web via la source unique `packages/mobile/src`. Preuves 390×844 et 1440×900, robots Playwright existants mis à jour dans le même commit.
+- Cliquet design n°4 (si validé) : aucune nouvelle taille ou couleur écrite à la main.
+- Un lot par étape : (6a) barre + menu ☰, (6b) missions + FREE serveur, (6c) animations de récompense. Chaque étape fait l'objet d'une proposition validée séparément.
