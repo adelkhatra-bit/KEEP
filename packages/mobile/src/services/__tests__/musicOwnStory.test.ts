@@ -160,3 +160,12 @@ describe('slogans de story', () => {
     expect(fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8')).toContain('numberOfLines={2}>{composeStoryTeaser(');
   });
 });
+
+describe('« + » : musique déjà en story', () => {
+  it('tells the user a track is already in the story instead of adding it twice', () => {
+    const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+    expect(bar).toContain('inStoryIds.has(track.trackId)');
+    expect(bar).toContain('Déjà dans ta story');
+    expect(bar).toContain('✓ Déjà en story');
+  });
+});

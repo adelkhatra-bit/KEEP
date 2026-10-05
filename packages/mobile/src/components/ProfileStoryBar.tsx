@@ -126,7 +126,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setPinnable(null);
     loadMyPinnableTracks(viewer.id).then(setPinnable).catch(() => setPinnable([]));
   };
+  // Adel (05/10/2026) : une musique déjà dans la story ne s'ajoute pas deux fois : on le dit clairement.
+  const inStoryIds = new Set((ownStory?.tracks ?? []).map((track) => track.id));
   const pin = async (track: PinnableTrack) => {
+    if (inStoryIds.has(track.trackId)) {
+      Alert.alert('Déjà dans ta story', `« ${track.title} » est déjà dans ta story des dernières 24 h : inutile de l'ajouter.`, [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
     if (pinBusy) return;
     setPinBusy(track.trackId);
     try {
@@ -189,7 +195,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                     <Text style={styles.rowName} numberOfLines={1}>{track.title}</Text>
                     <Text style={styles.rowArtist} numberOfLines={1}>{track.artist}</Text>
                   </View>
-                  <Text style={[styles.rowState, styles.rowStateNew]}>{pinBusy === track.trackId ? '…' : '+ Ajouter'}</Text>
+                  <Text style={[styles.rowState, inStoryIds.has(track.trackId) ? styles.rowStateSeen : styles.rowStateNew]}>{pinBusy === track.trackId ? '…' : inStoryIds.has(track.trackId) ? '✓ Déjà en story' : '+ Ajouter'}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
