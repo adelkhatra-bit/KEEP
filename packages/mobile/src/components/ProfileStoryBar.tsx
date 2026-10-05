@@ -5,6 +5,7 @@ import { Alert } from '../utils/keepAlert';
 import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
+import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { supabase } from '../services/supabaseClient';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { loadProfilePresence } from '../services/profilePresenceService';
@@ -14,6 +15,7 @@ import {
   composeStoryTeaser,
   loadMyPinnableTracks,
   loadMyStoryViewers,
+  subscribeOwnStoryChanged,
   orderTracksForPlayback,
   pinStoryTrack,
   type PinnableTrack,
@@ -63,6 +65,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [plusOpen, setPlusOpen] = useState(false);
   const [pinnable, setPinnable] = useState<PinnableTrack[] | null>(null);
   const [pinBusy, setPinBusy] = useState('');
+  const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   const [previewing, setPreviewing] = useState('');
   const [moreOpen, setMoreOpen] = useState<MusicStory[] | null>(null);
   // Certification affichée à côté du nom dans le lecteur de story (Adel 05/10/2026, style Instagram).
@@ -140,10 +143,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   };
 
   const refreshOwnStory = useCallback(() => { loadOwnStory(viewer).then(setOwnStory).catch(() => {}); }, [viewer.id, viewer.username, viewer.avatarUrl]);
+  useEffect(() => subscribeOwnStoryChanged(() => { refreshOwnStory(); }), [refreshOwnStory]);
   const openPlus = () => {
     setPlusOpen(true);
     setPinnable(null);
     loadMyPinnableTracks(viewer.id).then(setPinnable).catch(() => setPinnable([]));
+    loadMyOfferedTrackIds().then((map) => setOfferedIds(new Set(Object.keys(map)))).catch(() => {});
   };
   // Adel (05/10/2026) : une musique déjà dans la story ne s'ajoute pas deux fois : on le dit clairement.
   const inStoryIds = new Set((ownStory?.tracks ?? []).map((track) => track.id));
@@ -160,6 +165,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const pin = async (track: PinnableTrack) => {
     if (inStoryIds.has(track.trackId)) {
       Alert.alert('Déjà dans ta story', `« ${track.title} » est déjà dans ta story des dernières 24 h : inutile de l'ajouter.`, [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    if (offeredIds.has(track.trackId)) {
+      Alert.alert('Musique en vente', `« ${track.title} » est en vente : elle apparaît déjà dans ta story avec la jaquette et le nom de l’artiste masqués. Rien à ajouter.`, [{ text: 'OK', style: 'cancel' }]);
       return;
     }
     if (pinBusy) return;

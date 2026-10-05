@@ -325,6 +325,18 @@ export async function pinStoryTrack(trackId: string): Promise<void> {
   if (!supabase || !trackId) throw new Error('STORY_PIN_UNAVAILABLE');
   const { error } = await supabase.rpc('keep_pin_story_track', { p_track_id: trackId });
   if (error) throw error;
+  notifyOwnStoryChanged();
+}
+
+// Adel (05/10/2026) : « j'ai ajouté des musiques, le cercle autour de ma photo ne s'allume pas ». La rangée de stories ne se rechargeait
+// que sur retour d'écran ; un ajout depuis un swipe (fenêtre au-dessus du profil) ne la prévenait pas. Source unique : ce signal.
+const ownStoryListeners = new Set<() => void>();
+export function subscribeOwnStoryChanged(listener: () => void): () => void {
+  ownStoryListeners.add(listener);
+  return () => { ownStoryListeners.delete(listener); };
+}
+export function notifyOwnStoryChanged(): void {
+  ownStoryListeners.forEach((listener) => { try { listener(); } catch { /* un abonné défaillant ne bloque pas les autres */ } });
 }
 
 export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null };

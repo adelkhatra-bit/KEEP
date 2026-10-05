@@ -7,7 +7,8 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
-import { isSaleStoryTrack, loadMyStoryTrackIds, pinStoryTrack } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinStoryTrack } from '../services/musicStoriesService';
+import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
@@ -158,13 +159,21 @@ export default function MusicSwipeDeckModal({
   // Adel (05/10/2026) : bouton « Ajouter à ma story » pendant un swipe (mon profil ou celui d'un autre membre). Il faut avoir gardé le morceau en Public (vérifié aussi côté serveur).
   // Anti-doublon : on connaît les musiques déjà dans MA story ; celle-ci est alors grisée « déjà dans ta story ».
   const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
+  const [offeredIds, setOfferedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     let live = true;
     if (!visible) return undefined;
     void loadMyStoryTrackIds().then((ids) => { if (live) setStoryIds(ids); }).catch(() => {});
+    // Musiques en vente : le système les masque seul dans la story ; on prévient l'utilisateur au lieu d'un ajout silencieux.
+    void loadMyOfferedTrackIds().then((map) => { if (live) setOfferedIds(new Set(Object.keys(map))); }).catch(() => {});
+    setJustAdded(new Set());
     return () => { live = false; };
   }, [visible]);
-  const canAddToStory = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
+  const storyAddContext = Boolean(current) && !isSaleStoryTrack(current) && (allowStoryAdd || (!previewOnly && Boolean(askVisibilityOnKeep || currentSourceUsername)));
+  const currentOffered = Boolean(current && offeredIds.has(current.id));
+  const canAddToStory = storyAddContext && !currentOffered;
+  const justAddedNow = Boolean(current && justAdded.has(current.id));
   const alreadyInStory = Boolean(current && storyIds.has(current.id));
   // Gardé en Privé puis « mettre en story » : on le rend public (le serveur l'exige) puis on l'épingle.
   const makeKeptPublicAndStory = async () => {
@@ -174,6 +183,7 @@ export default function MusicSwipeDeckModal({
       await persistOwnTrackVisibility(track, 'PUBLIC');
       await pinStoryTrack(track.id);
       setStoryIds((previous) => new Set(previous).add(track.id));
+      setJustAdded((previous) => new Set(previous).add(track.id));
       setKeepSuccess((previous) => (previous ? { ...previous, visibility: 'PUBLIC' } : previous));
     } catch {
       Alert.alert('Ajout impossible', 'La musique n’a pas pu être rendue publique pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
@@ -181,6 +191,7 @@ export default function MusicSwipeDeckModal({
   };
   const addCurrentToStory = async () => {
     if (!current) return;
+    if (alreadyInStory && justAddedNow) return;
     if (alreadyInStory) {
       Alert.alert('Déjà dans ta story', `« ${current.title} » est déjà dans ta story des dernières 24 h : pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
       return;
@@ -192,10 +203,28 @@ export default function MusicSwipeDeckModal({
     try {
       await pinStoryTrack(current.id);
       setStoryIds((previous) => new Set(previous).add(current.id));
-      Alert.alert('Ajoutée à ta story', `« ${current.title} » est dans ta story pendant 24 h.`, [{ text: 'OK', style: 'cancel' }]);
+      // Confirmation affichée DANS la fenêtre (une alerte native peut ne pas s'afficher au-dessus d'une fenêtre déjà ouverte).
+      setJustAdded((previous) => new Set(previous).add(current.id));
     } catch {
       Alert.alert('Ajout impossible', 'Seules les musiques gardées en Public peuvent aller en story. Si tu l’as gardée en Privé, repasse-la en Public depuis ton profil.', [{ text: 'OK', style: 'cancel' }]);
     }
+  };
+  // Bouton « story » : allumé tant qu'on peut ajouter, vert + message de félicitations juste après, gris « déjà » seulement ensuite.
+  const renderStoryAdd = (kind: 'main' | 'popup') => {
+    if (storyAddContext && currentOffered) {
+      return <View style={s.storySaleNote} testID="deck-story-sale-note"><Text style={s.storySaleNoteTitle}>🏷 EN VENTE · DÉJÀ GÉRÉE PAR TA BOUTIQUE</Text><Text style={s.storySaleNoteText}>Cette musique est en vente : dans ta story, sa jaquette et le nom de l’artiste restent masqués automatiquement.</Text></View>;
+    }
+    if (!canAddToStory) return null;
+    const popup = kind === 'popup';
+    const buttonStyle = popup ? s.ownerStoryButton : s.addStoryButton;
+    const textStyle = popup ? s.ownerStoryButtonText : s.addStoryText;
+    const label = justAddedNow ? '✓ EN STORY · 24 H' : alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : (popup ? '＋ METTRE EN STORY' : '＋ AJOUTER À MA STORY');
+    return <View>
+      <TouchableOpacity style={[buttonStyle, justAddedNow ? s.addStoryButtonJust : alreadyInStory ? s.addStoryButtonDone : s.addStoryButtonLit]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID={popup ? 'deck-info-add-story' : 'deck-add-story'}>
+        <Text style={[textStyle, alreadyInStory && !justAddedNow && s.addStoryTextDone, justAddedNow && s.addStoryTextJust]}>{label}</Text>
+      </TouchableOpacity>
+      {justAddedNow ? <Text style={s.storyCongrats} testID="deck-story-congrats">🎉 Bravo ! Ta musique est dans ta story pendant 24 h. Ta photo s’allume sur ton profil.</Text> : null}
+    </View>;
   };
   const openFullTrack = useCallback(() => {
     if (!fullTrackDestination) return;
@@ -558,6 +587,8 @@ export default function MusicSwipeDeckModal({
     try {
       const result = await onKeep?.(keptTrack, visibility);
       if (result !== false) {
+        // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
+        if (visibility === 'PUBLIC') notifyOwnStoryChanged();
         if (keepDebitAmount != null && keepDebitAmount > 0) {
           setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });
           return;
@@ -792,11 +823,7 @@ export default function MusicSwipeDeckModal({
 
 
           {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
-          {canAddToStory ? (
-            <TouchableOpacity style={[s.addStoryButton, alreadyInStory && s.addStoryButtonDone]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Ajouter ce morceau à ma story'} testID="deck-add-story">
-              <Text style={[s.addStoryText, alreadyInStory && s.addStoryTextDone]}>{alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : '＋ AJOUTER À MA STORY'}</Text>
-            </TouchableOpacity>
-          ) : null}
+          {renderStoryAdd('main')}
           {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
           {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
                     <View style={s.decisionBand}>
@@ -856,11 +883,7 @@ export default function MusicSwipeDeckModal({
               <Text style={s.alreadyKeepRuleTitle}>Aucune action supplémentaire</Text>
               <Text style={s.ownerPreviewRuleText}>Ton morceau existant reste exactement comme il est dans ta collection.</Text>
             </View>
-            {canAddToStory ? (
-              <TouchableOpacity style={[s.ownerStoryButton, alreadyInStory && s.addStoryButtonDone]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Mettre ce morceau en story'} testID="deck-info-add-story">
-                <Text style={[s.ownerStoryButtonText, alreadyInStory && s.addStoryTextDone]}>{alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : '＋ METTRE EN STORY'}</Text>
-              </TouchableOpacity>
-            ) : null}
+            {renderStoryAdd('popup')}
             <TouchableOpacity style={s.alreadyKeepNext} onPress={() => { void continueAfterAlreadyKept(); }} accessibilityLabel="Passer au morceau suivant"><Text style={s.alreadyKeepNextText}>MORCEAU SUIVANT ›</Text></TouchableOpacity>
             <TouchableOpacity style={s.alreadyKeepStay} onPress={closeAlreadyKeepInfo}><Text style={s.alreadyKeepStayText}>RESTER SUR CE MORCEAU</Text></TouchableOpacity>
           </View>
@@ -878,11 +901,7 @@ export default function MusicSwipeDeckModal({
               <Text style={s.ownerPreviewRuleTitle}>Pour un abonné</Text>
               <Text style={s.ownerPreviewRuleText}>GARDER ajoute le morceau à sa collection, puis il choisit « Visible sur mon profil » ou « Garder en privé ».</Text>
             </View>
-            {canAddToStory ? (
-              <TouchableOpacity style={[s.ownerStoryButton, alreadyInStory && s.addStoryButtonDone]} onPress={() => { void addCurrentToStory(); }} accessibilityRole="button" accessibilityLabel={alreadyInStory ? 'Déjà dans ma story' : 'Mettre ce morceau en story'} testID="deck-info-add-story">
-                <Text style={[s.ownerStoryButtonText, alreadyInStory && s.addStoryTextDone]}>{alreadyInStory ? '✓ DÉJÀ DANS TA STORY' : '＋ METTRE EN STORY'}</Text>
-              </TouchableOpacity>
-            ) : null}
+            {renderStoryAdd('popup')}
             <TouchableOpacity style={s.ownerPreviewOk} onPress={closePreviewInfo}><Text style={s.ownerPreviewOkText}>COMPRIS</Text></TouchableOpacity>
             <Text style={s.ownerPreviewHint}>Cette fonction est destinée à tes abonnés.</Text>
           </View>
@@ -911,6 +930,13 @@ const s = StyleSheet.create({
   sourceProfileButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:21,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,alignItems:'center',justifyContent:'center',paddingHorizontal:12},sourceProfileButtonText:{color:'#FFF',fontSize:11,fontWeight:'900',letterSpacing:.25,textAlign:'center'},
   deckHint:{marginTop:14,marginBottom:6,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'800',textAlign:'center'},
   addStoryButton:{minHeight:minTouchTarget,marginHorizontal:4,marginBottom:8,borderRadius:20,borderWidth:1,borderColor:'#7C5CFC',backgroundColor:'#1B1230',alignItems:'center',justifyContent:'center',paddingHorizontal:12},
+  addStoryButtonLit:{borderColor:'#B79CFF',backgroundColor:'#7C5CFC'},
+  addStoryButtonJust:{borderColor:'#68F2B1',backgroundColor:'#12B76A'},
+  addStoryTextJust:{color:'#04170E'},
+  storyCongrats:{color:'#68F2B1',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center',marginHorizontal:6,marginBottom:8,marginTop:-2},
+  storySaleNote:{marginHorizontal:4,marginBottom:8,marginTop:6,borderRadius:14,borderWidth:1,borderColor:'#FFB020',backgroundColor:'rgba(255,176,32,.10)',padding:10},
+  storySaleNoteTitle:{color:'#FFB020',fontSize:12,fontWeight:'900',textAlign:'center'},
+  storySaleNoteText:{color:'#FFFFFF',fontSize:13,lineHeight:18,textAlign:'center',marginTop:3},
   addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},

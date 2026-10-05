@@ -205,3 +205,25 @@ describe('Certification + enchaînement des stories (Adel 05/10/2026)', () => {
     expect(deck).toContain('{endExtra}');
   });
 });
+
+describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel 05/10/2026)', () => {
+  const fs3 = require('fs'); const path3 = require('path');
+  const read = (...p: string[]) => fs3.readFileSync(path3.join(__dirname, '..', '..', ...p), 'utf8');
+  const deck = read('components', 'MusicSwipeDeckModal.tsx');
+  const bar = read('components', 'ProfileStoryBar.tsx');
+  const svc = read('services', 'musicStoriesService.ts');
+  it('prévient la rangée de stories à chaque ajout (le cercle de la photo s\'allume)', () => {
+    expect(svc).toContain('notifyOwnStoryChanged();\n}');
+    expect(bar).toContain('subscribeOwnStoryChanged');
+    expect(deck).toContain("if (visibility === 'PUBLIC') notifyOwnStoryChanged();");
+  });
+  it('confirme dans la fenêtre (bouton vert + félicitations), pas seulement par alerte', () => {
+    expect(deck).toContain('deck-story-congrats');
+    expect(deck).toContain('addStoryButtonLit');
+    expect(deck).toContain('✓ EN STORY · 24 H');
+  });
+  it('explique qu\'une musique en vente est masquée automatiquement', () => {
+    expect(deck).toContain('deck-story-sale-note');
+    expect(bar).toContain('offeredIds.has(track.trackId)');
+  });
+});

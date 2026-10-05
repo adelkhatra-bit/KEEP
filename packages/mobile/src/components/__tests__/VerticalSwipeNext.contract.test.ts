@@ -75,7 +75,7 @@ describe('texte à côté d\'un bouton : jamais poussé hors de l\'écran (Adel 
 describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)', () => {
   it('adds the current track to the story only after a public keep, and compacts on short screens', () => {
     const modal = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
-    expect(modal).toContain('testID="deck-add-story"');
+    expect(modal).toContain("'deck-add-story'");
     expect(modal).toContain('pinStoryTrack(current.id)');
     expect(modal).toContain('Garde-la d’abord');
     expect(modal).toContain('const compactDeck = windowHeight < 640;');
@@ -97,8 +97,8 @@ describe('succès du GARDER : mettre en story / déjà en story (Adel 05/10/2026
 describe('fenêtre « Déjà dans ta collection » : bouton mettre en story au-dessus de COMPRIS (Adel 05/10/2026)', () => {
   it('shows the story button (grey when already in story) above the violet button in both info popups', () => {
     const deck = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
-    expect(deck).toContain('testID="deck-info-add-story"');
-    expect(deck.indexOf('deck-info-add-story')).toBeLessThan(deck.indexOf('<Text style={s.ownerPreviewOkText}>COMPRIS</Text>'));
-    expect(deck.match(/deck-info-add-story/g)?.length).toBe(2);
+    expect(deck).toContain("'deck-info-add-story'");
+    expect(deck.indexOf("renderStoryAdd('popup')")).toBeLessThan(deck.indexOf('<Text style={s.ownerPreviewOkText}>COMPRIS</Text>'));
+    expect(deck.match(/renderStoryAdd\('popup'\)/g)?.length).toBe(2);
   });
 });
