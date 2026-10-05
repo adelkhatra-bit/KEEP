@@ -123,7 +123,7 @@ export function rankMusicStories(
  *  - ceux dont j'ai repris une musique.
  * Un membre sans aucun lien (même s'il aime le même style) n'envoie ni story ni notification.
  */
-export type StoryRelations = { following: string[]; others: string[] };
+export type StoryRelations = { following: string[]; others: string[]; partial?: boolean };
 export async function loadStoryRelations(viewerId: string): Promise<StoryRelations> {
   if (!supabase || !viewerId) return { following: [], others: [] };
   const [followingRes, followersRes, reprisersRes, sourcesRes] = await Promise.all([
@@ -132,6 +132,9 @@ export async function loadStoryRelations(viewerId: string): Promise<StoryRelatio
     supabase.from('keep_decisions').select('profile_id,created_at').eq('source_user_id', viewerId).eq('decision', 'KEPT').neq('profile_id', viewerId).order('created_at', { ascending: false }).limit(200),
     supabase.from('keep_decisions').select('source_user_id,created_at').eq('profile_id', viewerId).eq('decision', 'KEPT').not('source_user_id', 'is', null).neq('source_user_id', viewerId).order('created_at', { ascending: false }).limit(200),
   ]);
+  // Adel (05/10/2026) : « il n'a même pas les bulles ». Une erreur serveur (session expirée, 504) était lue comme « aucun lien » :
+  // la rangée restait vide sans le dire. Une requête indispensable en erreur = on LÈVE l'erreur (l'écran garde ce qu'il affiche et réessaie).
+  if (followingRes.error || followersRes.error) throw (followingRes.error || followersRes.error);
   const following = (followingRes.data ?? []).map((row: any) => String(row.followee_id)).filter(Boolean);
   const followingSet = new Set(following);
   const others: string[] = [];
@@ -139,7 +142,7 @@ export async function loadStoryRelations(viewerId: string): Promise<StoryRelatio
   for (const row of (reprisersRes.data ?? []) as any[]) add(row.profile_id);
   for (const row of (followersRes.data ?? []) as any[]) add(row.follower_id);
   for (const row of (sourcesRes.data ?? []) as any[]) add(row.source_user_id);
-  return { following, others: others.slice(0, 60) };
+  return { following, others: others.slice(0, 60), partial: Boolean(reprisersRes.error || sourcesRes.error) };
 }
 
 export async function loadMusicStories(viewerId: string, knownRelations?: StoryRelations): Promise<MusicStory[]> {
@@ -590,7 +593,8 @@ export async function loadFriendBubbles(followingIds: string[], excludeIds: stri
   const skip = new Set(excludeIds);
   const ids = followingIds.filter((id) => !skip.has(id)).slice(0, limit);
   if (!ids.length) return [];
-  const { data } = await supabase.from('profiles').select('id,username,avatar_url').in('id', ids);
+  const { data, error } = await supabase.from('profiles').select('id,username,avatar_url').in('id', ids);
+  if (error) throw error;
   const byId = new Map((data ?? []).map((row: any) => [String(row.id), row]));
   const out: MusicStory[] = [];
   for (const id of ids) {
@@ -606,7 +610,8 @@ export async function loadOthersBubbles(otherIds: string[], excludeIds: string[]
   const skip = new Set(excludeIds);
   const ids = otherIds.filter((id) => !skip.has(id)).slice(0, limit);
   if (!ids.length) return [];
-  const { data } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', ids);
+  const { data, error } = await supabase.from('profiles').select('id,username,avatar_url,discovery_hidden').in('id', ids);
+  if (error) throw error;
   const byId = new Map((data ?? []).map((row: any) => [String(row.id), row]));
   const out: MusicStory[] = [];
   for (const id of ids) {

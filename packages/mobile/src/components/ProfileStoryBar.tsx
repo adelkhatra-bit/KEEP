@@ -1,4 +1,5 @@
 import { readProfileMemory, writeProfileMemory } from '../services/profileMemory';
+import { reportAutoDiagnostic } from '../services/problemReportService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import { Image, useWindowDimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -119,12 +120,18 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       }
       if (live) setStories(display());
     };
-    void (async () => {
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const run = async (attempt: number) => {
+      degraded = false;
       // Adel (05/10/2026) : profil trop lent. Les « vues » ne bloquent plus le départ des autres chargements (un aller-retour de moins).
       void loadSeenStories(viewer.id).then((seenMap) => { if (live) setSeen(seenMap); }).catch(() => {});
       // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
       loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
-      const relationsPromise = loadStoryRelations(viewer.id).catch(() => { degraded = true; return { following: [] as string[], others: [] as string[] }; });
+      const relationsPromise = loadStoryRelations(viewer.id).then((relations) => { if (relations.partial) degraded = true; return relations; }).catch((error) => {
+        degraded = true;
+        reportAutoDiagnostic('STORY_RELATIONS_FAILED', error);
+        return { following: [] as string[], others: [] as string[] };
+      });
       // Branche A : bulles d'amis, liés et suggestions par style (ne dépendent que des liens).
       const bubblesPromise = relationsPromise.then(async (relations) => {
         const [friends, others, styleFriends] = await Promise.all([
@@ -190,8 +197,11 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
       if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
       setActivityKnown(true);
-    })();
-    return () => { live = false; };
+      // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
+      if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
+    };
+    void run(0);
+    return () => { live = false; if (retryTimer) clearTimeout(retryTimer); };
   }, [viewer.id, isFocused]);
 
   const open = useCallback(async (story: MusicStory) => {

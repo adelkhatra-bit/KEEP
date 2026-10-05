@@ -119,3 +119,16 @@ describe('Désabonnement uniquement depuis le profil (Adel 05/10/2026)', () => {
     expect(own).not.toContain("from('follows').delete()");
   });
 });
+
+describe('Rangée de stories : une erreur serveur n\'est plus lue comme « aucun lien » (Adel 05/10/2026)', () => {
+  const svc = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+  it('les liens indispensables en erreur lèvent l\'erreur, les bulles aussi', () => {
+    expect(svc).toContain('if (followingRes.error || followersRes.error) throw (followingRes.error || followersRes.error);');
+    expect(svc).toContain('if (error) throw error;');
+  });
+  it('une seule nouvelle tentative après 6 s et une trace [AUTO], jamais de boucle', () => {
+    expect(bar).toContain('if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);');
+    expect(bar).toContain("reportAutoDiagnostic('STORY_RELATIONS_FAILED', error)");
+  });
+});
