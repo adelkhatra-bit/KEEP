@@ -29,7 +29,7 @@ import {
   pinStoryTrack,
   type PinnableTrack,
   loadOwnStory,
-  recordStoryView,
+  watchStoryOf,
   type StoryViewer,
   enrichStoriesWithSales,
   isSaleStoryTrack,
@@ -41,6 +41,7 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
+import { formatWatchDetail } from '../services/storyActivity';
 import KeepModal from './KeepModal';
 
 /**
@@ -80,6 +81,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  const watchRef = React.useRef<ReturnType<typeof watchStoryOf>>(null);
   const [plusOpen, setPlusOpen] = useState(false);
   const [pinnable, setPinnable] = useState<PinnableTrack[] | null>(null);
   const [pinBusy, setPinBusy] = useState('');
@@ -231,6 +233,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     };
   }, [viewer.id, isFocused]);
 
+  // Liste des vues ouverte : on la rafraîchit toutes les 8 s pour voir « regarde maintenant » puis « parti il y a … » sans quitter l'écran.
+  useEffect(() => {
+    if (!viewersOpen) return;
+    const timer = setInterval(() => { loadMyStoryViewers().then(setViewers).catch(() => {}); }, 8000);
+    return () => clearInterval(timer);
+  }, [viewersOpen]);
+
+  // Départ : fermeture de la story, app mise en arrière-plan ou écran quitté -> le propriétaire voit tout de suite « parti ».
+  const stopWatch = useCallback(() => { watchRef.current?.stop(); watchRef.current = null; }, []);
+  useEffect(() => { if (!openStory) stopWatch(); }, [openStory, stopWatch]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => { if (state !== 'active') stopWatch(); });
+    return () => { sub.remove(); stopWatch(); };
+  }, [stopWatch]);
+
   const open = useCallback(async (story: MusicStory) => {
     stopTrackPreviewFast();
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
@@ -244,11 +261,14 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     if (ordered[0]?.previewUrl) void preloadTrackPreview(ordered[0].previewUrl).catch(() => {});
     setOpenStory({ ...story, tracks: ordered });
     setViewersOpen(false);
+    watchRef.current?.stop();
+    watchRef.current = null;
     if (story.profileId === viewer.id) {
       setViewers(null);
       loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
     } else {
-      void recordStoryView(story.profileId);
+      // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
+      watchRef.current = watchStoryOf(story.profileId, ordered.length);
     }
     setSeen(await markStorySeen(viewer.id, story));
   }, [viewer.id, seen]);
@@ -422,6 +442,12 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                     {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
                     <View style={styles.rowBody}>
                       <Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>
+                      {(() => { const w = formatWatchDetail(v); return (
+                        <>
+                          <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
+                          <Text style={styles.rowDetail} numberOfLines={1}>{w.detail}</Text>
+                        </>
+                      ); })()}
                       <View style={styles.rowActions}>
                         {v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}
                         {/* Adel 05/10/2026 : plus de badge « Abonné » ; on va sur le profil (seul endroit où l'on peut se désabonner). */}
@@ -495,6 +521,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         }}
         onPass={() => true}
         onOpenSourceProfile={(username) => { setOpenStory(null); onOpenProfile?.(username); }}
+        onWatchEvent={(event) => watchRef.current?.event(event)}
         onClose={() => setOpenStory(null)}
       />
     </View>
@@ -551,6 +578,9 @@ const styles = StyleSheet.create({
   viewProfileBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,0.18)', alignItems: 'center', justifyContent: 'center' },
   viewProfileText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
   rowName: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  rowStatus: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  rowStatusLive: { color: '#35e08a' },
+  rowDetail: { color: colors.textSecondary, fontSize: 12 },
   rowState: { fontSize: 13, fontWeight: '900' },
   rowStateNew: { color: '#2DE1C2' },
   rowStateSeen: { color: colors.textSecondary },

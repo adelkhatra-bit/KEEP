@@ -205,8 +205,9 @@ describe('Reprises sociales gratuites + partage en story gratuit + alerte visite
     expect(deck).toContain('pinSharedStoryTrack(track.id, fromProfileId)');
   });
   it('petite alerte « regarde ta story » reçue en direct par le propriétaire, sans toucher ni blocage', () => {
-    expect(toast).toContain("table: 'story_views'");
+    expect(toast).toContain("table: 'story_watch_sessions'");
     expect(toast).toContain('regarde ta story');
+    expect(toast).toContain('est parti');
     expect(toast).toContain('pointerEvents="none"');
     expect(dock).toContain('<StoryVisitorToast />');
   });

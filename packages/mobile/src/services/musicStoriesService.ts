@@ -2,6 +2,7 @@ import type { CanonicalTrack } from '@keep/music';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { loadMyOfferedTrackIds, loadPlaylistSaleProfilePreviewSampler } from './playlistSaleService';
+import { startStoryWatch } from './storyWatchService';
 
 /**
  * Stories musicales Loki (Adel, 05/10/2026).
@@ -497,16 +498,18 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
 export const loadOwnStory = loadProfileStory;
 
 /** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
-export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean };
+export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null };
 
-export async function recordStoryView(ownerId: string): Promise<void> {
-  if (!supabase || !ownerId) return;
-  try { await supabase.rpc('keep_record_story_view', { p_owner_id: ownerId }); } catch {}
+/** Suivi réel façon Instagram (délai de présence, secondes, musiques vues, écoute, départ) : voir services/storyWatchService.ts. */
+export function watchStoryOf(ownerId: string, tracksTotal: number) {
+  if (!supabase || !ownerId) return null;
+  const client = supabase;
+  return startStoryWatch(ownerId, tracksTotal, (fn, args) => client.rpc(fn, args));
 }
 
 export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc('keep_my_story_viewers');
+  const { data, error } = await supabase.rpc('keep_my_story_viewers_v2');
   if (error) throw error;
   return (Array.isArray(data) ? data : []).map((row: any) => ({
     viewerId: String(row.viewer_id),
@@ -515,6 +518,12 @@ export async function loadMyStoryViewers(): Promise<StoryViewer[]> {
     viewedAt: String(row.viewed_at ?? ''),
     isFollower: Boolean(row.is_follower),
     isReprise: Boolean(row.is_reprise),
+    seconds: Number(row.seconds) || 0,
+    tracksSeen: Number(row.tracks_seen) || 0,
+    tracksTotal: Number(row.tracks_total) || 0,
+    listened: Boolean(row.listened),
+    watching: Boolean(row.watching),
+    leftAt: row.left_at ? String(row.left_at) : null,
   })).filter((row) => row.viewerId && row.username);
 }
 

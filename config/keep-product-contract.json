@@ -955,6 +955,8 @@
     "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
     "storyReaderHasNoTeaserSentenceForOthers": true,
     "viewersListShowsViewProfileNotFollowBadge": true,
+    "storyViewCountsOnlyAfterPresenceMs": 2000,
+    "storyViewTracking": "Une vue de story (story_watch_sessions) ne s'écrit qu'après 2 s de présence réelle ; on suit secondes, musiques vues, écoute, départ (ping 10 s + fermeture/arrière-plan). Le propriétaire voit « regarde maintenant » / « parti il y a … » + durée + x/y musiques + écouté/pas écouté. Jamais d'enregistrement à l'ouverture immédiate.",
     "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
     "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
     "storyWindowHours": 24,

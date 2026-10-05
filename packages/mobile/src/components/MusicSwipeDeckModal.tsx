@@ -86,6 +86,8 @@ type Props = {
    * morceau suivant immédiatement et persiste PASSER en arrière-plan. */
   optimisticPass?: boolean;
   onOpenSourceProfile?: (username: string) => void;
+  /** Suivi de présence (vues de story façon Instagram) : musique affichée (« shown ») ou écoute réellement démarrée (« listen »). */
+  onWatchEvent?: (event: { type: 'shown' | 'listen'; trackId: string; index?: number; total?: number }) => void;
 };
 
 export default function MusicSwipeDeckModal({
@@ -121,8 +123,11 @@ export default function MusicSwipeDeckModal({
   onPass,
   optimisticPass = false,
   onOpenSourceProfile,
+  onWatchEvent,
 }: Props) {
   const [round, setRound] = useState(0);
+  const onWatchEventRef = useRef(onWatchEvent);
+  onWatchEventRef.current = onWatchEvent;
   const [index, setIndex] = useState(0);
   const [deckTracks, setDeckTracks] = useState<CanonicalTrack[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -180,6 +185,11 @@ export default function MusicSwipeDeckModal({
     : (current ? sourceByTrack?.[current.id] : undefined);
   const currentSourceUsername = currentSource?.username || sourceUsername;
   const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
+  const shownTrackId = visible ? current?.id : undefined;
+  useEffect(() => {
+    if (shownTrackId) onWatchEventRef.current?.({ type: 'shown', trackId: shownTrackId, index, total: deckTracks.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownTrackId]);
   const resolvedBackLabel = backLabel || (loop ? 'REVENIR AU PROFIL' : 'REVENIR À LA SESSION');
   const currentAlreadyKept = !previewOnly && alreadyKeptState === 'yes';
   const fullTrackDestination = current ? resolveTrackExternalDestination(current) : null;
@@ -443,7 +453,7 @@ export default function MusicSwipeDeckModal({
             previewUrl,
             (playing) => {
               if (playing && currentSourceProfileId) {
-                void recordProfileSwipeListen(currentSourceProfileId, current.id);
+                void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
               }
             },
             () => {
@@ -485,7 +495,7 @@ export default function MusicSwipeDeckModal({
               refreshedUrl,
               (playing) => {
                 if (playing && currentSourceProfileId) {
-                  void recordProfileSwipeListen(currentSourceProfileId, current.id);
+                  void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
                 }
               },
               () => {
@@ -522,7 +532,7 @@ export default function MusicSwipeDeckModal({
                     retryUrl,
                     (playing) => {
                       if (playing && currentSourceProfileId) {
-                        void recordProfileSwipeListen(currentSourceProfileId, current.id);
+                        void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
                       }
                     },
                     () => {
@@ -587,7 +597,7 @@ export default function MusicSwipeDeckModal({
         resolvedPreviewUrl,
         (playing) => {
           if (playing && currentSourceProfileId) {
-            void recordProfileSwipeListen(currentSourceProfileId, current.id);
+            void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
           }
         },
         () => {
@@ -619,7 +629,7 @@ export default function MusicSwipeDeckModal({
           refreshedUrl,
           (playing) => {
             if (playing && currentSourceProfileId) {
-              void recordProfileSwipeListen(currentSourceProfileId, current.id);
+              void recordProfileSwipeListen(currentSourceProfileId, current.id); onWatchEventRef.current?.({ type: 'listen', trackId: current.id });
             }
           },
           () => {

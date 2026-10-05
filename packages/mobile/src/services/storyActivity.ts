@@ -21,3 +21,26 @@ export function formatStoryAge(addedAtIso: string | null | undefined, now = Date
   if (elapsedMin < 60) return `il y a ${elapsedMin} min`;
   return `il y a ${Math.floor(elapsedMin / 60)} h`;
 }
+
+/** Détail d'une vue de story pour le propriétaire (Adel 05/10/2026) : 2 lignes courtes, façon Instagram. */
+export function formatWatchDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  return `${m} min${s % 60 ? ` ${s % 60} s` : ''}`;
+}
+
+export function formatWatchDetail(
+  v: { seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null },
+  now: number = Date.now(),
+): { status: string; detail: string } {
+  const status = v.watching
+    ? 'regarde maintenant'
+    : v.leftAt
+      ? `parti ${formatStoryAge(v.leftAt, now)}`
+      : 'a regardé';
+  const parts = [formatWatchDuration(v.seconds)];
+  if (v.tracksTotal > 0) parts.push(`${Math.min(v.tracksSeen, v.tracksTotal)}/${v.tracksTotal} musique${v.tracksTotal > 1 ? 's' : ''}`);
+  parts.push(v.listened ? 'écouté' : 'pas écouté');
+  return { status, detail: parts.join(' · ') };
+}

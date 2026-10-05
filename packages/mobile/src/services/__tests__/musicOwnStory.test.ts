@@ -108,7 +108,7 @@ describe('qui a vu ma story', () => {
   const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
   it('records a view when opening someone else\'s story and lists viewers (abonné / reprise) inside your own story viewer', () => {
     const bar = read('components', 'ProfileStoryBar.tsx');
-    expect(bar).toContain('recordStoryView(story.profileId)');
+    expect(bar).toContain('watchStoryOf(story.profileId');
     expect(bar).toContain('loadMyStoryViewers()');
     expect(bar).toContain('Abonné');
     expect(bar).toContain('Reprise');

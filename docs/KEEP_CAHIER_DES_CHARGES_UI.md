@@ -177,3 +177,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Aucune phrase d'accroche** sur la story d'un autre ; le créateur crédité est le découvreur d'origine.
 - **Bulles inactives** : un membre sans activité depuis plus de **7 jours** voit sa bulle (sans story) disparaître de la rangée, et revenir dès qu'il se reconnecte. Un membre avec une story n'est jamais masqué.
 - Contrôle bloquant : `scripts/verify-product-contract.cjs` (contrat `storiesExperience`).
+
+### §14 quinquies — Vues de story façon Instagram (Adel, 05/10/2026)
+- Une vue ne compte qu'après 2 s de présence réelle ; ouverture/fermeture immédiate = aucune vue.
+- Suivi : secondes passées, musiques vues (x/y), écoute démarrée, instant du départ (ping 10 s, fermeture, arrière-plan).
+- Propriétaire : liste « Vues de ta story » = `@pseudo`, `● regarde maintenant` ou `parti il y a …`, `N s · x/y musiques · écouté/pas écouté`, « Voir le profil ›». Alerte latérale : « 👁 @x regarde ta story » puis « @x est parti · N s ».
