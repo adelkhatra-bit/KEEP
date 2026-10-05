@@ -3,6 +3,7 @@ import { Animated, Easing, Image, LayoutAnimation, ScrollView, StyleSheet, Text,
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { isDormantMember, orderStoriesForBar, type MusicStory } from '../services/musicStoriesService';
+import { rankBadgeFor } from '../services/storyActivity';
 
 /**
  * Bulles de stories à côté de la photo du profil (Adel, 05/10/2026, inspiré
@@ -31,6 +32,8 @@ type Props = {
   followBusyId?: string | null;
   /** Vrai quand l'activité des membres est connue : sans elle, on ne range personne parmi les « endormis ». */
   activityKnown?: boolean;
+  /** Classement de la semaine par profil : médaille / étoile discrète en haut à gauche de la bulle. */
+  ranking?: Record<string, { rank: number; score: number } | undefined>;
 };
 
 const RING = 60;
@@ -75,7 +78,7 @@ function Avatar({ uri, name, ring = RING }: { uri?: string | null; name: string;
   return <View style={[box, s.avatarFallback]}><Text style={s.avatarInitial}>{(name || '?').slice(0, 1).toUpperCase()}</Text></View>;
 }
 
-export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId, activityKnown = false }: Props) {
+export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, size = RING, online, leading, onFollow, followBusyId, activityKnown = false, ranking }: Props) {
   const ITEM = size + 2;
   // Adel (05/10/2026) — EXACTEMENT comme Instagram : une seule rangée, toute d'une pièce (photo + « + » comprise), qui défile sur le côté.
   //  1. stories non vues, la plus récente d'abord (mes abonnements, puis les membres liés) ;
@@ -110,6 +113,10 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
     }
   }, [orderKey]);
 
+  const renderRank = (profileId: string) => {
+    const badge = rankBadgeFor(ranking?.[profileId]?.rank, ranking?.[profileId]?.score);
+    return badge ? <View style={s.rankBadge} testID={`story-rank-${profileId}`} accessibilityLabel={badge.label}><Text style={s.rankBadgeText}>{badge.icon}</Text></View> : null;
+  };
   const renderStory = (story: MusicStory) => {
     const withStory = hasStory(story);
     const unseen = isUnseen(story);
@@ -128,6 +135,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
             ? <StoryRing size={size} unseen={unseen}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></StoryRing>
             : <View style={[dashed ? s.suggestRing : s.friendRing, { width: size, height: size, borderRadius: size / 2 }]}><Avatar ring={size} uri={story.avatarUrl} name={story.username} /></View>}
           {online && online[story.profileId] !== undefined && !canFollow ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
+          {renderRank(story.profileId)}
           {withStory && !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
           <Text style={[s.name, withStory && !unseen && s.nameSeen, canFollow && { marginTop: 14 }]} numberOfLines={1}>{story.username}</Text>
         </TouchableOpacity>
@@ -172,6 +180,7 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
               <Avatar ring={size} uri={own.avatarUrl} name={own.username} />
             </StoryRing>
             <View style={[s.presenceDot, { backgroundColor: ONLINE_GREEN, left: size - DOT - 2, top: size - DOT - 2 }]} testID="story-presence-own" />
+            {own.story ? renderRank(own.story.profileId) : null}
             <Text style={s.name} numberOfLines={1}>Ta story</Text>
           </TouchableOpacity>
         ) : null}
@@ -199,6 +208,8 @@ const s = StyleSheet.create({
   name: { marginTop: 4, maxWidth: 84, color: colors.white, fontSize: 11, fontWeight: '800' },
   nameSeen: { opacity: 0.75 },
   seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
+  rankBadge: { position: 'absolute', left: 0, top: 0, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: '#1B1230', borderWidth: 1.5, borderColor: '#FFD166', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  rankBadgeText: { fontSize: 12, lineHeight: 15 },
   seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
   suggestRing: { borderWidth: 3, borderStyle: 'dashed', borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.22)', alignItems: 'center', justifyContent: 'center' },
   suggestCaption: { color: '#B79CFF', fontSize: 11, fontWeight: '900', marginTop: -1 },

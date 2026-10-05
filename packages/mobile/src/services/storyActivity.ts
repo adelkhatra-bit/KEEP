@@ -56,6 +56,17 @@ export function formatWatchDetail(
   return { status, detail: parts.join(' · ') };
 }
 
+/** Badge de classement sur la bulle (Adel 05/10/2026) : top 3 = médailles, top 10 = étoile ; il faut au moins 3 points sur 7 jours pour être reconnu. */
+export const RANK_MIN_SCORE = 3;
+export function rankBadgeFor(rank: number | undefined | null, score: number | undefined | null): { icon: string; label: string } | null {
+  if (!rank || !score || score < RANK_MIN_SCORE) return null;
+  if (rank === 1) return { icon: '🥇', label: 'N°1 de la semaine' };
+  if (rank === 2) return { icon: '🥈', label: 'N°2 de la semaine' };
+  if (rank === 3) return { icon: '🥉', label: 'N°3 de la semaine' };
+  if (rank <= 10) return { icon: '⭐', label: `Top 10 de la semaine · n°${rank}` };
+  return null;
+}
+
 /** Fenêtre « profil sans story du jour » (Adel 05/10/2026) : depuis quand la personne n'a rien partagé, en une ligne. */
 export function formatLastShared(lastSharedIso: string | null | undefined, now = Date.now()): string {
   if (!lastSharedIso) return 'Rien partagé pour l’instant';

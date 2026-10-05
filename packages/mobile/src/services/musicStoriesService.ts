@@ -500,6 +500,18 @@ export const loadOwnStory = loadProfileStory;
 /** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
 export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean; seconds: number; tracksSeen: number; tracksTotal: number; listened: boolean; watching: boolean; leftAt: string | null };
 
+/** Classement de la semaine (partages en story + reprises de sa musique + nouveaux abonnés) : top 50, lecture seule côté serveur. */
+export async function loadStoryRanking(): Promise<Record<string, { rank: number; score: number }>> {
+  if (!supabase) return {};
+  const { data, error } = await supabase.rpc('keep_story_ranking');
+  if (error) throw error;
+  const out: Record<string, { rank: number; score: number }> = {};
+  for (const row of (Array.isArray(data) ? data : []) as any[]) {
+    if (row?.profile_id) out[String(row.profile_id)] = { rank: Number(row.rank) || 0, score: Number(row.score) || 0 };
+  }
+  return out;
+}
+
 /** Suivi réel façon Instagram (délai de présence, secondes, musiques vues, écoute, départ) : voir services/storyWatchService.ts. */
 export function watchStoryOf(ownerId: string, tracksTotal: number) {
   if (!supabase || !ownerId) return null;

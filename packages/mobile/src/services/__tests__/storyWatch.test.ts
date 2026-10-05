@@ -141,3 +141,25 @@ describe('chronomètre 24 h de la story', () => {
     expect(fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8')).toContain('useStoryCountdown(');
   });
 });
+
+import { rankBadgeFor } from '../storyActivity';
+describe('classement de la semaine sur les bulles', () => {
+  it('médailles top 3, étoile top 10, rien en dessous ni sous 3 points', () => {
+    expect(rankBadgeFor(1, 57)?.icon).toBe('🥇');
+    expect(rankBadgeFor(2, 4)?.icon).toBe('🥈');
+    expect(rankBadgeFor(3, 3)?.icon).toBe('🥉');
+    expect(rankBadgeFor(7, 5)?.icon).toBe('⭐');
+    expect(rankBadgeFor(11, 9)).toBeNull();
+    expect(rankBadgeFor(1, 2)).toBeNull();
+    expect(rankBadgeFor(undefined, 10)).toBeNull();
+  });
+  it('la bulle affiche le badge en haut à gauche, sans toucher aux autres pastilles', () => {
+    const fs = require('fs'); const path = require('path');
+    const rail = fs.readFileSync(path.join(__dirname, '../../components/MusicStoryRail.tsx'), 'utf8');
+    const bar = fs.readFileSync(path.join(__dirname, '../../components/ProfileStoryBar.tsx'), 'utf8');
+    expect(rail).toContain('rankBadge: { position: \'absolute\', left: 0, top: 0');
+    expect(rail).toContain('testID={`story-rank-${profileId}`}');
+    expect(bar).toContain('loadStoryRanking()');
+    expect(bar).toContain('ranking={ranking}');
+  });
+});

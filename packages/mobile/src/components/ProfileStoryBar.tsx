@@ -30,6 +30,7 @@ import {
   type PinnableTrack,
   loadOwnStory,
   watchStoryOf,
+  loadStoryRanking,
   type StoryViewer,
   enrichStoriesWithSales,
   isSaleStoryTrack,
@@ -68,6 +69,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const isFocused = useIsFocused();
   const [online, setOnline] = useState<Record<string, boolean | undefined>>({});
   const [activityKnown, setActivityKnown] = useState(false);
+  const [ranking, setRanking] = useState<Record<string, { rank: number; score: number }>>({});
   const [quickUsername, setQuickUsername] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
@@ -206,6 +208,8 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
     };
+    // Classement de la semaine : badge discret sur les bulles (échec = aucun badge, jamais bloquant).
+    void loadStoryRanking().then((map) => { if (live) setRanking(map); }).catch(() => {});
     void run(0);
     return () => { live = false; if (retryTimer) clearTimeout(retryTimer); };
   }, [viewer.id, isFocused, reloadTick]);
@@ -362,6 +366,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       <View style={styles.railWrap}>
         <MusicStoryRail
           activityKnown={activityKnown}
+          ranking={ranking}
           stories={stories.map((story) => (lastSeenAt[story.profileId] !== undefined ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
           seen={seen}
           size={avatarSize}

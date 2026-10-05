@@ -182,3 +182,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Une vue ne compte qu'après 2 s de présence réelle ; ouverture/fermeture immédiate = aucune vue.
 - Suivi : secondes passées, musiques vues (x/y), écoute démarrée, instant du départ (ping 10 s, fermeture, arrière-plan).
 - Propriétaire : liste « Vues de ta story » = `@pseudo`, `● regarde maintenant` ou `parti il y a …`, `N s · x/y musiques · écouté/pas écouté`, « Voir le profil ›». Alerte latérale : « 👁 @x regarde ta story » puis « @x est parti · N s ».
+
+### §14 sexies — Classement sur les bulles (Adel, 05/10/2026)
+- Classement de la semaine (7 jours glissants) : 1 pt par partage en story, 3 pts par reprise de sa musique par un autre membre, 2 pts par nouvel abonné ; top 50 des profils publics (RPC lecture seule `keep_story_ranking`).
+- Badge discret en haut à gauche de la bulle : 🥇🥈🥉 (top 3), ⭐ (top 10) ; minimum 3 points. Aucun badge si le classement est indisponible. Ne remplace ni le ✓ « vu » (haut droite) ni la pastille de présence (bas droite).
