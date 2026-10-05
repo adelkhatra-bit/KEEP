@@ -27,6 +27,8 @@ import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stop
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { hideLokiPulseTrack, loadLokiPulse, LokiPulseItem } from '../services/lokiPulseService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
+import MusicStoryRail from '../components/MusicStoryRail';
+import { loadMusicStories, loadSeenStories, markStorySeen, MusicStory } from '../services/musicStoriesService';
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -113,6 +115,10 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [homePulseOpen, setHomePulseOpen] = useState(false);
   const [homePulseSelectedTrackId, setHomePulseSelectedTrackId] = useState<string | null>(null);
   const [homePulseFreeCost, setHomePulseFreeCost] = useState(3);
+  // Stories musicales (Adel, 05/10/2026) : rangée façon Instagram en haut d'Écouter.
+  const [musicStories, setMusicStories] = useState<MusicStory[]>([]);
+  const [musicStoriesSeen, setMusicStoriesSeen] = useState<Record<string, string>>({});
+  const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const prewarmHomePulseTrack = (trackId: string) => {
     // Le preload natif est désormais indépendant de la file de lecture :
     // dès le contact du doigt, Loki commence à préparer l'extrait choisi.
@@ -454,6 +460,24 @@ export default function HomeScreenCompact({ navigation }: any) {
     return () => { live = false; unsubscribe?.(); };
   }, [isDemoMode, navigation, user?.id]);
   useEffect(() => {
+    let live = true;
+    const refreshStories = async () => {
+      if (!user || isDemoMode || musicEngine.isDemoMode) {
+        if (live) setMusicStories([]);
+        return;
+      }
+      try {
+        const [stories, seen] = await Promise.all([loadMusicStories(user.id), loadSeenStories(user.id)]);
+        if (live) { setMusicStories(stories); setMusicStoriesSeen(seen); }
+      } catch {
+        // Une panne réseau garde la dernière rangée affichée : jamais d'écran cassé.
+      }
+    };
+    void refreshStories();
+    const unsubscribe = navigation?.addListener?.('focus', () => { void refreshStories(); });
+    return () => { live = false; unsubscribe?.(); };
+  }, [isDemoMode, navigation, user?.id]);
+  useEffect(() => {
     void refreshCreditBadge();
     const unsubscribe = navigation?.addListener?.('focus', () => { void refreshCreditBadge(); });
     return () => unsubscribe?.();
@@ -679,6 +703,17 @@ export default function HomeScreenCompact({ navigation }: any) {
             MODE DÉMO, test d'onglet et mini-tour sont tous conservés. */}
         <AuroraBackground active />
         <ScrollView style={s.main} contentContainerStyle={s.idle} showsVerticalScrollIndicator={false} bounces={false}>
+          {!isDemoMode && user ? (
+            <MusicStoryRail
+              stories={musicStories}
+              seen={musicStoriesSeen}
+              onOpen={(story) => {
+                stopTrackPreviewFast();
+                setOpenStory(story);
+                void markStorySeen(user.id, story).then(setMusicStoriesSeen).catch(() => {});
+              }}
+            />
+          ) : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -764,6 +799,29 @@ export default function HomeScreenCompact({ navigation }: any) {
           ) : null}
         </ScrollView>
         <CoachMarks visible={showCoach && !showMicPrimer} onFinish={finishCoach} />
+        <MusicSwipeDeckModal
+          visible={Boolean(openStory)}
+          tracks={openStory?.tracks ?? []}
+          initialTrackId={openStory?.tracks[0]?.id ?? null}
+          title={openStory ? `Story de @${openStory.username}` : 'Story'}
+          subtitle={`${openStory?.followed ? 'Tu le suis' : 'Même style que toi'} · GARDER coûte ${homePulseFreeCost} FREE`}
+          sourceUsername={openStory?.username}
+          sourceAvatarUrl={openStory?.avatarUrl ?? null}
+          sourceProfileId={openStory?.profileId}
+          emptyTitle="Cette story est terminée."
+          backLabel="REVENIR À LOKI MUSIC"
+          askVisibilityOnKeep
+          keepCostNotice={`GARDER ce morceau débitera ${homePulseFreeCost} FREE après ton choix Public ou Privé. PASSER reste gratuit.`}
+          keepDebitAmount={homePulseFreeCost}
+          optimisticPass
+          onKeep={async (track, visibility) => {
+            const { ok } = await keepLokiPulseTrack(track, visibility === 'PUBLIC' ? 'PUBLIC' : 'PRIVATE', homePulseFreeCost);
+            return ok;
+          }}
+          onPass={() => true}
+          onOpenSourceProfile={(username) => { setOpenStory(null); navigation?.navigate?.('PublicProfile', { username }); }}
+          onClose={() => setOpenStory(null)}
+        />
         <MusicSwipeDeckModal
           visible={homePulseOpen}
           tracks={homePulseItems.map((item) => item.track)}
