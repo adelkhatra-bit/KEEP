@@ -10,7 +10,7 @@ const viewer = { id: 'me', username: 'moi', avatarUrl: null };
 
 describe('story personnelle (loadOwnStory)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
-  const body = src.slice(src.indexOf('export async function loadOwnStory'), src.indexOf('Musiques EN VENTE dans les stories'));
+  const body = src.slice(src.indexOf('export async function loadProfileStory'), src.indexOf('Musiques EN VENTE dans les stories'));
   it('contains ONLY what the user shared publicly or put on sale (not identified/masked tracks)', () => {
     expect(body).toContain(".eq('visibility', 'PUBLIC')");
     expect(body).toContain(".eq('profile_id', viewer.id)");
