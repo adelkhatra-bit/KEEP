@@ -1,3 +1,5 @@
+import { resolveKeptTrackId } from '../services/keepTrackAction';
+import { reportAutoDiagnostic } from '../services/problemReportService';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -210,7 +212,7 @@ export default function MusicSwipeDeckModal({
     if (!track) return;
     try {
       await persistOwnTrackVisibility(track, 'PUBLIC');
-      await pinStoryTrack(track.id);
+      await pinStoryTrack(resolveKeptTrackId(track.id));
       setStoryIds((previous) => new Set(previous).add(track.id));
       setJustAdded((previous) => new Set(previous).add(track.id));
       setKeepSuccess((previous) => (previous ? { ...previous, visibility: 'PUBLIC' } : previous));
@@ -252,11 +254,12 @@ export default function MusicSwipeDeckModal({
   };
   const pinCurrentToStory = async (current: CanonicalTrack) => {
     try {
-      await pinStoryTrack(current.id);
+      await pinStoryTrack(resolveKeptTrackId(current.id));
       setStoryIds((previous) => new Set(previous).add(current.id));
       // Confirmation affichée DANS la fenêtre (une alerte native peut ne pas s'afficher au-dessus d'une fenêtre déjà ouverte).
       setJustAdded((previous) => new Set(previous).add(current.id));
     } catch (error: any) {
+      reportAutoDiagnostic('STORY_PIN_FAILED', error);
       // Gardée en Privé : le serveur exige un GARDER public -> on la rend publique (gratuit) puis on l'épingle.
       if (String(error?.message ?? error).includes('STORY_PIN_REQUIRES_PUBLIC_KEEP')) { void makeKeptPublicAndStory(); return; }
       Alert.alert('Ajout impossible', 'Seules les musiques gardées en Public peuvent aller en story. Si tu l’as gardée en Privé, repasse-la en Public depuis ton profil.', [{ text: 'OK', style: 'cancel' }]);
@@ -519,6 +522,8 @@ export default function MusicSwipeDeckModal({
                 setPreviewEnded(false);
                 return;
               }
+              // Journal automatique (Adel 05/10/2026 : « la musique ne part pas ») : on garde le code d'échec et l'hôte de l'extrait, jamais l'URL.
+              reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
               // Dans un flux automatique, un extrait réellement illisible ne
               // doit jamais bloquer l'utilisateur sur une carte silencieuse.
               setAutoplayBlocked(false);
@@ -640,13 +645,14 @@ export default function MusicSwipeDeckModal({
     actionInFlight.current = true;
     try {
       const result = await onKeep?.(keptTrack, visibility);
+      if (result === false && !isSaleStoryTrack(keptTrack)) reportAutoDiagnostic('KEEP_NOT_CONFIRMED', visibility);
       if (result !== false) {
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
         if (visibility === 'PUBLIC') {
           notifyOwnStoryChanged();
           // Adel (05/10/2026) : « il a gardé en public mais son cercle ne s'est pas allumé » -- un morceau DÉJÀ gardé auparavant garde son
           // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
-          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(keptTrack.id).catch(() => {}).finally(() => notifyOwnStoryChanged());
+          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id)).catch(() => {}).finally(() => notifyOwnStoryChanged());
         }
         if (keepDebitAmount != null && keepDebitAmount > 0) {
           setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });

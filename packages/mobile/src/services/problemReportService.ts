@@ -42,6 +42,25 @@ export async function submitProblemReport(message: string, who: ReportContext): 
   if (error) throw error;
 }
 
+/**
+ * Diagnostic automatique silencieux (Adel, 05/10/2026 : « ne reviens pas tant que t'as pas réglé ») : quand un geste clé échoue
+ * (GARDER, mise en story, son), une ligne `[AUTO]` part dans `app_problem_reports` avec l'écran et la version, SANS rien demander à
+ * l'utilisateur. Au plus 3 lignes par code et par session ; jamais bloquant ; jamais de donnée sensible (code d'erreur seulement).
+ */
+const autoReportCounts = new Map<string, number>();
+export function reportAutoDiagnostic(code: string, detail?: unknown): void {
+  try {
+    const seen = autoReportCounts.get(code) ?? 0;
+    if (seen >= 3) return;
+    autoReportCounts.set(code, seen + 1);
+    const { useUserStore } = require('../store/useUserStore');
+    const user = useUserStore.getState().user;
+    if (!user?.id || useUserStore.getState().isDemoMode || useUserStore.getState().isLocalGuest) return;
+    const raw = detail instanceof Error ? detail.message : typeof detail === 'string' ? detail : (detail as any)?.message ?? '';
+    void submitProblemReport(`[AUTO] ${code}${raw ? ` — ${String(raw).slice(0, 200)}` : ''}`, { userId: user.id, username: user.username }).catch(() => {});
+  } catch { /* le diagnostic ne doit jamais casser l'app */ }
+}
+
 // Ouverture de la fenêtre depuis n'importe où (secousse, réglages) : un seul point d'entrée.
 const openListeners = new Set<() => void>();
 export function subscribeProblemReportOpen(listener: () => void): () => void {

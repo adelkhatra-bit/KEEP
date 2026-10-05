@@ -45,7 +45,7 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
     expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
   });
   it('un GARDER public épingle aussi la musique (même déjà gardée avant) puis rallume le cercle', () => {
-    expect(deck).toContain('void pinStoryTrack(keptTrack.id)');
+    expect(deck).toContain('void pinStoryTrack(resolveKeptTrackId(keptTrack.id))');
     expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
   });
 });
@@ -83,5 +83,18 @@ describe('Mémoire locale du profil : affichage instantané (Adel 05/10/2026)', 
   it('profil et rangée de stories sont écrits en mémoire seulement avec des données serveur complètes', () => {
     expect(screen).toContain("writeProfileMemory(user.id, 'public', publicState.value)");
     expect(bar).toContain("if (!degraded) writeProfileMemory(viewer.id, 'story-rail'");
+  });
+});
+
+describe('Cas teyou : épingler l\'identifiant réellement gardé + journal automatique (Adel 05/10/2026)', () => {
+  const keep = fs.readFileSync(path.join(__dirname, '..', 'keepTrackAction.ts'), 'utf8');
+  const report = fs.readFileSync(path.join(__dirname, '..', 'problemReportService.ts'), 'utf8');
+  it('un GARDER déjà présent sous un autre identifiant (ISRC / fournisseur) épingle l\'id gardé', () => {
+    expect(keep).toContain('keptTrackIdByInputId.set(track.id, existing.match.trackId)');
+    expect(keep).toContain('export function resolveKeptTrackId');
+  });
+  it('les échecs de mise en story, de GARDER et d\'extrait laissent une trace [AUTO] sans rien demander', () => {
+    expect(report).toContain('export function reportAutoDiagnostic');
+    expect(report).toContain('if (seen >= 3) return;');
   });
 });

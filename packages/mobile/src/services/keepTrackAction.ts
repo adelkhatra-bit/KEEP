@@ -16,6 +16,13 @@ import { recordKeepDecision, updateKeepDecisionVisibility } from './keepMusicCor
 import { syncPlaylistTrack } from './keepLibraryService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
 
+// Identifiant de la musique TELLE QUE GARDÉE par l'utilisateur (peut différer de l'id affiché : même titre via un autre fournisseur).
+// La mise en story doit épingler cet identifiant-là, sinon le serveur ne trouve pas le GARDER public (Adel 05/10/2026, cas teyou).
+const keptTrackIdByInputId = new Map<string, string>();
+export function resolveKeptTrackId(inputTrackId: string): string {
+  return keptTrackIdByInputId.get(inputTrackId) ?? inputTrackId;
+}
+
 export interface CommitKeepResult {
   targetPlaylistId: string;
   playlistName: string;
@@ -64,6 +71,7 @@ export async function commitKeep(
     if (existing?.exists && existing.match) {
       // Adel (05/10/2026) : « il l'a gardé en public pour sa story mais rien ne s'est passé » -- un morceau déjà gardé en PRIVÉ restait
       // privé même quand on choisissait Public (donc jamais en story). Le choix explicite Public rend la décision existante publique, sans débit.
+      if (existing.match.trackId) keptTrackIdByInputId.set(track.id, existing.match.trackId);
       let alreadyVisibility = existing.match.visibility ?? visibility;
       if (options?.visibility === 'PUBLIC' && alreadyVisibility !== 'PUBLIC' && existing.match.decisionId) {
         const upgraded = await updateKeepDecisionVisibility(existing.match.decisionId, 'PUBLIC').catch(() => false);
@@ -101,6 +109,7 @@ export async function commitKeep(
       playlist: { provider: 'KEEP', providerPlaylistId: 'keep-profile', name: playlistName },
     });
     if (!recorded?.decisionId || !recorded?.trackId) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    keptTrackIdByInputId.set(track.id, String(recorded.trackId));
     await usePlaylistStore.getState().refresh().catch(() => {});
     return {
       targetPlaylistId: 'keep-profile',
