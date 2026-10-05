@@ -149,3 +149,14 @@ describe('« + » de la story et ordre de lecture', () => {
     expect(sql).not.toMatch(/drop\s+(table|column)/i);
   });
 });
+
+describe('slogans de story', () => {
+  it('composes a stable, personalised teaser (max 2 lines in the UI)', () => {
+    const { composeStoryTeaser } = require('../musicStoriesService');
+    expect(composeStoryTeaser('alice', 'p:2026-10-05')).toBe(composeStoryTeaser('alice', 'p:2026-10-05'));
+    expect(composeStoryTeaser('alice', 'p:2026-10-05')).toContain('alice');
+    const set = new Set(Array.from({ length: 80 }, (_, i) => composeStoryTeaser('bob', `p${i}:d`)));
+    expect(set.size).toBeGreaterThan(20);
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8')).toContain('numberOfLines={2}>{composeStoryTeaser(');
+  });
+});

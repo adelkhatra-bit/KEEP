@@ -354,3 +354,24 @@ export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTr
 export function orderTracksForPlayback<T>(tracksNewestFirst: T[], unseen: boolean): T[] {
   return unseen ? tracksNewestFirst : [...tracksNewestFirst].reverse();
 }
+
+/**
+ * Slogans de story (Adel, 05/10/2026) : une phrase courte qui donne envie de GARDER pendant qu'on écoute.
+ * Composée (ouverture + corps + conclusion), stable pour un profil et un jour donnés. Jamais plus de 2 lignes.
+ */
+const TEASER_PARTS = {
+  open: ['Coup de cœur ?', 'Ça sonne bien ?', 'Tu kiffes ?', 'Cette pépite t’attend.', 'Ne la laisse pas filer.', 'Une trouvaille à garder.', 'Écoute bien.', 'Ton oreille a du flair.'],
+  body: ['garde-la dans ta collection', 'prends-la avant les autres', 'ajoute-la à ton univers musical', 'fais-lui une place dans tes goûts', 'un GARDER et elle est à toi', 'elle ira droit dans ton profil', 'ta collection va te remercier', 'elle ne coûte que quelques FREE'],
+  tail: ['et @{u} sera crédité.', 'avec @{u} identifié dessus.', 'et fais découvrir @{u}.', 'en soutenant @{u}.', 'comme tes abonnés le font.', 'et partage-la ensuite.'],
+};
+export function composeStoryTeaser(username: string, seed: string): string {
+  const mix = (text: string) => {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+    return h >>> 0;
+  };
+  const pick = (list: string[], salt: string) => list[mix(`${salt}|${seed}`) % list.length];
+  const body = pick(TEASER_PARTS.body, 'b');
+  return `${pick(TEASER_PARTS.open, 'o')} ${body.charAt(0).toUpperCase()}${body.slice(1)} ${pick(TEASER_PARTS.tail, 't').replace('{u}', username)}`;
+}

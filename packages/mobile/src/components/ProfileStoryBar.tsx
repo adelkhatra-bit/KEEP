@@ -8,6 +8,7 @@ import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
 import { stopTrackPreviewFast } from '../services/audioPreviewService';
 import {
+  composeStoryTeaser,
   loadMyPinnableTracks,
   loadMyStoryViewers,
   orderTracksForPlayback,
@@ -224,7 +225,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         visible={Boolean(openStory)}
         tracks={openStory?.tracks ?? []}
         initialTrackId={openStory?.tracks[0]?.id ?? null}
-        headerExtra={isOwnOpen ? (
+        headerExtra={!isOwnOpen && openStory ? (
+          <Text style={styles.teaser} numberOfLines={2}>{composeStoryTeaser(openStory.username, `${openStory.profileId}:${new Date().toISOString().slice(0, 10)}`)}</Text>
+        ) : isOwnOpen ? (
           <TouchableOpacity style={styles.viewsChip} onPress={() => setViewersOpen(true)} accessibilityRole="button" accessibilityLabel="Voir qui a vu ta story" testID="story-views-chip">
             <Text style={styles.viewsChipText}>👁 {viewers ? `${viewers.length} vue${viewers.length > 1 ? 's' : ''}` : '… vues'} · Voir qui ›</Text>
           </TouchableOpacity>
@@ -283,6 +286,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 }
 
 const styles = StyleSheet.create({
+  teaser: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 8, paddingRight: 8 },
   plusBadge: { position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: 14, backgroundColor: '#7C5CFC', borderWidth: 2, borderColor: '#0B0A12', alignItems: 'center', justifyContent: 'center' },
   plusBadgeText: { color: '#FFFFFF', fontSize: 20, lineHeight: 22, fontWeight: '900' },
   plusHelp: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, marginBottom: 12 },

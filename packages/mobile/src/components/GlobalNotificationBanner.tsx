@@ -5,6 +5,7 @@ import { useUserStore } from '../store/useUserStore';
 import { useBattleAvailabilityStore } from '../store/useBattleAvailabilityStore';
 import { KeepBattleIncomingChallenge, loadIncomingBattleChallenges, respondBattleChallenge } from '../services/keepBattleLiveService';
 import { KeepBattlePendingRematch, loadMyActiveKeepBattleArena, loadPendingArenaRematches, respondKeepBattleArenaRematch } from '../services/keepBattleService';
+import { loadKeepBattleThemes, type KeepBattleTheme } from '../services/keepBattleService';
 import { navigateToBattleArena, navigateToBattleRanking, navigateToEvent, navigateToSharedProfile } from '../navigation/navigationRef';
 import { markPlaylistSalePaid } from '../services/playlistSaleService';
 import { playNotificationCue } from '../services/notificationSoundService';
@@ -111,6 +112,10 @@ export default function GlobalNotificationBanner() {
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const partiesTabOpen = useBattleAvailabilityStore((s) => s.partiesTabOpen);
   const isGameInProgress = useGameSessionStore((s) => s.isGameInProgress);
+  // Adel (05/10/2026) : une invitation Battle doit annoncer le style musical, pour pouvoir refuser si ce n'est pas le sien.
+  const [battleThemes, setBattleThemes] = useState<KeepBattleTheme[]>([]);
+  useEffect(() => { let live = true; void loadKeepBattleThemes().then((rows) => { if (live) setBattleThemes(rows); }).catch(() => {}); return () => { live = false; }; }, []);
+  const battleThemeLabel = (code: string) => battleThemes.find((theme) => theme.code === code)?.label || code;
   const [current, setCurrent] = useState<KeepNotification | null>(null);
   const [respondBusy, setRespondBusy] = useState(false);
   const [battleDecisionReady, setBattleDecisionReady] = useState(false);
@@ -524,7 +529,7 @@ export default function GlobalNotificationBanner() {
             <Text style={styles.battleLockEyebrow}>LOKI MUSIC · BATTLE</Text>
             <Text style={styles.battleInviteTitle}>{challenge ? '⚡ INVITATION BATTLE' : '🔁 REVANCHE BATTLE'}</Text>
             <Text style={styles.battleInviteBody} numberOfLines={2}>
-              {challenge ? `${challenge.username} te défie · ${challenge.roundCount} morceaux` : `${rematch?.participantUsernames?.join(', ') || 'Le groupe'} veut rejouer`}
+              {challenge ? `${challenge.username} te défie · style ${battleThemeLabel(challenge.themeCode)} · ${challenge.roundCount} morceaux` : `${rematch?.participantUsernames?.join(', ') || 'Le groupe'} veut rejouer`}
             </Text>
           </View>
           <View style={styles.battleInviteActions}>
