@@ -52,11 +52,13 @@ describe('swipe iPhone : PanResponder créé une seule fois + carte qui s\'adapt
     expect(deck).toContain('const latest = useRef({ enabled, onSwipeLeft, onSwipeRight, onSwipeUp });');
     expect(deck).toContain('const responder = useRef(PanResponder.create({');
     expect(deck).not.toContain('useMemo(() => PanResponder.create');
+    expect(deck).toContain('onStartShouldSetPanResponder: () => latest.current.enabled');
+    expect(deck).toContain('{...responder.panHandlers} style={[styles.shell');
   });
   it('the swipe card fills the free height instead of overflowing the header and the buttons', () => {
     const modal = read('MusicSwipeDeckModal.tsx');
     expect(modal).toContain("card:{flex:1,minHeight:200,maxHeight:560,");
     expect(modal).not.toContain("card:{height:500,maxHeight:'70%'");
-    expect(modal).toMatch(/hint=""\s+fill/);
+    expect(modal).toMatch(/hint=\{swipeHint\}\s+fill/);
   });
 });

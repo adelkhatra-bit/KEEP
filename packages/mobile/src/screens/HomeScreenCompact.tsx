@@ -31,6 +31,11 @@ const IDENTIFY_TICKER_MESSAGES = [
   'Ta musique est identifiée comme la première',
   'Chaque membre qui la prend te crédite sur son profil',
   'Plus on te reprend, plus ta communauté grandit',
+  'Ajoute ta photo : un profil complet inspire confiance',
+  'Choisis tes styles : Loki te trouve des pépites sur mesure',
+  'Écris ta bio et ajoute ta ville : on te trouve plus facilement',
+  'Relie tes réseaux : tes abonnés te retrouvent partout',
+  'Mets une musique en story : ton cercle s’allume 24 h',
 ];
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';

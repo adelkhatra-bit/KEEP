@@ -5,6 +5,8 @@ import { ActivityIndicator, Image, Linking, Modal, Platform, SafeAreaView, Style
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
+import MysteryArtwork from './MysteryArtwork';
+import { isSaleStoryTrack } from '../services/musicStoriesService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
@@ -698,11 +700,11 @@ export default function MusicSwipeDeckModal({
               leftLabel="PASSER"
               rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
               upLabel="SUIVANT"
-              hint=""
+              hint={swipeHint}
               fill
             >
               <View style={s.card}>
-                {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
+                {current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption="Titre masqué · garde pour révéler" /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 <View style={s.gradientFake}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
@@ -717,7 +719,6 @@ export default function MusicSwipeDeckModal({
                 </View>
               </View>
             </SwipeDeck>
-            <Text style={s.deckHint} accessibilityLabel="Gestes du swipe">{swipeHint}</Text>
           </View>
 
 

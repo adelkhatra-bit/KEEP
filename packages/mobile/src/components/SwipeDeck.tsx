@@ -89,7 +89,10 @@ export default function SwipeDeck({
   const wantsUp = (gesture: any) => Boolean(latest.current.onSwipeUp) && gesture.dy < -6 && Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.1;
 
   const responder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
+    // Adel (05/10/2026) : « n'importe où où j'appuie, je dois pouvoir swiper vers le haut comme sur l'ordinateur ».
+    // On réclame le geste dès le toucher (les boutons enfants gardent la priorité : le plus profond répond d'abord).
+    onStartShouldSetPanResponder: () => latest.current.enabled,
+    onShouldBlockNativeResponder: () => false,
     onMoveShouldSetPanResponderCapture: (_, gesture) => latest.current.enabled && (wantsHorizontal(gesture) || wantsUp(gesture)),
     onMoveShouldSetPanResponder: (_, gesture) => latest.current.enabled && (wantsHorizontal(gesture) || wantsUp(gesture)),
     onPanResponderTerminationRequest: () => false,
@@ -121,11 +124,11 @@ export default function SwipeDeck({
   const upOpacity = y.interpolate({ inputRange: [-150, -28, 0], outputRange: [1, .18, 0], extrapolate: 'clamp' });
   const upScale = y.interpolate({ inputRange: [-150, 0], outputRange: [1.08, 1], extrapolate: 'clamp' });
 
-  return <View style={[styles.shell, fill && styles.shellFill, Platform.OS === 'web' && styles.shellWeb, Platform.OS === 'web' && onSwipeUp ? styles.shellWebVertical : null]}>
+  return <View collapsable={false} {...responder.panHandlers} style={[styles.shell, fill && styles.shellFill, Platform.OS === 'web' && styles.shellWeb, Platform.OS === 'web' && onSwipeUp ? styles.shellWebVertical : null]}>
     <Animated.View style={[styles.badge, styles.leftBadge, { opacity: leftOpacity }]} pointerEvents="none"><Text style={styles.leftText}>{leftLabel}</Text></Animated.View>
     <Animated.View style={[styles.badge, styles.rightBadge, { opacity: rightOpacity }]} pointerEvents="none"><Text style={styles.rightText}>{rightLabel}</Text></Animated.View>
     {onSwipeUp ? <Animated.View style={[styles.badge, styles.upBadge, { opacity: upOpacity, transform: [{ scale: upScale }] }]} pointerEvents="none"><Text style={styles.upText}>↑ {upLabel}</Text></Animated.View> : null}
-    <Animated.View {...responder.panHandlers} style={[fill ? styles.panFill : null, { transform: [{ translateX: x }, { translateY: y }, { rotate }] }]}>{children}</Animated.View>
+    <Animated.View style={[fill ? styles.panFill : null, { transform: [{ translateX: x }, { translateY: y }, { rotate }] }]}>{children}</Animated.View>
     {enabled && hint ? <Text style={styles.hint}>{hint}</Text> : null}
   </View>;
 }
@@ -143,5 +146,5 @@ const styles = StyleSheet.create({
   leftText:{color:'#FF5F83',fontSize:12,fontWeight:'900',letterSpacing:1},
   rightText:{color:'#68F2B1',fontSize:12,fontWeight:'900',letterSpacing:1},
   upText:{color:'#FFFFFF',fontSize:11,fontWeight:'900',letterSpacing:1},
-  hint:{marginTop:14,marginBottom:14,paddingHorizontal:6,color:'#FFFFFF',fontSize:12,lineHeight:17,fontWeight:'700',textAlign:'center'},
+  hint:{marginTop:14,marginBottom:14,paddingHorizontal:6,color:'#FFFFFF',fontSize:13,lineHeight:19,fontWeight:'700',textAlign:'center'},
 });

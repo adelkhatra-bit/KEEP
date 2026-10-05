@@ -6,7 +6,7 @@ import MusicStoryRail, { StoryRing } from './MusicStoryRail';
 import MusicSwipeDeckModal from './MusicSwipeDeckModal';
 import { loadProfilePresence } from '../services/profilePresenceService';
 import { keepLokiPulseTrack } from '../services/lokiPulseKeep';
-import { stopTrackPreviewFast } from '../services/audioPreviewService';
+import { preloadTrackPreview, stopTrackPreviewFast } from '../services/audioPreviewService';
 import {
   composeStoryTeaser,
   loadMyPinnableTracks,
@@ -101,7 +101,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     setMoreOpen(null);
     // Cercle allumé → on repart de la dernière musique ; cercle éteint (déjà vue) → de la première.
     const unseenNow = (seen[story.profileId] || '') < story.latestAt;
-    setOpenStory({ ...story, tracks: orderTracksForPlayback(story.tracks, unseenNow) });
+    const ordered = orderTracksForPlayback(story.tracks, unseenNow);
+    // La musique doit démarrer tout de suite : on précharge l'extrait du premier morceau avant même l'ouverture du lecteur.
+    if (ordered[0]?.previewUrl) void preloadTrackPreview(ordered[0].previewUrl).catch(() => {});
+    setOpenStory({ ...story, tracks: ordered });
     setViewersOpen(false);
     if (story.profileId === viewer.id) {
       setViewers(null);

@@ -37,7 +37,7 @@ export default function LedTicker({ messages, testID = 'led-ticker' }: Props) {
 }
 
 const s = StyleSheet.create({
-  band: { height: 36, borderRadius: 12, overflow: 'hidden', backgroundColor: '#1B1230', borderWidth: 1, borderColor: '#7C5CFC', justifyContent: 'center', marginHorizontal: 2, marginBottom: 10 },
+  band: { height: 44, borderRadius: 12, overflow: 'hidden', backgroundColor: '#1B1230', borderWidth: 1, borderColor: '#7C5CFC', justifyContent: 'center', marginHorizontal: 2, marginBottom: 10 },
   track: { flexDirection: 'row', alignItems: 'center', width: 4000 },
-  text: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', letterSpacing: 0.3 },
+  text: { color: '#FFFFFF', fontSize: 17, lineHeight: 24, fontWeight: '800', letterSpacing: 0.3 },
 });
