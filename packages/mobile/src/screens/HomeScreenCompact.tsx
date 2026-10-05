@@ -1,4 +1,6 @@
 import LedTicker from '../components/LedTicker';
+import { composeTickerBatch } from '../services/tickerMessageLibrary';
+import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,28 +28,18 @@ import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 
-// Adel (05/10/2026) : bandelette communicative de l'accueil (défis, communauté, matchs) -- l'accueil reste épuré, les messages passent ici.
-const HOME_TICKER_MESSAGES = [
-  'Défie un ami en Battle : le meilleur oreille gagne',
-  'Gagne ta communauté : chaque reprise de ta musique te fait gagner un abonné',
-  'Match musical : trouve les membres qui aiment les mêmes sons que toi',
-  'Garde en public, ta musique entre en story pendant 24 h',
-  'Un ami a repris ta musique ? Tu es crédité comme le premier',
-  'Ouvre une session : tes morceaux sont triés, prêts à garder',
-  'Mets une pépite en vente : ta communauté l’écoute avant de la garder',
-];
+// Adel (05/10/2026) : les bandelettes (accueil + écoute) ne sont plus des listes fixes : elles viennent de la bibliothèque composée
+// `tickerMessageLibrary` (plus d'un million de messages, règles du système, défis, communauté, matchs) et ne se répètent pas d'une connexion à l'autre.
+function useTickerMessages(channel: 'home' | 'listen'): string[] {
+  const [messages, setMessages] = useState<string[]>(() => composeTickerBatch(8, `${channel}:${Date.now()}:${Math.floor(Math.random() * 1e9)}`));
+  useEffect(() => {
+    let live = true;
+    void nextTickerBatch(8, channel).then((batch) => { if (live && batch.length) setMessages(batch); }).catch(() => {});
+    return () => { live = false; };
+  }, [channel]);
+  return messages;
+}
 
-const IDENTIFY_TICKER_MESSAGES = [
-  'Bravo ! Identifie un morceau et partage-le sur ton profil',
-  'Ta musique est identifiée comme la première',
-  'Chaque membre qui la prend te crédite sur son profil',
-  'Plus on te reprend, plus ta communauté grandit',
-  'Ajoute ta photo : un profil complet inspire confiance',
-  'Choisis tes styles : Loki te trouve des pépites sur mesure',
-  'Écris ta bio et ajoute ta ville : on te trouve plus facilement',
-  'Relie tes réseaux : tes abonnés te retrouvent partout',
-  'Mets une musique en story : ton cercle s’allume 24 h',
-];
 
 const MIC_PRIMER_SEEN_KEY = '@keep/mic-primer-shown-v1';
 const COACH_SEEN_KEY = '@keep/coach-marks-seen-v1';
@@ -122,6 +114,8 @@ function formatElapsed(startedAt: string | null) {
 export default function HomeScreenCompact({ navigation }: any) {
   // La bandelette de l'accueil n'est affichée que si l'écran a la place (jamais au détriment du bouton ou du compteur).
   const roomForHomeTicker = useWindowDimensions().height >= 700;
+  const homeTicker = useTickerMessages('home');
+  const listenTicker = useTickerMessages('listen');
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
@@ -654,7 +648,7 @@ export default function HomeScreenCompact({ navigation }: any) {
         <AuroraBackground active />
         {/* Adel 05/10/2026 : Écouter = tout visible d'un coup, JAMAIS de défilement ni de swipe. La mise en page s'adapte à la taille de l'écran (orbe et espacements proportionnels). */}
         <View style={[s.main, s.idle, s.idleFit]}>
-          {roomForHomeTicker ? <LedTicker messages={HOME_TICKER_MESSAGES} testID="home-led-ticker" /> : null}
+          {roomForHomeTicker ? <LedTicker messages={homeTicker} testID="home-led-ticker" /> : null}
           <View style={s.idleHero}>
             <LokiIdleOrb />
             <LokiMusic3DTitle />
@@ -758,7 +752,7 @@ export default function HomeScreenCompact({ navigation }: any) {
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
         {/* Adel (05/10/2026) : bande lumineuse défilante -- slogans qui encouragent à identifier, partager et être crédité. */}
-        <LedTicker messages={IDENTIFY_TICKER_MESSAGES} />
+        <LedTicker messages={listenTicker} />
         <View style={s.livePanel}>
           {/* Refonte écran d'écoute (maquette validée docs/mockups/EcouteRedesign.html,
               23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore

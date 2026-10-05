@@ -11,7 +11,8 @@ describe('Accueil épuré + bandelette + robot des sessions (Adel 05/10/2026)', 
     expect(idleTop).toBeGreaterThan(0);
   });
   it('bandelette communicative sur l\'accueil, seulement si l\'écran a la place', () => {
-    expect(home).toContain('HOME_TICKER_MESSAGES');
+    expect(home).toContain("useTickerMessages('home')");
+    expect(home).toContain('tickerMessageLibrary');
     expect(home).toContain('roomForHomeTicker');
     expect(home).toContain('testID="home-led-ticker"');
   });
