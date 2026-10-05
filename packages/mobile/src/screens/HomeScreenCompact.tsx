@@ -1185,7 +1185,10 @@ function LokiIdleOrb() {
   // Petits écrans (iPhone SE, 568 px) : cercle réduit pour que le bouton
   // ACTIVER LE MICRO reste visible sans défiler au-dessus de la barre d'onglets.
   const { height } = useWindowDimensions();
-  const size = height < 720 ? 132 : 196;
+  // Adel (05/10/2026) : sur iPhone (≈844 px) tout l'écran Écouter doit tenir
+  // sans faire défiler (stories + orbe + bouton + compteur + bulles Pulse).
+  // Ordinateur (≥ 900 px de haut) : orbe inchangé.
+  const size = height < 720 ? 132 : height < 900 ? 150 : 196;
   const ring = (d: number) => ({ width: d, height: d, borderRadius: d / 2 });
   const breath = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -1377,8 +1380,10 @@ const s = StyleSheet.create({
   idleSubtitle: { color: colors.white, fontSize: 14, lineHeight: 18, fontWeight: '700', letterSpacing: 0.1, textAlign: 'center', width: '100%', maxWidth: 350, marginTop: 7, minHeight: 36 },
   idleLearnMore: { minHeight: minTouchTarget, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
   idleLearnMoreText: { color: C.purpleLight, fontSize: 12, fontWeight: '900', textDecorationLine: 'underline' },
-  idleLearnMoreSlot: { width: '100%', height: 108, alignItems: 'center', justifyContent: 'flex-start', position: 'relative' },
-  idleLearnMorePanel: { position: 'absolute', top: 2, width: '100%', maxWidth: 340, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: 'rgba(124,92,252,0.10)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.26)' },
+  // L'aide « En savoir plus » s'ouvre PAR-DESSUS (aucune place réservée) :
+  // la page ne bouge pas et 108 px sont rendus au contenu sur mobile.
+  idleLearnMoreSlot: { width: '100%', height: 0, alignItems: 'center', justifyContent: 'flex-start', position: 'relative', zIndex: 20 },
+  idleLearnMorePanel: { position: 'absolute', top: 2, width: '100%', maxWidth: 340, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: C.card, borderWidth: 1, borderColor: 'rgba(124,92,252,0.45)', zIndex: 20, elevation: 8 },
   idleLearnMoreBody: { color: colors.white, fontSize: 11.5, lineHeight: 17, fontWeight: '700', textAlign: 'center' },
   start: { width: '80%', height: 52, borderRadius: 26, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   startText: { color: colors.white, fontWeight: '900', fontSize: 15, letterSpacing: .6 },
