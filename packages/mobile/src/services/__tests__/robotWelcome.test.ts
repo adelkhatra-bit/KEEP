@@ -7,6 +7,8 @@ jest.mock('../../store/useRobotMessageStore', () => {
   let message: any = null;
   return { useRobotMessageStore: { getState: () => ({ message, say: (kind: string, text: string) => { message = { id: Date.now(), kind, text }; }, dismiss: () => { message = null; } }) } };
 });
+let mockGame = false;
+jest.mock('../../store/useGameSessionStore', () => ({ useGameSessionStore: { getState: () => ({ isGameInProgress: mockGame }) } }));
 jest.mock('../notificationSoundService', () => ({ playNotificationCue: jest.fn(async () => {}) }));
 
 const run = async (balance: number | null, profile = 'p1') => {
@@ -50,5 +52,29 @@ describe('accueil du robot à l’ouverture (Adel 05/10/2026)', () => {
     });
     expect(first).not.toBe('');
     expect(second).toBe('');
+  });
+});
+
+describe('règles de bonne conduite du robot (Adel 05/10/2026)', () => {
+  it('jamais pendant un Solo ou un Battle en ligne', async () => {
+    mockGame = true;
+    const r = await run(0, 'p-game');
+    mockGame = false;
+    expect(r.kind).toBe('');
+  });
+  it('jamais deux messages en même temps', async () => {
+    let second = true;
+    await jest.isolateModulesAsync(async () => {
+      const { robotSay } = require('../robotCoachService');
+      expect(await robotSay('GREETING', { username: 'a' })).toBe(true);
+      second = await robotSay('SESSIONS', { count: 2 });
+    });
+    expect(second).toBe(false);
+  });
+  it('la bulle se ferme en la balayant sur le côté', () => {
+    const fs = require('fs'); const path = require('path');
+    const dock = fs.readFileSync(path.join(__dirname, '../../components/GlobalChatDock.tsx'), 'utf8');
+    expect(dock).toContain('robotSwipe.panHandlers');
+    expect(dock).toContain('onMoveShouldSetPanResponderCapture');
   });
 });

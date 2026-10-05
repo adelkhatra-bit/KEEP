@@ -122,6 +122,11 @@ export default function GlobalChatDock() {
   const dismissRobotMessage = useRobotMessageStore((state) => state.dismiss);
   const robotBubble = useRef(new Animated.Value(0)).current;
   const robotShake = useRef(new Animated.Value(0)).current;
+  // Balayer la bulle sur le côté la ferme (Adel, 05/10/2026) : un geste rapide, jamais un bouton à viser.
+  const robotSwipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+    onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) > 40 || Math.abs(gesture.vx) > 0.6) useRobotMessageStore.getState().dismiss(); },
+  })).current;
   // Accueil du robot : un seul message utile à l'ouverture (solde FREE bas/vide, sinon un salut avec le pseudo), 5 s après le démarrage.
   const welcomeUserId = !isDemoMode && !isLocalGuest ? user?.id ?? null : null;
   const welcomeUsername = user?.username ?? '';
@@ -898,6 +903,7 @@ export default function GlobalChatDock() {
       {!open && !gameInProgress && robotMessage ? (
         <Animated.View
           pointerEvents="box-none"
+          {...robotSwipe.panHandlers}
           style={[styles.robotSays, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }, { rotate: robotShake.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) }] }]}
         >
           <TouchableOpacity

@@ -3,6 +3,7 @@ import { Platform, Vibration } from 'react-native';
 import { canRobotSpeak, composeRobotLine, LOW_FREE_THRESHOLD, type Memory, type RobotCoachKind } from './robotCoachMessages';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { playNotificationCue } from './notificationSoundService';
+import { useGameSessionStore } from '../store/useGameSessionStore';
 
 /**
  * Robot coach (Adel, 05/10/2026) : parle de temps en temps, jamais « prise de tête ».
@@ -11,6 +12,9 @@ import { playNotificationCue } from './notificationSoundService';
  */
 const KEY = 'keep:robot:coach:v1';
 export async function robotSay(kind: RobotCoachKind, options: { count?: number; username?: string } = {}): Promise<boolean> {
+  // Règles d'Adel (05/10/2026) : jamais pendant un Solo ni un Battle en ligne (ni message, ni vibration) ; jamais deux messages en même temps.
+  if (useGameSessionStore.getState().isGameInProgress) return false;
+  if (useRobotMessageStore.getState().message) return false;
   const now = Date.now();
   let memory: Memory = {};
   try { const raw = await AsyncStorage.getItem(KEY); memory = raw ? JSON.parse(raw) : {}; } catch { memory = {}; }
