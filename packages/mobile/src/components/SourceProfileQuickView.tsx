@@ -6,7 +6,8 @@ import { radius } from '../theme/spacing';
 import ProfileCertificationBadge from './ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
 import KeepModal from './KeepModal';
-import { formatLastShared } from '../services/storyActivity';
+import { formatLastShared, formatSince } from '../services/storyActivity';
+import { loadLastShared, loadProfilesActivity, type LastShared } from '../services/musicStoriesService';
 
 const KIND_LABELS: Record<string, string> = {
   USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
@@ -50,7 +51,8 @@ export default function SourceProfileQuickView({
   const [followBusy, setFollowBusy] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [message, setMessage] = useState('');
-  const [lastShared, setLastShared] = useState<string | null | undefined>(undefined);
+  const [lastShared, setLastShared] = useState<LastShared | null | undefined>(undefined);
+  const [activity, setActivity] = useState<{ lastActiveAt: string | null; online: boolean } | null>(null);
   // Adel (07/09/2026) : "la certif doit être présentée partout" -- cette
   // fenêtre rapide n'affichait jamais le badge de certification. Calculée en
   // direct (jamais figée) via la même RPC que le reste de l'app.
@@ -66,6 +68,7 @@ export default function SourceProfileQuickView({
     setIsFollowing(false);
     setCertificationTier('UNVERIFIED');
     setLastShared(undefined);
+    setActivity(null);
 
     const loadProfile = async () => {
       try {
@@ -80,9 +83,8 @@ export default function SourceProfileQuickView({
           const nextProfile = data[0] as QuickProfile;
           setProfile(nextProfile);
           if (noStory) {
-            Promise.resolve(client.from('story_pins').select('pinned_at').eq('profile_id', nextProfile.id).eq('masked', false).order('pinned_at', { ascending: false }).limit(1))
-              .then(({ data: pinRows }) => { if (live) setLastShared(pinRows?.[0]?.pinned_at ?? null); })
-              .catch(() => { if (live) setLastShared(null); });
+            loadLastShared(nextProfile.id).then((row) => { if (live) setLastShared(row); }).catch(() => { if (live) setLastShared(null); });
+            loadProfilesActivity([nextProfile.id]).then((map) => { if (live) setActivity(map[nextProfile.id] ?? null); }).catch(() => {});
           }
           Promise.resolve(client.rpc('keep_public_certification_tiers', { p_profile_ids: [nextProfile.id] }))
             .then(({ data: tierRows }) => {
@@ -155,7 +157,9 @@ export default function SourceProfileQuickView({
             {noStory ? (
               <View style={s.noStoryBox} testID="quick-no-story">
                 <Text style={s.noStoryTitle}>💤 Pas de story du jour</Text>
-                {lastShared !== undefined ? <Text style={s.noStoryDetail}>{formatLastShared(lastShared)}</Text> : null}
+                {lastShared ? <Text style={s.noStoryTrack} numberOfLines={1}>🎵 {lastShared.title}{lastShared.artist ? ` · ${lastShared.artist}` : ''}</Text> : null}
+                {lastShared !== undefined ? <Text style={s.noStoryDetail}>{formatLastShared(lastShared?.at ?? null)}</Text> : null}
+                {activity ? <Text style={[s.noStoryDetail, activity.online && s.noStoryOnline]} testID="quick-last-seen">{activity.online ? '● En ligne maintenant' : activity.lastActiveAt ? `Dernière connexion : ${formatSince(activity.lastActiveAt)}` : 'Jamais connecté récemment'}</Text> : null}
               </View>
             ) : null}
             {profile.bio ? <Text style={s.bio} numberOfLines={3}>{profile.bio}</Text> : null}
@@ -186,6 +190,8 @@ const s = StyleSheet.create({
   meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4,textAlign:'center'},
   noStoryBox:{alignSelf:'stretch',marginTop:10,paddingVertical:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#40354E',alignItems:'center',gap:2},
   noStoryTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
+  noStoryTrack:{color:'#FFFFFF',fontSize:12,fontWeight:'800',maxWidth:'100%'},
+  noStoryOnline:{color:'#35E08A'},
   noStoryDetail:{color:'#D9C7FF',fontSize:11,fontWeight:'700'},
   bio:{color:colors.textSecondary,fontSize:12,lineHeight:18,textAlign:'center',marginTop:10},
   message:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginVertical:8},

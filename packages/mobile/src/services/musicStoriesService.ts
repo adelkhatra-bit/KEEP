@@ -734,6 +734,22 @@ export async function loadStyleSuggestions(viewerId: string, excludeIds: string[
  */
 import { DORMANT_AFTER_DAYS, isDormantMember } from './storyActivity';
 export { DORMANT_AFTER_DAYS, isDormantMember };
+/** Dernière musique partagée par un membre (story ou GARDER public) : titre, artiste et date — pour comprendre son activité (Adel 05/10/2026). */
+export type LastShared = { at: string; title: string; artist: string };
+export async function loadLastShared(profileId: string): Promise<LastShared | null> {
+  if (!supabase || !profileId) return null;
+  const [pin, keep] = await Promise.all([
+    supabase.from('story_pins').select('pinned_at,track:tracks(title,artist)').eq('profile_id', profileId).eq('masked', false).order('pinned_at', { ascending: false }).limit(1),
+    supabase.from('keep_decisions').select('created_at,track:tracks(title,artist)').eq('profile_id', profileId).eq('decision', 'KEPT').eq('visibility', 'PUBLIC').order('created_at', { ascending: false }).limit(1),
+  ]);
+  const candidates: LastShared[] = [];
+  const add = (at: unknown, track: any) => { if (at && track?.title) candidates.push({ at: String(at), title: String(track.title), artist: String(track.artist ?? '') }); };
+  add((pin.data as any)?.[0]?.pinned_at, (pin.data as any)?.[0]?.track);
+  add((keep.data as any)?.[0]?.created_at, (keep.data as any)?.[0]?.track);
+  candidates.sort((a, b) => b.at.localeCompare(a.at));
+  return candidates[0] ?? null;
+}
+
 export async function loadProfilesActivity(profileIds: string[]): Promise<Record<string, { lastActiveAt: string | null; online: boolean }>> {
   const out: Record<string, { lastActiveAt: string | null; online: boolean }> = {};
   if (!supabase || !profileIds.length) return out;

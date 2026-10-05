@@ -67,14 +67,24 @@ export function rankBadgeFor(rank: number | undefined | null, score: number | un
   return null;
 }
 
+/** Durée écoulée courte : « il y a 5 h », « il y a 3 j », « il y a 2 sem. » (activité des membres, Adel 05/10/2026). */
+export function formatSince(iso: string | null | undefined, now = Date.now()): string | null {
+  if (!iso) return null;
+  const at = new Date(iso).getTime();
+  if (!Number.isFinite(at)) return null;
+  const minutes = Math.max(0, Math.floor((now - at) / 60000));
+  if (minutes < 1) return 'à l’instant';
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return days < 14 ? `il y a ${days} j` : `il y a ${Math.floor(days / 7)} sem.`;
+}
+
 /** Fenêtre « profil sans story du jour » (Adel 05/10/2026) : depuis quand la personne n'a rien partagé, en une ligne. */
 export function formatLastShared(lastSharedIso: string | null | undefined, now = Date.now()): string {
   if (!lastSharedIso) return 'Rien partagé pour l’instant';
   const at = new Date(lastSharedIso).getTime();
   if (!Number.isFinite(at)) return 'Rien partagé pour l’instant';
-  const hours = Math.max(0, Math.floor((now - at) / 3600000));
-  if (hours < 1) return 'Dernier partage : à l’instant';
-  if (hours < 24) return `Dernier partage : il y a ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return days < 14 ? `Dernier partage : il y a ${days} j` : `Dernier partage : il y a ${Math.floor(days / 7)} sem.`;
+  return `Dernier partage : ${formatSince(lastSharedIso, now)}`;
 }

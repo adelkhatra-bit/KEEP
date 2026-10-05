@@ -175,3 +175,24 @@ describe('barre des 5 onglets toujours visible (Adel 05/10/2026)', () => {
     expect(nav).toContain('confirmLeaveGame(go)');
   });
 });
+
+import { formatSince } from '../storyActivity';
+describe('fiche membre : dernière musique partagée + dernière connexion', () => {
+  const now = Date.parse('2026-10-05T12:00:00Z');
+  it('durées courtes', () => {
+    expect(formatSince('2026-10-05T11:59:40Z', now)).toBe('à l’instant');
+    expect(formatSince('2026-10-05T11:20:00Z', now)).toBe('il y a 40 min');
+    expect(formatSince('2026-10-05T07:00:00Z', now)).toBe('il y a 5 h');
+    expect(formatSince('2026-10-01T12:00:00Z', now)).toBe('il y a 4 j');
+    expect(formatSince(null, now)).toBeNull();
+  });
+  it('la fiche lit la dernière musique et la présence réelles', () => {
+    const fs = require('fs'); const path = require('path');
+    const quick = fs.readFileSync(path.join(__dirname, '../../components/SourceProfileQuickView.tsx'), 'utf8');
+    const svc = fs.readFileSync(path.join(__dirname, '../musicStoriesService.ts'), 'utf8');
+    expect(quick).toContain('loadLastShared(nextProfile.id)');
+    expect(quick).toContain('loadProfilesActivity([nextProfile.id])');
+    expect(quick).toContain('testID="quick-last-seen"');
+    expect(svc).toContain("export async function loadLastShared");
+  });
+});
