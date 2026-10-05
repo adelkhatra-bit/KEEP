@@ -183,8 +183,8 @@ describe('Demo keep confirmation + visited profile premium design', () => {
 
   it('uses the kept library as the single source for the Styles count', () => {
     expect(myMusic).toContain("const STYLE_ID_PREFIX = 'keep-style:'");
-    expect(myMusic).toContain('const profileStyleGroups = useMemo(() => {');
-    expect(myMusic).toContain('for (const track of localKeptTracks)');
+    expect(myMusic).toContain('const profileStyleGroups = useMemo(() => groupTracksByStyle(localKeptTracks), [localKeptTracks]);');
+    expect(fs.readFileSync(path.join(__dirname, '../../services/styleGroups.ts'), 'utf8')).toContain('for (const track of tracks)');
     expect(myMusic).toContain("if (playlist.id.startsWith(STYLE_ID_PREFIX))");
     expect(myMusic).toContain('MES STYLES · {stylePlaylists.length}');
     expect(myMusic).toContain('SUGGESTIONS AUTO · {automaticStylePlaylists.length}');

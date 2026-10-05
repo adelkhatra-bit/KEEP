@@ -1,3 +1,4 @@
+import { groupTracksByStyle } from '../services/styleGroups';
 import React, { useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PersonalThemeBackdrop from '../components/PersonalThemeBackdrop';
@@ -151,6 +152,13 @@ export default function MyMusicScreen({ navigation, route }: any) {
   const [analysisExpanded, setAnalysisExpanded] = useState(false);
   const [genresExpanded, setGenresExpanded] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  // Retour clair à la fin du classement (Adel 05/10/2026) : le bouton affiche « TERMINÉ » quelques secondes, avec le résultat.
+  const [sortDone, setSortDone] = useState(false);
+  useEffect(() => {
+    if (!sortDone) return undefined;
+    const timer = setTimeout(() => setSortDone(false), 6000);
+    return () => clearTimeout(timer);
+  }, [sortDone]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tracksByPlaylist, setTracksByPlaylist] = useState<Record<string, CanonicalTrack[]>>({});
   const [loadingPlaylist, setLoadingPlaylist] = useState<string | null>(null);
@@ -657,22 +665,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
   // Source unique des Styles : mêmes morceaux gardés que le profil.
   // Les Vibes automatiques restent distinctes et sont rendues séparément
   // pour éviter de confondre "3 Vibes Auto" avec "X styles musicaux".
-  const profileStyleGroups = useMemo(() => {
-    const map = new Map<string, { label: string; tracks: CanonicalTrack[] }>();
-    for (const track of localKeptTracks) {
-      const genres = (track.genres ?? []).map((genre) => genre.trim()).filter(Boolean);
-      const labels = genres.length ? genres : ['Sans genre'];
-      for (const genre of labels) {
-        const key = genre.toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
-        const current = map.get(key) ?? { label: genre, tracks: [] };
-        if (!current.tracks.some((row) => row.id === track.id)) current.tracks.push(track);
-        map.set(key, current);
-      }
-    }
-    return Array.from(map.values())
-      .sort((a, b) => b.tracks.length - a.tracks.length || a.label.localeCompare(b.label))
-      .map(({ label, tracks }) => ({ genre: label, tracks }));
-  }, [localKeptTracks]);
+  const profileStyleGroups = useMemo(() => groupTracksByStyle(localKeptTracks), [localKeptTracks]);
 
   const stylePlaylists = useMemo<ProviderPlaylist[]>(
     () => profileStyleGroups.map(({ genre, tracks }) => ({
@@ -806,6 +799,7 @@ export default function MyMusicScreen({ navigation, route }: any) {
       await analyzeCurrentLibrary();
       const nextGate = await getSmartSortAccess(false).catch(() => gate);
       setSortAccess(nextGate);
+      setSortDone(true);
     } catch (e: any) {
       Alert.alert('Vibes Loki Music', e?.message ?? 'Impossible de ranger automatiquement la bibliothèque pour le moment.');
     } finally {
@@ -1577,10 +1571,10 @@ export default function MyMusicScreen({ navigation, route }: any) {
       {workspaceTab === 'LIBRARY' && mobileSection === 'ORGANIZE' && activeTab === 'VIBES' ? <View style={styles.organizeAction}>
         <View style={styles.organizeActionCopy}>
           <Text style={styles.vibeBarTitle}>{sortGateLabel(sortAccess)}</Text>
-          <Text style={styles.vibeBarHint}>{sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
+          <Text style={styles.vibeBarHint}>{sortDone ? `Classement à jour · ${localKeptTracks.length} morceaux · ${stylePlaylists.length} style${stylePlaylists.length > 1 ? 's' : ''}.` : sortAccess?.unlimited ? 'Loki Music classe automatiquement tes morceaux par style.' : sortAccess?.allowed ? 'Analyse tes morceaux et mets les styles à jour.' : 'Cette fonction nécessite Creator Pro ou un essai débloqué.'}</Text>
         </View>
-        <TouchableOpacity style={[styles.organizeActionButton, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing} accessibilityRole="button" accessibilityLabel="Mettre à jour le classement musical">
-          {analyzing ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.organizeActionButtonText}>{sortAccess?.allowed || sortAccess?.unlimited ? 'METTRE À JOUR' : 'DÉBLOQUER'}</Text>}
+        <TouchableOpacity style={[styles.organizeActionButton, sortDone && styles.organizeActionButtonDone, sortAccess && !sortAccess.allowed && !sortAccess.unlimited && styles.vibeBarLocked]} onPress={() => void runOrganizeAnalysis()} disabled={analyzing} accessibilityRole="button" accessibilityLabel="Mettre à jour le classement musical">
+          {analyzing ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.organizeActionButtonText}>{sortDone ? '✓ TERMINÉ' : sortAccess?.allowed || sortAccess?.unlimited ? 'METTRE À JOUR' : 'DÉBLOQUER'}</Text>}
         </TouchableOpacity>
       </View> : null}
 
@@ -2108,7 +2102,7 @@ const styles = StyleSheet.create({
   mobileAccordionChevron:{color:colors.textPrimary,fontSize:18,fontWeight:'900'},
   mobileAccordionBody:{borderWidth:1,borderColor:colors.primary,borderRadius:15,overflow:'hidden',backgroundColor:colors.backgroundCard},
   tabs:{marginTop:10,paddingHorizontal:10,flexDirection:'row',borderBottomWidth:1,borderBottomColor:colors.border},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',paddingTop:8,paddingBottom:12,position:'relative'},tabText:{color:colors.textMuted,fontSize:12,fontWeight:'700'},tabTextOn:{color:colors.textPrimary},tabIndicator:{position:'absolute',bottom:-1,height:2,width:'70%',backgroundColor:colors.primaryLight,borderRadius:2},
-  organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
+  organizeAction:{marginHorizontal:0,marginBottom:10,borderWidth:1,borderColor:colors.primary,borderRadius:16,backgroundColor:colors.backgroundCard,padding:13,gap:11},organizeActionCopy:{gap:4},organizeActionButton:{minHeight:44,borderRadius:13,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:16},organizeActionButtonDone:{backgroundColor:'#1F9D6B'},organizeActionButtonText:{color:colors.white,fontSize:12,fontWeight:'900',letterSpacing:.4},vibeBar:{marginHorizontal:14,marginTop:8,minHeight:44,borderRadius:14,borderWidth:1,borderColor:colors.primary,backgroundColor:'#171020',paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:8},vibeBarLocked:{borderColor:'#493369'},vibeBarCopy:{flex:1},vibeBarTitle:{color:colors.primaryLight,fontSize:13,fontWeight:'900'},vibeBarHint:{color:'#FFFFFF',fontSize:11,lineHeight:15,marginTop:2,fontWeight:'700'},vibeArrow:{fontSize:16},
   styleCountHeader:{marginBottom:10,padding:12,borderRadius:18,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary},
   styleCountTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',letterSpacing:.5},
   styleCountHint:{color:colors.textMutedGrey,fontSize:11,lineHeight:16,marginTop:3},
@@ -2134,7 +2128,7 @@ const styles = StyleSheet.create({
   originFilters:{width:'100%',flexDirection:'row',gap:6},originFilterButton:{flex:1,minHeight:36,paddingHorizontal:5,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},originFilterButtonOn:{borderColor:colors.primaryLight,backgroundColor:colors.backgroundCard},originFilterText:{color:colors.textMuted,fontSize:8,fontWeight:'900',textAlign:'center'},originFilterTextOn:{color:colors.textPrimary},
   originSection:{borderRadius:18,borderWidth:1,overflow:'hidden',marginBottom:10},originSectionOwn:{borderColor:colors.keep,backgroundColor:colors.successFaint},originSectionSocial:{borderColor:colors.primary,backgroundColor:colors.primaryFaint,marginTop:10},originSectionHeader:{minHeight:52,paddingHorizontal:14,paddingVertical:10,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},originSectionTitleRow:{flexDirection:'row',alignItems:'center',gap:7,flex:1,minWidth:0},originSectionIcon:{fontSize:15},originSectionTitle:{fontSize:14,fontWeight:'900',flexShrink:1},originSectionTitleOwn:{color:colors.keep},originSectionTitleSocial:{color:colors.primaryLight},originSectionRight:{flexDirection:'row',alignItems:'center',gap:7},originSectionCount:{fontSize:10,fontWeight:'900'},originSectionCountOwn:{color:colors.keep},originSectionCountSocial:{color:colors.primaryLight},originSectionChevron:{color:colors.primaryLight,fontSize:18,fontWeight:'900'},originSectionBody:{paddingHorizontal:8,paddingBottom:8,gap:6},
 
-  analysisSummary:{marginHorizontal:14,marginTop:6,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
+  analysisSummary:{marginHorizontal:14,marginTop:6,marginBottom:10,minHeight:44,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:8},analysisSummaryText:{flex:1,color:colors.textPrimary,fontSize:10,lineHeight:14,fontWeight:'800'},analysisChevron:{color:colors.primaryLight,fontSize:16,fontWeight:'900'},analysisCard:{marginHorizontal:14,marginTop:4,backgroundColor:colors.backgroundElevated,borderRadius:12,padding:10,gap:4},analysisLine:{color:colors.textSecondary,fontSize:11},genreToggle:{flexDirection:'row',alignItems:'center',gap:6},genreLine:{flex:1,color:colors.primaryLight,fontSize:10,lineHeight:15},genreChevron:{color:colors.primaryLight,fontSize:14,fontWeight:'900'},genreChips:{flexDirection:'row',flexWrap:'wrap',gap:6,marginTop:2},genreChip:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,backgroundColor:'#2A203A',borderWidth:1,borderColor:'#7652AF'},genreChipText:{color:'#C9B3FF',fontSize:9,fontWeight:'800'},analysisHelp:{color:colors.textMuted,fontSize:9,lineHeight:14},
   selectionToolbar:{marginBottom:8,padding:10,borderRadius:14,borderWidth:1,borderColor:'#6F5520',backgroundColor:'#211A0C',flexDirection:'row',alignItems:'center',gap:7,flexWrap:'wrap'},selectionStartButton:{flex:1,minHeight:44,borderRadius:20,backgroundColor:'#3D2F10',borderWidth:1,borderColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionStartText:{color:'#FFD166',fontSize:10,fontWeight:'900'},selectionToolbarCopy:{flex:1,minWidth:150},selectionToolbarTitle:{color:'#FFFFFF',fontSize:11,fontWeight:'900'},selectionCancelButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:'#6A6076',alignItems:'center',justifyContent:'center'},selectionCancelText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},selectionAddButton:{minHeight:36,paddingHorizontal:9,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},selectionAddText:{color:'#FFF',fontSize:8,fontWeight:'900'},selectionCreateButton:{flex:1,minHeight:54,paddingHorizontal:14,borderRadius:16,backgroundColor:'#FFD166',alignItems:'center',justifyContent:'center'},selectionCreateDisabled:{opacity:.38},selectionCreateText:{color:'#1B1405',fontSize:11,fontWeight:'900',letterSpacing:.3},selectionCreateSubtext:{color:'#5A420D',fontSize:9,fontWeight:'800',marginTop:2},selectionCheck:{minWidth:70,height:34,paddingHorizontal:7,borderRadius:17,borderWidth:2,borderColor:'#7C7088',alignItems:'center',justifyContent:'center'},selectionCheckOn:{backgroundColor:'#6F5520',borderColor:'#FFD166'},selectionCheckAlreadySold:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckDisabled:{opacity:.35},selectionCheckLocked:{opacity:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},selectionCheckText:{color:'#FFFFFF',fontSize:8,fontWeight:'900'},
   saleWizardIntro:{marginHorizontal:2,marginBottom:12,padding:14,borderRadius:18,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.primaryFaint},saleWizardTopRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},saleWizardStep:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:1},saleWizardCount:{color:colors.keep,fontSize:10,fontWeight:'900'},saleWizardTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:7},saleWizardHint:{color:colors.textMutedGrey,fontSize:12,lineHeight:18,marginTop:5},
   // (21/09/2026) : "ce bouton descend au fur et à mesure" -- barre de
