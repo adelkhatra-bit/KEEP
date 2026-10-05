@@ -1011,8 +1011,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
     const inSale = privateEntries.filter((entry) => Boolean(offeredTrackIds[entry.track.id]));
     const byChoice = privateEntries.filter((entry) => !offeredTrackIds[entry.track.id]);
     const lines: string[] = [];
-    if (inSale.length) lines.push(`• ${inSale.length} masqué${inSale.length > 1 ? 's' : ''} automatiquement parce qu’${inSale.length > 1 ? 'ils sont' : 'il est'} EN VENTE. Retire-${inSale.length > 1 ? 'les' : 'le'} de l’offre pour ${inSale.length > 1 ? 'les' : 'le'} remettre au public.`);
-    if (byChoice.length) lines.push(`• ${byChoice.length} privé${byChoice.length > 1 ? 's' : ''} parce que TU l’as décidé (pas en vente) : tu peux ${byChoice.length > 1 ? 'les' : 'le'} remettre en public ici.`);
+    if (inSale.length) lines.push(`• ${inSale.length} masqué${inSale.length > 1 ? 's' : ''} automatiquement par le système parce qu’${inSale.length > 1 ? 'ils sont' : 'il est'} EN VENTE. Retire-${inSale.length > 1 ? 'les' : 'le'} de l’offre pour ${inSale.length > 1 ? 'les' : 'le'} remettre au public.`);
+    if (byChoice.length) lines.push(`• ${byChoice.length} masqué${byChoice.length > 1 ? 's' : ''} VOLONTAIREMENT par toi (pas en vente) : ni profil ni story ne les montrent ; tu peux ${byChoice.length > 1 ? 'les' : 'le'} remettre en public ici.`);
     if (!lines.length) lines.push('Seul toi vois ces morceaux.');
     const visitorsNote = badgeLabel === 'PRIVÉ' ? 'Les visiteurs ne voient aucun morceau de ce style.' : 'Les visiteurs voient uniquement les morceaux publics.';
     const buttons: Array<{ text: string; style?: 'cancel' | 'default'; onPress?: () => void }> = [{ text: 'OK', style: 'cancel' }];
@@ -1034,6 +1034,41 @@ export default function ProfilePublicScreen({ navigation }: any) {
       });
     }
     Alert.alert(`Style ${badgeLabel === 'PRIVÉ' ? 'privé' : 'mixte'} · ${folder.genre}`, `${lines.join('\n')}\n\n${visitorsNote}`, buttons as any);
+  };
+  // Adel (05/10/2026) : deux privés DIFFÉRENTS -- « en vente » (masquée automatiquement par le système) et « masquée volontairement »
+  // (je veux la garder pour moi : ni profil, ni story, rien). Au clic, l'utilisateur doit toujours comprendre laquelle des deux.
+  const explainTrackVisibility = (track: CanonicalTrack) => {
+    const offer = offeredTrackIds[track.id] as { playlistName?: string } | undefined;
+    if (offer) {
+      Alert.alert(
+        'Musique EN VENTE',
+        `« ${track.title} » est masquée automatiquement parce qu’elle est en vente${offer.playlistName ? ` dans « ${offer.playlistName} »` : ''}.\n\nLes visiteurs n’en voient ni le titre ni la jaquette ; sa place dans ta story reste masquée et mène à ta boutique.\n\nPour la remettre au public, retire-la de l’offre.`,
+        [{ text: 'OK', style: 'cancel' }],
+      );
+      return;
+    }
+    const buttons: Array<{ text: string; style?: 'cancel' | 'default'; onPress?: () => void }> = [{ text: 'OK', style: 'cancel' }];
+    if (!isDemoMode && !isLocalGuest) {
+      buttons.unshift({
+        text: 'REPASSER EN PUBLIC',
+        onPress: () => {
+          void (async () => {
+            try {
+              await persistOwnTrackVisibility(track, 'PUBLIC');
+              setServerOwnKeeps(await loadOwnProfileKeeps());
+              Alert.alert('Remise en public', `« ${track.title} » est visible sur ton profil et entre dans ta story pour 24 h.`, [{ text: 'OK', style: 'cancel' }]);
+            } catch {
+              Alert.alert('Action impossible', 'La visibilité n’a pas pu être modifiée. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+            }
+          })();
+        },
+      });
+    }
+    Alert.alert(
+      'Musique masquée volontairement',
+      `Tu as choisi de garder « ${track.title} » en privé, et elle n’est pas en vente.\n\nElle reste uniquement pour toi : ni les visiteurs, ni tes abonnés, ni ta story ne la voient jamais.\n\nSi tu la repasses en public, elle entrera automatiquement dans ta story pour 24 h.`,
+      buttons as any,
+    );
   };
   const ownTrackIdentityKeys = useMemo(() => new Set(profileKeptTracks.map((entry) => {
     const title = entry.track.title.trim().toLocaleLowerCase('fr-FR').replace(/\s+/g, ' ');
@@ -1501,6 +1536,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         artist={track.artist}
         dimmed={isPrivate}
         lockIcon={isPrivate}
+        onLockPress={isPrivate ? () => explainTrackVisibility(track) : undefined}
+        badge={isPrivate ? { label: offeredTrackIds[track.id] ? '🏷 EN VENTE' : '🔒 MASQUÉE', onPress: () => explainTrackVisibility(track) } : undefined}
         playSlot={<TrackPreviewButton trackKey={track.id || key} previewUrl={track.previewUrl} square />}
         actions={[{
           key: 'share',

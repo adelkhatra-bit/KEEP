@@ -227,3 +227,17 @@ describe('Mettre en story : retour clair, cercle allumé, musique en vente (Adel
     expect(bar).toContain('offeredIds.has(track.trackId)');
   });
 });
+
+describe('Privé en vente ≠ masqué volontairement (Adel 05/10/2026)', () => {
+  const fs4 = require('fs'); const path4 = require('path');
+  const screen = fs4.readFileSync(path4.join(__dirname, '..', '..', 'screens', 'ProfilePublicScreen.tsx'), 'utf8');
+  const svc = fs4.readFileSync(path4.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+  it('explique au clic la raison exacte (en vente / volontaire) sur chaque musique privée', () => {
+    expect(screen).toContain("'Musique EN VENTE'");
+    expect(screen).toContain("'Musique masquée volontairement'");
+    expect(screen).toContain('onLockPress={isPrivate');
+  });
+  it('seules les musiques PUBLIC entrent dans la story ; le privé volontaire n\'y entre jamais', () => {
+    expect(svc).toContain(".eq('visibility', 'PUBLIC')");
+  });
+});

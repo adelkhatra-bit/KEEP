@@ -42,6 +42,8 @@ export type TrackActionRowProps = {
   artist: string;
   dimmed?: boolean;
   lockIcon?: boolean;
+  /** Appui sur le cadenas : explication claire de la raison du statut privé. */
+  onLockPress?: () => void;
   /**
    * Adel (21/09/2026) : "le morceau en vente doit rester visible dans la
    * liste, avec un badge EN VENTE ... il ne doit pas être caché." Pastille
@@ -75,6 +77,7 @@ export default function TrackActionRow({
   artist,
   dimmed = false,
   lockIcon = false,
+  onLockPress,
   badge,
   originBadge,
   playSlot,
@@ -111,7 +114,9 @@ export default function TrackActionRow({
             ) : null}
           </View>
         </View>
-        {lockIcon ? <Text style={styles.lock} accessibilityLabel="Morceau privé">🔒</Text> : null}
+        {lockIcon ? (onLockPress
+          ? <TouchableOpacity onPress={onLockPress} style={styles.lockTouch} accessibilityRole="button" accessibilityLabel="Morceau privé : appuyer pour comprendre pourquoi"><Text style={styles.lock}>🔒</Text></TouchableOpacity>
+          : <Text style={styles.lock} accessibilityLabel="Morceau privé">🔒</Text>) : null}
         {playSlot}
         {actions.map((action) => (
           <TouchableOpacity
@@ -165,6 +170,7 @@ const styles = StyleSheet.create({
   badge: { flexShrink: 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: `${colors.success}22`, borderWidth: 1, borderColor: colors.success },
   badgeText: { color: colors.success, fontSize: 9, fontWeight: '900' },
   lock: { fontSize: 13 },
+  lockTouch: { minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   square: { width: SQUARE, height: SQUARE, flexShrink: 0, borderRadius: 10, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
   squareIcon: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   squareCounter: { color: colors.textMuted, fontSize: 8, fontWeight: '800', marginTop: 1 },
