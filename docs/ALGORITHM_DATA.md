@@ -31,3 +31,7 @@ Compteurs « ❤ N · 😐 K · 👎 M » sur sa story (RPC `keep_my_track_react
 3. Recommandations d'**achat** : collections en vente proches de mon goût (FREE), avec le raisonnement affiché.
 4. Tableau de bord Super Admin : genres montants, taux de ❤/😐/👎, couverture des recommandations, rétention par cohorte.
 5. Moteur de sessions « Pour toi » (file dédiée) + notifications intelligentes plafonnées (même cadre que le robot).
+
+## « Mon oreille » (IDEA-113)
+- `keep_my_ear_report()` (lecture seule) : réactions données, repérages précoces (❤ ou garde parmi les 3 premiers sur une musique à ≥ 3), styles explorés, ❤ reçus, abonnés (30 j), ❤/😐/👎 par style sur mes partages, styles où je suis dans les 3 premiers (≥ 3 personnes), goûts de mes abonnés.
+- Barème côté app (`services/earReport.ts`) : à valider avec Adel avant toute récompense réelle (aucune récompense financière branchée).

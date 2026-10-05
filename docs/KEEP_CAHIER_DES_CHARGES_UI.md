@@ -227,3 +227,10 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Changer d'avis / des-aimer (impératif)** : un appui sur la réaction allumée la retire et les trois choix reviennent. Retrait = suppression de SA PROPRE ligne (RLS), seul usage autorisé par une exception ciblée du garde-fou (`explicitDeletionExceptions` dans `config/keep-data-preservation.json`, marqueur `KEEP_DATA_DELETE_EXCEPTION: user-removes-own-reaction`).
 - Les réactions ne s'enregistrent que sur les musiques du catalogue Loki (UUID) ; sinon les boutons sont masqués.
 - Recommandations automatiques « machine de guerre » : voir `docs/ALGORITHM_DATA.md` (profil de goût + `keep_recommend_for_me` en tête du Loki Pulse).
+
+### §14 quaterdecies — « Mon oreille » : monde des connaisseurs + fenêtre des vues agrandie (Adel, 05/10/2026, IDEA-113)
+- La fenêtre « Vues de ta story » est plus grande et plus lisible (hauteur 85 %, noms 18, détails 14, avatars 52, boutons 42 px) ; le contenu et l'ordre ne changent pas.
+- Menu ☰ > PROFIL > **Mon oreille 👂** (`EarReportModal`, source unique `services/earReport.ts` pur + RPC lecture seule `keep_my_ear_report`).
+- Flair : réagir +1, repérer tôt (≤ 3e à ❤/garder une musique qui atteint ≥ 3) +5 / +3, être parmi les 3 premiers sur un style +10. Niveaux : Oreille curieuse 0 · fine 10 · experte 30 · d'or 80 · légendaire 200.
+- Défis personnalisés construits depuis les statistiques de la personne (le plus proche à atteindre en premier). Statistique de style : ❤ 😐 👎 reçus par style sur ses partages + % d'approbation.
+- Rapport de communauté : points forts, points faibles, opportunités ; chaque phrase vient d'un chiffre réel, jamais inventée. Lecture seule, aucune donnée modifiée.

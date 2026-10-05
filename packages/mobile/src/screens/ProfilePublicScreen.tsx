@@ -71,6 +71,7 @@ import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import NotificationSidePanel from '../components/NotificationSidePanel';
 import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
 import KeepModal from '../components/KeepModal';
+import EarReportModal from '../components/EarReportModal';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -86,7 +87,7 @@ type AccountMode = 'create' | 'login';
 type ProfileMenuItem = { key: string; icon: string; label: string; hint: string };
 // Couleur propre à chaque entrée du menu ☰ (contraste garanti sur fond sombre).
 const MENU_ICON_COLORS: Record<string, string> = {
-  profile: '#60A5FA', identityShare: '#2DE1C2', musicTaste: '#F472B6', publicProfile: '#38BDF8', chatSettings: '#A78BFA',
+  profile: '#60A5FA', identityShare: '#2DE1C2', musicTaste: '#F472B6', ear: '#FFD166', publicProfile: '#38BDF8', chatSettings: '#A78BFA',
   music: '#4ADE80', offers: '#FBBF24', sellPlaylists: '#FB923C', receipts: '#2DD4BF', creator: '#E879F9', help: '#F87171',
 };
 const menuIconColor = (key: string) => MENU_ICON_COLORS[key] || '#A78BFA';
@@ -102,6 +103,7 @@ const MENU_GROUPS: ProfileMenuGroup[] = [
       { key: 'profile', icon: '👤', label: 'Réglages du profil', hint: 'Photo · pseudo · bio · ville · pays' },
       { key: 'identityShare', icon: '▦', label: 'Carte', hint: 'QR · lien · partage' },
       { key: 'musicTaste', icon: '♫', label: 'Mes goûts musicaux', hint: 'Styles · langues · pays · Loki Pulse' },
+      { key: 'ear', icon: '👂', label: 'Mon oreille', hint: 'Niveau · défis · rapport de communauté' },
       { key: 'publicProfile', icon: '🌐', label: 'Réseaux & site web', hint: 'Instagram · TikTok · Snapchat · YouTube · X · Facebook' },
       { key: 'chatSettings', icon: '💬', label: 'Messagerie', hint: 'Pages · côté · hauteur · alertes' },
     ],
@@ -555,6 +557,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   const [lokiPulseSwipeOpen, setLokiPulseSwipeOpen] = useState(false);
   const [lokiPulseSelectedTrackId, setLokiPulseSelectedTrackId] = useState<string | null>(null);
   const [pulseTasteOpen, setPulseTasteOpen] = useState(false);
+  const [earOpen, setEarOpen] = useState(false);
   const lokiPulseGlow = useRef(new Animated.Value(0)).current;
   const lokiPulseScrollRef = useRef<ScrollView | null>(null);
   const lokiPulseAutoIndex = useRef(0);
@@ -1790,6 +1793,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       else setPulseTasteOpen(true);
       return;
     }
+    if (key === 'ear') {
+      setMenuOpen(false);
+      setExpandedMenuItem(null);
+      if (Platform.OS === 'ios') setTimeout(() => setEarOpen(true), 450);
+      else setEarOpen(true);
+      return;
+    }
     if (key === 'chatSettings') {
       setMenuOpen(false);
       setExpandedMenuItem(null);
@@ -2537,6 +2547,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
         setLokiPulseSelectedTrackId(null);
       }}
     />
+
+    <EarReportModal visible={earOpen} onClose={() => setEarOpen(false)} />
 
     <KeepModal visible={pulseTasteOpen} transparent animationType="slide" onRequestClose={() => setPulseTasteOpen(false)}>
       <View style={s.pulseTasteBackdrop}>
