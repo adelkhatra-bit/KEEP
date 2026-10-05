@@ -562,6 +562,11 @@ export async function loadMyStoryTrackIds(): Promise<Set<string>> {
   try {
     for (const sample of await loadPlaylistSaleProfilePreviewSampler(uid)) if (sample?.trackId) ids.add(String(sample.trackId));
   } catch { /* boutique inconnue : on se fie aux GARDER publics et aux épingles */ }
+  // Adel (05/10/2026) : « ça m'a proposé de mettre en story des musiques que j'avais déjà » -> une collection mise en vente < 24 h est
+  // désormais ENTIÈRE dans la story : tous ses titres comptent comme déjà en story.
+  try {
+    for (const rows of (await loadSaleCollectionStoryTracks([uid])).values()) for (const row of rows) ids.add(row.trackId);
+  } catch { /* collections inconnues */ }
   return ids;
 }
 

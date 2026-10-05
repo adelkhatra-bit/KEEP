@@ -28,3 +28,10 @@ describe('Collection entière en story (Adel 05/10/2026)', () => {
     expect(svc).toContain('mergeSaleTracks(withPins, collection, MAX_COLLECTION_TRACKS_PER_STORY)');
   });
 });
+
+describe('Collection déjà en story = bouton « + » éteint (Adel 05/10/2026)', () => {
+  it('loadMyStoryTrackIds compte les titres de mes collections < 24 h', () => {
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'musicStoriesService.ts'), 'utf8');
+    expect(svc).toContain('loadSaleCollectionStoryTracks([uid])');
+  });
+});
