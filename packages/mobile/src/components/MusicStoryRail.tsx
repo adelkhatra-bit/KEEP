@@ -88,16 +88,15 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
   const byLastSeen = (a: MusicStory, b: MusicStory) => (b.lastSeenAt || '').localeCompare(a.lastSeenAt || '');
   const unseenFollowed = orderStoriesForBar(stories.filter((story) => story.followed && isUnseen(story)), seen);
   const unseenOthers = orderStoriesForBar(stories.filter((story) => !story.followed && isUnseen(story)), seen);
-  // Anciens inactifs (aucune activité depuis > 14 jours) : ils restent dans la ligne mais TOUT À LA SUITE, jamais devant.
-  const dormant = (story: MusicStory) => activityKnown && isDormantMember(story.lastSeenAt || null);
+  // Membres inactifs (aucune connexion/activité depuis > 7 jours) : leur bulle SANS story disparaît automatiquement (elle revient dès qu'ils se reconnectent).
+  const dormant = (story: MusicStory) => activityKnown && story.lastSeenAt !== undefined && isDormantMember(story.lastSeenAt || null);
   const friendsNoStoryAll = stories.filter((story) => story.followed && !hasStory(story)).sort(byLastSeen);
   const friendsNoStory = friendsNoStoryAll.filter((story) => !dormant(story));
   const linkedAll = stories.filter((story) => !story.followed && !hasStory(story) && !story.styleMatch).sort(byLastSeen);
   const linkedSuggestions = linkedAll.filter((story) => !dormant(story));
-  const styleSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && story.styleMatch);
+  const styleSuggestions = stories.filter((story) => !story.followed && !hasStory(story) && story.styleMatch && !dormant(story));
   const seenStories = orderStoriesForBar(stories.filter((story) => hasStory(story) && !isUnseen(story)), seen);
-  const dormantMembers = [...friendsNoStoryAll.filter(dormant), ...linkedAll.filter(dormant)];
-  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories, ...dormantMembers];
+  const row = [...unseenFollowed, ...unseenOthers, ...friendsNoStory, ...linkedSuggestions, ...styleSuggestions, ...seenStories];
   const empty = !row.length && !own && !leading;
 
   // Les bulles glissent (comme Instagram) quand l'ordre change : la story qu'on vient de voir part au bout, la suivante avance.

@@ -107,6 +107,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     const collected = new Map<string, MusicStory>();
     let degraded = false;
     let storiesLoaded = false;
+    let activityFailed = false;
     // Tant que les stories n'ont pas répondu, une bulle déjà affichée avec ses musiques ne perd pas ses musiques (pas de clignotement).
     const display = () => [
       ...Array.from(collected.values()).map((story) => {
@@ -168,7 +169,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         ids.forEach((id) => metaDone.add(id));
         const [tierResult, activity] = await Promise.all([
           (supabase ? Promise.resolve(supabase.rpc('keep_public_certification_tiers', { p_profile_ids: ids })).catch(() => null) : Promise.resolve(null)),
-          loadProfilesActivity(ids.filter((id) => id !== viewer.id)).catch(() => ({} as Record<string, { lastActiveAt: string | null; online: boolean }>)),
+          loadProfilesActivity(ids.filter((id) => id !== viewer.id)).catch(() => { activityFailed = true; return {} as Record<string, { lastActiveAt: string | null; online: boolean }>; }),
         ]);
         if (!live) return;
         const tierRows = (tierResult as any)?.data;
@@ -184,8 +185,9 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         const seenAt: Record<string, string> = {};
         for (const [id, info] of Object.entries(activity)) {
           next[id] = info.online;
+          // '' = le serveur connaît ce membre mais il n'a AUCUNE activité ; absent = inconnu (jamais masqué).
           if (info.online) seenAt[id] = new Date().toISOString();
-          else if (info.lastActiveAt) seenAt[id] = info.lastActiveAt;
+          else seenAt[id] = info.lastActiveAt ?? '';
         }
         setOnline((previous) => ({ ...previous, ...next }));
         setLastSeenAt((previous) => ({ ...previous, ...seenAt }));
@@ -198,7 +200,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       if (!degraded) setStories(Array.from(collected.values()));
       // Mémoire : 12 membres, 12 musiques chacun au plus (le disque reste léger), et seulement des données complètes.
       if (!degraded) writeProfileMemory(viewer.id, 'story-rail', Array.from(collected.values()).slice(0, 12).map((story) => ({ ...story, tracks: story.tracks.slice(0, 12) })));
-      setActivityKnown(true);
+      if (!activityFailed) setActivityKnown(true);
       // Une seule nouvelle tentative, 6 s plus tard, si une branche a échoué (jamais de boucle : règle de résilience de connexion).
       if (degraded && attempt === 0 && live) retryTimer = setTimeout(() => { if (live) void run(1); }, 6000);
     };
@@ -340,7 +342,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       <View style={styles.railWrap}>
         <MusicStoryRail
           activityKnown={activityKnown}
-          stories={stories.map((story) => (lastSeenAt[story.profileId] ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
+          stories={stories.map((story) => (lastSeenAt[story.profileId] !== undefined ? { ...story, lastSeenAt: lastSeenAt[story.profileId] } : story))}
           seen={seen}
           size={avatarSize}
           online={online}

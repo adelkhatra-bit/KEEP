@@ -5,10 +5,13 @@ import { formatStoryAge } from '../storyActivity';
 describe('Âge d\'une story (Adel 05/10/2026)', () => {
   const now = Date.parse('2026-10-05T18:53:00Z');
   it('indique depuis quand et combien de temps encore (fenêtre 24 h)', () => {
-    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('il y a 2 h 03 · reste 21 h 57');
+    expect(formatStoryAge('2026-10-05T16:50:00Z', now)).toBe('reste 22 h');
   });
   it('tombe à 0 min restant au-delà de 24 h et ignore une date invalide', () => {
-    expect(formatStoryAge('2026-10-04T10:00:00Z', now)).toContain('reste 0 min');
+    expect(formatStoryAge('2026-10-04T10:00:00Z', now)).toBe('reste 0 min');
+    expect(formatStoryAge('2026-10-05T18:50:00Z', now)).toBe('reste 24 h');
+    expect(formatStoryAge('2026-10-05T17:50:00Z', now)).toBe('reste 23 h');
+    expect(formatStoryAge('2026-10-04T19:30:00Z', now)).toBe('reste 37 min');
     expect(formatStoryAge('nope', now)).toBeNull();
     expect(formatStoryAge(null, now)).toBeNull();
   });
@@ -159,5 +162,19 @@ describe('Lecteur de story minimal (Adel 05/10/2026)', () => {
     expect(deck).toContain('↑ suivant · ← passer · → garder');
     expect(deck).toContain("'↑ suivant · ← passer'");
     expect(deck).toContain("'✓ DÉJÀ EN STORY'");
+  });
+});
+
+describe('Étiquettes PAYANT / GRATUIT et bulles inactives (Adel 05/10/2026)', () => {
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  const rail = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicStoryRail.tsx'), 'utf8');
+  it('chaque musique d\'une story d\'un autre dit clairement PAYANT ou GRATUIT', () => {
+    expect(deck).toContain("label: '💳 PAYANT · PAYPAL'");
+    expect(deck).toContain("label: '🎁 GRATUIT · POUR TON PROFIL'");
+    expect(deck).toContain('testID="deck-price-badge"');
+  });
+  it('les membres inactifs > 7 jours sans story sont retirés de la rangée', () => {
+    expect(rail).toContain('story.styleMatch && !dormant(story)');
+    expect(rail).not.toContain('...dormantMembers');
   });
 });

@@ -170,3 +170,10 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 ter — Désabonnement et liste des vues (Adel, 05/10/2026)
 - **Un utilisateur ne se désabonne d'un autre que depuis la PAGE PROFIL de celui-ci.** Jamais depuis une bulle de story, la fiche rapide, la liste des vues ou la liste « Reprises » (elles affichent « Voir le profil » / « ✓ Tu le suis »). Contrôle bloquant : `verify-product-contract.cjs`.
 - La liste « Vues de ta story » montre, pour chaque spectateur : son nom, « A repris » (s'il a déjà repris un de tes morceaux — ce n'est pas un événement du jour) et un bouton **Voir le profil ›**. Plus de badge « Abonné ».
+
+### §14 quater — Lecteur de story : règles de lecture (Adel, 05/10/2026)
+- **Durée** : une seule ligne verte « ⏱ reste 24 h » qui descend en heures pleines (23 h, 22 h… 1 h) puis en minutes ; rien d'autre en vert.
+- **Étiquettes obligatoires** sur chaque musique d'une story d'un autre : « 💳 PAYANT · PAYPAL » (musique en vente) ou « 🎁 GRATUIT · POUR TON PROFIL » (musique publique à garder ; le coût en FREE reste dit dans l'indication « → garder · 3 FREE »). Jamais d'ambiguïté sur ce qui est payant.
+- **Aucune phrase d'accroche** sur la story d'un autre ; le créateur crédité est le découvreur d'origine.
+- **Bulles inactives** : un membre sans activité depuis plus de **7 jours** voit sa bulle (sans story) disparaître de la rangée, et revenir dès qu'il se reconnecte. Un membre avec une story n'est jamais masqué.
+- Contrôle bloquant : `scripts/verify-product-contract.cjs` (contrat `storiesExperience`).

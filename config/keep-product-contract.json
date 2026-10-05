@@ -937,6 +937,9 @@
   },
   "storiesExperience": {
     "unfollowOnlyFromProfilePage": true,
+    "storyAgeLineFormat": "reste N h (heures pleines qui descendent 24 h → 1 h, puis minutes), une seule ligne, aucune autre phrase verte",
+    "storyPriceBadgesRequired": ["💳 PAYANT · PAYPAL (musique en vente)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
+    "storyReaderHasNoTeaserSentenceForOthers": true,
     "viewersListShowsViewProfileNotFollowBadge": true,
     "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
     "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
@@ -982,9 +985,10 @@
       "active linked suggestions (follow pill)",
       "style suggestions (follow pill)",
       "seen stories",
-      "dormant members (no activity > 14 days) — very last, never in front"
+      "dormant members (no activity > 7 days) — HIDDEN from the row until they reconnect (members with a story are never hidden)"
     ],
-    "dormantAfterDays": 14,
+    "dormantAfterDays": 7,
+    "dormantMembersHiddenFromRow": true,
     "activitySource": "rpc keep_profiles_activity (connexion, GARDER, épingle de story)"
   }
 }

@@ -38,6 +38,6 @@ describe('Aperçu propriétaire : musique en vente masquée avec l\'animation (A
     expect(deck).toContain('{ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork');
   });
   it('les cartes sale: gardent la pochette mystère', () => {
-    expect(deck).toContain("isSaleStoryTrack(current) ? <MysteryArtwork caption=\"Titre masqué · garde pour révéler\"");
+    expect(deck).toContain("isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} />"); // l'étiquette PAYANT remplace la légende pour ne pas se chevaucher
   });
 });

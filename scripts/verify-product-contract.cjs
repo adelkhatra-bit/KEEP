@@ -379,12 +379,19 @@ const quickViewSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/compon
 must(se && se.unfollowOnlyFromProfilePage === true && se.viewersListShowsViewProfileNotFollowBadge === true, 'storiesExperience: règle « désabonnement uniquement depuis le profil » absente du contrat');
 must(!quickViewSrc.includes('.delete(') && !quickViewSrc.includes('keep_unfollow_profile'), 'stories: la fiche rapide ne doit jamais désabonner (seule la page profil le fait)');
 must(storyBar.includes('Voir le profil ›') && !storyBar.includes('>Abonné<'), 'stories: la liste des vues doit proposer « Voir le profil » et non un badge « Abonné »');
+// Règles d'Adel du 05/10/2026 (lecteur de story) : durée « reste N h » sur une ligne, étiquettes PAYANT / GRATUIT toujours visibles, aucune phrase d'accroche sur la story d'un autre.
+const storyActivitySrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyActivity.ts'), 'utf8');
+const storyDeckSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
+must(se && se.storyReaderHasNoTeaserSentenceForOthers === true && Array.isArray(se.storyPriceBadgesRequired) && se.storyAgeLineFormat, 'storiesExperience: règles de lecture de story absentes du contrat');
+must(storyActivitySrc.includes('`reste ${Math.ceil(leftMin / 60)} h`') && storyDeckSrc.includes('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"'), 'stories: la durée restante doit rester « reste N h » sur UNE ligne');
+must(storyDeckSrc.includes('PAYANT · PAYPAL') && storyDeckSrc.includes('GRATUIT · POUR TON PROFIL') && storyDeckSrc.includes('deck-price-badge'), 'stories: chaque musique d\'une story doit afficher PAYANT (PayPal) ou GRATUIT, lisiblement');
+must(!storyBar.includes('{composeStoryTeaser(openStory.username'), 'stories: pas de phrase d\'accroche sur la story d\'un autre (elle induisait en erreur)');
 must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
 must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
 must(!storyRail.includes('Modal') && !storyRail.includes('home-story-others'), 'stories: la rangée ne doit ni ouvrir de fenêtre ni avoir de rond « Autres » (tout est dans la ligne, façon Instagram)');
 must(storyService.includes('const byRecency =') && storyService.includes('stories.filter(isNew).sort(byRecency)'), 'stories: la plus récente doit rester la première');
-must(storyRail.includes('const unseenFollowed = orderStoriesForBar(') && storyRail.includes('const seenStories = orderStoriesForBar(') && storyRail.includes('...styleSuggestions, ...seenStories, ...dormantMembers]'), 'stories: non vues d\'abord, stories vues tout au bout de la ligne');
-must(storyRail.includes('isDormantMember') && storyBar.includes('loadProfilesActivity') && storyService.includes('keep_profiles_activity'), 'stories: les anciens inactifs (> 14 jours) passent à la suite, tri par activité réelle');
+must(storyRail.includes('const unseenFollowed = orderStoriesForBar(') && storyRail.includes('const seenStories = orderStoriesForBar(') && storyRail.includes('...styleSuggestions, ...seenStories]'), 'stories: non vues d\'abord, stories vues tout au bout de la ligne ; les inactifs > 7 jours n\'y sont plus');
+must(storyRail.includes('isDormantMember') && storyBar.includes('loadProfilesActivity') && storyService.includes('keep_profiles_activity'), 'stories: les inactifs (> 7 jours) sont masqués de la rangée, tri par activité réelle');
 must(storyRail.includes('story-follow-') && storyBar.includes("rpc('keep_follow_profile'"), 'stories: suggestions avec bouton « +👤 » pour suivre directement');
 must(storyService.includes('rankMusicStories(rows, viewerId, eligibleIds, new Set())') && storyService.includes('loadStoryRelations'), 'stories: seuls les membres liés (abonnements, abonnés, reprises) — jamais le même style seul');
 must(storyEligibility.includes('is_anonymous') && storyEligibility.includes('email_confirmed_at'), 'stories: compte réel avec e-mail vérifié uniquement');

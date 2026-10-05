@@ -823,6 +823,14 @@ export default function MusicSwipeDeckModal({
     : `↑ suivant · ← passer · → garder${keepDebitAmount && keepDebitAmount > 0 ? ` · ${keepDebitAmount} FREE` : ''}`;
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
+  // Musique d'une story d'un autre : EN VENTE (payante) ou GRATUITE (disponible pour ton profil, FREE annoncés dans l'indication). Jamais sur ma propre story.
+  const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
+    ? null
+    : isSaleStoryTrack(current)
+      ? { label: '💳 PAYANT · PAYPAL', paid: true }
+      : currentAlreadyKept
+        ? null
+        : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
   const storyAgeLine = current && trackAddedAt ? formatStoryAge(trackAddedAt[current.id]) : null;
   const resolvedSubtitle = prefilterRemovedCount > 0
     ? `${subtitle ? `${subtitle} · ` : ''}${prefilterRemovedCount} déjà dans ta collection ignoré${prefilterRemovedCount > 1 ? 's' : ''}.`
@@ -867,8 +875,10 @@ export default function MusicSwipeDeckModal({
               fill
             >
               <View style={[s.card, compactDeck && s.cardCompact]}>
-                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption="Titre masqué · garde pour révéler" /> : <Text style={s.coverK}>K</Text>}</View>}
+                {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
                 {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+                {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
+                {priceBadge ? <View pointerEvents="none" testID="deck-price-badge" style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree, { top: currentSourceUsername ? 48 : 12 }]}><Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={1}>{priceBadge.label}</Text></View> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
                   <View style={s.autoRow}><View style={[s.dot,resolvedPreviewUrl ? s.dotOn : s.dotOff]} /><Text style={s.autoText}>{previewLabel}</Text></View>
                   {Platform.OS === 'web' && (autoplayBlocked || previewEnded) && resolvedPreviewUrl ? (
@@ -986,6 +996,7 @@ const s = StyleSheet.create({
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
   close:{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:'#171020',borderWidth:1,borderColor:'#312348'},closeText:{color:'#FFF',fontSize:18,fontWeight:'900'},
   body:{flex:1,paddingHorizontal:18,paddingTop:16},deckArea:{flex:1,minHeight:0,paddingTop:8,paddingBottom:12},
+  priceBadge:{position:'absolute',left:12,zIndex:4,minHeight:28,paddingHorizontal:10,borderRadius:14,borderWidth:1.5,alignItems:'center',justifyContent:'center',maxWidth:'92%'},priceBadgePaid:{backgroundColor:'#FFB020',borderColor:'#FFFFFF'},priceBadgeFree:{backgroundColor:'#2DE1C2',borderColor:'#FFFFFF'},priceBadgeText:{fontSize:12,lineHeight:16,fontWeight:'900',letterSpacing:.3},priceBadgeTextPaid:{color:'#1A1100'},priceBadgeTextFree:{color:'#04130F'},
   sourceOverlay:{position:'absolute',left:12,top:12,zIndex:4,minHeight:28,paddingHorizontal:9,borderRadius:14,backgroundColor:'rgba(4,3,10,.76)',borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},sourceOverlayText:{color:'#FFF',fontSize:10,fontWeight:'900'},
   card:{flex:1,minHeight:200,maxHeight:560,borderRadius:28,overflow:'hidden',backgroundColor:'#151020',borderWidth:1,borderColor:'#493369',justifyContent:'flex-end'},
   cover:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%'},coverFallback:{alignItems:'center',justifyContent:'center',backgroundColor:'#241936'},coverK:{color:colors.primaryLight,fontSize:72,fontWeight:'900',letterSpacing:6},

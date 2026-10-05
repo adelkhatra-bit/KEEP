@@ -1,5 +1,6 @@
-// Règle pure (sans dépendance) : membre « endormi » = aucune activité depuis plus de 14 jours (Adel, 05/10/2026).
-export const DORMANT_AFTER_DAYS = 14;
+// Règle pure (sans dépendance) : membre « endormi » = aucune activité depuis plus de 7 jours ; sa bulle (sans story) DISPARAÎT de la rangée
+// automatiquement et revient dès qu'il se reconnecte (Adel, 05/10/2026 : « quasi une semaine sans connexion → masque la bulle »).
+export const DORMANT_AFTER_DAYS = 7;
 export function isDormantMember(lastActiveAt: string | null | undefined, now = Date.now()): boolean {
   if (!lastActiveAt) return true;
   const at = new Date(lastActiveAt).getTime();
@@ -8,7 +9,8 @@ export function isDormantMember(lastActiveAt: string | null | undefined, now = D
 }
 
 /**
- * Âge d'une musique de story (Adel, 05/10/2026) : « ajoutée il y a 2 h 03 · encore visible 21 h 57 ». Une story dure 24 h pile depuis l'ajout.
+ * Durée restante d'une musique de story (Adel, 05/10/2026) : une story dure 24 h pile depuis l'ajout ; on n'affiche QUE le temps restant,
+ * en heures pleines qui descendent (24 h → 23 h → … → 1 h), puis en minutes sous l'heure : « reste 24 h », « reste 23 h », « reste 42 min ».
  */
 export function formatStoryAge(addedAtIso: string | null | undefined, now = Date.now(), windowHours = 24): string | null {
   if (!addedAtIso) return null;
@@ -16,11 +18,6 @@ export function formatStoryAge(addedAtIso: string | null | undefined, now = Date
   if (!Number.isFinite(at)) return null;
   const elapsedMin = Math.max(0, Math.floor((now - at) / 60000));
   const leftMin = Math.max(0, windowHours * 60 - elapsedMin);
-  const fmt = (minutes: number) => {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return h > 0 ? `${h} h ${String(m).padStart(2, '0')}` : `${m} min`;
-  };
-  // Court, sur UNE seule ligne (Adel 05/10/2026) : « il y a 2 h 03 · reste 21 h 57 ».
-  return `il y a ${fmt(elapsedMin)} · reste ${fmt(leftMin)}`;
+  if (leftMin >= 60) return `reste ${Math.ceil(leftMin / 60)} h`;
+  return `reste ${leftMin} min`;
 }

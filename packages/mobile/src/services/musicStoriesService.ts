@@ -658,7 +658,8 @@ export async function loadProfilesActivity(profileIds: string[]): Promise<Record
   if (!supabase || !profileIds.length) return out;
   const ids = Array.from(new Set(profileIds)).slice(0, 200);
   const { data, error } = await supabase.rpc('keep_profiles_activity', { p_profile_ids: ids });
-  if (error) return out;
+  // Une erreur serveur ne doit JAMAIS faire passer tout le monde pour « inactif » (les bulles disparaîtraient) : on lève l'erreur.
+  if (error) throw error;
   for (const row of (data ?? []) as any[]) {
     if (!row?.profile_id) continue;
     out[String(row.profile_id)] = { lastActiveAt: row.last_active_at ? String(row.last_active_at) : null, online: Boolean(row.is_online) };
