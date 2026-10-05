@@ -61,7 +61,7 @@ jobs:
             if(!String(b.notes||'').trim()){
               const betaNotes=[
                 'Loki Music — parcours TestFlight conseillé :',
-                '1. Écouter > Identifier un morceau : autoriser le microphone, vérifier la reconnaissance puis ARRÊTER.',
+                '1. Écouter > Trouver le morceau : autoriser le microphone, vérifier la reconnaissance puis ARRÊTER.',
                 '2. Ouvrir Battle > Solo : vérifier l’enchaînement audio rapide entre les manches et les messages Loki.',
                 '3. Tester Découvertes, Playlists, Soirées puis Profil et les réglages.',
                 '4. Les notifications système nécessitent l’autorisation iOS ; les notifications Loki restent aussi visibles dans l’application.',

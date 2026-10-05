@@ -309,7 +309,7 @@ jobs:
             // - l'absence momentanée de recommandations ne doit pas faire échouer le layout.
             {
               const help=page.getByLabel('En savoir plus sur Loki Music').last();
-              const cta=page.getByLabel('Identifier un morceau').last();
+              const cta=page.getByLabel(/Trouver le morceau|Identifier un morceau/).last();
               const rail=page.getByTestId('home-loki-pulse-track-bubbles').last();
               await Promise.all([
                 help.waitFor({state:'visible',timeout:15000}),
@@ -366,7 +366,7 @@ jobs:
             await clickRobust(page,page.getByLabel('Fermer la messagerie').last(),'Close fullscreen chat');
             await fullChat.waitFor({state:'hidden',timeout:15000});
 
-            const start=page.getByLabel(/Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
+            const start=page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             await start.waitFor({state:'visible',timeout:15000});
             await clickRobust(page,start,'Listen start');
             await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000});

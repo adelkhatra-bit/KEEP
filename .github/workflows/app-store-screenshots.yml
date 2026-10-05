@@ -137,7 +137,7 @@ jobs:
             await clickVisible(page,'Loki Music');
             await snap('01-loki-music');
 
-            const start = page.getByLabel(/Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
+            const start = page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             if (await start.isVisible().catch(()=>false)) {
               await start.click({force:true});
               await page.getByText(/MICRO · (?:ANALYSE|ACTIF)/i).last().waitFor({state:'visible',timeout:15000}).catch(()=>{});

@@ -133,7 +133,7 @@ jobs:
               await page.waitForTimeout(180);
             }
 
-            const start=page.getByLabel(/Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
+            const start=page.getByLabel(/Trouver le morceau|Identifier un morceau|Activer le micro|Démarrer une écoute/).last();
             await inViewport(start,'Listen start');
             await clickRobust(start,'Listen start');
             await t(/MICRO · (?:ANALYSE|ACTIF)/i).waitFor({state:'visible',timeout:15000});
