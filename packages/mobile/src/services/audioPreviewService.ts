@@ -377,6 +377,9 @@ async function createSoundWithRetry(
         try { await withAudioTimeout(createdSound.unloadAsync(), 'AUDIO_CREATE_UNLOAD'); } catch {}
         forgetNativeSound(createdSound);
       }
+      // Adel (05/10/2026) : « quand je swipe il n'y a pas de son ». Le cache de 8 s de configurePreviewAudio faisait que ce second essai
+      // ne reconfigurait JAMAIS la session audio iOS alors qu'elle était peut-être la cause de l'échec : on l'invalide avant de réessayer.
+      lastPreviewAudioConfig = null;
       if (configureSession) await configurePreviewAudio().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, 120 + attempt * 100));
     }

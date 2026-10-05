@@ -57,3 +57,16 @@ describe('GARDER public d\'un morceau déjà gardé en privé (Adel 05/10/2026)'
     expect(keep).toContain("updateKeepDecisionVisibility(existing.match.decisionId, 'PUBLIC')");
   });
 });
+
+describe('Partager en story une musique reprise + design masqué unique (Adel 05/10/2026)', () => {
+  const deck = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'MusicSwipeDeckModal.tsx'), 'utf8');
+  const sale = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'PlaylistSaleImmersivePreview.tsx'), 'utf8');
+  it('« ajouter à ma story » sur une musique non gardée garde en Public puis épingle, et répare une garde privée', () => {
+    expect(deck).toContain("void confirmKeep('PUBLIC')");
+    expect(deck).toContain('STORY_PIN_REQUIRES_PUBLIC_KEEP');
+  });
+  it('l\'aperçu de collection utilise le même orbe animé que les stories (plus l\'ancien cadenas)', () => {
+    expect(sale).toContain('<MysteryArtwork caption=""');
+    expect(sale).not.toContain('s.mysteryLock');
+  });
+});

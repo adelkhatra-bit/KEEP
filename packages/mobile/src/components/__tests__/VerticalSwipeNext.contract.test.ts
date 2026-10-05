@@ -77,7 +77,7 @@ describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)
     const modal = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
     expect(modal).toContain("'deck-add-story'");
     expect(modal).toContain('pinStoryTrack(current.id)');
-    expect(modal).toContain('Garde-la d’abord');
+    expect(modal).toContain('Garder en public et mettre en story ?'); // un seul geste : garder en Public (coût annoncé) puis story
     expect(modal).toContain('const compactDeck = windowHeight < 640;');
   });
 });

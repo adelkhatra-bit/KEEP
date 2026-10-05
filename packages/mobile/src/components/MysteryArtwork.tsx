@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
  * Anneaux qui pulsent, orbe dégradé qui tourne et bascule en perspective, reflet qui balaie la carte.
  * Pur décor : aucune interaction (pointerEvents none), même rendu iPhone et ordinateur.
  */
-export default function MysteryArtwork({ caption = 'Titre masqué' }: { caption?: string }) {
+export default function MysteryArtwork({ caption = 'Titre masqué', scale = 1 }: { caption?: string; scale?: number }) {
   const spin = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const tilt = useRef(new Animated.Value(0)).current;
@@ -39,7 +39,7 @@ export default function MysteryArtwork({ caption = 'Titre masqué' }: { caption?
   const sweepX = sweep.interpolate({ inputRange: [0, 1], outputRange: [-260, 260] });
 
   return (
-    <View style={s.wrap} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={[s.wrap, scale !== 1 && { transform: [{ scale }] }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <Animated.View style={[s.ring, s.ringBig, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]} />
       <Animated.View style={[s.ring, s.ringSmall, { opacity: ringOpacity, transform: [{ scale: ringScale }] }]} />
       <Animated.View style={[s.stage, { transform: [{ perspective: 600 }, { rotateX }, { rotateY }] }]}>
@@ -49,7 +49,7 @@ export default function MysteryArtwork({ caption = 'Titre masqué' }: { caption?
         <View style={s.orbCore}><Text style={s.question}>?</Text></View>
       </Animated.View>
       <Animated.View style={[s.shine, { transform: [{ translateX: sweepX }, { rotate: '18deg' }] }]} />
-      <Text style={s.caption}>{caption}</Text>
+      {caption ? <Text style={s.caption}>{caption}</Text> : null}
     </View>
   );
 }

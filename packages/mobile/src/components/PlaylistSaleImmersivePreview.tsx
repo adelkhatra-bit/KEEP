@@ -1,3 +1,4 @@
+import MysteryArtwork from './MysteryArtwork';
 import ChatDockHost from './ChatDockHost';
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Linking, Platform, ScrollView, Text, TouchableOpacity, View, StyleSheet, useWindowDimensions } from 'react-native';
@@ -344,11 +345,8 @@ export default function PlaylistSaleImmersivePreview({ offer, visible, onClose, 
                   { rotateX: revealGlow.interpolate({ inputRange: [0, 1], outputRange: ['3deg', '-3deg'] }) },
                 ],
               }]}>
-                <Animated.View pointerEvents="none" style={[s.mysteryGlow, { opacity: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.42] }), transform: [{ scale: revealGlow.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.08] }) }] }]} />
-                <View style={s.mysteryLock}><Text style={s.mysteryLockText}>?</Text></View>
-                {bars.map((bar, i) => (
-                  <Animated.View key={i} style={[s.bar, { height: bar.interpolate({ inputRange: [0, 1], outputRange: [16, 64] }) }]} />
-                ))}
+                {/* Adel 05/10/2026 : UN SEUL design de musique masquée -- l'orbe animé (MysteryArtwork), comme dans les stories. */}
+                <MysteryArtwork caption="" scale={compact ? 0.5 : 0.62} />
               </Animated.View>
               {!tracksLoading && !tracksUnavailable ? (
                 <View style={[s.trackOwnershipPill, currentTrackOwned ? s.trackOwnershipOwned : s.trackOwnershipNew]}>
@@ -585,8 +583,8 @@ const s = StyleSheet.create({
   missingRequestTitle:{color:colors.textPrimary,fontSize:11,fontWeight:'900',letterSpacing:.45},
   missingRequestHint:{color:colors.textMuted,fontSize:9,fontWeight:'700',marginTop:2},
   swipeCard: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard, borderRadius: 20, borderWidth: 1, borderColor: colors.border, paddingVertical: 18, marginTop: 6 },
-  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 72, position: 'relative', overflow: 'hidden', borderRadius: 18 },
-  visualCompact:{height:58},
+  visual: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, height: 130, position: 'relative', overflow: 'hidden', borderRadius: 18 },
+  visualCompact:{height:100},
   mysteryGlow: { position: 'absolute', width: 92, height: 92, borderRadius: 46, backgroundColor: colors.primary, top: -12 },
   mysteryLock: { position: 'absolute', top: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
   mysteryLockText: { color: colors.primaryLight, fontSize: 24, fontWeight: '900' },

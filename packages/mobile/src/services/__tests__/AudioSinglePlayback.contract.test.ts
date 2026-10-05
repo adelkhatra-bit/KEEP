@@ -64,3 +64,9 @@ describe('Solo instantané : préchargement précoce, web compris (Adel 05/10/20
     expect(audioSrc).not.toContain('if (!previewUrl || canUseWebAudio()) return;\n  return serialize');
   });
 });
+
+describe('Son au swipe : le réessai reconfigure vraiment la session audio (Adel 05/10/2026)', () => {
+  it('invalide le cache de configuration avant le second essai', () => {
+    expect(audio).toContain('lastPreviewAudioConfig = null;\n      if (configureSession) await configurePreviewAudio().catch(() => {});');
+  });
+});

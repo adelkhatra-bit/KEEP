@@ -226,7 +226,17 @@ export default function MusicSwipeDeckModal({
       return;
     }
     if (!previewOnly && !currentAlreadyKept) {
-      Alert.alert('Garde-la d’abord', 'Pour mettre cette musique dans ta story, garde-la d’abord en Public avec GARDER : elle entre alors automatiquement dans ta story, et son créateur reste identifié.', [{ text: 'OK', style: 'cancel' }]);
+      // Adel (05/10/2026) : « il a appuyé sur partager en story et rien ne s'est passé » -- au lieu d'un refus, UN seul geste :
+      // garder en Public (coût FREE annoncé) puis mettre en story ; le créateur d'origine reste identifié.
+      const toKeep = current;
+      Alert.alert(
+        'Garder en public et mettre en story ?',
+        `« ${toKeep.title} » sera gardée en Public sur ton profil${keepDebitAmount ? ` (${keepDebitAmount} FREE débité${keepDebitAmount > 1 ? 's' : ''})` : ''} puis ajoutée à ta story pendant 24 h. Son créateur reste identifié.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Oui, garder et partager', onPress: () => { void confirmKeep('PUBLIC'); } },
+        ],
+      );
       return;
     }
     // Adel (05/10/2026) : « êtes-vous sûr de la mettre en story ? » -- un seul tap ne publie jamais sans confirmation.
@@ -246,7 +256,9 @@ export default function MusicSwipeDeckModal({
       setStoryIds((previous) => new Set(previous).add(current.id));
       // Confirmation affichée DANS la fenêtre (une alerte native peut ne pas s'afficher au-dessus d'une fenêtre déjà ouverte).
       setJustAdded((previous) => new Set(previous).add(current.id));
-    } catch {
+    } catch (error: any) {
+      // Gardée en Privé : le serveur exige un GARDER public -> on la rend publique (gratuit) puis on l'épingle.
+      if (String(error?.message ?? error).includes('STORY_PIN_REQUIRES_PUBLIC_KEEP')) { void makeKeptPublicAndStory(); return; }
       Alert.alert('Ajout impossible', 'Seules les musiques gardées en Public peuvent aller en story. Si tu l’as gardée en Privé, repasse-la en Public depuis ton profil.', [{ text: 'OK', style: 'cancel' }]);
     }
   };
