@@ -3,7 +3,7 @@ import { reportAutoDiagnostic } from '../services/problemReportService';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
@@ -899,8 +899,23 @@ export default function MusicSwipeDeckModal({
   const reactTo = async (reaction: 'LIKE' | 'MEH' | 'DISLIKE') => {
     if (!current) return;
     const ok = await trackLikes.react(current.id, reaction);
+    if (ok) hideAsk();
     if (ok) showNudge(reaction === 'LIKE' ? 'AFTER_LIKE' : reaction === 'MEH' ? 'AFTER_MEH' : 'AFTER_DISLIKE');
   };
+  // Petit popup « Donne ton avis 😉 » (Adel 05/10/2026) : apparaît près des boutons à chaque nouvelle musique, puis disparaît seul ; jamais si on a déjà réagi.
+  const [ask, setAsk] = useState<string | null>(null);
+  const askFade = useRef(new Animated.Value(0)).current;
+  const showAsk = () => {
+    setAsk(nextNudge('ASK'));
+    askFade.stopAnimation();
+    askFade.setValue(0);
+    Animated.sequence([
+      Animated.timing(askFade, { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.delay(2800),
+      Animated.timing(askFade, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(({ finished }) => { if (finished) setAsk(null); });
+  };
+  const hideAsk = () => { askFade.stopAnimation(); setAsk(null); };
   const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
   const reactedRef = useRef(trackLikes.reacted);
   reactedRef.current = trackLikes.reacted;
@@ -911,8 +926,10 @@ export default function MusicSwipeDeckModal({
     previousTrackRef.current = id;
     if (!nudgesOn || !id) { setNudge(null); return undefined; }
     if (previous && previous !== id && listenedIdsRef.current.has(previous) && !reactedRef.current(previous)) showNudge('SKIPPED');
+    hideAsk();
+    const askTimer = setTimeout(() => { if (!reactedRef.current(id)) showAsk(); }, 1400);
     const timer = setTimeout(() => { if (!reactedRef.current(id)) showNudge('PLAYING'); }, 9000);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); clearTimeout(askTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, nudgesOn]);
   useEffect(() => () => { if (nudgeTimer.current) clearTimeout(nudgeTimer.current); }, []);
@@ -943,6 +960,7 @@ export default function MusicSwipeDeckModal({
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
           {headerExtra || (likesActive && current) ? (
             <View style={s.headerLikeRow}>
+              {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 1 }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current ? (() => {
                 const key = likeKey(current.id);
@@ -1098,7 +1116,7 @@ export default function MusicSwipeDeckModal({
 const s = StyleSheet.create({
   outer:{flex:1,backgroundColor:'#090610',alignItems:'center'},
   container:{flex:1,width:'100%',maxWidth:520,backgroundColor:'#090610'},
-  header:{minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
+  header:{zIndex:30,minHeight:92,paddingHorizontal:18,paddingVertical:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderBottomColor:'#241A32'},
   headerText:{flex:1,paddingRight:12},eyebrow:{color:colors.primaryLight,fontSize:12,fontWeight:'900',letterSpacing:1.5},title:{color:'#F8F6FC',fontSize:20,fontWeight:'900',marginTop:2},subtitle:{color:'#FFFFFF',fontSize:14,lineHeight:20,marginTop:6,paddingBottom:2},
   sourceIdentity:{marginTop:8,flexDirection:'row',alignItems:'center',gap:9,alignSelf:'flex-start',paddingVertical:6,paddingHorizontal:8,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},sourceIdentityBottom:{marginHorizontal:18,marginBottom:7,flexDirection:'row',alignItems:'center',gap:9,paddingVertical:6,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primaryFaint,borderWidth:1,borderColor:colors.primary},
   sourceAvatar:{width:30,height:30,borderRadius:15},sourceAvatarFallback:{width:30,height:30,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primaryLight},sourceAvatarText:{color:'#FFF',fontSize:12,fontWeight:'900'},sourceIdentityCopy:{minWidth:0},sourceIdentityKicker:{color:colors.textMutedGrey,fontSize:8,fontWeight:'900',letterSpacing:.7},sourceIdentityName:{color:'#FFF',fontSize:12,fontWeight:'900',marginTop:1},
@@ -1125,7 +1143,10 @@ const s = StyleSheet.create({
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
   nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:8,paddingHorizontal:14,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
   nudgeText:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center'},
-  headerLikeRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
+  askBubble:{position:'absolute',right:0,top:'100%',marginTop:4,zIndex:9,paddingVertical:6,paddingHorizontal:12,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
+  askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
+  askText:{color:'#2B1D00',fontSize:13,fontWeight:'900'},
+  headerLikeRow:{position:'relative',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
   likeCount:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1.5,borderColor:'#FF5C8A',backgroundColor:'rgba(255,92,138,.14)',alignItems:'center',justifyContent:'center'},
   likeCountText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},

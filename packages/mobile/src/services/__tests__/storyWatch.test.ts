@@ -368,3 +368,20 @@ describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel
     expect(svc).not.toMatch(/\.delete\s*\(/);
   });
 });
+
+describe('popup « Donne ton avis 😉 » à chaque musique (Adel 05/10/2026, IDEA-111)', () => {
+  it('courts, avec un clin d’œil, variés', () => {
+    const lines = new Set(Array.from({ length: 60 }, (_, i) => composeNudge('ASK', `a${i}`)));
+    expect(nudgeCombinationCount('ASK')).toBeGreaterThanOrEqual(60);
+    expect(lines.size).toBeGreaterThan(20);
+    for (const line of lines) { expect(line.length).toBeLessThanOrEqual(34); expect(line).toMatch(/😉|😏|👀|🔥|✌️|😎|🙌|💬/); }
+  });
+  it('branché : 1,4 s après chaque nouvelle musique, disparaît seul, jamais si déjà réagi', () => {
+    const fs = require('fs'); const path = require('path');
+    const deck = fs.readFileSync(path.join(__dirname, '../../components/MusicSwipeDeckModal.tsx'), 'utf8');
+    expect(deck).toContain("if (!reactedRef.current(id)) showAsk(); }, 1400)");
+    expect(deck).toContain('testID="deck-like-ask"');
+    expect(deck).toContain('Animated.delay(2800)');
+    expect(deck).toContain('if (ok) hideAsk();');
+  });
+});
