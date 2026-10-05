@@ -936,6 +936,8 @@
     "testflightMinimumMustMatchAppBuild": true
   },
   "storiesExperience": {
+    "unfollowOnlyFromProfilePage": true,
+    "viewersListShowsViewProfileNotFollowBadge": true,
     "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
     "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
     "storyWindowHours": 24,

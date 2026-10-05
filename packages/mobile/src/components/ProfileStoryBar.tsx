@@ -383,9 +383,22 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                 {(viewers ?? []).map((v) => (
                   <View key={v.viewerId} style={styles.row}>
                     {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
-                    <Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>
-                    {v.isFollower ? <Text style={[styles.badge, styles.badgeFollower]}>Abonné</Text> : null}
-                    {v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>Reprise</Text> : null}
+                    <View style={styles.rowBody}>
+                      <Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>
+                      <View style={styles.rowActions}>
+                        {v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}
+                        {/* Adel 05/10/2026 : plus de badge « Abonné » ; on va sur le profil (seul endroit où l'on peut se désabonner). */}
+                        <TouchableOpacity
+                          style={styles.viewProfileBtn}
+                          onPress={() => { setViewersOpen(false); setOpenStory(null); onOpenProfile?.(v.username); }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Voir le profil de ${v.username}`}
+                          testID={`story-viewer-profile-${v.viewerId}`}
+                        >
+                          <Text style={styles.viewProfileText}>Voir le profil ›</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
                 ))}
               </ScrollView>
@@ -474,7 +487,6 @@ const styles = StyleSheet.create({
   viewsChipText: { color: colors.white, fontSize: 13, fontWeight: '900' },
   viewsEmpty: { color: colors.white, fontSize: 15, lineHeight: 22, paddingVertical: 12 },
   badge: { fontSize: 12, fontWeight: '900', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, overflow: 'hidden', color: '#04130F' },
-  badgeFollower: { backgroundColor: '#2DE1C2' },
   badgeReprise: { backgroundColor: '#FFB020' },
   barRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
   railWrap: { flex: 1, minWidth: 0 },
@@ -496,7 +508,11 @@ const styles = StyleSheet.create({
   rowAvatar: { width: 40, height: 40, borderRadius: 20 },
   rowAvatarFallback: { backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   rowInitial: { color: colors.white, fontSize: 16, fontWeight: '900' },
-  rowName: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '800' },
+  rowBody: { flex: 1, minWidth: 0, paddingVertical: 6 },
+  rowActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  viewProfileBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,0.18)', alignItems: 'center', justifyContent: 'center' },
+  viewProfileText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  rowName: { color: colors.white, fontSize: 15, fontWeight: '800' },
   rowState: { fontSize: 13, fontWeight: '900' },
   rowStateNew: { color: '#2DE1C2' },
   rowStateSeen: { color: colors.textSecondary },

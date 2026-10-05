@@ -166,3 +166,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - À l'achat, l'acheteur voit ce qu'il a déjà et ce qui lui manque (`loadPlaylistSaleOfferOverlap`) ; l'achat d'un doublon reste bloqué.
 - Les musiques partagées en **conversation privée** ne vont JAMAIS en story (confidentialité) ; seules les musiques d'un salon public pourraient y entrer (non implémenté, IDEA-070).
 - À faire (IDEA-071) : proposition de prix pour les titres manquants via notifications + robot, puis chat direct.
+
+### §14 ter — Désabonnement et liste des vues (Adel, 05/10/2026)
+- **Un utilisateur ne se désabonne d'un autre que depuis la PAGE PROFIL de celui-ci.** Jamais depuis une bulle de story, la fiche rapide, la liste des vues ou la liste « Reprises » (elles affichent « Voir le profil » / « ✓ Tu le suis »). Contrôle bloquant : `verify-product-contract.cjs`.
+- La liste « Vues de ta story » montre, pour chaque spectateur : son nom, « A repris » (s'il a déjà repris un de tes morceaux — ce n'est pas un événement du jour) et un bouton **Voir le profil ›**. Plus de badge « Abonné ».

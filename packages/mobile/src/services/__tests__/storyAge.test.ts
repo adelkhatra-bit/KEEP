@@ -106,3 +106,16 @@ describe('Ligne d\'âge de story : une seule ligne, courte (Adel 05/10/2026)', (
     expect(deck).toContain('numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age"');
   });
 });
+
+describe('Désabonnement uniquement depuis le profil (Adel 05/10/2026)', () => {
+  it('liste des vues : « Voir le profil » ; fiche rapide et listes de reprises ne désabonnent plus', () => {
+    const bar = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'ProfileStoryBar.tsx'), 'utf8');
+    const quick = fs.readFileSync(path.join(__dirname, '..', '..', 'components', 'SourceProfileQuickView.tsx'), 'utf8');
+    const pub = fs.readFileSync(path.join(__dirname, '..', '..', 'screens', 'PublicUserProfileScreen.tsx'), 'utf8');
+    const own = fs.readFileSync(path.join(__dirname, '..', '..', 'screens', 'ProfilePublicScreen.tsx'), 'utf8');
+    expect(bar).toContain('story-viewer-profile-');
+    expect(quick).not.toContain('.delete(');
+    expect(pub).toContain("navigation.navigate('PublicProfile', { username: repriser.username }); return; }");
+    expect(own).not.toContain("from('follows').delete()");
+  });
+});

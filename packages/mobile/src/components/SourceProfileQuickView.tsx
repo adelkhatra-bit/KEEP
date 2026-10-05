@@ -113,15 +113,11 @@ export default function SourceProfileQuickView({
     setFollowBusy(true);
     setMessage('');
     try {
+      // Règle d'Adel (05/10/2026) : on ne se désabonne QUE depuis la page profil de la personne.
       if (isFollowing) {
-        const { error } = await supabase
-          .from('follows')
-          .delete()
-          .eq('follower_id', currentUserId)
-          .eq('followee_id', profile.id);
-        if (error) throw error;
-        setIsFollowing(false);
-        setMessage(`Tu ne suis plus ${profile.username}.`);
+        onClose();
+        onOpenFull(profile.username);
+        return;
       } else {
         const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: profile.id });
         if (error) throw error;
@@ -150,7 +146,7 @@ export default function SourceProfileQuickView({
             {message ? <Text style={s.message}>{message}</Text> : null}
 
             <TouchableOpacity style={[s.follow, isFollowing && s.followOn]} onPress={() => void toggleFollow()} disabled={followBusy || profile.id === currentUserId}>
-              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={[s.followText, isFollowing && s.followTextOn]}>{profile.id === currentUserId ? 'MON PROFIL' : isFollowing ? 'SE DÉSABONNER' : "S'ABONNER"}</Text>}
+              {followBusy ? <ActivityIndicator color="#FFF" /> : <Text style={[s.followText, isFollowing && s.followTextOn]}>{profile.id === currentUserId ? 'MON PROFIL' : isFollowing ? '✓ TU LE SUIS' : "S'ABONNER"}</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={s.secondary} onPress={() => { onClose(); onOpenFull(profile.username); }}>
               <Text style={s.secondaryText}>VOIR LE PROFIL COMPLET</Text>

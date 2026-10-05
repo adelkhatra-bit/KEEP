@@ -1615,16 +1615,13 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return;
     }
     if (repriseFollowBusyId) return;
+    // Règle d'Adel (05/10/2026) : on ne se désabonne QUE depuis la page profil de la personne.
+    if (repriser.isFollowing) { navigation.navigate('PublicProfile', { username: repriser.username }); return; }
     setRepriseFollowBusyId(repriser.profileId);
     try {
-      if (repriser.isFollowing) {
-        const { error } = await supabase.rpc('keep_unfollow_profile', { p_followee_id: repriser.profileId });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: repriser.profileId });
-        if (error) throw error;
-      }
-      setReprisers((rows) => rows.map((r) => r.profileId === repriser.profileId ? { ...r, isFollowing: !r.isFollowing } : r));
+      const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: repriser.profileId });
+      if (error) throw error;
+      setReprisers((rows) => rows.map((r) => r.profileId === repriser.profileId ? { ...r, isFollowing: true } : r));
     } catch {
       Alert.alert('Abonnement', 'Impossible de mettre à jour l’abonnement pour le moment.');
     } finally {
@@ -2478,7 +2475,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
                       {r.favoriteGenres.length ? <View style={styles.repriseGenres}>{r.favoriteGenres.slice(0,3).map((g) => <View key={g} style={[styles.repriseGenreChip, { borderColor: tierColors.ring }]}><Text style={[styles.repriseGenreText, { color: tierColors.ring }]}>{g}</Text></View>)}</View> : null}
                     </View>
                     <TouchableOpacity disabled={repriseFollowBusyId === r.profileId} style={[styles.repriseFollowButton, r.isFollowing && styles.repriseFollowButtonOn]} onPress={() => void toggleRepriserFollow(r)}>
-                      <Text style={[styles.repriseFollowButtonText, r.isFollowing && styles.repriseFollowButtonTextOn]}>{repriseFollowBusyId === r.profileId ? '…' : r.isFollowing ? 'ABONNÉ' : 'SUIVRE'}</Text>
+                      <Text style={[styles.repriseFollowButtonText, r.isFollowing && styles.repriseFollowButtonTextOn]}>{repriseFollowBusyId === r.profileId ? '…' : r.isFollowing ? 'VOIR LE PROFIL' : 'SUIVRE'}</Text>
                     </TouchableOpacity>
                   </View>
                 );

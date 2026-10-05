@@ -374,6 +374,11 @@ const storyService = fs.readFileSync(path.join(root, 'packages/mobile/src/servic
 const storyDeck = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
 const storyEligibility = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyEligibility.ts'), 'utf8');
 const se = contract.storiesExperience;
+// Règle d'Adel (05/10/2026) : on ne se désabonne QUE depuis la page profil de la personne ; la liste des vues propose « Voir le profil », pas un badge « Abonné ».
+const quickViewSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/SourceProfileQuickView.tsx'), 'utf8');
+must(se && se.unfollowOnlyFromProfilePage === true && se.viewersListShowsViewProfileNotFollowBadge === true, 'storiesExperience: règle « désabonnement uniquement depuis le profil » absente du contrat');
+must(!quickViewSrc.includes('.delete(') && !quickViewSrc.includes('keep_unfollow_profile'), 'stories: la fiche rapide ne doit jamais désabonner (seule la page profil le fait)');
+must(storyBar.includes('Voir le profil ›') && !storyBar.includes('>Abonné<'), 'stories: la liste des vues doit proposer « Voir le profil » et non un badge « Abonné »');
 must(se && se.rowIsSinglePiece === true && se.sameStyleStoriesAllowed === false && se.autoChainToNextUnseenStory === true, 'storiesExperience contract missing or changed');
 must(storyRail.includes('{leading ?? null}') && storyRail.includes('horizontal') && storyBar.includes('leading={leadingPhoto}'), 'stories: la photo + « + » doit défiler avec la même rangée horizontale (leading)');
 must(!storyRail.includes('Modal') && !storyRail.includes('home-story-others'), 'stories: la rangée ne doit ni ouvrir de fenêtre ni avoir de rond « Autres » (tout est dans la ligne, façon Instagram)');
