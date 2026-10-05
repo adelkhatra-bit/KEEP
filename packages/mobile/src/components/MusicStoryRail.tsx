@@ -130,7 +130,8 @@ export default function MusicStoryRail({ stories, seen, onOpen, own, onOpenOwn, 
                   </StoryRing>}
               {online && online[story.profileId] !== undefined ? <View style={[s.presenceDot, { backgroundColor: online[story.profileId] ? ONLINE_GREEN : OFFLINE_RED, left: size - DOT - 2, top: size - DOT - 2 }]} testID={`story-presence-${story.profileId}`} accessibilityLabel={online[story.profileId] ? 'En ligne' : 'Hors ligne'} /> : null}
               {suggestion ? <View style={[s.seenBadge, s.suggestBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>↻</Text></View> : !unseen ? <View style={[s.seenBadge, { top: 2, right: 2 }]}><Text style={s.seenBadgeText}>✓</Text></View> : null}
-              <Text style={[s.name, !unseen && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
+              <Text style={[s.name, !unseen && !suggestion && s.nameSeen]} numberOfLines={1}>{story.username}</Text>
+              {suggestion ? <Text style={s.suggestCaption} numberOfLines={1}>↻ a repris</Text> : null}
             </TouchableOpacity>
           );
         })}
@@ -168,7 +169,8 @@ const s = StyleSheet.create({
   nameSeen: { opacity: 0.75 },
   seenBadge: { position: 'absolute', right: 2, top: RING - 16, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#0B0A12' },
   seenBadgeText: { color: '#04130F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
-  suggestRing: { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  suggestRing: { borderWidth: 3, borderStyle: 'dashed', borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.22)', alignItems: 'center', justifyContent: 'center' },
+  suggestCaption: { color: '#B79CFF', fontSize: 11, fontWeight: '900', marginTop: -1 },
   suggestBadge: { backgroundColor: colors.primaryLight },
   moreCircle: { width: RING, height: RING, borderRadius: RING / 2, borderWidth: 2, borderColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   moreText: { color: colors.white, fontSize: 14, fontWeight: '900' },

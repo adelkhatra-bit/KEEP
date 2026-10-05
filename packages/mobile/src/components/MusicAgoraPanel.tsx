@@ -8,6 +8,11 @@ import { blockUser } from '../services/moderationService';
 import TrackPreviewButton from './TrackPreviewButton';
 import { commitKeep } from '../services/keepTrackAction';
 import {
+  clearConversationForMe,
+  directConversationKey,
+  groupConversationKey,
+  loadConversationPrefs,
+  setConversationEphemeral,
   loadMusicAgoraMessages,
   loadMusicAgoraConversations,
   loadMusicAgoraDirectMessages,
@@ -724,6 +729,37 @@ export default function MusicAgoraPanel({
     }
   };
 
+
+  // Adel (05/10/2026) : messages éphémères + effacer la conversation, dans les messages privés et les groupes (jamais dans le salon public).
+  const openChatOptions = async () => {
+    const key = activeGroup?.id ? groupConversationKey(activeGroup.id) : replyTarget?.profileId ? directConversationKey(replyTarget.profileId) : null;
+    if (!key) return;
+    const prefs = await loadConversationPrefs(true);
+    const ephemeral = prefs.get(key)?.ephemeral ?? false;
+    const reload = () => { setMessages([]); void refresh(roomSlug, true); };
+    Alert.alert(
+      'Options de la conversation',
+      `${ephemeral ? '⏱ Messages éphémères ACTIVÉS : ceux de plus de 24 h disparaissent de ton écran.' : 'Garde cette conversation propre.'}\nCela ne change rien pour l’autre personne.`,
+      [
+        {
+          text: ephemeral ? '⏱ Désactiver les messages éphémères' : '⏱ Activer les messages éphémères (24 h)',
+          onPress: () => { void setConversationEphemeral(key, !ephemeral).then(reload).catch(() => Alert.alert('Action impossible', 'Le réglage n’a pas pu être enregistré. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }])); },
+        },
+        {
+          text: '🗑 Effacer la conversation (pour moi)',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Effacer cette conversation ?', 'Tous les messages actuels disparaissent de TON écran. L’autre personne les garde. Les nouveaux messages apparaîtront normalement.', [
+              { text: 'Annuler', style: 'cancel' },
+              { text: 'Effacer', style: 'destructive', onPress: () => { void clearConversationForMe(key).then(reload).catch(() => Alert.alert('Action impossible', 'La conversation n’a pas pu être effacée. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }])); } },
+            ]);
+          },
+        },
+        { text: 'Annuler', style: 'cancel' },
+      ],
+    );
+  };
+
   const refresh = async (slug = roomSlug, quiet = false) => {
     if (!slug && !(chatMode === 'MESSAGES' && (replyTarget?.profileId || activeGroup?.id))) return;
     const requestThreadKey = activeThreadKeyRef.current;
@@ -969,7 +1005,7 @@ export default function MusicAgoraPanel({
         ownSendPendingRef.current = offer.groupMessageId || -1;
         const owned = offer.alreadyOwned > 0 ? ` ${offer.alreadyOwned} l’a déjà (rien à payer).` : '';
         const pending = offer.alreadyPending > 0 ? ` ${offer.alreadyPending} a déjà une offre en attente.` : '';
-        Alert.alert('Pépite envoyée', `Offre privée envoyée à ${offer.offersSent} membre${offer.offersSent > 1 ? 's' : ''}.${owned}${pending}`);
+        Alert.alert('Pépite envoyée', `Offre privée envoyée à ${offer.offersSent} membre${offer.offersSent > 1 ? 's' : ''}, valable 24 h : ensuite elle disparaît et il faudra refaire une demande.${owned}${pending}`);
       } else if (activeGroup?.id) {
         const sentId = await postMusicAgoraGroupMessage(activeGroup.id, body, {
           sharedTrackId: sharedTrack?.id ?? null,
@@ -1351,6 +1387,12 @@ export default function MusicAgoraPanel({
             </TouchableOpacity>
           ) : null}
 
+          {(replyTarget || activeGroup?.myStatus === 'ACTIVE') ? (
+            <TouchableOpacity style={s.compactHeaderAction} onPress={() => { void openChatOptions(); }} accessibilityRole="button" accessibilityLabel="Options : messages éphémères, effacer la conversation" testID="chat-options">
+              <Text style={s.compactHeaderActionText}>⋯</Text>
+            </TouchableOpacity>
+          ) : null}
+
           {onCompactExpand ? (
             <TouchableOpacity
               style={s.compactHeaderAction}
@@ -1696,6 +1738,8 @@ export default function MusicAgoraPanel({
                 )
               ) : message.viewerUnlocked ? (
                 <View style={s.offerUnlocked}><Text style={s.offerUnlockedText}>✓ DÉBLOQUÉE</Text></View>
+              ) : !message.offerActive && message.viewerPaymentStatus !== 'PENDING' ? (
+                <View style={[s.keepMusic, s.keepMusicDisabled]} accessibilityLabel="Offre expirée" testID="chat-offer-expired"><Text style={s.keepMusicText}>⌛ OFFRE EXPIRÉE · REDEMANDE-LA</Text></View>
               ) : message.paymentMode === 'MONEY' && Platform.OS !== 'web' ? (
                 <View style={[s.keepMusic, s.keepMusicDisabled]} accessibilityLabel="Paiement en euros indisponible dans l’application">
                   <Text style={s.keepMusicText}>€ INDISPONIBLE SUR L’APP</Text>
@@ -1798,7 +1842,7 @@ export default function MusicAgoraPanel({
           </TouchableOpacity>
         </View>
       ) : null}
-      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}</Text></View> : null}
+      {replyTarget && !(compact && chatMode === 'MESSAGES') ? <View style={s.replyTarget}><Text style={s.replyTargetText}>Conversation avec @{replyTarget.username}</Text>{!compact ? <TouchableOpacity onPress={() => { void openChatOptions(); }} accessibilityRole="button" accessibilityLabel="Options : messages éphémères, effacer la conversation" testID="chat-options-full"><Text style={s.replyTargetText}>⋯ Options</Text></TouchableOpacity> : null}</View> : null}
       {sharedTrack ? <View style={[s.selectedMusic, shareOptionsOpen && { maxHeight: shareExpandedHeight }]}>
         <View style={s.selectedMusicCompactRow}>
           <View style={s.selectedMusicThumbWrap}>
@@ -1890,6 +1934,7 @@ export default function MusicAgoraPanel({
             ><Text style={s.revealChipText}>TITRE + JAQUETTE</Text></TouchableOpacity>
           </View>
           {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule}>🔒 Vente = identité masquée jusqu’au déblocage. L’extrait reste écoutable.</Text> : null}
+          {sharePaymentMode !== 'NONE' ? <Text style={s.maskedSaleRule} testID="chat-sale-24h-note">⏳ Vente éphémère : cette musique est en vente 24 h sur le chat. Passé ce délai elle disparaît ; tu devras refaire une demande.</Text> : null}
           {sharePreflightBusy ? <Text style={s.preflightText}>Vérification propriété…</Text> : null}
           {sharePreflight?.targetOwnsTrack ? <Text style={s.preflightOwned}>✓ @{sharePreflight.targetUsername || replyTarget?.username || 'cet utilisateur'} a déjà cette musique · aucune vente nécessaire</Text> : null}
           {sharePreflight && !sharePreflight.canSell ? (

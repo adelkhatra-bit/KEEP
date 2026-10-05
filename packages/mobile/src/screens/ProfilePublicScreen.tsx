@@ -367,7 +367,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
     })), [playlistSaleOffers]);
   const ownerPrivateChatOffers = useMemo(
     () => playlistSaleOffers
-      .filter((offer) => Boolean(offer.offerId) && offer.playlistId.startsWith('keep-chat:'))
+      .filter((offer) => Boolean(offer.offerId) && offer.isActive && offer.playlistId.startsWith('keep-chat:'))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
     [playlistSaleOffers],
   );
@@ -2181,7 +2181,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
           </TouchableOpacity>
           {ownerPrivateChatOpen ? (
             <>
-              <Text style={s.ownerPrivateChatHint}>Visibles seulement par toi ici. Elles restent liées à leur destinataire dans le chat.</Text>
+              <Text style={s.ownerPrivateChatHint}>Visibles seulement par toi ici. Une vente du chat dure 24 h : ensuite elle disparaît (il faudra refaire une demande).</Text>
               {ownerPrivateChatOffers.slice(0, 6).map((offer) => {
                 const price = offer.paymentMode === 'FREE'
                   ? `${offer.freePrice ?? 0} FREE`

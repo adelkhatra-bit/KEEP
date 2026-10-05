@@ -387,10 +387,51 @@ export async function loadMusicAgoraMessages(roomSlug: string, beforeId?: number
   return hydrated.sort((a, b) => a.id - b.id);
 }
 
+
+/**
+ * Messages éphémères + effacer une conversation (Adel, 05/10/2026). Réglage PAR UTILISATEUR et par conversation privée (message direct ou
+ * groupe, jamais le salon public) : « effacer » masque tout l'historique jusqu'à maintenant ; « éphémère » masque tout ce qui a plus de 24 h.
+ * Rien n'est supprimé pour l'autre personne. Les musiques vendues dans le chat ont, elles, une vraie expiration serveur de 24 h.
+ */
+import { EPHEMERAL_MESSAGE_HOURS, isMessageHiddenByPrefs, type ConversationPrefs } from './conversationPrefs';
+export { EPHEMERAL_MESSAGE_HOURS, isMessageHiddenByPrefs };
+export type { ConversationPrefs };
+let conversationPrefsCache: { at: number; map: Map<string, ConversationPrefs> } | null = null;
+export const directConversationKey = (profileId: string) => `dm:${profileId}`;
+export const groupConversationKey = (groupId: string) => `group:${groupId}`;
+
+export async function loadConversationPrefs(force = false): Promise<Map<string, ConversationPrefs>> {
+  if (!supabase) return new Map();
+  if (!force && conversationPrefsCache && Date.now() - conversationPrefsCache.at < 30000) return conversationPrefsCache.map;
+  const map = new Map<string, ConversationPrefs>();
+  try {
+    const { data, error } = await supabase.from('music_agora_conversation_prefs').select('conv_key,ephemeral,cleared_at');
+    if (!error) for (const row of (data ?? []) as any[]) map.set(String(row.conv_key), { ephemeral: Boolean(row.ephemeral), clearedAt: row.cleared_at ? String(row.cleared_at) : null });
+  } catch { /* sans réglages : rien n'est masqué */ }
+  conversationPrefsCache = { at: Date.now(), map };
+  return map;
+}
+
+export async function setConversationEphemeral(key: string, ephemeral: boolean): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const current = (await loadConversationPrefs()).get(key);
+  const { error } = await supabase.from('music_agora_conversation_prefs').upsert({ conv_key: key, ephemeral, cleared_at: current?.clearedAt ?? null, updated_at: new Date().toISOString() }, { onConflict: 'profile_id,conv_key' });
+  if (error) throw error;
+  conversationPrefsCache = null;
+}
+
+export async function clearConversationForMe(key: string): Promise<void> {
+  if (!supabase) throw new Error('service_unavailable');
+  const { error } = await supabase.rpc('keep_agora_clear_conversation', { p_conv_key: key });
+  if (error) throw error;
+  conversationPrefsCache = null;
+}
+
 export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgoraConversation[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc('keep_agora_my_conversations', { p_limit: limit });
   if (error) throw error;
+  const prefs = await loadConversationPrefs();
   return (Array.isArray(data) ? data : []).map((row: any) => ({
     profileId: String(row.other_profile_id || ''),
     username: String(row.other_username || 'loki-user'),
@@ -402,6 +443,7 @@ export async function loadMusicAgoraConversations(limit = 30): Promise<MusicAgor
     lastSharedTrackId: row.last_shared_track_id ? String(row.last_shared_track_id) : null,
     lastSaleOfferId: row.last_sale_offer_id ? String(row.last_sale_offer_id) : null,
   })).filter((row) => row.profileId && row.lastMessageId)
+    .filter((row) => !isMessageHiddenByPrefs(prefs.get(directConversationKey(row.profileId)), row.lastCreatedAt))
     .sort((a, b) => {
       const timeDiff = new Date(b.lastCreatedAt || 0).getTime() - new Date(a.lastCreatedAt || 0).getTime();
       return timeDiff || b.lastMessageId - a.lastMessageId;
@@ -461,7 +503,9 @@ export async function loadMusicAgoraDirectMessages(
     replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null,
     replyToBody: row.reply_to_body ? String(row.reply_to_body) : null,
   })).filter((row) => row.id && row.profileId && row.body);
-  const hydrated = await hydrateMusicAgoraPaymentStates(rows);
+  const dmPrefs = (await loadConversationPrefs()).get(directConversationKey(otherProfileId));
+  const visibleRows = rows.filter((row) => !isMessageHiddenByPrefs(dmPrefs, row.createdAt));
+  const hydrated = await hydrateMusicAgoraPaymentStates(visibleRows);
   return hydrated.sort((a, b) => a.id - b.id);
 }
 
@@ -903,6 +947,7 @@ export async function loadMusicAgoraGroupMessages(
     p_limit: limit,
   });
   if (error) throw error;
+  const groupPrefs = (await loadConversationPrefs()).get(groupConversationKey(groupId));
   return (Array.isArray(data) ? data : []).map((row: any): MusicAgoraMessage => ({
     id: Number(row.id),
     roomSlug: `group:${groupId}`,
@@ -939,7 +984,7 @@ export async function loadMusicAgoraGroupMessages(
     replyToMessageId: row.reply_to_message_id == null ? null : Number(row.reply_to_message_id),
     replyToUsername: row.reply_to_username ? String(row.reply_to_username) : null,
     replyToBody: row.reply_to_body ? String(row.reply_to_body) : null,
-  })).filter((row) => row.id && row.profileId).sort((a, b) => a.id - b.id);
+  })).filter((row) => row.id && row.profileId && !isMessageHiddenByPrefs(groupPrefs, row.createdAt)).sort((a, b) => a.id - b.id);
 }
 
 export async function postMusicAgoraGroupMessage(
