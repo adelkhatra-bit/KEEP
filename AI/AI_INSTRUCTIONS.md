@@ -796,3 +796,27 @@ index 00000000..76c854b7
 +const better = KEYS.filter((k) => now[k] < base[k]);
 +console.log(`✅ Cohérence design : aucun recul${better.length ? ` (amélioré : ${better.join(', ')} — lance --update pour verrouiller)` : ''}.`);
 ```
+
+
+### 2026-10-05 02:40 CEST — PROPOSITION CLAUDE (PROPOSEUR) n°5 → en attente [VALIDÉ-PAR-CHATGPT] — Notifications fiables, maîtrisées, rapides + mises à jour à distance sûres
+
+HEAD de référence : `ca9391e4`. Proposition de périmètre seulement (pas de code poussé). Décisions d'Adel du 05/10 02:35, prises dans les fenêtres de choix : **promos bloquées pour FREE, désactivables par les abonnés ; plafond de 8 alertes téléphone/jour avec regroupement.**
+
+**Faits vérifiés (MODE RÉEL, Supabase live, lecture seule)**
+- Clé APNs remplacée par Adel le 05/10 : `9668XNGA8C` (Sandbox & Production) dans Expo, à la place de `86S5KDJGVC` (Sandbox seule, cause des `BadEnvironmentKeyInToken`). Test Super Admin → @adel4A : **DELIVERED** (premier push délivré de l'histoire du projet). 11 s d'attente côté serveur (robot `keep-push-worker-every-30-seconds`).
+- **Un seul appareil** dans `push_tokens` pour 17 profils (324 envois `NO_DEVICE` en 7 jours). Le parcours de demande d'autorisation et d'enregistrement du jeton doit être revu sur iPhone.
+- Volume : 402 notifications en 7 j, moyenne 7,4 par profil et par jour, **maximum 44 par profil et par jour**. `NEW_PUBLIC_KEEP` = 116 (29 %), `BATTLE_INVITE` = 52.
+- `keep-push-worker` respecte 6 interrupteurs (system, social, events, money, battle, music). **`marketing_enabled` et `dj_enabled` existent dans `notification_preferences` et dans l'app, mais le worker ne les lit jamais.** `LOKI_PULSE_NEW`, `PLAYLIST_SALE_NEW_OFFER` et `CHAT_ACTIVATION_AVAILABLE` tombent dans « system » : l'interrupteur « promos » de l'app n'a donc aucun effet.
+- `notification_access_rules` : 40 types, tous `is_locked=false`, `min_plan_code=FREE`.
+- Garde OTA (`eas-update-production.yml`) : `baseline` = dernier commit touchant `.eas-build-trigger`, donc égal à HEAD au moment d'une release, et le diff natif est toujours vide. L'OTA `1e044b11` a été publiée alors que le build #162 avait échoué : du JS demandant `expo-application`, absent du binaire 373, tourne donc sur les iPhone.
+- Solos épuisés (`KeepBattleMobileGameV3`) : la fenêtre propose « Acheter des Solos » et « Jouer en BATTLE », mais **aucune offre Premium**. Écoute sans FREE (`HomeScreenCompact`) : « RECHARGER » et « PASSER PREMIUM », conforme.
+
+**Lot 5 proposé**
+1. `keep-push-worker` : catégorie `marketing` (LOKI_PULSE_NEW, PLAYLIST_SALE_NEW_OFFER, CHAT_ACTIVATION_AVAILABLE, ADMIN_BROADCAST promo) lue depuis `marketing_enabled`. Pour un profil FREE, l'interrupteur marketing est ignoré, et l'app l'affiche verrouillé avec « Disponible avec un abonnement ». Tout le reste est désactivable par tous. L'iPhone garde de toute façon son réglage système (règle Apple).
+2. Plafond de **8 alertes téléphone/jour/profil** (`remote_config.push_daily_cap`, réglable depuis le Super Admin). AGORA_DIRECT et la catégorie money ne sont jamais plafonnés. Au-delà, la notification reste dans l'app sans alerte sur le téléphone.
+3. Regroupement de `NEW_PUBLIC_KEEP` : une seule alerte « X nouveaux morceaux de @a, @b… » par fenêtre de 30 min.
+4. Envoi immédiat : trigger `AFTER INSERT` (par instruction) sur `notifications` → `pg_net` vers `keep-push-worker`, avec anti-rafale. Le cron de 30 s reste en secours.
+5. Garde OTA : comparer à la dernière release dont le build iOS a **réussi** (tag `testflight-built-<n>` posé par `auto-eas-build.yml` en cas de succès). Aucune OTA si le build de la même release a échoué.
+6. Fenêtre « Solos épuisés » : ajouter « Passer Premium » (AlertHost, règles §9, 3 boutons maximum : Acheter des Solos · Passer Premium · OK). Le bouton « Jouer en BATTLE » passe dans le texte.
+
+Tests prévus : tests Deno du worker (catégories, plafond, exemptions) ; migration vérifiée par `verify-migrations` ; contrat jest pour la fenêtre Solos ; mesure live des statuts dans `push_delivery_attempts` après déploiement.
