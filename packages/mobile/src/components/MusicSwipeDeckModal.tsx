@@ -17,7 +17,7 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import { checkOwnKeepLibrary } from '../services/connectedMusicLibrary';
 import GlowRing from './GlowRing';
-import TrackLikeButton from './TrackLikeButton';
+import TrackLikeButton, { ReactionStatPills } from './TrackLikeButton';
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import { useUserStore } from '../store/useUserStore';
 import { useTrackLikes } from '../services/useTrackLikes';
@@ -962,7 +962,7 @@ export default function MusicSwipeDeckModal({
           {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
             <View style={s.headerLikeRow}>
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
-              <View style={[{ flexShrink: 1 }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
+              <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
                 const key = likeKey(current.id);
                 const count = trackLikes.counts[key] ?? 0;
@@ -970,7 +970,7 @@ export default function MusicSwipeDeckModal({
                 if (likeMode === 'count-only' || isSelf) {
                   const dislikeCount = trackLikes.dislikeCounts[key] ?? 0;
                   const mehCount = trackLikes.mehCounts[key] ?? 0;
-                  return <View style={s.likeCount} testID="deck-like-count" accessibilityLabel={`${count} j’aime, ${mehCount} bof et ${dislikeCount} pas aimé sur cette musique`}><Text style={s.likeCountText}>❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}</Text></View>;
+                  return <ReactionStatPills likes={count} mehs={mehCount} dislikes={dislikeCount} />;
                 }
                 const reaction = trackLikes.liked.has(key) ? 'LIKE' : trackLikes.meh.has(key) ? 'MEH' : trackLikes.disliked.has(key) ? 'DISLIKE' : null;
                 return <TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} />;
@@ -1147,9 +1147,7 @@ const s = StyleSheet.create({
   askBubble:{position:'absolute',right:0,top:'100%',marginTop:4,zIndex:9,paddingVertical:6,paddingHorizontal:12,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
   askText:{color:'#2B1D00',fontSize:13,fontWeight:'900'},
-  headerLikeRow:{position:'relative',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,marginTop:2},
-  likeCount:{minHeight:32,paddingHorizontal:12,borderRadius:16,borderWidth:1.5,borderColor:'#FF5C8A',backgroundColor:'rgba(255,92,138,.14)',alignItems:'center',justifyContent:'center'},
-  likeCountText:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
+  headerLikeRow:{position:'relative',flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:2},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},
   cardCompact:{minHeight:120},
   gradientCompact:{paddingTop:12,paddingBottom:12},

@@ -4,6 +4,12 @@
 
 **Langue : français uniquement avec Adel. Il veut un exécutant autonome (« continue, t'arrête pas »), qui teste avant de dire « fait », ne pousse que les modules concernés, et garde app = ordinateur.** Toute nouvelle idée d'Adel → `docs/IDEAS_INBOX.md` AVANT de coder. Les statuts « EN COURS » anciens de l'inbox sont en partie périmés : se fier à `docs/ERROR_LEDGER.md` (ERR-…-143 à 164) et à ce résumé.
 
+### Ajouts du 05/10/2026 nuit (IDEA-110 à 116) — à confirmer sur iPhone
+- **Réactions** ❤/😐/👎 (`TrackLikeButton.tsx`, tables `track_likes` + `track_dislikes`), merci par le nom, des-aimer, moteur de goût (`keep_recommend_for_me`, `tasteMerge.ts`), **« Mon oreille »** (`earReport.ts`, `EarReportModal.tsx`, RPC `keep_my_ear_report`, menu ☰ > PROFIL).
+- **Compteurs de MA story** : `ReactionStatPills` 42 px, vert/ambre/violet (pas de rouge). **Sections repliables** : `useCollapsedSection` (boutique + ventes privées du chat), règle générale pour tout profil.
+- **Règle d'Adel** : tout ce qu'il dit est rangé (IDEAS_INBOX, cahier §14, ce fichier) ; on dit « OK Loki Music » (audit des textes « KEEP » à faire).
+- Reste : iPhone, QR ordinateur (IDEA-101), barème « oreille » à valider, textes marketing.
+
 ### Livré dans le code (branche `reconcile/claude-main-20260825`, tout poussé) — à CONFIRMER SUR IPHONE (aucune preuve iPhone, seulement navigateur 320/390/1440 + tests)
 - **Vues de story façon Instagram** (IDEA-091/098) : vue comptée après 2 s (`storyWatchService.ts`), secondes, musiques vues, écoute, départ en direct, **chapitres** (temps par musique) ; liste « Vues de ta story » (`ProfileStoryBar.tsx`, `formatWatchDetail`), alerte « regarde / est parti » (`StoryVisitorToast.tsx`). Tables/RPC : `story_watch_sessions` (+`chapters`), `keep_story_watch_start`, `keep_story_watch_chapters_ping`, `keep_my_story_viewers_v3` (anciennes `keep_story_watch_ping` / `_v2` gardées pour les vieux téléphones).
 - **Chronomètre 24 h** « ⏱ HH:MM:SS » (`useStoryCountdown.ts`) ; bouton « ajouter à ma story » gris + popup « C'est bon ✓ » ; ordre des bulles : non vues → vues récentes → sans story → suggestions (`MusicStoryRail.tsx`) ; fiche d'un membre sans story centrée avec dernière musique partagée + dernière connexion (`SourceProfileQuickView.tsx`).

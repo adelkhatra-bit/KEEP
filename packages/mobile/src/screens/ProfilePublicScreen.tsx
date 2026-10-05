@@ -72,6 +72,7 @@ import NotificationSidePanel from '../components/NotificationSidePanel';
 import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
 import KeepModal from '../components/KeepModal';
 import EarReportModal from '../components/EarReportModal';
+import { useCollapsedSection } from '../services/useCollapsedSection';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
 type SocialPlatform = SocialLink['platform'];
@@ -362,7 +363,8 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // depuis la même source que l'écran Offres pour ne jamais désynchroniser.
   const [freeCostPerKeep, setFreeCostPerKeep] = useState(3);
   const [playlistSaleOffers, setPlaylistSaleOffers] = useState<PlaylistSaleOffer[]>([]);
-  const [ownerPrivateChatOpen, setOwnerPrivateChatOpen] = useState(false);
+  const [ownerPrivateChatOpen, toggleOwnerPrivateChat] = useCollapsedSection(user?.id ?? 'guest', 'private-chat-sales', false);
+  const [ownerBoutiqueOpen, toggleOwnerBoutique] = useCollapsedSection(user?.id ?? 'guest', 'boutique', true);
   const [ownerMusicInfoOpen, setOwnerMusicInfoOpen] = useState(false);
   // Une seule présentation du Drop : le propriétaire et les visiteurs rendent
   // SellerBoutique. Ainsi tout changement de design reste automatiquement lié.
@@ -2158,8 +2160,15 @@ export default function ProfilePublicScreen({ navigation }: any) {
 
       {!accountRequired && ownerBoutiqueOffers.length ? (
         <ProfileMotionReveal motionKey={`owner-drop:${user.id}:${ownerBoutiqueOffers.length}`} compact style={SELLER_BOUTIQUE_SECTION_STYLE}>
-          <Text style={s.ownerClubKicker}>MA BOUTIQUE MUSICALE · {user.username.replace(/^@+/, '')}</Text>
-          <SellerBoutique
+          <TouchableOpacity style={s.ownerBoutiqueHeader} onPress={toggleOwnerBoutique} accessibilityRole="button" accessibilityLabel={ownerBoutiqueOpen ? 'Masquer ma boutique musicale' : 'Afficher ma boutique musicale'} testID="owner-boutique-toggle">
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.ownerClubKicker}>MA BOUTIQUE MUSICALE · {user.username.replace(/^@+/, '')}</Text>
+              {!ownerBoutiqueOpen ? <Text style={s.ownerPrivateChatCollapsedHint}>Masquée pour garder ton profil compact.</Text> : null}
+            </View>
+            <Text style={s.ownerPrivateChatCount}>{ownerBoutiqueOffers.length}</Text>
+            <Text style={s.ownerBoutiqueToggle}>{ownerBoutiqueOpen ? 'Masquer ⌃' : 'Afficher ⌄'}</Text>
+          </TouchableOpacity>
+          {ownerBoutiqueOpen ? <SellerBoutique
             offers={ownerBoutiqueOffers}
             sellerUsername={user.username}
             overlaps={{}}
@@ -2200,7 +2209,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
                 })
                 .catch(() => Alert.alert('Pépite', 'Impossible d’ouvrir cette collection pour le moment.'));
             }}
-          />
+          /> : null}
         </ProfileMotionReveal>
       ) : null}
 
@@ -2208,7 +2217,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
         <ProfileMotionReveal motionKey={`owner-private-chat-sales:${user.id}:${ownerPrivateChatOffers.length}`} compact style={s.ownerPrivateChatSection}>
           <TouchableOpacity
             style={s.ownerPrivateChatHeader}
-            onPress={() => setOwnerPrivateChatOpen((open) => !open)}
+            onPress={toggleOwnerPrivateChat}
             accessibilityRole="button"
             accessibilityLabel={ownerPrivateChatOpen ? 'Réduire les ventes privées du chat' : 'Voir les ventes privées du chat'}
           >
@@ -2823,7 +2832,9 @@ const s=StyleSheet.create({
   ownerPrivateChatSection:{marginHorizontal:18,marginTop:10,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:12,gap:8},
   ownerPrivateChatHeader:{flexDirection:'row',alignItems:'center',gap:10},
   ownerPrivateChatCollapsedHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:2},
-  ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
+  ownerPrivateChatToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
+  ownerBoutiqueHeader:{flexDirection:'row',alignItems:'center',gap:10,minHeight:44},
+  ownerBoutiqueToggle:{color:colors.primaryLight,fontSize:12,fontWeight:'900'},
   ownerPrivateChatKicker:{color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.7},
   ownerPrivateChatToggleText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.5},
   ownerPrivateChatHint:{color:colors.textMuted,fontSize:11,lineHeight:16,marginTop:3},

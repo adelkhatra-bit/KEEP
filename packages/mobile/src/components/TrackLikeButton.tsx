@@ -79,7 +79,28 @@ export default function TrackLikeButton({ reaction, count, onReact, onClear, tes
   );
 }
 
+/** Couleurs de statistique (Adel, 05/10/2026, IDEA-115) : le rouge n'est pas un signe de bonheur. Aimé = vert, bof = ambre, pas aimé = violet. */
+export const STAT_COLORS = { LIKE: '#35E08A', MEH: '#FFB020', DISLIKE: '#B79CFF' } as const;
+
+/** Compteurs de réactions d'une musique partagée : trois pastilles alignées, de la MÊME taille que les boutons de réaction (42 px), une couleur par réaction. */
+export function ReactionStatPills({ likes, mehs, dislikes, testID = 'deck-like-count' }: { likes: number; mehs: number; dislikes: number; testID?: string }) {
+  const items = [{ k: 'LIKE' as const, e: '❤', n: likes, label: 'j’aime' }, { k: 'MEH' as const, e: '😐', n: mehs, label: 'bof' }, { k: 'DISLIKE' as const, e: '👎', n: dislikes, label: 'pas aimé' }];
+  return (
+    <View style={s.row} testID={testID} accessibilityLabel={`${likes} j’aime, ${mehs} bof et ${dislikes} pas aimé sur cette musique`}>
+      {items.map((it) => (
+        <View key={it.k} style={[s.pill, { borderColor: STAT_COLORS[it.k], backgroundColor: `${STAT_COLORS[it.k]}26` }]} testID={`${testID}-${it.k.toLowerCase()}`}>
+          <Text style={s.pillEmoji}>{it.e}</Text>
+          <Text style={[s.pillNum, { color: STAT_COLORS[it.k] }]}>{it.n}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  pill: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  pillEmoji: { fontSize: 13, lineHeight: 15 },
+  pillNum: { fontSize: 14, lineHeight: 16, fontWeight: '900' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   orbShadow: { width: 42, height: 42, borderRadius: 21, shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } },
   orb: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', borderWidth: 2, overflow: 'hidden' },
@@ -88,5 +109,5 @@ const s = StyleSheet.create({
   glyphIdle: { opacity: 0.75 },
   heartIdle: { color: '#FFFFFF' },
   dimmed: { opacity: 0.35 },
-  count: { position: 'absolute', right: -5, bottom: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: '#FF2D55', color: '#FFFFFF', fontSize: 11, lineHeight: 18, fontWeight: '900', textAlign: 'center', overflow: 'hidden' },
+  count: { position: 'absolute', right: -5, bottom: -5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: '#35E08A', color: '#04130F', fontSize: 11, lineHeight: 18, fontWeight: '900', textAlign: 'center', overflow: 'hidden' },
 });

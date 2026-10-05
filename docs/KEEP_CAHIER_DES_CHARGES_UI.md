@@ -234,3 +234,9 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - Flair : réagir +1, repérer tôt (≤ 3e à ❤/garder une musique qui atteint ≥ 3) +5 / +3, être parmi les 3 premiers sur un style +10. Niveaux : Oreille curieuse 0 · fine 10 · experte 30 · d'or 80 · légendaire 200.
 - Défis personnalisés construits depuis les statistiques de la personne (le plus proche à atteindre en premier). Statistique de style : ❤ 😐 👎 reçus par style sur ses partages + % d'approbation.
 - Rapport de communauté : points forts, points faibles, opportunités ; chaque phrase vient d'un chiffre réel, jamais inventée. Lecture seule, aucune donnée modifiée.
+
+### §14 quindecies — Compteurs de réactions alignés + sections de profil repliables (Adel, 05/10/2026, IDEA-114/115/116)
+- Compteurs de réactions de MA story (`ReactionStatPills`, `TrackLikeButton.tsx`) : trois pastilles rondes alignées, **même taille que les boutons de réaction (42 px)**, une couleur de statistique par réaction : ❤ aimé vert `#35E08A`, 😐 bof ambre `#FFB020`, 👎 pas aimé violet `#B79CFF`. Le rouge n'est jamais le signe du « bonheur ».
+- **Règle générale (tous les utilisateurs qui auront la fonction)** : toute grande section de profil (Ma boutique musicale, Ventes privées du chat…) est masquable / affichable d'un appui (`useCollapsedSection`), l'état est mémorisé par profil et par appareil (application et ordinateur identiques). Boutique : ouverte par défaut ; ventes privées du chat : masquées par défaut.
+- Toute nouvelle grande section de profil doit utiliser ce même mécanisme (pas de seconde version).
+- Vocabulaire : on dit « OK Loki Music » ; audit des textes visibles « KEEP » à faire (IDEA-114).

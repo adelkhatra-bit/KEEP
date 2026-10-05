@@ -321,7 +321,8 @@ describe('Le cœur « j’aime » partout (Adel 05/10/2026, IDEA-106/107)', () =
     const deck = read('../../components/MusicSwipeDeckModal.tsx');
     expect(deck).toContain("likeMode = 'auto'");
     expect(deck).toContain('<TrackLikeButton reaction={reaction} count={count}');
-    expect(deck).toContain('testID="deck-like-count"');
+    expect(deck).toContain('<ReactionStatPills likes={count}');
+    expect(read('../../components/TrackLikeButton.tsx')).toContain("testID = 'deck-like-count'");
     expect(read('../../components/PlaylistSaleImmersivePreview.tsx')).toContain('testID="sale-like-button"');
     expect(read('../../components/ProfileStoryBar.tsx')).toContain("likeMode={isOwnOpen ? 'count-only' : 'auto'}");
     expect(read('../../screens/ProfilePublicScreen.tsx')).toContain('likeMode="off"');
@@ -358,7 +359,7 @@ describe('petits messages pour réagir : jamais les mêmes, mots de jeunes (Adel
     expect(deck).toContain("showNudge('PLAYING')");
     expect(deck).toContain('showNudge({ thanks: reaction })');
     expect(deck).toContain('testID="deck-like-nudge"');
-    expect(deck).toContain('❤ {count} · 😐 {mehCount} · 👎 {dislikeCount}');
+    expect(deck).toContain('mehs={mehCount} dislikes={dislikeCount}');
   });
   it('« pas aimé » : ajout seulement, compteurs réservés au partageur, aucune suppression côté lecteur', () => {
     const fs = require('fs'); const path = require('path');
