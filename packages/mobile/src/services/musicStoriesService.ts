@@ -155,7 +155,7 @@ export async function markStorySeen(viewerId: string, story: MusicStory): Promis
  * simplement identifiées ou masquées n'y sont PLUS : elles restent dans ton
  * historique. Aucune musique ne disparaît de ton profil quand la story est vue.
  */
-export async function loadOwnStory(
+export async function loadProfileStory(
   viewer: { id: string; username: string; avatarUrl?: string | null },
 ): Promise<MusicStory | null> {
   if (!supabase || !viewer?.id) return null;
@@ -278,6 +278,9 @@ export function orderStoriesForBar(stories: MusicStory[], seen: Record<string, s
   return [...stories.filter(isNew), ...stories.filter((story) => !isNew(story))];
 }
 
+
+/** Compat : ta propre story = la story de ton profil. */
+export const loadOwnStory = loadProfileStory;
 
 /** Qui a vu ma story (Adel, 05/10/2026). Écriture à l'ouverture d'une story d'autrui ; lecture réservée au propriétaire. */
 export type StoryViewer = { viewerId: string; username: string; avatarUrl: string | null; viewedAt: string; isFollower: boolean; isReprise: boolean };

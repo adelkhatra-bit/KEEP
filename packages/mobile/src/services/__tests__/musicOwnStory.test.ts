@@ -119,3 +119,12 @@ describe('qui a vu ma story', () => {
     expect(sql).not.toMatch(/drop\s+(table|column)/i);
   });
 });
+
+describe('cercle de story sur la photo d\'un profil visité', () => {
+  it('lights the ring on a visited profile photo and opens its story in the existing swipe', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', '..', 'screens', 'PublicUserProfileScreen.tsx'), 'utf8');
+    expect(src).toContain('loadProfileStory(');
+    expect(src).toContain('<StoryRing size={80} unseen={visitedStoryUnseen}');
+    expect(src).toContain('openVisitedStory');
+  });
+});

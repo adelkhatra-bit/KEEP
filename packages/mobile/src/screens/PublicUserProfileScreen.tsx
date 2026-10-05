@@ -10,6 +10,8 @@ import { loadUnreadNotificationCount, requestSocialLink, subscribeToNotification
 import { DiscoveryImpact, loadOwnProfileKeeps, loadProfileDiscoveryImpacts, loadProfileReprisers, loadPublicProfileKeeps, loadPublicProfileSnapshot, ProfileCertificationTier, ProfileRepriser, PublicProfileSnapshot } from '../services/publicProfileStateService';
 import CommunityConnectionsPanel, { CommunityMode } from '../components/CommunityConnectionsPanel';
 import { useUserStore } from '../store/useUserStore';
+import { StoryRing } from '../components/MusicStoryRail';
+import { isSaleStoryTrack, loadProfileStory, loadSeenStories, markStorySeen, type MusicStory } from '../services/musicStoriesService';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { acceptMarketplacePaymentTerms, loadMarketplacePaymentTermsAccepted } from '../services/musicAgoraService';
@@ -112,6 +114,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const viewer = useUserStore((s) => s.user);
   const isLocalGuest = useUserStore((s) => s.isLocalGuest);
   const isDemoMode = useUserStore((s) => s.isDemoMode);
+  // Adel (05/10/2026) : le cercle de story s'allume aussi sur la photo d'un profil visité quand il a une story du jour non vue.
+  const [visitedStory, setVisitedStory] = useState<MusicStory | null>(null);
+  const [visitedStorySeenAt, setVisitedStorySeenAt] = useState('');
   const [authenticatedViewerId, setAuthenticatedViewerId] = useState<string | null>(null);
   const [ownerMenuOpen, setOwnerMenuOpen] = useState(false);
   const [ownerMenuSection, setOwnerMenuSection] = useState<'ROOT' | 'NETWORKS' | 'CREATOR' | 'HELP'>('ROOT');
@@ -298,6 +303,24 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const [saleUnlocks, setSaleUnlocks] = useState<Record<string, { offerId: string; deliveredPlaylistId: string }>>({});
   const [folderSwipeTracks, setFolderSwipeTracks] = useState<CanonicalTrack[]>([]);
   const [folderSwipeTitle, setFolderSwipeTitle] = useState('');
+  useEffect(() => {
+    let live = true;
+    setVisitedStory(null);
+    if (!profile?.id || isDemoMode) return undefined;
+    void loadProfileStory({ id: profile.id, username: profile.username, avatarUrl: profile.avatar || null })
+      .then((story) => { if (live) setVisitedStory(story ? { ...story, tracks: story.tracks.filter((track) => !isSaleStoryTrack(track)) } : null); })
+      .catch(() => {});
+    if (effectiveViewerId) void loadSeenStories(effectiveViewerId).then((seen) => { if (live) setVisitedStorySeenAt(seen[profile.id] || ''); }).catch(() => {});
+    return () => { live = false; };
+  }, [profile?.id, profile?.username, profile?.avatar, effectiveViewerId, isDemoMode]);
+  const visitedStoryUnseen = Boolean(visitedStory && visitedStory.tracks.length && visitedStorySeenAt < visitedStory.latestAt);
+  const openVisitedStory = () => {
+    if (!visitedStory || !visitedStory.tracks.length || !profile) return;
+    setFolderSwipeTracks(visitedStory.tracks);
+    setFolderSwipeTitle(`Story de @${profile.username}`);
+    setSwipeOpen(true);
+    if (effectiveViewerId) { setVisitedStorySeenAt(visitedStory.latestAt); void markStorySeen(effectiveViewerId, visitedStory); }
+  };
   const [folderLoadingId, setFolderLoadingId] = useState<string | null>(null);
   // Adel (20/09/2026) : marketplace playlists (ACHETER) en "coming soon" --
   // paiement par lien externe, non conforme Apple IAP pour du contenu
@@ -1833,7 +1856,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
         <ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>
           <View style={styles.identity}>
-            {profile.avatar ? <Image source={{ uri: profile.avatar }} style={styles.avatar} /> : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarText}>{(profile.username || 'K').replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>}
+            <TouchableOpacity onPress={openVisitedStory} disabled={!visitedStory || !visitedStory.tracks.length} accessibilityRole="button" accessibilityLabel={visitedStory && visitedStory.tracks.length ? `Voir la story de ${profile.username}` : `Photo de ${profile.username}`}><StoryRing size={80} unseen={visitedStoryUnseen} plain={!(visitedStory && visitedStory.tracks.length)} tone={undefined}>{profile.avatar ? <Image source={{ uri: profile.avatar }} style={[styles.avatar, visitedStory && visitedStory.tracks.length ? { width: 64, height: 64, borderRadius: 32, transform: [] } : null]} /> : <View style={[styles.avatar, styles.avatarFallback, visitedStory && visitedStory.tracks.length ? { width: 64, height: 64, borderRadius: 32, transform: [] } : null]}><Text style={styles.avatarText}>{(profile.username || 'K').replace(/^@/, '').slice(0, 1).toUpperCase()}</Text></View>}</StoryRing></TouchableOpacity>
             <View style={styles.identityText}>
               <View style={styles.usernameLine}><Text style={styles.username}>{profile.username}</Text><ProfileCertificationBadge tier={certificationTier} compact /></View>
               <View style={styles.profileMetaRow}>
