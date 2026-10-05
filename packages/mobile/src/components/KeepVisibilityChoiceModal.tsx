@@ -137,7 +137,6 @@ export function KeepSuccessModal({
           <Text style={s.successTitle}>Merci pour ta découverte</Text>
           {trackLabel ? <Text style={s.successTrack} numberOfLines={2}>{trackLabel}</Text> : null}
           {costFree != null ? <Text style={s.successDebit}>{cost} FREE débités</Text> : null}
-          {visibility === 'PUBLIC' ? <Text style={s.successStory}>✓ Elle entre automatiquement dans ta story (24 h)</Text> : null}
           <Text style={s.successBody}>
             {visibility === 'PUBLIC'
               ? 'Le morceau est visible sur ton profil et tes abonnés peuvent recevoir la notification de ta nouvelle musique.'
@@ -146,6 +145,11 @@ export function KeepSuccessModal({
           <TouchableOpacity style={s.successButton} onPress={() => { void onContinue(); }} accessibilityLabel="Fermer la confirmation">
             <Text style={s.successButtonText}>{continueLabel}</Text>
           </TouchableOpacity>
+          {visibility === 'PUBLIC' ? (
+            <View style={s.successStoryPill} accessibilityRole="text" accessibilityLabel="Déjà dans ta story pendant 24 heures">
+              <Text style={s.successStoryPillText}>✓ DÉJÀ DANS TA STORY · 24 h</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -160,6 +164,8 @@ const s = StyleSheet.create({
   successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
   successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
   successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
+  successStoryPill: { width: '100%', minHeight: 44, borderRadius: 22, borderWidth: 1, borderColor: '#5C5468', backgroundColor: '#27222E', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  successStoryPillText: { color: '#E6E0EE', fontSize: 13, fontWeight: '900', letterSpacing: .5, textAlign: 'center' },
   successStory: { color: '#FFFFFF', fontSize: 13, lineHeight: 18, fontWeight: '800', textAlign: 'center', marginTop: 10 },
   successBody: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 5 },
   successButton: { width: '100%', minHeight: 46, borderRadius: 23, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 16 },

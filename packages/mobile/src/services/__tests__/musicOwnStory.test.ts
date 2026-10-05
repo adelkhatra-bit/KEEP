@@ -186,6 +186,6 @@ describe('Découvert par = premier découvreur partout (BUG-005) et pourquoi « 
     expect(profile).toContain("persistOwnTrackVisibility(entry.track, 'PUBLIC')");
   });
   it('the keep success card says the public keep enters the story automatically (no duplicate button)', () => {
-    expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('Elle entre automatiquement dans ta story (24 h)');
+    expect(read('components', 'KeepVisibilityChoiceModal.tsx')).toContain('✓ DÉJÀ DANS TA STORY · 24 h');
   });
 });
