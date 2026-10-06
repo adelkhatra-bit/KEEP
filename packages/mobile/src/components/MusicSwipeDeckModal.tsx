@@ -461,6 +461,9 @@ export default function MusicSwipeDeckModal({
     let alive = true;
     const generation = ++playbackGeneration.current;
     const playbackKey = current ? `swipe-${current.id}-${index}` : null;
+    // Latence du Swipe (Adel, 06/10/2026) : délai entre l'arrivée de la carte et le début réel du son ; au-delà de 2,5 s on l'envoie au journal (3 fois max par séance) pour que l'agent réparateur la localise.
+    const cardShownAt = Date.now();
+    let latencyReported = false;
     setKeepPromptOpen(false);
     setPreviewInfoOpen(false);
     setAutoplayBlocked(false);
@@ -500,6 +503,11 @@ export default function MusicSwipeDeckModal({
             playbackKey,
             previewUrl,
             (playing) => {
+              if (playing && !latencyReported) {
+                latencyReported = true;
+                const waited = Date.now() - cardShownAt;
+                if (waited > 2500) reportAutoDiagnostic('SWIPE_SLOW', `${Math.round(waited / 100) / 10}s host=${String(previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
+              }
               if (playing && currentSourceProfileId) {
                 void recordProfileSwipeListen(currentSourceProfileId, current.id); markListened(current.id);
               }

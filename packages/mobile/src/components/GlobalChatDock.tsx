@@ -1049,9 +1049,9 @@ const styles = StyleSheet.create({
   sideChoiceTextOn:{color:colors.keep},
 
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
-  robotSays:{position:'absolute',zIndex:89,maxWidth:260,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
-  robotSaysInner:{paddingVertical:10,paddingHorizontal:12},
-  robotSaysText:{color:colors.textPrimary,fontSize:13,lineHeight:18,fontWeight:'800'},
+  robotSays:{position:'absolute',zIndex:89,maxWidth:290,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
+  robotSaysInner:{paddingVertical:12,paddingHorizontal:14},
+  robotSaysText:{color:colors.textPrimary,fontSize:16,lineHeight:22,fontWeight:'800'},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
   chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},

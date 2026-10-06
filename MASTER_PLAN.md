@@ -63,6 +63,11 @@
 - **Performance du profil** : 111 → 94 requêtes ; reste à unifier `keep_decisions` ×7, `playlists` ×4, `follows` ×5, `notifications` ×3.
 - **IDEA-144 — musique libre sans propriétaire** (partie « prends-la vite » : badge fait ; message de l'agent à écrire) : marquer « Gratuit · non certifié » et faire dire à l'agent « prends-la vite, identifie-la sur ton profil, tu seras le premier » ; règle à cadrer (qui est « propriétaire » ? comment prouver la découverte ?).
 
+## Nouveaux chantiers du 06/10/2026 (nuit) — à valider avant code
+- **Catalogue « toujours trouver » + plateformes** : voir `docs/CATALOGUE_ET_PLATEFORMES.md` (faisabilité, plateforme par plateforme). Étape F proposée : recherche en cascade + catalogue qui grandit seul + « Ajouter par lien » + « Demander ce titre » ; likes YouTube / Spotify / Deezer / Apple remontés ; TikTok / Instagram = Partager → Loki seulement.
+- **Latence du Swipe** : instrumentée (`SWIPE_SLOW` envoyé au journal si le son met > 2,5 s) ; correction sur preuve réelle ; pistes : préchargement de 2 titres d'avance, extraits résolus et gardés côté serveur par ISRC.
+- **Super Admin budget / frais / jalon 15 000 abonnés** : `costs.tsx` + `operating_costs` existent mais vides ; plan en 4 points dans le doc ci-dessus.
+
 ## Règles de design à intégrer (accord d'Adel déjà donné — implémentation après validation du plan)
 - IDEA-131 : pastilles ❤ 😐 👎 de ma story **alignées à droite sur le bord (comme ☰ / ✕)**, même taille, mêmes espaces.
 - IDEA-132 : boutons fréquents toujours au-dessus ; « ÉCOUTER SUR APPLE MUSIC » descend sous PASSER / ARRÊTER / GARDER.
