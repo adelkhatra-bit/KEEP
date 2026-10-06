@@ -117,6 +117,10 @@ export function openProblemReport(): void {
  * Détection de secousse. `expo-sensors` est un module natif : un ancien binaire TestFlight ne l'a pas.
  * Le chargement est donc protégé : sans le module, aucune secousse (le bouton des réglages reste disponible), jamais de plantage.
  */
+export const SHAKE_FORCE_G = 1.8;
+export const SHAKE_SPIKES = 2;
+export const SHAKE_WINDOW_MS = 1000;
+
 export function startShakeDetection(onShake: () => void): () => void {
   if (Platform.OS === 'web') return () => {};
   let subscription: { remove: () => void } | null = null;
@@ -128,9 +132,11 @@ export function startShakeDetection(onShake: () => void): () => void {
     subscription = Accelerometer.addListener(({ x, y, z }: { x: number; y: number; z: number }) => {
       const force = Math.sqrt(x * x + y * y + z * z);
       const now = Date.now();
-      if (force > 2.4) spikes.push(now);
-      spikes = spikes.filter((at) => now - at < 900);
-      if (spikes.length >= 3 && now - lastFire > 6000) {
+      // Seuil abaissé (Adel 06/10/2026 : « la secousse ne fonctionne pas ») : 2 à-coups ≥ 1,8 g en 1 s suffisent ;
+      // un téléphone posé ou une marche ne dépasse pas ~1,3 g.
+      if (force > SHAKE_FORCE_G) spikes.push(now);
+      spikes = spikes.filter((at) => now - at < SHAKE_WINDOW_MS);
+      if (spikes.length >= SHAKE_SPIKES && now - lastFire > 6000) {
         lastFire = now;
         spikes = [];
         onShake();

@@ -29,6 +29,7 @@ import {
   pinStoryTrack,
   type PinnableTrack,
   loadOwnStory,
+  STORY_WINDOW_HOURS,
   watchStoryOf,
   loadStoryRanking,
   loadMyStoryStats,
@@ -81,6 +82,28 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [followBusy, setFollowBusy] = useState<string | null>(null);
   const [lastSeenAt, setLastSeenAt] = useState<Record<string, string>>({});
   const [ownStory, setOwnStory] = useState<MusicStory | null>(null);
+  const [ownStoryOpening, setOwnStoryOpening] = useState(false);
+  const ownStoryLoadRef = React.useRef<Promise<MusicStory | null> | null>(null);
+  const reloadOwnStory = useCallback((): Promise<MusicStory | null> => {
+    const job = loadOwnStory(viewer).then((mine) => {
+      setOwnStory(mine);
+      writeProfileMemory(viewer.id, 'own-story', mine ? { ...mine, tracks: mine.tracks.slice(0, 20) } : null);
+      return mine;
+    });
+    ownStoryLoadRef.current = job;
+    job.catch(() => {}).finally(() => { if (ownStoryLoadRef.current === job) ownStoryLoadRef.current = null; });
+    return job;
+  }, [viewer.id, viewer.username, viewer.avatarUrl]);
+  // Affichage immédiat : la dernière story connue de cet appareil (jamais plus vieille que 24 h), le serveur la remplace ensuite.
+  useEffect(() => {
+    let live = true;
+    void readProfileMemory<MusicStory | null>(viewer.id, 'own-story').then((cached) => {
+      if (!live || !cached?.tracks?.length) return;
+      const fresh = Date.now() - new Date(cached.latestAt).getTime() < STORY_WINDOW_HOURS * 3600 * 1000;
+      if (fresh) setOwnStory((current) => current ?? cached);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [viewer.id]);
   const [stories, setStories] = useState<MusicStory[]>([]);
   const storiesRef = React.useRef<MusicStory[]>([]);
   const [reloadTick, setReloadTick] = useState(0);
@@ -149,7 +172,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       // Adel (05/10/2026) : profil trop lent. Les « vues » ne bloquent plus le départ des autres chargements (un aller-retour de moins).
       void loadSeenStories(viewer.id).then((seenMap) => { if (live) setSeen(seenMap); }).catch(() => {});
       // Chaque source est indépendante : une panne de l'une ne vide jamais les autres.
-      loadOwnStory(viewer).then((mine) => { if (live) setOwnStory(mine); }).catch(() => {});
+      void reloadOwnStory();
       const relationsPromise = loadStoryRelations(viewer.id).then((relations) => { if (relations.partial) degraded = true; return relations; }).catch((error) => {
         degraded = true;
         reportAutoDiagnostic('STORY_RELATIONS_FAILED', error);
@@ -307,12 +330,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     } finally { setFollowBusy(null); }
   };
 
-  const openOwn = () => {
+  // Cause racine (Adel, 06/10/2026 : « ma story est longue à charger, ça me dit que je n'ai pas mis de story puis ça se débloque ») :
+  // un appui avant la fin du chargement trouvait ownStory = null et affichait « story terminée ». Maintenant : la dernière story
+  // connue s'affiche tout de suite (mémoire locale, 24 h max), et un appui pendant le chargement ATTEND la réponse.
+  const openOwn = async () => {
     if (ownStory) { void open(ownStory); return; }
+    if (ownStoryLoadRef.current) {
+      setOwnStoryOpening(true);
+      const mine = await ownStoryLoadRef.current.catch(() => null);
+      setOwnStoryOpening(false);
+      if (mine) { void open(mine); return; }
+    }
     Alert.alert('Ta story du jour est terminée', 'Une story dure 24 h. Reposte : partage une musique en public, reprends-en une chez un autre membre ou mets-en une en vente — ta photo se rallume aussitôt.', [{ text: 'OK', style: 'cancel' }]);
   };
 
-  const refreshOwnStory = useCallback(() => { loadOwnStory(viewer).then(setOwnStory).catch(() => {}); }, [viewer.id, viewer.username, viewer.avatarUrl]);
+  const refreshOwnStory = useCallback(() => { void reloadOwnStory(); }, [reloadOwnStory]);
   useEffect(() => subscribeOwnStoryChanged(() => { refreshOwnStory(); }), [refreshOwnStory]);
   const openPlus = () => {
     setPlusOpen(true);
@@ -361,7 +393,10 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const leadingPhoto = (
     <View style={{ width: avatarSize, height: avatarSize, marginRight: 4 }}>
       <TouchableOpacity
-        onPress={openOwn}
+        onPress={() => { void openOwn(); }}
+        disabled={ownStoryOpening}
+        style={ownStoryOpening ? { opacity: 0.55 } : undefined}
+        accessibilityState={{ busy: ownStoryOpening }}
         accessibilityRole="button"
         accessibilityLabel={ownStory ? 'Ouvrir ta story' : 'Ta photo de profil : aucune story pour le moment'}
         testID="home-story-own"

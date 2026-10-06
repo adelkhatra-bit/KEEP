@@ -944,6 +944,7 @@ export default function GlobalChatDock() {
                   accessibilityLabel={action.label}
                   onPress={() => {
                     dismissRobotMessage();
+                    if (action.key === 'REPORT') { openProblemReport(); return; }
                     try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
                     setTimeout(() => { void robotExplain(action.key); }, 1500);
                   }}

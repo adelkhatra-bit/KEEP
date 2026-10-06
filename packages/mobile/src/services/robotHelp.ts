@@ -1,6 +1,6 @@
 // Robot d'accueil et d'aide (Adel, 06/10/2026, IDEA-154) : salut avec le pseudo SANS « @ » seulement quand l'utilisateur revient après une absence,
 // trois propositions cliquables (Solo / Loki Pulse / communauté), explication une fois sur place, et appel du robot par 5 touchers rapprochés. Module PUR.
-export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY';
+export type HelpActionKey = 'SOLO' | 'PULSE' | 'COMMUNITY' | 'PLAYLISTS' | 'SEARCH' | 'STORY' | 'REPORT';
 export type RobotAction = { key: HelpActionKey; label: string; route: string; params?: Record<string, unknown> };
 
 export const HELP_ACTIONS: RobotAction[] = [
@@ -9,11 +9,29 @@ export const HELP_ACTIONS: RobotAction[] = [
   { key: 'COMMUNITY', label: '🤝 Ma communauté', route: 'Main', params: { screen: 'Profile' } },
 ];
 
+/**
+ * Menu de la secousse (Adel, 06/10/2026) : « quand il secoue, le robot met plusieurs propositions, il clique dessus, ça le dirige
+ * directement, et il lui explique comment faire ». Libellés courts (2 mots). REPORT ouvre le signalement (pas d'écran).
+ */
+export const SHAKE_ACTIONS: RobotAction[] = [
+  { key: 'PULSE', label: '🎧 Loki Pulse', route: 'Main', params: { screen: 'Listen' } },
+  { key: 'COMMUNITY', label: '👥 Communauté', route: 'Main', params: { screen: 'Profile' } },
+  { key: 'PLAYLISTS', label: '📀 Playlists', route: 'Main', params: { screen: 'MyMusic' } },
+  { key: 'SEARCH', label: '🔎 Chercher', route: 'Main', params: { screen: 'Discover' } },
+  { key: 'STORY', label: '⭕ Ma story', route: 'Main', params: { screen: 'Profile' } },
+  { key: 'SOLO', label: '🎮 Solo', route: 'Main', params: { screen: 'Parties', params: { openBattle: true, source: 'ROBOT' } } },
+  { key: 'REPORT', label: '🐞 Un souci', route: '' },
+];
+
 /** Petit mot d'explication du robot une fois arrivé : il montre quoi toucher (sans nom, sans « bonjour »). */
 export const HELP_TIPS: Record<HelpActionKey, string[]> = {
   SOLO: ['Touche « Solo », réponds aux extraits : chaque bonne réponse te fait gagner des FREE. Tu peux t’arrêter quand tu veux.', 'Ici, un Solo : écoute, devine, gagne des FREE. Appuie sur le bouton Solo pour commencer.'],
   PULSE: ['Touche une bulle du Loki Pulse pour écouter et découvrir. Ou appuie sur le grand bouton rond pour identifier un son.', 'Loki Pulse, ce sont les sons qui te ressemblent : touche une bulle, écoute, et garde ceux que tu aimes.'],
   COMMUNITY: ['Ta communauté se construit ici : partage ton profil, ajoute des musiques en story, et suis des amis qui ont ton style.', 'Voici ton profil : garde de la musique, mets-la en story et partage ton lien pour inviter tes amis.'],
+  PLAYLISTS: ['Tes playlists : touche une playlist pour l’écouter, ou ＋ pour en créer une.', 'Ici tes playlists. Touche ＋ pour en créer une.'],
+  SEARCH: ['Touche 🔎 en haut pour chercher un ami ou un style.', 'Cherche un pseudo avec 🔎, puis abonne-toi.'],
+  STORY: ['Touche ta photo en haut : ＋ pour ajouter une musique à ta story.', 'Ta story : touche ta photo, puis ＋.'],
+  REPORT: ['Dis-moi ce qui ne va pas.', 'Explique le souci en quelques mots.'],
 };
 
 const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; return h >>> 0; };

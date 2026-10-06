@@ -72,6 +72,13 @@ async function speakOncePerDay(text: string): Promise<void> {
   } catch { /* la voix est un bonus : jamais bloquante */ }
 }
 
+/** Secousse (Adel, 06/10/2026) : le robot propose plusieurs directions ; « Un souci » ouvre le signalement. */
+export async function summonRobotMenu(username: string): Promise<boolean> {
+  const { SHAKE_ACTIONS } = require('./robotHelp');
+  const name = String(username || '').trim().replace(/^@+/, '');
+  return robotSay('ROBOT_CALL', { text: `On fait quoi${name ? `, ${name}` : ''} ?`, actions: SHAKE_ACTIONS, force: true });
+}
+
 /** Appel du robot (5 touchers rapprochés) : « Qu'est-ce que je peux faire pour toi, {pseudo} ? » + les trois propositions, à voix haute. */
 export async function summonRobot(username: string): Promise<boolean> {
   const seed = Date.now();
