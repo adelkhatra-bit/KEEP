@@ -293,7 +293,7 @@ export default function MusicSwipeDeckModal({
       confirmStoryAdded(track.title);
     } catch (error: any) {
       reportAutoDiagnostic('STORY_SHARE_FAILED', error);
-      Alert.alert('Ajout impossible', String(error?.message ?? '').includes('SALE_PROTECTED') ? 'Cette musique est en vente : elle ne peut pas être partagée.' : 'La musique n’a pas pu être ajoutée pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+      Alert.alert('Ajout impossible', String(error?.message ?? '').includes('SALE_PROTECTED') ? 'Cette musique est en vente chez un autre membre : pour protéger le vendeur, elle ne peut pas encore être montrée dans une story. Elle reste dans ta collection. (La mise en story masquée, avec de la pub pour le vendeur, est prévue.)' : 'La musique n’a pas pu être ajoutée pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
     }
   };
   const pinCurrentToStory = async (current: CanonicalTrack) => {
@@ -307,7 +307,7 @@ export default function MusicSwipeDeckModal({
       reportAutoDiagnostic('STORY_PIN_FAILED', error);
       // Gardée en Privé : le serveur exige un GARDER public -> on la rend publique (gratuit) puis on l'épingle.
       if (String(error?.message ?? error).includes('STORY_PIN_REQUIRES_PUBLIC_KEEP')) { void makeKeptPublicAndStory(); return; }
-      Alert.alert('Ajout impossible', 'Seules les musiques gardées en Public peuvent aller en story. Si tu l’as gardée en Privé, repasse-la en Public depuis ton profil.', [{ text: 'OK', style: 'cancel' }]);
+      Alert.alert('Ajout impossible', 'Cette musique ne peut pas être mise en story pour le moment : elle est gardée en Privé ou vient d’une vente. Repasse-la en Public depuis ton profil si elle t’appartient, sinon elle reste dans ta collection.', [{ text: 'OK', style: 'cancel' }]);
     }
   };
   // Bouton « story » : allumé tant qu'on peut ajouter, vert + message de félicitations juste après, gris « déjà » seulement ensuite.

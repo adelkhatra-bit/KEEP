@@ -239,11 +239,14 @@ export default function SessionRecapScreen({ route, navigation }: any) {
     return true;
   };
 
-  // Adel (02/10/2026, cas @samedi) : PASSER dans le Swipe voulait dire
-  // « morceau suivant », pas « effacer ». Il ne change donc plus le statut :
-  // le morceau reste dans la session, réécoutable autant qu'on veut. Retirer
-  // un morceau = le ✕ de la liste (récupérable dans « RETIRÉS »).
-  const handleSwipePass = async (_track: CanonicalTrack) => true;
+  // Adel (06/10/2026) : « quand je mets PASSER, pourquoi ils ne s'effacent pas ? » — il révise sa règle du 02/10 (cas @samedi).
+  // PASSER retire donc la musique de la liste « à swiper » ; elle n'est JAMAIS détruite : elle va dans « RETIRÉS · récupérables » (bas de la session)
+  // et se remet en attente d'un appui. Rien n'est supprimé de l'historique.
+  const handleSwipePass = async (track: CanonicalTrack) => {
+    const entry = findPendingEntry(track);
+    if (entry) passTrackInSession(sessionId, entry.id);
+    return true;
+  };
 
   const closeSwipe = () => {
     setSwipeOpen(false);

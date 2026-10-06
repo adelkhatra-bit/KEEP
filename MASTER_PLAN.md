@@ -56,6 +56,11 @@
 | E-mails | ❓ | test du 06/10 00:48 non reçu ; vérifier clés Brevo, file `email_queue`, webhook ; journaux d'envoi illisibles depuis cette session → à demander à Adel (capture du tableau Brevo) ou accès aux logs |
 | Défi « Réagir à 20 » | ✅ | corrigé |
 
+## Nouveaux points du 06/10/2026 (soir)
+- **PASSER dans une session** : retire désormais la musique de la liste (récupérable dans « RETIRÉS ») — ✅ code, non vérifié iPhone. *Révise la règle du 02/10 : à confirmer par Adel.*
+- **Étape B2 — mise en story d'une musique en vente / achetée (décision requise)** : aujourd'hui refusée (protection du vendeur). Proposition : l'autoriser **masquée** (carte « Musique en vente · de @vendeur », titre caché, lien vers la boutique) = publicité gratuite pour le vendeur, sans fuite du titre. Demande une règle serveur (`keep_pin_shared_story_track`) + l'affichage « de @vendeur » dans les stories d'autrui. Anti-doublon : annoncer « elle est déjà en story » aussi pour les musiques d'une collection achetée.
+- **IDEA-144 — musique libre sans propriétaire** : marquer « Gratuit · non certifié » et faire dire à l'agent « prends-la vite, identifie-la sur ton profil, tu seras le premier » ; règle à cadrer (qui est « propriétaire » ? comment prouver la découverte ?).
+
 ## Règles de design à intégrer (accord d'Adel déjà donné — implémentation après validation du plan)
 - IDEA-131 : pastilles ❤ 😐 👎 de ma story **alignées à droite sur le bord (comme ☰ / ✕)**, même taille, mêmes espaces.
 - IDEA-132 : boutons fréquents toujours au-dessus ; « ÉCOUTER SUR APPLE MUSIC » descend sous PASSER / ARRÊTER / GARDER.

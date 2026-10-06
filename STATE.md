@@ -15,6 +15,7 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 ## Journal (récent d'abord)
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
+| 06/10/2026 | reconcile | voir git log | PASSER retire la musique de la session (récupérable) ; messages clairs quand une musique en vente / privée ne peut pas aller en story | jest 1324 ; non vérifié iPhone ; règle serveur « story masquée » en attente de décision |
 | 06/10/2026 | reconcile | voir git log | Bot qui se souvient de l'avis (plus de redemande, rappels RECALL_*), bibliothèque de 111 000+ messages ; « En savoir plus » par spectateur de ma story (temps par musique, ❤, endroit où il est parti) ; pastilles de réaction alignées à droite sur le bord ; « Écouter sur Apple Music » sous les boutons principaux ; diagnostic `EMAIL_SEND_FAILED` | jest 1324, 7 gardes, navigateur 320/390/1440 ; **non vérifié iPhone** |
 | 06/10/2026 | reconcile | voir git log | Gouvernance : STATE.md, MASTER_PLAN.md, audit externe rangé, idées 130-138 notées | fichiers relus ; aucun code modifié |
 | 06/10/2026 | reconcile | 362b25f | Menu ☰ pleine largeur + retour direct à la même position ; boucle secousse → signalement localisé → robot ; invitation du visiteur ; pochette carrée ; `keep_event_playlist` créée ; défi « Réagir » corrigé ; source Apple corrigée (non déployée) | jest 1317, 7 gardes, navigateur 390/1440 (retour menu 120→120) ; **non vérifié iPhone** |
