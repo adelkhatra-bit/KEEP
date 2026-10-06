@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Keyboard, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, AppState, BackHandler, Keyboard, PanResponder, Platform, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaInsetsContext, initialWindowMetrics } from 'react-native-safe-area-context';
 import MusicAgoraPanel from './MusicAgoraPanel';
 import { colors } from '../theme/colors';
@@ -12,7 +12,7 @@ import { navigateToSharedProfile, navigationRef } from '../navigation/navigation
 import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
-import { robotWelcome } from '../services/robotCoachService';
+import { markRobotActive, robotExplain, robotWelcome } from '../services/robotCoachService';
 import { openProblemReport } from '../services/problemReportService';
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
@@ -137,6 +137,13 @@ export default function GlobalChatDock() {
     const timer = setTimeout(() => { void robotWelcome(welcomeUserId, welcomeUsername, async () => (await loadMyFreeWalletStatus()).balance); }, 5000);
     return () => clearTimeout(timer);
   }, [welcomeUserId, welcomeUsername]);
+  // « Je suis là » : toutes les minutes et au passage en arrière-plan, pour ne saluer qu'après une vraie absence (Adel, 06/10/2026).
+  useEffect(() => {
+    if (!welcomeUserId) return undefined;
+    const interval = setInterval(() => { void markRobotActive(); }, 60000);
+    const sub = AppState.addEventListener('change', (state) => { if (state !== 'active') void markRobotActive(); });
+    return () => { clearInterval(interval); sub.remove(); };
+  }, [welcomeUserId]);
   useEffect(() => {
     if (!robotMessage) { robotBubble.setValue(0); robotShake.setValue(0); return undefined; }
     robotBubble.setValue(0);
@@ -926,6 +933,26 @@ export default function GlobalChatDock() {
           >
             <Text style={styles.robotSaysText}>🤖 {robotMessage.text}</Text>
           </TouchableOpacity>
+          {robotMessage.actions?.length ? (
+            <View style={styles.robotActionsRow} testID="robot-actions">
+              {robotMessage.actions.map((action) => (
+                <TouchableOpacity
+                  key={action.key}
+                  style={styles.robotActionBtn}
+                  testID={`robot-action-${action.key}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  onPress={() => {
+                    dismissRobotMessage();
+                    try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
+                    setTimeout(() => { void robotExplain(action.key); }, 1500);
+                  }}
+                >
+                  <Text style={styles.robotActionText}>{action.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
         </Animated.View>
       ) : null}
 
@@ -1051,6 +1078,9 @@ const styles = StyleSheet.create({
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   robotSays:{position:'absolute',zIndex:89,maxWidth:290,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
   robotSaysInner:{paddingVertical:12,paddingHorizontal:14},
+  robotActionsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,paddingHorizontal:12,paddingBottom:12},
+  robotActionBtn:{minHeight:44,paddingHorizontal:14,borderRadius:22,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(45,225,194,.14)',alignItems:'center',justifyContent:'center'},
+  robotActionText:{color:'#FFFFFF',fontSize:15,fontWeight:'900'},
   robotSaysText:{color:colors.textPrimary,fontSize:16,lineHeight:22,fontWeight:'800'},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},

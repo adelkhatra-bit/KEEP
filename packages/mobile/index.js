@@ -5,6 +5,7 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import App from './App';
 import MandatoryProfileRequirementsGate from './src/components/MandatoryProfileRequirementsGate';
 import SharedMusicHandoff from './src/components/SharedMusicHandoff';
+import { RobotSummonWrapper } from './src/components/RobotSummonWrapper';
 import BackgroundListeningLifecycle from './src/components/BackgroundListeningLifecycle';
 import AuthEmailLinkLifecycle from './src/components/AuthEmailLinkLifecycle';
 import PushRegistrationLifecycle from './src/components/PushRegistrationLifecycle';
@@ -372,7 +373,7 @@ function KeepRoot() {
           React.createElement(AuthEmailLinkLifecycle),
           React.createElement(PushRegistrationLifecycle),
           React.createElement(ActiveBattleResumeLifecycle),
-          React.createElement(App),
+          React.createElement(RobotSummonWrapper, null, React.createElement(App)),
           React.createElement(WebRefreshSurfaceGuard),
         ),
       ),

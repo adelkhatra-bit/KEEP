@@ -1,5 +1,5 @@
 // Messages du robot (Adel, 05/10/2026) : courts, variés (jamais toujours la même phrase), sans prise de tête. Fonctions pures.
-export type RobotCoachKind = 'SESSIONS' | 'NO_FREE' | 'NO_SOLO' | 'LOW_FREE' | 'GREETING' | 'REPORT_TIP' | 'REPORT_UPDATE';
+export type RobotCoachKind = 'SESSIONS' | 'NO_FREE' | 'NO_SOLO' | 'LOW_FREE' | 'GREETING' | 'REPORT_TIP' | 'REPORT_UPDATE' | 'WELCOME_BACK' | 'ROBOT_CALL' | 'ROBOT_TIP';
 /** Solde FREE à partir duquel le robot prévient (un GARDER coûte 3) : « il ne te reste que N FREE ». */
 export const LOW_FREE_THRESHOLD = 3;
 
@@ -11,6 +11,7 @@ const OPENERS: Record<RobotCoachKind, string[]> = {
   GREETING: ['Salut', 'Hello', 'Coucou', 'Yo', 'Hey'],
   REPORT_TIP: ['Petit conseil :', 'Au fait,', 'Psst,', 'Info robot :'],
   REPORT_UPDATE: ['Bonne nouvelle :', 'Hé,'],
+  WELCOME_BACK: ['Salut'], ROBOT_CALL: ['Je t’écoute'], ROBOT_TIP: ['Astuce :'],
 };
 const CORES: Record<RobotCoachKind, string[]> = {
   SESSIONS: ['tu as des sessions en attente', 'une session t’attend', 'tes morceaux sont prêts à trier', 'des musiques attendent ton verdict'],
@@ -20,6 +21,7 @@ const CORES: Record<RobotCoachKind, string[]> = {
   GREETING: ['t’es motivé ? Ajoute de la musique !', 'tu as raison, fais grandir ta communauté !', 'prêt à faire découvrir ton style ?', 'ta communauté t’attend !', 'une petite session aujourd’hui ?'],
   REPORT_TIP: ['un souci ? Secoue ton téléphone et décris-le', 'si un truc cloche, secoue ton téléphone et raconte-moi', 'un bug ? Secoue ton téléphone, je le localise'],
   REPORT_UPDATE: ['ton signalement a été traité'],
+  WELCOME_BACK: ['content de te revoir'], ROBOT_CALL: ['que puis-je faire'], ROBOT_TIP: ['voici comment ça marche'],
 };
 const CLOSERS: Record<RobotCoachKind, string[]> = {
   SESSIONS: ['Touche pour les voir.', 'Viens les trier.', 'C’est par ici.', 'Un petit coup d’œil ?'],
@@ -29,6 +31,7 @@ const CLOSERS: Record<RobotCoachKind, string[]> = {
   GREETING: ['Invite tes amis ou tes collègues.', 'Va dire coucou dans le salon.', 'Parle à tes amis, ça fait grandir ta communauté.', 'Partage ton profil avec un pote.', 'Fais un tour dans le salon.'],
   REPORT_TIP: ['Je m’en occupe.', 'On répare vite.', 'C’est automatique.'],
   REPORT_UPDATE: ['Merci de nous aider.'],
+  WELCOME_BACK: ['À toi de jouer.'], ROBOT_CALL: ['Choisis.'], ROBOT_TIP: ['Bonne écoute.'],
 };
 
 const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -60,6 +63,9 @@ export const ROBOT_ACTIONS: Record<RobotCoachKind, { route: string; params?: Rec
   GREETING: { route: 'Main', params: { screen: 'Discover' } },
   REPORT_TIP: { route: 'Main' },
   REPORT_UPDATE: { route: 'Main' },
+  WELCOME_BACK: { route: 'Main' },
+  ROBOT_CALL: { route: 'Main' },
+  ROBOT_TIP: { route: 'Main' },
 };
 
 const RULES: Record<RobotCoachKind, { minGapMs: number; maxPerDay: number }> = {
@@ -71,6 +77,10 @@ const RULES: Record<RobotCoachKind, { minGapMs: number; maxPerDay: number }> = {
   // Signalement par secousse (Adel, 06/10/2026) : conseil discret rare ; réponse au signalement toujours transmise.
   REPORT_TIP: { minGapMs: 3 * 24 * 3600 * 1000, maxPerDay: 1 },
   REPORT_UPDATE: { minGapMs: 5 * 1000, maxPerDay: 20 },
+  // Accueil intelligent (06/10/2026) : au plus 2 par jour ; l'appel (5 touchers) et les explications ne sont jamais limités.
+  WELCOME_BACK: { minGapMs: 4 * 3600 * 1000, maxPerDay: 2 },
+  ROBOT_CALL: { minGapMs: 0, maxPerDay: 1000 },
+  ROBOT_TIP: { minGapMs: 0, maxPerDay: 1000 },
 };
 export type Memory = Record<string, { lastAt: number; day: string; count: number }>;
 

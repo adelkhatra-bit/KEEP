@@ -75,6 +75,6 @@ describe('Robot intelligent et jeune (Adel 05/10/2026)', () => {
     const svc = read('services', 'robotCoachService.ts');
     expect(svc).toContain('Vibration.vibrate(kind ===');
     expect(svc).toContain("robotSay('LOW_FREE'");
-    expect(svc).toContain("robotSay('GREETING'");
+    expect(svc).toContain("robotSay('WELCOME_BACK'");
   });
 });

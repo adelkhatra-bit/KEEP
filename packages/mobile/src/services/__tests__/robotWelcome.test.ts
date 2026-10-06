@@ -33,12 +33,26 @@ describe('accueil du robot à l’ouverture (Adel 05/10/2026)', () => {
     expect(r.kind).toBe('LOW_FREE');
     expect(r.text).toContain('2 FREE');
   });
-  it('solde confortable → salut avec le pseudo', async () => {
+  it('solde confortable, après une absence → salut avec le pseudo SANS arobase, Solo et Loki Pulse proposés', async () => {
     const r = await run(40);
-    expect(r.kind).toBe('GREETING');
-    expect(r.text).toContain('@teyou');
+    expect(r.kind).toBe('WELCOME_BACK');
+    expect(r.text).toContain('teyou');
+    expect(r.text).not.toContain('@');
+    expect(r.text).toMatch(/Solo/);
   });
-  it('solde inconnu (réseau) → salut, jamais de faux avertissement', async () => { expect((await run(null)).kind).toBe('GREETING'); });
+  it('solde inconnu (réseau) → salut, jamais de faux avertissement', async () => { expect((await run(null)).kind).toBe('WELCOME_BACK'); });
+  it('revenu il y a moins de 4 h → AUCUN « bonjour » automatique', async () => {
+    let kind = 'x';
+    await jest.isolateModulesAsync(async () => {
+      const AS = require('@react-native-async-storage/async-storage').default;
+      await AS.setItem('keep:robot:lastActive:v1', String(Date.now() - 3600 * 1000));
+      const { robotWelcome } = require('../robotCoachService');
+      const { useRobotMessageStore } = require('../../store/useRobotMessageStore');
+      await robotWelcome('p5', 'teyou', async () => 40);
+      kind = useRobotMessageStore.getState().message?.kind ?? '';
+    });
+    expect(kind).toBe('');
+  });
   it('une seule fois par lancement et par compte', async () => {
     let first = '';
     let second = '';
