@@ -87,3 +87,10 @@ Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription →
 4. **Étape D — build iOS unique** : capture d'écran de secousse + sons de notification (pièces, débit) + permission notifications guidée (« Ouvrir les réglages »).
 5. **Étape E — sécurité** : bannissement compte/appareil/IP temporaire + écran Super Admin.
 6. **Étape F — produit** : partage payant dans Loki Pulse, utilisateurs au même style, offres DJ + accès ordinateur.
+
+## Plan ordonné du 06/10/2026 (relais navigateur) — à valider par Adel avant code (sauf P1, faite)
+1. **P1 Écran Offres compact** — FAIT (ERR-OFFERS-COMPACT-198).
+2. **Bugs prouvés avant soumission Apple** : (a) son iPhone `audioPreviewService.ensurePlaying()` n'attend que 90 ms puis exige `isPlaying` alors que le flux est en `isBuffering` → attendre le buffering (borné) ; (b) `STORY_PIN_FAILED` uuid `trk_…` (`MusicSwipeDeckModal.tsx`) → ne pas envoyer d'id non-UUID ; (c) « déjà vu » des stories côté serveur (`story_views`/`story_watch_sessions`) + audit des autres états locaux ; (d) e-mails : expéditeur Brevo à valider (Adel) ; (e) `music_recognition_attempts` vide depuis 14 jours ; (f) Super Admin : exclure `admin_grant` des « payants ».
+3. **IDEA-168 Règle abonnement** (expiration → FREE, trace datée, relance, délai de grâce) + déploiement des 2 fonctions Apple.
+4. **IDEA-167 Annonce « disponible »** (jamais avant approbation, activable Super Admin).
+5. IDEA-161 (trouver le morceau), 162 (plateformes), 163 (traduction gratuite), 164 (robot d'aide), 165 (13+), 166 (retour profil).
