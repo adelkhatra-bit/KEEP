@@ -94,3 +94,9 @@ Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription →
 3. **IDEA-168 Règle abonnement** (expiration → FREE, trace datée, relance, délai de grâce) + déploiement des 2 fonctions Apple.
 4. **IDEA-167 Annonce « disponible »** (jamais avant approbation, activable Super Admin).
 5. IDEA-161 (trouver le morceau), 162 (plateformes), 163 (traduction gratuite), 164 (robot d'aide), 165 (13+), 166 (retour profil).
+
+### Ajout du 06/10/2026 (relais) — à valider par Adel avant code
+- **J (IDEA-169)** vérification d'e-mail pour tous : réutiliser `AccountEmailPanel` / `keep-account-email` ; pop-up au démarrage (mobile + PC), envoi auto du code, « Plus tard » ; Super Admin « Relancer les non vérifiés ».
+- **K (IDEA-170)** Super Admin Clés & intégrations : une carte par service.
+- **L (IDEA-171)** clés manquantes + pistes gratuites. **M (IDEA-172)** SPF/DKIM/DMARC.
+- **Constat règle I (IDEA-168)** : `keep-apple-notifications` écrit déjà `EXPIRED`/`CANCELLED` et `loadCurrentPlanCode` ignore les abonnements non ACTIVE/TRIALING → retour FREE automatique côté lecture ; MANQUE : trace datée `subscription_history`, délai de grâce (`GRACE_PERIOD`), relance « reviens », et distinction annulation (reste actif jusqu'à la fin) vs expiration.
