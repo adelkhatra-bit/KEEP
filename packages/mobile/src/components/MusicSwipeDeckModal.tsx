@@ -13,7 +13,7 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
-import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinSharedStoryTrack, pinFreeStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadMyStoryTrackIds, loadOtherStoryHolders, notifyOwnStoryChanged, pinSharedStoryTrack, pinFreeStoryTrack, pinStoryTrack, type StoryHolder } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -282,6 +282,18 @@ export default function MusicSwipeDeckModal({
     if (alreadyInStory && justAddedNow) return;
     if (alreadyInStory) {
       Alert.alert('Elle y était déjà', `« ${current.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout. Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
+      return;
+    }
+    // Anti-doublon entre stories (Adel, 06/10/2026) : déjà en story chez un AUTRE membre (que celui d'où l'on écoute) → on ne la remet
+    // pas à neuf ; on va la voir chez lui et on la repartage depuis sa story (il reste crédité).
+    const meId = String(useUserStore.getState().user?.id ?? '');
+    const holders = await loadOtherStoryHolders([resolveKeptTrackId(current.id), current.id], meId).catch(() => ({} as Record<string, StoryHolder>));
+    const holder = holders[resolveKeptTrackId(current.id)] ?? holders[current.id];
+    if (holder && holder.profileId !== currentSourceProfileId) {
+      Alert.alert('Déjà en story', `Chez @${holder.username}. Va la voir et repartage-la.`, [
+        { text: 'OK', style: 'cancel' },
+        { text: 'Voir son profil', onPress: () => setSourceQuick(holder.username) },
+      ]);
       return;
     }
     if (!previewOnly && !currentAlreadyKept) {

@@ -39,3 +39,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 | 06/10/2026 | reconcile | (ce commit) | Lien partagé = vraie app en invité (ERR-209) ; vues de story en bulles (ERR-210) ; Services musicaux débloqués + textes courts (ERR-211) ; règle 2 mots (ERR-212) ; audit compte boss69250 (ERR-213). | export web réel + Chromium 390/1440 ; jest 279/1359 ; tsc OK |
 | 06/10/2026 | reconcile | (ce commit) | Visiteur du lien partagé : écoute + story OK, GARDER / mettre en story → « Compte requis » sur place (ERR-214). | export web réel + Chromium 390 ; jest 279/1359 |
 | 06/10/2026 | reconcile | (ce commit) | Ma story immédiate (ERR-215) ; secousse → menu du robot ou signalement sur place (ERR-216). | jest + tsc OK ; non vérifié iPhone |
+| 06/10/2026 | reconcile | (ce commit) | Anti-doublon entre stories : cadenas + popup « Déjà en story chez @x » (ERR-217). | jest + tsc OK ; requêtes testées sur l'API réelle |

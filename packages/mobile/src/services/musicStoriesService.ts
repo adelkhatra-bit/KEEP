@@ -652,7 +652,40 @@ export function notifyOwnStoryChanged(): void {
   ownStoryListeners.forEach((listener) => { try { listener(); } catch { /* un abonné défaillant ne bloque pas les autres */ } });
 }
 
-export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null; inSale?: boolean };
+export type PinnableTrack = { trackId: string; title: string; artist: string; artworkUrl: string | null; previewUrl: string | null; sourceUsername: string | null; inSale?: boolean; inOtherStory?: StoryHolder | null };
+/** Membre qui a déjà cette musique dans SA story (24 h). */
+export type StoryHolder = { profileId: string; username: string; since: string };
+
+/**
+ * Anti-doublon entre stories (Adel, 06/10/2026) : une musique déjà en story chez un autre membre ne peut pas être remise « à neuf »
+ * dans la sienne ; on la verrouille (🔒) et on invite à aller la voir puis la repartager depuis SA story (le premier reste crédité).
+ * Pur : pour chaque musique, le membre qui l'a mise en story le plus tôt (hors moi).
+ */
+export function pickStoryHolders(rows: Array<{ trackId: string; profileId: string; username: string; at: string }>, viewerId: string): Record<string, StoryHolder> {
+  const out: Record<string, StoryHolder> = {};
+  for (const row of rows) {
+    if (!row.trackId || !row.profileId || row.profileId === viewerId || !row.username) continue;
+    const known = out[row.trackId];
+    if (!known || row.at < known.since) out[row.trackId] = { profileId: row.profileId, username: row.username, since: row.at };
+  }
+  return out;
+}
+
+/** Qui (hors moi) a déjà ces musiques en story en ce moment : partages en Public des dernières 24 h + mises en story non masquées. */
+export async function loadOtherStoryHolders(trackIds: string[], viewerId: string): Promise<Record<string, StoryHolder>> {
+  const ids = Array.from(new Set(trackIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id)))).slice(0, 80);
+  if (!supabase || !viewerId || !ids.length) return {};
+  const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
+  const [pins, keeps] = await Promise.all([
+    supabase.from('story_pins').select('track_id,profile_id,pinned_at,masked,profile:profiles!story_pins_profile_id_fkey(username)').in('track_id', ids).neq('profile_id', viewerId).gte('pinned_at', since),
+    supabase.from('keep_decisions').select('track_id,profile_id,created_at,profile:profiles!keep_decisions_profile_id_fkey(username)').in('track_id', ids).neq('profile_id', viewerId).eq('decision', 'KEPT').eq('visibility', 'PUBLIC').gte('created_at', since),
+  ]);
+  const rows = [
+    ...((pins.data ?? []) as any[]).filter((r) => !r.masked).map((r) => ({ trackId: String(r.track_id), profileId: String(r.profile_id), username: String(r.profile?.username ?? ''), at: String(r.pinned_at) })),
+    ...((keeps.data ?? []) as any[]).map((r) => ({ trackId: String(r.track_id), profileId: String(r.profile_id), username: String(r.profile?.username ?? ''), at: String(r.created_at) })),
+  ];
+  return pickStoryHolders(rows, viewerId);
+}
 
 /** Mes musiques gardées en public (les plus récentes d'abord), avec l'utilisateur d'origine quand c'est une reprise. */
 export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTrack[]> {
@@ -685,7 +718,8 @@ export async function loadMyPinnableTracks(viewerId: string): Promise<PinnableTr
     const { data: tracks } = await supabase.from('tracks').select('id,title,artist,artwork_url,preview_url').in('id', missing);
     for (const track of tracks ?? []) rows.push(toRow({ track }, true));
   }
-  return rows.filter((row: PinnableTrack) => row.trackId && row.title);
+  const holders = await loadOtherStoryHolders(rows.map((row: PinnableTrack) => row.trackId), viewerId).catch(() => ({} as Record<string, StoryHolder>));
+  return rows.filter((row: PinnableTrack) => row.trackId && row.title).map((row: PinnableTrack) => ({ ...row, inOtherStory: holders[row.trackId] ?? null }));
 }
 
 /** Ordre de lecture (Adel, 05/10/2026) : cercle allumé → on repart de la DERNIÈRE musique ; cercle éteint (déjà vue) → de la PREMIÈRE. */

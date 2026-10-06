@@ -1,4 +1,5 @@
 import { readProfileMemory, writeProfileMemory } from '../services/profileMemory';
+import ClampedText from './ClampedText';
 import { reportAutoDiagnostic } from '../services/problemReportService';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
@@ -346,6 +347,21 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
 
   const refreshOwnStory = useCallback(() => { void reloadOwnStory(); }, [reloadOwnStory]);
   useEffect(() => subscribeOwnStoryChanged(() => { refreshOwnStory(); }), [refreshOwnStory]);
+  const showAlreadyInOtherStory = (track: PinnableTrack) => {
+    const holder = track.inOtherStory;
+    if (!holder) return;
+    Alert.alert('Déjà en story', `Chez @${holder.username}. Va la voir et repartage-la.`, [
+      { text: 'OK', style: 'cancel' },
+      {
+        text: 'Voir sa story',
+        onPress: () => {
+          closePlus();
+          const story = stories.find((item) => item.profileId === holder.profileId && item.tracks.length > 0);
+          setTimeout(() => { if (story) void open(story); else onOpenProfile?.(holder.username); }, 350);
+        },
+      },
+    ]);
+  };
   const openPlus = () => {
     setPlusOpen(true);
     setPinnable(null);
@@ -465,7 +481,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
               <Text style={styles.sheetTitle}>Ajouter à ta story</Text>
               <TouchableOpacity onPress={closePlus} accessibilityRole="button" accessibilityLabel="Fermer" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
             </View>
-            <Text style={styles.plusHelp}>Choisis une de tes musiques en public : elle devient la dernière de ta story pendant 24 h. Tu peux aussi mettre en avant la musique d'un autre membre : garde-la en public, puis ajoute-la ici, il reste identifié.</Text>
+            <ClampedText style={styles.plusHelp} text="Choisis une de tes musiques en public : elle devient la dernière de ta story pendant 24 h. 🔒 = déjà en story chez un autre membre : va la voir et repartage-la depuis sa story." />
             {pinnable === null ? <Text style={styles.viewsEmpty}>Chargement de tes musiques…</Text> : null}
             {pinnable && pinnable.length === 0 ? <Text style={styles.viewsEmpty}>Tu n'as pas encore de musique en public. Garde-en une en Public, elle apparaîtra ici.</Text> : null}
             <ScrollView>
@@ -479,9 +495,16 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                   <TouchableOpacity style={styles.previewBtn} onPress={() => previewTrack(track)} accessibilityRole="button" accessibilityLabel={previewing === track.trackId ? `Arrêter l’extrait de ${track.title}` : `Écouter un extrait de ${track.title}`}>
                     <Text style={styles.previewBtnText}>{previewing === track.trackId ? '■' : '▶'}</Text>
                   </TouchableOpacity>
+                  {!inStoryIds.has(track.trackId) && track.inOtherStory ? (
+                    // Anti-doublon entre stories (Adel, 06/10/2026) : déjà en story chez un autre membre → cadenas ; on va la repartager chez lui.
+                    <TouchableOpacity style={[styles.addBtn, styles.addBtnLocked]} onPress={() => showAlreadyInOtherStory(track)} accessibilityRole="button" accessibilityLabel={`${track.title} est déjà en story chez ${track.inOtherStory.username}`} testID={`story-pin-locked-${track.trackId}`}>
+                      <Text style={[styles.addBtnText, styles.addBtnTextDone]}>🔒</Text>
+                    </TouchableOpacity>
+                  ) : (
                   <TouchableOpacity style={[styles.addBtn, inStoryIds.has(track.trackId) && styles.addBtnDone]} onPress={() => { void pin(track); }} disabled={Boolean(pinBusy)} accessibilityRole="button" accessibilityLabel={inStoryIds.has(track.trackId) ? `${track.title} est déjà dans ta story` : `Ajouter ${track.title} à ma story`}>
                     <Text style={[styles.addBtnText, inStoryIds.has(track.trackId) && styles.addBtnTextDone]}>{pinBusy === track.trackId ? '…' : inStoryIds.has(track.trackId) ? '✓ En story' : '+ Ajouter'}</Text>
                   </TouchableOpacity>
+                  )}
                 </View>
               ))}
             </ScrollView>
@@ -638,6 +661,7 @@ const styles = StyleSheet.create({
   previewBtn: { flexShrink: 0, width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#1B1230', alignItems: 'center', justifyContent: 'center' },
   previewBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   addBtn: { flexShrink: 0, minHeight: 44, minWidth: 96, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', alignItems: 'center', justifyContent: 'center' },
+  addBtnLocked: { backgroundColor: '#2A2140', borderColor: '#5C5468' },
   addBtnDone: { borderColor: '#5C5468', backgroundColor: '#27222E' },
   addBtnText: { color: '#2DE1C2', fontSize: 13, fontWeight: '900' },
   addBtnTextDone: { color: '#E6E0EE' },
