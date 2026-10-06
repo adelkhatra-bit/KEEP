@@ -4,6 +4,12 @@
 
 **Langue : français uniquement avec Adel. Il veut un exécutant autonome (« continue, t'arrête pas »), qui teste avant de dire « fait », ne pousse que les modules concernés, et garde app = ordinateur.** Toute nouvelle idée d'Adel → `docs/IDEAS_INBOX.md` AVANT de coder. Les statuts « EN COURS » anciens de l'inbox sont en partie périmés : se fier à `docs/ERROR_LEDGER.md` (ERR-…-143 à 164) et à ce résumé.
 
+### Ajouts du 06/10/2026 (IDEA-117 à 129) — pushé 362b25f, à confirmer sur iPhone
+- **Menu ☰** : pleine largeur, retour direct à la même position (`pendingMenuReturn`, `useIsFocused`, `menuFreezeUntil`). **Secousse → signalement localisé → robot** : `reportLoop.ts`, `problemReportService.ts` (`announceReportUpdates`), migration 20261006100000, `docs/REPAIR_AGENT.md`, routine `trig_01CHASzNZx7Yx35UZMmErk8e` (SANS connecteur Supabase : à ajouter dans claude.ai Routines). **Visiteur sans compte** : `VisitorInviteRobot`. **Pochette carrée** dans « Ajouter à ta story ».
+- Base : `keep_event_playlist` créée, `keep_my_ear_report` compte toutes les réactions. Source corrigée NON redéployée : `keep-iap-verify` / `keep-apple-notifications` (appAppleId) → accord d'Adel requis.
+- Prix proposés + simulation : `docs/PRICING_PROPOSAL_SIMULATION.md`. Audit notifications : `docs/NOTIFICATIONS_AUDIT.md` (cause n°1 : permission iOS refusée ; Android sans FCM ; sons = build natif).
+- Reste : son iPhone (cause non reproduite, diagnostic enrichi `err=`), e-mails (test 06/10 non reçu, logs illisibles ici), capture d'écran auto + blocage IP, liste des signalements dans le Super Admin, 3D/faux clips, QR ordinateur, offres DJ (texte marketing).
+
 ### Ajouts du 05/10/2026 nuit (IDEA-110 à 116) — à confirmer sur iPhone
 - **Réactions** ❤/😐/👎 (`TrackLikeButton.tsx`, tables `track_likes` + `track_dislikes`), merci par le nom, des-aimer, moteur de goût (`keep_recommend_for_me`, `tasteMerge.ts`), **« Mon oreille »** (`earReport.ts`, `EarReportModal.tsx`, RPC `keep_my_ear_report`, menu ☰ > PROFIL).
 - **Compteurs de MA story** : `ReactionStatPills` 42 px, vert/ambre/violet (pas de rouge). **Sections repliables** : `useCollapsedSection` (boutique + ventes privées du chat), règle générale pour tout profil.
