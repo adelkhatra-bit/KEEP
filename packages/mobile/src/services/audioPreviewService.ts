@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { isNativeRecordingModeActive } from './micCapture';
+import { AUDIO_START_CONFIRM_MS, AUDIO_START_POLL_MS, isPreviewStartAccepted } from './audioPreviewStart';
 
 type ExpoAVModule = typeof import('expo-av');
 type AVPlaybackStatus = import('expo-av').AVPlaybackStatus;
@@ -325,11 +326,20 @@ async function ensurePlaying(sound: NativeSound): Promise<void> {
   }
   if (!status.isPlaying) {
     try { await withAudioTimeout(sound.playAsync(), 'AUDIO_PLAY', 1800); } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 90));
-    status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS_CONFIRM');
+    // Cause racine AUDIO_PREVIEW_NOT_PLAYING (33 signalements iPhone, 06/10/2026) : un extrait iTunes distant met
+    // souvent plus de 90 ms à remplir son tampon. Pendant ce temps iOS répond isPlaying=false + isBuffering=true alors
+    // que la lecture est bien demandée (shouldPlay=true). L'ancien contrôle unique à 90 ms jetait donc une erreur,
+    // déchargeait le son et recommençait : l'utilisateur n'entendait rien. On attend maintenant le vrai démarrage
+    // (jusqu'à AUDIO_START_CONFIRM_MS) et on accepte un son qui tamponne avec la lecture demandée.
+    const deadline = Date.now() + AUDIO_START_CONFIRM_MS;
+    do {
+      await new Promise((resolve) => setTimeout(resolve, AUDIO_START_POLL_MS));
+      status = await withAudioTimeout(sound.getStatusAsync(), 'AUDIO_STATUS_CONFIRM');
+    } while (status.isLoaded && !status.isPlaying && Date.now() < deadline);
   }
-  if (!status.isLoaded || !status.isPlaying) throw new Error('AUDIO_PREVIEW_NOT_PLAYING');
+  if (!isPreviewStartAccepted(status)) throw new Error('AUDIO_PREVIEW_NOT_PLAYING');
 }
+
 
 async function createSoundWithRetry(
   previewUrl: string,

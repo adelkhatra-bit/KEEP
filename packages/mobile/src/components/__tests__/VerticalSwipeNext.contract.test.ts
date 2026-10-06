@@ -76,7 +76,7 @@ describe('ajouter à ma story depuis le swipe + petits écrans (Adel 05/10/2026)
   it('adds the current track to the story only after a public keep, and compacts on short screens', () => {
     const modal = require('fs').readFileSync(require('path').join(__dirname, '..', 'MusicSwipeDeckModal.tsx'), 'utf8');
     expect(modal).toContain("'deck-add-story'");
-    expect(modal).toContain('pinStoryTrack(resolveKeptTrackId(current.id))');
+    expect(modal).toContain('pinStoryTrack(resolveKeptTrackId(current.id), current)');
     expect(modal).toContain('pinSharedStoryTrack(track.id, fromProfileId)'); // partager la musique d'un autre : gratuit, sans la garder
     expect(modal).toContain('const compactDeck = windowHeight < 640;');
   });

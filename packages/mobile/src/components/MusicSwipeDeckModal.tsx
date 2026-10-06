@@ -248,7 +248,7 @@ export default function MusicSwipeDeckModal({
     if (!track) return;
     try {
       await persistOwnTrackVisibility(track, 'PUBLIC');
-      await pinStoryTrack(resolveKeptTrackId(track.id));
+      await pinStoryTrack(resolveKeptTrackId(track.id), track);
       setStoryIds((previous) => new Set(previous).add(track.id));
       setJustAdded((previous) => new Set(previous).add(track.id));
       setKeepSuccess((previous) => (previous ? { ...previous, visibility: 'PUBLIC' } : previous));
@@ -333,7 +333,7 @@ export default function MusicSwipeDeckModal({
   };
   const pinCurrentToStory = async (current: CanonicalTrack) => {
     try {
-      await pinStoryTrack(resolveKeptTrackId(current.id));
+      await pinStoryTrack(resolveKeptTrackId(current.id), current);
       setStoryIds((previous) => new Set(previous).add(current.id));
       // Confirmation affichée DANS la fenêtre (une alerte native peut ne pas s'afficher au-dessus d'une fenêtre déjà ouverte).
       setJustAdded((previous) => new Set(previous).add(current.id));
@@ -740,7 +740,7 @@ export default function MusicSwipeDeckModal({
           notifyOwnStoryChanged();
           // Adel (05/10/2026) : « il a gardé en public mais son cercle ne s'est pas allumé » -- un morceau DÉJÀ gardé auparavant garde son
           // ancienne date et n'entrait donc jamais en story. On l'épingle aussi (date = maintenant) ; sans effet si déjà en story.
-          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id)).catch(() => {}).finally(() => notifyOwnStoryChanged());
+          if (!isSaleStoryTrack(keptTrack)) void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack).catch(() => {}).finally(() => notifyOwnStoryChanged());
         }
         if (keepDebitAmount != null && keepDebitAmount > 0) {
           setKeepSuccess({ title: keptTrack.title, artist: keptTrack.artist, visibility });

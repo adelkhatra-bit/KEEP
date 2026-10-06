@@ -216,13 +216,46 @@ export async function loadMusicStories(viewerId: string, knownRelations?: StoryR
 
 /** Anneau gris une fois la story vue jusqu'à sa dernière nouveauté. */
 export async function loadSeenStories(viewerId: string): Promise<Record<string, string>> {
+  let local: Record<string, string> = {};
   try {
     const raw = await AsyncStorage.getItem(`${SEEN_KEY_PREFIX}${viewerId}`);
     const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    local = parsed && typeof parsed === 'object' ? parsed : {};
+  } catch { /* cache local illisible : la base fait foi */ }
+  // Cause racine « stories vues pas synchronisées ordinateur/mobile » (06/10/2026) : le « vu » ne vivait que dans le
+  // stockage local de l'appareil. La base garde déjà chaque visionnage (story_watch_sessions, lisible par le
+  // spectateur) : on la fusionne, la date la plus récente gagne. Aucune nouvelle table, aucun doublon.
+  return mergeSeenStories(local, await loadServerSeenStories(viewerId));
+}
+
+async function loadServerSeenStories(viewerId: string): Promise<Record<string, string>> {
+  if (!supabase || !viewerId) return {};
+  try {
+    const since = new Date(Date.now() - STORY_WINDOW_HOURS * 3600 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('story_watch_sessions')
+      .select('owner_id,started_at,last_ping_at,ended_at')
+      .eq('viewer_id', viewerId)
+      .gte('started_at', since)
+      .limit(500);
+    if (error || !Array.isArray(data)) return {};
+    const seen: Record<string, string> = {};
+    for (const row of data as any[]) {
+      const at = String(row?.ended_at || row?.last_ping_at || row?.started_at || '');
+      const owner = String(row?.owner_id || '');
+      if (owner && at && (seen[owner] || '') < at) seen[owner] = at;
+    }
+    return seen;
   } catch {
     return {};
   }
+}
+
+/** Fusion appareil + base : pour chaque profil, la date de visionnage la plus récente. */
+export function mergeSeenStories(...maps: Array<Record<string, string>>): Record<string, string> {
+  const merged: Record<string, string> = {};
+  for (const map of maps) for (const [profileId, at] of Object.entries(map || {})) if (typeof at === 'string' && (merged[profileId] || '') < at) merged[profileId] = at;
+  return merged;
 }
 
 export async function markStorySeen(viewerId: string, story: MusicStory): Promise<Record<string, string>> {
@@ -573,7 +606,7 @@ export async function pinSharedStoryTrack(trackId: string, fromProfileId: string
  */
 export async function pinFreeStoryTrack(track: { id: string; title: string; artist: string; album?: string | null; artworkUrl?: string | null; previewUrl?: string | null; isrc?: string | null }): Promise<{ trackId: string; alreadyPinned: boolean; uncertified: boolean }> {
   if (!supabase || !track?.title) throw new Error('STORY_PIN_UNAVAILABLE');
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(track.id));
+  const isUuid = UUID_RE.test(String(track.id));
   const { data, error } = await supabase.rpc('keep_pin_free_story_track', {
     p_track_id: isUuid ? track.id : null, p_title: track.title, p_artist: track.artist, p_album: track.album ?? null,
     p_artwork_url: track.artworkUrl ?? null, p_preview_url: track.previewUrl ?? null, p_isrc: track.isrc ?? null,
@@ -583,8 +616,22 @@ export async function pinFreeStoryTrack(track: { id: string; title: string; arti
   return { trackId: String((data as any)?.trackId ?? track.id), alreadyPinned: Boolean((data as any)?.alreadyPinned), uncertified: Boolean((data as any)?.uncertified) };
 }
 
-export async function pinStoryTrack(trackId: string): Promise<void> {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Cause racine STORY_PIN_FAILED « invalid input syntax for type uuid: "trk_…" » (06/10/2026) : un morceau du catalogue
+ * local porte un identifiant provisoire `trk_…` (TrackResolver) tant qu'il n'a pas d'id en base. On n'envoie JAMAIS cet
+ * identifiant à la base : on laisse le serveur retrouver le vrai morceau (ISRC puis titre + artiste) via
+ * `keep_pin_free_story_track`, qui recalcule lui-même la certification (GARDER public = certifié). Aucun doublon : la
+ * fonction serveur réutilise la ligne existante.
+ */
+export async function pinStoryTrack(trackId: string, track?: { title: string; artist: string; album?: string | null; artworkUrl?: string | null; previewUrl?: string | null; isrc?: string | null }): Promise<void> {
   if (!supabase || !trackId) throw new Error('STORY_PIN_UNAVAILABLE');
+  if (!UUID_RE.test(String(trackId))) {
+    if (!track?.title) throw new Error('STORY_PIN_UNAVAILABLE');
+    await pinFreeStoryTrack({ id: trackId, ...track });
+    return;
+  }
   const { error } = await supabase.rpc('keep_pin_story_track', { p_track_id: trackId });
   if (error) throw error;
   notifyOwnStoryChanged();

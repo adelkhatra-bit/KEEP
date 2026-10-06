@@ -51,7 +51,7 @@ describe('Rangée de stories : ne se vide jamais + garder en public épingle (Ad
     expect(bar).toContain('if (!degraded) setStories(Array.from(collected.values()));');
   });
   it('un GARDER public épingle aussi la musique (même déjà gardée avant) puis rallume le cercle', () => {
-    expect(deck).toContain('void pinStoryTrack(resolveKeptTrackId(keptTrack.id))');
+    expect(deck).toContain('void pinStoryTrack(resolveKeptTrackId(keptTrack.id), keptTrack)');
     expect(deck).toContain('.finally(() => notifyOwnStoryChanged())');
   });
 });
