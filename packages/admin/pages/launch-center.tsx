@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import { openProviderPopup } from '../lib/providerWindow';
 
 type IntegrationRow = { key: string; configured: boolean };
 type RuntimeRow = { key: string; status: string; last_checked_at: string | null; last_error: string | null };
@@ -42,13 +43,13 @@ const PROVIDERS = [
     url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
   },
   {
-    name: 'AudD', plan: 'Paiement à l’usage', price: '5 USD / 1 000 écoutes', required: false,
-    detail: 'Moteur serveur prioritaire hors ShazamKit : 300 essais gratuits, catalogue annoncé de plus de 160 millions de titres.', action: 'CRÉER LE TOKEN',
+    name: 'AudD', plan: 'Optionnel · paiement à l’usage', price: 'Selon ton offre AudD', required: false,
+    detail: 'Moteur complémentaire. Un abonnement AudD ne connecte pas automatiquement Loki : la clé API doit être enregistrée dans Intégrations si tu veux l’activer.', action: 'GÉRER AUDD',
     url: 'https://dashboard.audd.io/',
   },
   {
-    name: 'ACRCloud', plan: 'Secours Music Recognition', price: 'Essai 14 jours puis devis', required: false,
-    detail: 'Deuxième moteur indépendant pour maximiser la couverture des morceaux rares, remixés ou mal captés.', action: 'OUVRIR L’ESSAI',
+    name: 'ACRCloud', plan: 'Moteur serveur principal', price: 'Selon ton offre ACRCloud', required: false,
+    detail: 'Moteur serveur actuellement utilisé par Loki pour compléter ShazamKit et la mémoire musicale.', action: 'GÉRER ACRCLOUD',
     url: 'https://console.acrcloud.com/',
   },
 ] as const;
@@ -66,36 +67,56 @@ export default function LaunchCenter() {
   const [manual, setManual] = useState<Record<ManualKey, boolean>>({ apple_membership: false, shazam_service: false, store_products: false, store_contracts: false, iphone_test: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Persisted admin launch checklist: shared through Supabase across browsers/devices.
+  const [manualSavedAt, setManualSavedAt] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true); setError(null);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
-      const [integrationResult, runtimeResult] = await Promise.all([
+      const [integrationResult, runtimeResult, configResult] = await Promise.all([
         invokeAdmin({ action: 'integrations.list' }),
         supabase.rpc('admin_integration_runtime_status'),
+        supabase.rpc('admin_remote_config_list'),
       ]);
       if (runtimeResult.error) throw runtimeResult.error;
+      if (configResult.error) throw configResult.error;
       setIntegrations((integrationResult?.data ?? []) as IntegrationRow[]);
       setRuntime((runtimeResult.data ?? []) as RuntimeRow[]);
+      const persisted = ((configResult.data ?? []) as Array<{key:string;value:any;updated_at?:string}>).find((row) => row.key === 'admin_launch_manual_checks');
+      if (persisted?.value && typeof persisted.value === 'object') {
+        setManual((current) => ({ ...current, ...(persisted.value as Record<ManualKey, boolean>) }));
+        setManualSavedAt(persisted.updated_at || null);
+      } else {
+        try {
+          const saved = JSON.parse(localStorage.getItem('loki-launch-manual-v1') || '{}');
+          setManual((current) => ({ ...current, ...saved }));
+        } catch {}
+      }
     } catch (e: any) { setError(e?.message ?? 'Analyse impossible.'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('loki-launch-manual-v1') || '{}');
-      setManual((current) => ({ ...current, ...saved }));
-    } catch {}
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
-  const setManualState = (key: ManualKey, checked: boolean) => {
-    setManual((current) => {
-      const next = { ...current, [key]: checked };
+  const setManualState = async (key: ManualKey, checked: boolean) => {
+    if (!supabase) return setError('Supabase Super Admin non configuré.');
+    const next = { ...manual, [key]: checked };
+    setManual(next);
+    setError(null);
+    try {
+      const { error: saveError } = await supabase.rpc('admin_remote_config_set', {
+        p_key: 'admin_launch_manual_checks',
+        p_value: next,
+        p_description: 'Validations manuelles du Centre de lancement Loki Music, persistées pour tous les appareils Super Admin.',
+      });
+      if (saveError) throw saveError;
       localStorage.setItem('loki-launch-manual-v1', JSON.stringify(next));
-      return next;
-    });
+      setManualSavedAt(new Date().toISOString());
+    } catch (e: any) {
+      setError(e?.message ?? 'Impossible d’enregistrer cette validation dans Supabase.');
+      await load();
+    }
   };
 
   const configured = useMemo(() => new Set(integrations.filter((row) => row.configured).map((row) => row.key)), [integrations]);
@@ -127,7 +148,13 @@ export default function LaunchCenter() {
           <div style={{ color: provider.required ? '#ffb454' : '#86efac', fontSize: 10, fontWeight: 900 }}>{provider.required ? 'NÉCESSAIRE AU LANCEMENT' : 'GRATUIT / OPTIONNEL'}</div>
           <h3 style={{ marginBottom: 4 }}>{provider.name}</h3><strong style={{ color: '#c4b5fd' }}>{provider.plan}</strong><div style={{ fontSize: 20, fontWeight: 900, margin: '10px 0' }}>{provider.price}</div>
           <p style={{ minHeight: 54, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>{provider.detail}</p>
-          <a href={provider.url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 11, fontWeight: 900 }}>{provider.action}</a>
+          <button
+            type="button"
+            onClick={() => openProviderPopup(provider.url, `loki-launch-${provider.name.replace(/\W+/g, '-').toLowerCase()}`)}
+            style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 11, fontWeight: 900, border: 0, cursor: 'pointer' }}
+          >
+            {provider.action}
+          </button>
         </div>)}
       </div>
     </div>
@@ -140,7 +167,7 @@ export default function LaunchCenter() {
         etat lu (Cles detectees automatiquement + alerte d'erreur ci-dessous). */}
     <div className="card" style={{ marginBottom: 20 }}>
       <h3 style={{ marginTop: 0 }}>Écoute multi-moteurs</h3>
-      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → AudD → ACRCloud. Pour un lien YouTube/TikTok partagé : métadonnées de la page → catalogues Apple/Deezer → empreinte audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
+      <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → ACRCloud côté serveur → AudD uniquement s’il est explicitement connecté. Pour un lien partagé : métadonnées de la page → catalogues publics → moteur audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
       <a href="/integrations" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
         Tester les moteurs dans « Intégrations »
       </a>
@@ -155,9 +182,10 @@ export default function LaunchCenter() {
     <div className="card">
       <h3 style={{ marginTop: 0 }}>Validations nécessitant ton compte</h3>
       {MANUAL.map((item) => <label key={item.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-        <input type="checkbox" checked={manual[item.key]} onChange={(event) => setManualState(item.key, event.target.checked)} style={{ width: 18, height: 18, marginTop: 2 }} />
+        <input type="checkbox" checked={manual[item.key]} onChange={(event) => void setManualState(item.key, event.target.checked)} style={{ width: 18, height: 18, marginTop: 2 }} />
         <span><strong>{item.label}</strong><span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{item.detail}</span></span>
       </label>)}
+      {manualSavedAt ? <p style={{ color: '#86efac', fontSize: 11, marginBottom: 8 }}>✓ Validations enregistrées dans Supabase · synchronisées entre tes appareils.</p> : null}
       <p style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.5, marginBottom: 0 }}>Sécurité : paiement, 2FA, CAPTCHA, création de clés permanentes et déclarations contractuelles restent validés par le titulaire. Toutes les autres étapes techniques peuvent être préparées et contrôlées par l’assistant.</p>
     </div>
   </AdminLayout>;

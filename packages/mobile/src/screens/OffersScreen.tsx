@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
 import { CREDIT_FUNNEL_DEFAULTS, CreditFunnel, KeepPlan, loadCreditFunnel, loadCurrentPlanCode, loadPlans } from '../services/planService';
-import { iapAvailable, IAP_PRODUCT_IDS, loadIapProducts, purchasePlan, restorePurchases } from '../services/iapService';
+import { iapAvailable, IAP_FREE_PACKS, IAP_PRODUCT_IDS, loadIapProducts, purchaseFreePack, purchasePlan, restorePurchases } from '../services/iapService';
 import { loadPaddleCatalog, openPaddleCheckout, paddleCheckoutAvailable, PaddleCatalogEntry } from '../services/paddleService';
 import type { KeepIAPProduct } from 'keep-iap';
 import { CommercialRules, getCommercialRules, getGrowthRewardStatus, GrowthRewardStatus } from '../services/growthAccessService';
@@ -13,6 +13,7 @@ import { FreeCreditBreakdown, getDownloadCreditStatus, loadFreeCreditBreakdown }
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/ProfileCertificationBadge';
 import { KeepBattleSoloHistoryModal } from '../components/KeepBattleSoloHistoryModal';
+import ClampedText from '../components/ClampedText';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 
@@ -24,7 +25,7 @@ const DEFAULT_RULES: CommercialRules = {
   venueDailyDownloads: null,
   creatorEventsPerMonth: 1,
   venueEventsPerMonth: null,
-  freeCostPerKeep: 3,
+  freeCostPerKeep: 1,
   shareDailyCap: 10,
   audienceProThreshold: 1000,
   shareTiers: [20, 50, 100],
@@ -105,7 +106,7 @@ function requiredReason(feature: string, plan: string, rules: CommercialRules) {
   return `${planLabel(plan)} est la formule minimale requise pour cette fonction. Les formules supérieures compatibles sont aussi affichées.`;
 }
 
-function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number): string[] {
+function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFunnel, monthlyFreeBonus: number, dailyListenLimit: number): string[] {
   const eventFollowers = rules.followerTiers[3] || 500;
   // Adel (04/09/2026) : "il faut vraiment qu'ils sachent combien de Free il
   // a par mois ... sans compter avec les matchs" -- monthlyFreeBonus vient
@@ -114,28 +115,34 @@ function benefitsFor(planCode: string, rules: CommercialRules, funnel: CreditFun
   // gagner/perdre en plus.
   if (planCode === 'FREE') return [
     monthlyFreeBonus > 0 ? `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).` : 'Gagne du Free en partageant ton profil et en développant ta communauté.',
-    `Écouter, reconnaître et PASSER : 0 Free. GARDER depuis Écouter : ${rules.freeCostPerKeep} Free.`,
+    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu. PASSER reste gratuit. GARDER : ${rules.freeCostPerKeep} FREE.`,
     `${rules.freeDiscoveryProfiles} profils Découvertes offerts au démarrage.`,
-    `${funnel.guestSuccessLimit} Free avant inscription + ${funnel.signupBonusSuccesses} après création du compte.`,
+    `${funnel.guestSuccessLimit} écoutes invitées au total avant compte · +${funnel.signupBonusSuccesses} FREE à la création du compte.`,
   ];
   if (planCode === 'PREMIUM') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
+    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
     'Découvertes de profils en illimité.',
     `${rules.premiumSmartSortTrials} essais de Loki Music Vibes.`,
+    'Certification visible sur le profil et réglages avancés de confort Loki Music.',
   ];
   if (planCode === 'CREATOR_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
+    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
     rules.creatorDailyDownloads == null ? 'Téléchargements et Loki Music Vibes illimités.' : `Jusqu'à ${rules.creatorDailyDownloads} téléchargements par jour, Loki Music Vibes illimité.`,
     'Profils DJ, Artiste, Créateur ou Producteur.',
     `À partir de ${eventFollowers} abonnés : soirées ${eventsPerMonthClause(rules.creatorEventsPerMonth)} et notifications aux abonnés.`,
     'Analytics et outils créateur avancés.',
+    'Certification visible sur le profil et réglages avancés de confort Loki Music.',
   ];
   if (planCode === 'VENUE_PRO') return [
     `+${monthlyFreeBonus} Free offerts chaque mois (hors Battle).`,
+    `${dailyListenLimit} écoutes reconnues incluses par jour, puis 1 FREE par nouveau morceau reconnu.`,
     'Profil Lieu / établissement et outils professionnels.',
     `À partir de ${eventFollowers} abonnés : soirées et événements ${eventsPerMonthClause(rules.venueEventsPerMonth)}.`,
-    'Invitations aux événements envoyées à tes abonnés ET à tous ceux qui ont déjà gardé un de tes morceaux -- sans publicité sur Loki Music, personne ne peut désactiver la notification.',
+    'Invitations aux événements envoyées à tes abonnés et aux utilisateurs concernés, dans le respect de leurs réglages de notifications.',
     'QR, communauté et analytics avancés.',
+    'Certification visible sur le profil et réglages avancés de confort Loki Music.',
     `Fonctions Audience Pro à partir de ${rules.audienceProThreshold} abonnés.`,
   ];
   return [];
@@ -176,6 +183,15 @@ export default function OffersScreen({ navigation, route }: any) {
   const [battleExpanded, setBattleExpanded] = useState(false);
   const [showFreeDetails, setShowFreeDetails] = useState(false);
   const [discoveryExpanded, setDiscoveryExpanded] = useState(false);
+  // Lot n°9.2 (05/10/2026) : l'écran doit se lire en 5 secondes. Trois cartes
+  // en haut ; les textes longs passent dans « En savoir plus » (rien n'est supprimé).
+  const [introExpanded, setIntroExpanded] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const scrollToSection = (key: string) => {
+    const y = sectionY.current[key];
+    if (typeof y === 'number') scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+  };
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [soloHistoryVisible, setSoloHistoryVisible] = useState(false);
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
@@ -183,6 +199,7 @@ export default function OffersScreen({ navigation, route }: any) {
   // achat StoreKit de bout en bout (KeepIAP -> keep-iap-verify -> activation
   // réelle du plan), plus jamais un CTA qui ne fait que naviguer.
   const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
+  const [purchasingFreePack, setPurchasingFreePack] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [iapProducts, setIapProducts] = useState<Record<string, KeepIAPProduct>>({});
   // Adel (08/09/2026) : "j'ai juste a mettre connecter ensuite ca me dirige
@@ -249,6 +266,27 @@ export default function OffersScreen({ navigation, route }: any) {
     }
   };
 
+  const handleFreePackPurchase = async (freeAmount: number) => {
+    if (purchasingFreePack !== null) return;
+    setPurchasingFreePack(freeAmount);
+    try {
+      const result = await purchaseFreePack(freeAmount);
+      if (!result.ok) {
+        if (result.reason !== 'CANCELLED') {
+          Alert.alert('Recharge FREE', result.reason === 'PENDING'
+            ? 'Le paiement est en attente de validation par la boutique.'
+            : 'Impossible de finaliser cette recharge pour le moment.');
+        }
+        return;
+      }
+      setFreeBalance(result.balance);
+      const refreshed = await loadFreeCreditBreakdown().catch(() => null);
+      if (refreshed) setBreakdown(refreshed);
+      Alert.alert('Recharge terminée', `+${result.freeAmount} FREE ont été ajoutés. Nouveau solde : ${result.balance} FREE.`);
+    } finally {
+      setPurchasingFreePack(null);
+    }
+  };
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -364,7 +402,7 @@ export default function OffersScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
+        <TouchableOpacity style={s.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityRole="button" accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
         <View style={s.headerText}>
           <Text style={s.title}>Offre & crédits</Text>
           <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
@@ -372,7 +410,7 @@ export default function OffersScreen({ navigation, route }: any) {
         <View style={s.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {focusPlan ? <View style={s.requiredIntro}>
           <Text style={s.requiredIntroEyebrow}>FONCTION VERROUILLÉE</Text>
           <View style={s.requiredPlanRow}>
@@ -383,20 +421,209 @@ export default function OffersScreen({ navigation, route }: any) {
               return <View style={[s.requiredPlanFreeBadge, { backgroundColor: `${tierColors.colors[tierColors.colors.length - 1]}33`, borderColor: tierColors.ring }]}><Text style={[s.requiredPlanFreeBadgeText, { color: tierColors.ring }]}>+{focusPlanFreeBonus} Free/mois</Text></View>;
             })() : null}
           </View>
-          <Text style={s.requiredIntroText}>{requiredReason(sourceFeature, focusPlan, rules)}</Text>
+          <ClampedText style={s.requiredIntroText} text={requiredReason(sourceFeature, focusPlan, rules)} />
           {isEventChoice ? <View style={s.eventChoiceHint}><Text style={s.eventChoiceHintText}>À partir de {f4} abonnés · 9,99 € : soirées {eventsPerMonthClause(rules.creatorEventsPerMonth)} · 29,99 € : soirées {eventsPerMonthClause(rules.venueEventsPerMonth)}</Text></View> : null}
           {!isEventChoice && isUpgradeChoice ? <View style={s.choiceHint}><Text style={s.choiceHintText}>Toutes les formules ci-dessous incluent cette fonction. Choisis selon les autres avantages dont tu as besoin.</Text></View> : null}
+          <View style={s.quickStartBox}>
+            <Text style={s.quickStartEyebrow}>POUR BIEN DÉMARRER SUR LOKI MUSIC</Text>
+            <Text style={s.quickStartTitle}>Remplis d’abord ton profil de musique.</Text>
+            <ClampedText style={s.quickStartText} text="Écoute → garde un maximum de pépites → construis tes playlists → partage ton profil → joue en Solo/Battle pour tenter de gagner des Free → découvre encore plus. Les actions sociales éligibles peuvent aussi rapporter des Fruits." />
+            <ClampedText style={s.quickStartText} text="1 · ÉCOUTE : reconnais des morceaux ou découvre les sélections disponibles.  2 · GARDE : chaque pépite enrichit ton univers musical.  3 · PARTAGE : ton profil devient une porte d’entrée vers tes découvertes et les actions éligibles peuvent rapporter des Fruits.  4 · JOUE : Solo et Battle permettent de tenter de gagner des Free.  5 · RECOMMENCE : plus ton univers musical grandit, plus ton profil donne de choses à découvrir à ta communauté." />
+          </View>
         </View> : <>
+          <View style={s.quickChoiceRow} accessibilityRole="summary">
+            <View style={s.quickChoiceCard} testID="offers-quick-free">
+              <Text style={s.quickChoiceTitle}>Gratuit</Text>
+              <Text style={s.quickChoiceText}>Écoute et découvre. Gagne des FREE en jouant.</Text>
+              <Text style={s.quickChoicePrice}>0 €</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.quickChoiceCard, s.quickChoiceCardPrimary]}
+              testID="offers-quick-premium"
+              onPress={() => { setExpandedPlanCode('PREMIUM'); scrollToSection('plans'); }}
+              accessibilityRole="button"
+              accessibilityLabel="Voir Premium"
+            >
+              <Text style={s.quickChoiceTitle}>Premium</Text>
+              <Text style={s.quickChoiceText}>Plus d’écoutes et de FREE chaque mois.</Text>
+              <Text style={s.quickChoicePrice}>{visiblePlans.find((plan) => plan.code === 'PREMIUM') ? money(visiblePlans.find((plan) => plan.code === 'PREMIUM') as KeepPlan) : 'Voir le prix'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.quickChoiceCard, s.quickChoiceCardSlim]}
+              testID="offers-quick-recharge"
+              onPress={() => scrollToSection('recharge')}
+              accessibilityRole="button"
+              accessibilityLabel="Recharger des FREE"
+            >
+              <Text style={s.quickChoiceTitle}>Recharger FREE</Text>
+              <Text style={s.quickChoicePrice}>30 · 100 · 300</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={s.rechargeBox} onLayout={(event) => { sectionY.current.recharge = event.nativeEvent.layout.y; }}>
+            <Text style={s.rechargeEyebrow}>RECHARGER MES FREE</Text>
+            <ClampedText style={s.rechargeIntro} text="Achat ponctuel. Le solde est crédité uniquement après validation Apple ou Google." />
+            {IAP_FREE_PACKS.map((pack) => {
+              const storeProduct = iapProducts[pack.productId];
+              const price = storeProduct?.displayPrice || pack.fallbackPrice;
+              const available = iapAvailable() && Boolean(storeProduct);
+              const busy = purchasingFreePack === pack.freeAmount;
+              return (
+                <View key={pack.productId} style={s.freePackRow}>
+                  <View style={s.freePackCopy}>
+                    <Text style={s.freePackAmount}>{pack.freeAmount} FREE</Text>
+                    <Text style={s.freePackPrice}>{price}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[s.freePackButton, !available && s.freePackButtonDisabled]}
+                    disabled={!available || purchasingFreePack !== null}
+                    onPress={() => void handleFreePackPurchase(pack.freeAmount)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Acheter ${pack.freeAmount} FREE pour ${price}`}
+                  >
+                    {busy ? <ActivityIndicator color="#0A140F" /> : <Text style={s.freePackButtonText}>{available ? 'RECHARGER' : 'APP MOBILE'}</Text>}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+            {!iapAvailable() ? <ClampedText style={s.rechargeHint} text="Les recharges se font uniquement dans l’app iPhone/Android, jamais sur le web." /> : null}
+          </View>
+        </>}
+
+        {!focusPlan ? <Text style={s.paidSectionTitle} onLayout={(event) => { sectionY.current.plans = event.nativeEvent.layout.y; }}>PREMIUM & PRO</Text> : null}
+
+        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
+          const active = plan.code === currentPlan;
+          const focused = !!focusPlan && plan.code === focusPlan;
+          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO' && rules.venueEventsPerMonth == null;
+          return (
+            <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused, venueUnlimited && s.planCardUnlimited]}>
+              <View style={s.planTop}>
+                <View style={s.planIdentity}>
+                  <ProfileCertificationBadge tier={certificationTierForPlan(plan.code)} />
+                  <View>
+                    <Text style={s.planName}>{plan.name}</Text>
+                    <Text style={s.planPrice}>{money(plan)}</Text>
+                  </View>
+                </View>
+                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>MINIMUM</Text></View> : null}
+              </View>
+              <ClampedText style={s.planSummary} text={planSummary(plan.code)} />
+              <TouchableOpacity
+                style={s.disclosureButton}
+                onPress={() => setExpandedPlanCode((current) => current === plan.code ? null : plan.code)}
+                accessibilityRole="button"
+                accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
+                accessibilityState={{ expanded: expandedPlanCode === plan.code }}
+              >
+                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
+                <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
+              </TouchableOpacity>
+              {expandedPlanCode === plan.code ? <View style={s.planDetails}>
+                {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
+                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus, plan.dailyListenLimit).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
+                {!iapAvailable() && plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
+              </View> : null}
+              {!active && plan.code !== 'FREE' ? (
+                <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
+                  <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {!active && plan.code !== 'FREE' && iapAvailable() && iapProducts[IAP_PRODUCT_IDS[plan.code]] ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={purchasingPlan !== null}
+                  onPress={() => void handlePurchase(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S'abonner à ${planLabel(plan.code)}`}
+                >
+                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
+                </TouchableOpacity>
+              ) : null}
+              {!active && plan.code !== "FREE" && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === "MONTHLY") ? (
+                <TouchableOpacity
+                  style={s.purchaseCta}
+                  disabled={paddleBusyPlan !== null}
+                  onPress={() => void handlePaddleCheckout(plan.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`S'abonner a ${planLabel(plan.code)}`}
+                >
+                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER - {paddlePrice(paddleCatalog, plan.code)}</Text>}
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {iapAvailable() ? (
+          <View>
+            <ClampedText style={s.renewalText} text="Abonnement mensuel renouvelé automatiquement jusqu'à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l'abonnement dans les réglages Apple." />
+            <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
+              <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
+            </TouchableOpacity>
+            <View style={s.legalRow}>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/')} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/privacy/')} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => void Linking.openURL('https://apps.apple.com/account/subscriptions')} accessibilityRole="link"><Text style={s.legalText}>Gérer</Text></TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={s.subscriptionCard}>
+          <Text style={s.subscriptionTitle}>Règles simples</Text>
+          <TouchableOpacity
+            style={s.disclosureButton}
+            onPress={() => setRulesExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel="En savoir plus sur les règles"
+            accessibilityState={{ expanded: rulesExpanded }}
+          >
+            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
+            <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {rulesExpanded ? <View style={s.rulesDetails}>
+            <ClampedText style={s.subscriptionText} text="• Écouter et PASSER restent inclus. Une reconnaissance réussie au-delà du quota quotidien de ta formule coûte 1 FREE." />
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
+            <ClampedText style={s.subscriptionText} text="• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule." />
+            <ClampedText style={s.subscriptionText} text="• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki Music." />
+          </View> : null}
+        </View>
+        {/* Adel (06/10/2026) : offres + RECHARGER / Premium visibles en premier (capture App Store) ; pédagogie Battles/Free en dessous. */}
+        {!focusPlan ? <>
+          <TouchableOpacity
+            style={s.disclosureButton}
+            onPress={() => setIntroExpanded((value) => !value)}
+            accessibilityRole="button"
+            accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
+            accessibilityState={{ expanded: introExpanded }}
+          >
+            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
+            <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
+          </TouchableOpacity>
+          {introExpanded ? <>
           <View style={s.promiseCard}>
             <Text style={s.promiseEyebrow}>Loki Music</Text>
             <Text style={s.promiseTitle}>Écoute. Garde. Partage. Recharge.</Text>
             <Text style={s.promiseCommunity}>Fais grandir ta communauté musicale.</Text>
+            <View style={s.startMission}><Text style={s.startMissionTitle}>TA MISSION POUR DÉMARRER</Text><Text style={s.startMissionText}>1. Trouve et garde un maximum de musiques.  2. Construis tes playlists automatiquement sur ton profil.  3. Partage ton profil pour faire circuler tes découvertes et profiter des récompenses éligibles.  4. Défie tes amis en Solo/Battle pour tenter de gagner des Free.  5. Utilise tes Free pour découvrir et garder encore plus de musique.</Text></View>
+          </View>
+
+          <View style={s.discoveryCard}>
+            <Text style={s.discoveryEyebrow}>COMMENT LOKI MUSIC GRANDIT AVEC TOI</Text>
+            <Text style={s.discoveryTitle}>Écoute → Garde → Construis → Partage → Joue.</Text>
+            <ClampedText style={s.discoveryBody} text="Ta première mission : remplis ton profil de musique. Chaque morceau gardé enrichit ton univers musical. Plus ta collection grandit, plus les autres ont de pépites à découvrir chez toi." />
+            <View style={s.discoveryDetails}>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>ÉCOUTE · Reconnais une musique et garde-la si tu l’aimes.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>CONSTRUIS · Chaque morceau gardé enrichit ton profil. Organise ensuite tes pépites dans tes playlists.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>PARTAGE · Envoie ton profil à tes amis. Plus ta collection est riche, plus ton univers musical a de choses à faire découvrir. Les actions éligibles peuvent rapporter des Fruits.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>JOUE · Solo ou Battle : choisis ton style, défie tes amis et tente de gagner les Free annoncés pour la partie.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>5</Text><Text style={s.discoveryStepText}>RECHARGE · Utilise tes Free pour garder de nouvelles découvertes, puis fais encore grandir ton profil.</Text></View>
+            </View>
           </View>
 
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <Text style={s.discoveryBody}>Quand tu reconnais un morceau avec Écouter puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil.</Text>
+            <ClampedText style={s.discoveryBody} text="Quand tu reconnais un morceau avec Loki Music puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil." />
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -408,13 +635,13 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Tu identifies un titre avec Écouter et tu le gardes : ton profil devient le découvreur Loki Music de cette occurrence.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui identifie ce titre avec Écouter et le garde devient son premier découvreur Loki Music.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s'il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Si un membre découvre lui-même le titre avec Écouter et l'enregistre directement, sa propre découverte devient la référence des partages issus de cette écoute.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Même si le titre est ensuite repris ou redécouvert, le premier découvreur enregistré pour ce titre reste la référence d’origine.</Text></View>
             </View> : null}
           </View>
-
+          </> : null}
 
           <View style={s.battleCard}>
             <View style={s.battleHeader}>
@@ -540,7 +767,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 vérité, plus jamais un texte à mettre à jour à la main
                 quand le pourcentage change dans Remote Config. */}
             {battleExpanded ? <View style={s.battleDetails}>
-              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : à 2, le vainqueur remporte la mise de l'adversaire. À 3 et plus, le 1er et le 2e se partagent la mise de tous ceux classés 3e et plus.</Text>
+              <Text style={s.battleDetailText}>Battle de 2 à {battleRules.maxPlayers} joueurs : chacun engage sa mise. À 2, le gagnant prend la mise perdue par l'adversaire. À 3 et plus, les joueurs encore en course continuent entre eux ; chaque abandon est une défaite et sa mise alimente les gains. Si les autres abandonnent, le dernier joueur restant gagne les Free accumulés. Si la partie va jusqu'au bout, le classement final applique la répartition prévue pour le podium. Sans-faute (8/8 ou N/N) : Loki attribue UN SEUL bonus égal à la mise. S’il y a plusieurs joueurs parfaits, le bonus va au sans-faute le plus rapide. Sur 8 morceaux : +{battleRules.perfectScoreBonusFree} Free.</Text>
               <Text style={s.battleDetailHint}>{battleRules.ruleText || `Il faut au moins ${battleRules.minimumFreeRequired} Free pour entrer.`} Au maximum de joueurs, le 1er peut gagner jusqu'à +{battleRules.fullArenaNetPrize} Free. Si tu ne finis pas dans le podium, -{battleRules.stakeFree} Free.</Text>
             </View> : null}
           </View>
@@ -549,112 +776,13 @@ export default function OffersScreen({ navigation, route }: any) {
               même endroit une seule fois, plutôt que dispersées plan par
               plan. */}
           <View style={s.battleDetails}>
-            <Text style={s.paidSectionTitle}>PLUS DE FREE, 4 FAÇONS</Text>
-            <Text style={s.battleDetailText}>📣 Partage ton profil : plus tu gagnes d'abonnés, plus Loki Music t'offre de Free.</Text>
-            <Text style={s.battleDetailText}>⚡ Gagne des Battles en ligne contre d'autres joueurs.</Text>
-            <Text style={s.battleDetailText}>📅 Free offerts automatiquement chaque mois, selon ta formule.</Text>
-            <Text style={s.battleDetailText}>💳 Passe à une formule payante pour plus de Free chaque mois.</Text>
+            <Text style={s.paidSectionTitle}>GAGNER OU RECHARGER TES FREE</Text>
+            <Text style={s.battleDetailText}>📣 Parrainage : +2 FREE par inscrit validé, jusqu’à 20 FREE par mois.</Text>
+            <Text style={s.battleDetailText}>⚡ Battle et série quotidienne : gagne des FREE en jouant et en revenant.</Text>
+            <Text style={s.battleDetailText}>💎 Premier découvreur : +1 FREE quand un autre membre garde ta découverte, jusqu’à 20 par mois.</Text>
+            <Text style={s.battleDetailText}>📅 Bonus mensuel automatique selon ta formule.</Text>
           </View>
-        </>}
-
-        {!focusPlan ? <Text style={s.paidSectionTitle}>PREMIUM & PRO</Text> : null}
-
-        {loading ? <ActivityIndicator color={colors.primaryLight} /> : error ? <Text style={s.error}>{error}</Text> : visiblePlans.map((plan) => {
-          const active = plan.code === currentPlan;
-          const focused = !!focusPlan && plan.code === focusPlan;
-          const venueUnlimited = isEventChoice && plan.code === 'VENUE_PRO' && rules.venueEventsPerMonth == null;
-          return (
-            <View key={plan.code} style={[s.planCard, active && s.planCardActive, focused && s.planCardFocused, venueUnlimited && s.planCardUnlimited]}>
-              <View style={s.planTop}>
-                <View style={s.planIdentity}>
-                  <ProfileCertificationBadge tier={certificationTierForPlan(plan.code)} />
-                  <View>
-                    <Text style={s.planName}>{plan.name}</Text>
-                    <Text style={s.planPrice}>{money(plan)}</Text>
-                  </View>
-                </View>
-                {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>MINIMUM</Text></View> : null}
-              </View>
-              <Text style={s.planSummary}>{planSummary(plan.code)}</Text>
-              <TouchableOpacity
-                style={s.disclosureButton}
-                onPress={() => setExpandedPlanCode((current) => current === plan.code ? null : plan.code)}
-                accessibilityRole="button"
-                accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
-                accessibilityState={{ expanded: expandedPlanCode === plan.code }}
-              >
-                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
-                <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
-              </TouchableOpacity>
-              {expandedPlanCode === plan.code ? <View style={s.planDetails}>
-                {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
-                <View style={s.benefitBox}>{benefitsFor(plan.code, rules, funnel, plan.monthlyFreeBonus).map((benefit) => <Text key={benefit} style={s.benefit}>• {benefit}</Text>)}</View>
-                {!iapAvailable() && plan.trialDays > 0 ? <Text style={s.trial}>Essai : {plan.trialDays} jours</Text> : null}
-              </View> : null}
-              {!active && plan.code !== 'FREE' ? (
-                <TouchableOpacity style={[s.cta, venueUnlimited && s.ctaUnlimited]} onPress={() => navigation.setParams({ focusPlan: plan.code, sourceFeature: sourceFeature || 'PLAN_DETAILS' })} accessibilityRole="button">
-                  <Text style={s.ctaText}>{venueUnlimited ? 'Voir Venue Pro · illimité' : `Voir ${planLabel(plan.code)}`}</Text>
-                </TouchableOpacity>
-              ) : null}
-              {!active && plan.code !== 'FREE' && iapAvailable() && iapProducts[IAP_PRODUCT_IDS[plan.code]] ? (
-                <TouchableOpacity
-                  style={s.purchaseCta}
-                  disabled={purchasingPlan !== null}
-                  onPress={() => void handlePurchase(plan.code)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`S'abonner à ${planLabel(plan.code)}`}
-                >
-                  {purchasingPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER · {iapProducts[IAP_PRODUCT_IDS[plan.code]].displayPrice} / mois</Text>}
-                </TouchableOpacity>
-              ) : null}
-              {!active && plan.code !== "FREE" && !iapAvailable() && paddleReady && paddleCatalog.some((row) => row.planCode === plan.code && row.period === "MONTHLY") ? (
-                <TouchableOpacity
-                  style={s.purchaseCta}
-                  disabled={paddleBusyPlan !== null}
-                  onPress={() => void handlePaddleCheckout(plan.code)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`S'abonner a ${planLabel(plan.code)}`}
-                >
-                  {paddleBusyPlan === plan.code ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.purchaseCtaText}>S'ABONNER - {paddlePrice(paddleCatalog, plan.code)}</Text>}
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          );
-        })}
-
-        {iapAvailable() ? (
-          <View>
-            <Text style={s.renewalText}>Abonnement mensuel renouvelé automatiquement jusqu'à résiliation. Le paiement est débité sur ton compte Apple. Tu peux gérer ou résilier l'abonnement dans les réglages Apple.</Text>
-            <TouchableOpacity style={s.restoreButton} disabled={restoring} onPress={() => void handleRestore()} accessibilityRole="button">
-              <Text style={s.restoreButtonText}>{restoring ? 'Restauration…' : 'Restaurer mes achats'}</Text>
-            </TouchableOpacity>
-            <View style={s.legalRow}>
-              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/terms/')} accessibilityRole="link"><Text style={s.legalText}>Conditions</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => void Linking.openURL('https://adelkhatra-bit.github.io/KEEP/privacy/')} accessibilityRole="link"><Text style={s.legalText}>Confidentialité</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => void Linking.openURL('https://apps.apple.com/account/subscriptions')} accessibilityRole="link"><Text style={s.legalText}>Gérer</Text></TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
-        <View style={s.subscriptionCard}>
-          <Text style={s.subscriptionTitle}>Règles simples</Text>
-          <TouchableOpacity
-            style={s.disclosureButton}
-            onPress={() => setRulesExpanded((value) => !value)}
-            accessibilityRole="button"
-            accessibilityLabel="En savoir plus sur les règles"
-            accessibilityState={{ expanded: rulesExpanded }}
-          >
-            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-            <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
-          </TouchableOpacity>
-          {rulesExpanded ? <View style={s.rulesDetails}>
-            <Text style={s.subscriptionText}>• Écouter, reconnaître et PASSER ne consomment aucun Free.</Text>
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Écouter utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
-            <Text style={s.subscriptionText}>• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule.</Text>
-            <Text style={s.subscriptionText}>• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Écouter.</Text>
-          </View> : null}
-        </View>
+        </> : null}
 
         {focusPlan ? <TouchableOpacity style={s.allPlans} onPress={() => navigation.setParams({ focusPlan: undefined, sourceFeature: undefined })}>
           <Text style={s.allPlansText}>Voir toutes les formules</Text>
@@ -668,28 +796,37 @@ export default function OffersScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { minHeight: 58, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
-  back: { color: colors.textPrimary, fontSize: 36, lineHeight: 40, width: 42 },
+  header: { minHeight: 68, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border },
+  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
+  back: { color: colors.textPrimary, fontSize: 30, lineHeight: 32, fontWeight: '800' },
   headerText: { flex: 1, alignItems: 'center' },
   title: { ...typography.h3, color: colors.textPrimary },
   subtitle: { color: colors.primaryLight, fontSize: 11, fontWeight: '800', marginTop: 2 },
-  headerSpacer: { width: 42 },
+  headerSpacer: { width: 44 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md },
-  requiredIntro: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primaryLight },
+  requiredIntro: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight },
   requiredIntroEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   requiredPlanRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5, flexWrap: 'wrap' },
   requiredIntroTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', flexShrink: 1 },
   requiredPlanFreeBadge: { minHeight: 22, paddingHorizontal: 9, borderRadius: 11, backgroundColor: '#123D2C', borderWidth: 1, borderColor: '#31C981', alignItems: 'center', justifyContent: 'center' },
   requiredPlanFreeBadgeText: { color: '#7CF2B9', fontSize: 11, fontWeight: '900' },
-  requiredIntroText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 7, fontWeight: '700' },
+  requiredIntroText: { color: colors.textPrimary, fontSize: 12, lineHeight: 18, marginTop: 7, fontWeight: '700' },
   eventChoiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#17130B', borderWidth: 1, borderColor: '#D6AA36', paddingHorizontal: 10, paddingVertical: 8 },
   eventChoiceHintText: { color: '#FFF4C2', fontSize: 11, lineHeight: 16, fontWeight: '900', textAlign: 'center' },
-  choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', paddingHorizontal: 10, paddingVertical: 8 },
-  choiceHintText: { color: '#F8F6FC', fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
-  promiseCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369' },
+  choiceHint: { marginTop: 10, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 8 },
+  choiceHintText: { color: colors.textPrimary, fontSize: 11, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
+  quickChoiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  quickChoiceCard: { flexGrow: 1, flexBasis: 150, minWidth: 140, padding: 12, borderRadius: 14, backgroundColor: '#17141F', borderWidth: 1, borderColor: '#2A2438', gap: 4 },
+  quickChoiceCardSlim: { flexBasis: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+  quickChoiceCardPrimary: { borderColor: colors.primaryLight, backgroundColor: '#1D1830' },
+  quickChoiceTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
+  quickChoiceText: { color: '#CFC8E6', fontSize: 12, lineHeight: 17 },
+  quickChoicePrice: { color: colors.primaryLight, fontSize: 14, fontWeight: '900', marginTop: 2 },
+  quickStartBox:{marginTop:12,padding:11,borderRadius:14,backgroundColor:'#101D17',borderWidth:1,borderColor:'#2C8A60'},quickStartEyebrow:{color:'#7CF2B9',fontSize:9,fontWeight:'900',letterSpacing:.8},quickStartTitle:{color:colors.textPrimary,fontSize:14,fontWeight:'900',marginTop:4},quickStartText:{color:colors.textPrimary,fontSize:11,lineHeight:16,fontWeight:'700',marginTop:5},
+  promiseCard: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   promiseEyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
   promiseTitle: { color: colors.textPrimary, fontSize: 20, fontWeight: '900', lineHeight: 25, marginTop: 5 },
-  promiseCommunity: { color: colors.keep, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 7 },
+  startMission:{marginTop:12,padding:12,borderRadius:16,backgroundColor:'rgba(55,104,255,0.16)',borderWidth:1.5,borderColor:colors.primaryLight},startMissionTitle:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.6},startMissionText:{color:colors.white,fontSize:13,lineHeight:20,fontWeight:'700',marginTop:6},promiseCommunity: { color: colors.keep, fontSize: 16, fontWeight: '900', lineHeight: 21, marginTop: 7 },
   discoveryCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60' },
   discoveryEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
   discoveryTitle: { color: colors.textPrimary, fontSize: 17, lineHeight: 22, fontWeight: '900', marginTop: 5 },
@@ -698,33 +835,33 @@ const s = StyleSheet.create({
   discoveryStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   discoveryStepNumber: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#173529', color: '#7CF2B9', textAlign: 'center', lineHeight: 22, fontSize: 10, fontWeight: '900' },
   discoveryStepText: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, fontWeight: '700', flex: 1 },
-  promiseBody: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: '700' },
-  creditCard: { padding: spacing.lg, borderRadius: radius.lg, backgroundColor: '#1A1225', borderWidth: 1, borderColor: colors.primary },
+  promiseBody: { color: colors.textPrimary, fontSize: 12, lineHeight: 18, marginTop: 8, fontWeight: '700' },
+  creditCard: { padding: spacing.lg, borderRadius: 20, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primary },
   creditTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   sectionTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   creditBig: { color: colors.primaryLight, fontSize: 28, fontWeight: '900', marginTop: 3 },
   freePill: { borderRadius: 999, borderWidth: 1, borderColor: colors.keep, paddingHorizontal: 10, paddingVertical: 5, backgroundColor: '#13251C' },
   freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
-  creditText: { color: '#F8F6FC', fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
-  creditRule: { color:'#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
-  disclosureButton: { minHeight: 42, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#493369', backgroundColor: '#151020', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  creditText: { color: colors.textPrimary, fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
+  creditRule: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
+  disclosureButton: { minHeight: 44, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   disclosureText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   disclosureChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
   growthGrid: { flexDirection: 'row', gap: 7, marginTop: 12 },
-  growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  growthStat: { flex: 1, minHeight: 58, borderRadius: 12, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   growthValue: { color: colors.textPrimary, fontSize: 16, fontWeight: '900' },
-  growthLabel: { color: '#E9E3F0', fontSize: 8, lineHeight: 11, textAlign: 'center', marginTop: 2, fontWeight: '700' },
-  breakdownBox: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
+  growthLabel: { color: colors.textSecondary, fontSize: 9, lineHeight: 12, textAlign: 'center', marginTop: 2, fontWeight: '700' },
+  breakdownBox: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.border },
   breakdownTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginBottom: 6 },
   breakdownSubtitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .6, marginTop: 8, marginBottom: 4 },
   breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 26, gap: 8 },
-  breakdownLabel: { flex: 1, color: '#E9E3F0', fontSize: 11, fontWeight: '700' },
+  breakdownLabel: { flex: 1, color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   breakdownValue: { color: '#7FF2B7', fontSize: 12, fontWeight: '900' },
   breakdownValueNegative: { color: '#FFB3C3' },
   soloHistoryButton: { marginTop: 10, minHeight: 44, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: '#E5F266', backgroundColor: '#1A1C0F', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   soloHistoryButtonText: { color: '#E5F266', fontSize: 13, fontWeight: '900' },
   soloHistoryButtonChevron: { color: '#E5F266', fontSize: 20, fontWeight: '900' },
-  rechargeBox: { marginTop: 13, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
+  rechargeBox: { marginTop: 0, borderRadius: 16, backgroundColor: '#101D17', borderWidth: 1, borderColor: '#2C8A60', padding: 11 },
   rechargeEyebrow: { color: '#7CF2B9', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   rechargeTitle: { color: '#FFFFFF', fontSize: 16, lineHeight: 21, fontWeight: '900', marginTop: 3 },
   rechargeIntro: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 4 },
@@ -734,6 +871,13 @@ const s = StyleSheet.create({
   rechargeItemTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   rechargeItemText: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, fontWeight: '800', marginTop: 2 },
   rechargeHint: { color: '#FFFFFF', fontSize: 8, lineHeight: 12, fontWeight: '700', marginTop: 3 },
+  freePackRow: { minHeight: 52, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#254936', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  freePackCopy: { flex: 1 },
+  freePackAmount: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  freePackPrice: { color: '#7CF2B9', fontSize: 12, fontWeight: '900', marginTop: 2 },
+  freePackButton: { minWidth: 112, minHeight: 42, paddingHorizontal: 14, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7CF2B9' },
+  freePackButtonDisabled: { opacity: 0.45 },
+  freePackButtonText: { color: '#0A140F', fontSize: 11, fontWeight: '900' },
   startBonus: { marginTop: 10, borderRadius: 12, backgroundColor: '#17241D', paddingHorizontal: 9, paddingVertical: 8 },
   startBonusTitle: { color: '#7CF2B9', fontSize: 8, fontWeight: '900', letterSpacing: .7 },
   startBonusText: { color: '#FFFFFF', fontSize: 9, lineHeight: 13, fontWeight: '700', marginTop: 2 },
@@ -755,7 +899,7 @@ const s = StyleSheet.create({
   freeBalanceRow: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#5B4A19' },
   freeBalanceLabel: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   freeBalanceValue: { color: '#E5F266', fontSize: 18, fontWeight: '900' },
-  freeDetailsToggle: { minHeight: 40, marginTop: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#D6AA36', backgroundColor: '#1A1710', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  freeDetailsToggle: { minHeight: 44, marginTop: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.warning, backgroundColor: 'rgba(255,209,102,0.08)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   freeDetailsToggleText: { color: '#FFF4C2', fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
   freeDetailsToggleChevron: { color: '#D6AA36', fontSize: 18, fontWeight: '900' },
   battleDetails: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#5B4A19' },
@@ -776,7 +920,7 @@ const s = StyleSheet.create({
   planTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   planIdentity: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   planName: { color: colors.textPrimary, fontSize: 17, fontWeight: '900' },
-  planPrice: { color: '#F8F6FC', fontSize: 13, fontWeight: '900', marginTop: 3 },
+  planPrice: { color: colors.textSecondary, fontSize: 13, fontWeight: '900', marginTop: 3 },
   currentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: colors.smartBadgeBg },
   currentBadgeText: { color: colors.smartBadgeText, fontSize: 9, fontWeight: '900' },
   requiredBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: '#3D2860', borderWidth: 1, borderColor: colors.primaryLight },
@@ -785,24 +929,24 @@ const s = StyleSheet.create({
   unlimitedBadgeText: { color: '#FFF4C2', fontSize: 9, fontWeight: '900' },
   planSummary: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, marginTop: 9, fontWeight: '700' },
   planDetails: { marginTop: 2 },
-  planDescription: { ...typography.caption, color: '#F8F6FC', lineHeight: 18, marginTop: 9, fontWeight: '700' },
+  planDescription: { ...typography.caption, color: colors.textSecondary, lineHeight: 18, marginTop: 9, fontWeight: '700' },
   benefitBox: { marginTop: 8, gap: 2 },
-  benefit: { color: '#F8F6FC', fontSize: 11, lineHeight: 17, fontWeight: '700' },
+  benefit: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '700' },
   trial: { color: colors.keep, fontSize: 11, fontWeight: '900', marginTop: 8 },
-  cta: { minHeight: 42, borderRadius: 21, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
+  cta: { minHeight: 48, borderRadius: 24, marginTop: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   ctaUnlimited: { backgroundColor: '#8A6A12' },
   ctaText: { color: colors.white, fontSize: 12, fontWeight: '900' },
   purchaseCta: { minHeight: 46, borderRadius: 23, marginTop: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success, opacity: 1 },
   purchaseCtaText: { color: '#0A140F', fontSize: 13, fontWeight: '900' },
-  restoreButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 4 },
+  restoreButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 4 },
   restoreButtonText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', textDecorationLine: 'underline' },
   renewalText: { color: colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 4, paddingHorizontal: 8 },
   legalRow: { flexDirection: 'row', justifyContent: 'center', gap: 18, marginBottom: 8 },
   legalText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', textDecorationLine: 'underline' },
-  subscriptionCard: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: '#151020', borderWidth: 1, borderColor: '#3D324A' },
+  subscriptionCard: { padding: spacing.md, borderRadius: 18, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.border },
   subscriptionTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '900' },
   rulesDetails: { marginTop: 3, gap: 3 },
-  subscriptionText: { ...typography.caption, color: '#F8F6FC', lineHeight: 18, marginTop: 5, fontWeight: '700' },
+  subscriptionText: { ...typography.caption, color: colors.textPrimary, lineHeight: 18, marginTop: 5, fontWeight: '700' },
   allPlans: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   allPlansText: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   error: { color: colors.danger, textAlign: 'center', paddingVertical: 20 },

@@ -1,0 +1,1 @@
+alter function public.keep_agora_contains_blocked_language(text) set search_path = public, pg_temp;

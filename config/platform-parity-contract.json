@@ -1,0 +1,93 @@
+{
+  "version": 2,
+  "rule": "Loki Music mobile and desktop use one shared product implementation. Shared features are edited once in packages/mobile/src and are consumed by iOS, Android and Expo Web. Platform-specific code is limited to adapters for browser/native capabilities; duplicated feature screens are forbidden.",
+  "canonicalRuntime": "packages/mobile",
+  "sharedFeatureRoot": "packages/mobile/src",
+  "webBuildSource": "packages/mobile",
+  "mobileViewport": "390x844",
+  "desktopViewport": "1440x900",
+  "dualViewportWorkflow": ".github/workflows/keep-dual-viewport-guardian.yml",
+  "forbiddenParallelRoots": [
+    "packages/web",
+    "apps/web",
+    "apps/desktop",
+    "packages/desktop"
+  ],
+  "forbiddenFeatureSuffixes": [
+    ".web.ts",
+    ".web.tsx",
+    ".native.ts",
+    ".native.tsx"
+  ],
+  "featureDirectories": [
+    "packages/mobile/src/screens",
+    "packages/mobile/src/components",
+    "packages/mobile/src/store"
+  ],
+  "allowedPlatformSpecificFiles": [
+    "packages/mobile/src/services/micCapture.ts",
+    "packages/mobile/src/services/audioPreviewService.ts",
+    "packages/mobile/src/services/nativeShazamRecognition.ts",
+    "packages/mobile/src/utils/webAutofillFix.ts"
+  ],
+  "requiredChecks": [
+    "source-of-truth",
+    "behavior-parity",
+    "typecheck",
+    "mobile-390x844",
+    "desktop-1440x900",
+    "web-runtime"
+  ],
+  "webEntryMode": "qr-only-when-signed-out",
+  "webAuthenticatedRuntime": "shared-packages-mobile-src",
+  "webAccountCreationAllowed": false,
+  "webPasswordLoginAllowed": false,
+  "webRemoteLogout": true,
+  "behavioralParity": {
+    "rule": "Mobile/TestFlight and Web must use the same gameplay, catalogue, anti-duplicate, result-copy and business rules. Platform branches may only adapt native/browser capabilities (audio engine, microphone, animations, deep links).",
+    "protectedModules": [
+      "Battle/Solo round count and timing",
+      "Battle/Solo catalogue selection and theme filters",
+      "result and encouragement copy",
+      "recognition and KEEP anti-duplicate rules",
+      "FREE cost and purchase guards",
+      "PASSER/GARDER behavior",
+      "notification event semantics"
+    ],
+    "forbiddenPlatformDivergence": [
+      "different round counts",
+      "different catalogue limits",
+      "different theme filters",
+      "different result hold timings",
+      "different FREE costs",
+      "different duplicate rules"
+    ],
+    "allowedPlatformAdapters": [
+      "audio playback implementation",
+      "microphone capture implementation",
+      "animation native driver",
+      "browser autoplay unlock",
+      "native deep links"
+    ]
+  },
+  "musicParity": {
+    "sharedBusinessLogic": true,
+    "designMustRemainShared": true,
+    "nativeAudioAdapterMayDiffer": true,
+    "requirements": [
+      "PASSER updates the visible card immediately; persistence must not block navigation",
+      "Swipe up remains optional and advances immediately",
+      "Battle Solo result hold is at most 700ms before advancing",
+      "iOS preloads the next Battle preview without resetting AVAudioSession while the current preview is playing",
+      "TestFlight build must be newer than or equal to the last audio/Battle parity commit before declaring parity",
+      "Web viewport emulation never counts as proof of native iOS audio parity"
+    ],
+    "testflightParityRequiredFor": [
+      "audio preview startup",
+      "PASSER latency",
+      "Solo round-to-round latency",
+      "Battle audio",
+      "push notifications"
+    ]
+  }
+}

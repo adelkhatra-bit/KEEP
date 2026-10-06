@@ -58,6 +58,7 @@ function AdminLogin(){
   const [showPassword,setShowPassword]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [helpOpen,setHelpOpen]=useState(false);
 
   const signIn=async(e:FormEvent)=>{
     e.preventDefault();
@@ -76,7 +77,7 @@ function AdminLogin(){
   return <main style={page}><LiveMarker/><form onSubmit={signIn} style={card}>
     <div style={brand}>{APP_NAME}</div>
     <h1 style={title}>Super Admin</h1>
-    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé et aucune redirection externe n’est utilisée.</p>
+    <p style={muted}>Connexion sécurisée par adresse e-mail et mot de passe. Aucun lien e-mail n’est envoyé automatiquement et aucun accès sans mot de passe n’est autorisé.</p>
     <label style={label}>Adresse e-mail Super Admin</label>
     <input type="email" value={identity} onChange={(e)=>setIdentity(e.target.value)} autoComplete="username" placeholder="nom@exemple.com" style={input}/>
     <label style={label}>Mot de passe</label>
@@ -84,9 +85,15 @@ function AdminLogin(){
       <input type={showPassword?'text':'password'} value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" style={passwordInput}/>
       <button type="button" aria-label={showPassword?'Masquer le mot de passe':'Afficher le mot de passe'} onClick={()=>setShowPassword(v=>!v)} style={eyeButton}>{showPassword?'◉':'◎'}</button>
     </div>
+    <button type="button" onClick={()=>setHelpOpen(v=>!v)} style={forgotButton}>MOT DE PASSE OUBLIÉ ?</button>
+    {helpOpen ? <div style={recoveryHelp}>
+      <strong>Récupération Super Admin</strong>
+      <p style={{margin:'8px 0 0'}}>Si tu as généré un code de secours depuis « Sécurité & mot de passe », entre ce code directement dans le champ Mot de passe puis touche « Se connecter ». Le code est à usage unique et devient ton nouveau mot de passe après validation.</p>
+      <p style={{margin:'8px 0 0'}}>Si tu es encore connecté sur un autre appareil, ouvre « Sécurité & mot de passe » pour modifier ton mot de passe ou générer un nouveau code de secours sans e-mail.</p>
+    </div> : null}
     {error?<p style={{color:'#fb7185',margin:'10px 0 0'}}>{error}</p>:null}
     <button type="submit" disabled={busy||!identity.trim()||!password} style={button}>{busy?'Connexion…':'SE CONNECTER'}</button>
-    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. À la première connexion, un mot de passe temporaire valide peut être activé automatiquement une seule fois.</p>
+    <p style={hint}>Seuls les comptes présents dans `admin_users` avec un rôle actif peuvent entrer. Connexion sans mot de passe interdite. Le code de secours est généré uniquement depuis une session SUPER_ADMIN active.</p>
   </form></main>;
 }
 
@@ -131,5 +138,7 @@ const input={width:'100%',boxSizing:'border-box' as const,padding:14,borderRadiu
 const passwordRow={display:'flex',alignItems:'center',borderRadius:12,border:'1px solid #3b3150',background:'#0d0a13',overflow:'hidden'} as const;
 const passwordInput={flex:1,minWidth:0,padding:14,border:0,outline:'none',background:'transparent',color:'#fff',fontSize:16} as const;
 const eyeButton={width:50,alignSelf:'stretch',border:0,borderLeft:'1px solid #3b3150',background:'#120e1b',color:'#a78bfa',fontSize:20,cursor:'pointer'} as const;
+const forgotButton={display:'block',margin:'10px 0 0 auto',padding:0,border:0,background:'transparent',color:'#b79cff',fontSize:12,fontWeight:900,cursor:'pointer'} as const;
+const recoveryHelp={marginTop:10,padding:12,border:'1px solid #5b4a78',borderRadius:12,background:'#100c18',color:'#d8cfe2',fontSize:12,lineHeight:1.45} as const;
 const button={width:'100%',marginTop:20,padding:14,border:0,borderRadius:999,background:'#7c3aed',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer'} as const;
 const hint={margin:'14px 0 0',color:'#7f768c',fontSize:12,lineHeight:1.5} as const;

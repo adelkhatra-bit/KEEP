@@ -1,0 +1,1016 @@
+{
+  "version": "2026-10-02.07",
+  "name": "Loki Music — contrat produit canonique",
+  "productName": "Loki Music",
+  "technicalRepositoryName": "KEEP",
+  "productNamingRule": "Loki Music est le seul nom produit utilisateur. KEEP désigne uniquement le dépôt technique historique.",
+  "repository": "adelkhatra-bit/KEEP",
+  "canonicalBranch": "reconcile/claude-main-20260825",
+  "supabaseProjectRef": "rrhqsqzcplvmwxizqnla",
+  "supabaseUrl": "https://rrhqsqzcplvmwxizqnla.supabase.co",
+  "precedence": [
+    "latest-explicit-user-decision",
+    "config/keep-product-contract.json",
+    "docs/KEEP_MASTER_SPEC.md",
+    "current-code-and-live-schema",
+    "older-comments-tests-or-agent-notes"
+  ],
+  "protectedFiles": [
+    "packages/mobile/App.tsx",
+    "packages/mobile/src/navigation/Navigation.tsx",
+    ".env",
+    ".p8",
+    "eas.json"
+  ],
+  "creditRules": {
+    "listen": 0,
+    "recognize": 0,
+    "PASS": 0,
+    "MASK": 0,
+    "KEEP": -3,
+    "keepMustShowDebitBeforeVisibilityChoice": true,
+    "keepSuccessMustConfirmDebitedFree": true,
+    "cancelKeepMustNeverDebit": true,
+    "keepAppliesToSources": [
+      "listen",
+      "loki_pulse"
+    ],
+    "socialFreeKeep": {
+      "decidedBy": "Adel 05/10/2026",
+      "charge": 0,
+      "sources": ["story", "public_profile", "public_profile_swipe", "follow_notification"],
+      "requires": "musique PUBLIQUE chez un autre membre (GARDER public ou épingle claire < 24 h) et PAS en vente (SALE_PROTECTED)",
+      "attribution": "marquée du nom du PREMIER découvreur ; l'utilisateur la garde en public ou en privé",
+      "serverRpc": "keep_commit_social_free_decision",
+      "dailyLimit": 200
+    },
+    "shareToOwnStoryIsFree": {
+      "decidedBy": "Adel 05/10/2026",
+      "charge": 0,
+      "needsKeep": false,
+      "serverRpc": "keep_pin_shared_story_track",
+      "reason": "publicité pour le premier découvreur, qui reste identifié"
+    },
+    "alreadyOwnedDuplicate": 0,
+    "listenAfterDailyQuota": -1,
+    "listenCountsOnlyOnSuccessfulRecognition": true,
+    "guestRecognitionTotalLimit": 3,
+    "signupBonusFree": 5,
+    "dailyListenIncluded": {
+      "FREE": 5,
+      "PREMIUM": 30,
+      "CREATOR_PRO": 60,
+      "VENUE_PRO": 150
+    },
+    "paidRecognitionMinIntervalSeconds": 20
+  },
+  "profileOwner": {
+    "freePlacement": "immediately-after-Reprises-in-owner-metrics-bar",
+    "metricsBarOrder": [
+      "PLUS",
+      "Abonnés",
+      "Reprises",
+      "FREE"
+    ],
+    "freeBesideProfileKind": false,
+    "freeImmediatelyAfterReprises": true,
+    "freeMustAppearExactlyOnce": true,
+    "certificationSource": "public.profiles.certification_tier",
+    "freeBalanceSource": "Supabase RPC credit status",
+    "uiFixMustNeverRewriteLiveCertificationOrFreeBalance": true,
+    "visibilityControlLocation": "Notifications top",
+    "visibilityControlRemovedFromNetworksPanel": true,
+    "lokiPulseLocation": "between-social-networks-and-share-profile",
+    "shareProfileLocation": "immediately-after-Loki-Pulse",
+    "profileKindLabels": [
+      "Fan",
+      "Créateur",
+      "DJ",
+      "Artiste",
+      "Producteur",
+      "Lieu"
+    ],
+    "profileKindPicker": {
+      "allChoicesMustHaveBlueOutline": true,
+      "inactiveBorderColorToken": "info",
+      "inactiveBackgroundMayNotBeBlack": true,
+      "activeChoiceMustStayVisiblyColored": true
+    },
+    "freeDetailsPanel": {
+      "primaryBalanceRemainsInMetricsBar": true,
+      "firstExpandedMetric": "free-spent-today-on-profile-keeps",
+      "availableBalanceMustNotRepeatInExpandedPanel": true,
+      "spendSource": "public.keep_free_spend_events via keep_free_spent_today",
+      "spendMustUseActualDebitAmountAtActionTime": true,
+      "periodBoundary": "02:00-local-device-time-to-01:59-next-day",
+      "secondaryMetrics": [
+        "battle-free-won-today",
+        "battle-free-lost-today"
+      ],
+      "allNewKeepsDebitConfiguredFree": true,
+      "socialProfileKeepsAlsoDebit": false,
+      "alreadyOwnedDuplicateNeverDebits": true,
+      "dailySpendCountsAuthoritativeLedgerEvents": true,
+      "primaryBalanceRemainsBesideProfileKind": false
+    },
+    "musicTasteSettings": {
+      "menuLabel": "Mes goûts musicaux",
+      "menuOrder": [
+        "Réglages du profil",
+        "Carte",
+        "Mes goûts musicaux",
+        "Réseaux & site web"
+      ],
+      "source": "profiles.favorite_genres + profiles.music_language_codes + profiles.music_country_codes",
+      "opens": "MusicTasteQuestionnaire",
+      "editableAnytime": true,
+      "drives": "Loki Pulse",
+      "separateFromBattleSoloPreferences": true,
+      "battleSoloPreferencesMustNeverOverwritePulseTaste": true
+    }
+  },
+  "uxInteractionRules": {
+    "darkBackgroundPrimaryText": "textPrimary-or-equivalent-high-contrast",
+    "functionalGreyTextOnDarkForbidden": true,
+    "permanentLongExplanationsForbidden": true,
+    "secondaryExplanationPattern": "inline-help-or-En-savoir-plus-with-stable-layout",
+    "helpExpansionMustNotShiftPrimaryControls": true,
+    "primaryActionAccessMaxClicks": 1,
+    "secondClickReservedForSensitiveConfirmation": true,
+    "sensitiveConfirmations": [
+      "payment",
+      "delete",
+      "logout",
+      "spend-free",
+      "publish",
+      "privacy-destructive-change"
+    ],
+    "buttonWithoutActionForbidden": true,
+    "preferInlineActionOverExtraNavigation": true,
+    "sameRulesMobileAndWeb": true,
+    "childUnderstandable": true
+  },
+  "responsive": {
+    "requiredViewports": [
+      "390x844",
+      "430x932",
+      "768x700",
+      "900x700",
+      "1440x900"
+    ],
+    "desktopRootMustFillViewport": true,
+    "resizeMustNotBlankApplication": true,
+    "fiveTabsMustRemainVisible": true
+  },
+  "accessibilityTouchTargets": {
+    "sharedMinimum": 48,
+    "appleMinimumPt": 44,
+    "androidRecommendedDp": 48,
+    "wcag22MinimumCssPx": 24,
+    "rule": "All primary interactive controls must expose at least a 48x48 hit target on Loki Mobile and Web. Visual artwork may be smaller only when hitSlop/padding expands the actual target to 48x48.",
+    "appliesTo": [
+      "buttons",
+      "icon-buttons",
+      "music-bubbles",
+      "chips",
+      "cards",
+      "playback-controls",
+      "swipe-fallback-controls"
+    ]
+  },
+  "changeProtocol": {
+    "auditBeforeEdit": true,
+    "checkRemoteHeadBeforeEdit": true,
+    "checkLiveSupabaseBeforeChangingDataRelatedUI": true,
+    "updateContractAndGuardsInSameCommitWhenAProductRuleChanges": true,
+    "neverFixUiByMutatingProductionUserData": true,
+    "cleanGeneratedCachesBeforeIntegration": true,
+    "validatedProductRulesImmutableUntilExplicitUserChange": true,
+    "integrationPreflightCommand": "npm run integration:preflight",
+    "integrationPostflightCommand": "npm run integration:postflight"
+  },
+  "battleCatalog": {
+    "recentTrackMemory": 120,
+    "recentArtistMemory": 240,
+    "chansonFrDeepBudget": 4000,
+    "frenchNamedArtistBootstrapMinimum": 120,
+    "preferUnseenTracksAndArtists": true,
+    "serverSideExpansion": true,
+    "catalogExpansionWithoutAppRelease": true,
+    "providerRateLimitedBatches": true
+  },
+  "eventExperience": {
+    "profileEventTapMustStayInline": true,
+    "notificationEventTapTarget": "Main.Discover?focus=EVENTS",
+    "discoverEventDetailMustStayInline": true,
+    "discoverEventRsvpChoices": [
+      "NOT_GOING",
+      "MAYBE",
+      "GOING"
+    ],
+    "pendingEventsMustSaySuperAdminApprovalRequired": true,
+    "eventNotificationMayDeepLinkSpecificEventInsideDiscover": true
+  },
+  "adsModel": {
+    "defaultPlanWithInternalPromotions": "FREE",
+    "adFreePlans": [
+      "PREMIUM",
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
+    "thirdPartyAdNetworkEnabled": false,
+    "initialPromotionSources": [
+      "APPROVED_EVENTS",
+      "LOKI_COLLECTIONS"
+    ],
+    "profilePromotionsMustNeverForceNavigation": true
+  },
+  "marketplacePurchases": {
+    "completedPurchaseMustPersistInBuyerPlaylist": true,
+    "completedPurchaseMustPersistKeepDecision": true,
+    "recentPurchasesLocation": "Playlists home / Derniers achats",
+    "recentPurchasesMustRemainAccessibleWhenMarketplaceVisibilityIsOff": true,
+    "previewMustKeepTrackMetadataHiddenUntilUnlock": true,
+    "previewMustShowOwnedVsMissingCounts": true,
+    "previewMustExposeSellerProfile": true,
+    "previewMustUse3DProtectedMysteryVisual": true,
+    "duplicateDeliveryMustBeIdempotent": true,
+    "buyerNeverPaysTwiceForSameMusicContent": true,
+    "duplicateOwnershipComparison": "same-content-isrc-provider-preview",
+    "partialOverlapPurchasePolicy": "block-full-purchase-and-offer-missing-tracks-only",
+    "bulkPublicMustNeverExposeActiveSaleTracks": true,
+    "partialMissingTrackRequest": true,
+    "partialRequestSellerMayOfferFreePrice": true,
+    "partialOfferMustBePrivateToRequester": true,
+    "sellerCanSelectSubsetOfMissingTracks": true,
+    "sellerCollectionFilters": [
+      "ALL",
+      "FREE",
+      "MONEY"
+    ],
+    "creationWizardSteps": [
+      "TRACKS",
+      "CART_REVIEW",
+      "MODE_PRICE_CURRENCY",
+      "PAYOUT_PUBLISH"
+    ],
+    "preventTrackAcrossActiveOffers": true,
+    "alreadyPublishedTrackMustBeExplained": true,
+    "moneyPayoutConfiguredInline": true,
+    "freeModeRequiresExternalPayout": false,
+    "existingOfferTrackPolicy": "block-and-keep-existing-offer",
+    "collectionCreationSurface": "PlaylistSale/Pépites-inline-cart",
+    "collectionCreationMustRemainInPepites": true,
+    "cartSelectionReversible": true,
+    "cartSelectionMustNotMutateVisibilityBeforePublish": true,
+    "cartRemoveAlwaysAvailableBeforePublish": true,
+    "cartReviewMustPrecedePricing": true,
+    "moneyCurrencyChoices": [
+      "EUR",
+      "USD",
+      "GBP",
+      "CHF",
+      "CAD",
+      "AUD",
+      "AED",
+      "JPY",
+      "CNY",
+      "INR",
+      "BRL",
+      "MXN",
+      "KRW",
+      "SGD",
+      "HKD",
+      "NZD",
+      "SEK",
+      "NOK",
+      "DKK",
+      "PLN",
+      "CZK"
+    ],
+    "moneyCurrencyDefaultsFromProfileCountry": true,
+    "savedPayoutLinkMustBeReused": true,
+    "moneyModePayoutProvider": "PayPal",
+    "moneyModeRequiresHttpsPayPalLink": true,
+    "cartReadyCta": {
+      "appearsAfterMinimumSelection": 2,
+      "position": "above-track-list",
+      "label": "J’AI FINI MA SÉLECTION · OUVRIR MON PANIER",
+      "color": "primary-blue",
+      "minimumHeight": 76,
+      "yellowPrimaryCtaForbidden": true
+    }
+  },
+  "screenHelpRules": {
+    "parties": {
+      "title": "Soirées",
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "helpContains": [
+        "Publier une soirée",
+        "Retrouver ses soirées",
+        "Répondre aux invitations",
+        "Validation et notifications"
+      ],
+      "compactHomeActions": true
+    },
+    "playlists": {
+      "title": "Playlists",
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "helpContains": [
+        "Écouter",
+        "Visibilité public/privé",
+        "Trier automatiquement",
+        "Créer une collection",
+        "Connecter ses services"
+      ],
+      "compactHomeActions": true,
+      "originFilterButtons": {
+        "labels": [
+          "TOUT",
+          "DÉCOUVERTE",
+          "SESSION",
+          "🔒 REPRISE",
+          "IDENTIFIÉ",
+          "LOKI"
+        ],
+        "countersInsideButtons": false,
+        "countLocation": "active-origin-summary-below-filter-row",
+        "singleWordOrCompactLabel": true
+      }
+    },
+    "canonicalHelpSheet": {
+      "component": "ContextHelpSheet",
+      "trigger": "?",
+      "sameDesignEverywhere": true,
+      "childUnderstandableCopy": true,
+      "numberedSteps": true,
+      "bluePrimaryStyling": true,
+      "nativeAlertForbiddenForPrimaryScreenHelp": true,
+      "closeAction": "J’AI COMPRIS"
+    },
+    "battle": {
+      "permanentIntro": false,
+      "helpTrigger": "?",
+      "canonicalHelpSheet": true,
+      "helpContains": [
+        "Solo expliqué séparément du Battle en ligne",
+        "Styles de jeu séparés des goûts Loki Pulse",
+        "FREE gagnés/perdus du jour",
+        "Reset quotidien 02:00",
+        "Invitations et disponibilité"
+      ]
+    }
+  },
+  "eventDiscovery": {
+    "profileBehavior": "inline-only-no-tab-redirect",
+    "notificationRoute": "Main.Discover",
+    "notificationParams": {
+      "focus": "EVENTS",
+      "eventId": "notification-event-id",
+      "source": "NOTIFICATION_EVENT"
+    },
+    "discoverBehavior": "event-detail-inline-with-rsvp",
+    "pendingModeration": "show-pending-without-sensitive-details-or-rsvp",
+    "freeEventPromotionDefault": true,
+    "freeMarketingPromotionDefault": true,
+    "optOutPlans": [
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
+    "audienceRule": "targeted-followers-and-prior-keepers-with-dedupe"
+  },
+  "pepitesCart": {
+    "entry": "PlaylistSale",
+    "createFlow": "PlaylistSale inline 4-step cart",
+    "persistent": false,
+    "storageScope": "screen-session",
+    "selectionSideEffects": "none-until-publish",
+    "alreadyForSale": "block-addition-until-removed-from-existing-offer",
+    "actions": [
+      "ADD_TO_CART",
+      "REMOVE_FROM_CART",
+      "REVIEW_CART",
+      "CHOOSE_FREE_OR_CURRENCY",
+      "PUBLISH_WITHOUT_LEAVING_PEPITES"
+    ],
+    "returnAfterPublish": "stay-PlaylistSale",
+    "socialReprises": "never-sellable-by-non-origin-discoverer",
+    "reviewBeforePrice": true,
+    "currencyAwareMoneyMode": true,
+    "primaryValidationColor": "primary-blue",
+    "reviewCtaMustBeLarge": true,
+    "reviewCtaBeforePricing": true,
+    "moneyModeUsesSavedPayPal": true
+  },
+  "battlePreferences": {
+    "maxSelectedStyles": 3,
+    "soloMustMixAllSelectedStyles": true,
+    "battleMustMixAllSelectedStyles": true,
+    "selectedStylesPersistInSupabase": true,
+    "singleStyleFallback": "selected-style",
+    "noSelectionFallback": "MIX"
+  },
+  "demoExperience": {
+    "discoveryRequiresRealAccountByDefault": true,
+    "discoveryLockRemoteConfigKey": "demo_discovery_locked",
+    "listenRecognitionLimitDefault": 3,
+    "listenLimitRemoteConfigKey": "demo_listen_limit",
+    "listenUsageScope": "device-persistent",
+    "fakeFreeBalanceForbidden": true,
+    "demoFreeDisplay": "?",
+    "freeHelpMustExplain": {
+      "listenAndRecognizeCostFree": 0,
+      "passCostFree": 0,
+      "realBalanceAppearsAfterAccountConnection": true,
+      "keepAndBattleMayUseOrEarnFree": true,
+      "listenAfterQuotaCostFree": 1
+    },
+    "superAdminGroup": "Écouter & compte"
+  },
+  "chatMusicSharing": {
+    "thirdPartyTrackMayBeShared": true,
+    "thirdPartyTrackMayBeSoldForFree": false,
+    "thirdPartyTrackMayBeSoldForMoney": false,
+    "paidChoicesMustShowLockWhenNotSellable": true,
+    "sourceAttributionMustPersist": true,
+    "serverResaleGuardRequired": true,
+    "alreadyOwnedRecipientMustNeverBeCharged": true
+  },
+  "chatExperience": {
+    "status": "GLOBAL_MESSENGER_FINAL_ACTIVE",
+    "globalDockMountedAtAppRoot": true,
+    "legacyHamburgerEntryVisible": false,
+    "notificationsSurface": true,
+    "directLauncherInNotifications": true,
+    "placementConfigLocation": "NotificationSidePanel",
+    "allowedSurfaces": [
+      "LISTEN",
+      "DISCOVER",
+      "PLAYLISTS",
+      "PARTIES",
+      "PROFILE",
+      "NOTIFICATIONS"
+    ],
+    "movable": true,
+    "sideChoices": [
+      "left",
+      "right"
+    ],
+    "directMessagesFirst": true,
+    "publicPlaceSecondary": true,
+    "musicShareAction": "PEPITE",
+    "paymentConversationActions": true,
+    "dormantBackendAllowed": false,
+    "latestDecision": "2026-10-01-global-messenger-active-user-lock",
+    "doNotDecommission": true,
+    "latestUserDecisionAt": "2026-10-01",
+    "latestUserDecision": "Le tchat global Loki doit rester actif; toute ancienne consigne de retrait legacy est annulée.",
+    "closedState": "edge-drawer-position-selected-by-user",
+    "unreadBehavior": "drawer-peeks-out-with-badge-sender-preview-and-optional-voice-cue",
+    "closeBehavior": "returns-to-selected-edge-and-height",
+    "voiceCue": "Message de <username>",
+    "voiceCueRequiresChatAlertsEnabled": true,
+    "openedBehavior": "full-screen-mobile-messenger",
+    "closedVisibleTabPixels": "about-26",
+    "voiceCueOptInRequired": true,
+    "voiceCueDefaultEnabled": false,
+    "voiceCueReadsMessageBody": false,
+    "voiceCueOptIn": true,
+    "voiceCueReadsMessageContent": false,
+    "voiceCueSettingPersistence": "Supabase profiles.community_chat_voice_announcements",
+    "fixedCompactDrawer": false,
+    "fixedCompactDrawerHeightPx": null,
+    "longMessagesScrollInsideDrawer": true,
+    "composerFixedHeightPx": 52,
+    "maxMessageCharacters": 2000,
+    "keyboardMeasuredFromEndCoordinates": true,
+    "webKeyboardMeasuredFromVisualViewport": true,
+    "keyboardMovesDrawerAboveInputMethod": false,
+    "sharedTrackOwnershipLockVisibleInPicker": true,
+    "sharedTrackOwnershipLockVisibleWhenSelected": true,
+    "lockedTrackMayStillBeSharedAndPreviewed": true,
+    "lockedTrackMayNotUseFreeOrMoney": true,
+    "lockedTrackReasonExpandsInline": true,
+    "mobileTextMinimumIntent": "chat-primary-copy-15px-plus-composer-17px",
+    "nativeKeyboardUsesReportedKeyboardHeightOnly": false,
+    "latestIncomingMessageAlwaysForcesBottom": true,
+    "olderHistoryLoadDoesNotChangeLatestMessageId": true,
+    "publicCommunitySurface": "LA PLACE",
+    "privateRoomVisibility": "invite-only",
+    "privateRoomMaxParticipants": 45,
+    "privateRoomMessagesRealtime": true,
+    "privateRoomMembershipRealtime": true,
+    "privateRoomFiveSecondPollingForbidden": true,
+    "resilienceRefreshSeconds": 60,
+    "groupNotificationMustTargetExactGroup": true,
+    "defaultCompactDrawerHeightPx": null,
+    "keyboardShrinksDrawerToVisibleViewport": true,
+    "keyboardClosedDrawerPosition": "full-screen-when-open",
+    "keyboardOpenDrawerPosition": "full-screen-resized-above-keyboard",
+    "nativeKeyboardUsesEndCoordinatesHeightAndScreenY": true,
+    "compactComposerFontSizePx": 19,
+    "messageBodyFontSizePx": 17,
+    "selectedTrackValidationPinned": true,
+    "adaptiveCompactDrawer": false,
+    "compactDrawerMaxHeightPx": null,
+    "compactDrawerMinHeightPx": null,
+    "compactDrawerCenteredWhenKeyboardClosed": false,
+    "compactDrawerAnchoredAboveKeyboard": false,
+    "nativeKeyboardInsetStrategy": "KeyboardAvoidingView-native; visualViewport-web; keyboard-events-only-for-scroll-follow",
+    "incomingOtherThreadMustNotReplaceOpenConversation": true,
+    "groupInvitesRealtime": true,
+    "privateRoomRealtimeRls": "active-members-only-plus-own-invite",
+    "directTableWritesFromAuthenticatedClient": false,
+    "mobileKeyboardBehavior": "full-screen-messenger-resizes-above-keyboard",
+    "allLoadedMessagesRendered": true,
+    "composerStaysVisibleWithKeyboard": true,
+    "canonicalProfileOpenClosesChatFirst": true,
+    "verticalPlacementChoices": [
+      "HIGH",
+      "MIDDLE",
+      "LOW"
+    ],
+    "verticalPlacementDefault": "MIDDLE",
+    "placementPersistsAcrossSelectedSurfaces": true,
+    "nativeKeyboardAvoidingView": true,
+    "nativeKeyboardManualBottomInset": false,
+    "drawerClampPersistsToSupabase": true,
+    "drawerOpensImmediatelyOnTap": true,
+    "latestIncomingMessageForcesBottomEvenWhenBrowsingHistory": true,
+    "approvedVisualDesign": "full-screen-inbox-and-thread",
+    "inboxHeaderSingleNewConversationAction": true,
+    "duplicateNewConversationCard": false,
+    "publicPlaceEntry": "inbox-salon-row",
+    "threadHeader": "back-avatar-name-status",
+    "legacyModeStripInsideThread": false,
+    "directThreadRepeatedAuthorCards": false,
+    "audioCalls": false,
+    "videoCalls": false,
+    "camera": false
+  },
+  "notificationExperience": {
+    "presentation": "side-panel-accordion",
+    "bellMustNotRequireFullScreen": true,
+    "eachNotificationExpandsInline": true,
+    "chatNotificationOpensExactConversation": true,
+    "superAdminPlanLocks": true,
+    "lockRuleTable": "public.notification_access_rules",
+    "planOrder": [
+      "FREE",
+      "PREMIUM",
+      "CREATOR_PRO",
+      "VENUE_PRO"
+    ],
+    "lockedNotificationShowsRequiredPlanWithoutSensitiveBody": true,
+    "newNotificationTypesAutoRegisterUnlocked": true,
+    "bellInteraction": "inline-only",
+    "bellTapMustNeverNavigateAway": true,
+    "lockedBellNotificationExpandsRequiredPlanInline": false,
+    "lockedTopBannerMustNeverNavigateAway": true,
+    "bellTabs": [
+      "MESSAGES",
+      "ACTIVITY",
+      "SETTINGS"
+    ],
+    "bellInteractionNavigation": "inline-only",
+    "chatNotificationBehavior": "prepare-exact-thread-inline-then-open-from-edge-drawer",
+    "messagesSeparatedFromActivity": true,
+    "settingsSeparatedFromReceivedNotifications": true,
+    "lockedBellBehavior": "popup-explanation-inline-no-navigation",
+    "lockedBellNotificationPopupRequired": true
+  },
+  "webUpdateExperience": {
+    "autoDetectNewPublishedSha": true,
+    "userFacingUpdateUi": false,
+    "manualRefreshControl": false,
+    "silentAutomaticApply": true,
+    "waitForAuthBootstrapBeforeReload": true,
+    "webCheckIntervalSeconds": 60,
+    "silentReloadUsesCacheBustedCanonicalReload": true,
+    "nativeCompatibleOtaAutoApply": true,
+    "neverApplyDuringGame": true,
+    "neverApplyDuringGameReason": "Adel 02/10/2026 : une mise à jour (web ou OTA) ne s'installe jamais pendant un Solo ou un Battle en ligne -- recharger en pleine partie fait manquer des questions (3 absences = mise perdue). Elle attend la fin de la partie (useGameSessionStore) puis s'installe seule."
+  },
+  "battleAudioFairness": {
+    "serverClockSource": "round.startedAt",
+    "allPlayersUseSamePreviewPosition": true,
+    "lateClientMustCatchUpToServerElapsedMs": true,
+    "fallbackPlaybackMustKeepServerPosition": true,
+    "acceptAndRematchMustUnlockBrowserAudioFromUserGesture": true
+  },
+  "authExperience": {
+    "welcomePopupAfterExplicitLogin": true,
+    "welcomePopupCopy": "Bienvenue sur Loki Music !",
+    "welcomePopupMustNotNavigateAway": true,
+    "waitForSupabaseProfileBeforeAuthenticatedScreens": true,
+    "deduplicateConcurrentSessionHydration": true,
+    "secondaryPostAuthSyncMustNotBlockFirstAuthenticatedRender": true,
+    "retryInitialProfileHydrationOnceOnFailure": true
+  },
+  "homeLokiPulse": {
+    "visibleOnListenHome": true,
+    "replacesHomeLokiMusicDnaCard": true,
+    "noRedirectToProfile": true,
+    "usesMusicStyleBubbles": false,
+    "usesPulseTrackBubbles": true,
+    "pulseTrackBubblesDecision": "4a452f0e + point de contrôle visuel validé (AGENT_MESSAGES.md 02/10) : accueil = bulles artwork de MORCEAUX Loki Pulse cliquables, plus de bulles de styles.",
+    "profileLokiPulseRemainsVisible": true
+  },
+  "lokiPulseTapBehavior": {
+    "tappedTrackMustOpenFirst": true,
+    "remainingTracksMayShuffleAfterTappedTrack": true,
+    "selectionMustUseCanonicalTrackId": true
+  },
+  "mobileChatDesign": {
+    "fullScreenOnOpen": true,
+    "keyboardAwareIos": true,
+    "keyboardAwareAndroid": true,
+    "visualViewportAwareMobileWeb": true,
+    "safeAreaAware": true,
+    "messageReadingAreaPrioritized": true,
+    "composerPinnedAtBottom": true,
+    "actionsWrapOnNarrowPhones": true,
+    "keepsPublicAndPrivateChatFeatures": true,
+    "searchableInbox": true,
+    "inboxFilters": [
+      "Tous",
+      "Salons",
+      "Privés",
+      "Invitations"
+    ],
+    "singleConversationList": true,
+    "privateRooms": true,
+    "publicRoom": true,
+    "actionsGroupedBehindComposerMenu": true,
+    "legacyMiniChatWordingRemoved": true,
+    "legacyDrawerWordingRemoved": true,
+    "movableElementWhenClosed": "floating_button",
+    "openedPresentation": "full_screen",
+    "chatOnly": true,
+    "audioCalls": false,
+    "videoCalls": false,
+    "cameraCapture": false,
+    "directThreadHeaderActions": "none_except_close",
+    "groupThreadHeaderAction": "members",
+    "inboxHeaderAction": "new_conversation",
+    "composerActions": [
+      "reactions",
+      "track",
+      "paypal_qr"
+    ],
+    "visualLayerCanBeFinalizedBeforeBackendWiring": true
+  },
+  "lokiPulseBubbles": {
+    "homeAlwaysVisibleWhenStylesExist": true,
+    "ownProfileAlwaysVisibleWhenStylesExist": true,
+    "publicProfileAlwaysVisibleWhenStylesExist": true,
+    "neverHiddenBehindDnaAccordion": true,
+    "neverGatedByKeepDnaFeatureFlag": true,
+    "sharedMergeRule": "packages/mobile/src/services/musicStyleBubbles.ts",
+    "visibleBranding": "PROFILE_ONLY_LOKI_PULSE",
+    "canonicalSurfaces": [
+      "LISTEN_HOME",
+      "OWNER_PROFILE",
+      "VISITED_PROFILE"
+    ],
+    "alwaysVisibleOutsideDnaAccordion": true,
+    "homeReplacesLokiMusicDna": true,
+    "usesFavoriteGenresFallback": true,
+    "regressionGuardRequired": true,
+    "oneBubbleCardPerSurface": true,
+    "canonicalMergeHelper": "packages/mobile/src/services/musicStyleBubbles.ts",
+    "ownerProfileCollapsedByDefault": false,
+    "ownerProfileSingleToggle": true,
+    "ownerProfileToggleLabels": "⌄ / ⌃",
+    "ownerProfileShowsAllStylesWhenExpanded": false,
+    "homeRemainsVisibleWithoutExpansion": true,
+    "legacyVisibleDnaWordingRemoved": true,
+    "ownerProfileGaugeAlwaysVisible": true,
+    "ownerProfileGaugeMetric": "tagged_tracks_percentage",
+    "ownerProfileGaugeLabel": "Ton empreinte musicale",
+    "publicProfileGaugeAlwaysVisible": true,
+    "publicProfileCollapsedByDefault": true,
+    "publicProfileSingleToggle": true,
+    "publicProfileToggleLabels": "VOIR SES N STYLES / MASQUER",
+    "ownerAndVisitorShareCompactPulsePattern": true,
+    "ownerProfileSinglePulseCard": true,
+    "ownerProfileStandaloneRecommendationsSection": false,
+    "ownerProfileCompactPanels": [
+      "STYLES_ALWAYS_VISIBLE",
+      "RECOMMENDATIONS_TOGGLE"
+    ],
+    "ownerProfilePanelsMutuallyExclusive": false,
+    "homeVisiblePulseLabel": false,
+    "homeVisibleTitle": null,
+    "ownerProfileAlwaysVisibleWhenStylesExist": true,
+    "ownerCollapsedPreviewVisible": false,
+    "ownerCollapsedPreviewMax": null,
+    "ownerExpandedShowsAllStyles": false,
+    "ownerExpansionAlsoShowsRecommendations": true,
+    "homeBubblesClickable": true,
+    "homeBubbleAction": "OPEN_PULSE_TRACK_FIRST_IN_SWIPE",
+    "homeRedirectToProfile": false,
+    "ownerCollapsedPreviewClickable": true,
+    "ownerCollapsedPreviewAction": "OPEN_OWN_KEPT_TRACKS_FOR_STYLE",
+    "ownerProfileStylesAlwaysVisible": true,
+    "ownerProfileAllStylesVisible": true,
+    "ownerProfileStylesClickable": true,
+    "ownerProfileStyleAction": "OPEN_OWN_KEPT_TRACKS_FOR_STYLE"
+  },
+  "publicProfilePerformance": {
+    "firstPaintAfterIdentityAndBlockCheck": true,
+    "secondarySectionsProgressive": true,
+    "profileViewNotificationNeverBlocksRender": true,
+    "fullScreenSpinnerMustNotWaitForTracksLikesSalesOrImpacts": true
+  },
+  "authBootstrap": {
+    "realSupabaseSessionRequiredBeforeAuthenticatedScreens": true,
+    "fakeMinimalProfileOnRefreshForbidden": true,
+    "transientNetworkFailuresRetryUntilHydrated": true,
+    "retryBackoffMaxMs": 5000,
+    "transientNullAuthEventIgnoredBeforeInitialResolution": true,
+    "blankBlackRecoverySurfaceForbidden": true,
+    "manualRefreshRequired": false,
+    "silentAppUpdateWaitsForAuthReady": true,
+    "webUpdateNeverReloadsVisiblePage": true
+  },
+  "validatedLokiUiCheckpoint": {
+    "chat": "fullscreen_chat_only_no_calls_camera",
+    "home": "clickable_listenable_music_bubbles",
+    "profile": "dna_percentage_gauge_plus_clickable_pulse_track_bubbles",
+    "battle": "daily_free_won_lost_reset_0200_plus_recharge",
+    "auth": "real_supabase_session_only",
+    "mobileRoot": "global_safe_area_provider"
+  },
+  "authResilience": {
+    "rule": "Incident 02/10/2026 : connexion impossible. Supabase Auth peut mettre jusqu'à 10 s à répondre quand la base est lente. Un client qui abandonne avant (Promise.race sans annulation) puis relance multiplie les requêtes en vol et empêche toute connexion. Interdit : abandonner une requête Auth avant que le serveur Auth ait pu répondre, relancer une requête qui peut encore être en cours, ou ajouter un sondage réseau rapide non déclaré.",
+    "enforcedBy": "scripts/verify-product-contract.cjs (appelé par verify-source-of-truth.cjs, bloquant pour la publication web et l'OTA mobile)",
+    "serverAuthTimeoutMs": 10000,
+    "clientPasswordLoginDeadlineMs": 15000,
+    "clientUsernameAuthInvokeDeadlineMs": 25000,
+    "edgeSignInDeadlineMs": 11000,
+    "maxSignInAttempts": 2,
+    "retryAfterLocalDeadlineForbidden": true,
+    "retryOnlyFastFailureMs": 5000,
+    "localDeadlineMarker": "auth_local_deadline",
+    "distinguishInvalidCredentials": true,
+    "logoutScope": "local",
+    "minNetworkPollIntervalMs": 5000,
+    "fastIntervalAllowlist": [
+      {
+        "file": "packages/mobile/src/services/useStoryCountdown.ts",
+        "snippet": "setInterval(() => setNow(Date.now()), 1000)",
+        "reason": "chronomètre 24 h de la story, affichage seul, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/PlaylistSaleImmersivePreview.tsx",
+        "snippet": "setSecondsLeft((s) => Math.max(0, s - 1)), 1000)",
+        "reason": "compte à rebours UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(() => setNow(Date.now()), 100)",
+        "reason": "horloge UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(() => { void tick(); }, 1500)",
+        "reason": "RÉSEAU : mode spectateur uniquement, arrêté hors spectateur"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(refreshRematchStatus, 800)",
+        "reason": "RÉSEAU : fenêtre de revanche uniquement (rematchDeadline), arrêté ensuite"
+      },
+      {
+        "file": "packages/mobile/src/components/KeepBattleMobileGameV3.tsx",
+        "snippet": "setInterval(load, 3000)",
+        "reason": "RÉSEAU : écran Battle ouvert uniquement"
+      },
+      {
+        "file": "packages/mobile/src/components/GlobalChatDock.tsx",
+        "snippet": "setInterval(syncRoute, 750)",
+        "reason": "lecture de la route locale, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/HomeScreenCompact.tsx",
+        "snippet": "setInterval(() => setElapsed(formatElapsed(startedAt)), 1000)",
+        "reason": "chronomètre UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/HomeScreenCompact.tsx",
+        "snippet": "setInterval(update, 250)",
+        "reason": "compte à rebours UI, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/screens/ProfilePublicScreen.tsx",
+        "snippet": "lokiPulseScrollRef.current?.scrollTo({ x: lokiPulseAutoIndex.current * 88, animated: true }); }, 3600)",
+        "reason": "carrousel Loki Pulse visuel, aucun réseau"
+      },
+      {
+        "file": "packages/mobile/src/components/MusicAgoraPanel.tsx",
+        "snippet": "if (!browsingHistoryRef.current) followChatBottom(false); }); } }, 2500)",
+        "reason": "RÉSEAU : filet du temps réel, seulement conversation ouverte. À passer >= 5000 ms après le gel (point ouvert)."
+      }
+    ]
+  },
+  "userContentProtection": {
+    "rule": "Le contenu des utilisateurs (profils, playlists, titres, GARDER, abonnements, historique FREE, messages) ne doit jamais être effacé par une migration. Une migration destructive n'est acceptée qu'avec l'accord explicite d'Adel inscrit dans le fichier.",
+    "enforcedBy": "scripts/verify-product-contract.cjs (bloquant publication web + OTA)",
+    "appliesToMigrationsFrom": "20261002180000",
+    "approvalMarker": "-- ADEL-APPROVED-DESTRUCTIVE:",
+    "immutableHistoricalExceptions": [
+      {
+        "file": "20261003038000_notification_creator_anti_spam_and_optout.sql",
+        "reason": "Migration déjà appliquée et immuable. La migration additive 20261003043000_notification_history_preservation.sql désactive le trigger de suppression pour préserver l’historique utilisateur."
+      },
+      {
+        "file": "20261003211937_battle_notification_dedupe_and_reset_false_declines.sql",
+        "reason": "Migration déjà appliquée et immuable. La correction additive 20261003230707_battle_notification_dedupe_non_destructive.sql remplace son trigger par une version préventive qui ne supprime plus l’historique."
+      }
+    ],
+    "protectedTables": [
+      "profiles",
+      "profile_private_info",
+      "social_links",
+      "playlists",
+      "playlist_tracks",
+      "tracks",
+      "keep_decisions",
+      "follows",
+      "subscriptions",
+      "keep_battle_credit_events",
+      "keep_battle_arena_credit_events",
+      "keep_battle_solo_credit_events",
+      "keep_free_spend_events",
+      "admin_credit_grants",
+      "monthly_free_credit_awards",
+      "playlist_sale_free_transfers",
+      "music_agora_messages",
+      "music_agora_group_messages",
+      "notifications"
+    ],
+    "legacyUntimestampedMigrations": [
+      "0001_core_identity.sql",
+      "0002_music.sql",
+      "0003_commerce.sql",
+      "0004_events.sql",
+      "0005_admin.sql",
+      "0006_rls.sql",
+      "0007_seed_defaults.sql",
+      "0008_pricing_rls_and_remote_config.sql",
+      "0009_profile_public_design.sql",
+      "0010_music_connections.sql",
+      "0011_integration_secrets.sql",
+      "0012_social_link_request_notifications.sql",
+      "0013_public_track_likes.sql",
+      "0014_download_credit_ledger.sql",
+      "0015_notifications_foundation.sql",
+      "0016_admin_user_directory.sql",
+      "0017_profile_avatar_storage.sql",
+      "0024_push_tokens_and_follow_notifications.sql",
+      "0025_admin_integrations_vault_and_grants.sql",
+      "0026_profile_share_email.sql",
+      "0027_remove_server_share_email.sql",
+      "0028_public_profile_share_social_links.sql",
+      "0029_username_case_identity.sql",
+      "0030_premium_launch_price_2_99.sql",
+      "0031_recognition_rate_limits.sql",
+      "0032_admin_remote_config_rpc.sql",
+      "0033_admin_grants_integration_health.sql",
+      "0040_support_numbers.sql",
+      "0041_email_signup_profile_trigger.sql",
+      "0044_profile_visit_notifications.sql",
+      "0099_security_hardening_admin_and_public_reference.sql",
+      "0100_track_public_playback_metadata.sql",
+      "9995_cleanup_legacy_demo_keep_playlists.sql",
+      "9996_harden_social_origin_dedupe.sql",
+      "9997_prevent_self_keep_origin.sql",
+      "9998_playlist_identity_unique.sql",
+      "9999_bulk_keep_visibility.sql"
+    ]
+  },
+  "networkQueue": {
+    "rule": "ERR-PROFILE-QUEUE-STARVATION-031 : le contenu de l'utilisateur (profil, musiques, FREE, playlists, GARDER, découvreurs) passe toujours avant les requêtes secondaires ; seule une vraie connexion réserve le réseau ; jamais une seule requête à la fois ; pause après erreur plafonnée ; l'enrichissement découvreur ne peut pas cacher les musiques plus de quelques secondes.",
+    "enforcedBy": "scripts/verify-product-contract.cjs",
+    "minConcurrent": 3,
+    "maxFailureCooldownMs": 10000,
+    "sourceHydrationBudgetMs": 6000,
+    "essentialPaths": [
+      "/rest/v1/rpc/keep_own_profile_tracks",
+      "/rest/v1/rpc/keep_own_profile_snapshot",
+      "/rest/v1/rpc/keep_public_profile_snapshot",
+      "/rest/v1/rpc/keep_public_profile_tracks",
+      "/rest/v1/rpc/keep_battle_credit_status",
+      "/rest/v1/rpc/keep_download_credit_status",
+      "/rest/v1/profiles",
+      "/rest/v1/playlists",
+      "/rest/v1/playlist_tracks",
+      "/rest/v1/keep_decisions",
+      "/rest/v1/tracks",
+      "/rest/v1/rpc/keep_track_first_discoveries"
+    ]
+  },
+  "authBoundary": {
+    "rule": "Loki user auth and Super Admin auth are two distinct security domains. Never reuse the mobile/user password-recovery flow for Super Admin, never infer admin authority from a normal user session, and never let an admin recovery path mutate the user-facing auth UX.",
+    "adminSurface": "packages/admin",
+    "userSurface": "packages/mobile",
+    "adminAuthorityTable": "public.admin_users",
+    "adminRequiredRole": "SUPER_ADMIN",
+    "adminPrimaryLogin": "supabase.auth.signInWithPassword + active admin_users role check",
+    "adminFallback": "keep-admin-bootstrap one-time recovery code only",
+    "userRecoveryService": "keep-auth-email",
+    "adminRecoveryMustNotUseUserEmailFlow": true,
+    "adminMustNotImportMobileAuthService": true,
+    "userRuntimeMustRemainUntouchedByAdminRecovery": true,
+    "forbiddenAdminMarkers": [
+      "keep-auth-email",
+      "signInWithOtp",
+      "emailRedirectTo"
+    ],
+    "enforcedBy": "scripts/verify-source-of-truth.cjs"
+  },
+  "musicRecognitionArchitecture": {
+    "nativePrimary": "ShazamKit",
+    "serverPrimary": "ACRCloud",
+    "optionalSecondary": "AudD",
+    "auddSubscriptionDoesNotMeanConnected": true,
+    "optionalAuddAbsenceMustNotBeUrgentWhenAcrCloudActive": true,
+    "singleAuddConfigurationSurface": "packages/admin/pages/integrations.tsx",
+    "superAdminMustNotDescribeAuddAsPrimary": true,
+    "providerOrder": [
+      "ShazamKit",
+      "ACRCloud",
+      "AudD-optional"
+    ]
+  },
+  "iosCompatibility": {
+    "minimumSupportedVersion": "15.1",
+    "expoSdk": "54",
+    "rule": "Loki Music doit rester installable sur iOS 15.1+ tant que l'architecture Expo SDK 54 et les modules natifs utilisés le permettent. Ne jamais relever le deployment target sans décision explicite utilisateur.",
+    "shazamModuleMinimum": "15.1",
+    "iapModuleMinimum": "15.1",
+    "testflightMinimumMustMatchAppBuild": true
+  },
+  "storiesExperience": {
+    "unfollowOnlyFromProfilePage": true,
+    "storyAgeLineFormat": "Chronomètre 24 h « ⏱ HH:MM:SS » (temps de vie restant de la musique de story, avance chaque seconde, une seule ligne courte) — demande d'Adel du 05/10/2026 qui remplace « il y a N min ».",
+    "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
+    "storyReaderHasNoTeaserSentenceForOthers": true,
+    "viewersListShowsViewProfileNotFollowBadge": true,
+    "badgeUnlockRule": "Badge/classement des stories : offert 30 jours (comptes existants : à partir du 05/10/2026), ensuite 1 parrainage validé OU une formule payante active ; appliqué au badge et au classement UNIQUEMENT, jamais au droit de poster une story (Adel 05/10/2026, IDEA-104). Fonction serveur keep_story_badge_eligible.",
+    "storyViewCountsOnlyAfterPresenceMs": 2000,
+    "storyViewTracking": "Une vue de story (story_watch_sessions) ne s'écrit qu'après 2 s de présence réelle ; on suit secondes, musiques vues, écoute, départ (ping 10 s + fermeture/arrière-plan). Le propriétaire voit « regarde maintenant » / « parti il y a … » + durée + x/y musiques + écouté/pas écouté. Jamais d'enregistrement à l'ouverture immédiate.",
+    "decidedBy": "Adel, 05/10/2026 (CANONIQUE : toute IA doit la respecter, la modifier seulement sur demande explicite d'Adel)",
+    "spec": "docs/KEEP_CAHIER_DES_CHARGES_UI.md §14",
+    "storyWindowHours": 24,
+    "rowIsSinglePiece": true,
+    "rowIsSinglePieceRule": "La photo de profil (avec le « + ») est le premier élément de la MÊME rangée horizontale que les bulles : toute la ligne défile ensemble (prop `leading` de MusicStoryRail).",
+    "orderRule": "Instagram : stories non vues, la plus récente d'abord ; sans story : dernier connecté d'abord ; suggestions avec bouton « +👤 » ; stories VUES juste après les non vues (avant les membres sans story et les suggestions) : les plus récentes restent toujours visibles (Adel 05/10/2026).",
+    "eligibleRelations": [
+      "following",
+      "followers",
+      "reprisers_of_my_music",
+      "sources_of_music_I_reprised"
+    ],
+    "sameStyleStoriesAllowed": false,
+    "accountGate": "email_confirmed_and_not_anonymous",
+    "neverInDemoOrLocalGuest": true,
+    "autoChainToNextUnseenStory": true,
+    "styleFriendSuggestions": {
+      "rpc": "keep_discovery_match_candidates",
+      "onlyAfterStyleDeclared": true,
+      "excludeFollowedAndLinked": true,
+      "neverShowStories": true
+    },
+    "maskedStoryTracks": {
+      "serverDecidesRpc": "keep_story_masked_pins",
+      "neverClearAndMaskedDuplicate": true,
+      "cardAnimation": "MysteryArtwork"
+    },
+    "chatSaleExpiryHours": 24,
+    "privateReasonsMustBeDistinct": [
+      "EN_VENTE",
+      "MASQUEE_VOLONTAIREMENT"
+    ],
+    "publicKeepEntersStoryAutomatically": true,
+    "privateNeverEntersStory": true,
+    "seenStoriesGoToVeryEndOfRow": true,
+    "noOthersCircleNoModal": true,
+    "suggestionsInRowWithFollowPill": true,
+    "rowOrder": [
+      "unseen stories followed (recent first)",
+      "unseen stories of linked members",
+      "active followed without story (last active first)",
+      "active linked suggestions (follow pill)",
+      "style suggestions (follow pill)",
+      "seen stories",
+      "dormant members (no activity > 7 days) — HIDDEN from the row until they reconnect (members with a story are never hidden)"
+    ],
+    "dormantAfterDays": 7,
+    "dormantMembersHiddenFromRow": true,
+    "activitySource": "rpc keep_profiles_activity (connexion, GARDER, épingle de story)"
+  }
+}

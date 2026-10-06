@@ -1,8 +1,9 @@
 /**
  * Action GARDER partagée — chemin unique de téléchargement/rangement.
- * Règle produit : écouter/reconnaître/PASS = 0 crédit. Un GARDER issu d'une
- * écoute consomme un crédit gratuit ; reprendre un morceau depuis le profil
- * d'un autre membre est une découverte sociale et reste à 0 crédit.
+ * Règle produit : écouter/reconnaître/PASS = 0 FREE. Tout nouveau GARDER
+ * manuel coûte le tarif serveur (3 FREE actuellement), quelle que soit
+ * l'origine du morceau : Écouter, profil, Swipe ou Loki Pulse. Un doublon
+ * déjà possédé reste idempotent et gratuit.
  */
 import { CanonicalTrack, RoutingRecommendation } from '@keep/music';
 import type { KeepVisibility } from '../types';
@@ -11,9 +12,16 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { withRetry } from './retry';
 import { ensureDownloadCreditAvailable } from './creditService';
-import { recordKeepDecision } from './keepMusicCoreRecognition';
+import { recordKeepDecision, updateKeepDecisionVisibility } from './keepMusicCoreRecognition';
 import { syncPlaylistTrack } from './keepLibraryService';
 import { checkOwnKeepLibrary } from './connectedMusicLibrary';
+
+// Identifiant de la musique TELLE QUE GARDÉE par l'utilisateur (peut différer de l'id affiché : même titre via un autre fournisseur).
+// La mise en story doit épingler cet identifiant-là, sinon le serveur ne trouve pas le GARDER public (Adel 05/10/2026, cas teyou).
+const keptTrackIdByInputId = new Map<string, string>();
+export function resolveKeptTrackId(inputTrackId: string): string {
+  return keptTrackIdByInputId.get(inputTrackId) ?? inputTrackId;
+}
 
 export interface CommitKeepResult {
   targetPlaylistId: string;
@@ -31,13 +39,24 @@ export async function commitKeep(
   chosenPlaylistId?: string,
   options?: {
     visibility?: KeepVisibility;
+    /** Décision d'Adel (05/10/2026) : reprise GRATUITE d'une musique rendue publique par un autre membre (profil ou story), marquée du premier découvreur. */
+    socialFree?: { sourceProfileId: string };
     context?: Record<string, unknown>;
-    /** false = découverte sociale : le morceau est gardé sans toucher au quota d'écoute. */
+    /** false est réservé aux opérations système explicites. Un GARDER utilisateur coûte des FREE, quelle que soit sa provenance. */
     consumeCredit?: boolean;
   }
 ): Promise<CommitKeepResult> {
-  const session = await musicEngine.getSession();
   const userState = useUserStore.getState();
+  const realAccount = !userState.isDemoMode && !userState.isLocalGuest;
+  // Adel (02/10/2026) : « Loki Pulse : impossible d'ajouter ce morceau ».
+  // Cause : GARDER exigeait une session Apple Music (getSession lève
+  // « Apple Music non connecté ») AVANT la décision serveur. Or le GARDER
+  // Loki (anti-doublon + débit FREE + profil) est entièrement serveur ;
+  // Apple Music n'est qu'une copie optionnelle. Sans Apple Music, un compte
+  // réel garde donc normalement, sans copie fournisseur.
+  const session = realAccount
+    ? await musicEngine.getSession().catch(() => null)
+    : await musicEngine.getSession();
   const sourceProfileId = typeof options?.context?.sourceProfileId === 'string' ? options.context.sourceProfileId.trim() : '';
   if (sourceProfileId && sourceProfileId === userState.user?.id) {
     throw new Error('SELF_KEEP_NOT_ALLOWED');
@@ -52,11 +71,19 @@ export async function commitKeep(
   if (!userState.isDemoMode && !userState.isLocalGuest) {
     const existing = await checkOwnKeepLibrary(track).catch(() => null);
     if (existing?.exists && existing.match) {
+      // Adel (05/10/2026) : « il l'a gardé en public pour sa story mais rien ne s'est passé » -- un morceau déjà gardé en PRIVÉ restait
+      // privé même quand on choisissait Public (donc jamais en story). Le choix explicite Public rend la décision existante publique, sans débit.
+      if (existing.match.trackId) keptTrackIdByInputId.set(track.id, existing.match.trackId);
+      let alreadyVisibility = existing.match.visibility ?? visibility;
+      if (options?.visibility === 'PUBLIC' && alreadyVisibility !== 'PUBLIC' && existing.match.decisionId) {
+        const upgraded = await updateKeepDecisionVisibility(existing.match.decisionId, 'PUBLIC').catch(() => false);
+        if (upgraded) alreadyVisibility = 'PUBLIC';
+      }
       return {
         targetPlaylistId: existing.match.playlistId || 'keep-profile',
         playlistName: existing.match.playlistName || 'Mes Gardés',
         downloaded: false,
-        visibility: existing.match.visibility ?? visibility,
+        visibility: alreadyVisibility,
         keepDecisionId: existing.match.decisionId,
         profileSyncFailed: false,
         alreadyKept: true,
@@ -64,11 +91,66 @@ export async function commitKeep(
     }
   }
 
-  // Une reprise depuis le profil d'un autre membre est un cadeau communautaire :
-  // elle est tracée mais ne touche jamais au quota FREE de reconnaissance/Loki.
-  const consumesCredit = !userState.isDemoMode && !isSocialCopy && options?.consumeCredit !== false;
+  // Reprise sociale GRATUITE (Adel 05/10/2026) : la musique est publique chez un autre membre -> aucun FREE, créateur d'origine identifié.
+  // Réservé aux comptes réels ; une musique en vente (SALE_PROTECTED) ou non publique est refusée par le serveur, jamais facturée en douce.
+  if (options?.socialFree?.sourceProfileId && !userState.isDemoMode && !userState.isLocalGuest) {
+    // Chargement tardif : ce module est aussi utilisé par des tests/écrans qui n'ont pas besoin du client Supabase.
+    const { supabase } = require('./supabaseClient');
+    if (!supabase) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    const { data, error } = await supabase.rpc('keep_commit_social_free_decision', {
+      p_track_id: track.id,
+      p_source_profile_id: options.socialFree.sourceProfileId,
+      p_visibility: visibility,
+      p_context: options?.context ?? {},
+    });
+    if (error) throw error;
+    const decisionId = (data as any)?.decisionId ? String((data as any).decisionId) : '';
+    if (!decisionId) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    keptTrackIdByInputId.set(track.id, String((data as any).trackId ?? track.id));
+    await usePlaylistStore.getState().refresh().catch(() => {});
+    return {
+      targetPlaylistId: 'keep-profile',
+      playlistName: 'Mes Gardés',
+      downloaded: false,
+      visibility: ((data as any).visibility as KeepVisibility) ?? visibility,
+      keepDecisionId: decisionId,
+      profileSyncFailed: false,
+      alreadyKept: Boolean((data as any).deduplicated),
+    };
+  }
+
+  // Chemin unique : tout NOUVEAU GARDER utilisateur coûte le même nombre
+  // de FREE, y compris depuis le profil d'un autre membre. La provenance
+  // sociale reste tracée séparément via source_user_id/source_type.
+  const consumesCredit = !userState.isDemoMode && options?.consumeCredit !== false;
 
   if (consumesCredit) await ensureDownloadCreditAvailable();
+
+  if (!session) {
+    const playlistName = recommendations[0]?.playlistName?.trim() || 'Mes Gardés';
+    const recorded = await recordKeepDecision(track, visibility, {
+      ...(options?.context ?? {}),
+      creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
+      playback: {
+        previewUrl: track.previewUrl ?? null,
+        availableOn: track.availableOn ?? [],
+        externalUrls: track.externalUrls ?? {},
+      },
+      playlist: { provider: 'KEEP', providerPlaylistId: 'keep-profile', name: playlistName },
+    });
+    if (!recorded?.decisionId || !recorded?.trackId) throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    keptTrackIdByInputId.set(track.id, String(recorded.trackId));
+    await usePlaylistStore.getState().refresh().catch(() => {});
+    return {
+      targetPlaylistId: 'keep-profile',
+      playlistName,
+      downloaded: false,
+      visibility,
+      keepDecisionId: recorded.decisionId,
+      profileSyncFailed: false,
+      alreadyKept: false,
+    };
+  }
 
   const playlistsBefore = await withRetry(() => musicEngine.musicProvider.getPlaylists(session));
   const requestedId = chosenPlaylistId ?? recommendations[0]?.playlistId ?? null;
@@ -95,18 +177,50 @@ export async function commitKeep(
 
   const targetPlaylistId = target.id;
   const playlistName = target.name;
+  let keepDecisionId: string | undefined;
+  let recordedTrackId: string | undefined;
+  let profileSyncFailed = false;
+
+  const decisionContext = {
+    ...(options?.context ?? {}),
+    creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
+    playback: {
+      previewUrl: track.previewUrl ?? null,
+      availableOn: track.availableOn ?? [],
+      externalUrls: track.externalUrls ?? {},
+    },
+    playlist: {
+      provider: session.provider || 'KEEP',
+      providerPlaylistId: targetPlaylistId,
+      name: playlistName,
+    },
+  };
+
+  // Pour un compte réel, la décision serveur est la source de vérité.
+  // Elle exécute désormais atomiquement : anti-doublon + débit FREE + KEEP.
+  // Tant que cette transaction n'est pas confirmée, Session/Loki Pulse ne
+  // doivent jamais considérer le morceau comme gardé.
+  if (!userState.isDemoMode && !userState.isLocalGuest) {
+    const recorded = await recordKeepDecision(track, visibility, decisionContext);
+    if (!recorded?.decisionId || !recorded?.trackId) {
+      throw new Error('KEEP_SERVER_NOT_CONFIRMED');
+    }
+    keepDecisionId = recorded.decisionId;
+    recordedTrackId = recorded.trackId;
+  }
+
   const alreadyThere = await withRetry(() => musicEngine.musicProvider.isTrackInPlaylist(session, targetPlaylistId, track));
   let downloaded = false;
-
   if (!alreadyThere) {
-    await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
-    downloaded = consumesCredit;
-    // Audit Adel (11/09/2026) : le debit reel du credit se fait desormais dans
-    // recordKeepDecision -> keep-music-core (verifie ET debite cote serveur,
-    // via keep_consume_download_credit()) -- plus jamais ici cote client
-    // seul, qui etait contournable directement (voir commentaire serveur).
-    // ensureDownloadCreditAvailable() ci-dessus reste un pre-check local pour
-    // eviter un aller-retour inutile ; il n'est plus la seule barriere.
+    try {
+      await withRetry(() => musicEngine.musicProvider.addTrackToPlaylist(session, targetPlaylistId, track));
+      downloaded = consumesCredit;
+    } catch {
+      // Le KEEP Loki + débit sont déjà confirmés côté serveur. Une panne du
+      // fournisseur ne doit pas annuler l'acquisition dans Loki ; la synchro
+      // fournisseur pourra être rejouée plus tard.
+      profileSyncFailed = true;
+    }
   }
 
   const topRecommendation = recommendations[0]?.playlistId ?? null;
@@ -123,49 +237,20 @@ export async function commitKeep(
     });
   }
 
-  let keepDecisionId: string | undefined;
-  let profileSyncFailed = false;
-  try {
-    // Loki ne stocke jamais l'audio. Pour permettre la réécoute sur un profil
-    // public, on conserve uniquement les petits liens catalogue déjà renvoyés
-    // par la reconnaissance (extrait promotionnel + deep links fournisseurs).
-    const decisionContext = {
-      ...(options?.context ?? {}),
-      creditPolicy: consumesCredit ? 'LISTEN_KEEP' : 'SOCIAL_ZERO_CREDIT',
-      playback: {
-        previewUrl: track.previewUrl ?? null,
-        availableOn: track.availableOn ?? [],
-        externalUrls: track.externalUrls ?? {},
-      },
-      playlist: {
-        provider: session.provider || 'KEEP',
-        providerPlaylistId: targetPlaylistId,
-        name: playlistName,
-      },
-    };
-    const recorded = await recordKeepDecision(track, visibility, decisionContext);
-    keepDecisionId = recorded?.decisionId;
-
-    // L'Edge Function enregistre elle-même l'origine sociale uniquement lors
-    // de la création du morceau gardé. Si le morceau existait déjà sur ce compte, son
-    // origine historique doit rester intacte : on ne la réécrit jamais ici.
-    if (recorded?.trackId) {
+  if (recordedTrackId) {
+    try {
       await syncPlaylistTrack({
         provider: session.provider || 'KEEP',
         providerPlaylistId: targetPlaylistId,
         playlistName,
         playlistDescription: target.description,
         coverUrl: target.coverUrl,
-        trackId: recorded.trackId,
+        trackId: recordedTrackId,
         addedVia: isSocialCopy ? 'SOCIAL' : 'KEEP',
       });
+    } catch {
+      profileSyncFailed = true;
     }
-  } catch (e: any) {
-    // CREDITS_EXHAUSTED vient du controle serveur (recordKeepDecision) : ce
-    // n'est pas un simple souci de synchro, GARDER doit rester bloque pour
-    // que l'appelant (useSessionStore.keepTrack) le traite comme tel.
-    if (e?.message === 'CREDITS_EXHAUSTED') throw e;
-    profileSyncFailed = true;
   }
 
   await usePlaylistStore.getState().refresh();

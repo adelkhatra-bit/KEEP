@@ -1,0 +1,106 @@
+name: Loki TestFlight State Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/testflight-state-audit.yml'
+      - '.github/app-store-audit-trigger'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install project dependencies
+        run: npm ci
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@24.6.0
+      - name: Read production build/update state
+        working-directory: packages/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "=== EAS WHOAMI ==="
+          eas whoami
+          echo "=== EAS BUILDS IOS ==="
+          eas build:list --platform ios --limit 10 --json --non-interactive
+          echo "=== EAS CHANNEL PRODUCTION ==="
+          eas channel:view production --json --non-interactive || true
+          echo "=== EAS UPDATES PRODUCTION BRANCH ==="
+          eas update:list --branch production --limit 10 --json --non-interactive || true
+
+# audit-trigger: 2026-10-03-mobile-divergence
+
+      - name: Audit Apple TestFlight groups
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const required=['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing=required.filter(k=>!process.env[k]?.trim());
+          if(missing.length) throw new Error('Missing '+missing.join(','));
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+          async function api(path){
+            const r=await fetch('https://api.appstoreconnect.apple.com'+path,{headers:{Authorization:'Bearer '+token}});
+            const t=await r.text();
+            if(!r.ok) throw new Error('Apple HTTP '+r.status+' '+path);
+            return t?JSON.parse(t):null;
+          }
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+'/betaGroups?fields[betaGroups]=name,isInternalGroup,hasAccessToAllBuilds,publicLinkEnabled&limit=200');
+            const builds=await api('/v1/builds?filter[app]='+encodeURIComponent(appId)+'&sort=-uploadedDate&fields[builds]=version,uploadedDate,processingState,buildAudienceType,expired&limit=20');
+            const testers=await api('/v1/betaTesters?filter[apps]='+encodeURIComponent(appId)+'&fields[betaTesters]=state,inviteType&limit=200');
+            const report={
+              latestBuilds:(builds.data||[]).map(x=>({id:x.id,buildNumber:x.attributes?.version,uploadedDate:x.attributes?.uploadedDate,processingState:x.attributes?.processingState,audience:x.attributes?.buildAudienceType,expired:x.attributes?.expired})),
+              testerCount:(testers.data||[]).length,
+              testerStates:(testers.data||[]).reduce((m,x)=>{const k=x.attributes?.state||'UNKNOWN';m[k]=(m[k]||0)+1;return m;},{}),
+              testers:(testers.data||[]).map(x=>({id:x.id,state:x.attributes?.state||null,inviteType:x.attributes?.inviteType||null})),
+              groups:[]
+            };
+            const latest=report.latestBuilds[0];
+            if(latest?.id){
+              const beta=await api('/v1/builds/'+latest.id+'/buildBetaDetail?fields[buildBetaDetails]=autoNotifyEnabled,internalBuildState,externalBuildState');
+              report.latestBuildBetaDetail=beta?.data?{id:beta.data.id,...beta.data.attributes}:null;
+            }
+            for(const g of (groups.data||[])){
+              const rel=await api('/v1/betaGroups/'+g.id+'/relationships/builds?limit=200');
+              const testers=await api('/v1/betaGroups/'+g.id+'/betaTesters?fields[betaTesters]=state,inviteType&limit=200');
+              report.groups.push({
+                id:g.id,
+                name:g.attributes?.name,
+                internal:!!g.attributes?.isInternalGroup,
+                accessAllBuilds:!!g.attributes?.hasAccessToAllBuilds,
+                publicLinkEnabled:!!g.attributes?.publicLinkEnabled,
+                testerCount:(testers.data||[]).length,
+                testerStates:(testers.data||[]).reduce((m,x)=>{const k=x.attributes?.state||'UNKNOWN';m[k]=(m[k]||0)+1;return m;},{}),
+                testers:(testers.data||[]).map(x=>({id:x.id,state:x.attributes?.state||null,inviteType:x.attributes?.inviteType||null})),
+                buildIds:(rel.data||[]).map(x=>x.id)
+              });
+            }
+            console.log('=== LOKI TESTFLIGHT GROUP AUDIT ===');
+            console.log(JSON.stringify(report,null,2));
+            console.log('=== END LOKI TESTFLIGHT GROUP AUDIT ===');
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE
+
+# tester-assignment-audit: 2026-10-04T14:01Z

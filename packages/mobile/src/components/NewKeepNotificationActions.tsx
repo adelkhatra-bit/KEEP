@@ -1,0 +1,272 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { CanonicalTrack } from '@keep/music';
+import type { KeepNotification } from '../services/notificationService';
+import {
+  keepFromNewKeepNotification,
+  loadNewKeepTrackState,
+  newKeepNotificationOwner,
+  revealedTrackLine,
+} from '../services/newKeepNotification';
+import { playAntiShazamPreviewSegment, playTrackPreviewFromGesture, stopTrackPreview } from '../services/audioPreviewService';
+import { Alert } from '../utils/keepAlert';
+import { supabase } from '../services/supabaseClient';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
+
+/**
+ * Nouvelle musique publique :
+ * - titre + artiste masqués avant l'ajout ;
+ * - écoute réécoutable directement dans la notification ;
+ * - ajout gratuit en Public ou Privé ;
+ * - attribution conservée au premier découvreur ;
+ * - si le morceau appartient à une Pépite en vente, le parcours protégé reste prioritaire.
+ */
+export default function NewKeepNotificationActions({
+  notification,
+  onInteract,
+  onKept,
+  onOpenProfile,
+  isFollowing = false,
+  onFollow,
+}: {
+  notification: KeepNotification;
+  onInteract?: () => void;
+  onKept?: () => void;
+  onOpenProfile?: () => void;
+  /** Une notification ne permet jamais de se désabonner. */
+  isFollowing?: boolean;
+  /** Si l'écran parent connaît déjà la logique de suivi, elle peut être réutilisée. */
+  onFollow?: () => Promise<void> | void;
+}) {
+  const [track, setTrack] = useState<CanonicalTrack | null>(null);
+  const [owned, setOwned] = useState(false);
+  const [saleProtected, setSaleProtected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followingOwner, setFollowingOwner] = useState(isFollowing);
+  const [kept, setKept] = useState(false);
+  const currentUserId = useUserStore((state) => state.user?.id || '');
+  const isDemoMode = useUserStore((state) => state.isDemoMode);
+  const isLocalGuest = useUserStore((state) => state.isLocalGuest);
+  const owner = newKeepNotificationOwner(notification);
+  const previewKey = `new-keep-notif:${notification.id}`;
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    setFollowingOwner(isFollowing);
+    void loadNewKeepTrackState(notification).then((state) => {
+      if (!mounted.current) return;
+      setTrack(state.track);
+      setOwned(state.owned);
+      setSaleProtected(state.saleProtected);
+      setLoading(false);
+    });
+
+    if (!isFollowing && supabase && currentUserId && owner.profileId && currentUserId !== owner.profileId && !isDemoMode && !isLocalGuest) {
+      void Promise.resolve(supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', currentUserId)
+        .eq('followee_id', owner.profileId)
+        .maybeSingle())
+        .then(({ data }) => { if (mounted.current) setFollowingOwner(Boolean(data)); })
+        .catch(() => {});
+    }
+
+    return () => {
+      mounted.current = false;
+      void stopTrackPreview(previewKey).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notification.id, currentUserId, isDemoMode, isFollowing, isLocalGuest, owner.profileId]);
+
+  const togglePreview = async () => {
+    onInteract?.();
+    if (!track?.previewUrl) return;
+    if (playing) {
+      await stopTrackPreview(previewKey).catch(() => {});
+      setPlaying(false);
+      return;
+    }
+    try {
+      if (saleProtected) {
+        await playAntiShazamPreviewSegment(
+          previewKey,
+          track.previewUrl,
+          (isPlaying) => { if (mounted.current) setPlaying(isPlaying); },
+          () => { if (mounted.current) setPlaying(false); },
+        );
+      } else {
+        await playTrackPreviewFromGesture(
+          previewKey,
+          track.previewUrl,
+          (isPlaying) => { if (mounted.current) setPlaying(isPlaying); },
+          () => { if (mounted.current) setPlaying(false); },
+          30000,
+        );
+      }
+    } catch {
+      setPlaying(false);
+      Alert.alert('Écoute', 'Impossible de lire ce morceau pour le moment.');
+    }
+  };
+
+  const keep = async (visibility: 'PUBLIC' | 'PRIVATE') => {
+    if (!track || busy || saleProtected) return;
+    setBusy(true);
+    const result = await keepFromNewKeepNotification(notification, track, visibility);
+    if (!mounted.current) return;
+    setBusy(false);
+    if (!result.ok) {
+      Alert.alert('AJOUTER', result.error || 'Impossible d’ajouter ce morceau pour le moment.');
+      return;
+    }
+    await stopTrackPreview(previewKey).catch(() => {});
+    setPlaying(false);
+    setKept(true);
+    if (result.alreadyKept) setOwned(true);
+    onKept?.();
+  };
+
+  const subscribeOrOpenProfile = async () => {
+    onInteract?.();
+    if (followingOwner || !owner.profileId || owner.profileId === currentUserId) {
+      onOpenProfile?.();
+      return;
+    }
+    if (!currentUserId || isDemoMode || isLocalGuest || !supabase) {
+      useAccountGateStore.getState().requestAccount('create', owner.username || undefined);
+      return;
+    }
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      if (onFollow) {
+        await onFollow();
+      } else {
+        const { error } = await supabase.rpc('keep_follow_profile', { p_followee_id: owner.profileId });
+        if (error) throw error;
+      }
+      if (mounted.current) setFollowingOwner(true);
+    } catch (error: any) {
+      const message = String(error?.message || '');
+      Alert.alert(
+        'Abonnement',
+        message.includes('FOLLOW_LIMIT')
+          ? 'Ton offre actuelle limite le nombre de profils que tu peux suivre.'
+          : 'Impossible de suivre ce profil pour le moment.',
+      );
+    } finally {
+      if (mounted.current) setFollowBusy(false);
+    }
+  };
+
+  const askKeep = () => {
+    onInteract?.();
+    Alert.alert(
+      'AJOUTER GRATUITEMENT',
+      'Le titre et l’artiste se dévoileront après l’ajout. Choisis Public pour l’afficher sur ton profil ou Privé pour le garder masqué. L’empreinte reste attribuée au premier découvreur.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Privé', onPress: () => { void keep('PRIVATE'); } },
+        { text: 'Public', onPress: () => { void keep('PUBLIC'); } },
+      ],
+    );
+  };
+
+  const profileActionLabel = followBusy
+    ? 'ABONNEMENT…'
+    : followingOwner || owner.profileId === currentUserId
+      ? 'VOIR LE PROFIL'
+      : '+ S’ABONNER';
+
+  const profileAction = onOpenProfile ? (
+    <TouchableOpacity
+      testID={followingOwner || owner.profileId === currentUserId ? 'new-keep-profile' : 'new-keep-follow'}
+      style={[s.profile, followBusy && s.disabled]}
+      disabled={followBusy}
+      onPress={() => { void subscribeOrOpenProfile(); }}
+      accessibilityRole="button"
+      accessibilityLabel={followingOwner || owner.profileId === currentUserId
+        ? 'Voir le profil qui a partagé ce morceau'
+        : 'S’abonner au profil qui a partagé ce morceau'}
+    >
+      <Text style={s.profileText}>{profileActionLabel}</Text>
+    </TouchableOpacity>
+  ) : null;
+
+  if (loading) {
+    return <View style={s.row}><ActivityIndicator size="small" color="#B79CFF" /></View>;
+  }
+
+  if (!track) {
+    return <View><Text style={s.muted}>Morceau indisponible.</Text>{profileAction}</View>;
+  }
+
+  if (owned || kept) {
+    return (
+      <View>
+        <View testID="new-keep-revealed" style={s.revealed}>
+          <Text style={s.revealedLabel}>{kept && !owned ? '✓ AJOUTÉ À TA COLLECTION' : '✓ DÉJÀ CHEZ TOI'}</Text>
+          <Text style={s.revealedTitle} numberOfLines={2}>{revealedTrackLine(track)}</Text>
+        </View>
+        <Text style={s.revealedHint}>Titre et artiste révélés · empreinte du premier découvreur conservée.</Text>
+        {profileAction}
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <View style={s.row}>
+        <TouchableOpacity
+          testID="new-keep-listen"
+          style={[s.listen, !track.previewUrl && s.disabled]}
+          disabled={!track.previewUrl}
+          onPress={() => { void togglePreview(); }}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Arrêter l’écoute' : saleProtected ? 'Écouter l’extrait protégé' : 'Écouter le morceau'}
+        >
+          <Text style={s.listenText}>
+            {!track.previewUrl ? 'ÉCOUTE INDISPONIBLE' : playing ? '■ STOP' : saleProtected ? '▶ ÉCOUTER 15 s' : '▶ ÉCOUTER / RÉÉCOUTER'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          testID="new-keep-keep"
+          style={[s.keep, busy && s.disabled]}
+          disabled={busy}
+          onPress={saleProtected ? () => { onInteract?.(); onOpenProfile?.(); } : askKeep}
+          accessibilityRole="button"
+          accessibilityLabel={saleProtected ? 'Ouvrir la Pépite protégée' : 'Ajouter gratuitement ce morceau'}
+        >
+          <Text style={s.keepText}>{saleProtected ? 'VOIR LA PÉPITE' : busy ? 'AJOUT…' : 'AJOUTER GRATUITEMENT'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {!saleProtected ? <Text style={s.maskedHint}>Titre + artiste masqués jusqu’à l’ajout · sans retirer de Free.</Text> : null}
+      {profileAction}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  row: { flexDirection: 'column', gap: 8, marginTop: 8, alignItems: 'stretch', width: '100%' },
+  listen: { width: '100%', minHeight: 42, borderRadius: 14, borderWidth: 1, borderColor: '#7C5CFC', backgroundColor: '#211829', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  listenText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  keep: { width: '100%', minHeight: 42, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  keepText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
+  profile: { minHeight: 36, marginTop: 7, borderRadius: 14, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,.10)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  profileText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .4 },
+  disabled: { opacity: 0.55 },
+  muted: { color: '#FFFFFF', fontSize: 11, marginTop: 6, opacity: 0.8 },
+  maskedHint: { color: '#FFFFFF', opacity: 0.72, fontSize: 9, marginTop: 6, textAlign: 'center' },
+  revealed: { marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2DE1C2', backgroundColor: 'rgba(45,225,194,0.10)', paddingHorizontal: 10, paddingVertical: 7 },
+  revealedLabel: { color: '#2DE1C2', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  revealedTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', marginTop: 2 },
+  revealedHint: { color: '#FFFFFF', opacity: 0.72, fontSize: 9, marginTop: 5, textAlign: 'center' },
+});

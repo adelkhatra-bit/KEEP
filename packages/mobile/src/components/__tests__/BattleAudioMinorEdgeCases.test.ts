@@ -23,14 +23,35 @@ describe('audioPreviewService -- ne reste plus "en lecture" sur un extrait web p
   });
 
   it("la minuterie reste un filet de sécurité si ended ne se déclenche jamais", () => {
-    expect(preview).toContain('activeTimer = setTimeout(finish, Math.max(1000, Math.round(durationMillis)));');
+    expect(preview).toContain('activeTimer = setTimeout(finish, Math.max(700, Math.round(effectiveDuration)));');
+  });
+  it('recalculates the shared Battle position after buffering so slower players do not restart from the beginning', () => {
+    expect(preview).toContain('syncStartEpochMs?: number');
+    expect(preview).toContain('const lateByMs = syncStartEpochMs ? Math.max(0, Date.now() - syncStartEpochMs) : 0');
+    expect(preview).toContain('const effectivePosition = basePosition + lateByMs');
+    expect(preview).toContain('startAtEpochMs');
   });
 });
 
-describe('KeepBattleMobileGameV3 -- une manche sautée (extrait mort) est maintenant visible pour le joueur', () => {
+describe('KeepBattleMobileGameV3 -- un extrait mort ne bloque plus le Solo', () => {
   const battle = readNormalized(__dirname, '..', 'KeepBattleMobileGameV3.tsx');
+  const preview = readNormalized(__dirname, '..', '..', 'services', 'audioPreviewService.ts');
 
-  it("affiche une alerte au lieu de sauter silencieusement la manche (avant : seulement un console.warn)", () => {
-    expect(battle).toContain("Alert.alert('Manche sautée', 'Ce morceau est momentanément indisponible -- passage à la manche suivante.');");
+  it('coupe immédiatement le son au tap et précharge la manche suivante sans bloquer TestFlight', () => {
+    expect(battle).toContain('stopTrackPreviewFast();');
+    expect(battle).toContain('preloadTrackPreviewSegment(');
+    expect(battle).toContain('const SOLO_RESULT_HOLD_MS = 650;');
+    expect(preview).toContain('configureSession = true');
+    expect(preview).toContain('false, !activePlaying');
+  });
+
+  it('récupère automatiquement le même round sans réponse injectée ni popup bloquant', () => {
+    expect(preview).toContain('const maxAttempts = 2;');
+    expect(battle).toContain('soloAudioReplacementRef');
+    expect(battle).toContain('soloAudioRetryNonce');
+    expect(battle).toContain('retry même manche');
+    expect(battle).not.toContain("recordSoloAnswer('__AUDIO_ERROR__')");
+    expect(battle).not.toContain("Alert.alert('Audio indisponible'");
+    expect(battle).not.toContain("Alert.alert('Manche sautée'");
   });
 });

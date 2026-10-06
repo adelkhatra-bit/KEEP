@@ -1,0 +1,176 @@
+name: KEEP — OTA Production Update
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      # RELEASE UNIQUE : l’OTA iOS suit exactement le même commit que le
+      # build TestFlight. Aucun commit intermédiaire n’est publié.
+      - 'packages/mobile/.eas-build-trigger'
+      - '.github/workflows/eas-update-production.yml'
+  workflow_dispatch:
+
+# Plusieurs agents peuvent pousser à quelques secondes d'intervalle.
+# Ne jamais annuler une publication OTA déjà commencée : sinon une rafale de
+# commits peut laisser TestFlight plusieurs versions derrière.
+concurrency:
+  group: loki-ota-production-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    name: Publish production OTA
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Lock OTA SHA to TestFlight release
+        id: fresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin reconcile/claude-main-20260825 --depth=200
+          release_sha="$(git log -1 --format=%H origin/reconcile/claude-main-20260825 -- packages/mobile/.eas-build-trigger)"
+          test -n "$release_sha"
+          if [ "$GITHUB_SHA" = "$release_sha" ]; then
+            echo "publish=yes" >> "$GITHUB_OUTPUT"
+            echo "Unified TestFlight/OTA release SHA: $GITHUB_SHA"
+          else
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "OTA skipped for non-release SHA $GITHUB_SHA (release SHA: $release_sha)"
+          fi
+
+      - name: Guard OTA native compatibility
+        id: compatible
+        if: steps.fresh.outputs.publish == 'yes'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 05/10/2026 (lot n°5) : l'ancienne garde comparait HEAD au dernier
+          # commit .eas-build-trigger, c'est-à-dire à lui-même : le diff natif
+          # était toujours vide. Une OTA a ainsi été publiée alors que le build
+          # iOS de la même release avait échoué (JS demandant un module natif
+          # absent du binaire installé). Nouvelle règle :
+          #  1. l'OTA attend le build iOS de CETTE release et n'est publiée que
+          #     s'il a réussi ;
+          #  2. la comparaison natif/dépendances se fait avec la dernière
+          #     release dont le build iOS a RÉUSSI.
+          runs="repos/$GITHUB_REPOSITORY/actions/workflows/auto-eas-build.yml/runs"
+          deadline=$((SECONDS + 2700))
+          state=""
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            state="$(gh api "$runs?head_sha=$GITHUB_SHA&per_page=5" --jq '.workflow_runs[0] | "\(.status) \(.conclusion)"' 2>/dev/null || true)"
+            case "$state" in
+              "completed success") break ;;
+              "completed "*)
+                # Décision d'Adel (05/10/2026) : un build compilé et envoyé à App Store
+                # Connect dont SEULE l'étape finale (synchronisation des testeurs /
+                # notification) échoue reste un binaire valide : l'OTA n'est pas bloquée.
+                run_id="$(gh api "$runs?head_sha=$GITHUB_SHA&per_page=5" --jq '.workflow_runs[0].id' 2>/dev/null || true)"
+                failed_steps="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" --jq '[.jobs[].steps[] | select(.conclusion == "failure") | .name] | .[]' 2>/dev/null || true)"
+                echo "Failed iOS build steps: ${failed_steps:-<none readable>}"
+                if [ -n "$failed_steps" ] && ! printf '%s\n' "$failed_steps" | grep -Eqv 'Synchroniser le nouveau build|Notify on failure'; then
+                  echo "iOS binary was built and uploaded; only the tester-sync/notify step failed: OTA allowed."
+                  state="completed success"
+                  break
+                fi
+                echo "iOS build of this release did not succeed ($state): OTA blocked."; echo "publish=no" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            esac
+            sleep 30
+          done
+          if [ "$state" != "completed success" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "No completed iOS build for this release (last state: '${state}'): OTA blocked."
+            exit 0
+          fi
+          baseline="$(gh api "$runs?branch=reconcile/claude-main-20260825&status=success&per_page=20" --jq '[.workflow_runs[] | select(.head_sha != env.GITHUB_SHA)][0].head_sha // empty')"
+          if [ -z "$baseline" ]; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "No earlier successful TestFlight build baseline: OTA blocked."
+            exit 0
+          fi
+          git fetch --no-tags --depth=1 origin "$baseline"
+          changed="$(git diff --name-only "$baseline" "$GITHUB_SHA")"
+          printf '%s\n' "$changed"
+          if printf '%s\n' "$changed" | grep -Eq '^(package-lock\.json|packages/mobile/(app\.json|eas\.json|package\.json|ios/|android/|plugins/|modules/)|packages/music/package\.json)'; then
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+            echo "Native/dependency-sensitive change since the last successful TestFlight build ($baseline): OTA blocked."
+            exit 0
+          fi
+          echo "publish=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        if: steps.compatible.outputs.publish == 'yes'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        if: steps.compatible.outputs.publish == 'yes'
+        run: npm ci
+
+      - name: Setup EAS CLI
+        if: steps.compatible.outputs.publish == 'yes'
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo authentication
+        if: steps.compatible.outputs.publish == 'yes'
+        working-directory: packages/mobile
+        run: eas whoami
+
+      - name: Validate production OTA payload
+        if: steps.compatible.outputs.publish == 'yes'
+        run: |
+          set -euo pipefail
+          node scripts/verify-source-of-truth.cjs
+          node scripts/verify-profile-data-integrity.cjs
+          node scripts/verify-mobile-text-contrast.cjs
+          node scripts/verify-ui-layout-baseline.cjs
+          node scripts/verify-global-user-regression-guard.cjs
+          npm --workspace packages/mobile run type-check
+          npm --workspace packages/music run type-check
+          npm --workspace packages/mobile test -- --runInBand
+          npm --workspace packages/music test -- --runInBand
+
+      - name: Publish latest JS to production
+        if: steps.compatible.outputs.publish == 'yes'
+        working-directory: packages/mobile
+        env:
+          CI: '1'
+          # 29/09/2026 : sans ces valeurs, la mise à jour OTA publiait un JS
+          # sans adresse Supabase -> connexion impossible dans l'app. Valeurs
+          # publiques identiques au site (web-preview-pages.yml).
+          EXPO_PUBLIC_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru'
+          EXPO_PUBLIC_WEB_URL: 'https://adelkhatra-bit.github.io/KEEP'
+          EXPO_PUBLIC_AUTH_REDIRECT_URL: 'https://adelkhatra-bit.github.io/KEEP/'
+          EXPO_PUBLIC_API_URL: 'https://keep-backend-mu.vercel.app'
+          EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_PUBLIC_SUPABASE_URL" && test -n "$EXPO_PUBLIC_SUPABASE_ANON_KEY"
+          eas update --channel production --platform ios --non-interactive --message "GitHub ${GITHUB_SHA}"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo '### Loki Music OTA production'
+            echo
+            echo "- Commit: ${GITHUB_SHA}"
+            echo '- Channel: production · iOS'
+            echo "- OTA eligible: ${{ steps.compatible.outputs.publish || 'no' }}"
+            echo '- Native module, dependency or entitlement changes are blocked and still require a new TestFlight build.'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
  * ligne, sans jamais deviner.
  */
 export function getCurrentBuildSha(): string {
-  return String(process.env.EXPO_PUBLIC_BUILD_ID || '').trim();
+  return String(process.env.EXPO_PUBLIC_BUILD_SHA || process.env.EXPO_PUBLIC_BUILD_ID || '').trim();
 }
 
 export async function fetchLatestBuildSha(): Promise<string | null> {
@@ -31,20 +31,56 @@ export async function fetchLatestBuildSha(): Promise<string | null> {
 
 export function reloadToLatest(): void {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-  // Adel (09/09/2026) : "je suis oblige de revenir sur mon profil pour
-  // pouvoir faire la mise a jour" -- un reload() brut sur une route
-  // dynamique (profil visite, etc.) depend du saut 404.html -> redirect ->
-  // restore de GitHub Pages (aucune reecriture serveur pour ces routes),
-  // plus fragile en conditions reelles qu'un GET direct sur un fichier qui
-  // existe vraiment. On route nous-memes vers la racine (toujours un vrai
-  // fichier) avec __keep_route, exactement le mecanisme que 404.html
-  // utilise, sans jamais dependre d'une reponse 404 du serveur.
+  // Ne jamais utiliser reload() ici : Chrome peut revalider version.json puis
+  // conserver l'ancien index/bundle en cache. C'est exactement le cas où
+  // l'utilisateur voit "Nouvelle version" mais retrouve visuellement l'ancien
+  // écran après avoir cliqué sur Mettre à jour.
+  //
+  // On recharge TOUJOURS le vrai fichier racine GitHub Pages avec un nonce
+  // unique, puis on restaure la route courante via __keep_route. Le HTML et le
+  // bundle hashé sont alors relus depuis la version qui vient d'être déployée.
   const basePath = '/KEEP';
   const { pathname, search, hash } = window.location;
-  if (pathname === basePath || pathname === `${basePath}/`) {
-    window.location.reload();
-    return;
-  }
   const route = pathname.replace(new RegExp(`^${basePath}`), '') + search + hash;
-  window.location.replace(`${basePath}/?__keep_route=${encodeURIComponent(route)}`);
+  const params = new URLSearchParams();
+  params.set('__keep_update', String(Date.now()));
+  if (route && route !== '/') params.set('__keep_route', route);
+  window.location.replace(`${basePath}/?${params.toString()}`);
+}
+
+
+export type AppUpdateApplyResult = 'RELOADING' | 'CURRENT' | 'UNSUPPORTED' | 'FAILED';
+
+/**
+ * Action unique derrière tous les boutons « mettre à jour ».
+ *
+ * Web : recharge cache-bustée du site officiel.
+ * iOS/Android production : demande à EAS Update la dernière OTA compatible,
+ * la télécharge si nécessaire puis relance réellement le bundle. Un bouton
+ * de mise à jour ne doit jamais être décoratif.
+ */
+export async function applyLatestAppUpdate(): Promise<AppUpdateApplyResult> {
+  if (Platform.OS === 'web') {
+    reloadToLatest();
+    return 'RELOADING';
+  }
+
+  try {
+    const Updates = await import('expo-updates');
+    if (!Updates.isEnabled) return 'UNSUPPORTED';
+
+    const check = await Updates.checkForUpdateAsync();
+    if (check.isAvailable) {
+      const fetched = await Updates.fetchUpdateAsync();
+      if ('isNew' in fetched && fetched.isNew === false) {
+        // Une update peut déjà être téléchargée localement : reloadAsync()
+        // choisit quand même le bundle OTA le plus récent disponible.
+      }
+    }
+
+    await Updates.reloadAsync();
+    return check.isAvailable ? 'RELOADING' : 'CURRENT';
+  } catch {
+    return 'FAILED';
+  }
 }

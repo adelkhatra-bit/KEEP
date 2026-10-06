@@ -39,6 +39,7 @@ interface SessionHistoryStore {
   // dans une session reconstruite, SANS toucher au Keep lui-même (toujours
   // intact côté serveur, toujours visible sur le profil/Mes Morceaux).
   dismissedKeepDecisionIds: string[];
+  dismissedSessionIds: string[];
   addSession: (session: KeepSession) => void;
   upsertSession: (session: KeepSession) => void;
   deleteSession: (sessionId: string) => void;
@@ -312,6 +313,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
     (set, get) => ({
       sessions: [],
       dismissedKeepDecisionIds: [],
+      dismissedSessionIds: [],
 
       addSession: (session) => set((s) => ({ sessions: [session, ...s.sessions] })),
       upsertSession: (session) => set((s) => {
@@ -324,6 +326,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
         return {
           sessions: s.sessions.filter((session) => session.id !== sessionId),
           dismissedKeepDecisionIds: decisionIds.length ? Array.from(new Set([...s.dismissedKeepDecisionIds, ...decisionIds])) : s.dismissedKeepDecisionIds,
+          dismissedSessionIds: Array.from(new Set([...s.dismissedSessionIds, sessionId])),
         };
       }),
       clearSessions: () => set({ sessions: [] }),
@@ -426,7 +429,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
           // `dismissedKeepDecisionIds` empêche uniquement la RECONSTRUCTION
           // d'une session que l'utilisateur a explicitement effacée -- les
           // Keep eux-mêmes restent inchangés côté serveur.
-          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds) }));
+          set((state) => ({ sessions: mergePersistedKeeps(state.sessions, remoteKeeps, state.dismissedKeepDecisionIds).filter((session) => !state.dismissedSessionIds.includes(session.id)) }));
         } catch {
           // Offline / serveur indisponible : conserver exactement les données locales.
         }

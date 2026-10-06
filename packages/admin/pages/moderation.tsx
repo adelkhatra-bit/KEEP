@@ -103,7 +103,7 @@ export default function Moderation() {
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {loading ? <p style={{ color: 'var(--text-muted)' }}>Chargement…</p> : null}
-      {!loading && !queue.length ? <div className="card"><p style={{ margin: 0, color: 'var(--text-muted)' }}>Aucun évènement en attente de validation.</p></div> : null}
+      {!loading && !queue.length ? <div className="card"><p style={{ margin: 0, color: 'var(--text-muted)' }}>Rien à approuver ✓</p></div> : null}
 
       <div style={{ display: 'grid', gap: 18 }}>
         {queue.map((item) => (

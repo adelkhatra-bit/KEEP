@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { Audio } from 'expo-av';
 import { useSessionStore } from '../store/useSessionStore';
 import { cancelAudioCapture } from '../services/micCapture';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from '../services/backgroundListeningService';
@@ -47,6 +46,7 @@ export default function BackgroundListeningLifecycle() {
 
     void (async () => {
       try {
+        const { Audio } = require('expo-av') as typeof import('expo-av');
         let permission = await Audio.getPermissionsAsync();
         if (!permission.granted && permission.canAskAgain) {
           permission = await Audio.requestPermissionsAsync();

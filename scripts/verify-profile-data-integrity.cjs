@@ -12,16 +12,30 @@ const protectedShell = {
   // Adel (20/09/2026) : hash mis à jour après vérification -- chaque
   // changement reste tracé en commentaire pour que ce garde-fou continue à
   // détecter un VRAI changement non revu, pas juste tout changement.
-  // App.tsx (31c0390, 08/09/2026) : ajout d'AccountGateModal au montage
-  // racine (popup de compte "reste au même endroit", même patron que les
-  // autres overlays globaux déjà montés ici) -- pas un changement de
-  // responsive/layout, vérifié via git show avant mise à jour du hash.
-  'packages/mobile/App.tsx': '2e33a79d8f044ad174730f43e9e37f1c2d7d255b',
-  // Navigation.tsx (c0f6f2a, session du 20/09/2026) : insets.bottom ajouté à
-  // la barre d'onglets (elle était cachée/rognée par la zone d'accueil
-  // iPhone, invisible en simulateur/Android) -- pas un changement de design,
-  // un vrai bug de sécurité de zone corrigé.
-  'packages/mobile/src/navigation/Navigation.tsx': '23c7a3d784fec58b7b46863696e1468d79173d56',
+  // App.tsx (01/10/2026) : modification explicitement demandée pour attendre
+  // la restauration Supabase avant de monter les écrans authentifiés et avant
+  // toute mise à jour silencieuse. La restauration est dédupliquée et les
+  // synchronisations secondaires ne bloquent plus le premier rendu réel.
+  // App.tsx (02/10/2026) : récupération Auth rendue tolérante aux 503/PGRST002
+  // sans modifier le shell responsive, Navigation.tsx ni les 5 onglets.
+  // Navigation.tsx et la barre des 5 onglets restent inchangées.
+  // App.tsx (02/10/2026, incident auth) : seul le comportement de reprise
+  // de session pendant une indisponibilité Supabase a changé. Shell responsive,
+  // Navigation.tsx et barre 5 onglets inchangés et revérifiés.
+  // App.tsx (02/10/2026, demande d'Adel « le robot visible dans les aperçus ») :
+  // une seule ligne — le robot est monté via RootChatDock (ChatDockHost) au
+  // lieu de GlobalChatDock directement, pour qu'un aperçu ouvert l'héberge.
+  // Shell responsive, Navigation.tsx et barre 5 onglets inchangés.
+  // App.tsx (05/10/2026, demande d'Adel « secouer le téléphone / signaler un problème ») : deux lignes seulement — import et montage de
+  // `ProblemReportHost` (fenêtre invisible tant qu'on ne la demande pas) à côté de GlobalNotificationBanner. Shell responsive,
+  // Navigation.tsx et barre des 5 onglets inchangés et revérifiés.
+  'packages/mobile/App.tsx': '0882aebd034371e0257e57d531ddeaedbe35a8a7',
+  // Navigation.tsx (05/10/2026) : modification explicitement demandée par Adel (« la barre de tâche est visible tout le temps ») : barre des 5 onglets
+  // persistante sous les écrans empilés (PersistentTabBar), barre des onglets elle-même inchangée.
+  // Navigation.tsx : hash revérifié après les changements produit validés du
+  // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
+  // n'est PAS modifié par ce correctif CI.
+  'packages/mobile/src/navigation/Navigation.tsx': '7f49648977f652ece61bafc632d35e5524a599b7',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);
@@ -29,15 +43,15 @@ for (const [rel, expected] of Object.entries(protectedShell)) {
 }
 
 const profile = read('packages/mobile/src/screens/ProfilePublicScreen.tsx');
-for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'CONTINUER EN MODE DÉMO']) {
+for (const marker of ['loadOwnProfileKeeps', 'loadOwnProfileSnapshot', 'publicKeptTracks.map', 'ownSnapshot?.totalKeeps', 'ENTRER EN MODE DÉMO']) {
   if (!profile.includes(marker)) failures.push(`OWN PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
 for (const marker of ["profileKeptTracks.filter((entry) => entry.visibility === 'PUBLIC')", 'const publicKeptTracks = useMemo']) {
   if (!profile.includes(marker)) failures.push(`OWN PROFILE PRIVACY MARKER MISSING: ${marker}`);
 }
 if (profile.includes('accessibilityLabel="Modifier mon profil"')) failures.push('DUPLICATE MODIFIER BUTTON REINTRODUCED');
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
-  if (!profile.includes(marker)) failures.push(`OWN PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+for (const marker of ["topMetricsBar", ">Abonnés</Text>", ">Reprises</Text>", ">Morceaux</Text>", ">Abonnements</Text>"]) {
+  if (!profile.includes(marker)) failures.push(`OWN PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (profile.includes('function Stat({value,label}')) failures.push('OWN PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
 
@@ -45,15 +59,19 @@ const viewedProfile = read('packages/mobile/src/screens/PublicUserProfileScreen.
 for (const marker of ['loadPublicProfileKeeps', 'canonicalKeeps']) {
   if (!viewedProfile.includes(marker)) failures.push(`PUBLIC PROFILE CANONICAL MARKER MISSING: ${marker}`);
 }
-for (const marker of ["import ProfileCounterRow from '../components/ProfileCounterRow';", '<ProfileCounterRow kind="connections"', '<ProfileCounterRow kind="keeps"']) {
-  if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE SHARED COUNTER CONTRACT MISSING: ${marker}`);
+for (const marker of [
+  'topMetricsBar',
+  'countersExpanded',
+  'topMetricSocialGroup',
+  '>Abonnés</Text>',
+  '>Morceaux</Text>',
+  'topMetricsSecondary',
+  '>Reprises</Text>',
+  '>Abonnements</Text>',
+]) {
+  if (!viewedProfile.includes(marker)) failures.push(`VIEWED PROFILE COMPACT COUNTER CONTRACT MISSING: ${marker}`);
 }
 if (viewedProfile.includes('function Stat({ value, label }')) failures.push('VIEWED PROFILE LOCAL COUNTER COMPONENT REINTRODUCED');
-
-const counterComponent = read('packages/mobile/src/components/ProfileCounterRow.tsx');
-for (const marker of ["kind?: 'connections' | 'keeps'", "label: { color: '#FFFFFF', fontSize: 13", "value: { color: '#FFFFFF', fontSize: 20"]) {
-  if (!counterComponent.includes(marker)) failures.push(`SHARED PROFILE COUNTER STYLE CONTRACT MISSING: ${marker}`);
-}
 
 const publicShare = read('packages/mobile/share-profile.html');
 for (const marker of ['class="connections"', 'class="stats"', 'openAuthOverlay', 'SE CONNECTER / CRÉER POUR SUIVRE', 'keep_follow_profile', 'keep_unfollow_profile']) {
@@ -106,7 +124,7 @@ if (failures.length) {
 console.log('KEEP PROFILE DATA INTEGRITY: PASS');
 console.log('owner list/count: same authenticated server library; profile render: PUBLIC only');
 console.log('public list/count: same public distinct library');
-console.log('profile counters: shared owner/visitor component + permanent public page order enforced');
+console.log('profile counters: owner + visitor compact counter contracts + permanent public page order enforced');
 console.log('shared profile follow: login-first handoff + secured follow/unfollow RPC + bounded request');
 console.log('guest/demo music: isolated from authenticated accounts');
 console.log('GPS: native + web foreground location, city/country resolution, approximate coordinates + persisted opt-in contract present');

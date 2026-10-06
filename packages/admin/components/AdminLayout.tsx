@@ -7,26 +7,49 @@ import { APP_NAME } from '../lib/brand';
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
 type NavItem = { href: string; label: string; roles?: AdminRole[] };
+type NavGroup = { title: string; items: NavItem[] };
 
 const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
-const NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard', roles: ALL_ROLES },
-  { href: '/users', label: 'Utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
-  { href: '/support-center', label: 'Support utilisateurs', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
-  { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/plans', label: 'Abonnements & Prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/operations', label: 'API payantes & Support', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/launch-center', label: 'Lancer Loki Music', roles: ['SUPER_ADMIN'] },
-  { href: '/costs', label: 'Comptabilité & Rentabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/marketplace', label: 'Place de marché', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  { href: '/feature-flags', label: 'Feature Flags', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/remote-config', label: 'Textes & Quotas app', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
-  { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  { href: '/team', label: 'Équipe Super Admin', roles: ['SUPER_ADMIN'] },
+// Menu en 8 rubriques (Adel, 06/10/2026) : mêmes écrans qu'avant, rien supprimé, une seule entrée par écran.
+// « Signalements » est nouveau (secousses et diagnostics de l'app, jusqu'ici invisibles).
+const NAV_GROUPS: NavGroup[] = [
+  { title: 'Tableau de bord', items: [
+    { href: '/', label: 'Vue d’ensemble', roles: ALL_ROLES },
+  ] },
+  { title: 'Utilisateurs', items: [
+    { href: '/users', label: 'Comptes', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+  ] },
+  { title: 'Modération', items: [
+    { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+    { href: '/community', label: 'Communauté', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
+    { href: '/problem-reports', label: 'Signalements', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'TECH'] },
+  ] },
+  { title: 'Support & messages', items: [
+    { href: '/support-center', label: 'Support', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
+    { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
+    { href: '/notification-access', label: 'Accès notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  ] },
+  { title: 'Argent', items: [
+    { href: '/plans', label: 'Abonnements & prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/costs', label: 'Comptabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/marketplace', label: 'Place de marché', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+  ] },
+  { title: 'Musique', items: [
+    { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+  ] },
+  { title: 'Réglages techniques', items: [
+    { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/operations', label: 'API payantes', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/launch-center', label: 'Lancer Loki', roles: ['SUPER_ADMIN'] },
+    { href: '/feature-flags', label: 'Fonctions on/off', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/remote-config', label: 'Textes & quotas', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
+  ] },
+  { title: 'Sécurité', items: [
+    { href: '/team', label: 'Accès & mot de passe', roles: ['SUPER_ADMIN'] },
+  ] },
 ];
+const NAV: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -36,10 +59,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [integrationIssues, setIntegrationIssues] = useState(0);
   const [pendingModeration, setPendingModeration] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.innerWidth < 1180) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const update = () => setIsMobile(window.innerWidth < 900);
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   useEffect(() => {
@@ -85,8 +117,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const totalAlerts = pendingSupport + integrationIssues + pendingModeration;
 
-  const visibleNav = useMemo(
-    () => NAV.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)),
+  const visibleGroups = useMemo(
+    () => NAV_GROUPS
+      .map((group) => ({ ...group, items: group.items.filter((item) => !item.roles || (role ? item.roles.includes(role) : false)) }))
+      .filter((group) => group.items.length > 0),
     [role],
   );
   const currentItem = NAV.find((item) => item.href === router.pathname);
@@ -94,14 +128,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="layout">
+      {sidebarOpen && isMobile && (
+        <div
+          className="sidebar-backdrop active"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <div className="logo">{APP_NAME}</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
         <nav>
-          {visibleNav.map((item) => (
-            <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
-              {item.label}
-            </Link>
+          {visibleGroups.map((group) => (
+            <div key={group.title} className="nav-group">
+              <div className="nav-group-title">{group.title}</div>
+              {group.items.map((item) => (
+                <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div
@@ -116,7 +162,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             lineHeight: 1.4,
           }}
         >
-          Accès par rôle. Les actions sensibles restent liées à la session {APP_NAME}, au rôle Admin actif et au journal d’audit.
+          Accès par rôle, tout est tracé.
         </div>
       </aside>
       <main className="main">
@@ -131,6 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ☰
           </button>
           <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
+          {/* Doublon « 🔐 Mot de passe » retiré (06/10/2026) : une seule entrée, menu › Sécurité. */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
               type="button"

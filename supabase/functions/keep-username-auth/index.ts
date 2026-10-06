@@ -1,9 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import postgres from "npm:postgres@3.4.7";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const DB_URL = Deno.env.get("SUPABASE_DB_URL") ?? "";
+const directDb = DB_URL ? postgres(DB_URL, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 10,
+  connect_timeout: 2,
+}) : null;
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
 const publicAuth = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -35,18 +43,85 @@ function looksLikeDuplicateEmail(error: unknown) {
   return message.includes("already") || message.includes("registered") || message.includes("duplicate") || message.includes("exists");
 }
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function withDeadline<T>(operation: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(operation),
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(label)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function transientAuthFailure(error: unknown) {
+  const status = Number((error as any)?.status ?? (error as any)?.context?.status ?? 0);
+  const message = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return status >= 500
+    || message.includes("context deadline exceeded")
+    || message.includes("context canceled")
+    || message.includes("upstream request timeout")
+    || message.includes("failed to connect")
+    || message.includes("unexpected_failure")
+    || message.includes("request_timeout")
+    || message.includes("service unavailable")
+    || message.includes("internal server error");
+}
+
+// RÈGLE VERROUILLÉE — config/keep-product-contract.json > authResilience,
+// contrôlée par scripts/verify-product-contract.cjs.
+// Incident 02/10/2026 : Supabase Auth met jusqu'à 10 s quand la base est
+// lente. withDeadline n'annule pas la requête : abandonner à 3 s puis
+// relancer empilait 3 connexions en vol par utilisateur. L'échéance reste
+// donc au-dessus du délai serveur Auth, on ne relance jamais après elle, et
+// on ne relance qu'une erreur serveur RAPIDE (un serveur lent est saturé).
+const EDGE_SIGN_IN_DEADLINE_MS = 11000;
+const EDGE_MAX_SIGN_IN_ATTEMPTS = 2;
+const EDGE_RETRY_ONLY_FAST_FAILURE_MS = 5000;
+
 async function sessionFor(email: string, password: string) {
-  const { data, error } = await publicAuth.auth.signInWithPassword({ email, password });
-  if (error || !data.session) return { ok: false as const, error: "invalid_credentials" };
-  return {
-    ok: true as const,
-    session: {
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-      expires_at: data.session.expires_at ?? null,
-      user_id: data.session.user.id,
-    },
-  };
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < EDGE_MAX_SIGN_IN_ATTEMPTS; attempt += 1) {
+    let data: any = null;
+    let error: any = null;
+    const attemptStartedAt = Date.now();
+    try {
+      const result: any = await withDeadline(
+        publicAuth.auth.signInWithPassword({ email, password }),
+        EDGE_SIGN_IN_DEADLINE_MS,
+        "auth_signin_timeout",
+      );
+      data = result?.data ?? null;
+      error = result?.error ?? null;
+    } catch (signinError) {
+      error = signinError;
+    }
+    if (!error && data.session) {
+      return {
+        ok: true as const,
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at ?? null,
+          user_id: data.session.user.id,
+        },
+      };
+    }
+    lastError = error;
+    if (!error || !transientAuthFailure(error) || attempt === EDGE_MAX_SIGN_IN_ATTEMPTS - 1) break;
+    if (String(error?.message ?? error ?? "").includes("auth_signin_timeout")) break;
+    if (Date.now() - attemptStartedAt > EDGE_RETRY_ONLY_FAST_FAILURE_MS) break;
+    await wait(450 * (2 ** attempt));
+  }
+  if (lastError && transientAuthFailure(lastError)) {
+    return { ok: false as const, error: "auth_temporarily_unavailable" };
+  }
+  return { ok: false as const, error: "invalid_credentials" };
 }
 
 async function findAuthUserByEmail(email: string) {
@@ -61,18 +136,143 @@ async function findAuthUserByEmail(email: string) {
   return null;
 }
 
+async function findAuthUserByUsername(username: string) {
+  const target = normalizeUsername(username).toLocaleLowerCase('fr-FR');
+  // Fallback de panne uniquement. Le chemin normal reste l'index SQL/PostgREST.
+  // Tant que le parc legacy est petit, Supabase Auth permet de continuer à
+  // connecter les utilisateurs même si le schema-cache REST est indisponible.
+  for (let page = 1; page <= 25; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const found = data.users.find((user) => {
+      const value = normalizeUsername(user.user_metadata?.keep_username)
+        .toLocaleLowerCase('fr-FR');
+      return value === target;
+    });
+    if (found) return found;
+    if (data.users.length < 200) break;
+  }
+  return null;
+}
+
+function transientProfileLookupFailure(error: unknown) {
+  const code = String((error as any)?.code ?? '').toUpperCase();
+  const message = String((error as any)?.message ?? error ?? '').toLowerCase();
+  return transientAuthFailure(error)
+    || code === 'PGRST002'
+    || message.includes('schema cache')
+    || message.includes('could not query the database');
+}
+
 async function profileByUsername(username: string) {
-  const { data, error } = await admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2);
-  if (error) throw error;
-  return data ?? [];
+  // Login critique : contourne PostgREST/schema-cache. La requête SQL directe
+  // utilise l'index unique lower(username) et reste O(log n) même à grande échelle.
+  if (directDb) {
+    try {
+      const rows = await withDeadline(directDb`
+        select
+          p.id::text as id,
+          p.username,
+          p.is_public,
+          u.email,
+          u.is_anonymous
+        from public.profiles p
+        join auth.users u on u.id = p.id
+        where lower(p.username) = lower(${username})
+        limit 2
+      `, 1500, "direct_profile_lookup_timeout");
+      return rows.map((row: any) => ({
+        id: String(row.id),
+        username: String(row.username ?? ""),
+        is_public: row.is_public !== false,
+        email: normalizeEmail(row.email),
+        is_anonymous: Boolean(row.is_anonymous),
+      }));
+    } catch (error) {
+      console.error("[keep-username-auth] direct profile lookup failed", error);
+    }
+  }
+
+  // Fallback PostgREST borné. Un schema-cache bloqué ne doit jamais garder
+  // l'écran de connexion ouvert indéfiniment.
+  let restError: unknown = null;
+  try {
+    const result: any = await withDeadline(
+      admin.from("profiles").select("id,username,is_public").ilike("username", escapeLikePattern(username)).limit(2),
+      1800,
+      "postgrest_profile_lookup_timeout",
+    );
+    if (!result?.error) return result?.data ?? [];
+    restError = result.error;
+  } catch (error) {
+    restError = error;
+  }
+
+  // Incident 02/10/2026 : PostgREST peut perdre son schema-cache alors que
+  // Supabase Auth reste accessible. Le fallback Auth est temporaire et borné ;
+  // le chemin normal reste l'index unique lower(username), O(log n).
+  if (transientProfileLookupFailure(restError)) {
+    const authUser = await withDeadline(findAuthUserByUsername(username), 2500, "auth_username_lookup_timeout").catch(() => null);
+    if (authUser) {
+      const keepUsername = normalizeUsername(authUser.user_metadata?.keep_username) || username;
+      return [{ id: authUser.id, username: keepUsername, is_public: true }];
+    }
+  }
+
+  throw restError;
 }
 
 async function profileById(id: string) {
+  if (directDb) {
+    try {
+      const rows = await withDeadline(directDb`
+        select id::text as id, username
+        from public.profiles
+        where id = ${id}::uuid
+        limit 1
+      `, 1500, "direct_profile_id_lookup_timeout");
+      const row: any = rows[0];
+      return row ? { id: String(row.id), username: String(row.username ?? "") } : null;
+    } catch (error) {
+      console.error("[keep-username-auth] direct profile id lookup failed", error);
+    }
+  }
   const { data } = await admin.from("profiles").select("id,username").eq("id", id).maybeSingle();
   return data ?? null;
 }
 
+async function updateProfileUsername(userId: string, username: string) {
+  if (directDb) {
+    await directDb`
+      update public.profiles
+      set username = ${username}, display_name = ${username}, updated_at = now()
+      where id = ${userId}::uuid
+    `;
+    return;
+  }
+  const { error } = await admin.from("profiles").update({ username, display_name: username, updated_at: new Date().toISOString() }).eq("id", userId);
+  if (error) throw error;
+}
+
 async function createProfile(userId: string, username: string) {
+  if (directDb) {
+    await directDb`
+      insert into public.profiles (
+        id, username, display_name, bio, avatar_url, country_code, city,
+        kind, language_code, is_public, location_opt_in, website,
+        favorite_genres, favorite_artists
+      ) values (
+        ${userId}::uuid, ${username}, ${username}, '', null, null, null,
+        'USER', 'fr', true, false, null, '{}'::text[], '{}'::text[]
+      )
+      on conflict (id) do update
+      set username = excluded.username,
+          display_name = excluded.display_name,
+          updated_at = now()
+    `;
+    return;
+  }
+
   const payload = {
     id: userId,
     username,
@@ -111,9 +311,21 @@ async function usernameFlow(req: Request, action: string, username: string, pass
 
   if (action === "login") {
     if (!existingProfile) return json({ ok: false, error: "invalid_credentials" });
-    const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
-    if (userError || !userData.user?.email || userData.user.is_anonymous) return json({ ok: false, error: "account_not_created" });
-    const signed = await sessionFor(userData.user.email, password);
+
+    // Avec le chemin SQL direct, l'identité Auth est déjà jointe au profil :
+    // aucun appel admin.getUserById() supplémentaire n'est nécessaire.
+    let loginEmail = normalizeEmail((existingProfile as any).email);
+    let isAnonymous = Boolean((existingProfile as any).is_anonymous);
+
+    if (!loginEmail) {
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(existingProfile.id);
+      if (userError || !userData.user?.email || userData.user.is_anonymous) return json({ ok: false, error: "account_not_created" });
+      loginEmail = normalizeEmail(userData.user.email);
+      isAnonymous = Boolean(userData.user.is_anonymous);
+    }
+
+    if (!loginEmail || isAnonymous) return json({ ok: false, error: "account_not_created" });
+    const signed = await sessionFor(loginEmail, password);
     if (!signed.ok) return json({ ok: false, error: signed.error });
     return json({ ok: true, username: existingProfile.username, ...signed.session });
   }
@@ -206,8 +418,7 @@ async function emailFlow(req: Request, action: string, username: string, email: 
     const existingOwnProfile = await profileById(existingEmailUser.id);
     if (existingOwnProfile) {
       if (existingOwnProfile.username !== username) {
-        const { error: updateProfileError } = await admin.from("profiles").update({ username, updated_at: new Date().toISOString() }).eq("id", existingEmailUser.id);
-        if (updateProfileError) throw updateProfileError;
+        await updateProfileUsername(existingEmailUser.id, username);
       }
     } else {
       await createProfile(existingEmailUser.id, username);
@@ -287,6 +498,13 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
+
+    if (action === "health") {
+      if (!directDb) return json({ ok: false, direct_db: false, error: "database_url_unavailable" }, 503);
+      const rows = await withDeadline(directDb`select 1 as ok`, 1200, "direct_db_health_timeout");
+      return json({ ok: Number((rows[0] as any)?.ok ?? 0) === 1, direct_db: true });
+    }
+
     const username = normalizeUsername(body?.username);
     const email = normalizeEmail(body?.email);
     const password = String(body?.password ?? "");

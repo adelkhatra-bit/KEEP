@@ -1,9 +1,10 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from './MusicServiceIcon';
 import { MusicServiceKey } from '../services/keylessMusicBridge';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
+import KeepModal from './KeepModal';
 
 type Props = {
   visible: boolean;
@@ -31,7 +32,7 @@ export default function MusicServiceActivationModal({
   const supportsAccountSync = service === 'spotify' || service === 'deezer';
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
+    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
       <View style={s.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : onCancel} accessibilityLabel="Fermer" />
         <View style={s.card} accessibilityViewIsModal>
@@ -74,7 +75,7 @@ export default function MusicServiceActivationModal({
           </View>
         </View>
       </View>
-    </Modal>
+    </KeepModal>
   );
 }
 

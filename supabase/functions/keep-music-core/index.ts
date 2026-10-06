@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { seedInBackground } from "../_shared/fingerprintSeed.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -276,8 +277,11 @@ type TrackInput = {
   album?: string;
   durationSec?: number;
   artworkUrl?: string;
+  previewUrl?: string;
   genres?: string[];
   providerIds?: Record<string, string | undefined>;
+  externalUrls?: Record<string, string | undefined>;
+  availableOn?: string[];
 };
 
 async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: string): Promise<string> {
@@ -285,30 +289,39 @@ async function refreshTrackMetadata(existing: any, track: TrackInput, isrc: stri
   if (!existing.isrc && isrc) patch.isrc = isrc;
   if (!existing.album && track.album) patch.album = track.album;
   if (!existing.artwork_url && track.artworkUrl) patch.artwork_url = track.artworkUrl;
+  if (!existing.preview_url && track.previewUrl) patch.preview_url = track.previewUrl;
+  if ((!existing.external_urls || !Object.keys(existing.external_urls).length) && track.externalUrls) patch.external_urls = track.externalUrls;
+  if ((!existing.available_on || !existing.available_on.length) && track.availableOn?.length) patch.available_on = track.availableOn;
   const incomingProviderIds = track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {};
   if (Object.keys(incomingProviderIds).length) patch.provider_ids = { ...(existing.provider_ids ?? {}), ...incomingProviderIds };
   if (Object.keys(patch).length) await admin.from("tracks").update(patch).eq("id", existing.id);
   return String(existing.id);
 }
 
-async function findExistingTrack(title: string, artist: string, isrc: string): Promise<any | null> {
+async function findExistingTrack(track: TrackInput, isrc: string): Promise<any | null> {
+  const selectFields = "id,isrc,album,artwork_url,preview_url,external_urls,available_on,provider_ids,title,artist";
   if (isrc) {
-    const { data } = await admin.from("tracks").select("id,isrc,album,artwork_url,provider_ids").eq("isrc", isrc).maybeSingle();
+    const { data } = await admin.from("tracks").select(selectFields).eq("isrc", isrc).maybeSingle();
     if (data?.id) return data;
   }
-  const normalizedSearchTitle = normalizeText(title);
-  const normalizedSearchArtist = normalizeText(artist);
-  const { data: matches, error } = await admin
-    .from("tracks")
-    .select("id,isrc,album,artwork_url,provider_ids,title,artist")
-    .ilike("title", title)
-    .limit(20);
-  if (error) throw error;
-  for (const track of matches ?? []) {
-    if (normalizeText(track.title) === normalizedSearchTitle && normalizeText(track.artist) === normalizedSearchArtist) {
-      return track;
-    }
+
+  const providerIds = track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {};
+  const providerKeys = ["appleMusic", "spotify", "deezer"] as const;
+  for (const key of providerKeys) {
+    const value = String(providerIds[key] ?? "").trim();
+    if (!value) continue;
+    const { data, error } = await admin
+      .from("tracks")
+      .select(selectFields)
+      .eq(`provider_ids->>${key}`, value)
+      .maybeSingle();
+    if (error) throw error;
+    if (data?.id) return data;
   }
+
+  // IMPORTANT : titre + artiste n'est jamais une preuve de doublon.
+  // Deux versions peuvent partager les mêmes métadonnées tout en ayant
+  // un enregistrement, un mix ou des paroles différents.
   return null;
 }
 
@@ -318,7 +331,7 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
   const isrc = String(track.isrc ?? "").trim().toUpperCase();
   if (!title || !artist) throw new Error("invalid_track");
 
-  const existing = await findExistingTrack(title, artist, isrc);
+  const existing = await findExistingTrack(track, isrc);
   if (existing?.id) return refreshTrackMetadata(existing, track, isrc);
 
   const { data, error } = await admin.from("tracks").insert({
@@ -328,8 +341,11 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
     album: track.album || null,
     duration_sec: Number.isFinite(track.durationSec) ? Math.round(Number(track.durationSec)) : null,
     artwork_url: track.artworkUrl || null,
+    preview_url: track.previewUrl || null,
     genres: Array.isArray(track.genres) ? track.genres.slice(0, 20) : [],
     provider_ids: track.providerIds && typeof track.providerIds === "object" ? track.providerIds : {},
+    external_urls: track.externalUrls && typeof track.externalUrls === "object" ? track.externalUrls : {},
+    available_on: Array.isArray(track.availableOn) ? track.availableOn.slice(0, 20) : [],
   }).select("id").single();
 
   if (!error && data?.id) return String(data.id);
@@ -338,7 +354,7 @@ async function findOrCreateTrack(track: TrackInput): Promise<string> {
   // instant. L'index unique PostgreSQL gagne la course ; le perdant recharge
   // simplement le track déjà créé au lieu de fabriquer un doublon ou une 500.
   if ((error as any)?.code === "23505") {
-    const raced = await findExistingTrack(title, artist, isrc);
+    const raced = await findExistingTrack(track, isrc);
     if (raced?.id) return refreshTrackMetadata(raced, track, isrc);
   }
   throw error;
@@ -399,51 +415,93 @@ async function recordDecision(req: Request) {
   const decision = String(body?.decision ?? "").toUpperCase();
   if (decision !== "KEPT" && decision !== "PASSED") return json(400, { error: "invalid_decision" });
   const visibility: KeepVisibility = String(body?.visibility ?? "PRIVATE").toUpperCase() === "PUBLIC" ? "PUBLIC" : "PRIVATE";
-  const trackId = await findOrCreateTrack((body?.track ?? {}) as TrackInput);
+  const trackInput = (body?.track ?? {}) as TrackInput;
+  const trackId = await findOrCreateTrack(trackInput);
   const context = body?.context && typeof body.context === "object" ? body.context : {};
 
-  if (decision === "KEPT") {
-    const current = await existingKeptDecision(userId, trackId);
-    if (current?.id) {
-      // GARDER deux fois le même morceau doit être idempotent. On peut modifier
-      // sa visibilité, mais on ne remplace jamais l'origine historique.
-      let returned = current;
-      if (current.visibility !== visibility) {
-        const { data: updated, error: updateError } = await admin
-          .from("keep_decisions")
-          .update({ visibility })
-          .eq("id", current.id)
-          .select("id,created_at,visibility,source_user_id,source_type,context")
-          .single();
-        if (updateError) throw updateError;
-        returned = updated;
-      }
-      return json(200, {
-        ok: true,
-        trackId,
-        decisionId: returned.id,
-        createdAt: returned.created_at,
-        visibility: returned.visibility,
-        deduplicated: true,
-      });
-    }
+  // A track kept on a profile becomes useful to the collective recognition
+  // memory immediately when a legal preview is available. This also covers
+  // native ShazamKit matches, which previously bypassed the server recognizer
+  // and therefore never seeded KEEP fingerprints.
+  if (decision === "KEPT" && trackInput.previewUrl) {
+    seedInBackground(admin, {
+      title: String(trackInput.title ?? ""),
+      artist: String(trackInput.artist ?? ""),
+      album: trackInput.album,
+      artworkUrl: trackInput.artworkUrl,
+      previewUrl: trackInput.previewUrl,
+      externalUrls: trackInput.externalUrls as Record<string, string> | undefined,
+      providerIds: trackInput.providerIds as Record<string, string> | undefined,
+    });
   }
 
   const sourceProfileId = validUuid((context as any)?.sourceProfileId);
   const socialSource = sourceProfileId && sourceProfileId !== userId ? sourceProfileId : null;
-  const originProfileId = decision === "KEPT" ? await resolveSocialOrigin(socialSource, trackId) : null;
 
-  // Un GARDER direct (pas une reprise sociale, pas un doublon deja gere plus
-  // haut) coute un credit Free reel -- verifie ET debite ICI, cote serveur,
-  // avant toute ecriture. Sans ce controle, n'importe qui pouvait appeler
-  // cette fonction directement (ex: console navigateur sur la version web) et
-  // enregistrer des GARDER illimites sans jamais toucher au solde Free.
-  if (decision === "KEPT" && !socialSource) {
+  if (decision === "KEPT") {
     const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-    const credit = await consumeKeepCredit(token);
-    if (!credit.allowed) return json(402, { error: "CREDITS_EXHAUSTED" });
+    if (!token) return json(401, { error: "account_required" });
+
+    const scoped = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const sourceLabel = typeof (context as any)?.source === "string" && String((context as any).source).trim()
+      ? String((context as any).source).trim().slice(0, 70)
+      : "manual";
+    // Idempotence au niveau du morceau, jamais au niveau de l'écran/source.
+    // "session_history" seul bloquait tous les GARDER suivants de la même source
+    // à cause de l'index unique du ledger FREE.
+    const sourceKey = `${sourceLabel}:${trackId}`;
+
+    const followNotificationId = validUuid((context as any)?.notificationId);
+    const socialNotificationFree = Boolean(
+      socialSource
+      && followNotificationId
+      && String((context as any)?.source || '') === 'follow_notification'
+      && String((context as any)?.creditPolicy || '') === 'SOCIAL_ZERO_CREDIT'
+    );
+
+    const { data: committed, error: commitError } = socialNotificationFree
+      ? await scoped.rpc("keep_commit_follow_notification_decision", {
+          p_notification_id: followNotificationId,
+          p_track_id: trackId,
+          p_visibility: visibility,
+          p_context: context,
+        })
+      : await scoped.rpc("keep_commit_paid_decision", {
+          p_track_id: trackId,
+          p_visibility: visibility,
+          p_context: context,
+          p_source_profile_id: socialSource,
+          p_source_key: sourceKey,
+        });
+
+    if (commitError) {
+      const message = String(commitError.message || "");
+      if (/CREDITS_EXHAUSTED|download_daily_limit_reached/i.test(message)) {
+        return json(402, { error: "CREDITS_EXHAUSTED" });
+      }
+      throw commitError;
+    }
+
+    if (!committed || typeof committed !== "object" || !(committed as any).decisionId) {
+      throw new Error("keep_server_confirmation_required");
+    }
+
+    return json(200, {
+      ok: true,
+      trackId,
+      decisionId: String((committed as any).decisionId),
+      createdAt: (committed as any).createdAt ?? null,
+      visibility: (committed as any).visibility ?? visibility,
+      deduplicated: Boolean((committed as any).deduplicated),
+      charged: Number((committed as any).charged ?? 0),
+      sourceKey: (committed as any).sourceKey ?? sourceKey,
+    });
   }
 
+  // PASSER reste une décision gratuite et ne touche jamais au grand livre FREE.
   const { data, error } = await admin.from("keep_decisions").insert({
     profile_id: userId,
     track_id: trackId,
@@ -453,28 +511,12 @@ async function recordDecision(req: Request) {
     chosen_playlist_id: null,
     was_correction: false,
     context,
-    source_type: socialSource ? "profile" : null,
-    source_user_id: originProfileId,
+    source_type: null,
+    source_user_id: null,
   }).select("id,created_at,visibility").single();
 
   if (!error && data?.id) {
-    return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility, deduplicated: false });
-  }
-
-  // Protection de course côté base : si deux actions GARDER arrivent en même
-  // temps, l'index unique rejette la seconde ; on renvoie alors la première.
-  if (decision === "KEPT" && (error as any)?.code === "23505") {
-    const raced = await existingKeptDecision(userId, trackId);
-    if (raced?.id) {
-      return json(200, {
-        ok: true,
-        trackId,
-        decisionId: raced.id,
-        createdAt: raced.created_at,
-        visibility: raced.visibility,
-        deduplicated: true,
-      });
-    }
+    return json(200, { ok: true, trackId, decisionId: data.id, createdAt: data.created_at, visibility: data.visibility, deduplicated: false, charged: 0 });
   }
   throw error;
 }

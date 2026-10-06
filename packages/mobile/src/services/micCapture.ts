@@ -5,13 +5,22 @@
  * `onLevel` (optionnel, 0-1) pilote l'animation avec le niveau micro réel.
  */
 import { Platform } from 'react-native';
-import { Audio, InterruptionModeIOS } from 'expo-av';
+import { File as ExpoFile } from 'expo-file-system';
 import { ensureBackgroundListeningService, stopBackgroundListeningService } from './backgroundListeningService';
 import { APP_NAME } from '../config/brand';
+import { noSoundMessage } from './micNoSoundMessage';
+
+type ExpoAVModule = typeof import('expo-av');
+type NativeRecording = import('expo-av').Audio.Recording;
+let nativeExpoAVModule: ExpoAVModule | null = null;
+function getNativeExpoAV(): ExpoAVModule {
+  if (!nativeExpoAVModule) nativeExpoAVModule = require('expo-av') as ExpoAVModule;
+  return nativeExpoAVModule;
+}
 
 const DEFAULT_SAMPLE_DURATION_MS = 4000;
 const MIN_SAMPLE_DURATION_MS = 2500;
-const MAX_SAMPLE_DURATION_MS = 8000;
+const MAX_SAMPLE_DURATION_MS = 11000;
 const NATIVE_VISUAL_NOISE_FLOOR_DB = -52;
 // Retour utilisateur 31/08/2026 (apres desactivation d'autoGainControl) :
 // l'animation reste peu sensible specifiquement sur iPhone -- devrait bouger
@@ -44,7 +53,7 @@ export class MicCaptureCancelledError extends Error {
 }
 
 let permissionGranted = false;
-let activeRecording: Audio.Recording | null = null;
+let activeRecording: NativeRecording | null = null;
 let cancellationVersion = 0;
 let activeDelayCancel: (() => void) | null = null;
 let nativeRecordingModeDesired = false;
@@ -76,6 +85,7 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
   nativeAudioModeQueue = nativeAudioModeQueue
     .catch(() => {})
     .then(async () => {
+      const { Audio, InterruptionModeIOS } = getNativeExpoAV();
       const target = nativeRecordingModeDesired;
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: target,
@@ -89,7 +99,28 @@ function setNativeRecordingMode(desired: boolean): Promise<void> {
   return nativeAudioModeQueue;
 }
 
+// Maquette validée (docs/mockups/Permissions.html, 22/09/2026) : écran de
+// mise en confiance affiché une fois avant la toute première demande
+// d'autorisation micro native. Web non concerné -- le navigateur affiche
+// déjà sa propre invite au geste utilisateur.
+export async function getMicPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined'> {
+  if (Platform.OS === 'web') return 'granted';
+  const { Audio } = getNativeExpoAV();
+  const { status } = await Audio.getPermissionsAsync();
+  if (status === 'granted') permissionGranted = true;
+  return status as 'granted' | 'denied' | 'undetermined';
+}
+
+export async function requestMicPermission(): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
+  const { Audio } = getNativeExpoAV();
+  const { status } = await Audio.requestPermissionsAsync();
+  permissionGranted = status === 'granted';
+  return permissionGranted;
+}
+
 async function ensurePermission(): Promise<void> {
+  const { Audio } = getNativeExpoAV();
   if (!permissionGranted) {
     const { status } = await Audio.requestPermissionsAsync();
     if (status !== 'granted') throw new MicPermissionDeniedError();
@@ -127,7 +158,7 @@ function waitForSampleOrCancel(durationMs: number, versionAtStart: number): Prom
   });
 }
 
-async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
+async function stopRecordingQuietly(recording: NativeRecording): Promise<void> {
   try {
     await recording.stopAndUnloadAsync();
   } catch {
@@ -138,6 +169,7 @@ async function stopRecordingQuietly(recording: Audio.Recording): Promise<void> {
 // ---- Natif (iOS/Android) ----
 
 async function captureAudioSampleNative(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS): Promise<Blob> {
+  const { Audio } = getNativeExpoAV();
   // Le numéro doit être capturé AVANT la permission/mise en mode audio. Si
   // ARRÊTER arrive pendant cette phase asynchrone, la capture ne doit surtout
   // pas créer un nouvel Audio.Recording après l'arrêt demandé.
@@ -209,8 +241,24 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
   const uri = recording.getURI();
   if (!uri) throw new Error('Capture micro : aucun fichier produit par expo-av.');
 
-  const response = await fetch(uri);
-  return response.blob();
+  // P0 TestFlight/Tesla (04/10/2026) : sur React Native, fetch(file://...).blob()
+  // peut produire un Blob vide alors que l'enregistrement expo-av est valide.
+  // Les logs production montraient alors des multipart de ~255 octets et
+  // ACRCloud répondait audio_too_small pendant des dizaines de minutes.
+  // Expo SDK 54 expose File.bytes() : on lit donc réellement le fichier natif
+  // puis on construit un Blob binaire transportable par les 4 moteurs
+  // (ShazamKit, mémoire Loki, AudD, ACRCloud).
+  const nativeFile = new ExpoFile(uri);
+  // Expo SDK 54 : File implémente directement Blob sur iOS/Android.
+  // NE PAS reconstruire un Blob depuis Uint8Array/ArrayBuffer avec le Blob
+  // React Native historique : il lève précisément
+  // "Creating blobs from 'ArrayBuffer' and 'ArrayBufferView' are not supported".
+  // On valide seulement la taille puis on transmet le File natif tel quel à
+  // expo/fetch + FormData (chemin officiellement supporté par Expo).
+  if (!nativeFile.exists || nativeFile.size < 1000) {
+    throw new Error(`Capture micro invalide : seulement ${nativeFile.size ?? 0} octet(s) enregistrés.`);
+  }
+  return nativeFile as unknown as Blob;
 }
 
 // ---- Web : Web Audio API brute + encodage WAV manuel ----
@@ -384,7 +432,7 @@ async function captureStreamToWav(
     if (v > peak) peak = v;
   }
   if (totalLength === 0 || peak < 0.004) {
-    throw new Error('Aucun son détecté -- vérifie que le micro capte bien la musique (volume, autorisation navigateur).');
+    throw new Error(noSoundMessage());
   }
   onPeak?.(peak);
 
@@ -452,6 +500,15 @@ export function releaseCaptureResources(): void {
 export async function cancelAudioCapture(): Promise<void> {
   cancellationVersion += 1;
   activeDelayCancel?.();
+  // BUG RÉEL TestFlight (Adel, 05/10/2026 : "j'appuie sur Play sur mon profil,
+  // la musique ne démarre pas", alors que l'ordinateur marche). pauseListening()
+  // appelle cancelAudioCapture() sans l'attendre puis lance aussitôt l'extrait.
+  // Le drapeau ne repassait à false qu'APRÈS stopRecordingQuietly() : l'extrait
+  // lisait donc encore isNativeRecordingModeActive() === true et configurait iOS
+  // en allowsRecordingIOS:true (son routé vers l'écouteur, quasi inaudible).
+  // On publie l'intention « plus d'enregistrement » dès l'arrêt demandé ; une
+  // nouvelle capture la repasse à true via ensurePermission().
+  if (Platform.OS !== 'web') nativeRecordingModeDesired = false;
 
   const recording = activeRecording;
   activeRecording = null;

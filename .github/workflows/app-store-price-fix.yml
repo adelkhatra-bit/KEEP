@@ -1,0 +1,118 @@
+name: Loki App Store Price Fix
+
+on:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-price-fix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set Loki Music download price to free
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto = require('node:crypto');
+
+          const required = ['ASC_API_KEY_P8_BASE64','ASC_KEY_ID','ASC_ISSUER_ID','ASC_APP_ID'];
+          const missing = required.filter(k => !process.env[k]?.trim());
+          if (missing.length) throw new Error('Missing secrets: ' + missing.join(', '));
+
+          const key = Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(), 'base64');
+          const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now()/1000);
+          const unsigned = enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'}) + '.' +
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token = unsigned + '.' + crypto.sign('sha256', Buffer.from(unsigned), {
+            key, dsaEncoding:'ieee-p1363'
+          }).toString('base64url');
+
+          async function api(path, options={}) {
+            const res = await fetch('https://api.appstoreconnect.apple.com' + path, {
+              method: options.method || 'GET',
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            const text = await res.text();
+            if (options.allow404 && res.status === 404) return null;
+            if (!res.ok) throw new Error((options.method || 'GET') + ' ' + path + ' HTTP ' + res.status + ' ' + text.slice(0,1500));
+            return text ? JSON.parse(text) : null;
+          }
+
+          (async () => {
+            const appId = process.env.ASC_APP_ID.trim();
+
+            const existing = await api('/v1/apps/' + appId +
+              '/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&fields[territories]=currency&limit[manualPrices]=50',
+              {allow404:true});
+
+            if (existing?.data) {
+              console.log('=== LOKI PRICE RESULT ===');
+              console.log(JSON.stringify({alreadyConfigured:true,scheduleId:existing.data.id}, null, 2));
+              console.log('=== END LOKI PRICE RESULT ===');
+              return;
+            }
+
+            const points = await api('/v1/apps/' + appId +
+              '/appPricePoints?filter[territory]=FRA&fields[appPricePoints]=customerPrice,proceeds,territory&limit=200');
+            const freePoint = (points.data || []).find(p => Number(p.attributes?.customerPrice) === 0);
+            if (!freePoint) throw new Error('No 0 EUR price point found for France');
+
+            const localId = String.fromCharCode(36) + '{loki-free-fr}';
+            const body = {
+              data: {
+                type: 'appPriceSchedules',
+                attributes: {},
+                relationships: {
+                  app: {data:{type:'apps',id:appId}},
+                  manualPrices: {data:[{type:'appPrices',id:localId}]},
+                  baseTerritory: {data:{type:'territories',id:'FRA'}}
+                }
+              },
+              included: [{
+                id: localId,
+                relationships: {
+                  appPricePoint: {data:{type:'appPricePoints',id:freePoint.id}}
+                },
+                type: 'appPrices',
+                attributes: {
+                  startDate: null,
+                  endDate: null
+                }
+              }]
+            };
+
+            const created = await api('/v1/appPriceSchedules', {method:'POST', body});
+            await new Promise(r => setTimeout(r, 2500));
+            const verify = await api('/v1/apps/' + appId +
+              '/appPriceSchedule?include=baseTerritory,manualPrices&fields[appPriceSchedules]=baseTerritory,manualPrices&fields[appPrices]=manual,startDate,endDate,appPricePoint,territory&limit[manualPrices]=50');
+
+            const manualIds = verify.data.relationships?.manualPrices?.data || [];
+            console.log('=== LOKI PRICE RESULT ===');
+            console.log(JSON.stringify({
+              created: !!created?.data,
+              scheduleId: verify.data.id,
+              baseTerritory: verify.data.relationships?.baseTerritory?.data?.id || null,
+              manualPriceCount: manualIds.length,
+              selectedCustomerPrice: freePoint.attributes?.customerPrice
+            }, null, 2));
+            console.log('=== END LOKI PRICE RESULT ===');
+          })().catch(error => {
+            console.error(error.stack || error.message || String(error));
+            process.exit(1);
+          });
+          NODE

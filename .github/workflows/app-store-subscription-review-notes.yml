@@ -1,0 +1,69 @@
+name: Loki Subscription Review Notes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - reconcile/claude-main-20260825
+    paths:
+      - '.github/workflows/app-store-subscription-review-notes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Add App Review notes to subscriptions
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        run: |
+          node <<'NODE'
+          const crypto=require('node:crypto');
+          const key=Buffer.from(process.env.ASC_API_KEY_P8_BASE64.trim(),'base64');
+          const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+          const now=Math.floor(Date.now()/1000);
+          const unsigned=enc({alg:'ES256',kid:process.env.ASC_KEY_ID.trim(),typ:'JWT'})+'.'+
+            enc({iss:process.env.ASC_ISSUER_ID.trim(),iat:now-30,exp:now+600,aud:'appstoreconnect-v1'});
+          const token=unsigned+'.'+crypto.sign('sha256',Buffer.from(unsigned),{key,dsaEncoding:'ieee-p1363'}).toString('base64url');
+
+          async function api(p,{method='GET',body}={}){
+            const res=await fetch('https://api.appstoreconnect.apple.com'+p,{
+              method,
+              headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+              body:body?JSON.stringify(body):undefined
+            });
+            const txt=await res.text();
+            if(!res.ok)throw new Error(method+' '+p+' HTTP '+res.status+' '+txt.slice(0,900));
+            return txt?JSON.parse(txt):null;
+          }
+
+          (async()=>{
+            const appId=process.env.ASC_APP_ID.trim();
+            const groups=await api('/v1/apps/'+appId+
+              '/subscriptionGroups?include=subscriptions&fields[subscriptionGroups]=subscriptions&fields[subscriptions]=name,productId,state,reviewNote&limit=200&limit[subscriptions]=50');
+            const subs=(groups.included||[]).filter(x=>x.type==='subscriptions');
+            for(const s of subs){
+              const label=s.attributes?.name||s.attributes?.productId||'Loki subscription';
+              const note=[
+                label+' est un abonnement mensuel auto-renouvelable.',
+                'Pour tester : ouvrir Loki Music → Offre & crédits → sélectionner cette formule → S’ABONNER.',
+                'Le paiement natif utilise StoreKit 2 et le reçu est vérifié côté serveur.',
+                'Le bouton « Restaurer mes achats » est disponible sur le même écran.',
+                'La résiliation et la gestion de l’abonnement se font via les réglages Apple.'
+              ].join('\n');
+              await api('/v1/subscriptions/'+s.id,{
+                method:'PATCH',
+                body:{data:{type:'subscriptions',id:s.id,attributes:{reviewNote:note}}}
+              });
+              const verify=await api('/v1/subscriptions/'+s.id+
+                '?fields[subscriptions]=name,productId,state,reviewNote');
+              console.log(verify.data.attributes?.productId,'reviewNote present:',Boolean(verify.data.attributes?.reviewNote?.trim()),'state:',verify.data.attributes?.state);
+            }
+          })().catch(e=>{console.error(e.message||String(e));process.exit(1)});
+          NODE

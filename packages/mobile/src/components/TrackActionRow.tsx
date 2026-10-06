@@ -42,6 +42,8 @@ export type TrackActionRowProps = {
   artist: string;
   dimmed?: boolean;
   lockIcon?: boolean;
+  /** Appui sur le cadenas : explication claire de la raison du statut privé. */
+  onLockPress?: () => void;
   /**
    * Adel (21/09/2026) : "le morceau en vente doit rester visible dans la
    * liste, avec un badge EN VENTE ... il ne doit pas être caché." Pastille
@@ -50,6 +52,8 @@ export type TrackActionRowProps = {
    * le panneau pour être vu.
    */
   badge?: { label: string; onPress?: () => void };
+  /** Origine visible du morceau, indépendante du badge commercial. */
+  originBadge?: { label: string; tone?: 'listen' | 'social'; onPress?: () => void };
   /** Rendu tel quel (typiquement <TrackPreviewButton square />) -- ce composant ne réimplémente jamais la logique audio. */
   playSlot: React.ReactNode;
   actions: TrackActionRowAction[];
@@ -73,7 +77,9 @@ export default function TrackActionRow({
   artist,
   dimmed = false,
   lockIcon = false,
+  onLockPress,
   badge,
+  originBadge,
   playSlot,
   actions,
   expandable = false,
@@ -94,9 +100,23 @@ export default function TrackActionRow({
               </TouchableOpacity>
             ) : null}
           </View>
-          <Text style={styles.artist} numberOfLines={1}>{artist}</Text>
+          <View style={styles.artistRow}>
+            <Text style={styles.artist} numberOfLines={1}>{artist}</Text>
+            {originBadge ? (
+              <TouchableOpacity
+                style={[styles.originBadge, originBadge.tone === 'social' ? styles.originBadgeSocial : styles.originBadgeListen]}
+                onPress={originBadge.onPress}
+                disabled={!originBadge.onPress}
+                accessibilityLabel={originBadge.label}
+              >
+                <Text style={[styles.originBadgeText, originBadge.tone === 'social' ? styles.originBadgeTextSocial : styles.originBadgeTextListen]} numberOfLines={1}>{originBadge.label}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
-        {lockIcon ? <Text style={styles.lock} accessibilityLabel="Morceau privé">🔒</Text> : null}
+        {lockIcon ? (onLockPress
+          ? <TouchableOpacity onPress={onLockPress} style={styles.lockTouch} accessibilityRole="button" accessibilityLabel="Morceau privé : appuyer pour comprendre pourquoi"><Text style={styles.lock}>🔒</Text></TouchableOpacity>
+          : <Text style={styles.lock} accessibilityLabel="Morceau privé">🔒</Text>) : null}
         {playSlot}
         {actions.map((action) => (
           <TouchableOpacity
@@ -139,12 +159,20 @@ const styles = StyleSheet.create({
   info: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   title: { flexShrink: 1, color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
-  artist: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  artistRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  artist: { flexShrink: 1, color: colors.textMuted, fontSize: 11 },
+  originBadge: { maxWidth: '58%', flexShrink: 1, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 7, borderWidth: 1 },
+  originBadgeListen: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.keep },
+  originBadgeSocial: { backgroundColor: 'rgba(124,92,252,0.12)', borderColor: colors.primaryLight },
+  originBadgeText: { fontSize: 8, fontWeight: '900' },
+  originBadgeTextListen: { color: colors.keep },
+  originBadgeTextSocial: { color: colors.primaryLight },
   badge: { flexShrink: 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: `${colors.success}22`, borderWidth: 1, borderColor: colors.success },
   badgeText: { color: colors.success, fontSize: 9, fontWeight: '900' },
   lock: { fontSize: 13 },
+  lockTouch: { minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   square: { width: SQUARE, height: SQUARE, flexShrink: 0, borderRadius: 10, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
-  squareIcon: { color: '#8B87A0', fontSize: 15, fontWeight: '900' },
+  squareIcon: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
   squareCounter: { color: colors.textMuted, fontSize: 8, fontWeight: '800', marginTop: 1 },
   chevron: { width: CHEVRON, height: CHEVRON, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   chevronText: { color: colors.textMuted, fontSize: 13, fontWeight: '900' },

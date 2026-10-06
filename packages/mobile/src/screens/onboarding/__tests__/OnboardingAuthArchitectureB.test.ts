@@ -16,7 +16,7 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
   const onboarding = readNormalized(__dirname, '..', 'OnboardingScreen.tsx');
 
   it('auto-entre en essai gratuit au montage (handleGuestPress) sans attendre un tap, sauf intention explicite', () => {
-    expect(onboarding).toContain('if (accountOpen || intent.followUsername) return;');
+    expect(onboarding).toContain("if (accountOpen || (Platform.OS !== 'web' && intent.followUsername)) return;");
     expect(onboarding).toContain('if (useUserStore.getState().user) return;');
     expect(onboarding).toContain('void handleGuestPress();');
   });
@@ -29,20 +29,24 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
     expect(onboarding).toContain('followUsername: (params.get(\'__keep_follow\') || \'\').trim()');
   });
 
-  it('le choix manuel (Essayer gratuitement + Se connecter/Créer un compte) reste intégralement rendu en repli -- rien supprimé', () => {
+  it('le choix manuel reste disponible en repli, avec une entrée explicite pour les comptes existants -- rien supprimé', () => {
     expect(onboarding).toContain('onPress={handleGuestPress}');
     expect(onboarding).toContain('ESSAYER GRATUITEMENT');
     expect(onboarding).toContain('3 téléchargements sans inscription');
-    expect(onboarding).toContain("Se connecter / Créer mon compte");
+    expect(onboarding).toContain('J’AI DÉJÀ UN COMPTE');
+    expect(onboarding).toContain('Créer mon compte');
+    expect(onboarding).toContain("setAccountMode('login'); setAccountOpen(true)");
+    expect(onboarding).toContain("setAccountMode('create'); setAccountOpen(true)");
     expect(onboarding).toContain('CONTINUER SANS INSCRIPTION');
     expect(onboarding).toContain("Mode démo");
     expect(onboarding).toContain("legalNotice");
   });
 
-  it('le CTA "Se connecter / Créer un compte" est maintenant un lien fantôme (1 seul CTA plein par écran), pas un second bouton plein', () => {
+  it('les entrées compte restent secondaires (1 seul CTA plein par écran), avec connexion prioritaire pour quelqu’un qui a déjà un mot de passe', () => {
     expect(onboarding).toContain('style={styles.accountGhostButton}');
+    expect(onboarding).toContain('style={styles.accountCreateLink}');
     expect(onboarding).not.toContain('style={[styles.button, styles.accountButton]}');
-    expect(onboarding).toContain("accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center'}");
+    expect(onboarding).toContain("accountGhostButton:{minHeight:44,alignItems:'center',justifyContent:'center',paddingHorizontal:12}");
   });
 
   it('"CONTINUER SANS INSCRIPTION" (repli dans le formulaire) garde son style de bouton plein original -- non touché par ce changement', () => {
@@ -53,11 +57,22 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
 describe('UsernameAccountForm -- champs agrandis, tooltips, force à 2 tons (Adel, 22/09/2026, maquette validée)', () => {
   const form = readNormalized(__dirname, '..', '..', '..', 'components', 'UsernameAccountForm.tsx');
 
-  it('champs 44px -> 52px, police 14px -> 16px minimum', () => {
-    expect(form).toContain('input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16}');
+  it('garde des champs 52px / police 16px et une surface clairement éditable', () => {
+    expect(form).toContain("const AUTH_INPUT_BACKGROUND = '#312C43';");
+    expect(form).toContain("const AUTH_INPUT_BACKGROUND_FOCUSED = '#3A3450';");
+    expect(form).toContain("const AUTH_INPUT_BORDER = '#625B77';");
+    expect(form).toContain('input:{minHeight:52,');
     expect(form).toContain('passwordRow:{minHeight:52,');
-    expect(form).toContain('passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16}');
-    expect(form).not.toContain('minHeight:44,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:13,color:colors.textPrimary,fontSize:14');
+    expect(form).toContain('fontSize:16');
+  });
+
+  it('utilise un gris clair pour les placeholders et un texte saisi légèrement grisé, jamais noir sur fond sombre', () => {
+    expect(form).toContain("const AUTH_INPUT_PLACEHOLDER = '#BDB8C7';");
+    expect(form).toContain("const AUTH_INPUT_TEXT = '#ECE8F2';");
+    const placeholders = form.match(/placeholderTextColor=\{AUTH_INPUT_PLACEHOLDER\}/g) || [];
+    expect(placeholders).toHaveLength(4);
+    expect(form).toContain('color:AUTH_INPUT_TEXT');
+    expect(form).not.toContain('placeholderTextColor={colors.textMuted}');
   });
 
   it('tooltip ⓘ tap-to-reveal sur pseudo et e-mail, texte conservé (pas supprimé, juste replié)', () => {
@@ -75,7 +90,11 @@ describe('UsernameAccountForm -- champs agrandis, tooltips, force à 2 tons (Ade
     expect(form).not.toContain("backgroundColor:'#F59E0B'");
   });
 
-  it('aucune fonction retirée : suggérer un mot de passe, switch create/login, mot de passe oublié, tous les 13 codes d\'erreur toujours présents', () => {
+  it('restores the global welcome overlay after every explicit successful login', () => {
+    expect(form).toContain("useAccountGateStore.getState().handleSuccess()");
+  });
+
+  it("aucune fonction retirée : suggérer un mot de passe, switch create/login, mot de passe oublié, tous les 13 codes d’erreur toujours présents", () => {
     expect(form).toContain('SUGGÉRER UN MOT DE PASSE');
     expect(form).toContain('J’ai déjà un compte');
     expect(form).toContain('Mot de passe oublié ?');

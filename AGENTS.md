@@ -1,3 +1,17 @@
+## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
+Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
+
+## BIBLIOTHÈQUE PRODUIT CANONIQUE — À LIRE EN PREMIER
+Avant toute action, lire `config/keep-product-contract.json`. C'est la bibliothèque machine anti-régression de KEEP. Si un ancien commentaire, test, message agent ou document contredit la décision explicite la plus récente d'Adel et ce contrat, il est obsolète et doit être corrigé dans le même commit. Une correction UI ne doit jamais modifier des données utilisateur réelles (certification, FREE, profil) pour « faire correspondre » l'écran.
+
+## CAHIER DES CHARGES PRODUIT OBLIGATOIRE
+Lire `docs/KEEP_MASTER_SPEC.md` — cahier des charges maître obligatoire — puis `docs/KEEP_CAHIER_DES_CHARGES_UI.md` avant toute modification. Une modification qui contredit ces fichiers sans nouvelle demande explicite est une régression.
+
+**Économie FREE obligatoire :** avant toute modification concernant les écoutes, FREE, recharges, parrainage, abonnements ou accès ordinateur QR, lire `docs/PRICING_STRATEGY.md` → « Économie FREE — décision d'Adel du 04/10/2026 (CANONIQUE) » et respecter son ordre d'implémentation.
+
+## AVANT TOUTE ACTION
+Consulter `.rtk/AGENTS_RULES.md` — règles absolues du projet Loki Music.
+
 # KEEP — Instructions agents (Codex CLI, et tout agent qui lit AGENTS.md)
 
 Ce dépôt est aussi piloté par Claude Code, qui suit `CLAUDE.md` (racine du repo) —
@@ -6,6 +20,15 @@ toute tâche, jamais de doublon, jamais PASS sans preuve réelle). Ce fichier
 `AGENTS.md` n'est PAS une deuxième version de ces règles — il pointe vers la même
 source unique et ajoute uniquement ce qui est spécifique à un agent qui travaille
 dans ce dossier EN PARALLÈLE de Claude Code.
+
+## 🧭 GPS DU CODE + MÉMOIRE ANTI-RÉGRESSION
+
+Avant toute modification, lire aussi :
+- `docs/CODE_GPS.md` — carte des dossiers, propriétaires fonctionnels et flux critiques ;
+- `docs/ERROR_LEDGER.md` — erreurs connues, causes racines, statut et preuve ;
+- `docs/INTEGRATION_CHECKLIST.md` — checklist obligatoire d'intégration.
+
+Toute nouvelle erreur réelle doit être ajoutée à `docs/ERROR_LEDGER.md` avant ou dans le même commit que son correctif. **Ne jamais supprimer une erreur du registre** : la passer à `VERIFIED` uniquement avec SHA + test/preuve. Toute refonte qui rend un test obsolète doit expliquer pourquoi et conserver les assertions de sécurité/fonction qui restent vraies.
 
 ## 🧠 MÉMOIRE PARTAGÉE
 
@@ -17,6 +40,10 @@ dans ce dossier EN PARALLÈLE de Claude Code.
 - **Une fois par clone** : `git config core.hooksPath .githooks` (rappel pre-commit + sync post-merge de `PROJECT_STATE.md`).
 
 La mémoire `.context/` transmet l'état de travail entre agents ; elle ne remplace ni le code, ni le schéma Supabase réel, ni les règles de `CLAUDE.md` et `AGENTS.md`.
+
+## Parité Mobile / Ordinateur — une seule implémentation
+
+Le mobile iOS/Android et la version ordinateur Expo Web ne sont jamais deux produits à coder séparément. Toute logique produit commune (Écouter, Découvertes, Playlists, Soirées/Battle, Profil, Tchat, paiements, notifications) doit vivre une seule fois dans `packages/mobile/src` et être utilisée par les deux runtimes. Les différences de plateforme sont limitées aux adaptateurs techniques (micro, audio, navigateur, permissions, routage), jamais à une copie complète d'écran ou de feature. Toute modification fonctionnelle dans `packages/mobile/**` doit être validée dans le même cycle sur 390×844 ET 1440×900 via `.github/workflows/keep-dual-viewport-guardian.yml`. Le contrat machine est `config/platform-parity-contract.json` et `scripts/verify-source-of-truth.cjs` bloque les racines produit Web/Desktop parallèles.
 
 ## Une seule version, un seul dossier
 
@@ -67,12 +94,30 @@ schéma réel Supabase (`profiles`, `keep_decisions`, `subscriptions`, `plans`,
 ces noms n'existent pas dans ce projet) font foi, pas une supposition ni un ancien
 snapshot.
 
+## 🔒 CONNEXION — RÈGLE VERROUILLÉE PAR LE CODE (incident 02/10/2026)
+
+Le 02/10/2026, plus personne ne pouvait se connecter : un sondage réseau toutes les 800 ms a épuisé la base Supabase, puis l'app abandonnait chaque connexion après 3,5 s et relançait jusqu'à 3 fois, alors que Supabase Auth met jusqu'à 10 s à répondre. Résultat : des requêtes empilées et des connexions impossibles. Ce n'est **pas** une consigne à interpréter, c'est un **contrôle bloquant** :
+
+- Valeurs chiffrées : `config/keep-product-contract.json` > `authResilience`.
+- Contrôle : `scripts/verify-product-contract.cjs`, appelé par `verify-source-of-truth.cjs`. **S'il échoue, la publication web et l'OTA mobile sont refusées.**
+- Interdit : échéance de connexion ≤ 10 s, relance après une échéance locale, relance d'un serveur déjà lent (> 5 s), plus de 2 tentatives, nouveau `setInterval` < 5 s non déclaré dans `fastIntervalAllowlist` avec sa raison.
+- Pour changer une valeur : modifier le contrat **et** le code dans le même commit, avec la justification. Ne jamais affaiblir le contrôle pour « faire passer » un push.
+- Si la connexion casse : regarder d'abord les journaux Supabase Auth (`auth_logs`, `edge_logs` `/auth/v1/token`) **avant** de modifier le code. Un 504 « context deadline exceeded » = serveur saturé, pas un bug de mot de passe ni un compte désactivé.
+
+- **Contenu utilisateur** : aucune migration ne peut supprimer, vider ou détruire une table de contenu (profils, playlists, titres, GARDER, abonnements, historique FREE, messages) sans la ligne `-- ADEL-APPROVED-DESTRUCTIVE: <date> <raison>` écrite avec l'accord d'Adel (`config/keep-product-contract.json` > `userContentProtection`, contrôle bloquant). Le solde FREE est **calculé** depuis l'historique d'événements : ne jamais le « réinitialiser ».
+- **Écritures directes en production interdites aux IA** : pas de `execute_sql` / `apply_migration` d'écriture ni de déploiement de fonction sans demande explicite d'Adel dans la conversation en cours. Une panne ou un « contenu manquant » se diagnostique d'abord en LECTURE (comptages, journaux) : le 02/10/2026, tout le contenu était intact, seul le serveur était saturé.
+
 ## Jamais toucher
 
 `main` et `claude-local-backup-20260825` — ne jamais push, merge, ni rebase dessus
 depuis cet agent.
 
 ## Communication entre agents
+
+Avant de modifier le code, lire aussi `AI/AI_INSTRUCTIONS.md` et `AI/AI_REPORT.md`.
+Le canal canonique ChatGPT ↔ Claude Code est `keep-ai-relay` /
+`public.ai_relay_messages` ; ne jamais créer un second relais, et ne jamais
+copier une clé du relais dans le code ou le journal.
 
 `AGENT_MESSAGES.md` (racine du repo, committé — visible sur GitHub) est le journal
 partagé entre Claude Code et toi. Poste-y un message avant de commencer une tâche
@@ -107,3 +152,46 @@ Pour participer à `AGENT_MESSAGES.md` : Adel colle le contenu récent
 dans ce fichier via la même commande `post design "..."`. Communication réelle mais
 manuelle — c'est la limite honnête d'une session sans accès machine, pas un défaut
 du système.
+
+
+## 🔴 RÈGLE ABSOLUE — ÉTAT LOCAL ≠ REMOTE ≠ TESTÉ ≠ DÉPLOYÉ
+
+Cette règle est permanente et s'applique à tous les agents.
+
+Statuts autorisés pour décrire un changement :
+- `LOCAL_ONLY` : présent uniquement dans le clone local ;
+- `COMMITTED_LOCAL` : commit local créé mais non visible sur GitHub ;
+- `PUSHED_REMOTE` : SHA visible sur `adelkhatra-bit/KEEP`, branche `reconcile/claude-main-20260825` ;
+- `TESTED_REMOTE` : commit distant + tests/CI ciblés réellement vérifiés ;
+- `DEPLOYED` : version réellement publiée et contrôlée sur la cible.
+
+Avant d'annoncer `PUSHED_REMOTE` ou plus, l'agent doit :
+1. vérifier le repository et la branche exacts ;
+2. relire le HEAD distant ;
+3. vérifier que le contenu distant du fichier contient réellement la modification ;
+4. pour un workflow, vérifier le YAML distant ;
+5. pour une CI, citer le run réel et son résultat ;
+6. pour un déploiement, vérifier la cible réelle.
+
+Si une permission empêche le push, écrire explicitement `LOCAL_ONLY — PUSH BLOQUÉ` ou `COMMITTED_LOCAL — PUSH BLOQUÉ`. Il est interdit de dire « poussé », « intégré », « testé » ou « déployé » sans preuve correspondante.
+
+Toute erreur trouvée doit être inscrite dans `docs/ERROR_LEDGER.md` et ne jamais être supprimée : elle passe à `VERIFIED` uniquement avec SHA + test/preuve.
+
+## RÈGLE IMMUABLE — PREMIÈRE ÉCOUTE / PREMIER DÉCOUVREUR
+- Une musique reçoit un premier découvreur Loki une seule fois. Cette attribution est immuable et doit survivre aux GARDER, reprises, partages, migrations et mises à jour.
+- Un utilisateur qui reprend gratuitement une découverte publique conserve la provenance du premier découvreur ; il ne devient jamais le premier découvreur par propagation.
+- Tous les Swipe/profils doivent afficher le premier découvreur quand il diffère du propriétaire courant et proposer VOIR LE PROFIL près du lien d’écoute complète.
+- Une mise à jour ne doit jamais effacer ni réattribuer cette provenance.
+
+
+## UX GLOBALE — CONTRASTE + 1 CLIC
+
+Règle produit verrouillée (04/10/2026) :
+- fond sombre → texte fonctionnel blanc/très clair ;
+- pas de grand texte explicatif permanent : aide compacte / « En savoir plus » ;
+- l’ouverture d’une aide ne déplace pas les actions principales ;
+- 1 clic pour ouvrir/agir ; 2e clic uniquement pour confirmer une action sensible ;
+- aucun bouton visible sans action réelle ;
+- privilégier les actions inline au lieu d’empiler les navigations ;
+- mêmes règles Mobile + Web, source unique `packages/mobile/src`.
+Le contrat machine est `config/keep-product-contract.json > uxInteractionRules` et la CI refuse toute suppression de ces invariants.

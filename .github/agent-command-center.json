@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "project": "KEEP / Loki Music",
+  "repository": "adelkhatra-bit/KEEP",
+  "workingBranch": "reconcile/claude-main-20260825",
+  "protectedBranches": [
+    "main",
+    "claude-local-backup-20260825"
+  ],
+  "protectedFiles": [
+    "packages/mobile/App.tsx",
+    "packages/mobile/src/navigation/Navigation.tsx",
+    "packages/mobile/src/screens/ProfileScreen.BACKUP.tsx"
+  ],
+  "protectedUi": [
+    "barre des 5 onglets",
+    "design actuel"
+  ],
+  "requiredContext": [
+    "AGENTS.md",
+    "PROJECT_STATE.md",
+    ".context/activeContext.md",
+    "docs/ERROR_LEDGER.md",
+    "AGENT_MESSAGES.md"
+  ],
+  "coordination": {
+    "lock": "scripts/agent-lock.cjs",
+    "journal": "AGENT_MESSAGES.md",
+    "relay": "keep-ai-relay / public.ai_relay_messages"
+  },
+  "statusVocabulary": [
+    "LOCAL_ONLY",
+    "COMMITTED_LOCAL",
+    "PUSHED_REMOTE",
+    "TESTED_REMOTE",
+    "DEPLOYED"
+  ],
+  "mobileViewport": "390x844"
+}

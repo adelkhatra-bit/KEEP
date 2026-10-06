@@ -107,7 +107,7 @@ export default function SupportTicketPanel({ profileId, username, enabled }: { p
   };
 
   if (!enabled) {
-    return <View style={s.wrap}><Text style={s.title}>Aide & support Loki Music</Text><Text style={s.help}>Crée ou connecte ton compte Loki Music pour écrire directement à l’équipe et conserver l’historique de tes demandes.</Text></View>;
+    return <View style={s.wrap}><Text style={s.title}>Aide & support Loki Music</Text><Text style={s.help}>Crée ou connecte ton compte Loki Music pour écrire directement à Loki et conserver l’historique de tes demandes.</Text></View>;
   }
 
   const selected = tickets.find((ticket) => ticket.id === selectedId) ?? null;

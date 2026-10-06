@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
+import KeepModal from './KeepModal';
 
 /**
  * Principe produit (Adel, 21/09/2026) : "On n'efface jamais une
@@ -51,7 +52,7 @@ export default function LockedFeatureCard({
       <TouchableOpacity onPress={() => setInfoOpen(true)} accessibilityLabel={`${title}, verrouillé -- appuie pour voir comment débloquer`} accessibilityRole="button">
         {lockedTeaser}
       </TouchableOpacity>
-      <Modal visible={infoOpen} transparent animationType="fade" onRequestClose={() => setInfoOpen(false)}>
+      <KeepModal visible={infoOpen} transparent animationType="fade" onRequestClose={() => setInfoOpen(false)}>
         <View style={s.backdrop}>
           <TouchableOpacity style={s.backdropTouch} activeOpacity={1} onPress={() => setInfoOpen(false)} />
           <View style={s.card}>
@@ -73,7 +74,7 @@ export default function LockedFeatureCard({
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </KeepModal>
     </>
   );
 }

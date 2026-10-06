@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type DirectoryUser = { id: string; username: string; display_name: string | null };
-
 const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
 
 export default function Messages() {
@@ -33,6 +32,7 @@ export default function Messages() {
       }
     })();
   }, []);
+
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -101,6 +101,13 @@ export default function Messages() {
             {selected.size > 0 && <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</div>}
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginBottom: 16, borderColor: 'var(--primary)' }}>
+        <strong>Accès aux notifications</strong>
+        <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 5 }}>
+          Les cadenas et les formules sont gérés dans la rubrique dédiée « Accès notifications » du menu Super Admin.
+        </div>
       </div>
 
       <div className="card">

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Playlists Loki Music -- maquette</title>
+<style>
+  body{background:#0B0A12;color:#F5F5F7;font-family:-apple-system,sans-serif;padding:20px;max-width:420px;margin:0 auto}
+  h1{font-size:20px;font-weight:900;margin:0 0 4px}
+  .sub{color:#A0A0B0;font-size:12px;margin-bottom:16px}
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{flex:1;text-align:center;padding:10px 4px;border-radius:12px;background:#1A1A2E;border:1px solid #2A2A3A;font-size:12px;font-weight:800;cursor:pointer}
+  .tab.on{background:#7C5CFC;border-color:#7C5CFC}
+  .vibesBtns{display:flex;gap:8px;margin-bottom:16px}
+  .vibesBtns button{flex:1;min-height:40px;border-radius:12px;border:1px solid #2A2A3A;background:#1A1A2E;color:#F5F5F7;font-weight:800;font-size:12px}
+  .vibesBtns .pub{border-color:#2DE1C2;color:#2DE1C2}
+  .vibesBtns .priv{border-color:#FF5C72;color:#FF5C72}
+
+  .section{border-radius:18px;margin-bottom:14px;overflow:hidden}
+  .sectionHead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer}
+  .sectionHead h2{font-size:15px;font-weight:900;margin:0}
+  .count{font-size:11px;font-weight:800;opacity:.85}
+  .chevron{font-size:14px;transition:transform .2s}
+  .chevron.collapsed{transform:rotate(-90deg)}
+
+  .discoveries{background:linear-gradient(135deg,rgba(45,225,194,.14),rgba(45,225,194,.03));border:1px solid #2DE1C2}
+  .discoveries .sectionHead h2{color:#2DE1C2}
+  .discoveries .count{color:#2DE1C2}
+
+  .reprises{background:linear-gradient(135deg,rgba(124,92,252,.14),rgba(124,92,252,.03));border:1px solid #7C5CFC}
+  .reprises .sectionHead h2{color:#A78BFA}
+  .reprises .count{color:#A78BFA}
+
+  .body{padding:0 10px 10px}
+  .row{display:flex;align-items:center;gap:10px;background:#151320;border-radius:12px;padding:8px;margin-top:8px}
+  .cover{width:48px;height:48px;border-radius:9px;background:#1C1930;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .info{flex:1;min-width:0}
+  .titleRow{display:flex;align-items:center;gap:6px}
+  .track-title{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lock{font-size:11px}
+  .artist{font-size:11px;color:#A0A0B0;margin-top:2px}
+  .owner{font-size:10px;color:#A78BFA;margin-top:2px;font-weight:700}
+  .actions{display:flex;gap:6px;flex-shrink:0}
+  .sq{width:32px;height:32px;border-radius:8px;background:#1A1A2E;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .badge{font-size:9px;font-weight:900;padding:3px 7px;border-radius:8px;background:rgba(45,225,194,.15);color:#2DE1C2;border:1px solid #2DE1C2}
+
+  .fab{margin-top:16px;min-height:48px;border-radius:24px;background:#7C5CFC;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+</style>
+</head>
+<body>
+  <h1>MA BIBLIOTHÈQUE</h1>
+  <div class="sub">Musiques -- Vibes -- Artistes (onglets existants conservés)</div>
+
+  <div class="tabs">
+    <div class="tab on">MUSIQUES</div>
+    <div class="tab">VIBES</div>
+    <div class="tab">ARTISTES</div>
+  </div>
+
+  <div class="vibesBtns">
+    <button class="pub">✓ PUBLIC</button>
+    <button class="priv">⚠ PRIVÉ</button>
+  </div>
+
+  <!-- Section 1 : Mes découvertes (menthe) -->
+  <div class="section discoveries" id="sec-discoveries">
+    <div class="sectionHead" onclick="toggle('discoveries')">
+      <h2>🎧 Mes découvertes</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="count">12 découverts</span>
+        <span class="chevron" id="chev-discoveries">▾</span>
+      </div>
+    </div>
+    <div class="body" id="body-discoveries">
+      <div class="row">
+        <div class="cover">🎵</div>
+        <div class="info">
+          <div class="titleRow"><span class="track-title">I Know What You Want</span></div>
+          <div class="artist">Busta Rhymes</div>
+        </div>
+        <div class="actions"><div class="sq">▶</div><div class="sq">↗</div><div class="sq">🏷</div></div>
+      </div>
+      <div class="row">
+        <div class="cover">🎵</div>
+        <div class="info">
+          <div class="titleRow"><span class="track-title">Loose</span><span class="badge">🏷️ 2.99€</span></div>
+          <div class="artist">Daniel Caesar</div>
+        </div>
+        <div class="actions"><div class="sq">▶</div><div class="sq">↗</div><div class="sq">🏷</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2 : Reprises d'autres utilisateurs (violet, repliable) -->
+  <div class="section reprises" id="sec-reprises">
+    <div class="sectionHead" onclick="toggle('reprises')">
+      <h2>🔒 Reprises d'autres utilisateurs</h2>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="count">5 repris</span>
+        <span class="chevron" id="chev-reprises">▾</span>
+      </div>
+    </div>
+    <div class="body" id="body-reprises">
+      <div class="row">
+        <div class="cover">🔒</div>
+        <div class="info">
+          <div class="titleRow"><span class="track-title">Blinding Lights</span><span class="lock">🔒</span></div>
+          <div class="artist">The Weeknd</div>
+          <div class="owner">Donné par @julie.vibes</div>
+        </div>
+        <div class="actions"><div class="sq">▶</div><div class="sq">↗</div></div>
+      </div>
+      <div class="row">
+        <div class="cover">🔒</div>
+        <div class="info">
+          <div class="titleRow"><span class="track-title">Bad Habits</span><span class="lock">🔒</span></div>
+          <div class="artist">Ed Sheeran</div>
+          <div class="owner">Donné par @maxime.mix</div>
+        </div>
+        <div class="actions"><div class="sq">▶</div><div class="sq">↗</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fab">＋ CRÉER UNE PLAYLIST À VENDRE</div>
+
+  <p style="color:#8080A0;font-size:11px;margin-top:20px;line-height:1.5">
+    Note maquette : les boutons SUPPRIMER / VENDRE / PUBLIC-PRIVÉ dans le panneau
+    déplié de chaque ligne (TrackActionRow), le sélecteur d'organisation VIBES,
+    les modales Édition playlist / Mise en vente / Choix visibilité post-achat,
+    et les compteurs public/privé existants restent identiques au code actuel --
+    non redessinés ici, seule la séparation en 2 sections change.
+  </p>
+
+<script>
+function toggle(id){
+  var body=document.getElementById('body-'+id);
+  var chev=document.getElementById('chev-'+id);
+  var collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  chev.classList.toggle('collapsed', !collapsed);
+}
+</script>
+</body>
+</html>

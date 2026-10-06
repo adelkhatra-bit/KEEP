@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
+import { openProviderPopup } from '../lib/providerWindow';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type IntegrationRow = {
@@ -159,7 +160,7 @@ export default function Operations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
-          Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. AudD et ACRCloud restent des moteurs supplémentaires automatiquement utilisés lorsqu’ils sont configurés et validés.
+          Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. ACRCloud est le moteur serveur principal lorsqu’il est configuré. AudD reste un moteur complémentaire optionnel et n’est utilisé que si une clé valide est réellement connectée.
         </p>
         <table>
           <thead><tr><th>Moteur</th><th>État</th><th>Clé requise</th><th>Contrôle</th></tr></thead>
@@ -173,17 +174,17 @@ export default function Operations() {
             <tr>
               <td><strong>ShazamKit iOS</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>empreinte audio native Apple</div></td>
               <td><strong style={{ color: '#93c5fd' }}>INTÉGRÉ · TEST APPAREIL REQUIS</strong></td>
-              <td>Pas de clé AudD/ACRCloud</td>
+              <td>Aucune clé payante</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>Module natif présent. L’App Service ShazamKit et le comportement réel seront certifiés avec le build iPhone/TestFlight.</td>
             </tr>
             <tr>
-              <td><strong>AudD</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>fallback serveur</div></td>
+              <td><strong>AudD</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>moteur optionnel</div></td>
               <td><strong style={{ color: audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).tone : '#8f849f' }}>{audd ? statusInfo(audd, runtimeByKey.get('AUDD_API_KEY')).text : 'NON CONFIGURÉE'}</strong></td>
               <td>Oui</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{runtimeByKey.get('AUDD_API_KEY')?.last_error ?? 'La clé est testée côté fournisseur au moment de son enregistrement dans Clés & intégrations.'}</td>
             </tr>
             <tr>
-              <td><strong>ACRCloud</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>second fallback serveur</div></td>
+              <td><strong>ACRCloud</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>moteur serveur principal</div></td>
               <td><strong style={{ color: acrState.tone }}>{acrState.text}</strong></td>
               <td>Oui · 3 paramètres</td>
               <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{acrRuntime?.last_error ?? 'Host + Access Key + Access Secret sont validés ensemble dès que les trois sont renseignés.'}</td>
@@ -216,7 +217,7 @@ export default function Operations() {
                 <td><strong style={{ color: state.tone }}>{state.text}</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{row.configured ? (row.source ?? 'CONFIGURÉE') : 'Aucune clé active'}</div></td>
                 <td>{live?.last_checked_at ? new Date(live.last_checked_at).toLocaleString('fr-FR') : 'Pas encore contrôlée'}</td>
                 <td style={{ maxWidth: 280, whiteSpace: 'normal' }}>{live?.last_error ?? row.hint ?? '—'}</td>
-                <td><a href={billing.url} target="_blank" rel="noreferrer" style={{ color: '#c4b5fd', fontWeight: 800 }}>{billing.label}</a></td>
+                <td><button type="button" onClick={() => billing.url && openProviderPopup(billing.url, `loki-billing-${row.key}`)} style={{ color: '#ffffff', fontWeight: 800, background: 'rgba(124,92,252,.12)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer' }}>{billing.label}</button></td>
               </tr>;
             })}
           </tbody>

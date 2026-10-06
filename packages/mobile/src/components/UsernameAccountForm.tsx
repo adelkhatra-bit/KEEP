@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { ensureAuthAutofillStyleInjected } from '../utils/webAutofillFix';
 import { createAuthService } from '../services/authService';
@@ -7,10 +8,11 @@ import {
   clearStagedGuestMusic,
   stageGuestProfileForUpgrade,
 } from '../services/guestUpgradeService';
-import { importStagedGuestCreditsForAuthenticatedAccount, stageLocalGuestCreditsForUpgrade } from '../services/creditService';
+import { stageLocalGuestCreditsForUpgrade } from '../services/creditService';
 import { supabase } from '../services/supabaseClient';
 import { useSessionHistoryStore } from '../store/useSessionHistoryStore';
 import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
 
@@ -19,6 +21,18 @@ import { radius, spacing } from '../theme/spacing';
 // "mot de passe oublié" fonctionne toujours. La connexion, elle, accepte
 // toujours pseudo OU e-mail -- ne casse pas les anciens comptes pseudo-only.
 export type UsernameAccountMode = 'create' | 'login';
+
+// Champs auth : surface un peu plus claire que le popup, placeholder gris clair,
+// bord violet au focus. L'objectif est qu'un champ vide ressemble immédiatement
+// à une zone éditable sans transformer le thème sombre Loki en formulaire blanc.
+const AUTH_INPUT_BACKGROUND = '#312C43';
+const AUTH_INPUT_BACKGROUND_FOCUSED = '#3A3450';
+const AUTH_INPUT_BORDER = '#625B77';
+const AUTH_INPUT_PLACEHOLDER = '#BDB8C7';
+const AUTH_INPUT_TEXT = '#ECE8F2';
+// Propriétaire (id Supabase) des sessions d'écoute locales : l'historique local
+// est persisté sous une clé fixe, il doit donc être rattaché à un compte.
+const SESSION_HISTORY_OWNER_KEY = '__loki_session_history_owner_v1';
 
 type Props = {
   initialMode?: UsernameAccountMode;
@@ -38,6 +52,7 @@ function errorText(code: string) {
   if (code === 'account_not_created') return 'Ce profil existe, mais aucun accès par mot de passe n’est encore activé.';
   if (code === 'legacy_profile_requires_original_device') return 'Cet ancien profil doit être récupéré depuis son appareil d’origine ou par le Super Admin Loki Music.';
   if (code === 'invalid_credentials') return 'Identifiant Loki Music, e-mail ou mot de passe incorrect.';
+  if (code === 'auth_temporarily_unavailable' || code === 'temporarily_unavailable') return 'Connexion Loki Music momentanément ralentie. Loki réessaie automatiquement : ne recrée pas de compte.';
   if (code === 'email_confirmation_required_config') return 'Configuration e-mail Loki Music indisponible pour le moment. Réessaie plus tard.';
   if (code === 'email_delivery_unavailable') return 'L’envoi de l’e-mail de confirmation est momentanément indisponible (ton adresse n’est pas en cause). Réessaie dans quelques minutes.';
   return 'Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.';
@@ -100,6 +115,7 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
   // deviennent des tooltips ⓘ au tap au lieu d'un paragraphe toujours
   // visible -- le texte n'est pas supprimé, seulement replié par défaut.
   const [openTip, setOpenTip] = useState<'username' | 'email' | null>(null);
+  const [focusedField, setFocusedField] = useState<'username' | 'email' | 'password' | 'password2' | null>(null);
   const strength = useMemo(() => passwordStrength(password), [password]);
   const strengthLabel = strength <= 1 ? 'Faible' : strength === 2 ? 'Correct' : strength === 3 ? 'Bon' : 'Très bon';
   const strengthGood = strength >= 3;
@@ -130,25 +146,61 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     setError('');
   };
 
-  const finishAuthenticatedFlow = async () => {
-    await importStagedGuestCreditsForAuthenticatedAccount().catch(() => null);
-
-    // Isolation stricte : une identité authentifiée ne récupère jamais les morceaux
-    // d'un essai/d'une autre identité locale. Le serveur applique la même règle.
-    useSessionHistoryStore.getState().clearSessions();
-    await clearStagedGuestMusic().catch(() => {});
-    await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
-
-    const followed = await applyFollowIntent();
-    if (followUsername) {
-      Alert.alert(
-        'Compte Loki Music prêt',
-        followed
-          ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
-          : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
+  const waitForHydratedAccount = async (expectedUserId?: string) => {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      const state = useUserStore.getState();
+      const ready = Boolean(
+        state.user
+        && !state.isDemoMode
+        && !state.isLocalGuest
+        && (!expectedUserId || state.user.id === expectedUserId),
       );
+      if (ready) return true;
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
+    return false;
+  };
+
+  const finishAuthenticatedFlow = async (expectedUserId?: string) => {
+    const hydrated = await waitForHydratedAccount(expectedUserId);
+    if (!hydrated) throw new Error('profile_hydration_timeout');
+
+    // Le profil réel est hydraté : rendre la main à l'utilisateur tout de suite.
+    // Les nettoyages/cadenas/follow ne doivent jamais retarder l'ouverture.
+    useAccountGateStore.getState().handleSuccess();
     onSuccess?.();
+
+    void (async () => {
+      // Isolation des sessions d'écoute locales par compte (en arrière-plan,
+      // ne retarde jamais l'ouverture du compte) :
+      // - même compte => conserver ses sessions locales ;
+      // - autre compte (même après une déconnexion) => effacer celles du précédent ;
+      // - invité -> compte existant => ne jamais injecter les écoutes invitées ;
+      // - invité -> création de compte => conserver pour l'upgrade explicite.
+      if (expectedUserId) {
+        const previousOwner = await AsyncStorage.getItem(SESSION_HISTORY_OWNER_KEY).catch(() => null);
+        const switchingAccount = Boolean(previousOwner && previousOwner !== expectedUserId);
+        const guestLoggingIntoExistingAccount = mode === 'login' && isLocalGuest;
+        if (switchingAccount || guestLoggingIntoExistingAccount) {
+          useSessionHistoryStore.getState().clearSessions();
+        }
+        await AsyncStorage.setItem(SESSION_HISTORY_OWNER_KEY, expectedUserId).catch(() => {});
+      }
+
+      await clearStagedGuestMusic().catch(() => {});
+      await useSessionHistoryStore.getState().refreshCreditLocks().catch(() => {});
+
+      const followed = await applyFollowIntent();
+      if (followUsername) {
+        Alert.alert(
+          'Compte Loki Music prêt',
+          followed
+            ? `Tu es maintenant abonné(e) à ${cleanUsername(followUsername)}.`
+            : `Ton compte est connecté. Ouvre ${cleanUsername(followUsername)} pour terminer le suivi.`,
+        );
+      }
+    })().catch(() => {});
   };
 
   const submit = async () => {
@@ -180,13 +232,32 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
           ? await auth.signInWithEmailIdentity(identity, password)
           : await auth.signInWithUsername(normalizedUsername, password);
       if (result.error) return setError(errorText(result.error));
+
+      // Isolation stricte entre vrais comptes : une session locale créée sous
+      // le compte précédent ne doit jamais apparaître après connexion d'un
+      // autre utilisateur. Ne pas appliquer à la création/upgrade invité,
+      // où la musique locale est volontairement migrée vers le nouveau compte.
+      if (
+        mode === 'login'
+        && currentUser?.id
+        && result.userId
+        && currentUser.id !== result.userId
+        && !isLocalGuest
+      ) {
+        useSessionHistoryStore.getState().clearSessions();
+      }
+
       if (mode === 'create' && result.requiresEmailConfirmation) {
         setPendingConfirmationEmail(email.trim());
         return;
       }
-      await finishAuthenticatedFlow();
-    } catch {
-      setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      await finishAuthenticatedFlow(result.userId);
+    } catch (error: any) {
+      if (String(error?.message || error).includes('profile_hydration_timeout')) {
+        setError('Connexion validée. Loki Music récupère encore ton profil : ne recrée pas de compte, réessaie dans quelques secondes.');
+      } else {
+        setError('Connexion Loki Music indisponible pour le moment. Réessaie dans un instant.');
+      }
     } finally {
       setBusy(false);
     }
@@ -260,31 +331,32 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
     nestedScrollEnabled
     showsVerticalScrollIndicator={false}
   >
-    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte Loki Music' : 'Se connecter à Loki Music'}</Text>
+    <Text style={s.title}>{mode === 'create' ? 'Créer mon compte' : 'Se connecter'}</Text>
     {followUsername ? <Text style={s.followHint}>Après connexion, @{cleanUsername(followUsername)} sera suivi automatiquement.</Text> : null}
     <Text style={s.subtitle}>
       {mode === 'create'
-        ? 'Ton pseudo, ton mot de passe et une adresse e-mail vérifiée sont nécessaires pour créer ton compte.'
-        : 'Connecte-toi avec ton pseudo Loki Music ou ton e-mail, puis ton mot de passe.'}
+        ? 'Pseudo, mot de passe et adresse e-mail vérifiée sont nécessaires. C’est tout.'
+        : 'Écris ton pseudo (ou ton e-mail), puis ton mot de passe.'}
     </Text>
 
-    {mode === 'create' ? (
-      <View style={s.labelRow}>
-        <Text style={s.label}>Pseudo Loki Music</Text>
-        <TouchableOpacity
-          style={s.info}
-          onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
-          accessibilityRole="button"
-          accessibilityLabel="Pourquoi ce champ ?"
-        ><Text style={s.infoText}>i</Text></TouchableOpacity>
-      </View>
-    ) : null}
+    <View style={s.labelRow}>
+      <Text style={s.label}>{mode === 'create' ? 'Ton pseudo' : 'Ton pseudo ou ton e-mail'}</Text>
+      {mode === 'create' ? <TouchableOpacity
+        style={s.info}
+        onPress={() => setOpenTip((v) => (v === 'username' ? null : 'username'))}
+        accessibilityRole="button"
+        accessibilityLabel="Pourquoi ce champ ?"
+      ><Text style={s.infoText}>i</Text></TouchableOpacity> : null}
+    </View>
     <TextInput
-      style={s.input}
+      style={[s.input, focusedField === 'username' && s.inputFocus]}
       value={username}
       onChangeText={(value) => { setUsername(value); if (error) setError(''); }}
-      placeholder={mode === 'create' ? 'Pseudo Loki Music' : 'Pseudo Loki Music ou e-mail'}
-      placeholderTextColor={colors.textMuted}
+      placeholder={mode === 'create' ? 'ex. lucie_music' : 'Pseudo ou e-mail'}
+      placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+      onFocus={() => setFocusedField('username')}
+      onBlur={() => setFocusedField((current) => current === 'username' ? null : current)}
+      selectionColor={colors.primaryLight}
       autoCapitalize="none"
       autoCorrect={false}
       autoComplete={mode === 'login' ? 'email' : 'username'}
@@ -304,11 +376,14 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         ><Text style={s.infoText}>i</Text></TouchableOpacity>
       </View>
       <TextInput
-        style={s.input}
+        style={[s.input, focusedField === 'email' && s.inputFocus]}
         value={email}
         onChangeText={(value) => { setEmail(value); if (error) setError(''); }}
         placeholder="Adresse e-mail"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+        onFocus={() => setFocusedField('email')}
+        onBlur={() => setFocusedField((current) => current === 'email' ? null : current)}
+        selectionColor={colors.primaryLight}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -321,13 +396,19 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       </TouchableOpacity>
     </> : null}
 
-    <View style={s.passwordRow}>
+    <View style={s.labelRow}>
+      <Text style={s.label}>Ton mot de passe</Text>
+    </View>
+    <View style={[s.passwordRow, focusedField === 'password' && s.inputFocus]}>
       <TextInput
         style={s.passwordInput}
         value={password}
         onChangeText={(value) => { setPassword(value); setPasswordSuggested(false); if (error) setError(''); }}
         placeholder="Mot de passe"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+        onFocus={() => setFocusedField('password')}
+        onBlur={() => setFocusedField((current) => current === 'password' ? null : current)}
+        selectionColor={colors.primaryLight}
         secureTextEntry={!showPassword}
         autoCapitalize="none"
         autoCorrect={false}
@@ -343,13 +424,19 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
         {[1,2,3,4].map((step) => <View key={step} style={[s.strengthBar, step <= strength && (strengthGood ? s.strengthGood : s.strengthWeak)]} />)}
       </View>
       <Text style={[s.strengthText, strengthGood ? s.strengthTextGood : s.strengthTextWeak]}>Sécurité : {strengthLabel}</Text>
-      <View style={s.passwordRow}>
+      <View style={s.labelRow}>
+        <Text style={s.label}>Confirmer le mot de passe</Text>
+      </View>
+      <View style={[s.passwordRow, focusedField === 'password2' && s.inputFocus]}>
         <TextInput
           style={s.passwordInput}
           value={password2}
           onChangeText={(value) => { setPassword2(value); setPasswordSuggested(false); if (error) setError(''); }}
           placeholder="Confirmer le mot de passe"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={AUTH_INPUT_PLACEHOLDER}
+          onFocus={() => setFocusedField('password2')}
+          onBlur={() => setFocusedField((current) => current === 'password2' ? null : current)}
+          selectionColor={colors.primaryLight}
           secureTextEntry={!showPassword2}
           autoCapitalize="none"
           autoCorrect={false}
@@ -372,25 +459,51 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       <Text style={s.forgotText}>Mot de passe oublié ?</Text>
     </TouchableOpacity> : null}
 
-    <TouchableOpacity style={s.switchMode} onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
-      <Text style={s.switchText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Créer un nouveau compte'}</Text>
+    {/* 29/09/2026 : « un enfant de 10 ans doit comprendre tout de suite ».
+        Pas de petit lien : une vraie question + un vrai bouton. */}
+    <View style={s.orRow}><View style={s.orLine} /><Text style={s.orText}>{mode === 'create' ? 'J’ai déjà un compte' : 'Pas encore de compte ?'}</Text><View style={s.orLine} /></View>
+    <TouchableOpacity style={s.switchButton} accessibilityRole="button" onPress={() => { setMode(mode === 'create' ? 'login' : 'create'); setUsername(mode === 'create' ? '' : initialUsername); setPassword(''); setPassword2(''); setPasswordSuggested(false); setError(''); }}>
+      <Text style={s.switchButtonText}>{mode === 'create' ? 'SE CONNECTER' : 'CRÉER MON COMPTE'}</Text>
     </TouchableOpacity>
     <Text style={s.recovery}>Tu peux revenir à l’essai gratuit avec « Plus tard ». Pour protéger chaque bibliothèque, les morceaux d’essai ne sont jamais injectés dans un autre compte : après création ou connexion, Loki Music charge uniquement la musique de cette identité.</Text>
   </ScrollView>;
 }
 
 const s = StyleSheet.create({
-  scroll:{maxHeight:560},container:{gap:spacing.xs,paddingBottom:4},title:{color:colors.textPrimary,fontSize:18,fontWeight:'900',textAlign:'center'},subtitle:{color:colors.textSecondary,fontSize:11,lineHeight:16,textAlign:'center',marginBottom:4},followHint:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'800',textAlign:'center'},
-  // Maquette validée (22/09/2026) : champs 44 -> 52px, police 14 -> 16px minimum.
-  input:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},
-  labelRow:{flexDirection:'row',alignItems:'center',gap:6,marginTop:2},
-  label:{color:colors.textSecondary,fontSize:11,fontWeight:'800',textTransform:'uppercase',letterSpacing:.4},
-  info:{width:16,height:16,borderRadius:8,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
-  infoText:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
-  tooltip:{color:colors.textSecondary,fontSize:11,lineHeight:15,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.primary,borderRadius:radius.md,padding:9,marginTop:2},
-  passwordRow:{minHeight:52,borderRadius:radius.md,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,flexDirection:'row',alignItems:'center'},passwordInput:{flex:1,height:50,paddingHorizontal:14,color:colors.textPrimary,fontSize:16},eye:{width:48,height:50,alignItems:'center',justifyContent:'center'},eyeText:{color:colors.primaryLight,fontSize:19,fontWeight:'900'},suggestButton:{minHeight:38,borderRadius:radius.md,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:10,paddingVertical:5},suggestText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},passwordSavedHint:{color:colors.textSecondary,fontSize:9,lineHeight:13,textAlign:'center'},strengthRow:{flexDirection:'row',gap:4,marginTop:1},strengthBar:{flex:1,height:4,borderRadius:2,backgroundColor:'#352C40'},
-  // Maquette validée (22/09/2026) : 2 tons cohérents avec la marque au lieu
-  // de 3 (ambre pour Faible/Correct, menthe colors.success pour Bon/Très
-  // bon) -- avant : vert générique #22C55E sans rapport avec la palette Loki.
-  strengthWeak:{backgroundColor:colors.warning},strengthGood:{backgroundColor:colors.success},strengthText:{fontSize:8,fontWeight:'800',textAlign:'right'},strengthTextWeak:{color:colors.warning},strengthTextGood:{color:colors.success},error:{color:colors.danger,fontSize:11,lineHeight:15,textAlign:'center'},primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:2,paddingHorizontal:12},primaryText:{color:'#FFF',fontSize:13,fontWeight:'900',letterSpacing:.4,textAlign:'center'},forgot:{minHeight:30,alignItems:'center',justifyContent:'center'},forgotText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},switchMode:{minHeight:34,alignItems:'center',justifyContent:'center'},switchText:{color:colors.primaryLight,fontSize:11,fontWeight:'900'},recovery:{color:colors.textMuted,fontSize:9,lineHeight:13,textAlign:'center',marginTop:2},
+  scroll:{maxHeight:640,flexShrink:1},
+  container:{gap:8,paddingHorizontal:2,paddingTop:4,paddingBottom:12},
+  title:{color:colors.textPrimary,fontSize:24,lineHeight:30,fontWeight:'800',textAlign:'center',marginBottom:0},
+  subtitle:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:14,lineHeight:20,textAlign:'center',marginBottom:4,paddingHorizontal:8},
+  followHint:{color:colors.primaryLight,fontSize:12,lineHeight:17,fontWeight:'800',textAlign:'center',marginBottom:2},
+  input:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
+  inputFocus:{borderColor:colors.primaryLight,backgroundColor:AUTH_INPUT_BACKGROUND_FOCUSED},
+  labelRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8,marginBottom:1},
+  label:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.8},
+  info:{width:18,height:18,borderRadius:9,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
+  infoText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  tooltip:{color:colors.textSecondary,fontSize:12,lineHeight:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primaryLight,borderRadius:12,paddingHorizontal:12,paddingVertical:10,marginTop:1},
+  passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,flexDirection:'row',alignItems:'center'},
+  passwordInput:{flex:1,height:50,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
+  eye:{width:52,height:52,alignItems:'center',justifyContent:'center'},
+  eyeText:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
+  suggestButton:{minHeight:44,borderRadius:21,borderWidth:1,borderColor:colors.primary,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center',paddingHorizontal:12,paddingVertical:7,marginTop:2},
+  suggestText:{color:colors.primaryLight,fontSize:11,fontWeight:'900',letterSpacing:.2},
+  passwordSavedHint:{color:colors.textSecondary,fontSize:11,lineHeight:15,textAlign:'center',paddingHorizontal:8},
+  strengthRow:{flexDirection:'row',gap:5,marginTop:2},
+  strengthBar:{flex:1,height:5,borderRadius:3,backgroundColor:colors.border},
+  strengthWeak:{backgroundColor:colors.warning},
+  strengthGood:{backgroundColor:colors.success},
+  strengthText:{fontSize:10,fontWeight:'800',textAlign:'right'},
+  strengthTextWeak:{color:colors.warning},
+  strengthTextGood:{color:colors.success},
+  error:{color:colors.danger,fontSize:12,lineHeight:17,textAlign:'center',paddingHorizontal:8,marginTop:2},
+  primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:10,paddingHorizontal:16},
+  primaryText:{color:'#FFF',fontSize:16,fontWeight:'900',letterSpacing:.3,textAlign:'center'},
+  forgot:{minHeight:44,alignItems:'center',justifyContent:'center'},
+  forgotText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  switchMode:{minHeight:44,alignItems:'center',justifyContent:'center'},
+  orRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:2},orLine:{flex:1,height:1,backgroundColor:colors.border},orText:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:13,fontWeight:'800'},
+  switchButton:{minHeight:50,borderRadius:25,borderWidth:1.5,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginTop:6,paddingHorizontal:16},switchButtonText:{color:colors.textPrimary,fontSize:15,fontWeight:'900',letterSpacing:.3},
+  switchText:{color:colors.primaryLight,fontSize:14,fontWeight:'800'},
+  recovery:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginTop:2,paddingHorizontal:10},
 });

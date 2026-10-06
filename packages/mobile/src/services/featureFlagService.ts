@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 
 /**
@@ -35,4 +36,26 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+
+/**
+ * Visibilité marketplace : indépendante du flag de transaction.
+ *
+ * Une offre active est une donnée publique du profil vendeur et ne doit jamais
+ * disparaître parce que le checkout est coupé. C'était la cause du profil
+ * "vendeur mais sans rien à vendre" lorsque playlist_marketplace était à 0 %.
+ */
+export async function isPlaylistMarketplaceVisible(): Promise<boolean> {
+  return Boolean(supabase);
+}
+
+/**
+ * Transaction marketplace : web uniquement et toujours derrière le flag.
+ * Sur iOS/Android on affiche produits + cadenas + previews anonymes, mais
+ * jamais de checkout externe.
+ */
+export async function isPlaylistMarketplaceEnabled(): Promise<boolean> {
+  if (Platform.OS !== 'web') return false;
+  return isFeatureEnabled('playlist_marketplace');
 }

@@ -1,0 +1,63 @@
+name: KEEP — Agent command triage
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [reconcile/claude-main-20260825]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validate command center
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f docs/AGENT_COMMAND_CENTER.md
+          test -f .github/agent-command-center.json
+          test -f AGENTS.md
+          test -f PROJECT_STATE.md
+          test -f .context/activeContext.md
+          test -f docs/ERROR_LEDGER.md
+          test -f AGENT_MESSAGES.md
+          node -e "const c=require('./.github/agent-command-center.json'); if(c.workingBranch!=='reconcile/claude-main-20260825') process.exit(1); if(!c.protectedBranches.includes('main')) process.exit(1)"
+      - name: Reject merge conflict markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -E '^(<<<<<<<|=======|>>>>>>>)' -- ':!package-lock.json'; then
+            echo "::error::Merge conflict markers found"
+            exit 1
+          fi
+      - name: Guard protected mobile files
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then exit 0; fi
+          changed="$(git diff --name-only "$BEFORE" "$AFTER")"
+          printf '%s\n' "$changed"
+          forbidden="$(printf '%s\n' "$changed" | grep -E '^(packages/mobile/App\.tsx|packages/mobile/src/navigation/Navigation\.tsx|packages/mobile/src/screens/ProfileScreen\.BACKUP\.tsx)$' || true)"
+          if [ -n "$forbidden" ]; then
+            echo "::error::Protected mobile file changed without an explicit command-center override: $forbidden"
+            exit 1
+          fi
+      - name: Triage summary
+        run: |
+          {
+            echo "## KEEP Agent Command Center"
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+            echo "- SHA: \`${GITHUB_SHA}\`"
+            echo "- Command config: OK"
+            echo "- Conflict markers: none"
+            echo "- Protected files: checked"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -70,14 +70,14 @@ Note historique : une première version de ce document proposait des gris diffé
 | `h1` | 32 | 40 | 700 | Titre d'écran unique |
 | `h2` | 26 | 32 | 700 | Identité, titre de modale |
 | `h3` | 20 | 26 | 600 | Titre de section |
-| `body` | 16 | 24 | 400 | Texte courant |
-| `bodyMedium` | 16 | 24 | 500 | Métadonnée importante |
-| `bodyBold` | 16 | 24 | 700 | Action ou valeur forte |
+| `body` | 17 | 24 | 400 | Texte courant |
+| `bodyMedium` | 17 | 24 | 500 | Métadonnée importante |
+| `bodyBold` | 17 | 24 | 700 | Action ou valeur forte |
 | `caption` | 14 | 20 | 500 | Compteur, date, aide |
-| `small` | 12 | 16 | 500 | Badge court uniquement |
+| `small` | 11 | 16 | 500 | Badge/caption non essentiel uniquement |
 | `button` | 15 | 20 | 700 | Boutons, casse normale recommandée |
 
-Règles : un seul `h1` par écran ; `h2` pour l'identité ; `h3` pour les sections ; jamais de texte fonctionnel sous 12 px ; majuscules réservées aux libellés courts.
+Règles : un seul `h1` par écran ; `h2` pour l'identité ; `h3` pour les sections ; texte courant cible **17 pt** ; secondaire **13–15 pt** ; minimum absolu **11 pt** uniquement pour badges/captions non essentiels ; aucun texte fonctionnel sous 11 pt ; majuscules réservées aux libellés courts. Supporter Dynamic Type et l'agrandissement sans chevauchement.
 
 ## 4. Espacements et formes
 
@@ -159,6 +159,15 @@ recréer une grille inline.
 - Zone principale cliquable ; actions secondaires à droite ou dans un menu contextuel.
 - États obligatoires : chargement, vide, erreur avec réessai, contenu, fin de liste.
 - Une ligne de morceau conserve pochette, titre, artiste, lecture, statut et actions disponibles.
+
+### Boucle d'interaction Loki
+
+- Une action doit former un circuit complet : **intention → action → feedback → résultat/retour**.
+- Aucun bouton décoratif ou sans effet réel.
+- **1 tap/clic = fonction** ; le deuxième tap/clic n'est autorisé que pour confirmer une action sensible.
+- Les aides longues et textes lus une seule fois restent repliés derrière « En savoir plus ».
+- Un geste (swipe, drag) accélère une fonction mais ne remplace jamais son bouton essentiel.
+- Mobile et Web partagent le même comportement métier dès que la fonction est commune.
 
 ## 6. Micro-interactions
 

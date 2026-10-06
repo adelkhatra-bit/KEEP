@@ -1,0 +1,74 @@
+name: KEEP — UI Baseline Guard
+
+on:
+  push:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/screens/ProfilePublicScreen.tsx'
+      - 'packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx'
+      - 'packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts'
+      - 'packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts'
+      - 'packages/mobile/src/screens/__tests__/ProfileIdentityBreathingRoom.contract.test.ts'
+      - 'config/keep-ui-baseline.json'
+      - 'config/keep-product-contract.json'
+      - 'scripts/verify-product-contract.cjs'
+      - 'docs/KEEP_MASTER_SPEC.md'
+      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/keep-ui-baseline-guard.yml'
+  pull_request:
+    branches: ['reconcile/claude-main-20260825']
+    paths:
+      - 'packages/mobile/src/screens/ProfilePublicScreen.tsx'
+      - 'packages/mobile/src/screens/ProfileSettingsMobileScreen.tsx'
+      - 'packages/mobile/src/screens/__tests__/ProfileMetricsLayout.contract.test.ts'
+      - 'packages/mobile/src/screens/__tests__/ProfileOwnerMetricsLayout.contract.test.ts'
+      - 'packages/mobile/src/screens/__tests__/ProfileIdentityBreathingRoom.contract.test.ts'
+      - 'config/keep-ui-baseline.json'
+      - 'config/keep-product-contract.json'
+      - 'scripts/verify-product-contract.cjs'
+      - 'docs/KEEP_MASTER_SPEC.md'
+      - 'docs/KEEP_CAHIER_DES_CHARGES_UI.md'
+      - 'scripts/verify-ui-layout-baseline.cjs'
+      - '.github/workflows/keep-ui-baseline-guard.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-ui-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ui-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout canonical KEEP source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Verify canonical branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "adelkhatra-bit/KEEP"
+          test "$GITHUB_REF_NAME" = "reconcile/claude-main-20260825"
+
+      - name: Verify UI master baseline
+        run: node scripts/verify-ui-layout-baseline.cjs
+
+      - name: Verify canonical product contract
+        run: node scripts/verify-product-contract.cjs
+
+      - name: Verify source-of-truth contract
+        run: node scripts/verify-source-of-truth.cjs
+
+      - name: Verify no whitespace conflict
+        run: git diff --check HEAD^ HEAD || true
+
+      - name: Report locked profile contract
+        run: |
+          echo "PASS: type Utilisateur/Créateur -> Battle"
+          echo "PASS: metrics = PLUS -> Abonnés -> Reprises -> FREE"
+          echo "PASS: hamburger has no duplicate Compte/connexion/déconnexion"

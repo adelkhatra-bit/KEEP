@@ -1,11 +1,23 @@
 import { AppState, Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import type { RecognitionResult } from '@keep/music';
+
+type NotificationsModule = typeof import('expo-notifications');
+let nativeNotificationsModule: NotificationsModule | null = null;
+function getNativeNotifications(): NotificationsModule {
+  if (!nativeNotificationsModule) {
+    nativeNotificationsModule = require('expo-notifications') as NotificationsModule;
+  }
+  return nativeNotificationsModule;
+}
 
 let permissionPrepared = false;
 let notificationsAllowed = false;
-let lastNotificationKey = '';
-let lastNotificationAt = 0;
+// Adel (29/09/2026) : doublons de notifications. Un morceau est reconnu
+// plusieurs fois pendant qu'il joue (toutes les ~30 s) : l'ancienne garde ne
+// bloquait que 60 s et seulement le morceau précédent. Un morceau ne notifie
+// désormais qu'une fois par 30 minutes, même en alternance avec un autre.
+const NOTIFIED_WINDOW_MS = 30 * 60 * 1000;
+const notifiedAt = new Map<string, number>();
 
 export async function prepareRecognitionNotifications(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
@@ -13,6 +25,7 @@ export async function prepareRecognitionNotifications(): Promise<boolean> {
   permissionPrepared = true;
 
   try {
+    const Notifications = getNativeNotifications();
     const current = await Notifications.getPermissionsAsync();
     let granted = current.granted;
     if (!granted && current.canAskAgain) {
@@ -45,10 +58,14 @@ export async function notifyRecognitionOutsideKeep(result: RecognitionResult): P
 
   const now = Date.now();
   const key = `${artist.toLowerCase()}|${title.toLowerCase()}`;
-  if (key === lastNotificationKey && now - lastNotificationAt < 60_000) return;
-  lastNotificationKey = key;
-  lastNotificationAt = now;
+  const previous = notifiedAt.get(key);
+  if (previous && now - previous < NOTIFIED_WINDOW_MS) return;
+  notifiedAt.set(key, now);
+  if (notifiedAt.size > 100) {
+    for (const [k, at] of notifiedAt) if (now - at >= NOTIFIED_WINDOW_MS) notifiedAt.delete(k);
+  }
 
+  const Notifications = getNativeNotifications();
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Loki Music a trouvé la musique ✓',

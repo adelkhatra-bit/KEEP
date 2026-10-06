@@ -13,7 +13,17 @@ type GroupKey = 'LEGAL' | 'GROWTH' | 'PLANS' | 'SERVICES' | 'LISTEN' | 'VIBES' |
 
 const FRIENDLY_LABELS: Record<string, string> = {
   guest_success_limit: 'Morceaux offerts avant inscription',
+  demo_listen_limit: 'Mode démo · écoutes maximum avant compte',
+  demo_discovery_locked: 'Mode démo · verrouiller Découvertes',
   signup_bonus_successes: 'Morceaux offerts après inscription',
+  battle_solo_daily_limit_free: 'Battle SOLO · parties par jour (formule gratuite)',
+  battle_solo_daily_limit_premium: 'Battle SOLO · parties par jour (Premium)',
+  battle_solo_daily_limit_creator_pro: 'Battle SOLO · parties par jour (Créateur Pro)',
+  battle_solo_daily_limit_venue_pro: 'Battle SOLO · parties par jour (Lieu Pro)',
+  battle_solo_pack_small_solos: 'Battle SOLO · petit pack : nombre de Solos ajoutés (« Recharger mes Solos »)',
+  battle_solo_pack_small_free: 'Battle SOLO · petit pack : prix en Free (retiré du solde du joueur à l’achat)',
+  battle_solo_pack_large_solos: 'Battle SOLO · grand pack : nombre de Solos vendus',
+  battle_solo_pack_large_free: 'Battle SOLO · grand pack : prix en Free (retiré du solde du joueur à l’achat)',
   growth_share_daily_cap: 'Partages comptés maximum / jour',
   growth_share_tier1_threshold: 'Partages · palier 1',
   growth_share_tier2_threshold: 'Partages · palier 2',
@@ -53,6 +63,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   free_monthly_bonus_venue_pro: 'Free offerts / mois · Venue Pro 29,99 €',
   free_cost_per_keep: 'Prix en Free d’un morceau gardé (FREE/Premium)',
   battle_arena_stake_free_credits: 'Mise en Free pour un Battle en ligne',
+  battle_duel_perfect_bonus_free: 'Bonus plateforme · victoire parfaite en Battle à 2 (Free)',
   // Adel (04/09/2026) : "c'est deloyal qui perdent tous ... le premier
   // gagne un truc, le deuxieme peut gagner un truc aussi" -- a partir de 3
   // joueurs dans un Battle collectif, le pot des perdants (3e place et
@@ -79,7 +90,7 @@ function groupFor(key: string): GroupKey {
   if (key.startsWith('growth_') || key.startsWith('referral_')) return 'GROWTH';
   if (key.startsWith('music_services_')) return 'SERVICES';
   if (key.startsWith('guest_') || key.startsWith('signup_') || key.startsWith('free_monthly_bonus_') || key.startsWith('free_cost_') || key.startsWith('battle_') || key.includes('download') || key.includes('discovery_profile') || key.includes('sort_trial')) return 'PLANS';
-  if (key.startsWith('session_') || key.startsWith('auth_')) return 'LISTEN';
+  if (key.startsWith('session_') || key.startsWith('auth_') || key.startsWith('demo_')) return 'LISTEN';
   if (key.startsWith('smart_album')) return 'VIBES';
   return 'OTHER';
 }

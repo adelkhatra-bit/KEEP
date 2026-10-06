@@ -8,30 +8,46 @@ import path from 'path';
 // KeepBattleMobileGameV3.compact.test.ts).
 const readNormalized = (...segments: string[]) => fs.readFileSync(path.resolve(...segments), 'utf8').replace(/\r\n/g, '\n');
 
-describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- identité > compteurs regroupés > Ma collection > boutique > réseaux)', () => {
+describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections exclusives séparées > compteurs > Styles publics > réseaux)', () => {
   const source = readNormalized(__dirname, '..', 'PublicUserProfileScreen.tsx');
 
-  it('orders the top-level sections: identity < unified counters < collection header < tabs < boutique < socials', () => {
-    const hero = source.indexOf('<View style={styles.hero}>');
-    const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
+  it('orders the top-level sections: identity < unified counters < exclusive collection rail < collection header < tabs < socials', () => {
+    const hero = source.indexOf('<ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>');
+    const unifiedCounters = source.indexOf('<View style={styles.topMetricsBar}');
+    const boutique = source.indexOf('motionKey={`visitor-market:${profile.id}:${profileBoutiqueOffers.length}`}');
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
     const tabsRow = source.indexOf('<View style={styles.tabsRow}>');
-    // (21/09/2026) : "Boutique playlists" renommé "Découvertes à débloquer"
-    // -- reframing conformité (on ne vend pas de musique, on donne accès à
-    // une découverte curatée).
-    const boutique = source.indexOf("<Text style={styles.sectionTitle}>Découvertes à débloquer</Text>");
     const socialHub = source.indexOf('<View style={styles.socialHub}>');
     expect(hero).toBeGreaterThanOrEqual(0);
     expect(unifiedCounters).toBeGreaterThan(hero);
-    expect(collectionHeader).toBeGreaterThan(unifiedCounters);
+    expect(boutique).toBeGreaterThan(unifiedCounters);
+    expect(collectionHeader).toBeGreaterThan(boutique);
     expect(tabsRow).toBeGreaterThan(collectionHeader);
-    expect(boutique).toBeGreaterThan(tabsRow);
-    expect(socialHub).toBeGreaterThan(boutique);
+    expect(socialHub).toBeGreaterThan(tabsRow);
   });
 
-  it('exposes exactly two collection tabs, Musiques and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
+
+  it('separates exclusive collections from public Styles and keeps locked products visually distinct', () => {
+    expect(source).toContain('offers={profileBoutiqueOffers}');
+    // 02/10/2026 : boutique vendeur validée par Adel (SellerBoutique : Drop du moment 3 max + étagère + boutique).
+    expect(source).toContain('pépite');
+    expect(source).toContain('<SellerBoutique');
+    expect(source).not.toContain('sale-style:');
+  });
+
+  it('uses the same action row as the owner profile (3 outline MotionActionButton) while sale collections stay separate', () => {
+    expect(source).toContain('<View style={styles.ownerQuickActions}>');
+    expect(source).toContain("▶ SWIPE");
+    expect(source).toContain("{battleInviteBusy ? '⚡ ENVOI…' : '⚡ BATTLE'}");
+    expect(source).toContain('↗ PARTAGER');
+    expect(source).not.toContain('<BattleGlowButton');
+    expect(source).toContain('<SellerBoutique');
+    expect(source).toContain('ProfileStyleCard');
+  });
+
+  it('exposes exactly two collection tabs, Styles and Artistes -- no "Vibes" tab (no real data source for a visited stranger\'s profile)', () => {
     expect(source).toContain("type ProfileTab = 'TRACKS' | 'ARTISTS';");
-    expect(source).toContain("{ key: 'TRACKS', label: 'Musiques' }, { key: 'ARTISTS', label: 'Artistes' },");
+    expect(source).toContain("{ key: 'TRACKS', label: 'Styles' }, { key: 'ARTISTS', label: 'Artistes' },");
     expect(source).not.toMatch(/label:\s*'Vibes'/);
   });
 
@@ -55,28 +71,25 @@ describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- i
   });
 
   it('sources the track list exclusively from loadPublicProfileKeeps -- a visitor never sees private tracks', () => {
-    expect(source).toContain('const canonicalKeeps = await loadPublicProfileKeeps(result.id);');
+    expect(source).toContain("const canonicalKeeps = ownerViewingSelf");
+    expect(source).toContain(': await loadPublicProfileKeeps(result.id);');
     expect(source).toContain('setTracks(visible);');
     // Aucune deuxième requête ne vient élargir `tracks` avec des morceaux non publics.
     expect(source.match(/setTracks\(/g)?.length).toBe(1);
   });
 
-  it('groups the four counters (Abonnés/Reprises/Morceaux/Abonnements) into one contiguous block', () => {
-    const unifiedCounters = source.indexOf('<View style={styles.unifiedCounters}>');
+  it('keeps the four counters (Abonnés/Morceaux, then Reprises/Abonnements) in one block before the collection', () => {
+    const bar = source.indexOf('<View style={styles.topMetricsBar}');
+    const secondary = source.indexOf('<View style={styles.topMetricsSecondary}>', bar);
     const collectionHeader = source.indexOf('<View style={styles.collectionHeader}>');
-    const connectionsRow = source.indexOf("<ProfileCounterRow kind=\"connections\"", unifiedCounters);
-    const keepsRow = source.indexOf("<ProfileCounterRow kind=\"keeps\"", unifiedCounters);
-    expect(connectionsRow).toBeGreaterThan(unifiedCounters);
-    expect(keepsRow).toBeGreaterThan(connectionsRow);
-    expect(keepsRow).toBeLessThan(collectionHeader);
-    // Un seul bloc "unifiedCounters" au total (pas de second visitorKeepCounters séparé).
+    expect(bar).toBeGreaterThan(-1);
+    expect(secondary).toBeGreaterThan(bar);
+    expect(secondary).toBeLessThan(collectionHeader);
     expect(source).not.toContain('visitorKeepCounters');
   });
 
   it('uses the KEEP violet token for "+ Suivre" (primary action), never the legacy red hex', () => {
-    expect(source).toContain("followButton:{minHeight:32,paddingHorizontal:12,borderRadius:16,backgroundColor:colors.primary,borderWidth:1.5,borderColor:colors.primary");
     expect(source).not.toMatch(/followButton:\{[^}]*#FF5F83/);
-    expect(source).toContain('followButtonActive:{backgroundColor:colors.backgroundElevated,borderColor:colors.border}');
   });
 
   it('uses the KEEP violet token for the marketplace price button, not green (Design System: green is reserved for success/validation)', () => {
@@ -101,4 +114,32 @@ describe('PublicUserProfileScreen redesign (Adel, 21/09/2026 : plan validé -- i
     expect(source).toContain("shareTopButton:{width:44,height:44,borderRadius:22,backgroundColor:colors.primary");
     expect(source).toContain("socialButton:{flex:1,maxWidth:46,height:44,borderRadius:22");
   });
+  it('shows only Abonnés + Morceaux, with Reprises + Abonnements behind « ••• PLUS » (Adel 29/09)', () => {
+    const bar = source.indexOf('<View style={styles.topMetricsBar}');
+    const more = source.indexOf('style={[styles.topMetricMore', bar);
+    const group = source.indexOf('<View style={styles.topMetricSocialGroup}>', more);
+    const gate = source.indexOf('{countersExpanded ? (', group);
+    const secondaryEnd = source.indexOf(') : null}', gate);
+    expect(more).toBeGreaterThan(bar);
+    expect(group).toBeGreaterThan(more);
+    const main = source.slice(group, gate);
+    expect(main).toContain('>Abonnés</Text>');
+    expect(main).toContain('>Morceaux</Text>');
+    expect(main).not.toContain('>Reprises</Text>');
+    expect(main).not.toContain('>Abonnements</Text>');
+    const extra = source.slice(gate, secondaryEnd);
+    expect(extra).toContain('>Reprises</Text>');
+    expect(extra).toContain('>Abonnements</Text>');
+    expect(source).toContain('<Text style={styles.topMetricMoreText}>PLUS</Text>');
+  });
+
+  it('keeps visitor follow as a single compact action and counters on one row', () => {
+    expect(source).toContain('styles.ownerQuickActions');
+    expect(source).toContain('>Abonnés</Text>');
+    expect(source).toContain('>Reprises</Text>');
+    expect(source).toContain('>Morceaux</Text>');
+    expect(source).toContain('>Abonnements</Text>');
+    expect(source).not.toContain('styles.followButton');
+  });
+
 });

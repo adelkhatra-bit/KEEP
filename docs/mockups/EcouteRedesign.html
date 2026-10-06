@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Loki Music — Refonte écran d'écoute (maquette)</title>
+<style>
+  :root{
+    --bg:#0B0A12; --bgEl:#151320; --card:#1C1930; --border:#2A2640;
+    --primary:#7C5CFC; --primaryDark:#5B3FE0; --primaryLight:#A78BFA;
+    --keep:#2DE1C2; --pass:#FF5C72; --warning:#FFB454;
+    --txt:#FFFFFF; --muted:#A0A0B0;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:#05040a;font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt)}
+  .wrap{display:flex;flex-wrap:wrap;gap:34px;justify-content:center;align-items:flex-start;padding:34px 16px 60px}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px}
+  .caption{font-size:13px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:800}
+
+  /* ===== Phone frame ===== */
+  .phone{width:390px;height:844px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;
+    border:1px solid #232036;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 0 8px #0c0b16}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:30px;background:#000;border-radius:0 0 18px 18px;z-index:40}
+  .status{position:absolute;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 26px 0;font-size:14px;font-weight:700;z-index:30}
+
+  /* ===== Aurora animated background ===== */
+  .aurora{position:absolute;inset:0;overflow:hidden;z-index:0}
+  .blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;mix-blend-mode:screen;animation:drift 14s ease-in-out infinite}
+  .b1{width:340px;height:340px;background:var(--primary);top:-40px;left:-70px}
+  .b2{width:300px;height:300px;background:var(--keep);top:180px;right:-90px;animation-delay:-4s;opacity:.32}
+  .b3{width:280px;height:280px;background:#3a2c7a;bottom:120px;left:-40px;animation-delay:-8s}
+  @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,40px) scale(1.12)}66%{transform:translate(-24px,20px) scale(.94)}}
+  .grain{position:absolute;inset:0;background:radial-gradient(circle at 50% 30%,rgba(124,92,252,.10),transparent 60%);z-index:1}
+
+  /* ===== Screen content ===== */
+  .screen{position:absolute;inset:0;z-index:5;padding:64px 18px 18px;display:flex;flex-direction:column;overflow-y:auto}
+  .screen::-webkit-scrollbar{display:none}
+
+  /* Header row: mic pill + auto-stop chip */
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .micPill{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
+    background:rgba(45,225,194,.12);border:1px solid rgba(45,225,194,.4);font-size:12.5px;font-weight:800;letter-spacing:.04em}
+  .micPill.off{background:rgba(255,92,114,.12);border-color:rgba(255,92,114,.4);color:#ffd7de}
+  .liveDot{width:9px;height:9px;border-radius:50%;background:var(--keep);box-shadow:0 0 0 0 rgba(45,225,194,.6);animation:ping 1.6s infinite}
+  .micPill.off .liveDot{background:var(--pass);animation:none}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(45,225,194,.55)}70%{box-shadow:0 0 0 10px rgba(45,225,194,0)}100%{box-shadow:0 0 0 0 rgba(45,225,194,0)}}
+  .autostop{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;background:rgba(124,92,252,.14);
+    border:1px solid rgba(124,92,252,.4);font-size:12px;font-weight:800;color:#d8ccff;cursor:pointer}
+  .autostop .cd{font-variant-numeric:tabular-nums}
+
+  /* ===== Central visualizer (waveform aura) ===== */
+  .stage{position:relative;height:280px;display:flex;align-items:center;justify-content:center;margin:6px 0 4px}
+  .halo{position:absolute;width:246px;height:246px;border-radius:50%;
+    background:radial-gradient(circle,rgba(124,92,252,.30),transparent 68%);animation:breathe 3.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.12);opacity:1}}
+  .ring{position:absolute;border-radius:50%;border:1px solid rgba(167,139,250,.25)}
+  .r1{width:210px;height:210px}.r2{width:250px;height:250px;border-color:rgba(45,225,194,.14)}
+  .disc{position:relative;width:172px;height:172px;border-radius:50%;z-index:3;
+    background:linear-gradient(160deg,#241f3d,#14111f);border:1px solid #322c52;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 12px 40px rgba(124,92,252,.35)}
+  .loki{font-size:44px;font-weight:900;background:linear-gradient(135deg,var(--primaryLight),var(--keep));
+    -webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-2px}
+  /* waveform bars around center */
+  .wave{position:absolute;z-index:2;display:flex;align-items:center;gap:3px;height:70px}
+  .wave.left{right:calc(50% + 96px)}.wave.right{left:calc(50% + 96px)}
+  .bar{width:4px;height:14px;border-radius:3px;background:linear-gradient(var(--primaryLight),var(--keep));opacity:.9}
+  .recog{position:absolute;bottom:20px;z-index:4;font-size:11.5px;font-weight:800;letter-spacing:.14em;
+    color:var(--primaryLight);text-transform:uppercase;opacity:.9}
+
+  /* ===== Unified counters ===== */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:8px 2px 14px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:13px 8px;text-align:center}
+  .stat .v{font-size:22px;font-weight:900;line-height:1}
+  .stat .l{margin-top:5px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+  .stat.kept .v{color:var(--keep)}
+
+  /* ===== Section header ===== */
+  .sec{display:flex;align-items:center;gap:9px;margin:2px 2px 10px}
+  .sec h3{margin:0;font-size:13px;font-weight:900;letter-spacing:.12em}
+  .badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:rgba(124,92,252,.2);color:var(--primaryLight);
+    font-size:12px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}
+  .qnav{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;font-weight:700}
+  .qbtn{padding:5px 9px;border:1px solid var(--border);border-radius:9px;background:var(--bgEl);color:#cfc9e6;cursor:pointer}
+
+  /* ===== Track card ===== */
+  .tcard{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:14px;position:relative;overflow:hidden}
+  .swipehint{font-size:10.5px;color:var(--muted);text-align:center;margin-bottom:10px;letter-spacing:.02em}
+  .thead{display:flex;gap:12px;align-items:center}
+  .cover{width:60px;height:60px;border-radius:13px;flex:0 0 auto;object-fit:cover;
+    background:linear-gradient(135deg,#3a2c7a,#2b8f80);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;color:#fff}
+  .ttext{min-width:0;flex:1}
+  .ttitle{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tartist{font-size:13px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tdest{font-size:11.5px;color:var(--primaryLight);margin-top:5px;font-weight:700}
+  /* mini preview scrubber */
+  .scrub{margin:13px 0 3px;height:34px;display:flex;align-items:center;gap:9px}
+  .play{width:34px;height:34px;border-radius:50%;background:var(--primary);border:none;color:#fff;font-size:14px;cursor:pointer;flex:0 0 auto}
+  .track-line{flex:1;height:4px;border-radius:3px;background:#2c2745;position:relative;overflow:hidden}
+  .track-line span{position:absolute;left:0;top:0;bottom:0;width:38%;background:linear-gradient(90deg,var(--primary),var(--keep));border-radius:3px}
+  .time{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* actions */
+  .actions{display:flex;gap:10px;margin-top:14px}
+  .act{flex:1;border:none;border-radius:14px;padding:15px 0;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:.03em}
+  .pass{background:rgba(255,92,114,.14);color:var(--pass);border:1px solid rgba(255,92,114,.5)}
+  .keep{background:var(--keep);color:#06231e}
+  /* kept state (kept + privacy pill) — conservé */
+  .kept{margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:rgba(45,225,194,.08);border-radius:12px;padding:10px 12px}
+  .kept .k{color:var(--keep);font-weight:900;font-size:13px}
+  .pill{padding:7px 12px;border-radius:999px;font-size:11.5px;font-weight:800;cursor:pointer;border:1px solid}
+  .pub{background:rgba(124,92,252,.16);border-color:rgba(124,92,252,.5);color:#d8ccff}
+
+  .waiting{margin-top:16px;text-align:center;color:var(--muted);font-size:13px;padding:22px;border:1px dashed var(--border);border-radius:16px}
+  .hidden{display:none!important}
+
+  /* control note */
+  .note{max-width:390px;font-size:12px;color:#8a86a0;line-height:1.5;text-align:center}
+  .toggleRow{display:flex;gap:10px;margin-top:8px}
+  .tgl{padding:9px 16px;border-radius:12px;border:1px solid var(--border);background:#17152280;color:#cfc9e6;font-weight:800;font-size:12.5px;cursor:pointer}
+  .tgl.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ========== PHONE 1 : ÉCOUTE ACTIVE ========== -->
+  <div class="col">
+    <div class="caption">Écran d'écoute — session active</div>
+    <div class="phone" id="phone">
+      <div class="notch"></div>
+      <div class="status"><span id="clock">22:47</span><span>◫ ⚡ 82</span></div>
+      <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+      <div class="grain"></div>
+
+      <div class="screen">
+        <!-- Topbar: micro + auto-stop -->
+        <div class="topbar">
+          <div class="micPill" id="micPill"><span class="liveDot"></span><span id="micLabel">MICRO · À L'ÉCOUTE</span></div>
+          <div class="autostop" id="autostop" title="Arrêt automatique après silence prolongé">⏱ Auto-stop <span class="cd" id="cd">90s</span></div>
+        </div>
+
+        <!-- Central visualizer -->
+        <div class="stage">
+          <div class="halo" id="halo"></div>
+          <div class="ring r1"></div><div class="ring r2"></div>
+          <div class="wave left" id="waveL"></div>
+          <div class="disc"><div class="loki">L</div></div>
+          <div class="wave right" id="waveR"></div>
+          <div class="recog" id="recog">● reconnaissance…</div>
+        </div>
+
+        <!-- Unified counters -->
+        <div class="stats">
+          <div class="stat"><div class="v" id="cDur">01:12</div><div class="l">Durée</div></div>
+          <div class="stat"><div class="v" id="cDet">7</div><div class="l">Détectés</div></div>
+          <div class="stat kept"><div class="v" id="cKept">3</div><div class="l">Gardés</div></div>
+        </div>
+
+        <!-- Section -->
+        <div class="sec">
+          <h3>MUSIQUE DÉTECTÉE</h3><span class="badge" id="secCount">7</span>
+          <div class="qnav"><span class="qbtn">‹ Récent</span><span>3 / 7</span><span class="qbtn">Ancien ›</span></div>
+        </div>
+
+        <!-- Track card -->
+        <div class="tcard">
+          <div class="swipehint">Swipe facultatif : ← passer · garder → · les boutons restent dispos</div>
+          <div class="thead">
+            <div class="cover">♪</div>
+            <div class="ttext">
+              <div class="ttitle">Free Your Mind</div>
+              <div class="tartist">Boogie FM</div>
+              <div class="tdest">→ Funk / Soul</div>
+            </div>
+          </div>
+          <div class="scrub">
+            <button class="play">▶</button>
+            <div class="track-line"><span></span></div>
+            <div class="time">0:12 / 0:30</div>
+          </div>
+          <div class="actions">
+            <button class="act pass" onclick="showKept(false)">✕  PASSER</button>
+            <button class="act keep" onclick="showKept(true)">♡  GARDER</button>
+          </div>
+          <div class="kept hidden" id="keptBox">
+            <span class="k">✓ Gardé</span>
+            <span class="pill pub">Public sur mon profil</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toggleRow">
+      <button class="tgl on" id="tOn" onclick="setListening(true)">▶ Écoute</button>
+      <button class="tgl" id="tOff" onclick="setListening(false)">⏸ Silence</button>
+    </div>
+  </div>
+
+  <!-- ========== PHONE 2 : ÉTAT AUTO-STOP / SILENCE ========== -->
+  <div class="col">
+    <div class="caption">Auto-stop — silence détecté</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="status"><span>22:49</span><span>◫ ⚡ 81</span></div>
+      <div class="aurora"><div class="blob b1" style="opacity:.25"></div><div class="blob b3" style="opacity:.3"></div></div>
+      <div class="grain"></div>
+      <div class="screen">
+        <div class="topbar">
+          <div class="micPill off"><span class="liveDot"></span><span>MICRO · EN PAUSE</span></div>
+          <div class="autostop" style="background:rgba(255,180,84,.14);border-color:rgba(255,180,84,.45);color:#ffdca6">⏱ Auto-stop dans <span class="cd">08s</span></div>
+        </div>
+        <div class="stage">
+          <div class="ring r1" style="border-color:rgba(160,160,176,.18)"></div>
+          <div class="ring r2" style="border-color:rgba(160,160,176,.1)"></div>
+          <div class="disc" style="box-shadow:none;opacity:.8"><div class="loki" style="background:linear-gradient(135deg,#6b6685,#4a4660);-webkit-background-clip:text;background-clip:text;color:transparent">L</div></div>
+          <div class="recog" style="color:var(--muted)">silence — mise en veille</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">02:36</div><div class="l">Durée</div></div>
+          <div class="stat"><div class="v">7</div><div class="l">Détectés</div></div>
+          <div class="stat kept"><div class="v">3</div><div class="l">Gardés</div></div>
+        </div>
+        <div class="waiting">♫ En attente de musique…<br><span style="font-size:11px">L'écoute reprend automatiquement dès qu'un son est capté.</span></div>
+        <div style="margin-top:14px;text-align:center">
+          <button class="act keep" style="width:60%;border-radius:14px;padding:14px 0;font-weight:900">▶ Reprendre l'écoute</button>
+        </div>
+      </div>
+    </div>
+    <div class="note">Auto-stop = économie de batterie/crédits : après un silence prolongé, la session se met en veille sans se fermer. Elle reprend seule au premier son.</div>
+  </div>
+
+  <div class="note" style="width:100%;max-width:760px;margin-top:6px">
+    <b style="color:#cfc9e6">Ce qui est conservé (rien ne disparaît) :</b> pastille micro/état, aura animée, 3 compteurs Durée/Détectés/Gardés,
+    section « MUSIQUE DÉTECTÉE » + nav file d'attente, SwipeDeck ← PASSER / GARDER →, carte morceau (jaquette, titre, artiste, destination),
+    préécoute, états Gardé/Passé + pastille Public/Privé, bannière erreur + astuce micro. Restyling uniquement.
+  </div>
+</div>
+
+<script>
+  // Live clock
+  setInterval(()=>{const d=new Date();document.getElementById('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')},1000);
+
+  // Build waveform bars
+  function buildWave(el,n){for(let i=0;i<n;i++){const b=document.createElement('div');b.className='bar';el.appendChild(b)}}
+  const waveL=document.getElementById('waveL'),waveR=document.getElementById('waveR');
+  buildWave(waveL,7);buildWave(waveR,7);
+  const bars=[...waveL.children].reverse().concat([...waveR.children]);
+
+  let listening=true;
+  function animateWave(){
+    bars.forEach((b,i)=>{
+      const base=listening?(Math.sin(Date.now()/180+i)*0.5+0.5):0.05;
+      const rnd=listening?Math.random()*0.5:0;
+      const h=8+(base+rnd)*58;
+      b.style.height=h+'px';
+      b.style.opacity=listening?0.85:0.25;
+    });
+    requestAnimationFrame(animateWave);
+  }
+  animateWave();
+
+  // Listening toggle
+  function setListening(on){
+    listening=on;
+    document.getElementById('tOn').classList.toggle('on',on);
+    document.getElementById('tOff').classList.toggle('on',!on);
+    const pill=document.getElementById('micPill'),lbl=document.getElementById('micLabel'),halo=document.getElementById('halo'),recog=document.getElementById('recog');
+    if(on){pill.classList.remove('off');lbl.textContent='MICRO · À L\'ÉCOUTE';halo.style.animationPlayState='running';recog.style.color='var(--primaryLight)';recog.textContent='● reconnaissance…';}
+    else{pill.classList.add('off');lbl.textContent='MICRO · SILENCE';halo.style.animationPlayState='paused';recog.style.color='var(--muted)';recog.textContent='silence détecté';}
+  }
+
+  // Kept state demo
+  function showKept(keep){
+    const box=document.getElementById('keptBox');
+    box.classList.remove('hidden');
+    box.querySelector('.k').textContent=keep?'✓ Gardé':'✕ Passé';
+    box.querySelector('.k').style.color=keep?'var(--keep)':'var(--pass)';
+    const pill=box.querySelector('.pill');pill.style.display=keep?'inline-block':'none';
+    if(keep){const c=document.getElementById('cKept');c.textContent=parseInt(c.textContent)+1;}
+  }
+
+  // Auto-stop countdown demo
+  let cd=90;const cdEl=document.getElementById('cd');
+  setInterval(()=>{if(!listening){cd=Math.max(0,cd-1);}else{cd=90;}cdEl.textContent=cd+'s';},1000);
+
+  // Duration ticker
+  let sec=72;setInterval(()=>{if(listening){sec++;const m=String(Math.floor(sec/60)).padStart(2,'0'),s=String(sec%60).padStart(2,'0');document.getElementById('cDur').textContent=m+':'+s;}},1000);
+</script>
+</body>
+</html>
