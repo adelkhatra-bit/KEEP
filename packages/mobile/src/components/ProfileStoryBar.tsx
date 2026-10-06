@@ -425,7 +425,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
             <ScrollView>
               {(pinnable ?? []).map((track) => (
                 <View key={track.trackId} style={styles.row}>
-                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>♪</Text></View>}
+                  {track.artworkUrl ? <Image source={{ uri: track.artworkUrl }} style={styles.rowCover} /> : <View style={[styles.rowCover, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>♪</Text></View>}
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowName} numberOfLines={1}>{track.title}</Text>
                     <Text style={styles.rowArtist} numberOfLines={1}>{track.inSale ? '🏷 En vente · masquée dans la story' : track.artist}</Text>
@@ -613,6 +613,8 @@ const styles = StyleSheet.create({
   sheetCloseText: { color: colors.white, fontSize: 20, fontWeight: '900' },
   row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: 1, borderTopColor: colors.border },
   rowAvatar: { width: 52, height: 52, borderRadius: 26 },
+  // Pochette musicale : toujours un CARRÉ (Adel, 06/10/2026), jamais un rond.
+  rowCover: { width: 56, height: 56, borderRadius: 10 },
   rowAvatarFallback: { backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   rowInitial: { color: colors.white, fontSize: 20, fontWeight: '900' },
   rowBody: { flex: 1, minWidth: 0, paddingVertical: 6 },

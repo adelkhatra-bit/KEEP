@@ -31,6 +31,7 @@ import ProfileStyleCard from '../components/ProfileStyleCard';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import LoginPill from '../components/LoginPill';
+import VisitorInviteRobot from '../components/VisitorInviteRobot';
 import { commitKeep } from '../services/keepTrackAction';
 import { enrichMissingGenres } from '../services/keylessGenreService';
 import { loadPublicSmartAlbums, loadPublicSmartAlbumTracks, persistEnrichedGenres, SmartAlbumRecord } from '../services/smartAlbumService';
@@ -1853,8 +1854,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
             <TouchableOpacity style={styles.shareTopButton} onPress={() => setModerationMenuOpen(true)} accessibilityLabel="Signaler ou bloquer ce profil"><Text style={styles.shareTopText}>⋯</Text></TouchableOpacity>
           ) : null}
         </View>
-
-
+        {!effectiveViewerId && !isOwner ? <VisitorInviteRobot inviter={profile.username} /> : null}
 
         <ProfileMotionReveal motionKey={`visitor-hero:${profile.id}`} delay={40} style={styles.hero}>
           <View style={styles.identity}>

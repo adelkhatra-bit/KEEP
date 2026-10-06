@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
-import { startShakeDetection, submitProblemReport, subscribeProblemReportOpen, currentScreenName, openProblemReport } from '../services/problemReportService';
+import { startShakeDetection, submitProblemReport, subscribeProblemReportOpen, currentScreenName, openProblemReport, announceReportUpdates } from '../services/problemReportService';
+import { navigationRef } from '../navigation/navigationRef';
+import { pushCrumb, screenLabel } from '../services/reportLoop';
+import { robotSay } from '../services/robotCoachService';
 import KeepModal from './KeepModal';
 
 /** Fenêtre « Signaler un problème » : montée une seule fois dans App.tsx (utilisateur connecté). */
@@ -14,17 +17,35 @@ export default function ProblemReportHost() {
   const [screen, setScreen] = useState('');
 
   useEffect(() => subscribeProblemReportOpen(() => { setScreen(currentScreenName()); setVisible(true); }), []);
-  useEffect(() => startShakeDetection(openProblemReport), []);
+  useEffect(() => startShakeDetection(() => { pushCrumb('action', 'secousse'); openProblemReport(); }), []);
+  // Fil des dernières actions : chaque changement d'écran est mémorisé (en mémoire) pour localiser le problème lors d'une secousse.
+  useEffect(() => {
+    pushCrumb('screen', currentScreenName());
+    const unsubscribe = (navigationRef as any).addListener?.('state', () => pushCrumb('screen', currentScreenName()));
+    return typeof unsubscribe === 'function' ? unsubscribe : undefined;
+  }, []);
+  // Le robot annonce les réparations (une fois) puis, rarement et discrètement, rappelle le geste « secoue ton téléphone ».
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    const first = setTimeout(() => { void announceReportUpdates(); }, 9000);
+    const tip = setTimeout(() => { void robotSay('REPORT_TIP'); }, 90000);
+    return () => { clearTimeout(first); clearTimeout(tip); };
+  }, [user?.id]);
 
   const send = async () => {
     if (busy || !user?.id) return;
     setBusy(true);
     try {
-      await submitProblemReport(text, { userId: String(user.id), username: user.username });
+      await submitProblemReport(text, { userId: String(user.id), username: user.username }, 'SHAKE');
       setText('');
       setVisible(false);
-      Alert.alert('Merci !', 'Ton message est bien parti avec l’écran concerné. On le regarde et on corrige.', [{ text: 'OK', style: 'cancel' }]);
+      void robotSay('REPORT_UPDATE', { text: `Reçu 📍 J’ai localisé le souci sur ${screenLabel(screen || currentScreenName())}. On s’en occupe et je te préviens dès que c’est réparé.` });
     } catch (error: any) {
+      if (String(error?.message || '').includes('ABUSIVE')) {
+        setText(''); setVisible(false);
+        Alert.alert('Message non transmis', 'Les insultes ne sont pas acceptées. Ton message n’a pas été envoyé et ton compte a été signalé à l’équipe.', [{ text: 'OK', style: 'cancel' }]);
+        return;
+      }
       const tooShort = String(error?.message || '').includes('TOO_SHORT');
       Alert.alert(tooShort ? 'Message trop court' : 'Envoi impossible', tooShort ? 'Décris le problème en quelques mots.' : 'Le message n’a pas pu partir. Vérifie ta connexion et réessaie.', [{ text: 'OK', style: 'cancel' }]);
     } finally { setBusy(false); }

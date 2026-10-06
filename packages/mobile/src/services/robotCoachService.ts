@@ -11,7 +11,7 @@ import { useGameSessionStore } from '../store/useGameSessionStore';
  *  - NO_FREE / NO_SOLO : quand l'utilisateur n'a plus de FREE / de Solo, au plus 2 fois par jour et 6 h d'écart, avec une phrase différente à chaque fois.
  */
 const KEY = 'keep:robot:coach:v1';
-export async function robotSay(kind: RobotCoachKind, options: { count?: number; username?: string } = {}): Promise<boolean> {
+export async function robotSay(kind: RobotCoachKind, options: { count?: number; username?: string; text?: string } = {}): Promise<boolean> {
   // Règles d'Adel (05/10/2026) : jamais pendant un Solo ni un Battle en ligne (ni message, ni vibration) ; jamais deux messages en même temps.
   if (useGameSessionStore.getState().isGameInProgress) return false;
   if (useRobotMessageStore.getState().message) return false;
@@ -24,7 +24,7 @@ export async function robotSay(kind: RobotCoachKind, options: { count?: number; 
   const previous = memory[kind];
   memory[kind] = { lastAt: now, day: today, count: previous && previous.day === today ? previous.count + 1 : 1 };
   try { await AsyncStorage.setItem(KEY, JSON.stringify(memory)); } catch { /* sans mémoire : le robot parlera un peu plus */ }
-  useRobotMessageStore.getState().say(kind, composeRobotLine(kind, `${now}:${Math.floor(Math.random() * 1e9)}`, options.count ?? 0, options.username ?? ''));
+  useRobotMessageStore.getState().say(kind, options.text ?? composeRobotLine(kind, `${now}:${Math.floor(Math.random() * 1e9)}`, options.count ?? 0, options.username ?? ''));
   // Le robot « s'agite » : vibration (motif sur Android, une vibration sur iPhone). Son discret seulement pour les sessions et le solde bas.
   try { if (Platform.OS !== 'web') Vibration.vibrate(kind === 'GREETING' ? [0, 40, 60, 40] : [0, 70, 50, 70]); } catch { /* sans vibreur */ }
   if (kind === 'SESSIONS' || kind === 'LOW_FREE') void playNotificationCue('DEFAULT').catch(() => {});

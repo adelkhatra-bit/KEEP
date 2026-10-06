@@ -13,6 +13,7 @@ import { useRobotMessageStore } from '../store/useRobotMessageStore';
 import StoryVisitorToast from './StoryVisitorToast';
 import { ROBOT_ACTIONS } from '../services/robotCoachMessages';
 import { robotWelcome } from '../services/robotCoachService';
+import { openProblemReport } from '../services/problemReportService';
 import { loadMyFreeWalletStatus } from '../services/freeWalletService';
 import { useGlobalChatStore } from '../store/useGlobalChatStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -915,6 +916,8 @@ export default function GlobalChatDock() {
               dismissRobotMessage();
               // Salut : l'appui ouvre directement le salon / le Tchat pour parler à ses amis.
               if (kind === 'GREETING') { useGlobalChatStore.getState().open(); return; }
+              if (kind === 'REPORT_TIP') { openProblemReport(); return; }
+              if (kind === 'REPORT_UPDATE') return;
               try { if (navigationRef.isReady()) (navigationRef as any).navigate(action.route, action.params); } catch { /* écran indisponible */ }
             }}
             accessibilityRole="button"

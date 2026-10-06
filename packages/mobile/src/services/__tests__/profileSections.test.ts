@@ -26,3 +26,17 @@ describe('règles d’Adel du 05/10/2026 (IDEA-115 / IDEA-116)', () => {
     expect(collapsedSectionKey('a', 'boutique')).not.toBe(collapsedSectionKey('a', 'private-chat-sales'));
   });
 });
+
+describe('menu ☰ : retour direct à la rubrique (IDEA-119)', () => {
+  it('chaque sortie du menu (écran ou fenêtre) mémorise le retour et la position de défilement', () => {
+    const screen = read('../../screens/ProfilePublicScreen.tsx');
+    expect(screen).toContain('returnToMenuAfterScreen.current = true; setMenuOpen(false)');
+    for (const key of ['identityShare', 'musicTaste', 'ear']) {
+      expect(screen).toMatch(new RegExp(`key === '${key}'\\) \\{\\n\\s+returnToMenuAfterModal.current = true;`));
+    }
+    expect(screen).toContain('useIsFocused()');
+    expect(screen).toContain('menuScrollRef.current?.scrollTo({ y: menuScrollY.current');
+    expect(screen).toContain('const pendingMenuReturn = { current: false }');
+    expect(screen).toContain('menuFreezeUntil.current = Date.now() + 2000');
+  });
+});

@@ -1,5 +1,5 @@
 // Messages du robot (Adel, 05/10/2026) : courts, variés (jamais toujours la même phrase), sans prise de tête. Fonctions pures.
-export type RobotCoachKind = 'SESSIONS' | 'NO_FREE' | 'NO_SOLO' | 'LOW_FREE' | 'GREETING';
+export type RobotCoachKind = 'SESSIONS' | 'NO_FREE' | 'NO_SOLO' | 'LOW_FREE' | 'GREETING' | 'REPORT_TIP' | 'REPORT_UPDATE';
 /** Solde FREE à partir duquel le robot prévient (un GARDER coûte 3) : « il ne te reste que N FREE ». */
 export const LOW_FREE_THRESHOLD = 3;
 
@@ -9,6 +9,8 @@ const OPENERS: Record<RobotCoachKind, string[]> = {
   NO_SOLO: ['Petit rappel :', 'Hé,', 'Info robot :', 'Coucou,', 'Oups :', 'Juste pour te prévenir :'],
   LOW_FREE: ['Attention,', 'Petit rappel :', 'Hé,', 'Info robot :', 'Psst,'],
   GREETING: ['Salut', 'Hello', 'Coucou', 'Yo', 'Hey'],
+  REPORT_TIP: ['Petit conseil :', 'Au fait,', 'Psst,', 'Info robot :'],
+  REPORT_UPDATE: ['Bonne nouvelle :', 'Hé,'],
 };
 const CORES: Record<RobotCoachKind, string[]> = {
   SESSIONS: ['tu as des sessions en attente', 'une session t’attend', 'tes morceaux sont prêts à trier', 'des musiques attendent ton verdict'],
@@ -16,6 +18,8 @@ const CORES: Record<RobotCoachKind, string[]> = {
   NO_SOLO: ['tes Solo du jour sont épuisés', 'plus de Solo pour aujourd’hui', 'tu as joué tous tes Solo du jour', 'la réserve de Solo est vide'],
   LOW_FREE: ['il ne te reste que {n} FREE', 'plus que {n} FREE dans ton solde', 'ton solde descend : {n} FREE restants', '{n} FREE restants, fais attention'],
   GREETING: ['t’es motivé ? Ajoute de la musique !', 'tu as raison, fais grandir ta communauté !', 'prêt à faire découvrir ton style ?', 'ta communauté t’attend !', 'une petite session aujourd’hui ?'],
+  REPORT_TIP: ['un souci ? Secoue ton téléphone et décris-le', 'si un truc cloche, secoue ton téléphone et raconte-moi', 'un bug ? Secoue ton téléphone, je le localise'],
+  REPORT_UPDATE: ['ton signalement a été traité'],
 };
 const CLOSERS: Record<RobotCoachKind, string[]> = {
   SESSIONS: ['Touche pour les voir.', 'Viens les trier.', 'C’est par ici.', 'Un petit coup d’œil ?'],
@@ -23,6 +27,8 @@ const CLOSERS: Record<RobotCoachKind, string[]> = {
   NO_SOLO: ['Reviens demain ou recharge ici.', 'Touche pour voir les offres.', 'On en reprend ?', 'Recharge ici si tu veux continuer.'],
   LOW_FREE: ['Gagne-en en jouant un Battle.', 'Parraine un ami pour en gagner.', 'Un Battle gagné = des FREE en plus.', 'Partage ton lien : chaque inscrit t’en rapporte.'],
   GREETING: ['Invite tes amis ou tes collègues.', 'Va dire coucou dans le salon.', 'Parle à tes amis, ça fait grandir ta communauté.', 'Partage ton profil avec un pote.', 'Fais un tour dans le salon.'],
+  REPORT_TIP: ['Je m’en occupe.', 'On répare vite.', 'C’est automatique.'],
+  REPORT_UPDATE: ['Merci de nous aider.'],
 };
 
 const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -52,6 +58,8 @@ export const ROBOT_ACTIONS: Record<RobotCoachKind, { route: string; params?: Rec
   LOW_FREE: { route: 'Offers' },
   // Salut : un appui ouvre le salon (GlobalChatDock) ; repli = Découvertes.
   GREETING: { route: 'Main', params: { screen: 'Discover' } },
+  REPORT_TIP: { route: 'Main' },
+  REPORT_UPDATE: { route: 'Main' },
 };
 
 const RULES: Record<RobotCoachKind, { minGapMs: number; maxPerDay: number }> = {
@@ -60,6 +68,9 @@ const RULES: Record<RobotCoachKind, { minGapMs: number; maxPerDay: number }> = {
   NO_SOLO: { minGapMs: 6 * 3600 * 1000, maxPerDay: 2 },
   LOW_FREE: { minGapMs: 12 * 3600 * 1000, maxPerDay: 1 },
   GREETING: { minGapMs: 6 * 3600 * 1000, maxPerDay: 2 },
+  // Signalement par secousse (Adel, 06/10/2026) : conseil discret rare ; réponse au signalement toujours transmise.
+  REPORT_TIP: { minGapMs: 3 * 24 * 3600 * 1000, maxPerDay: 1 },
+  REPORT_UPDATE: { minGapMs: 5 * 1000, maxPerDay: 20 },
 };
 export type Memory = Record<string, { lastAt: number; day: string; count: number }>;
 

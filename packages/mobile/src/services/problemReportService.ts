@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 import { navigationRef } from '../navigation/navigationRef';
+import { composeReportUpdateLine, isAbusiveReport, readCrumbs, type ReportUpdate } from './reportLoop';
 
 /**
  * Signalement d'un problème depuis l'app (Adel, 05/10/2026) : secouer le téléphone ou « Signaler un problème » dans les réglages.
@@ -16,10 +17,27 @@ export function currentScreenName(): string {
 
 type ReportContext = { userId: string; username?: string | null };
 
-export async function submitProblemReport(message: string, who: ReportContext): Promise<void> {
+function currentRouteParamKeys(): string[] {
+  try {
+    const route: any = (navigationRef as any).getCurrentRoute?.();
+    return Object.keys(route?.params ?? {}).slice(0, 12);
+  } catch { return []; }
+}
+
+/** Contexte envoyé avec un signalement : où est l'utilisateur et ce qu'il vient de faire (jamais de contenu privé, seulement des noms d'écrans / d'actions). */
+function buildReportContext(kind: string): Record<string, unknown> {
+  const crumbs = readCrumbs().map((c) => ({ ago_s: Math.max(0, Math.round((Date.now() - c.t) / 1000)), kind: c.kind, label: c.label }));
+  let online: boolean | null = null;
+  try { online = typeof navigator !== 'undefined' && 'onLine' in navigator ? Boolean((navigator as any).onLine) : null; } catch { online = null; }
+  return { kind, route_param_keys: currentRouteParamKeys(), crumbs, online, locale: (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return null; } })() };
+}
+
+export async function submitProblemReport(message: string, who: ReportContext, kind: 'SHAKE' | 'MANUAL' | 'AUTO' = 'MANUAL'): Promise<void> {
   const text = message.trim();
   if (text.length < 3) throw new Error('PROBLEM_REPORT_TOO_SHORT');
   if (!supabase || !who.userId) throw new Error('PROBLEM_REPORT_UNAVAILABLE');
+  // Insultes : le texte n'est jamais stocké ; seule une ligne « signalé » part, le Super Admin décide de la suite (jamais de sanction automatique).
+  const abusive = kind !== 'AUTO' && isAbusiveReport(text);
   let device = '';
   try { device = String(require('expo-device').modelName ?? ''); } catch { /* web : pas de modèle */ }
   let appVersion = '';
@@ -31,15 +49,37 @@ export async function submitProblemReport(message: string, who: ReportContext): 
   const { error } = await supabase.from('app_problem_reports').insert({
     user_id: who.userId,
     username: who.username ?? null,
-    message: text.slice(0, 2000),
+    message: abusive ? '[MESSAGE MASQUÉ — langage inapproprié]' : text.slice(0, 2000),
     screen: currentScreenName(),
     platform: Platform.OS,
     os_version: String(Platform.Version ?? ''),
     device: device || null,
     app_version: appVersion || null,
     build_sha: String(process.env.EXPO_PUBLIC_BUILD_SHA || '').slice(0, 40) || null,
+    kind: abusive ? 'ABUSE' : kind,
+    flagged: abusive,
+    context: buildReportContext(kind),
   });
   if (error) throw error;
+  if (abusive) throw new Error('PROBLEM_REPORT_ABUSIVE');
+}
+
+/**
+ * Réponses de l'IA aux signalements de cet utilisateur (réparé / mise à jour nécessaire / pas de bug) : le robot les annonce UNE fois,
+ * puis le signalement est marqué comme annoncé. Lecture seule + accusé de réception ; jamais bloquant.
+ */
+export async function announceReportUpdates(): Promise<number> {
+  try {
+    if (!supabase) return 0;
+    const { data, error } = await supabase.rpc('keep_my_report_updates');
+    if (error || !Array.isArray(data) || !data.length) return 0;
+    const { robotSay } = require('./robotCoachService');
+    const rows = data as any[];
+    const first: ReportUpdate = { id: String(rows[0].id), screen: String(rows[0].screen ?? 'inconnu'), status: rows[0].status, note: rows[0].ai_note };
+    const spoke = await robotSay('REPORT_UPDATE', { text: composeReportUpdateLine(first, Date.now()) });
+    if (spoke) await supabase.rpc('keep_report_ack', { p_ids: rows.map((r) => String(r.id)) });
+    return spoke ? rows.length : 0;
+  } catch { return 0; }
 }
 
 /**

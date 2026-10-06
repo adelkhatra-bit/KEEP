@@ -258,3 +258,6 @@ priorité. Le Super Admin (`/admin-preview/`) n'est pas concerné.
 3. **Retour quotidien** : story 24 h (chronomètre), série quotidienne (+FREE, à implémenter), robot qui salue sans harceler (plafonds par jour).
 4. **Communauté** : abonnés, reprises, vues détaillées de ta story ; plus elle grandit, plus d'options se débloquent (paliers `growth_followers_reward_*`).
 5. **Garde-fous** : jamais de pression excessive (messages plafonnés), aucune récompense d'argent promise, le classement reste lisible et corrigeable en cas d'abus.
+
+## Simulation de prix proposée par l'IA (06/10/2026)
+Voir `docs/PRICING_PROPOSAL_SIMULATION.md` : prix recommandés (PREMIUM 4,99 €, CREATOR PRO 9,99 € avec accès ordinateur, VENUE PRO 29 €), simulation annuelle prudent / base / ambitieux et boucle d'évolution. Hypothèses à remplacer par des mesures ; aucune application en production sans accord d'Adel.

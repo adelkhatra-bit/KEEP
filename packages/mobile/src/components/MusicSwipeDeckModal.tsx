@@ -528,7 +528,7 @@ export default function MusicSwipeDeckModal({
                 .catch(() => {});
             }
             if (alive) setAutoplayBlocked(false);
-          } catch {
+          } catch (playError) {
             if (!alive) return;
             if (Platform.OS !== 'web') {
               // TestFlight/iOS : aucun geste utilisateur n'est requis pour
@@ -568,7 +568,7 @@ export default function MusicSwipeDeckModal({
                 return;
               }
               // Journal automatique (Adel 05/10/2026 : « la musique ne part pas ») : on garde le code d'échec et l'hôte de l'extrait, jamais l'URL.
-              reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'}`);
+              reportAutoDiagnostic('PREVIEW_PLAY_FAILED', `${isSaleStoryTrack(current) ? 'sale' : 'track'} host=${String(current?.previewUrl ?? '').replace(/^https?:\/\//, '').split('/')[0] || 'none'} err=${String((playError as any)?.message ?? playError ?? 'inconnue').replace(/https?:\/\/\S+/g, 'url').slice(0, 110)}`);
               // Dans un flux automatique, un extrait réellement illisible ne
               // doit jamais bloquer l'utilisateur sur une carte silencieuse.
               setAutoplayBlocked(false);

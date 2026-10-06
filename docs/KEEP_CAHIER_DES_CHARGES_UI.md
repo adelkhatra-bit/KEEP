@@ -240,3 +240,9 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Règle générale (tous les utilisateurs qui auront la fonction)** : toute grande section de profil (Ma boutique musicale, Ventes privées du chat…) est masquable / affichable d'un appui (`useCollapsedSection`), l'état est mémorisé par profil et par appareil (application et ordinateur identiques). Boutique : ouverte par défaut ; ventes privées du chat : masquées par défaut.
 - Toute nouvelle grande section de profil doit utiliser ce même mécanisme (pas de seconde version).
 - Vocabulaire : on dit « OK Loki Music » ; audit des textes visibles « KEEP » à faire (IDEA-114).
+
+### §14 sexdecies — Menu ☰ pleine largeur, retour direct, signalement par secousse, invitation du visiteur (Adel, 06/10/2026, IDEA-119/125/127/128)
+- Le tiroir du menu ☰ utilise **toute la largeur** sur téléphone (plus de bande vide à gauche) et jusqu'à 640 px sur ordinateur.
+- **Retour direct** : quitter une rubrique (autre écran ou fenêtre : Carte, Goûts, Mon oreille) puis revenir rouvre le menu ☰ à la même position de défilement ; l'état survit à un remontage de l'écran.
+- **Secousse = signalement localisé** : écran exact + fil des 25 dernières actions + appareil/version → `app_problem_reports` ; le robot répond « Reçu 📍 localisé sur … », puis annonce une seule fois « réparé ✅ / fais ta mise à jour / rien détecté » (`keep_my_report_updates`, `keep_report_ack`). Conseil discret « un souci ? secoue ton téléphone » au plus tous les 3 jours. Insultes : message non transmis, ligne « signalé » pour le Super Admin (aucune sanction automatique). Voir `docs/REPAIR_AGENT.md`.
+- **Visiteur sans compte arrivé par un lien** : le petit robot le nomme l'invitant et propose « Créer mon compte » (jamais bloquant, disparaît d'un appui) ; `VisitorInviteRobot`.
