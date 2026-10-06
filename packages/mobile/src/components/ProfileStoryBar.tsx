@@ -46,7 +46,7 @@ import {
 import { colors } from '../theme/colors';
 import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
-import { buildViewerDetail, formatDetailSeconds } from '../services/storyViewerDetail';
+import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
@@ -495,13 +495,17 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                     {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
                     <View style={styles.rowBody}>
                       <View style={styles.rowNameLine}><Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>{v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}</View>
-                      {(() => { const w = formatWatchDetail(v); return (
-                        <>
-                          <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
-                          <Text style={styles.rowDetail} numberOfLines={1}>{w.detail}</Text>
-                          {w.chaptersLine ? <Text style={styles.rowDetail} numberOfLines={2} testID={`story-viewer-chapters-${v.viewerId}`}>{w.chaptersLine}</Text> : null}
-                        </>
-                      ); })()}
+                      {(() => {
+                        // Façon Instagram (Adel 06/10/2026) : pas de durées ni de « chapitres » ; une seule ligne courte.
+                        const w = formatWatchDetail(v);
+                        const quick = openStory ? buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey) : null;
+                        return (
+                          <>
+                            <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
+                            {quick ? <Text style={styles.rowDetail} numberOfLines={1} testID={`story-viewer-summary-${v.viewerId}`}>{quick.leftAtTitle ? `${quick.summary} · arrêté sur « ${quick.leftAtTitle} »` : quick.summary}</Text> : null}
+                          </>
+                        );
+                      })()}
                       <View style={styles.rowActions}>
                         {/* Adel 05/10/2026 : plus de badge « Abonné » ; on va sur le profil (seul endroit où l'on peut se désabonner). */}
                         <TouchableOpacity
@@ -524,14 +528,13 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                       return (
                         <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
                           <Text style={styles.detailSummary}>{detail.summary}</Text>
+                          {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Aucune musique encore en story</Text> : null}
                           {detail.rows.map((r) => (
-                            <View key={`${v.viewerId}-${r.index}`} style={[styles.detailRow, r.state === 'LEFT_HERE' && styles.detailRowLeft]}>
+                            <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
                               <Text style={styles.detailIndex}>{r.index + 1}</Text>
                               <View style={{ flex: 1, minWidth: 0 }}>
                                 <Text style={styles.detailTitle} numberOfLines={1}>{r.title}</Text>
-                                <Text style={styles.detailMeta} numberOfLines={1}>
-                                  {r.state === 'NOT_SEEN' ? 'Pas vue' : r.seconds > 0 ? `Écoutée ${formatDetailSeconds(r.seconds)}` : 'Vue'}{r.state === 'LEFT_HERE' ? ' · ● parti ici' : ''}
-                                </Text>
+                                <Text style={styles.detailMeta} numberOfLines={1}>{r.label}</Text>
                               </View>
                               {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
                             </View>

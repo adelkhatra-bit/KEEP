@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 import { navigationRef } from '../navigation/navigationRef';
+import { currentReportSurface, describeReportLocation } from './reportSurface';
 import { composeReportUpdateLine, isAbusiveReport, readCrumbs, type ReportUpdate } from './reportLoop';
 
 /**
@@ -29,7 +30,8 @@ function buildReportContext(kind: string): Record<string, unknown> {
   const crumbs = readCrumbs().map((c) => ({ ago_s: Math.max(0, Math.round((Date.now() - c.t) / 1000)), kind: c.kind, label: c.label }));
   let online: boolean | null = null;
   try { online = typeof navigator !== 'undefined' && 'onLine' in navigator ? Boolean((navigator as any).onLine) : null; } catch { online = null; }
-  return { kind, route_param_keys: currentRouteParamKeys(), crumbs, online, locale: (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return null; } })() };
+  const surface = currentReportSurface();
+  return { kind, route: currentScreenName(), surface: surface ? { label: surface.label, track_id: surface.trackId ?? null, track_title: surface.trackTitle ?? null, track_artist: surface.trackArtist ?? null, index: surface.index ?? null, ...(surface.extra ?? {}) } : null, route_param_keys: currentRouteParamKeys(), crumbs, online, locale: (() => { try { return Intl.DateTimeFormat().resolvedOptions().locale; } catch { return null; } })() };
 }
 
 export async function submitProblemReport(message: string, who: ReportContext, kind: 'SHAKE' | 'MANUAL' | 'AUTO' = 'MANUAL'): Promise<void> {
@@ -50,7 +52,7 @@ export async function submitProblemReport(message: string, who: ReportContext, k
     user_id: who.userId,
     username: who.username ?? null,
     message: abusive ? '[MESSAGE MASQUÉ — langage inapproprié]' : text.slice(0, 2000),
-    screen: currentScreenName(),
+    screen: describeReportLocation(currentScreenName()),
     platform: Platform.OS,
     os_version: String(Platform.Version ?? ''),
     device: device || null,

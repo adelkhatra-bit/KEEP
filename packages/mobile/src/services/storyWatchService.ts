@@ -3,6 +3,8 @@
 export const STORY_WATCH_MIN_MS = 2000;
 export const STORY_WATCH_PING_MS = 10000;
 
+const UUID_RE = /^[0-9a-f-]{36}$/i;
+
 type Rpc = (fn: string, args: Record<string, unknown>) => PromiseLike<{ data?: any; error?: any }>;
 export type StoryWatchEvent = { type: 'shown' | 'listen'; trackId: string; index?: number; total?: number };
 
@@ -19,12 +21,16 @@ export function startStoryWatch(ownerId: string, tracksTotal: number, rpc: Rpc, 
   let listened = false;
   // Chapitres : chaque musique de la story est un chapitre ; on mesure le temps passé dans chacun, de son arrivée jusqu'à la musique suivante.
   const chapterSeconds: Record<number, number> = {};
+  // Cause racine du détail « incohérent » (Adel, 06/10/2026) : un chapitre n'était repéré que par sa POSITION dans la story ;
+  // dès qu'une musique est ajoutée, les positions glissent et le détail attribuait le temps à la mauvaise musique.
+  // Chaque chapitre porte maintenant l'identifiant de SA musique (`t`).
+  const chapterTrack: Record<number, string> = {};
   let chapterIndex = -1;
   let chapterStartedAt = 0;
   const chaptersPayload = () => {
     const live = { ...chapterSeconds };
     if (chapterIndex >= 0) live[chapterIndex] = (live[chapterIndex] ?? 0) + Math.max(0, Math.round((now() - chapterStartedAt) / 1000));
-    return Object.entries(live).map(([i, s]) => ({ i: Number(i), s }));
+    return Object.entries(live).map(([i, s]) => (chapterTrack[Number(i)] ? { i: Number(i), s, t: chapterTrack[Number(i)] } : { i: Number(i), s }));
   };
   let startTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -56,9 +62,10 @@ export function startStoryWatch(ownerId: string, tracksTotal: number, rpc: Rpc, 
           if (chapterIndex >= 0) chapterSeconds[chapterIndex] = (chapterSeconds[chapterIndex] ?? 0) + Math.max(0, Math.round((now() - chapterStartedAt) / 1000));
           chapterIndex = event.index;
           chapterStartedAt = now();
+          if (UUID_RE.test(event.trackId)) chapterTrack[event.index] = event.trackId;
           if (event.index > maxIndex) { maxIndex = event.index; tracksSeen = maxIndex + 1; }
         }
-        lastTrackId = /^[0-9a-f-]{36}$/i.test(event.trackId) ? event.trackId : lastTrackId;
+        lastTrackId = UUID_RE.test(event.trackId) ? event.trackId : lastTrackId;
       } else {
         listened = true;
       }

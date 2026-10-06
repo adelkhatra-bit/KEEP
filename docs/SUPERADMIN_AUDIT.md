@@ -59,7 +59,7 @@ Légende : ✅ marche · ⚠️ à corriger · ❌ cassé/manquant. « Textes > 
 5. **Reconnaissance** : écrire chaque essai dans `music_recognition_attempts` (cause racine) ; plafond ACRCloud jour/mois ; retirer AudD ; ShazamKit Android.
 6. **Musique** : Apple Music catalogue dans la recherche ; Deezer, YouTube OAuth, SoundCloud ; retour dans Loki après connexion ; rangement auto des likes/playlists ; rappel « synchronise ta plateforme ».
 7. **Zéro clavier** : listes déroulantes expliquées (Abonnements, Comptabilité, Textes & quotas, Music Brain), Copier/Coller, cartes de clés « Où la trouver ».
-8. **Règle 5 mots + alignements** : composant commun « En savoir plus », grille commune, garde CI d'abord en avertissement puis bloquante. ⚠️ Conflit à trancher : écran Offres validé à 23 mots.
+8. **Règle 23 mots (tranchée par Adel le 06/10) + alignements** : composant commun « En savoir plus » (`ClampedText` existant), grille commune, garde CI d'abord en avertissement puis bloquante.
 9. **Traduction** gratuite + textes relus.
 
 ## Ce qu'Adel doit faire (rien d'autre)

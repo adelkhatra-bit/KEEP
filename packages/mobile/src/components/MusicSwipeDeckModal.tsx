@@ -2,6 +2,7 @@ import { resolveKeptTrackId } from '../services/keepTrackAction';
 import SourceProfileQuickView from './SourceProfileQuickView';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { reportAutoDiagnostic } from '../services/problemReportService';
+import { pushReportSurface } from '../services/reportSurface';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -177,6 +178,16 @@ export default function MusicSwipeDeckModal({
   const preparedTracksRef = useRef<CanonicalTrack[]>(tracks);
   tracksRef.current = tracks;
   const current = deckTracks[index];
+  // Secousse (06/10/2026) : la fenêtre déclare où on est (titre du lecteur, @source, musique en cours) pour localiser exactement le signalement.
+  const reportSurfaceRef = useRef<ReturnType<typeof pushReportSurface> | null>(null);
+  useEffect(() => {
+    if (!visible) { reportSurfaceRef.current?.remove(); reportSurfaceRef.current = null; return undefined; }
+    const surface = { label: `${title}${sourceUsername ? ` · @${sourceUsername}` : ''}`, trackId: current?.id ?? null, trackTitle: current?.title ?? null, trackArtist: current?.artist ?? null, index };
+    if (reportSurfaceRef.current) reportSurfaceRef.current.update(surface);
+    else reportSurfaceRef.current = pushReportSurface(surface);
+    return undefined;
+  }, [visible, title, sourceUsername, current?.id, current?.title, current?.artist, index]);
+  useEffect(() => () => { reportSurfaceRef.current?.remove(); reportSurfaceRef.current = null; }, []);
   // Adel (05/10/2026) : « à chaque fois que je swipe ça passe automatiquement à l'autre utilisateur » -- la file terminée prévient le parent une seule fois par ouverture.
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
