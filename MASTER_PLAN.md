@@ -40,7 +40,7 @@
 |---|---|---|
 | Profil de goût (GARDER, ❤, 😐, 👎, partages) | ✅ | `keep_my_taste_profile` |
 | Recommandations de musiques en tête de Loki Pulse | ✅ | `keep_recommend_for_me` |
-| Compléter le style (questionnaire + signaux) | 🟡 | questionnaire existant ; pas de relance ciblée |
+| Compléter le style (questionnaire + signaux) | ✅ | questionnaire obligatoire à l'inscription (`TasteOnboardingGate`, 06/10) : genre + styles pré-cochés ; langue/pays détectés |
 | **Utilisateurs au même style** | ⛔ | RPC de proximité de goût + affichage |
 | Partage payant dans Loki Pulse (IDEA-130) | ⛔ | règles à valider (voir ci-dessous) |
 

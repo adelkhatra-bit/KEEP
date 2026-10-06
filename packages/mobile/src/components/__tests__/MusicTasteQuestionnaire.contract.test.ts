@@ -17,7 +17,7 @@ describe('MusicTasteQuestionnaire global-catalog contract', () => {
   });
 
   it('prefills device language and country when no saved choice exists', () => {
-    expect(source).toContain("savedGenres.length ? savedGenres : suggestedGenres.slice(0, 12)");
+    expect(source).toContain("savedGenres.length ? savedGenres : (prefillGenres && prefillGenres.length) ? prefillGenres.slice(0, 12) : suggestedGenres.slice(0, 12)");
     expect(source).toContain("savedCountries.length ? savedCountries : (detectedCountry ? [detectedCountry] : [])");
     expect(source).toContain("savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : [])");
   });

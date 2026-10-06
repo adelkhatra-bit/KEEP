@@ -15,6 +15,7 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 ## Journal (récent d'abord)
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
+| 06/10/2026 | reconcile | voir git log | Questionnaire d'inscription OBLIGATOIRE (genre + styles pré-cochés, sans « Plus tard ») pour tout compte réel jamais sollicité | jest 1333 ; navigateur 320/390/1440 ; non vérifié iPhone |
 | 06/10/2026 | reconcile | voir git log | Bulle du robot plus grosse (13 → 16) ; mesure de latence du Swipe (`SWIPE_SLOW`) ; faisabilité catalogue + plateformes + budget Super Admin écrite | jest 1330 ; non vérifié iPhone ; aucun code catalogue |
 | 06/10/2026 | reconcile | voir git log | Mise en story gratuite d'une musique sans propriétaire (« Gratuit · non certifié », anti-doublon) ; PASSER retire de la session (testé) ; profil moins lourd (111 → 94 requêtes) ; pastilles d'écoute alignées ; bande du haut réduite ; textes du robot de la story agrandis | jest 1330, 7 gardes, navigateur 390/1440 (session : PIN appelé, PASSER → RETIRÉS) ; non vérifié iPhone |
 | 06/10/2026 | reconcile | voir git log | PASSER retire la musique de la session (récupérable) ; messages clairs quand une musique en vente / privée ne peut pas aller en story | jest 1324 ; non vérifié iPhone ; règle serveur « story masquée » en attente de décision |

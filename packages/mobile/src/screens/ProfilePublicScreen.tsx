@@ -73,6 +73,7 @@ import NotificationSidePanel from '../components/NotificationSidePanel';
 import { strongKeepTrackIdentity } from '../services/keepTrackIdentity';
 import KeepModal from '../components/KeepModal';
 import EarReportModal from '../components/EarReportModal';
+import { needsTasteOnboarding } from '../services/tasteOnboarding';
 import { useCollapsedSection } from '../services/useCollapsedSection';
 
 type ProfileTab = 'TRACKS' | 'PLAYLISTS' | 'ARTISTS';
@@ -730,7 +731,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
       }
       try {
         const state = await loadPulsePreferenceState();
-        if (live) setPulseTasteOpen(Boolean(state.shouldPrompt));
+        if (live) setPulseTasteOpen(Boolean(state.shouldPrompt) && !needsTasteOnboarding(state)); // l'inscription a sa propre fenêtre obligatoire (TasteOnboardingGate)
       } catch {
         if (live) setPulseTasteOpen(false);
       }

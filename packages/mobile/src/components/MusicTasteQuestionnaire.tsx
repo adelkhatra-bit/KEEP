@@ -17,7 +17,15 @@ import {
 } from '../services/pulsePreferenceService';
 
 type Tab = 'STYLES' | 'LANGUAGES' | 'COUNTRIES';
-type Props = { onDone: () => void; onLater: () => void; compact?: boolean };
+type Props = {
+  onDone: () => void; onLater: () => void; compact?: boolean;
+  /** Inscription (Adel, 06/10/2026) : réponse OBLIGATOIRE, pas de « Plus tard ». */
+  required?: boolean;
+  /** Styles déjà connus (historique du mode démo / de l'invité) : cochés d'avance. */
+  prefillGenres?: string[];
+  /** Vérification avant d'enregistrer (ex. genre renseigné) : renvoie un message d'erreur, ou null si tout est bon. */
+  validateBefore?: () => string | null;
+};
 
 const FAMILY_SHORTCUTS = [
   'Pop','Hip-Hop','R&B','Rock','Electronic','Dance','House','Techno','Afrobeats','Amapiano',
@@ -36,7 +44,7 @@ function localDisplayName(kind: 'region' | 'language', code: string, fallback: s
   } catch { return fallback; }
 }
 
-export default function MusicTasteQuestionnaire({ onDone, onLater, compact = false }: Props) {
+export default function MusicTasteQuestionnaire({ onDone, onLater, compact = false, required = false, prefillGenres, validateBefore }: Props) {
   const [tab, setTab] = useState<Tab>('STYLES');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [genres, setGenres] = useState<MusicGenreOption[]>([]);
@@ -74,7 +82,7 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
         const suggestedGenres = state?.suggestedGenres ?? [];
         const savedCountries = state?.countryCodes ?? [];
         const savedLanguages = state?.languageCodes ?? [];
-        setSelectedGenres(savedGenres.length ? savedGenres : suggestedGenres.slice(0, 12));
+        setSelectedGenres(savedGenres.length ? savedGenres : (prefillGenres && prefillGenres.length) ? prefillGenres.slice(0, 12) : suggestedGenres.slice(0, 12));
         setSelectedCountries(savedCountries.length ? savedCountries : (detectedCountry ? [detectedCountry] : []));
         setSelectedLanguages(savedLanguages.length ? savedLanguages : (detectedLanguage ? [detectedLanguage] : []));
         setGenres(genreRows);
@@ -124,6 +132,8 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
   };
 
   const confirm = async () => {
+    const blocked = validateBefore?.();
+    if (blocked) { Alert.alert('Presque fini', blocked); return; }
     if (!selectedGenres.length) {
       Alert.alert('Choisis au moins un style', 'Loki Pulse a besoin d’au moins un style musical pour éviter de te proposer des sons au hasard.');
       setTab('STYLES');
@@ -253,7 +263,7 @@ export default function MusicTasteQuestionnaire({ onDone, onLater, compact = fal
       <Text style={s.summary}>{selectedGenres.length + ' style' + (selectedGenres.length>1?'s':'') + ' · ' + (selectedLanguages.length || 'toutes') + ' langue' + (selectedLanguages.length===1?'':'s') + ' · ' + (selectedCountries.length || 'monde')}</Text>
       <View style={s.footerActions}>
         <TouchableOpacity style={[s.primary,s.footerAction,saving&&s.disabled]} onPress={()=>void confirm()} disabled={saving}>{saving ? <ActivityIndicator color="#FFF"/> : <Text style={s.primaryText}>C’EST BON</Text>}</TouchableOpacity>
-        <TouchableOpacity style={[s.cancel,s.footerAction]} onPress={()=>void later()} disabled={saving}><Text style={s.cancelText}>PLUS TARD</Text></TouchableOpacity>
+        {required ? null : <TouchableOpacity style={[s.cancel,s.footerAction]} onPress={()=>void later()} disabled={saving}><Text style={s.cancelText}>PLUS TARD</Text></TouchableOpacity>}
       </View>
     </View>
   </View>;

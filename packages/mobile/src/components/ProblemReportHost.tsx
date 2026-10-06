@@ -7,6 +7,7 @@ import { navigationRef } from '../navigation/navigationRef';
 import { pushCrumb, screenLabel } from '../services/reportLoop';
 import { robotSay } from '../services/robotCoachService';
 import KeepModal from './KeepModal';
+import TasteOnboardingGate from './TasteOnboardingGate';
 
 /** Fenêtre « Signaler un problème » : montée une seule fois dans App.tsx (utilisateur connecté). */
 export default function ProblemReportHost() {
@@ -51,7 +52,10 @@ export default function ProblemReportHost() {
     } finally { setBusy(false); }
   };
 
+  // Hôte global des fenêtres « support / première utilisation » (monté une fois pour l'utilisateur connecté, hors coque protégée App.tsx).
   return (
+    <>
+    <TasteOnboardingGate />
     <KeepModal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
       <KeyboardAvoidingView style={s.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={s.card}>
@@ -77,6 +81,7 @@ export default function ProblemReportHost() {
         </View>
       </KeyboardAvoidingView>
     </KeepModal>
+    </>
   );
 }
 
