@@ -8,6 +8,8 @@
 - Aucun écran, style, onglet, module runtime, schéma ou donnée de production modifié. Aucun déploiement web/OTA/natif déclenché.
 - Preuves locales : 282 suites / 1 377 tests mobile ; typechecks mobile/admin/music ; `integration:postflight`, intégrité profil, contraste ; export Expo réel et garde navigateur Chromium PC/tablette/Android, liens directs + reload, cinq onglets et porte QR. Données de test simulées, export servi uniquement localement. Firefox/WebKit et iPhone natif non testés.
 - Restent : intégration de ce correctif sur la branche produit et CI distante correspondante ; conflit de la PR vers `main` non traité ; contrôles PR en checkout détaché non élargis. Les achats, migrations en attente et signalements iPhone ne sont pas validés par ce correctif.
+- Validation après commit : garde de préservation des données réussi sur les 16 fichiers du diff produit. CodeQL signale 11 alertes dans des fichiers strictement inchangés par rapport à `0138b4e5` (hors correctif) ; aucune alerte dans les gardes modifiés. Base Swift non créée, analyse Swift non réalisée. Le moteur de revue automatique est indisponible ; ne pas interpréter son statut « Success » comme une revue effectuée.
+- Revue de repli par l'agent `code-review`, en lecture seule sur le diff exact `0138b4e5..HEAD` : aucun problème significatif détecté. Base distante revérifiée : toujours `0138b4e5`. Correctif publié uniquement sur la branche de revue, pas encore sur le produit.
 
 ## 🔔 À LIRE EN PREMIER — Passe du 05/10/2026 soir (stories, robot, classement, profil, menu) — reprise de conversation
 

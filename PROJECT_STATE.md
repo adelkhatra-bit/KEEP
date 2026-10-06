@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-06T21:49:45.290Z
+- Régénéré le : 2026-10-06T21:53:55.488Z
 - Branche : `copilot/reconcileclaude-main-20260825`
-- Dernier commit : `88ffffe9` (88ffffe91a390962f1037e413fca9e98995e2ca0) — chore: aligner la branche agent sur la source produit 0138b4e5
-- Date du dernier commit : 2026-10-06T21:27:27Z
+- Dernier commit : `0f4775bd` (0f4775bd97085704d3a4984d1babfdec66086638) — Débloquer les gardes d’intégration des modules Stories validés
+- Date du dernier commit : 2026-10-06T21:50:17Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,6 +124,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `0f4775bd` (2026-10-06, copilot-swe-agent[bot]) — Débloquer les gardes d’intégration des modules Stories validés
 - `88ffffe9` (2026-10-06, copilot-swe-agent[bot]) — chore: aligner la branche agent sur la source produit 0138b4e5
 - `0138b4e5` (2026-10-06, Claude) — Stories: anti-doublon entre membres (cadenas + « Déjà en story chez @x, repartage-la »)
 - `39a9fb06` (2026-10-06, Claude) — Ma story s'ouvre sans faux « terminée », secousse = menu du robot (directions + signaler)
@@ -133,7 +134,6 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 - `16f5c12e` (2026-10-06, Claude) — Lien de partage: même interface que le profil de l'app (styles + liste repliée), parrainage conservé à l'inscription depuis le lien
 - `f27b139e` (2026-10-06, Claude) — Story: vues façon Instagram (musique vue + écoutée/passée/arrêtée), secousse localisée et fenêtre ouverte sur place
 - `d6262cf8` (2026-10-06, Claude) — Super Admin: menu en 8 rubriques, page Signalements (secousses), styles communs carte/bouton
-- `60677785` (2026-10-06, Claude) — Fix: son iPhone (tampon iOS), mise en story id trk_, stories vues synchronisées entre appareils
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -153,6 +153,8 @@ agent) et messages des sessions de chat (non versionnés).
 ## 4. Points ouverts
 
 - **06/10/2026 — Déblocage des intégrations en revue Copilot** : arbre produit `0138b4e5` préservé, contrôles Stories/provenance/empreintes protégées corrigés sans modifier le design ni le runtime. Preuves : 282 suites / 1 377 tests, typechecks mobile/admin/music, gardes et export + navigateur Chromium (PC/tablette/Android, direct + refresh). Reste l'intégration produit et la revalidation CI distante ; aucun déploiement ni vérification iPhone/Firefox/WebKit. Détails : `.context/activeContext.md`.
+- **Limites de sécurité du contrôle final** : 11 alertes CodeQL préexistantes dans des fichiers inchangés du produit ; Swift non analysé (création de base échouée). Aucune alerte sur les gardes modifiés ; moteur de revue automatique indisponible.
+- **Revue de repli** : agent `code-review` en lecture seule sur le diff produit `0138b4e5..HEAD`, aucun problème significatif détecté. Préservation des données vérifiée après commit ; correctif publié uniquement en revue.
 - **🔔 Passe du 05/10/2026 soir (stories/robot/classement/profil/menu) — voir `.context/activeContext.md` (section « À LIRE EN PREMIER »)** : tout est poussé sur la branche, rien n'est confirmé sur iPhone ; commits récents (robot sans partie, menu ☰, Artistes, badge 🔒) non livrés tant qu'un trigger `.eas-build-trigger` n'est pas ajouté ; vérification TestFlight par module, rappel QR ordinateur, mode marketing = restent à faire.
 - **Idées d'Adel** : source unique `docs/IDEAS_INBOX.md` (stories musicales, masquage des musiques en vente, barre à 5 onglets, missions…). Toute IA y note chaque nouvelle idée avant de coder.
 - **Passe du 05/10/2026 (exécutant, propositions Claude n°8, n°1, n°5, n°9.1-9.2, n°6 sûre)** : robot « page noire » corrigé (le site non connecté affiche l'écran QR ordinateur, le robot simule un appareil approuvé) ; build iOS ShazamKit compatible iOS 15.1 ; Super Admin `/team` responsive ; worker push (marketing, plafond 8/24 h) ; garde OTA liée au build iOS réussi ; écran Offres en 3 cartes ; inventaire des routes (`scripts/verify-route-inventory.cjs`). **Migrations commitées mais NON appliquées en production, accord d'Adel requis** : `20261005013000_keep_admin_marketplace_currency_text`, `20261005050000_push_cap_and_instant_kick` (+ déploiement `keep-push-worker`), `20261005060000_premium_price_4_99`. Restent : barre 5 onglets / menu ☰ / missions (6a-6c), boutique + univers musical (n°8.2-8.4), annuels (produits App Store Connect), n°9.3-9.7.
