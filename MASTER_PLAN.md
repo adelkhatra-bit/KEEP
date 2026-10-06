@@ -100,3 +100,12 @@ Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription →
 - **K (IDEA-170)** Super Admin Clés & intégrations : une carte par service.
 - **L (IDEA-171)** clés manquantes + pistes gratuites. **M (IDEA-172)** SPF/DKIM/DMARC.
 - **Constat règle I (IDEA-168)** : `keep-apple-notifications` écrit déjà `EXPIRED`/`CANCELLED` et `loadCurrentPlanCode` ignore les abonnements non ACTIVE/TRIALING → retour FREE automatique côté lecture ; MANQUE : trace datée `subscription_history`, délai de grâce (`GRACE_PERIOD`), relance « reviens », et distinction annulation (reste actif jusqu'à la fin) vs expiration.
+
+## Plan Super Admin « niveau Apple » (06/10/2026) — À VALIDER PAR ADEL AVANT CODE
+Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon :
+1. **Audit lecture seule** (R) : rapport page par page du Super Admin (marche / vide / doublons / textes > 5 mots) → `docs/SUPERADMIN_AUDIT.md`.
+2. **Menu 8 rubriques** (N, IDEA-173) : regroupement des 18 entrées existantes (mêmes écrans, aucune réécriture), une seule entrée Sécurité, état vide « Rien à approuver » + historique.
+3. **Fiche utilisateur** : vérification e-mail + « Relancer les non vérifiés » (lié à IDEA-169), signalements « secousse » dans Modération.
+4. **Mots de passe testeurs** (P, IDEA-175) : migration chiffrée (pgcrypto, clé hors base), lecture SUPER_ADMIN via RPC auditée, expiration 30 j, « Effacer » = effacement de la copie seulement. ⚠ Décision d'Adel notée : un mot de passe réversible est un risque ; garde-fous proposés : comptes TESTEURS uniquement (jamais les vrais utilisateurs), journal de chaque lecture, purge automatique à 30 j.
+5. **Zéro clavier + cartes** (O, Q) : Clés & intégrations en une carte par service, Copier/Coller.
+6. **Règle > 5 mots** (S, IDEA-178) : composant commun de repli + garde CI en mode *avertissement* d'abord (liste des écrans), puis blocage écran par écran ; ne jamais casser le design validé. Conflit à trancher : l'écran Offres est à ~23 mots (IDEA-160) ; la règle 5 mots le remplacerait.
