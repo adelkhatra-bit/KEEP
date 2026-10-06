@@ -900,6 +900,7 @@ export default function MusicSwipeDeckModal({
   const reactTo = async (reaction: 'LIKE' | 'MEH' | 'DISLIKE') => {
     if (!current) return;
     const ok = await trackLikes.react(current.id, reaction);
+    if (ok) reactedNowRef.current.add(current.id);
     if (ok) hideAsk();
     if (ok) showNudge({ thanks: reaction });
   };
@@ -917,9 +918,12 @@ export default function MusicSwipeDeckModal({
     ]).start(({ finished }) => { if (finished) setAsk(null); });
   };
   const hideAsk = () => { askFade.stopAnimation(); setAsk(null); };
-  const nudgesOn = likesActive && likeMode === 'auto' && Boolean(current) && isUuidKey(likeKey(current?.id ?? '')) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
+  const nudgesOn = likesActive && trackLikes.ready && likeMode === 'auto' && Boolean(current) && isUuidKey(likeKey(current?.id ?? '')) && !(Boolean(likeMeId) && currentSourceProfileId === likeMeId);
   const reactedRef = useRef(trackLikes.reacted);
   reactedRef.current = trackLikes.reacted;
+  const reactedNowRef = useRef<Set<string>>(new Set());
+  const recallKindRef = useRef<(id: string) => NudgeKind | null>(() => null);
+  recallKindRef.current = (id: string) => { const key = likeKey(id); return trackLikes.liked.has(key) ? 'RECALL_LIKE' : trackLikes.meh.has(key) ? 'RECALL_MEH' : trackLikes.disliked.has(key) ? 'RECALL_DISLIKE' : null; };
   const previousTrackRef = useRef<string | null>(null);
   useEffect(() => {
     const id = current?.id ?? null;
@@ -928,6 +932,12 @@ export default function MusicSwipeDeckModal({
     if (!nudgesOn || !id) { setNudge(null); return undefined; }
     if (previous && previous !== id && listenedIdsRef.current.has(previous) && !reactedRef.current(previous)) showNudge('SKIPPED');
     hideAsk();
+    // Le bot se souvient : un avis déjà donné (avant cette séance) n'est jamais redemandé ; on le rappelle avec un message différent.
+    const kindBefore = recallKindRef.current(id);
+    if (kindBefore && !reactedNowRef.current.has(id)) {
+      const recallTimer = setTimeout(() => showNudge(kindBefore), 1400);
+      return () => clearTimeout(recallTimer);
+    }
     const askTimer = setTimeout(() => { if (!reactedRef.current(id)) showAsk(); }, 1400);
     const timer = setTimeout(() => { if (!reactedRef.current(id)) showNudge('PLAYING'); }, 9000);
     return () => { clearTimeout(timer); clearTimeout(askTimer); };
@@ -959,8 +969,11 @@ export default function MusicSwipeDeckModal({
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
           {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
-          {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
-            <View style={s.headerLikeRow}>
+        </View>
+        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
+      </View>
+      {headerExtra || (likesActive && current && isUuidKey(likeKey(current.id))) ? (
+            <View style={s.headerLikeRow} testID="deck-like-bar">
               {ask ? <Animated.View pointerEvents="none" style={[s.askBubble, { opacity: askFade, transform: [{ translateY: askFade.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) }] }]} testID="deck-like-ask"><View style={s.askArrow} /><Text style={s.askText} numberOfLines={1}>{ask}</Text></Animated.View> : null}
               <View style={[{ flexShrink: 0, maxWidth: '100%' }, compactDeck ? s.headerExtraCompact : null]}>{headerExtra}</View>
               {likesActive && current && isUuidKey(likeKey(current.id)) ? (() => {
@@ -970,16 +983,13 @@ export default function MusicSwipeDeckModal({
                 if (likeMode === 'count-only' || isSelf) {
                   const dislikeCount = trackLikes.dislikeCounts[key] ?? 0;
                   const mehCount = trackLikes.mehCounts[key] ?? 0;
-                  return <ReactionStatPills likes={count} mehs={mehCount} dislikes={dislikeCount} />;
+                  return <View style={s.likeRight}><ReactionStatPills likes={count} mehs={mehCount} dislikes={dislikeCount} /></View>;
                 }
                 const reaction = trackLikes.liked.has(key) ? 'LIKE' : trackLikes.meh.has(key) ? 'MEH' : trackLikes.disliked.has(key) ? 'DISLIKE' : null;
-                return <TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} />;
+                return <View style={s.likeRight}><TrackLikeButton reaction={reaction} count={count} onReact={(kind) => { void reactTo(kind); }} onClear={() => { void trackLikes.clear(current.id); }} /></View>;
               })() : null}
             </View>
           ) : null}
-        </View>
-        <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>
-      </View>
 
       <View style={s.body}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
@@ -1024,8 +1034,6 @@ export default function MusicSwipeDeckModal({
 
           {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {renderStoryAdd('main')}
-          {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
-          {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
               <TouchableOpacity style={[s.decisionButton, s.passButton]} onPress={() => { void pass(); }} disabled={controlsLocked} accessibilityLabel="Passer cette musique">
@@ -1044,6 +1052,8 @@ export default function MusicSwipeDeckModal({
               </TouchableOpacity>
             </View>
           </View>
+          {fullTrackDestination && fullListenLocked ? <Text style={s.fullTrackLocked} accessibilityLabel="Écoute complète disponible après GARDER">🔒 Écoute complète disponible après GARDER</Text> : null}
+          {fullTrackDestination && !fullListenLocked ? <TouchableOpacity style={s.fullTrackButton} onPress={openFullTrack} accessibilityLabel={fullTrackDestination.label}><Text style={s.fullTrackButtonText}>↗ {fullTrackDestination.label}</Text></TouchableOpacity> : null}
         </>}
       </View>
 
@@ -1107,7 +1117,7 @@ export default function MusicSwipeDeckModal({
           </View>
         </View>
       </KeepModal> : null}
-      {overlay ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
+      {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
     </View>
   <ChatDockHost active={visible} />
@@ -1147,7 +1157,7 @@ const s = StyleSheet.create({
   askBubble:{position:'absolute',right:0,top:'100%',marginTop:4,zIndex:9,paddingVertical:6,paddingHorizontal:12,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
   askText:{color:'#2B1D00',fontSize:13,fontWeight:'900'},
-  headerLikeRow:{position:'relative',flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:2},
+  headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},
   cardCompact:{minHeight:120},
   gradientCompact:{paddingTop:12,paddingBottom:12},

@@ -47,6 +47,15 @@ const KEEP_PUBLIC_URL = 'https://adelkhatra-bit.github.io/KEEP/';
 // le générique 'server_error'. On relit le corps de la réponse HTTP réelle
 // (`error.context`) avant d'abandonner.
 async function invokeAuthEmail(client: SupabaseClient, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
+  const result = await invokeAuthEmailRaw(client, body);
+  // Journal automatique (Adel 06/10/2026 : « les e-mails ne fonctionnent pas ») : le code d'échec réel part au journal des signalements, jamais l'adresse ni le lien.
+  if (!result.ok) {
+    try { require('./problemReportService').reportAutoDiagnostic('EMAIL_SEND_FAILED', `${String(body.type ?? body.action ?? body.purpose ?? 'auth')}:${String(result.error ?? 'inconnu').slice(0, 60)}`); } catch { /* le diagnostic ne gêne jamais */ }
+  }
+  return result;
+}
+
+async function invokeAuthEmailRaw(client: SupabaseClient, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [key: string]: unknown }> {
   const { data, error } = await client.functions.invoke('keep-auth-email', { body });
   if (!error) return (data as any) ?? { ok: false, error: 'server_error' };
   const context = (error as any)?.context;

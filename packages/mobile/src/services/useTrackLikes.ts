@@ -15,14 +15,20 @@ export function useTrackLikes(profileId: string | null | undefined, trackIds: st
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [dislikeCounts, setDislikeCounts] = useState<Record<string, number>>({});
   const [mehCounts, setMehCounts] = useState<Record<string, number>>({});
+  // `ready` : mes avis déjà donnés sont chargés. Tant que ce n'est pas le cas, le bot ne demande rien (il ne doit jamais redemander un avis déjà donné).
+  const [ready, setReady] = useState(false);
   const idsKey = trackIds.map(likeKey).join('|');
   const busy = useRef(new Set<string>());
   useEffect(() => {
     if (!active || !profileId || !idsKey) return undefined;
     let live = true;
     const ids = idsKey.split('|');
-    loadMyLikesAmong(profileId, ids).then((set) => { if (live) setLiked(set); }).catch(() => {});
-    loadMyNegativesAmong(profileId, ids).then((sets) => { if (live) { setDisliked(sets.disliked); setMeh(sets.meh); } }).catch(() => {});
+    const mine = Promise.all([
+      loadMyLikesAmong(profileId, ids).then((set) => { if (live) setLiked(set); }),
+      loadMyNegativesAmong(profileId, ids).then((sets) => { if (live) { setDisliked(sets.disliked); setMeh(sets.meh); } }),
+    ]);
+    // Échec de chargement : on ne devine pas, le bot reste silencieux (jamais de demande basée sur une réponse inconnue).
+    mine.then(() => { if (live) setReady(true); }).catch(() => {});
     loadLikeCounts(ids).then((map) => { if (live) setCounts(map); }).catch(() => {});
     if (withOwnerCounts) loadMyReactionCounts(ids).then((map) => { if (live) { setDislikeCounts(map.dislikes); setMehCounts(map.mehs); } }).catch(() => {});
     return () => { live = false; };
@@ -63,5 +69,5 @@ export function useTrackLikes(profileId: string | null | undefined, trackIds: st
       return false;
     } finally { busy.current.delete(key); }
   }, [profileId, liked, disliked, meh]);
-  return { liked, disliked, meh, counts, dislikeCounts, mehCounts, react, clear, reacted };
+  return { liked, disliked, meh, counts, dislikeCounts, mehCounts, react, clear, reacted, ready };
 }

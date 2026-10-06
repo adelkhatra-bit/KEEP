@@ -46,6 +46,8 @@ import {
 import { colors } from '../theme/colors';
 import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
+import { buildViewerDetail, formatDetailSeconds } from '../services/storyViewerDetail';
+import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
 import { navigationRef } from '../navigation/navigationRef';
 import KeepModal from './KeepModal';
 
@@ -88,6 +90,15 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
   const [openStory, setOpenStory] = useState<MusicStory | null>(null);
   const [viewers, setViewers] = useState<StoryViewer[] | null>(null);
   const [viewersOpen, setViewersOpen] = useState(false);
+  // « En savoir plus » d'un spectateur : musique par musique (temps, ❤, endroit où il est parti).
+  const [detailFor, setDetailFor] = useState<string | null>(null);
+  const [detailLikes, setDetailLikes] = useState<Record<string, Set<string>>>({});
+  const toggleViewerDetail = (viewerId: string) => {
+    if (detailFor === viewerId) { setDetailFor(null); return; }
+    setDetailFor(viewerId);
+    if (detailLikes[viewerId] || !openStory) return;
+    void loadMyLikesAmong(viewerId, openStory.tracks.map((track) => track.id)).then((set) => setDetailLikes((previous) => ({ ...previous, [viewerId]: set }))).catch(() => setDetailLikes((previous) => ({ ...previous, [viewerId]: new Set() })));
+  };
   const watchRef = React.useRef<ReturnType<typeof watchStoryOf>>(null);
   const [plusOpen, setPlusOpen] = useState(false);
   const [pinnable, setPinnable] = useState<PinnableTrack[] | null>(null);
@@ -501,7 +512,30 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         >
                           <Text style={styles.viewProfileText}>Voir le profil ›</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity style={styles.viewProfileBtn} onPress={() => toggleViewerDetail(v.viewerId)} accessibilityRole="button" accessibilityLabel={detailFor === v.viewerId ? 'Masquer le détail' : `En savoir plus sur ${v.username}`} testID={`story-viewer-more-${v.viewerId}`}>
+                          <Text style={styles.viewProfileText}>{detailFor === v.viewerId ? 'Masquer ⌃' : 'En savoir plus ⌄'}</Text>
+                        </TouchableOpacity>
                       </View>
+                      {detailFor === v.viewerId && openStory ? (() => {
+                        const detail = buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey);
+                        return (
+                          <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
+                            <Text style={styles.detailSummary}>{detail.summary}</Text>
+                            {detail.rows.map((r) => (
+                              <View key={`${v.viewerId}-${r.index}`} style={[styles.detailRow, r.state === 'LEFT_HERE' && styles.detailRowLeft]}>
+                                <Text style={styles.detailIndex}>{r.index + 1}</Text>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                  <Text style={styles.detailTitle} numberOfLines={1}>{r.title}</Text>
+                                  <Text style={styles.detailMeta} numberOfLines={1}>
+                                    {r.state === 'NOT_SEEN' ? 'Pas vue' : r.seconds > 0 ? `Écoutée ${formatDetailSeconds(r.seconds)}` : 'Vue'}{r.state === 'LEFT_HERE' ? ' · ● parti ici' : ''}
+                                  </Text>
+                                </View>
+                                {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })() : null}
                     </View>
                   </View>
                 ))}
@@ -625,6 +659,14 @@ const styles = StyleSheet.create({
   ownBadgeLocked: { backgroundColor: '#2A2140', borderColor: '#B79CFF' },
   ownBadgeOn: { backgroundColor: '#3A2A00', borderColor: '#FFD166', shadowColor: '#FFD166', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   ownBadgeText: { fontSize: 13, lineHeight: 16 },
+  detailBox: { marginTop: 8, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
+  detailSummary: { color: colors.white, fontSize: 14, lineHeight: 19, fontWeight: '800', marginBottom: 6 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },
+  detailRowLeft: { backgroundColor: 'rgba(255,176,32,0.12)', borderRadius: 8, paddingHorizontal: 6 },
+  detailIndex: { color: colors.textSecondary, fontSize: 13, fontWeight: '900', width: 22, textAlign: 'center' },
+  detailTitle: { color: colors.white, fontSize: 15, fontWeight: '800' },
+  detailMeta: { color: colors.textSecondary, fontSize: 13 },
+  detailLike: { fontSize: 20, color: '#35E08A' },
   rowName: { color: colors.white, fontSize: 18, fontWeight: '800' },
   rowStatus: { color: colors.textSecondary, fontSize: 14, fontWeight: '700' },
   rowStatusLive: { color: '#35e08a' },

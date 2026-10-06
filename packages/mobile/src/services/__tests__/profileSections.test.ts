@@ -40,3 +40,24 @@ describe('menu ☰ : retour direct à la rubrique (IDEA-119)', () => {
     expect(screen).toContain('menuFreezeUntil.current = Date.now() + 2000');
   });
 });
+
+import { composeNudge, nudgeLibrarySize, nudgeCombinationCount, type NudgeKind } from '../likeNudges';
+describe('bibliothèque de messages : 100 000+ messages, le bot se souvient de l’avis (Adel, 06/10/2026)', () => {
+  it('plus de 100 000 messages différents au total', () => {
+    expect(nudgeLibrarySize()).toBeGreaterThanOrEqual(100000);
+  });
+  it('messages de rappel pour un avis déjà donné, courts et différents', () => {
+    for (const kind of ['RECALL_LIKE', 'RECALL_MEH', 'RECALL_DISLIKE'] as NudgeKind[]) {
+      expect(nudgeCombinationCount(kind)).toBeGreaterThanOrEqual(10000);
+      const lines = new Set(Array.from({ length: 120 }, (_, i) => composeNudge(kind, `r${i}`)));
+      expect(lines.size).toBeGreaterThan(60);
+      for (const line of lines) expect(line.length).toBeLessThanOrEqual(120);
+    }
+  });
+  it('le lecteur ne demande jamais un avis tant que les avis déjà donnés ne sont pas chargés, et rappelle l’avis passé', () => {
+    const deck = read('../../components/MusicSwipeDeckModal.tsx');
+    expect(deck).toContain('likesActive && trackLikes.ready && likeMode');
+    expect(deck).toContain('recallKindRef.current(id)');
+    expect(read('../useTrackLikes.ts')).toContain('setReady(true)');
+  });
+});
