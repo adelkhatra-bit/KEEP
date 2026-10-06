@@ -44,6 +44,22 @@ const TAILS: Record<NudgeKind, string[]> = {
 };
 const ASK_MARKS = ['', ' !', ' 👇', ' ⬇️', ' ?', ' …', ' ✨', ' 🎤'];
 
+// Langage de jeunes selon le genre (Adel, 06/10/2026) : « wesh poto » pour un homme, « wesh meuf » pour une femme, neutre sinon. Toujours poli, avec un smiley.
+export type NudgeAudience = 'M' | 'F' | 'N';
+export type NudgeTone = 'NORMAL' | 'GRUMPY';
+const ADDRESS: Record<NudgeAudience, string[]> = {
+  M: ['Wesh poto,', 'Wesh frérot,', 'Eh mon pote,', 'Yo bro,', 'Wesh le s,', 'Hé champion,', 'Wesh mon gars,', 'Eh le king,', 'Hé le boss,', 'Wesh mon frère,', 'Eh l’ami,', 'Wesh champion,'],
+  F: ['Wesh meuf,', 'Eh ma belle,', 'Wesh ma reine,', 'Hey sista,', 'Wesh ma grande,', 'Eh miss,', 'Wesh la star,', 'Hé championne,', 'Eh la reine,', 'Wesh ma chérie,', 'Hé la miss,', 'Wesh ma puce,'],
+  N: ['Hého,', 'Dis donc,', 'Psst,', 'Eh toi,', 'Salut l’artiste,', 'Hey,', 'Coucou,', 'Dis voir,', 'Hé hé,', 'Allô,', 'Oh,', 'Tiens tiens,'],
+};
+/** Ton qui monte quand l'utilisateur swipe sans jamais donner son avis : on le reprend gentiment, jamais méchamment. */
+const GRUMPY: { openers: string[]; cores: string[]; closers: string[]; tails: string[] } = {
+  openers: ['Bon,', 'Alors là,', 'Sérieux,', 'Dis-moi,', 'Franchement,', 'Allez,', 'Stop,', 'Attends,', 'Oh,', 'Un instant,'],
+  cores: ['t’es de mauvaise humeur aujourd’hui ?', 'tu boudes ou quoi ?', 'tu n’as envie de donner ton avis sur rien ?', 'aucun ❤ depuis tout à l’heure, ça va ?', 'tu fais la tête ? Même un 😐 nous ferait plaisir', 'tu écoutes tout sans rien dire, c’est pas sympa', 'tu nous laisses sans réponse depuis plusieurs musiques', 'on te demande juste un petit pouce, pas un contrat', 'tu fais ton timide ?', 'tu gardes tes avis pour toi, hein ?', 'même un 👎 sincère, on prend', 'allez, un petit effort'],
+  closers: ['Un ❤, un 😐 ou un 👎 : choisis !', 'Réagis, on ne te mord pas.', 'Fais-nous plaisir, appuie.', 'C’est gratuit et ça aide tout le monde.', 'Ton avis nous rend meilleurs.', 'Promis, on est gentils.', 'Un appui et on te laisse tranquille.', 'Dis ce que tu penses vraiment.', 'Ça prend une seconde.', 'On compte sur toi.'],
+  tails: ['😤', '😏', '🙄', '😅', '🫣', '😉', '🤨', '👀'],
+};
+
 const hash = (text: string) => {
   let h = 2166136261;
   for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -55,27 +71,41 @@ const hash = (text: string) => {
 // Un point d'interrogation ou d'exclamation déjà présent n'est jamais doublé (« ? ! »).
 const askOpener = (opener: string, mark: string) => (/[?!…]$/.test(opener) || /[\p{Extended_Pictographic}]/u.test(opener) ? opener : `${opener}${mark}`);
 
-/** Compose un message ; `recent` = derniers messages affichés (on évite de les répéter). */
-export function composeNudge(kind: NudgeKind, seed: string, recent: string[] = []): string {
+/** Compose un message ; `recent` = derniers messages affichés (on évite de les répéter). `audience` = genre pour l'adresse, `tone` = ton qui monte si l'avis manque. */
+export function composeNudge(kind: NudgeKind, seed: string, recent: string[] = [], opts: { audience?: NudgeAudience; tone?: NudgeTone } = {}): string {
   const pick = (list: string[], salt: string, offset: number) => list[(hash(`${seed}:${salt}`) + offset) % list.length];
+  const audience = opts.audience ?? 'N';
+  const addressed = kind === 'PLAYING' || kind === 'SKIPPED' || kind === 'ASK';
+  const grumpy = opts.tone === 'GRUMPY' && (kind === 'PLAYING' || kind === 'SKIPPED');
   let line = '';
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    line = kind === 'ASK'
-      ? `${askOpener(pick(OPENERS.ASK, 'o', attempt), pick(ASK_MARKS, 'm', attempt * 5))} ${pick(TAILS.ASK, 'e', attempt * 7)}`
-      : `${pick(OPENERS[kind], 'o', attempt)} ${pick(CORES[kind], 'c', attempt * 3)} ${pick(CLOSERS[kind], 'e', attempt * 7)} ${pick(TAILS[kind], 't', attempt * 11)}`;
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    if (grumpy) {
+      line = `${pick(ADDRESS[audience], 'a', attempt)} ${pick(GRUMPY.cores, 'c', attempt * 3)} ${pick(GRUMPY.closers, 'e', attempt * 7)} ${pick(GRUMPY.tails, 't', attempt * 11)}`;
+    } else if (kind === 'ASK') {
+      line = `${askOpener(pick(OPENERS.ASK, 'o', attempt), pick(ASK_MARKS, 'm', attempt * 5))} ${pick(TAILS.ASK, 'e', attempt * 7)}`;
+    } else {
+      const base = `${pick(OPENERS[kind], 'o', attempt)} ${pick(CORES[kind], 'c', attempt * 3)} ${pick(CLOSERS[kind], 'e', attempt * 7)} ${pick(TAILS[kind], 't', attempt * 11)}`;
+      // L'adresse « wesh poto / wesh meuf » remplace l'accroche une fois sur deux (pas à chaque message : le robot reste naturel).
+      line = addressed && (hash(`${seed}:adr`) % 2 === 0) ? base.replace(pick(OPENERS[kind], 'o', attempt), pick(ADDRESS[audience], 'a', attempt)) : base;
+    }
     if (!recent.includes(line)) return line;
   }
   return line;
 }
 
 export const nudgeCombinationCount = (kind: NudgeKind): number => (kind === 'ASK' ? OPENERS.ASK.length * ASK_MARKS.length * TAILS.ASK.length : OPENERS[kind].length * CORES[kind].length * CLOSERS[kind].length * TAILS[kind].length);
-/** Total de messages différents que la bibliothèque sait composer (tous types confondus). */
-export const nudgeLibrarySize = (): number => (Object.keys(OPENERS) as NudgeKind[]).reduce((sum, kind) => sum + nudgeCombinationCount(kind), 0);
+/** Total de messages différents que la bibliothèque sait composer : tous types, les 3 adresses (homme / femme / neutre) et le ton « il boude ». */
+export const nudgeLibrarySize = (): number => {
+  const base = (Object.keys(OPENERS) as NudgeKind[]).reduce((sum, kind) => sum + nudgeCombinationCount(kind), 0);
+  const addressed = (['PLAYING', 'SKIPPED', 'ASK'] as NudgeKind[]).reduce((sum, kind) => sum + nudgeCombinationCount(kind) * ADDRESS.N.length * 3, 0);
+  const grumpy = 2 * 3 * ADDRESS.N.length * GRUMPY.cores.length * GRUMPY.closers.length * GRUMPY.tails.length;
+  return base + addressed + grumpy;
+};
 
 /** Mémoire des 60 derniers messages montrés (jamais deux fois le même d'affilée, ni de près). */
 const recentShown: string[] = [];
-export function nextNudge(kind: NudgeKind): string {
-  const line = composeNudge(kind, `${Date.now()}:${Math.floor(Math.random() * 1e9)}`, recentShown);
+export function nextNudge(kind: NudgeKind, opts: { audience?: NudgeAudience; tone?: NudgeTone } = {}): string {
+  const line = composeNudge(kind, `${Date.now()}:${Math.floor(Math.random() * 1e9)}`, recentShown, opts);
   recentShown.push(line);
   if (recentShown.length > 60) recentShown.shift();
   return line;

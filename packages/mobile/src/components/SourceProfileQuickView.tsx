@@ -34,6 +34,8 @@ type Props = {
   onRequireAccount: (username: string) => void;
   /** Fiche ouverte depuis une bulle sans story du jour : slogan + « dernier partage il y a … ». */
   noStory?: boolean;
+  /** Affichée DANS l'écran courant (au-dessus d'un Swipe plein écran), sans ouvrir de fenêtre : l'utilisateur ne quitte jamais son écoute (Adel, 06/10/2026). */
+  inline?: boolean;
 };
 
 export default function SourceProfileQuickView({
@@ -45,6 +47,7 @@ export default function SourceProfileQuickView({
   onOpenFull,
   onRequireAccount,
   noStory = false,
+  inline = false,
 }: Props) {
   const [profile, setProfile] = useState<QuickProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -144,9 +147,8 @@ export default function SourceProfileQuickView({
     }
   };
 
-  return (
-    <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
+  const body = (
+      <View style={s.backdrop} testID="source-quick-view">
         <View style={s.card}>
           {loading ? <ActivityIndicator color={colors.primaryLight} /> : profile ? <>
             {profile.avatar_url
@@ -175,8 +177,9 @@ export default function SourceProfileQuickView({
           <TouchableOpacity style={s.close} onPress={onClose}><Text style={s.closeText}>Fermer</Text></TouchableOpacity>
         </View>
       </View>
-    </KeepModal>
   );
+  if (inline) return visible ? <View style={StyleSheet.absoluteFill}>{body}</View> : null;
+  return <KeepModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>{body}</KeepModal>;
 }
 
 const s = StyleSheet.create({

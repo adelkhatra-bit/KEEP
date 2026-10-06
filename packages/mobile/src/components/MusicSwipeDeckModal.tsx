@@ -1,4 +1,6 @@
 import { resolveKeptTrackId } from '../services/keepTrackAction';
+import SourceProfileQuickView from './SourceProfileQuickView';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { reportAutoDiagnostic } from '../services/problemReportService';
 import ChatDockHost from './ChatDockHost';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
@@ -213,6 +215,9 @@ export default function MusicSwipeDeckModal({
   const fullListenLocked = !previewOnly && (askVisibilityOnKeep || Boolean(currentSourceUsername)) && !currentAlreadyKept;
   // Adel (05/10/2026) : bouton « Ajouter à ma story » pendant un swipe (mon profil ou celui d'un autre membre). Il faut avoir gardé le morceau en Public (vérifié aussi côté serveur).
   // Anti-doublon : on connaît les musiques déjà dans MA story ; celle-ci est alors grisée « déjà dans ta story ».
+  // « Découvert par @x » : fiche rapide DANS le Swipe (ami, voir le profil), sans quitter l'écoute (Adel, 06/10/2026).
+  const [sourceQuick, setSourceQuick] = useState<string | null>(null);
+  useEffect(() => { setSourceQuick(null); }, [current?.id, visible]);
   const [storyIds, setStoryIds] = useState<Set<string>>(new Set());
   const [storyIdsReady, setStoryIdsReady] = useState(false);
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set());
@@ -924,6 +929,10 @@ export default function MusicSwipeDeckModal({
           : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
   // J'aime partout (Adel 05/10/2026) : table unique `track_likes`, état optimiste avec retour arrière (useTrackLikes).
   const likeMeId = useUserStore((state) => state.user?.id);
+  // Langage de jeunes selon le genre + ton qui monte quand on swipe sans donner d'avis (Adel, 06/10/2026).
+  const myGender = useUserStore((state) => state.user?.privateInfo?.gender);
+  const nudgeAudience: 'M' | 'F' | 'N' = myGender === 'MALE' ? 'M' : myGender === 'FEMALE' ? 'F' : 'N';
+  const ignoredStreak = useRef(0);
   const myUsername = useUserStore((state) => state.user?.username);
   const likeDemo = useUserStore((state) => state.isDemoMode);
   const likeGuest = useUserStore((state) => state.isLocalGuest);
@@ -933,14 +942,14 @@ export default function MusicSwipeDeckModal({
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showNudge = (kind: NudgeKind | { thanks: 'LIKE' | 'MEH' | 'DISLIKE' }) => {
-    setNudge(typeof kind === 'string' ? nextNudge(kind) : nextThanks(kind.thanks, currentSourceUsername, myUsername));
+    setNudge(typeof kind === 'string' ? nextNudge(kind, { audience: nudgeAudience, tone: ignoredStreak.current >= 3 ? 'GRUMPY' : 'NORMAL' }) : nextThanks(kind.thanks, currentSourceUsername, myUsername));
     if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
     nudgeTimer.current = setTimeout(() => setNudge(null), 5200);
   };
   const reactTo = async (reaction: 'LIKE' | 'MEH' | 'DISLIKE') => {
     if (!current) return;
     const ok = await trackLikes.react(current.id, reaction);
-    if (ok) reactedNowRef.current.add(current.id);
+    if (ok) { reactedNowRef.current.add(current.id); ignoredStreak.current = 0; }
     if (ok) hideAsk();
     if (ok) showNudge({ thanks: reaction });
   };
@@ -948,7 +957,7 @@ export default function MusicSwipeDeckModal({
   const [ask, setAsk] = useState<string | null>(null);
   const askFade = useRef(new Animated.Value(0)).current;
   const showAsk = () => {
-    setAsk(nextNudge('ASK'));
+    setAsk(nextNudge('ASK', { audience: nudgeAudience }));
     askFade.stopAnimation();
     askFade.setValue(0);
     Animated.sequence([
@@ -970,7 +979,7 @@ export default function MusicSwipeDeckModal({
     const previous = previousTrackRef.current;
     previousTrackRef.current = id;
     if (!nudgesOn || !id) { setNudge(null); return undefined; }
-    if (previous && previous !== id && listenedIdsRef.current.has(previous) && !reactedRef.current(previous)) showNudge('SKIPPED');
+    if (previous && previous !== id && listenedIdsRef.current.has(previous) && !reactedRef.current(previous)) { ignoredStreak.current += 1; showNudge('SKIPPED'); }
     hideAsk();
     // Le bot se souvient : un avis déjà donné (avant cette séance) n'est jamais redemandé ; on le rappelle avec un message différent.
     const kindBefore = recallKindRef.current(id);
@@ -1053,7 +1062,7 @@ export default function MusicSwipeDeckModal({
             >
               <View style={[s.card, compactDeck && s.cardCompact]}>
                 {ownerMasked ? <View style={[s.cover,s.coverFallback]}><MysteryArtwork caption="Titre masqué · aperçu de tes abonnés" /></View> : current.artworkUrl ? <Image source={{ uri: current.artworkUrl }} style={s.cover as any} resizeMode="cover" /> : <View style={[s.cover,s.coverFallback]}>{isSaleStoryTrack(current) ? <MysteryArtwork caption={priceBadge ? '' : 'Titre masqué · garde pour révéler'} /> : <Text style={s.coverK}>K</Text>}</View>}
-                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => onOpenSourceProfile?.(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
+                {currentSourceUsername ? <TouchableOpacity style={s.sourceOverlay} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} disabled={!onOpenSourceProfile} accessibilityLabel={`Découvert par ${currentSourceUsername.replace(/^@/, '')}. Ouvrir son profil`}><GlowRing radius={14} testID="deck-source-glow" /><Text style={s.sourceOverlayText}>Découvert par @{currentSourceUsername.replace(/^@/, '')}</Text></TouchableOpacity> : null}
                 {/* Adel 05/10/2026 : « il faut que ce soit très lisible, que les utilisateurs ne se fassent pas tromper » -- PAYANT (PayPal) ou GRATUIT, toujours dit en clair sur la carte. */}
                 {priceBadge ? <View pointerEvents="none" testID="deck-price-badge" style={[s.priceBadge, priceBadge.paid ? s.priceBadgePaid : s.priceBadgeFree, { top: currentSourceUsername ? 48 : 12 }]}><Text style={[s.priceBadgeText, priceBadge.paid ? s.priceBadgeTextPaid : s.priceBadgeTextFree]} numberOfLines={1}>{priceBadge.label}</Text></View> : null}
                 <View style={[s.gradientFake, compactDeck && s.gradientCompact]}>
@@ -1072,7 +1081,7 @@ export default function MusicSwipeDeckModal({
           </View>
 
 
-          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => onOpenSourceProfile(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
+          {currentSourceUsername && onOpenSourceProfile ? <TouchableOpacity style={s.sourceProfileButton} onPress={() => setSourceQuick(currentSourceUsername.replace(/^@/, ''))} accessibilityLabel={`Voir le profil du premier découvreur ${currentSourceUsername.replace(/^@/, '')}`}><GlowRing radius={21} testID="deck-source-button-glow" /><Text style={s.sourceProfileButtonText}>◎ DÉCOUVERT PAR @{currentSourceUsername.replace(/^@/, '')} · VOIR / SUIVRE</Text></TouchableOpacity> : null}
           {renderStoryAdd('main')}
                     <View style={s.decisionBand}>
             <View style={s.decisionRow}>
@@ -1157,6 +1166,20 @@ export default function MusicSwipeDeckModal({
           </View>
         </View>
       </KeepModal> : null}
+      {sourceQuick ? (
+        <View style={{ position: 'absolute', zIndex: 120, elevation: 120, top: 0, left: 0, right: 0, bottom: 0 }}>
+          <SourceProfileQuickView
+            inline
+            visible
+            username={sourceQuick}
+            currentUserId={likeMeId}
+            accountRequired={!likeMeId || likeGuest || likeDemo}
+            onClose={() => setSourceQuick(null)}
+            onOpenFull={(username) => { setSourceQuick(null); onOpenSourceProfile?.(username); }}
+            onRequireAccount={(username) => useAccountGateStore.getState().requestAccount('create', username)}
+          />
+        </View>
+      ) : null}
       {overlay ? <View style={{ position: 'absolute', zIndex: 100, elevation: 100, top: 0, left: 0, right: 0, bottom: 0 }}>{overlay}</View> : null}
     </SafeAreaView>
     </View>

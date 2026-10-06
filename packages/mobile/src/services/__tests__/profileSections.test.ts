@@ -61,3 +61,28 @@ describe('bibliothèque de messages : 100 000+ messages, le bot se souvient de l
     expect(read('../useTrackLikes.ts')).toContain('setReady(true)');
   });
 });
+
+import { nudgeLibrarySize as librarySize2, composeNudge as compose2 } from '../likeNudges';
+describe('langage de jeunes selon le genre, ton qui monte (Adel, 06/10/2026)', () => {
+  it('homme : « wesh poto… », femme : « wesh meuf… », jamais mélangés, toujours poli (pas d’insulte)', () => {
+    const male = Array.from({ length: 200 }, (_, i) => compose2('PLAYING', `m${i}`, [], { audience: 'M' })).join(' | ');
+    const female = Array.from({ length: 200 }, (_, i) => compose2('PLAYING', `f${i}`, [], { audience: 'F' })).join(' | ');
+    expect(male).toMatch(/Wesh poto|Wesh frérot|bro|mon pote|mon gars/);
+    expect(female).toMatch(/Wesh meuf|ma belle|ma reine|sista|ma grande/);
+    expect(male).not.toMatch(/meuf|ma belle|ma reine/);
+    expect(female).not.toMatch(/poto|frérot|bro\b|mon gars/);
+  });
+  it('après plusieurs musiques sans avis : ton « mauvaise humeur » mais gentil, avec smiley', () => {
+    const lines = Array.from({ length: 80 }, (_, i) => compose2('SKIPPED', `g${i}`, [], { audience: 'M', tone: 'GRUMPY' }));
+    expect(lines.some((l) => /mauvaise humeur|boudes|timide|la tête/.test(l))).toBe(true);
+    for (const l of lines) { expect(l.length).toBeLessThanOrEqual(150); expect(l).toMatch(/[\u{1F300}-\u{1FAFF}]/u); expect(l).not.toMatch(/connard|nul|stupide|con\b/i); }
+    expect(new Set(lines).size).toBeGreaterThan(40);
+  });
+  it('bibliothèque : plus d’un million de messages, branchée sur le genre et la série sans avis', () => {
+    expect(librarySize2()).toBeGreaterThanOrEqual(1_000_000);
+    const deck = read('../../components/MusicSwipeDeckModal.tsx');
+    expect(deck).toContain("nudgeAudience");
+    expect(deck).toContain("ignoredStreak.current >= 3 ? 'GRUMPY' : 'NORMAL'");
+    expect(deck).toContain('ignoredStreak.current = 0');
+  });
+});

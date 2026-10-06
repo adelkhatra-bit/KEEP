@@ -490,10 +490,11 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
               {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Personne n’a encore vu ta story aujourd’hui.</Text> : null}
               <ScrollView>
                 {(viewers ?? []).map((v) => (
-                  <View key={v.viewerId} style={styles.row}>
+                  <View key={v.viewerId} style={styles.viewerBlock}>
+                  <View style={styles.viewerRow}>
                     {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
                     <View style={styles.rowBody}>
-                      <Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>
+                      <View style={styles.rowNameLine}><Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>{v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}</View>
                       {(() => { const w = formatWatchDetail(v); return (
                         <>
                           <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
@@ -502,7 +503,6 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         </>
                       ); })()}
                       <View style={styles.rowActions}>
-                        {v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}
                         {/* Adel 05/10/2026 : plus de badge « Abonné » ; on va sur le profil (seul endroit où l'on peut se désabonner). */}
                         <TouchableOpacity
                           style={styles.viewProfileBtn}
@@ -517,27 +517,28 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                           <Text style={styles.viewProfileText}>{detailFor === v.viewerId ? 'Masquer ⌃' : 'En savoir plus ⌄'}</Text>
                         </TouchableOpacity>
                       </View>
-                      {detailFor === v.viewerId && openStory ? (() => {
-                        const detail = buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey);
-                        return (
-                          <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
-                            <Text style={styles.detailSummary}>{detail.summary}</Text>
-                            {detail.rows.map((r) => (
-                              <View key={`${v.viewerId}-${r.index}`} style={[styles.detailRow, r.state === 'LEFT_HERE' && styles.detailRowLeft]}>
-                                <Text style={styles.detailIndex}>{r.index + 1}</Text>
-                                <View style={{ flex: 1, minWidth: 0 }}>
-                                  <Text style={styles.detailTitle} numberOfLines={1}>{r.title}</Text>
-                                  <Text style={styles.detailMeta} numberOfLines={1}>
-                                    {r.state === 'NOT_SEEN' ? 'Pas vue' : r.seconds > 0 ? `Écoutée ${formatDetailSeconds(r.seconds)}` : 'Vue'}{r.state === 'LEFT_HERE' ? ' · ● parti ici' : ''}
-                                  </Text>
-                                </View>
-                                {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
-                              </View>
-                            ))}
-                          </View>
-                        );
-                      })() : null}
                     </View>
+                  </View>
+                    {detailFor === v.viewerId && openStory ? (() => {
+                      const detail = buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey);
+                      return (
+                        <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
+                          <Text style={styles.detailSummary}>{detail.summary}</Text>
+                          {detail.rows.map((r) => (
+                            <View key={`${v.viewerId}-${r.index}`} style={[styles.detailRow, r.state === 'LEFT_HERE' && styles.detailRowLeft]}>
+                              <Text style={styles.detailIndex}>{r.index + 1}</Text>
+                              <View style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={styles.detailTitle} numberOfLines={1}>{r.title}</Text>
+                                <Text style={styles.detailMeta} numberOfLines={1}>
+                                  {r.state === 'NOT_SEEN' ? 'Pas vue' : r.seconds > 0 ? `Écoutée ${formatDetailSeconds(r.seconds)}` : 'Vue'}{r.state === 'LEFT_HERE' ? ' · ● parti ici' : ''}
+                                </Text>
+                              </View>
+                              {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })() : null}
                   </View>
                 ))}
               </ScrollView>
@@ -646,15 +647,18 @@ const styles = StyleSheet.create({
   sheetTitle: { color: colors.white, fontSize: 22, fontWeight: '900' },
   sheetClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   sheetCloseText: { color: colors.white, fontSize: 20, fontWeight: '900' },
+  viewerBlock: { borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 8 },
+  rowNameLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: 1, borderTopColor: colors.border },
+  viewerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   rowAvatar: { width: 52, height: 52, borderRadius: 26 },
   // Pochette musicale : toujours un CARRÉ (Adel, 06/10/2026), jamais un rond.
   rowCover: { width: 56, height: 56, borderRadius: 10 },
   rowAvatarFallback: { backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   rowInitial: { color: colors.white, fontSize: 20, fontWeight: '900' },
   rowBody: { flex: 1, minWidth: 0, paddingVertical: 6 },
-  rowActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  viewProfileBtn: { minHeight: 42, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,0.18)', alignItems: 'center', justifyContent: 'center' },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  viewProfileBtn: { flex: 1, minHeight: 44, paddingHorizontal: 10, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', backgroundColor: 'rgba(124,92,252,0.18)', alignItems: 'center', justifyContent: 'center' },
   viewProfileText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
   ownBadge: { position: 'absolute', left: -2, top: -2, minWidth: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, zIndex: 3 },
   ownBadgeLocked: { backgroundColor: '#2A2140', borderColor: '#B79CFF' },

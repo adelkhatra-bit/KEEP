@@ -400,3 +400,5 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Certification et solde FREE sont des données réelles Supabase : aucun correctif UI n'a le droit de les écrire/réinitialiser pour faire correspondre l'écran.
 - Nouveau guard : `scripts/verify-product-contract.cjs` + workflow `KEEP — Product Contract Guard`.
 - Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
+
+## 06/10/2026 (fin) — « Découvert par » = fiche rapide dans le Swipe; Vues de ta story alignées; robot argot (voir ERR-195/196/197). Reste : Pulse bulle « Test » non cliquable (IDEA-158), même bibliothèque pour Pulse, e-mails, notifications mobiles.

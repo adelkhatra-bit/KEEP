@@ -913,7 +913,7 @@ export default function GlobalChatDock() {
         <Animated.View
           pointerEvents="box-none"
           {...robotSwipe.panHandlers}
-          style={[styles.robotSays, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }, { rotate: robotShake.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) }] }]}
+          style={[styles.robotSays, robotMessage.actions?.length ? styles.robotSaysWide : null, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }, { rotate: robotShake.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) }] }]}
         >
           <TouchableOpacity
             testID="robot-says"
@@ -1078,8 +1078,9 @@ const styles = StyleSheet.create({
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
   robotSays:{position:'absolute',zIndex:89,maxWidth:290,borderRadius:18,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(20,14,31,.98)',shadowColor:'#2DE1C2',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:0},elevation:18},
   robotSaysInner:{paddingVertical:12,paddingHorizontal:14},
-  robotActionsRow:{flexDirection:'row',flexWrap:'wrap',gap:8,paddingHorizontal:12,paddingBottom:12},
-  robotActionBtn:{minHeight:44,paddingHorizontal:14,borderRadius:22,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(45,225,194,.14)',alignItems:'center',justifyContent:'center'},
+  robotSaysWide:{width:292},
+  robotActionsRow:{flexDirection:'column',gap:6,paddingHorizontal:12,paddingBottom:12},
+  robotActionBtn:{alignSelf:'stretch',minHeight:42,paddingHorizontal:14,borderRadius:21,borderWidth:1.5,borderColor:'#2DE1C2',backgroundColor:'rgba(45,225,194,.14)',alignItems:'center',justifyContent:'center'},
   robotActionText:{color:'#FFFFFF',fontSize:15,fontWeight:'900'},
   robotSaysText:{color:colors.textPrimary,fontSize:16,lineHeight:22,fontWeight:'800'},
   chatNudgeLeft:{left:70},

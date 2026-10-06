@@ -27,3 +27,4 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 | 05/10/2026 | reconcile | 3ea86e5 | Compteurs de réactions alignés (vert/ambre/violet), sections de profil repliables (boutique, ventes privées) | navigateur 320/390/1440 |
 | 05/10/2026 | reconcile | e703734 | « Mon oreille » (niveaux, défis, rapport de communauté), fenêtre « Vues de ta story » agrandie | jest, navigateur, RPC testée en transaction annulée |
 | 05/10/2026 | reconcile | 2b7e63a et avant | Réactions 3D, merci par le nom, des-aimer, moteur de goût + recommandations dans Loki Pulse, stories (vues, chapitres, classement, badge), robot | voir `PROJECT_STATE.md` et `docs/ERROR_LEDGER.md` |
+| 06/10/2026 | reconcile | (ce commit) | « Découvert par » en fiche rapide dans le Swipe (sans redirection), « Vues de ta story » aligné, robot argot par genre + gronderie polie, bulle robot étirée | jest 1344, tsc, 7 garde-fous, navigateur 390/1440/320 |
