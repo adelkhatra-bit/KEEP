@@ -1,3 +1,6 @@
+## 🧭 GOUVERNANCE IA — STATE / MASTER_PLAN (Adel, 06/10/2026)
+Toute IA (Claude Code, Codex, ChatGPT, Cursor…) commence par lire `STATE.md` (ce qui est fait) puis `MASTER_PLAN.md` (ce qui reste), qui renvoient vers `PROJECT_STATE.md`, `.context/activeContext.md`, `docs/IDEAS_INBOX.md` et `docs/ERROR_LEDGER.md` : **ne jamais créer une deuxième mémoire**. Après chaque action : une ligne dans `STATE.md` (date · branche · commit · fonction · preuve). Une idée nouvelle d'Adel va d'abord dans `docs/IDEAS_INBOX.md`. Pour tout chantier nouveau : plan écrit dans `MASTER_PLAN.md` → validation d'Adel → code. Audit ciblé (module touché seulement). Parité mobile / ordinateur vérifiée à chaque changement. Travail uniquement sur `reconcile/claude-main-20260825`, jamais sur `main`. Le design validé ne se modifie qu'avec l'accord d'Adel.
+
 ## 💡 IDÉES D'ADEL — À NOTER IMMÉDIATEMENT (règle pour toutes les IA)
 Toute idée ou demande nouvelle d'Adel (« je voudrais… », « il faudrait… ») qui n'existe pas encore dans le produit doit être ajoutée dans `docs/IDEAS_INBOX.md` **dans la même réponse**, avant tout code, avec le statut `IDÉE`. Ne jamais la ranger dans un commentaire, un message de commit ou la seule conversation. Avant de dire « ce qui reste à faire », lire `docs/IDEAS_INBOX.md`.
 

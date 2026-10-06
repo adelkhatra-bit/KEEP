@@ -1,0 +1,77 @@
+# MASTER PLAN — Loki Music (ce qui RESTE à faire)
+
+> Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
+> Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
+
+## Les 5 missions de gouvernance — état réel au 06/10/2026
+
+### Mission 1 — Secousse → signalement → réparation → robot
+| Élément | Statut | Détail |
+|---|---|---|
+| Écran exact, appareil, version, build | ✅ | `problemReportService.ts` (non vérifié iPhone) |
+| Logs récents | 🟡 | fil des 25 dernières actions/écrans (`reportLoop.ts`) ; pas de logs système |
+| **Capture d'écran automatique** | ⛔ | demande `react-native-view-shot` = module natif = **build iOS** |
+| Champ de description | ✅ | `ProblemReportHost.tsx` |
+| Robot « Reçu, localisé » puis « réparé / mets à jour » | ✅ | `robotSay('REPORT_UPDATE')`, RPC `keep_my_report_updates` ; non vérifié iPhone |
+| Agent qui consulte et répare | 🟡 | routine `trig_01CHASzNZx7Yx35UZMmErk8e` (toutes les 6 h) **sans connecteur Supabase ni dépôt** → Adel doit les ajouter dans claude.ai > Routines |
+| Délai de réparation borné | ⛔ | à définir : proposition = accusé < 1 min, tri < 6 h, correctif JS < 24 h |
+**Plan (à valider)** : (a) Adel ajoute connecteur + dépôt à la routine ; (b) test à blanc avec un faux signalement ; (c) build iOS unique qui regroupe view-shot + sons de notification (évite 2 builds).
+
+### Mission 2 — Modération et sécurité
+| Élément | Statut | Détail |
+|---|---|---|
+| Insultes bloquées (signalements) | ✅ | `isAbusiveReport` ; message non stocké, ligne « signalé » |
+| Insultes dans le **chat / commentaires** | ⛔ | à vérifier module par module (audit ciblé) |
+| Blocage d'un utilisateur signalé | 🟡 | `user_blocks` (utilisateur→utilisateur) existe ; **aucun bannissement de compte** |
+| **Bannissement par adresse IP** | ⛔ | l'IP n'est pas visible côté application : il faut une fonction serveur qui la lit, une table de bannissement, un contrôle à la connexion |
+| Blocage dans le Super Admin | ⛔ | liste des signalements + bouton bloquer / lever |
+**Réserve à trancher avec Adel avant de coder** : une IP peut être partagée (wifi, 4G, famille) → risque de bloquer des innocents ; proposition : bannissement **compte + appareil** d'abord, **IP temporaire (24 h – 7 j)** ensuite, toujours levable depuis le Super Admin, jamais automatique.
+
+### Mission 3 — Visiteur non inscrit (lien partagé)
+| Élément | Statut | Détail |
+|---|---|---|
+| Robot d'invitation avec le nom de l'invitant | ✅ | `VisitorInviteRobot` (non vérifié iPhone) |
+| Voir la story, swiper, écouter sans compte | ❓ | à auditer en conditions réelles de visiteur : les stories sont limitées aux « comptes réels avec e-mail vérifié » côté lecture ; vérifier ce qu'un visiteur voit vraiment |
+| « Je trie ta musique dans tes plateformes » | ⛔ | message prêt, fonction de rangement par plateforme non liée |
+**Plan** : audit ciblé du parcours visiteur (RLS + écrans) → liste de ce qui est ouvert/fermé → proposition d'« avant-goût » (X morceaux écoutables puis invitation).
+
+### Mission 4 — Profil musical et recommandations
+| Élément | Statut | Détail |
+|---|---|---|
+| Profil de goût (GARDER, ❤, 😐, 👎, partages) | ✅ | `keep_my_taste_profile` |
+| Recommandations de musiques en tête de Loki Pulse | ✅ | `keep_recommend_for_me` |
+| Compléter le style (questionnaire + signaux) | 🟡 | questionnaire existant ; pas de relance ciblée |
+| **Utilisateurs au même style** | ⛔ | RPC de proximité de goût + affichage |
+| Partage payant dans Loki Pulse (IDEA-130) | ⛔ | règles à valider (voir ci-dessous) |
+
+### Mission 5 — Bugs critiques de l'audit du 06/10
+| Bug | Statut | Reste |
+|---|---|---|
+| Son iPhone `PREVIEW_PLAY_FAILED` | ❓ | cause non reproduite ; diagnostic enrichi (`err=`) en place → attendre le prochain échec, corriger sur preuve. Investiguer aussi « son tardif dans la story » (IDEA-133) |
+| Achats Apple (`appAppleId`) | 🟡 | source corrigée dans `keep-iap-verify` et `keep-apple-notifications` ; **non déployée** (accord d'Adel). RIB Apple pas encore saisi → on reste en TestFlight |
+| `keep_event_playlist` | ✅ | créée en base, appel testé |
+| QR ordinateur | ⛔ | 185 demandes / 0 approbation : tracer scan → approbation → connexion sur un vrai iPhone |
+| Push APNs / sans appareil | 🟡 | audit fait. Causes : permission iOS refusée (20 refus), 1 seul token, Android sans FCM, FREE_CREDITED en « in-app seulement », sons = build natif |
+| Super Admin « payants actifs » | ⛔ | exclure formules offertes et transactions Sandbox |
+| E-mails | ❓ | test du 06/10 00:48 non reçu ; vérifier clés Brevo, file `email_queue`, webhook ; journaux d'envoi illisibles depuis cette session → à demander à Adel (capture du tableau Brevo) ou accès aux logs |
+| Défi « Réagir à 20 » | ✅ | corrigé |
+
+## Règles de design à intégrer (accord d'Adel déjà donné — implémentation après validation du plan)
+- IDEA-131 : pastilles ❤ 😐 👎 de ma story **alignées à droite sur le bord (comme ☰ / ✕)**, même taille, mêmes espaces.
+- IDEA-132 : boutons fréquents toujours au-dessus ; « ÉCOUTER SUR APPLE MUSIC » descend sous PASSER / ARRÊTER / GARDER.
+- IDEA-128/135 : menu ☰ sans redirection inutile ; QR PayPal : recadrer la photo **existante**.
+- Parité : le design ordinateur est jugé parfait ; l'écart vient de TestFlight (version 407 / SHA `dcc4899` : attendre le build du SHA courant).
+
+## Chantier produit à cadrer (IDEA-130 — Partage dans Loki Pulse)
+Questions à valider avant toute ligne de code : prix en FREE par partage ; quota par jour pour non-certifié / certifié ; « 5-10 % de visibilité » = part maximale d'un même utilisateur dans le fil ; reversement « 3 FREE » = à qui, quand, pour quel achat ; statistiques affichées (gemmes) ; écriture dans les offres et `docs/PRICING_STRATEGY.md`.
+
+## Cahier de tests (système anti-oubli) — à produire après validation
+Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription → écoute → GARDER → story → réaction → partage), parcours visiteur, parcours Super Admin (signalements, blocage, prix, statistiques), parcours AQUA du paiement, notifications app fermée (iPhone, Samsung), QR ordinateur. Chaque ligne : mobile 390 / ordinateur 1440 / TestFlight, preuve, date. Jamais « validé » sans preuve.
+
+## Ordre proposé (une étape = une validation)
+1. **Étape A — sans risque** : Adel ajoute connecteur + dépôt à la routine ; je déploie les 2 fonctions Apple (si « OK ») ; correction du Super Admin (payants actifs).
+2. **Étape B — design validé** : alignement des pastilles + hiérarchie des boutons dans la story.
+3. **Étape C — diagnostic** : parcours visiteur ; son tardif de la story ; QR ordinateur (trace réelle) ; e-mails.
+4. **Étape D — build iOS unique** : capture d'écran de secousse + sons de notification (pièces, débit) + permission notifications guidée (« Ouvrir les réglages »).
+5. **Étape E — sécurité** : bannissement compte/appareil/IP temporaire + écran Super Admin.
+6. **Étape F — produit** : partage payant dans Loki Pulse, utilisateurs au même style, offres DJ + accès ordinateur.
