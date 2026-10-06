@@ -12,18 +12,30 @@ const expectedPublicRoot = 'https://adelkhatra-bit.github.io/KEEP';
 if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedRepository) {
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
 }
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch) {
-  failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
-}
-
-// Local agents do not always expose GITHUB_REF_NAME. When a real git checkout is
-// available, refuse to validate a product task from any non-canonical branch.
+// Une branche Copilot est une branche de revue, jamais une source de publication.
+// Elle doit contenir la référence produit récupérée avant toute validation.
+let verifiedAgentBranch = '';
 try {
   const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
-  if (localBranch && localBranch !== expectedBranch) failures.push(`WRONG LOCAL BRANCH: ${localBranch}`);
+  if (localBranch.startsWith('copilot/')) {
+    try {
+      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
+      verifiedAgentBranch = localBranch;
+    } catch {
+      failures.push('AGENT BRANCH MUST CONTAIN FETCHED CANONICAL SOURCE');
+    }
+  }
+  if (localBranch && localBranch !== expectedBranch && localBranch !== verifiedAgentBranch) failures.push(`WRONG LOCAL BRANCH: ${localBranch}`);
 } catch {
   // Source archives / CI environments without git metadata still use the explicit
   // repository + branch guards above.
+}
+
+if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
+  failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
+}
+if (verifiedAgentBranch && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
+  failures.push(`WRONG AGENT REVIEW BASE: ${process.env.GITHUB_BASE_REF}`);
 }
 
 const mustExist = [
@@ -435,6 +447,7 @@ if (failures.length) {
 console.log('KEEP source of truth: OK');
 console.log(`repository: ${expectedRepository}`);
 console.log(`branch: ${expectedBranch}`);
+if (verifiedAgentBranch) console.log(`review branch: ${verifiedAgentBranch} (canonical source verified; not a deployment source)`);
 console.log('branch contract: ONE product source; mobile + public web use the same canonical branch; main is frozen metadata only');
 console.log('branch hygiene: web-preview + admin-preview are forbidden remote branches');
 console.log(`public root: ${expectedPublicRoot}/`);

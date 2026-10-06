@@ -2611,3 +2611,10 @@ Exception explicite à la protection App.tsx : le montage unique GlobalChatDock 
 ## [2026-10-04T16:05:00Z] chatgpt
 
 AUDIT SUPER ADMIN LIVE transmis à Claude/Codex : keep-admin-control v41, keep-recognition-admin-test v3 et keep-email-admin v6 sont ACTIVE et identiques au code GitHub. keep-admin-user-control v13 ne diffère que par une phrase de notification, pas par la logique. RPC admin critiques présents en production, anon EXECUTE révoqué, authenticated protégé par contrôles de rôle internes. ACRCloud + KEYLESS_SOURCE ACTIVE. AudD non configuré mais optionnel. Pipedream a maintenant ses 4 secrets Vault configurés ; son statut NOT_CONFIGURED est antérieur au dernier PROJECT_ID, donc retester avant toute autre modification. Brevo a ses clés mais l'allowlist IP bloque l'egress Supabase ; ne pas remplacer les secrets au hasard. Stripe secret absent volontairement après suppression d'une mauvaise pk_ ; attendre vraie sk_. Apple MusicKit/IAP, Google Play, Paddle, MusicAPI, Mailjet, Google Translate, Deezer app credentials restent non configurés. Ne rien inventer. Vercel keep-preview est rate-limité, backend Vercel est vert. Règle de travail : un bouton = action réelle + feedback + résultat ; second clic uniquement pour confirmation sensible. Ne pas toucher main ni écraser les intégrations déjà valides.
+## [2026-10-06T21:27:27.287Z] codex
+
+Base synchronisée exactement sur 0138b4e5, sans mélange de versions. Correction ciblée des contrôles Stories obsolètes, sans modifier le design, Navigation.tsx ni les fonctions produit. Aucun déploiement prévu.
+
+## [2026-10-06T21:49:45.228Z] codex
+
+Contrôles Stories et triage corrigés sur la branche de revue alignée 0138b4e5. Aucun changement design/runtime. 282 suites/1377 tests, typechecks mobile/admin/music, gardes et export + Chromium direct/reload PC/tablette/Android réussis. Aucune publication ni migration. Revue sécurité finale puis intégration produit/CI distante restent nécessaires.

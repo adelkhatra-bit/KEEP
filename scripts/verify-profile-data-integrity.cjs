@@ -35,7 +35,10 @@ const protectedShell = {
   // Navigation.tsx : hash revérifié après les changements produit validés du
   // 29/09 (garde de sortie Solo + libellé "Loki Music"). Le fichier lui-même
   // n'est PAS modifié par ce correctif CI.
-  'packages/mobile/src/navigation/Navigation.tsx': '7f49648977f652ece61bafc632d35e5524a599b7',
+  // Navigation.tsx (06/10/2026, ERR-209) : seuls les gardes du visiteur
+  // d'un lien partagé ont été ajoutés ; comparaison avec le hash précédent :
+  // aucun changement de style, d'ordre ou de rendu des cinq onglets.
+  'packages/mobile/src/navigation/Navigation.tsx': '4e8f677b7fc9f29dbe545a733d4b0e950e35102d',
 };
 for (const [rel, expected] of Object.entries(protectedShell)) {
   const actual = blob(rel);

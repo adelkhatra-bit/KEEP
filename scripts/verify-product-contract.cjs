@@ -378,7 +378,7 @@ const se = contract.storiesExperience;
 const quickViewSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/SourceProfileQuickView.tsx'), 'utf8');
 must(se && se.unfollowOnlyFromProfilePage === true && se.viewersListShowsViewProfileNotFollowBadge === true, 'storiesExperience: règle « désabonnement uniquement depuis le profil » absente du contrat');
 must(!quickViewSrc.includes('.delete(') && !quickViewSrc.includes('keep_unfollow_profile'), 'stories: la fiche rapide ne doit jamais désabonner (seule la page profil le fait)');
-must(storyBar.includes('Voir le profil ›') && !storyBar.includes('>Abonné<'), 'stories: la liste des vues doit proposer « Voir le profil » et non un badge « Abonné »');
+must(storyBar.includes('accessibilityLabel={`Voir le profil de ${v.username}`}') && storyBar.includes('>Profil ›<') && storyBar.includes('onOpenProfile?.(v.username)') && !storyBar.includes('>Abonné<'), 'stories: la liste des vues doit proposer le bouton accessible « Profil › » et non un badge « Abonné »');
 // Règles d'Adel du 05/10/2026 (lecteur de story) : durée « reste N h » sur une ligne, étiquettes PAYANT / GRATUIT toujours visibles, aucune phrase d'accroche sur la story d'un autre.
 const storyActivitySrc = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyActivity.ts'), 'utf8');
 const storyDeckSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
@@ -399,7 +399,9 @@ must(storyRail.includes('isDormantMember') && storyBar.includes('loadProfilesAct
 must(storyRail.includes('story-follow-') && storyBar.includes("rpc('keep_follow_profile'"), 'stories: suggestions avec bouton « +👤 » pour suivre directement');
 must(storyService.includes('rankMusicStories(rows, viewerId, eligibleIds, new Set())') && storyService.includes('loadStoryRelations'), 'stories: seuls les membres liés (abonnements, abonnés, reprises) — jamais le même style seul');
 must(storyEligibility.includes('is_anonymous') && storyEligibility.includes('email_confirmed_at'), 'stories: compte réel avec e-mail vérifié uniquement');
-must(profile.includes('!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked') && visitorProfile.includes('isDemoMode || isLocalGuest || !effectiveViewerId'), 'stories: jamais en démo ni invité');
+must(se && se.neverInDemoOrLocalGuest === true && se.sharedLinkVisitorReadOnly === true && se.sharedLinkVisitorRequiresAccountForActions === true, 'stories: exception du lien partagé limitée à la lecture seule');
+must(profile.includes('!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked') && visitorProfile.includes('const shareVisitor = isLocalGuest && isWebShareVisit();') && visitorProfile.includes('isDemoMode || (isLocalGuest && !shareVisitor) || (!effectiveViewerId && !shareVisitor)') && visitorProfile.includes('shareVisitor ? Promise.resolve(true) : loadStoryAccess()'), 'stories: démo et invité ordinaire interdits, sauf lecture seule du lien partagé');
+must(visitorProfile.includes("Alert.alert('Compte requis', 'Connecte-toi pour garder.'") && visitorProfile.includes('if (!effectiveViewerId)') && storyDeck.includes('onRequireAccount'), 'stories: les actions du visiteur exigent toujours un compte');
 must(storyBar.includes('onFinished={() => {') && storyDeck.includes('finishedRound.current === round'), 'stories: enchaînement automatique vers la prochaine story non vue');
 must(storyService.includes("rpc('keep_discovery_match_candidates'") && storyBar.includes('loadStyleSuggestions('), 'stories: suggestions d\'amis par style (RPC serveur)');
 must(storyService.includes("rpc('keep_story_masked_pins'") && storyService.includes('maskedRawIds'), 'stories: musique en vente masquée côté serveur, jamais en double ni en clair');

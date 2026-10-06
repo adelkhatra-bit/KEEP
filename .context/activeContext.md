@@ -1,5 +1,14 @@
 # KEEP — Contexte actif
 
+## Déblocage des contrôles d'intégration — 06/10/2026
+
+- Branche de revue `copilot/reconcileclaude-main-20260825` synchronisée sur l'arbre produit exact `0138b4e5` par merge ; aucune ancienne version de fichier réintroduite.
+- Faux blocages corrigés : bouton Stories `Profil ›` avec label accessible et callback conservés ; visiteur de lien partagé en lecture seule, compte toujours requis pour agir ; empreinte Navigation actualisée pour les gardes du visiteur déjà intégrées.
+- Le triage accepte uniquement les blobs exacts déjà validés d'App/Navigation. Tout autre changement reste bloqué. La branche Copilot doit contenir la référence produit récupérée ; elle n'est jamais une source de publication.
+- Aucun écran, style, onglet, module runtime, schéma ou donnée de production modifié. Aucun déploiement web/OTA/natif déclenché.
+- Preuves locales : 282 suites / 1 377 tests mobile ; typechecks mobile/admin/music ; `integration:postflight`, intégrité profil, contraste ; export Expo réel et garde navigateur Chromium PC/tablette/Android, liens directs + reload, cinq onglets et porte QR. Données de test simulées, export servi uniquement localement. Firefox/WebKit et iPhone natif non testés.
+- Restent : intégration de ce correctif sur la branche produit et CI distante correspondante ; conflit de la PR vers `main` non traité ; contrôles PR en checkout détaché non élargis. Les achats, migrations en attente et signalements iPhone ne sont pas validés par ce correctif.
+
 ## 🔔 À LIRE EN PREMIER — Passe du 05/10/2026 soir (stories, robot, classement, profil, menu) — reprise de conversation
 
 **Langue : français uniquement avec Adel. Il veut un exécutant autonome (« continue, t'arrête pas »), qui teste avant de dire « fait », ne pousse que les modules concernés, et garde app = ordinateur.** Toute nouvelle idée d'Adel → `docs/IDEAS_INBOX.md` AVANT de coder. Les statuts « EN COURS » anciens de l'inbox sont en partie périmés : se fier à `docs/ERROR_LEDGER.md` (ERR-…-143 à 164) et à ce résumé.

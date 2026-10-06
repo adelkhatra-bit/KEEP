@@ -15,6 +15,7 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 ## Journal (récent d'abord)
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
+| 06/10/2026 | copilot/reconcileclaude-main-20260825 (revue) | base produit 0138b4e5, voir git log | Déblocage des contrôles Stories, provenance de revue et blobs protégés déjà validés ; aucun changement design/runtime ni déploiement | 282 suites / 1 377 tests, typechecks mobile/admin/music, postflight + intégrité + contraste, export et Chromium PC/tablette/Android direct/reload ; CI produit et iPhone non revalidés |
 | 06/10/2026 | reconcile | voir git log | Robot d'accueil intelligent : salut avec le pseudo (sans @) après 4 h d'absence, voix, 3 boutons → bon endroit + explication, appel par 5 touchers | jest 1341 ; navigateur 390/1440 ; gate page noire PASS ; non vérifié iPhone |
 | 06/10/2026 | reconcile | voir git log | Questionnaire d'inscription OBLIGATOIRE (genre + styles pré-cochés, sans « Plus tard ») pour tout compte réel jamais sollicité | jest 1333 ; navigateur 320/390/1440 ; non vérifié iPhone |
 | 06/10/2026 | reconcile | voir git log | Bulle du robot plus grosse (13 → 16) ; mesure de latence du Swipe (`SWIPE_SLOW`) ; faisabilité catalogue + plateformes + budget Super Admin écrite | jest 1330 ; non vérifié iPhone ; aucun code catalogue |

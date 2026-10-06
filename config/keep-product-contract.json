@@ -978,6 +978,8 @@
     "sameStyleStoriesAllowed": false,
     "accountGate": "email_confirmed_and_not_anonymous",
     "neverInDemoOrLocalGuest": true,
+    "sharedLinkVisitorReadOnly": true,
+    "sharedLinkVisitorRequiresAccountForActions": true,
     "autoChainToNextUnseenStory": true,
     "styleFriendSuggestions": {
       "rpc": "keep_discovery_match_candidates",
