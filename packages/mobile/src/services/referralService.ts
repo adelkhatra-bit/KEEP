@@ -102,11 +102,12 @@ export async function stageReferralFromUrl(url?: string | null): Promise<string>
 
 export async function claimPendingReferral(): Promise<boolean> {
   if (!supabase) return false;
-  const code = await AsyncStorage.getItem(PENDING_REFERRAL_KEY);
-  if (!code) return false;
-
   const { data: sessionData } = await supabase.auth.getSession();
   const session = sessionData.session;
+  // Compte créé depuis la page de partage (navigateur) : l'appareil n'a pas le code, il est dans le compte lui-même.
+  const metadataCode = String((session?.user?.user_metadata as any)?.pending_referral_code || '').trim();
+  const code = (await AsyncStorage.getItem(PENDING_REFERRAL_KEY)) || metadataCode;
+  if (!code) return false;
   // Sur le web, un client peut momentanément avoir la clé publishable chargée
   // sans bearer utilisateur (restauration de session en cours). Dans ce cas,
   // appeler keep_claim_referral produit un 400 AUTH_REQUIRED dans la console.

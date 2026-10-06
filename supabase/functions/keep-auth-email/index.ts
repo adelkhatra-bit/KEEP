@@ -41,6 +41,10 @@ async function handleSignup(body: any) {
   const password = String(body?.password ?? "");
   const username = String(body?.username ?? "").trim();
   const pendingFollow = body?.pendingFollowUsername ? String(body.pendingFollowUsername).trim() : null;
+  // Affiliation (Adel, 06/10/2026) : un compte créé depuis un lien partagé gardait le suivi mais PERDAIT le parrainage.
+  // Le code part avec le compte (métadonnée) et l'app le réclame à la première connexion (keep_claim_referral, règles serveur).
+  const rawReferral = String(body?.pendingReferralCode ?? "").trim().replace(/^@+/, "");
+  const pendingReferral = /^[A-Za-z0-9_.-]{1,32}$/.test(rawReferral) ? rawReferral.toUpperCase() : null;
   if (!validEmail(email)) return json({ ok: false, error: "invalid_email" }, 400);
   if (password.length < 6) return json({ ok: false, error: "invalid_password" }, 400);
   if (!username) return json({ ok: false, error: "invalid_username" }, 400);
@@ -51,7 +55,7 @@ async function handleSignup(body: any) {
     password,
     options: {
       redirectTo: KEEP_PUBLIC_URL,
-      data: { keep_username: username, keep_username_only: false, pending_follow_username: pendingFollow },
+      data: { keep_username: username, keep_username_only: false, pending_follow_username: pendingFollow, pending_referral_code: pendingReferral },
     },
   });
 
@@ -108,7 +112,7 @@ async function handleSignup(body: any) {
   // ne doit jamais retarder l'utilisateur.
   const { error: confirmError } = await admin.auth.admin.updateUserById(data.user!.id, {
     email_confirm: true,
-    user_metadata: { keep_username: username, keep_username_only: false, pending_follow_username: pendingFollow, keep_email_verification_pending: true },
+    user_metadata: { keep_username: username, keep_username_only: false, pending_follow_username: pendingFollow, pending_referral_code: pendingReferral, keep_email_verification_pending: true },
   });
   if (confirmError) {
     await admin.auth.admin.deleteUser(data.user!.id).catch(() => {});
