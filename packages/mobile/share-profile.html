@@ -73,6 +73,16 @@
   const username=(params.get('u')||'').replace(/^@+/,'').trim();
   const shareKind=(params.get('share')||'profile').toLowerCase();
   const referral=(params.get('ref')||'').trim();
+  // Adel (06/10/2026) : « je partage mon profil, il faut que l'utilisateur voie comme un utilisateur connecté, sauf avec des
+  // fonctions bloquées ». Cette page garde les aperçus (og:image) puis ouvre la VRAIE application sur le profil partagé, en mode
+  // invité (webShareVisitor.ts). L'ancienne page reste disponible en secours avec ?static=1 (rien supprimé).
+  if(username&&params.get('static')!=='1'){
+    const target=new URL(KEEP_ROOT);
+    ['u','share','ref','title','artist','label'].forEach(k=>{const v=params.get(k);if(v)target.searchParams.set(k,v);});
+    if(!target.searchParams.get('share'))target.searchParams.set('share','profile');
+    location.replace(target.toString());
+    return;
+  }
   const headers={apikey:ANON_KEY,Authorization:`Bearer ${ANON_KEY}`,'Content-Type':'application/json'};
   const $=id=>document.getElementById(id);
   const safe=value=>String(value||'').trim();

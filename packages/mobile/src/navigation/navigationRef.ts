@@ -54,7 +54,8 @@ export function navigateToSharedProfile(username: string, attempt = 0) {
   const clean = username.trim().replace(/^@+/, '');
   if (!clean) return;
   if (!navigationRef.isReady()) {
-    if (attempt >= 20) return;
+    // 9 s : sur le web, le visiteur d'un lien partagé attend la préparation de l'essai invité avant que la navigation existe.
+    if (attempt >= 60) return;
     setTimeout(() => navigateToSharedProfile(clean, attempt + 1), 150);
     return;
   }

@@ -44,7 +44,7 @@ import {
   type MusicStory,
 } from '../services/musicStoriesService';
 import { colors } from '../theme/colors';
-import { formatWatchDetail, ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
+import { ownBadgeFor, ownBadgeMessage } from '../services/storyActivity';
 import { shareReferralLink } from '../services/referralShare';
 import { buildViewerDetail } from '../services/storyViewerDetail';
 import { loadMyLikesAmong, likeKey } from '../services/trackLikesService';
@@ -487,64 +487,53 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                 <Text style={styles.sheetTitle}>Vues de ta story</Text>
                 <TouchableOpacity onPress={() => setViewersOpen(false)} accessibilityRole="button" accessibilityLabel="Fermer la liste" style={styles.sheetClose}><Text style={styles.sheetCloseText}>✕</Text></TouchableOpacity>
               </View>
-              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Personne n’a encore vu ta story aujourd’hui.</Text> : null}
-              <ScrollView>
-                {(viewers ?? []).map((v) => (
-                  <View key={v.viewerId} style={styles.viewerBlock}>
-                  <View style={styles.viewerRow}>
-                    {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.rowAvatar} /> : <View style={[styles.rowAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
-                    <View style={styles.rowBody}>
-                      <View style={styles.rowNameLine}><Text style={styles.rowName} numberOfLines={1}>@{v.username}</Text>{v.isReprise ? <Text style={[styles.badge, styles.badgeReprise]}>A repris</Text> : null}</View>
-                      {(() => {
-                        // Façon Instagram (Adel 06/10/2026) : pas de durées ni de « chapitres » ; une seule ligne courte.
-                        const w = formatWatchDetail(v);
-                        const quick = openStory ? buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey) : null;
-                        return (
-                          <>
-                            <Text style={[styles.rowStatus, v.watching && styles.rowStatusLive]} numberOfLines={1} testID={`story-viewer-status-${v.viewerId}`}>{v.watching ? '● ' : ''}{w.status}</Text>
-                            {quick ? <Text style={styles.rowDetail} numberOfLines={1} testID={`story-viewer-summary-${v.viewerId}`}>{quick.leftAtTitle ? `${quick.summary} · arrêté sur « ${quick.leftAtTitle} »` : quick.summary}</Text> : null}
-                          </>
-                        );
-                      })()}
-                      <View style={styles.rowActions}>
-                        {/* Adel 05/10/2026 : plus de badge « Abonné » ; on va sur le profil (seul endroit où l'on peut se désabonner). */}
-                        <TouchableOpacity
-                          style={styles.viewProfileBtn}
-                          onPress={() => { setViewersOpen(false); setOpenStory(null); onOpenProfile?.(v.username); }}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Voir le profil de ${v.username}`}
-                          testID={`story-viewer-profile-${v.viewerId}`}
-                        >
-                          <Text style={styles.viewProfileText}>Voir le profil ›</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.viewProfileBtn} onPress={() => toggleViewerDetail(v.viewerId)} accessibilityRole="button" accessibilityLabel={detailFor === v.viewerId ? 'Masquer le détail' : `En savoir plus sur ${v.username}`} testID={`story-viewer-more-${v.viewerId}`}>
-                          <Text style={styles.viewProfileText}>{detailFor === v.viewerId ? 'Masquer ⌃' : 'En savoir plus ⌄'}</Text>
-                        </TouchableOpacity>
+              {viewers && viewers.length === 0 ? <Text style={styles.viewsEmpty}>Aucune vue</Text> : null}
+              {/* Vues façon Instagram (Adel, 06/10/2026) : une bulle par spectateur, indépendante ; on touche une bulle → ce qu'il a vu.
+                  Pastille : ✓ = toute la story, sinon « vues / total ». Aucun texte long, aucune durée. */}
+              <ScrollView contentContainerStyle={styles.viewerGrid}>
+                {(viewers ?? []).map((v) => {
+                  const total = openStory?.tracks.length || v.tracksTotal || 0;
+                  const detail = openStory ? buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey) : null;
+                  const seenN = detail ? detail.rows.length : Math.min(v.tracksSeen, total);
+                  const full = total > 0 && seenN >= total;
+                  const selected = detailFor === v.viewerId;
+                  return (
+                    <TouchableOpacity key={v.viewerId} style={[styles.viewerBubble, selected && styles.viewerBubbleOn]} onPress={() => toggleViewerDetail(v.viewerId)} accessibilityRole="button" accessibilityState={{ expanded: selected }} accessibilityLabel={`${v.username} : ${seenN} sur ${total}`} testID={`story-viewer-${v.viewerId}`}>
+                      <View>
+                        {v.avatarUrl ? <Image source={{ uri: v.avatarUrl }} style={styles.bubbleAvatar} /> : <View style={[styles.bubbleAvatar, styles.rowAvatarFallback]}><Text style={styles.rowInitial}>{v.username.slice(0, 1).toUpperCase()}</Text></View>}
+                        <View style={[styles.bubbleBadge, full ? styles.bubbleBadgeFull : null, v.watching ? styles.bubbleBadgeLive : null]}><Text style={styles.bubbleBadgeText}>{v.watching ? '●' : full ? '✓' : `${seenN}/${total}`}</Text></View>
                       </View>
-                    </View>
-                  </View>
-                    {detailFor === v.viewerId && openStory ? (() => {
-                      const detail = buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey);
-                      return (
-                        <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
-                          <Text style={styles.detailSummary}>{detail.summary}</Text>
-                          {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Aucune musique encore en story</Text> : null}
-                          {detail.rows.map((r) => (
-                            <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
-                              <Text style={styles.detailIndex}>{r.index + 1}</Text>
-                              <View style={{ flex: 1, minWidth: 0 }}>
-                                <Text style={styles.detailTitle} numberOfLines={1}>{r.title}</Text>
-                                <Text style={styles.detailMeta} numberOfLines={1}>{r.label}</Text>
-                              </View>
-                              {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
-                            </View>
-                          ))}
-                        </View>
-                      );
-                    })() : null}
-                  </View>
-                ))}
+                      <Text style={styles.bubbleName} numberOfLines={1}>{v.username}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
+              {(() => {
+                const v = (viewers ?? []).find((item) => item.viewerId === detailFor);
+                if (!v || !openStory) return null;
+                const detail = buildViewerDetail(openStory.tracks.map((track) => ({ id: track.id, title: track.title, artist: track.artist })), v, detailLikes[v.viewerId] ?? new Set<string>(), likeKey);
+                return (
+                  <View style={styles.detailBox} testID={`story-viewer-detail-${v.viewerId}`}>
+                    <View style={styles.detailHead}>
+                      <Text style={styles.detailName} numberOfLines={1}>@{v.username}{v.isReprise ? ' ⟳' : ''}</Text>
+                      <TouchableOpacity style={styles.detailProfileBtn} onPress={() => { setViewersOpen(false); setOpenStory(null); onOpenProfile?.(v.username); }} accessibilityRole="button" accessibilityLabel={`Voir le profil de ${v.username}`} testID={`story-viewer-profile-${v.viewerId}`}>
+                        <Text style={styles.detailProfileText}>Profil ›</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={{ maxHeight: 260 }}>
+                      {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Rien vu</Text> : null}
+                      {detail.rows.map((r) => (
+                        <View key={`${v.viewerId}-${r.trackId}`} style={[styles.detailRow, (r.outcome === 'LEFT_HERE' || r.outcome === 'WATCHING') && styles.detailRowLeft]} testID={`story-viewer-track-${v.viewerId}-${r.index}`}>
+                          <Text style={styles.detailIcon} accessibilityLabel={r.label}>{r.outcome === 'FULL' ? '✓' : r.outcome === 'SKIPPED' ? '⏭' : r.outcome === 'WATCHING' ? '●' : '■'}</Text>
+                          <Text style={[styles.detailTitle, { flex: 1, minWidth: 0 }]} numberOfLines={1}>{r.title}</Text>
+                          {r.liked ? <Text style={styles.detailLike} accessibilityLabel="Il a aimé">❤</Text> : null}
+                        </View>
+                      ))}
+                    </ScrollView>
+                    <Text style={styles.detailLegend}>✓ entière · ⏭ passée · ■ arrêt</Text>
+                  </View>
+                );
+              })()}
             </View>
           </SafeAreaView>
         ) : null}
@@ -667,6 +656,21 @@ const styles = StyleSheet.create({
   ownBadgeLocked: { backgroundColor: '#2A2140', borderColor: '#B79CFF' },
   ownBadgeOn: { backgroundColor: '#3A2A00', borderColor: '#FFD166', shadowColor: '#FFD166', shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, elevation: 8 },
   ownBadgeText: { fontSize: 13, lineHeight: 16 },
+  viewerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingVertical: 8 },
+  viewerBubble: { width: 72, alignItems: 'center', paddingVertical: 4, borderRadius: 14 },
+  viewerBubbleOn: { backgroundColor: 'rgba(124,92,252,0.22)' },
+  bubbleAvatar: { width: 56, height: 56, borderRadius: 28 },
+  bubbleBadge: { position: 'absolute', right: -6, bottom: -4, minWidth: 26, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: '#2A2140', borderWidth: 2, borderColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  bubbleBadgeFull: { backgroundColor: '#1F7A55' },
+  bubbleBadgeLive: { backgroundColor: '#35E08A' },
+  bubbleBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  bubbleName: { color: colors.white, fontSize: 12, fontWeight: '800', marginTop: 6, maxWidth: 70 },
+  detailHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
+  detailName: { flex: 1, minWidth: 0, color: colors.white, fontSize: 16, fontWeight: '900' },
+  detailProfileBtn: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: '#B79CFF', alignItems: 'center', justifyContent: 'center' },
+  detailProfileText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  detailIcon: { width: 22, textAlign: 'center', color: colors.white, fontSize: 15, fontWeight: '900' },
+  detailLegend: { color: colors.textSecondary, fontSize: 11, marginTop: 6, textAlign: 'center' },
   detailBox: { marginTop: 8, padding: 10, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background },
   detailSummary: { color: colors.white, fontSize: 14, lineHeight: 19, fontWeight: '800', marginBottom: 6 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.border },

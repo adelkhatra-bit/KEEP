@@ -9,6 +9,8 @@ import { ingestExternalRecognition } from '../services/externalRecognitionIngest
 import { claimPendingReferral, sharedProfileUsernameFromUrl, stageReferralFromUrl } from '../services/referralService';
 import { navigateToSharedProfile } from '../navigation/navigationRef';
 import { supabase } from '../services/supabaseClient';
+import { endWebShareVisit, isWebShareVisit, webShareVisitUsername } from '../services/webShareVisitor';
+import { useUserStore } from '../store/useUserStore';
 
 /**
  * TikTok / Instagram / Snapchat / YouTube -> Partager -> Loki.
@@ -50,6 +52,11 @@ export default function SharedMusicHandoff() {
       // ou tout lien `?u=...&share=...` reçu directement) doit rouvrir le
       // vrai profil swipeable, pas retomber sur l'écran d'accueil générique.
       const sharedUsername = sharedProfileUsernameFromUrl(url);
+      // Visiteur web d'un lien partagé qui rafraîchit la page : l'adresse n'a plus ?u=, on le ramène sur le profil partagé.
+      if (!sharedUsername && isWebShareVisit() && useUserStore.getState().isLocalGuest) {
+        navigateToSharedProfile(webShareVisitUsername());
+        return;
+      }
       if (sharedUsername) {
         navigateToSharedProfile(sharedUsername);
         // Adel (29/09/2026) : « à chaque fois ça remet sur le profil, c'est
@@ -64,6 +71,7 @@ export default function SharedMusicHandoff() {
     const linkSub = Linking.addEventListener('url', ({ url }) => { void stage(url); });
     const authSub = supabase?.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        if (event === 'SIGNED_IN') endWebShareVisit();
         void claimPendingReferral().catch(() => false);
       }
     });

@@ -15,7 +15,9 @@ describe('Stories + suggestions : comptes réels avec e-mail vérifié uniquemen
     const own = read('screens', 'ProfilePublicScreen.tsx');
     expect(own).toContain('!accountRequired && !isDemoMode && !isLocalGuest && storiesUnlocked');
     const visited = read('screens', 'PublicUserProfileScreen.tsx');
-    expect(visited).toContain('isDemoMode || isLocalGuest || !effectiveViewerId');
+    // Exception d'Adel (06/10/2026) : le visiteur d'un lien partagé voit la story en lecture seule.
+    expect(visited).toContain('(isLocalGuest && !shareVisitor)');
+    expect(visited).toContain('const shareVisitor = isLocalGuest && isWebShareVisit();');
     expect(visited).toContain('loadStoryAccess()');
   });
   it('suggestions d\'amis par style : source serveur unique, jamais les membres déjà suivis ou liés', () => {

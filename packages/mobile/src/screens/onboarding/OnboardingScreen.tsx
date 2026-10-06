@@ -8,6 +8,7 @@ import OnboardingGenresScreen from './OnboardingGenresScreen';
 import { loadStagedGuestProfile, mergeStagedGuestProfile } from '../../services/guestUpgradeService';
 import { claimPendingReferral, stageReferralFromUrl } from '../../services/referralService';
 import { useUserStore } from '../../store/useUserStore';
+import { isWebShareVisit } from '../../services/webShareVisitor';
 import { useAccountGateStore } from '../../store/useAccountGateStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
@@ -134,8 +135,9 @@ export default function OnboardingScreen() {
   // fonctionnel pendant ce court instant, en repli si cette entrée
   // automatique échoue (ex. stockage local indisponible).
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (accountOpen || intent.followUsername) return;
+    // Web : l'essai invité ne démarre QUE pour un lien partagé (profil vu « comme connecté », fonctions bloquées).
+    if (Platform.OS === 'web' && !isWebShareVisit()) return;
+    if (accountOpen || (Platform.OS !== 'web' && intent.followUsername)) return;
     if (useUserStore.getState().user) return;
     void handleGuestPress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,8 +171,16 @@ export default function OnboardingScreen() {
   // explicitement dans un build __DEV__.
   const showDemo = __DEV__ && process.env.EXPO_PUBLIC_KEEP_SHOW_DEMO === '1';
 
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' && !isWebShareVisit()) {
     return <WebCompanionPairingScreen />;
+  }
+  if (Platform.OS === 'web' && !accountOpen) {
+    // Lien partagé : l'invité entre tout de suite sur le profil ; écran d'attente le temps de préparer l'essai.
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }} testID="web-share-visit-loading">
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
   }
 
   if (genresOpen) {

@@ -2,9 +2,9 @@ import { clampWords, CLAMP_WORDS } from '../clampWords';
 
 describe('clampWords (écran Offres compact)', () => {
   it('garde un texte court tel quel', () => {
-    expect(clampWords('Achat ponctuel. Le solde est crédité.')).toEqual({ short: 'Achat ponctuel. Le solde est crédité.', clamped: false });
+    expect(clampWords('Achat ponctuel')).toEqual({ short: 'Achat ponctuel', clamped: false });
   });
-  it('coupe à ~23 mots avec une ellipse', () => {
+  it('coupe à 2 mots avec une ellipse (règle d’Adel)', () => {
     const long = Array.from({ length: 40 }, (_, i) => `mot${i}`).join(' ');
     const r = clampWords(long);
     expect(r.clamped).toBe(true);

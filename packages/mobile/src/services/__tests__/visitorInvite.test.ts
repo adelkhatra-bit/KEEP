@@ -10,9 +10,7 @@ describe('invitation du visiteur par le robot', () => {
     expect(seen.size).toBeGreaterThan(1);
     expect(composeVisitorInvite('')).toContain('@un ami');
   });
-  it('parle d’inscription, d’abonnement et de rangement des plateformes', () => {
-    const all = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => composeVisitorInvite('x', i)).join(' ');
-    expect(all).toMatch(/plateformes/);
-    expect(all).toMatch(/compte|Inscris|Rejoins|Connecte/);
+  it('message rapide du robot : 5 mots maximum (Adel 06/10/2026)', () => {
+    ['x', 'bruno', 'chloe', 'dylan', 'emma'].forEach((n) => expect(composeVisitorInvite(n).split(/\s+/).length).toBeLessThanOrEqual(5));
   });
 });

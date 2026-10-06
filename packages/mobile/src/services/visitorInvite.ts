@@ -2,11 +2,12 @@
 // Module pur : phrases variées, à la française, jamais bloquantes ; le nom change à chaque profil, la formulation aussi.
 const hash = (text: string) => { let h = 2166136261; for (let i = 0; i < text.length; i += 1) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
+// Adel (06/10/2026) : « pas la peine de mettre le texte, utilise le bot qui envoie un petit message rapide ». Phrases courtes.
 const LINES = [
-  (n: string) => `@${n} t’a invité sur Loki Music. Connecte-toi, abonne-toi à lui et raconte-nous ta communauté musicale : je range ta musique dans tes plateformes.`,
-  (n: string) => `Tu es chez @${n} ! Crée ton compte en 30 secondes : tu pourras le suivre, écouter plus loin et je classe tes musiques dans tes plateformes préférées.`,
-  (n: string) => `Ça te plaît chez @${n} ? Inscris-toi : tu débloques le swipe complet, ton propre profil, et je m’occupe de trier ta musique par plateforme.`,
-  (n: string) => `@${n} partage sa musique avec toi. Rejoins-le : abonne-toi, dis-nous ce que tu écoutes et je mets de l’ordre dans tes playlists.`,
+  (n: string) => `@${n} t’invite 🎵`,
+  (n: string) => `Bienvenue chez @${n} 👋`,
+  (n: string) => `@${n} partage sa musique 🎶`,
+  (n: string) => `Rejoins @${n} ⚡`,
 ];
 
 export function composeVisitorInvite(username: string, seed = 0): string {

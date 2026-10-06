@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { isWebShareVisit } from '../services/webShareVisitor';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Animated, Image, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
@@ -309,9 +310,11 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   useEffect(() => {
     let live = true;
     setVisitedStory(null);
-    if (!profile?.id || isDemoMode || isLocalGuest || !effectiveViewerId) return undefined;
-    // Stories : comptes réels avec e-mail vérifié uniquement (jamais démo / invité).
-    void loadStoryAccess().then((allowed) => {
+    // Visiteur d'un lien partagé (Adel, 06/10/2026) : il voit la story comme un membre ; toute action demande un compte.
+    const shareVisitor = isLocalGuest && isWebShareVisit();
+    if (!profile?.id || isDemoMode || (isLocalGuest && !shareVisitor) || (!effectiveViewerId && !shareVisitor)) return undefined;
+    // Stories : comptes réels avec e-mail vérifié (jamais démo / invité), sauf le visiteur d'un lien partagé (lecture seule).
+    void (shareVisitor ? Promise.resolve(true) : loadStoryAccess()).then((allowed) => {
       if (!allowed || !live) return undefined;
       return loadProfileStory({ id: profile.id, username: profile.username, avatarUrl: profile.avatar || null })
         .then((story) => { if (live) setVisitedStory(story ? { ...story, tracks: story.tracks.filter((track) => !isSaleStoryTrack(track)) } : null); });

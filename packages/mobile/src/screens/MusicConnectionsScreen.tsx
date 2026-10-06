@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ClampedText from '../components/ClampedText';
+import { withActionTimeout, isActionTimeout } from '../services/actionTimeout';
 import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import MusicServiceIcon, { MUSIC_SERVICE_BRAND_COLORS } from '../components/MusicServiceIcon';
@@ -157,7 +159,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         showMessage('Connexion fournisseur', `${name} n’est pas encore configuré dans le Super Admin Loki Music.`);
         return;
       }
-      await startProviderConnection(provider);
+      await withActionTimeout(startProviderConnection(provider), 120000, 'oauth');
     } catch (error: any) {
       const message = String(error?.message || 'Connexion impossible.');
       showMessage('Connexion fournisseur', message.includes('AUTH_REQUIRED') ? 'Connecte d’abord ton compte Loki Music.' : message);
@@ -171,7 +173,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (isLocalGuest || isDemoMode) return requireRealAccount();
     setProviderBusy(provider);
     try {
-      const result = await importProviderFavorites(provider);
+      const result = await withActionTimeout(importProviderFavorites(provider), 60000, 'import');
       showMessage('Bibliothèque Loki Music', `${result.imported} favori${result.imported > 1 ? 's' : ''} ${name} synchronisé${result.imported > 1 ? 's' : ''}. Ils restent privés par défaut tant que tu ne choisis pas de les partager.`);
       await refresh();
     } catch (error: any) {
@@ -200,7 +202,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     if (activatingService || busy) return false;
     setActivatingService(service);
     try {
-      const result = await claimMusicService(service);
+      const result = await withActionTimeout(claimMusicService(service), 20000, 'claim');
       const nextSelection = { services: result.services, used: result.used, limit: result.limit, plan: result.plan };
       setSelection(nextSelection);
       if (!result.ok && result.error === 'SERVICE_LIMIT_REACHED') {
@@ -209,7 +211,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
       }
       if (!result.ok) throw new Error(result.error || 'ACTIVATION_FAILED');
 
-      const verified = await loadMusicServiceSelections();
+      const verified = await withActionTimeout(loadMusicServiceSelections(), 20000, 'verify');
       setSelection(verified);
       if (!verified.services.includes(service)) throw new Error('ACTIVATION_NOT_PERSISTED');
 
@@ -217,7 +219,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
         const state = providerConnections[service];
         if (state.configured && !state.connected) {
           try {
-            await startProviderConnection(service);
+            await withActionTimeout(startProviderConnection(service), 120000, 'oauth');
           } catch (oauthError: any) {
             showMessage('Service Loki Music activé', `${name} est bien réservé dans Loki Music. La connexion du compte fournisseur n’a pas pu démarrer : ${String(oauthError?.message || 'réessaie plus tard')}`);
           }
@@ -234,7 +236,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
     } catch (e: any) {
       const text = e?.message?.includes('AUTH_REQUIRED')
         ? 'Connecte ton compte Loki Music pour choisir tes services musicaux.'
-        : 'Impossible d’activer ce service pour le moment.';
+        : isActionTimeout(e) ? 'Trop long · réessaie.' : 'Impossible d’activer ce service pour le moment.';
       Alert.alert('Loki Music', text);
       return false;
     } finally {
@@ -310,7 +312,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           <Text style={styles.back}>‹ Retour</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Services musicaux</Text>
-        <Text style={styles.subtitle}>Loki Music range ta musique. Choisis ensuite les services que tu utilises vraiment.</Text>
+        <ClampedText style={styles.subtitle} text="Loki Music range ta musique. Choisis ensuite les services que tu utilises vraiment." />
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
@@ -321,7 +323,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
             ); })()}
             <Text style={styles.keylessTitle}>{selectionLoading ? 'Chargement…' : `${selection.used} / ${selection.limit} service${selection.limit > 1 ? 's' : ''} choisi${selection.used > 1 ? 's' : ''}`}</Text>
           </View>
-          <Text style={styles.keylessText}>Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki Music te laisse utiliser de services en parallèle.</Text>
+          <ClampedText style={styles.keylessText} text="Tes choix restent attachés à ton compte. Plus ta formule évolue, plus Loki Music te laisse utiliser de services en parallèle." />
         </View>
 
         {queue?.tracks.length ? (
@@ -348,14 +350,14 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.exportHint}>Choisis un de tes services actifs. Loki Music gardera la file prête pendant que tu passes dans l’autre application.</Text>
+              <ClampedText style={styles.exportHint} text="Choisis un de tes services actifs. Loki Music gardera la file prête pendant que tu passes dans l’autre application." />
             )}
           </View>
         ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{queue?.tracks.length && !selectedService ? 'Choisir la destination' : 'Tes services'}</Text>
-          <Text style={styles.sectionHint}>ACTIF = réservé par ta formule · CONNECTÉ = compte fournisseur OAuth réellement relié.</Text>
+          <ClampedText style={styles.sectionHint} text="ACTIF = réservé par ta formule · CONNECTÉ = compte fournisseur OAuth réellement relié." />
         </View>
 
         {KEYLESS_MUSIC_SERVICES.map((provider) => {
@@ -370,13 +372,6 @@ export default function MusicConnectionsScreen({ navigation }: any) {
           const providerState = syncProvider ? providerConnections[syncProvider] : null;
           const connected = Boolean(providerState?.connected);
           const providerActionBusy = syncProvider === providerBusy;
-          const activeDescription = connected
-            ? (queue?.tracks.length ? `${provider.name} connecté · sélectionne-le comme destination.` : `${provider.name} connecté · touche pour importer ou actualiser tes favoris dans Loki Music.`)
-            : syncProvider && providerState?.configured
-              ? `${provider.shortDescription} · touche pour connecter ton compte ${provider.name}.`
-              : syncProvider
-                ? `${provider.shortDescription} · configuration fournisseur requise dans le Super Admin.`
-                : provider.shortDescription;
           const actionLabel = activating || providerActionBusy
             ? 'PATIENTER…'
             : active
@@ -403,7 +398,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
                   {connected ? <View style={styles.connectedBadge}><Text style={styles.connectedBadgeText}>CONNECTÉ</Text></View> : null}
                   {reserved ? <View style={styles.lockBadge}><Text style={styles.lockBadgeText}>🔒 RÉSERVÉ</Text></View> : null}
                 </View>
-                <Text style={styles.description}>{active ? activeDescription : reserved ? 'Ce choix est conservé. Réactive-le en retrouvant une formule compatible.' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Choisis ce service pour l’associer à ton compte Loki Music.'}</Text>
+                <Text style={styles.description} numberOfLines={1}>{active ? (connected ? 'Relié ✓' : syncProvider ? 'À connecter' : 'Prêt') : reserved ? '🔒 Réservé' : slotFull ? `🔒 ${nextPlanLabel(selection.plan)}` : 'Non choisi'}</Text>
               </View>
               <View style={[styles.openPill, (slotFull || reserved) && styles.lockPill, (activating || providerActionBusy) && styles.activatingPill]}><Text style={styles.openPillText}>{actionLabel}</Text></View>
             </TouchableOpacity>
@@ -412,7 +407,7 @@ export default function MusicConnectionsScreen({ navigation }: any) {
 
         <View style={styles.ruleCard}>
           <Text style={styles.ruleTitle}>Loki Music range pour toi</Text>
-          <Text style={styles.ruleText}>Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music.</Text>
+          <ClampedText style={styles.ruleText} text="Styles, Vibes, artistes et albums restent organisés dans Loki Music. Spotify et Deezer peuvent importer les favoris en métadonnées privées. YouTube Music et SoundCloud utilisent la passerelle sécurisée sans transmettre ton mot de passe à Loki Music." />
         </View>
 
         <View style={styles.limitCard}>

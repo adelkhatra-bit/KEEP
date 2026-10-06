@@ -1,4 +1,7 @@
 import React from 'react';
+import { isWebShareVisit, webShareVisitUsername } from '../services/webShareVisitor';
+import { useUserStore } from '../store/useUserStore';
+import { useAccountGateStore } from '../store/useAccountGateStore';
 import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, getStateFromPath } from '@react-navigation/native';
@@ -189,6 +192,8 @@ function PersistentTabBar() {
           testID={`persistent-tab-${item.name}`}
           onPress={() => {
             if (!navigationRef.isReady()) return;
+            // Visiteur web d'un lien partagé : même barre que connecté, mais les onglets demandent un compte (fonction bloquée).
+            if (isWebShareVisit() && useUserStore.getState().isLocalGuest) { useAccountGateStore.getState().requestAccount('create', webShareVisitUsername()); return; }
             const go = () => (navigationRef.navigate as any)('Main', { screen: item.name });
             if (useGameSessionStore.getState().isGameInProgress && item.name !== 'Parties') confirmLeaveGame(go);
             else go();
@@ -202,9 +207,23 @@ function PersistentTabBar() {
   );
 }
 
+// Visiteur web d'un lien partagé (invité) : il voit le profil partagé « comme connecté », mais tout autre écran est une
+// fonction bloquée : on le ramène sur le profil et on propose de créer un compte (Adel, 06/10/2026).
+function guardWebShareVisitor(state: any) {
+  if (!isWebShareVisit() || !useUserStore.getState().isLocalGuest) return;
+  const route = state?.routes?.[state?.index ?? 0];
+  if (!route || route.name === 'PublicProfile') return;
+  const username = webShareVisitUsername();
+  setTimeout(() => {
+    if (!navigationRef.isReady()) return;
+    (navigationRef.navigate as any)('PublicProfile', { username });
+    useAccountGateStore.getState().requestAccount('create', username);
+  }, 0);
+}
+
 export default function Navigation() {
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking} onStateChange={guardWebShareVisitor}>
       <View style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
       <RootStack.Navigator initialRouteName="Main" screenOptions={{ headerShown: false }}>

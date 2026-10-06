@@ -16,7 +16,7 @@ describe('Onboarding -- Architecture B "zéro friction" (Adel, 22/09/2026, maque
   const onboarding = readNormalized(__dirname, '..', 'OnboardingScreen.tsx');
 
   it('auto-entre en essai gratuit au montage (handleGuestPress) sans attendre un tap, sauf intention explicite', () => {
-    expect(onboarding).toContain('if (accountOpen || intent.followUsername) return;');
+    expect(onboarding).toContain("if (accountOpen || (Platform.OS !== 'web' && intent.followUsername)) return;");
     expect(onboarding).toContain('if (useUserStore.getState().user) return;');
     expect(onboarding).toContain('void handleGuestPress();');
   });

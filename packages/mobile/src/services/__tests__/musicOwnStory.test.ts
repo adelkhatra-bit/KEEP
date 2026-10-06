@@ -110,8 +110,9 @@ describe('qui a vu ma story', () => {
     const bar = read('components', 'ProfileStoryBar.tsx');
     expect(bar).toContain('watchStoryOf(story.profileId');
     expect(bar).toContain('loadMyStoryViewers()');
-    expect(bar).toContain('Abonné');
-    expect(bar).toContain('Reprise');
+    // Vues façon Instagram (Adel 06/10/2026) : une bulle par spectateur, ✓ = toute la story, reprise = ⟳.
+    expect(bar).toContain('story-viewer-${v.viewerId}');
+    expect(bar).toContain("v.isReprise ? ' ⟳' : ''");
     expect(read('components', 'MusicSwipeDeckModal.tsx')).toContain('overlay?: React.ReactNode');
     const sql = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261005140000_story_views.sql'), 'utf8');
     expect(sql).toContain('enable row level security');

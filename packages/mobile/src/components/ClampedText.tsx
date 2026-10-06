@@ -3,7 +3,7 @@ import { StyleProp, Text, TextStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { CLAMP_WORDS, clampWords } from '../services/clampWords';
 
-// Adel (06/10/2026) : textes longs = ~23 premiers mots puis « En savoir plus »
+// Adel (06/10/2026, soir) : 2 mots puis « En savoir plus »
 // (repli, rien n'est supprimé) pour que les offres et les boutons d'achat
 // restent visibles sans défiler sur iPhone 390.
 export default function ClampedText({ text, style, max = CLAMP_WORDS }: { text: string; style?: StyleProp<TextStyle>; max?: number }) {

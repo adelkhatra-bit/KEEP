@@ -1,5 +1,5 @@
-// Adel (06/10/2026) : textes longs = ~23 premiers mots puis « En savoir plus ».
-export const CLAMP_WORDS = 23;
+// Adel (06/10/2026, soir) : RÈGLE « 2 mots maximum, ensuite En savoir plus » (remplace la limite de 23 mots).
+export const CLAMP_WORDS = 2;
 
 export function clampWords(text: string, max = CLAMP_WORDS): { short: string; clamped: boolean } {
   const words = text.trim().split(/\s+/);
