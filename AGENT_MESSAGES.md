@@ -2618,3 +2618,11 @@ Base synchronisée exactement sur 0138b4e5, sans mélange de versions. Correctio
 ## [2026-10-06T21:49:45.228Z] codex
 
 Contrôles Stories et triage corrigés sur la branche de revue alignée 0138b4e5. Aucun changement design/runtime. 282 suites/1377 tests, typechecks mobile/admin/music, gardes et export + Chromium direct/reload PC/tablette/Android réussis. Aucune publication ni migration. Revue sécurité finale puis intégration produit/CI distante restent nécessaires.
+## [2026-10-06T23:03:32.290Z] codex
+
+Plan validé par Adel : diagnostic publication, audio, performance profils, stories/favoris récupérables. Branche de revue basée sur 0138b4e5 ; aucun design, trigger de release, déploiement ni donnée de production modifié.
+
+## [2026-10-06T23:05:46.374Z] codex
+
+Diagnostic publication (lecture seule) : Web 37487709888 et OTA 37487709780 ont réellement publié d57de3f (logs LIVE SHA VERIFIED / Published, groupe OTA 23ad7274-8936-4a8c-8e08-de86fae06a3d). HEAD canonique 0138b4e5 contient les correctifs partage 16f5c12e/d61db043/6da2753e postérieurs ; dernier trigger reste d57de3f. CI produit 37529077461 et 37529077206 bloquée par guards Stories périmés ; triage 37529077454 bloque Navigation. Correctifs guards présents seulement dans la branche de revue. Cible Pages inaccessible par DNS depuis ce sandbox : aucune vérification actuelle de version.json ni de TestFlight installé. Aucun workflow relancé et aucun déploiement déclenché.
+
