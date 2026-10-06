@@ -1,4 +1,5 @@
 import { resolveKeptTrackId } from '../services/keepTrackAction';
+import ClampedText from './ClampedText';
 import SourceProfileQuickView from './SourceProfileQuickView';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { reportAutoDiagnostic } from '../services/problemReportService';
@@ -270,6 +271,14 @@ export default function MusicSwipeDeckModal({
   };
   const addCurrentToStory = async () => {
     if (!current) return;
+    // Visiteur sans compte (lien partagé) : écouter oui, agir non → on demande un compte, rien n'est écrit.
+    if (requiresAccount) {
+      Alert.alert('Compte requis', 'Connecte-toi pour agir.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
     if (alreadyInStory && justAddedNow) return;
     if (alreadyInStory) {
       Alert.alert('Elle y était déjà', `« ${current.title} » a été ajoutée à ta story plus tôt : elle y reste visible 24 h après son ajout. Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
@@ -792,6 +801,16 @@ export default function MusicSwipeDeckModal({
       return;
     }
 
+    // Visiteur sans compte (lien partagé, Adel 06/10/2026) : « quand il veut faire une manipulation, ça lui dit de se connecter ».
+    // Tout de suite, sur place, sans passer par le choix Public/Privé : il n'a encore rien à ranger.
+    if (requiresAccount) {
+      Alert.alert('Compte requis', 'Connecte-toi pour garder.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { void close(); setTimeout(() => useAccountGateStore.getState().requestAccount('login', sourceUsername ?? ''), 350); } },
+      ]);
+      return;
+    }
+
     // Si l'utilisateur touche GARDER avant la fin du contrôle asynchrone,
     // on refait une vérification synchrone du scénario critique. Un doublon ne
     // peut donc jamais atteindre le choix Public/Privé ni onKeep().
@@ -1027,7 +1046,7 @@ export default function MusicSwipeDeckModal({
         <View style={s.headerText}>
           <Text style={s.eyebrow}>Loki Music SWIPE</Text>
           <View style={s.titleRow}>{onTitlePress ? <TouchableOpacity onPress={onTitlePress} accessibilityRole="button" accessibilityLabel={`Voir la fiche : ${title}`} testID="deck-title-profile" style={{ flexShrink: 1 }}><Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title} ›</Text></TouchableOpacity> : <Text style={[s.title,{flexShrink:1}]} numberOfLines={1}>{title}</Text>}{titleBadge ? <View style={s.titleBadge}>{titleBadge}</View> : null}</View>
-          {resolvedSubtitle ? <Text style={s.subtitle}>{resolvedSubtitle}</Text> : null}
+          {resolvedSubtitle ? <ClampedText style={s.subtitle} text={resolvedSubtitle} /> : null}
           {storyAgeLine ? <Text style={s.storyAge} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} testID="deck-story-age">⏱ {storyAgeLine}</Text> : null}
         </View>
         <TouchableOpacity style={s.close} onPress={() => { void close(); }} accessibilityLabel="Fermer le swipe"><Text style={s.closeText}>✕</Text></TouchableOpacity>

@@ -1721,8 +1721,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       return true;
     }
     if (!effectiveViewerId) {
-      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
-        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      // Fenêtre d'écoute ouverte : on la ferme avant d'ouvrir le compte (sur iPhone une fenêtre ne s'ouvre pas sur une autre).
+      Alert.alert('Compte requis', 'Connecte-toi pour garder.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { setSwipeOpen(false); setTimeout(() => useAccountGateStore.getState().requestAccount('login', profile?.username ?? ''), 350); } },
       ]);
       return false;
     }
@@ -1759,8 +1761,10 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
 
   const openKeepPrompt = (track: PublicKeepTrack) => {
     if (!effectiveViewerId) {
-      Alert.alert('Compte Loki Music requis', 'Crée ou connecte ton compte pour ajouter cette musique à ta collection.', [
-        { text: 'Plus tard', style: 'cancel' }, { text: 'Créer / se connecter', onPress: goToOwnProfile },
+      // Fenêtre d'écoute ouverte : on la ferme avant d'ouvrir le compte (sur iPhone une fenêtre ne s'ouvre pas sur une autre).
+      Alert.alert('Compte requis', 'Connecte-toi pour garder.', [
+        { text: 'Plus tard', style: 'cancel' },
+        { text: 'Se connecter', onPress: () => { setSwipeOpen(false); setTimeout(() => useAccountGateStore.getState().requestAccount('login', profile?.username ?? ''), 350); } },
       ]);
       return;
     }
