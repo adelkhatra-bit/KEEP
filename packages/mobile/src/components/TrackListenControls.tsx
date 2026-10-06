@@ -200,10 +200,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
     <>
       <View style={styles.previewRow}>
         {resolvedPreviewUrl ? <>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText}>▶ 20s</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText}>▶ 25s</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText}>▶ 30s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(10000)} disabled={previewBusy} accessibilityLabel="Écouter 10 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{previewBusy ? '…' : '▶ 10s'}</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(20000)} disabled={previewBusy} accessibilityLabel="Écouter 20 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 20s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(25000)} disabled={previewBusy} accessibilityLabel="Écouter 25 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 25s</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.previewPill} onPress={() => playSnippet(30000)} disabled={previewBusy} accessibilityLabel="Écouter 30 secondes"><Text style={styles.previewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>▶ 30s</Text></TouchableOpacity>
         </> : null}
         {(embedUrl || externalPlayUrl) ? <TouchableOpacity style={styles.youtubePill} onPress={openExternal}><Text style={styles.youtubeText}>{embedUrl ? '▶ Écouter ici' : externalDestination?.exact ? '↗ Écouter sur la plateforme' : '↗ Ouvrir la recherche'}</Text></TouchableOpacity> : null}
       </View>
@@ -236,9 +236,10 @@ export default function TrackListenControls({ track, previewKey, onPreviewFinish
 }
 
 const styles = StyleSheet.create({
-  previewRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
-  previewPill: { minHeight: minTouchTarget, minWidth: minTouchTarget, paddingHorizontal: 10, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
-  previewText: { color: colors.textSecondary, fontSize: 9, fontWeight: '800' },
+  // Les 4 durées (10 / 20 / 25 / 30 s) tiennent toujours sur UNE ligne, de même taille, alignées (Adel, 06/10/2026) : plus de pastille seule à la ligne.
+  previewRow: { flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, alignSelf: 'stretch' },
+  previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
+  previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
   youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
   audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },

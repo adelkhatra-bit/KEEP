@@ -9,7 +9,7 @@ import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
 import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
-import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinSharedStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
+import { isSaleStoryTrack, loadMyStoryTrackIds, notifyOwnStoryChanged, pinSharedStoryTrack, pinFreeStoryTrack, pinStoryTrack } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
 import { persistOwnTrackVisibility } from '../services/keepVisibilityService';
 import { isTrackPreviewActive, playTrackPreviewFromGesture, preloadTrackPreview, stopTrackPreview, stopTrackPreviewFast, toggleTrackPreview, unlockWebAudioForGesture } from '../services/audioPreviewService';
@@ -71,6 +71,8 @@ type Props = {
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
+  /** Musiques de cette story mises SANS propriétaire connu : étiquette « Gratuit · non certifié » (Adel, 06/10/2026). */
+  uncertifiedTrackIds?: string[];
   /** Ligne sous le sous-titre (ex. compteur de vues de la story). */
   headerExtra?: React.ReactNode;
   /** Cœur « j'aime » (partout, y compris musiques payantes) : `auto` = cœur ; `count-only` = compteur seulement (ma propre story) ; `off` = aucun (ma propre collection). */
@@ -119,6 +121,7 @@ export default function MusicSwipeDeckModal({
   saleInfoByTrackId,
   backLabel,
   allowStoryAdd = false,
+  uncertifiedTrackIds,
   headerExtra,
   likeMode = 'auto',
   overlay,
@@ -261,7 +264,18 @@ export default function MusicSwipeDeckModal({
       // (pub pour son créateur, qui reste identifié). Aucun FREE débité.
       const toShare = current;
       const fromId = currentSourceProfileId;
-      if (!fromId) { Alert.alert('Ajout impossible', 'Cette musique n’a pas de source publique à partager.', [{ text: 'OK', style: 'cancel' }]); return; }
+      if (!fromId) {
+        // Musique sans propriétaire connu (session, reconnaissance…) : gratuite, aucun GARDER requis, marquée « Gratuit · non certifié ».
+        Alert.alert(
+          'Mettre en story ?',
+          `« ${toShare.title} » sera visible 24 h dans ta story, marquée « Gratuit · non certifié » (aucun propriétaire connu). C’est gratuit et ça n’est pas un GARDER. Garde-la ensuite pour être identifié comme premier découvreur.`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Oui, mettre en story', onPress: () => { void shareFreeToStory(toShare); } },
+          ],
+        );
+        return;
+      }
       Alert.alert(
         'Mettre en story ?',
         `« ${toShare.title} » sera visible 24 h dans ta story. Gratuit : son créateur reste identifié.`,
@@ -285,6 +299,22 @@ export default function MusicSwipeDeckModal({
   };
   // Adel (05/10/2026) : après un ajout, le bouton passe tout de suite en gris et un petit popup confirme « c'est bon, elle est dans ta story » : on peut continuer.
   const confirmStoryAdded = (title: string) => Alert.alert('C’est bon ✓', `« ${title} » est dans ta story pendant 24 h. Tu peux continuer.`, [{ text: 'Continuer', style: 'cancel' }]);
+  const shareFreeToStory = async (track: CanonicalTrack) => {
+    try {
+      const result = await pinFreeStoryTrack({ id: track.id, title: track.title, artist: track.artist, album: track.album, artworkUrl: track.artworkUrl, previewUrl: track.previewUrl, isrc: track.isrc });
+      setStoryIds((previous) => new Set(previous).add(track.id).add(result.trackId));
+      if (result.alreadyPinned) {
+        Alert.alert('Elle y était déjà', `« ${track.title} » est déjà dans ta story (ajoutée il y a moins de 24 h). Pas de doublon.`, [{ text: 'OK', style: 'cancel' }]);
+        return;
+      }
+      setJustAdded((previous) => new Set(previous).add(track.id));
+      confirmStoryAdded(track.title);
+    } catch (error: any) {
+      reportAutoDiagnostic('STORY_FREE_PIN_FAILED', error);
+      const sale = String(error?.message ?? '').includes('SALE_PROTECTED');
+      Alert.alert('Ajout impossible', sale ? 'Cette musique est en vente chez un membre : pour le protéger, elle ne peut pas être montrée dans une story.' : 'La musique n’a pas pu être ajoutée pour le moment. Réessaie dans un instant.', [{ text: 'OK', style: 'cancel' }]);
+    }
+  };
   const shareToStory = async (track: CanonicalTrack, fromProfileId: string) => {
     try {
       await pinSharedStoryTrack(track.id, fromProfileId);
@@ -881,7 +911,9 @@ export default function MusicSwipeDeckModal({
         })()
       : currentAlreadyKept
         ? null
-        : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
+        : uncertifiedTrackIds?.includes(current.id)
+          ? { label: '🎁 GRATUIT · NON CERTIFIÉ · PRENDS-LA VITE', paid: false }
+          : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
   // J'aime partout (Adel 05/10/2026) : table unique `track_likes`, état optimiste avec retour arrière (useTrackLikes).
   const likeMeId = useUserStore((state) => state.user?.id);
   const myUsername = useUserStore((state) => state.user?.username);
@@ -994,7 +1026,7 @@ export default function MusicSwipeDeckModal({
       <View style={s.body}>
         {preparingDeck ? <View style={s.empty}><ActivityIndicator color={colors.primaryLight} size="large" /><Text style={s.emptyTitle}>Préparation des nouvelles musiques…</Text><Text style={s.preparingHint}>Loki Music prépare les extraits de ce profil.</Text></View> : !current ? <View style={s.empty}><Text style={s.emptyIcon}>♪</Text><Text style={s.emptyTitle}>{resolvedEmptyTitle}</Text>{endExtra}<TouchableOpacity style={s.backButton} onPress={() => { void close(); }}><Text style={s.backText}>{resolvedBackLabel}</Text></TouchableOpacity></View> : <>
           <View style={s.deckArea}>
-            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={2}>{nudge}</Text></View> : null}
+            {nudge ? <View pointerEvents="none" style={s.nudgePill} testID="deck-like-nudge"><Text style={s.nudgeText} numberOfLines={3}>{nudge}</Text></View> : null}
             <SwipeDeck
               resetKey={`${current.id}-${index}`}
               enabled={!controlsLocked}
@@ -1152,11 +1184,11 @@ const s = StyleSheet.create({
   addStoryButtonDone:{borderColor:'#5C5468',backgroundColor:'#27222E'},
   addStoryTextDone:{color:'#E6E0EE'},
   addStoryText:{color:'#FFFFFF',fontSize:13,fontWeight:'900',letterSpacing:.5,textAlign:'center'},
-  nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:8,paddingHorizontal:14,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
-  nudgeText:{color:'#FFFFFF',fontSize:13,lineHeight:18,fontWeight:'800',textAlign:'center'},
-  askBubble:{position:'absolute',right:0,top:'100%',marginTop:4,zIndex:9,paddingVertical:6,paddingHorizontal:12,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
+  nudgePill:{position:'absolute',top:100,left:22,right:22,zIndex:8,alignItems:'center',paddingVertical:11,paddingHorizontal:16,borderRadius:16,backgroundColor:'rgba(20,14,31,.94)',borderWidth:1.5,borderColor:'#FF5C8A'},
+  nudgeText:{color:'#FFFFFF',fontSize:16,lineHeight:22,fontWeight:'800',textAlign:'center'},
+  askBubble:{position:'absolute',right:18,top:'100%',marginTop:4,zIndex:9,paddingVertical:8,paddingHorizontal:14,borderRadius:14,backgroundColor:'#FFE08A',alignItems:'center'},
   askArrow:{position:'absolute',top:-5,right:56,width:10,height:10,backgroundColor:'#FFE08A',transform:[{rotate:'45deg'}]},
-  askText:{color:'#2B1D00',fontSize:13,fontWeight:'900'},
+  askText:{color:'#2B1D00',fontSize:16,fontWeight:'900'},
   headerLikeRow:{position:'relative',zIndex:30,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8,paddingHorizontal:18,paddingTop:8,paddingBottom:10,borderBottomWidth:1,borderBottomColor:'#241A32'},likeRight:{marginLeft:'auto'},
   headerExtraCompact:{maxHeight:24,overflow:'hidden'},
   cardCompact:{minHeight:120},

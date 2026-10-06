@@ -1,3 +1,4 @@
+import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
 
 export type FreeWalletStatus = {
@@ -46,7 +47,7 @@ function n(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export async function loadMyFreeWalletStatus(): Promise<FreeWalletStatus> {
+async function loadMyFreeWalletStatusUncoalesced(): Promise<FreeWalletStatus> {
   const { data, error } = await client().rpc('keep_free_wallet_status', { p_timezone: deviceTimeZone() });
   if (error) throw new Error(String(error.message || error.code || 'FREE_WALLET_FAILED'));
   const row = (data ?? {}) as any;
@@ -78,6 +79,11 @@ export async function loadMyFreeWalletStatus(): Promise<FreeWalletStatus> {
     endsAt: row.endsAt ?? row.ends_at ?? null,
   };
 }
+
+export function loadMyFreeWalletStatus(): Promise<FreeWalletStatus> {
+  return coalesced('loadMyFreeWalletStatus', () => loadMyFreeWalletStatusUncoalesced());
+}
+
 
 export function subscribeMyFreeWalletChanges(profileId: string, onChange: () => void): () => void {
   if (!supabase || !profileId) return () => {};

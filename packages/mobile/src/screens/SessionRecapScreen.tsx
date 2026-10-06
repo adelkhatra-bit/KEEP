@@ -370,7 +370,7 @@ export default function SessionRecapScreen({ route, navigation }: any) {
         visible={swipeOpen}
         tracks={swipeTracks}
         title="Swiper cette session"
-        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = morceau suivant (rien n’est effacé) · GARDER l’ajoute à ta collection.`}
+        subtitle={`${swipeTracks.length} musique${swipeTracks.length > 1 ? 's' : ''} · PASSER = la retire de la liste (récupérable dans RETIRÉS) · GARDER l’ajoute à ta collection.`}
         emptyTitle="Swipe terminé. Toutes les musiques ont été validées."
         loop={false}
         askVisibilityOnKeep

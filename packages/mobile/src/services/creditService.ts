@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
 import { useUserStore } from '../store/useUserStore';
 import { APP_NAME } from '../config/brand';
@@ -200,7 +201,7 @@ function currentDeviceTimeZone(): string {
   }
 }
 
-export async function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
+async function loadFreeSpentTodayUncoalesced(): Promise<FreeSpentToday | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('keep_free_spent_today', { p_timezone: currentDeviceTimeZone() });
   if (error || !data) return null;
@@ -217,6 +218,11 @@ export async function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
     endsAt: row.endsAt ? String(row.endsAt) : null,
   };
 }
+
+export function loadFreeSpentToday(): Promise<FreeSpentToday | null> {
+  return coalesced('loadFreeSpentToday', () => loadFreeSpentTodayUncoalesced());
+}
+
 
 export type FreeCreditBreakdown = {
   remaining: number;

@@ -44,6 +44,8 @@ export type MusicStory = {
   styleMatch?: boolean;
   /** Infos d'achat des musiques EN VENTE de cette story (clé = id « sale:<id> ») : nombre de titres et prix, pour l'étiquette PAYANT. */
   saleInfo?: Record<string, SaleStoryInfo>;
+  /** Musiques mises en story SANS propriétaire connu : marquées « Gratuit · non certifié » (Adel, 06/10/2026). */
+  freeTrackIds?: string[];
 };
 
 export type SaleStoryInfo = { count: number; priceLabel: string; mode: 'MONEY' | 'FREE' | 'BOTH' };
@@ -180,7 +182,7 @@ export async function loadMusicStories(viewerId: string, knownRelations?: StoryR
     // avec le « + » comptent comme les GARDER publics (les épingles masquées / en vente passent par enrichStoriesWithSales).
     supabase
       .from('story_pins')
-      .select('profile_id,pinned_at,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on)')
+      .select('profile_id,pinned_at,uncertified,track:tracks(id,title,artist,album,artwork_url,preview_url,genres,provider_ids,external_urls,available_on)')
       .eq('masked', false)
       .gte('pinned_at', since)
       .neq('profile_id', viewerId)
@@ -206,8 +208,10 @@ export async function loadMusicStories(viewerId: string, knownRelations?: StoryR
   const rows = [...(decisions.data ?? []), ...pinRows]
     .filter((row: any) => !row?.profile?.discovery_hidden || followingSet.has(String(row.profile_id)))
     .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)));
+  const freeByProfile = new Map<string, string[]>();
+  for (const row of pinData) if (row?.uncertified && row?.track?.id) freeByProfile.set(String(row.profile_id), [...(freeByProfile.get(String(row.profile_id)) ?? []), String(row.track.id)]);
   return rankMusicStories(rows, viewerId, eligibleIds, new Set())
-    .map((story) => ({ ...story, followed: followingSet.has(story.profileId) }));
+    .map((story) => ({ ...story, followed: followingSet.has(story.profileId), ...(freeByProfile.has(story.profileId) ? { freeTrackIds: freeByProfile.get(story.profileId) } : {}) }));
 }
 
 /** Anneau gris une fois la story vue jusqu'à sa dernière nouveauté. */
@@ -253,7 +257,7 @@ export async function loadProfileStory(
     // « + » de la story : musiques épinglées à la main (gardées en public), même fenêtre de 24 h.
     supabase
       .from('story_pins')
-      .select(`profile_id,pinned_at,masked,track:tracks(${TRACK_COLS})`)
+      .select(`profile_id,pinned_at,masked,uncertified,track:tracks(${TRACK_COLS})`)
       .eq('profile_id', viewer.id)
       .gte('pinned_at', since)
       .order('pinned_at', { ascending: false })
@@ -281,7 +285,9 @@ export async function loadProfileStory(
   const base: MusicStory = shared
     ? { ...shared, username: viewer.username, avatarUrl: viewer.avatarUrl ?? shared.avatarUrl }
     : { profileId: viewer.id, username: viewer.username, avatarUrl: viewer.avatarUrl ?? null, latestAt: '', followed: false, sameStyle: false, tracks: [] };
-  const [enriched] = await enrichStoriesWithSales([base]);
+  const ownFreeIds = (pins.error ? [] : pins.data ?? []).filter((row: any) => row?.uncertified && !row.masked && row.track?.id).map((row: any) => String(row.track.id));
+  const [enrichedRaw] = await enrichStoriesWithSales([base]);
+  const enriched = ownFreeIds.length ? { ...enrichedRaw, freeTrackIds: ownFreeIds } : enrichedRaw;
   const newestMasked = maskedFromRows.map((row) => row.pinnedAt).sort().pop() ?? '';
   const merged = maskedFromRows.length ? mergeSaleTracks(enriched, maskedFromRows, MAX_MASKED_PINS_PER_STORY) : enriched;
   const withSales = newestMasked && newestMasked > (merged.latestAt || '') ? { ...merged, latestAt: newestMasked } : merged;
@@ -559,6 +565,22 @@ export async function pinSharedStoryTrack(trackId: string, fromProfileId: string
   const { error } = await supabase.rpc('keep_pin_shared_story_track', { p_track_id: trackId, p_from_profile_id: fromProfileId });
   if (error) throw error;
   notifyOwnStoryChanged();
+}
+
+/**
+ * Mise en story d'une musique SANS la garder et sans propriétaire connu (Adel, 06/10/2026) : gratuite, marquée « non certifiée ».
+ * Anti-doublon côté serveur : `alreadyPinned` = elle était déjà dans la story (aucune seconde ligne).
+ */
+export async function pinFreeStoryTrack(track: { id: string; title: string; artist: string; album?: string | null; artworkUrl?: string | null; previewUrl?: string | null; isrc?: string | null }): Promise<{ trackId: string; alreadyPinned: boolean; uncertified: boolean }> {
+  if (!supabase || !track?.title) throw new Error('STORY_PIN_UNAVAILABLE');
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(track.id));
+  const { data, error } = await supabase.rpc('keep_pin_free_story_track', {
+    p_track_id: isUuid ? track.id : null, p_title: track.title, p_artist: track.artist, p_album: track.album ?? null,
+    p_artwork_url: track.artworkUrl ?? null, p_preview_url: track.previewUrl ?? null, p_isrc: track.isrc ?? null,
+  });
+  if (error) throw error;
+  if (!(data as any)?.alreadyPinned) notifyOwnStoryChanged();
+  return { trackId: String((data as any)?.trackId ?? track.id), alreadyPinned: Boolean((data as any)?.alreadyPinned), uncertified: Boolean((data as any)?.uncertified) };
 }
 
 export async function pinStoryTrack(trackId: string): Promise<void> {

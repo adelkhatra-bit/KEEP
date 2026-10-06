@@ -1,3 +1,4 @@
+import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
 
 export type KeepBattleDecision = 'KEEP' | 'PASS';
@@ -329,7 +330,7 @@ function deviceTimeZone(): string {
   }
 }
 
-export async function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
+async function loadKeepBattlePlayerStatsUncoalesced(profileId: string): Promise<KeepBattlePlayerStats> {
   const { data, error } = await client().rpc('keep_battle_profile_battle_stats_daily', {
     p_profile_id: profileId,
     p_theme_limit: 3,
@@ -361,6 +362,11 @@ export async function loadKeepBattlePlayerStats(profileId: string): Promise<Keep
     freePeriodEndsAt: row.freePeriodEndsAt ? String(row.freePeriodEndsAt) : null,
   };
 }
+
+export function loadKeepBattlePlayerStats(profileId: string): Promise<KeepBattlePlayerStats> {
+  return coalesced('loadKeepBattlePlayerStats' + ':' + String(profileId), () => loadKeepBattlePlayerStatsUncoalesced(profileId));
+}
+
 
 export type KeepBattleArenaCreated = {
   id: string;
@@ -522,7 +528,7 @@ export async function loadMyKeepBattleStats(): Promise<KeepBattleStats> {
   return unwrap(data as KeepBattleStats | null, error);
 }
 
-export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
+async function loadMyKeepBattleCreditStatusUncoalesced(): Promise<KeepBattleCreditStatus> {
   const c = client();
   const { data, error } = await c.rpc('keep_battle_credit_status');
   if (!error && data) return unwrap(data as KeepBattleCreditStatus | null, null);
@@ -544,6 +550,11 @@ export async function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditSt
     remainingFree: Number(row.balance ?? 0) || 0,
   };
 }
+
+export function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> {
+  return coalesced('loadMyKeepBattleCreditStatus', () => loadMyKeepBattleCreditStatusUncoalesced());
+}
+
 
 // Adel (18/09/2026) : "Lorsqu'un utilisateur se connecte, il faut marquer son
 // style musical" -- met à jour presence_theme_code pour signaler aux autres
@@ -610,11 +621,16 @@ export async function loadKeepBattleArena(arenaId: string): Promise<KeepBattleAr
 // Battle (changement d'onglet) démonte KeepBattleArenaPanel et perd l'état
 // local `arena`, sans aucun moyen de retrouver son siège actif au retour.
 // Retourne l'état de l'arène où le joueur a encore un siège ACTIVE, ou null.
-export async function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+async function loadMyActiveKeepBattleArenaUncoalesced(): Promise<KeepBattleArenaState | null> {
   const { data, error } = await client().rpc('keep_battle_arena_my_active');
   if (error) return null;
   return (data as KeepBattleArenaState | null) ?? null;
 }
+
+export function loadMyActiveKeepBattleArena(): Promise<KeepBattleArenaState | null> {
+  return coalesced('loadMyActiveKeepBattleArena', () => loadMyActiveKeepBattleArenaUncoalesced());
+}
+
 
 // Adel (03/09/2026) : "un utilisateur pourra regarder le match en cours ...
 // et pouvoir dire je veux participer sans envoyer d'invite, quand le match

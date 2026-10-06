@@ -472,6 +472,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         resetKey={openStory?.profileId ?? null}
         trackAddedAt={openStory?.addedAt}
         saleInfoByTrackId={openStory?.saleInfo}
+        uncertifiedTrackIds={openStory?.freeTrackIds}
         onTitlePress={!isOwnOpen && openStory ? () => { const username = openStory.username; setOpenStory(null); setTimeout(() => setQuickUsername(username), 350); } : undefined}
         // Adel 05/10/2026 : « tu écris trop » -- plus de phrase d'accroche sur la story d'un autre (elle nommait à tort le diffuseur comme crédité).
         headerExtra={isOwnOpen ? (

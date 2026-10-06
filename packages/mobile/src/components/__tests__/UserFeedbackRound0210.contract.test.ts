@@ -18,7 +18,7 @@ describe('retours joueurs 02/10', () => {
     expect(profile).toContain('askVisibilityOnKeep');
   });
 
-  it('Session : PASSER = morceau suivant, rien n’est retiré', () => {
+  it('Session : PASSER retire la musique de la liste (récupérable), révisé le 06/10/2026', () => {
     // Révisé par Adel le 06/10/2026 : PASSER retire la musique de la liste (récupérable dans « RETIRÉS »).
     expect(session).toContain('if (entry) passTrackInSession(sessionId, entry.id);');
     expect(session).toContain('RETIRÉS · {passedTracks.length} · récupérables');

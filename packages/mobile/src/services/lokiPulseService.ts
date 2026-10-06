@@ -1,4 +1,5 @@
 import type { CanonicalTrack } from '@keep/music';
+import { coalesced } from './coalesce';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 import { mergeTasteRecommendations } from './tasteMerge';
@@ -112,7 +113,7 @@ export async function loadTasteRecommendations(limit = 12): Promise<LokiPulseIte
   }
 }
 
-export async function loadLokiPulse(limit = 36, profileId?: string): Promise<LokiPulseItem[]> {
+async function loadLokiPulseUncoalesced(limit = 36, profileId?: string): Promise<LokiPulseItem[]> {
   if (!supabase) return [];
   const safeLimit = Math.max(4, Math.min(limit, 60));
   const cached = profileId ? await readPulseCache(profileId, safeLimit) : [];
@@ -153,6 +154,11 @@ export async function loadLokiPulse(limit = 36, profileId?: string): Promise<Lok
   if (profileId && personalized.length) await writePulseCache(profileId, personalized);
   return personalized.length ? personalized : cached;
 }
+
+export function loadLokiPulse(limit = 36, profileId?: string): Promise<LokiPulseItem[]> {
+  return coalesced('loadLokiPulse' + ':' + String(limit) + ':' + String(profileId), () => loadLokiPulseUncoalesced(limit, profileId));
+}
+
 
 export async function hideLokiPulseTrack(trackId: string): Promise<void> {
   if (!supabase || !trackId) return;

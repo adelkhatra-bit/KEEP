@@ -1,3 +1,4 @@
+import { coalesced, throttledBeat } from './coalesce';
 import { supabase } from './supabaseClient';
 
 export type KeepBattleLivePlayer = {
@@ -78,15 +79,23 @@ export async function setManualBattleAvailability(available: boolean, themeCode 
 }
 
 export async function pingManualBattleAvailability(): Promise<void> {
-  const { error } = await client().rpc('keep_battle_manual_availability_ping');
-  if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+  // Un battement toutes les 15 s au plus, même si plusieurs écrans le demandent ensemble (8 envois mesurés à l'ouverture du profil).
+  return throttledBeat('manual-availability-ping', 15000, async () => {
+    const { error } = await client().rpc('keep_battle_manual_availability_ping');
+    if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_PING_FAILED'));
+  });
 }
 
-export async function getManualBattleAvailability(): Promise<boolean> {
+async function getManualBattleAvailabilityUncoalesced(): Promise<boolean> {
   const { data, error } = await client().rpc('keep_battle_get_manual_availability');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_READ_FAILED'));
   return Boolean(data);
 }
+
+export function getManualBattleAvailability(): Promise<boolean> {
+  return coalesced('getManualBattleAvailability', () => getManualBattleAvailabilityUncoalesced());
+}
+
 
 export async function leaveSoloBattle(): Promise<void> {
   const { error } = await client().rpc('keep_battle_solo_leave');

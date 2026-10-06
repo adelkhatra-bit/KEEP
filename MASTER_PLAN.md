@@ -59,7 +59,9 @@
 ## Nouveaux points du 06/10/2026 (soir)
 - **PASSER dans une session** : retire désormais la musique de la liste (récupérable dans « RETIRÉS ») — ✅ code, non vérifié iPhone. *Révise la règle du 02/10 : à confirmer par Adel.*
 - **Étape B2 — mise en story d'une musique en vente / achetée (décision requise)** : aujourd'hui refusée (protection du vendeur). Proposition : l'autoriser **masquée** (carte « Musique en vente · de @vendeur », titre caché, lien vers la boutique) = publicité gratuite pour le vendeur, sans fuite du titre. Demande une règle serveur (`keep_pin_shared_story_track`) + l'affichage « de @vendeur » dans les stories d'autrui. Anti-doublon : annoncer « elle est déjà en story » aussi pour les musiques d'une collection achetée.
-- **IDEA-144 — musique libre sans propriétaire** : marquer « Gratuit · non certifié » et faire dire à l'agent « prends-la vite, identifie-la sur ton profil, tu seras le premier » ; règle à cadrer (qui est « propriétaire » ? comment prouver la découverte ?).
+- ✅ **Mise en story gratuite sans GARDER (musique sans propriétaire)** : livrée le 06/10 (RPC `keep_pin_free_story_track`). Reste B2 (musique EN VENTE en story masquée).
+- **Performance du profil** : 111 → 94 requêtes ; reste à unifier `keep_decisions` ×7, `playlists` ×4, `follows` ×5, `notifications` ×3.
+- **IDEA-144 — musique libre sans propriétaire** (partie « prends-la vite » : badge fait ; message de l'agent à écrire) : marquer « Gratuit · non certifié » et faire dire à l'agent « prends-la vite, identifie-la sur ton profil, tu seras le premier » ; règle à cadrer (qui est « propriétaire » ? comment prouver la découverte ?).
 
 ## Règles de design à intégrer (accord d'Adel déjà donné — implémentation après validation du plan)
 - IDEA-131 : pastilles ❤ 😐 👎 de ma story **alignées à droite sur le bord (comme ☰ / ✕)**, même taille, mêmes espaces.
