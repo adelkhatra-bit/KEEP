@@ -152,7 +152,7 @@ export default function Moderation() {
                     {item.description.length > 180 ? (
                       <button
                         onClick={() => setExpanded((e) => ({ ...e, [item.id]: !e[item.id] }))}
-                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
                       >
                         {expanded[item.id] ? '‹ Replier' : 'En savoir plus ›'}
                       </button>

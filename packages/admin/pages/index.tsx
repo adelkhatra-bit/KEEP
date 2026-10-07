@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import { PeriodButtons } from '../components/PresetPicker';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
@@ -15,6 +16,8 @@ type DashboardData = {
   newUsers: number;
   verifiedEmails: number;
   activePaid: number;
+  activeOffered?: number;
+  testAccounts?: number;
   keeps: number;
   follows: number;
   shares: number;
@@ -147,24 +150,28 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  // Zéro clic inutile (07/10/2026) : la période ou le pays choisi se recharge tout seul.
+  useEffect(() => { void load(); }, [from, to, country]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AdminLayout>
-      <div className="page-title">Dashboard</div>
+      <div className="page-title">Tableau de bord</div>
       <div className="page-subtitle">Statistiques réelles Loki Music — filtres par période et pays</div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
-          <label>Du<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-          <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <PeriodButtons from={from} to={to} onPick={(r) => { setFrom(r.from); setTo(r.to); }} />
+          <details><summary style={{ cursor: 'pointer', color: '#b79cff', fontWeight: 800 }}>📅 Autre période</summary>
+            <label>Du<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+            <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          </details>
           <label>Pays<br />
             <select value={country} onChange={(e) => setCountry(e.target.value)}>
               <option value="">Tous les pays</option>
               {countries.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
             </select>
           </label>
-          <button onClick={() => void load()} disabled={loading}>{loading ? 'Chargement…' : 'Appliquer'}</button>
+          {loading ? <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Chargement…</span> : null}
         </div>
       </div>
 
@@ -184,7 +191,7 @@ export default function Dashboard() {
               simples, toutes de la même hauteur. */}
           <div className="kpi-grid">
             <div className="kpi-card">
-              <div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs totaux</div>
+              <div className="kpi-value">{data.usersTotal}</div><div className="kpi-label">Utilisateurs{data.testAccounts ? ` (hors ${data.testAccounts} tests)` : ''}</div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 <div className="kpi-value">{data.newUsers}</div><div className="kpi-label">Nouveaux sur la période</div>
               </div>
@@ -196,7 +203,8 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="kpi-card">
-              <div className="kpi-value">{data.activePaid}</div><div className="kpi-label">Abonnements payants actifs</div>
+              {/* Payants · Offerts séparés (07/10/2026) : un abonnement offert par la plateforme (admin_grant) n'est jamais compté comme payant. */}
+              <div className="kpi-value">{data.activePaid} <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>· {data.activeOffered ?? 0} offerts</span></div><div className="kpi-label">💶 Payants · 🎁 Offerts</div>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
                 <div className="kpi-value">{data.keeps}</div><div className="kpi-label">Morceaux gardés sur la période</div>
               </div>

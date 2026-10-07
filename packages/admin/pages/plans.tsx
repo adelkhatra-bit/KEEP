@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import PresetPicker, { PRESETS, formatDays, formatEur, formatFree } from '../components/PresetPicker';
 
 interface ApiPrice { id: string; currency_code: string; period: 'MONTHLY' | 'YEARLY'; amount: number | string; is_active: boolean; free_bonus_per_month?: number | string; stripe_price_id?: string | null; }
 interface ApiPlan { id: string; code: string; name: string; trial_days: number; plan_prices?: ApiPrice[]; }
@@ -62,12 +63,6 @@ function mapPlan(plan: ApiPlan): PlanRow {
 }
 
 const invokeAdmin = (body: Record<string, unknown>) => invokeAdminFunction('keep-admin-control', body);
-
-function parseNullableNumber(value: string): number | null {
-  if (value.trim() === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
-}
 
 export default function Plans() {
   const [plans, setPlans] = useState<PlanRow[]>([]);
@@ -141,11 +136,11 @@ export default function Plans() {
 
     <section style={{ marginTop: 22, padding: 18, border: '1px solid #302742', borderRadius: 14, background: '#110d19' }}>
       <h2 style={{ margin: '0 0 6px' }}>FREE : écoute & crédits</h2>
-      <p style={{ margin: '0 0 16px', color: '#9f96ad' }}>Un invité dispose d’un nombre total de reconnaissances avant compte. Après création du compte, le bonus ci-dessous est crédité en FREE. Chaque formule possède ensuite son quota « Écoutes reconnues / jour » ; au-delà, une reconnaissance réussie coûte 1 FREE. Les comptes créés avant le 04/10/2026 conservent leur bonus historique.</p>
+      <details style={{ margin: '0 0 16px', color: '#9f96ad' }}><summary style={{ cursor: 'pointer', color: '#b79cff', fontWeight: 800 }}>En savoir plus</summary>Un invité dispose d’un nombre total de reconnaissances avant compte. Après création du compte, le bonus ci-dessous est crédité en FREE. Chaque formule possède ensuite son quota « Écoutes reconnues / jour » ; au-delà, une reconnaissance réussie coûte 1 FREE. Les comptes créés avant le 04/10/2026 conservent leur bonus historique.</details>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 14 }}>
-        <label><strong>Invité · écoutes totales</strong><input type="number" min="0" value={guestLimit} onChange={(e)=>setGuestLimit(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
-        <label><strong>Nouveau compte · bonus FREE</strong><input type="number" min="0" value={signupBonus} onChange={(e)=>setSignupBonus(Math.max(0,parseInt(e.target.value,10)||0))} style={{width:'100%',marginTop:8}}/></label>
-        <div style={{padding:14,borderRadius:12,background:'#191225',border:'1px solid #3c2d55'}}><div style={{color:'#a78bfa',fontWeight:800}}>APRÈS QUOTA</div><div style={{fontSize:30,fontWeight:900,marginTop:6}}>1 FREE</div><small style={{color:'#82798e'}}>par nouveau morceau réellement reconnu. Aucun débit si rien n’est trouvé.</small></div>
+        <label><strong>🎧 Invité</strong><div style={{marginTop:8}}><PresetPicker label="Invité · écoutes totales" value={guestLimit} presets={PRESETS.guestListens} format={(v)=>`${v} écoutes`} onChange={(v)=>setGuestLimit(v??0)} width={160}/></div></label>
+        <label><strong>🎁 Bonus inscription</strong><div style={{marginTop:8}}><PresetPicker label="Nouveau compte · bonus FREE" value={signupBonus} presets={PRESETS.signupBonus} format={formatFree} onChange={(v)=>setSignupBonus(v??0)} width={160}/></div></label>
+        <div style={{padding:14,borderRadius:12,background:'#191225',border:'1px solid #3c2d55'}}><div style={{color:'#a78bfa',fontWeight:800}}>APRÈS QUOTA</div><div style={{fontSize:30,fontWeight:900,marginTop:6}}>1 FREE</div><small style={{color:'#aaa5c4'}}>par nouveau morceau réellement reconnu. Aucun débit si rien n’est trouvé.</small></div>
       </div>
       <a href="/remote-config" style={{display:'inline-block',marginTop:14,color:'#b79cff',fontWeight:800}}>Régler les paliers partages / abonnés / Audience Pro →</a>
     </section>
@@ -155,7 +150,22 @@ export default function Plans() {
         le nombre de Free que je vais donner avec, ça ira modifier
         automatiquement dans les offres" -- une colonne Free/mois juste à
         côté de chaque prix, au même endroit et dans le même geste. */}
-    <p style={{color:'#9f96ad',marginTop:-8}}>Free/mois : combien de Free ce prix accorde par mois écoulé depuis l’inscription (cumulatif, jamais remis à zéro). Peut différer entre mensuel et annuel pour la même formule.</p>
+    <details style={{color:'#9f96ad',marginTop:-8}}><summary style={{cursor:'pointer',color:'#b79cff',fontWeight:800}}>En savoir plus</summary>Free/mois : combien de Free ce prix accorde par mois écoulé depuis l’inscription (cumulatif, jamais remis à zéro). Peut différer entre mensuel et annuel pour la même formule.</details>
+    {/* Mobile 390 px : le tableau défile dans son cadre, les intitulés ne se coupent plus au milieu des mots. */}
+    <div style={{overflowX:'auto'}}><table style={{minWidth:680}}><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Free/mois (mensuel)</th><th>Prix annuel</th><th>Free/mois (annuel)</th><th>Essai</th></tr></thead><tbody>
+      {loading&&<tr><td colSpan={6} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
+      {plans.map((p)=><tr key={p.id}>
+        <td>{p.code}</td>
+        <td><PresetPicker label={`${p.code} prix mensuel`} value={p.monthly} presets={PRESETS.priceEur} format={formatEur} onChange={(v)=>updatePlan(p.code,'monthly',v??0)}/></td>
+        <td><PresetPicker label={`${p.code} FREE/mois (mensuel)`} value={p.monthlyFreeBonus} presets={PRESETS.freeBonus} format={formatFree} onChange={(v)=>updatePlan(p.code,'monthlyFreeBonus',Math.round(v??0))} width={100}/></td>
+        <td><PresetPicker label={`${p.code} prix annuel`} value={p.yearly} presets={PRESETS.priceEur} format={formatEur} onChange={(v)=>updatePlan(p.code,'yearly',v??0)}/></td>
+        <td><PresetPicker label={`${p.code} FREE/mois (annuel)`} value={p.yearlyFreeBonus} presets={PRESETS.freeBonus} format={formatFree} onChange={(v)=>updatePlan(p.code,'yearlyFreeBonus',Math.round(v??0))} width={100}/></td>
+        <td><PresetPicker label={`${p.code} essai`} value={p.trialDays} presets={PRESETS.trialDays} format={formatDays} onChange={(v)=>updatePlan(p.code,'trialDays',Math.round(v??0))} width={90}/></td>
+      </tr>)}
+    </tbody></table></div>
+
+    {/* Stripe reporté (Adel) : les identifiants Stripe restent accessibles mais repliés, hors du tableau principal. */}
+    <details style={{marginTop:14}}><summary style={{cursor:'pointer',color:'#f0b429',fontWeight:800}}>💳 Stripe (reporté)</summary>
     <div className="demo-banner" style={{ marginTop: 8, borderColor: '#f0b429', color: '#f0b429' }}>
       ⚠️ Les Stripe Price ID (price_...) doivent être copiés depuis le{' '}
       <a href="https://dashboard.stripe.com/products" target="_blank" rel="noreferrer" style={{ color: '#f0b429', textDecoration: 'underline' }}>
@@ -163,28 +173,22 @@ export default function Plans() {
       </a>
       {' '}pour chaque plan × période. Sans eux, aucun checkout Stripe ne peut aboutir.
     </div>
-    <table><thead><tr><th>Plan</th><th>Prix mensuel</th><th>Free/mois (mensuel)</th><th>Prix annuel</th><th>Free/mois (annuel)</th><th>Essai</th><th>Stripe Price ID mensuel</th><th>Stripe Price ID annuel</th></tr></thead><tbody>
-      {loading&&<tr><td colSpan={8} style={{textAlign:'center',padding:24}}>Chargement…</td></tr>}
-      {plans.map((p)=><tr key={p.id}>
+    <table><thead><tr><th>Plan</th><th>Mensuel</th><th>Annuel</th></tr></thead><tbody>
+      {plans.map((p)=><tr key={`stripe-${p.id}`}>
         <td>{p.code}</td>
-        <td><input type="number" step="0.01" value={p.monthly} onChange={(e)=>updatePlan(p.code,'monthly',Number(e.target.value)||0)}/> €</td>
-        <td><input type="number" min="0" value={p.monthlyFreeBonus} onChange={(e)=>updatePlan(p.code,'monthlyFreeBonus',Math.max(0,parseInt(e.target.value,10)||0))} style={{width:70}}/></td>
-        <td><input type="number" step="0.01" value={p.yearly} onChange={(e)=>updatePlan(p.code,'yearly',Number(e.target.value)||0)}/> €</td>
-        <td><input type="number" min="0" value={p.yearlyFreeBonus} onChange={(e)=>updatePlan(p.code,'yearlyFreeBonus',Math.max(0,parseInt(e.target.value,10)||0))} style={{width:70}}/></td>
-        <td><input type="number" min="0" value={p.trialDays} onChange={(e)=>updatePlan(p.code,'trialDays',parseInt(e.target.value,10)||0)}/></td>
         <td><input type="text" placeholder="price_..." value={p.monthlyStripePriceId ?? ''} onChange={(e)=>updatePlan(p.code,'monthlyStripePriceId',e.target.value)} style={{width:160,fontFamily:'monospace',fontSize:11}}/></td>
         <td><input type="text" placeholder="price_..." value={p.yearlyStripePriceId ?? ''} onChange={(e)=>updatePlan(p.code,'yearlyStripePriceId',e.target.value)} style={{width:160,fontFamily:'monospace',fontSize:11}}/></td>
       </tr>)}
-    </tbody></table>
+    </tbody></table></details>
 
     <h2 style={{marginTop:28}}>Limites par formule</h2>
-    <p style={{color:'#9f96ad'}}>Vide = illimité quand la fonction est incluse. Les cadenas de l’application utilisent ces mêmes règles serveur. Cliquez sur un « ? » pour savoir exactement à quoi sert une colonne avant de la paramétrer.</p>
+    <details style={{color:'#9f96ad'}}><summary style={{cursor:'pointer',color:'#b79cff',fontWeight:800}}>En savoir plus</summary>∞ = illimité quand la fonction est incluse. Les cadenas de l’application utilisent ces mêmes règles serveur. Cliquez sur un « ? » pour savoir exactement à quoi sert une colonne avant de la paramétrer.</details>
     {openHelpKey && <div style={{background:'#1B1422',border:'1px solid #493369',borderRadius:10,padding:'10px 14px',marginBottom:10,display:'flex',alignItems:'flex-start',gap:10}}>
       <div style={{flex:1}}><strong>{LIMIT_COLUMNS.find((c)=>c.key===openHelpKey)?.label}</strong><div style={{color:'#b79cff',fontSize:12,marginTop:3,lineHeight:1.4}}>{LIMIT_COLUMNS.find((c)=>c.key===openHelpKey)?.help}</div></div>
       <button type="button" onClick={()=>setOpenHelpKey(null)} style={{background:'transparent',border:'none',color:'#9f96ad',cursor:'pointer',fontSize:16,lineHeight:1}}>×</button>
     </div>}
     <div style={{overflowX:'auto'}}><table><thead><tr><th>Plan</th>{LIMIT_COLUMNS.map((c)=><th key={c.key}>{c.label} <button type="button" onClick={()=>setOpenHelpKey(openHelpKey===c.key?null:c.key)} title={c.help} style={{width:18,height:18,borderRadius:9,border:'1px solid var(--primary)',background:openHelpKey===c.key?'var(--primary)':'transparent',color:openHelpKey===c.key?'#fff':'var(--primary)',fontSize:11,fontWeight:900,cursor:'pointer',lineHeight:1,padding:0}}>?</button></th>)}</tr></thead><tbody>
-      {plans.map((plan)=><tr key={`limits-${plan.code}`}><td>{plan.code}</td>{LIMIT_COLUMNS.map((column)=>{const hasValue=column.key in (limits[plan.code]??{});const value=limits[plan.code]?.[column.key];return <td key={`${plan.code}-${column.key}`}>{hasValue?<input type="number" min="0" placeholder="∞" value={value==null?'':value} onChange={(e)=>updateLimit(plan.code,column.key,parseNullableNumber(e.target.value))} title={column.help} style={{width:86}}/>:<span style={{color:'#665f70'}}>—</span>}</td>;})}</tr>)}
+      {plans.map((plan)=><tr key={`limits-${plan.code}`}><td>{plan.code}</td>{LIMIT_COLUMNS.map((column)=>{const hasValue=column.key in (limits[plan.code]??{});const value=limits[plan.code]?.[column.key];return <td key={`${plan.code}-${column.key}`}>{hasValue?<PresetPicker label={`${plan.code} ${column.label}`} value={value==null?null:Number(value)} presets={PRESETS.limit} allowUnlimited onChange={(v)=>updateLimit(plan.code,column.key,v==null?null:Math.round(v))} width={96}/>:<span style={{color:'#aaa5c4'}}>—</span>}</td>;})}</tr>)}
     </tbody></table></div>
 
     <button onClick={()=>void handleSave()} disabled={loading||saving||plans.length===0} style={{marginTop:20,background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'10px 20px',fontWeight:700,cursor:saving?'wait':'pointer',opacity:saving?0.65:1}}>{saving?'Enregistrement…':'Enregistrer tous les réglages dans Supabase'}</button>

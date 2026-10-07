@@ -238,7 +238,7 @@ function Toggle({ label, value, onClick }: { label: string; value: boolean; onCl
 }
 
 function NumberField({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
-  return <label style={control}><span>{label}</span><input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))} style={numberInput} /></label>;
+  return <label style={control}><span>{label}</span>{/* Zéro clavier (07/10/2026) : liste de valeurs entre min et max au lieu d'un champ à taper. */}<select aria-label={label} value={value} onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))} style={numberInput}>{Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n) => <option key={n} value={n}>{n}</option>)}</select></label>;
 }
 
 const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 };

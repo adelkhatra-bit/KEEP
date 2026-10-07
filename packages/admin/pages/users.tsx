@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import PresetPicker, { PRESETS, TextChoicePicker } from '../components/PresetPicker';
+
+// Super Admin zéro clavier (Adel, 07/10/2026) : raisons prêtes, affichées à l'utilisateur.
+const CREDIT_REASONS = ['Cadeau Loki Music', 'Geste suite à un bug', 'Bonus testeur', 'Parrainage', 'Correction de solde'] as const;
 
 const PLAN_OPTIONS = ['ALL', 'FREE', 'PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 type PlanFilter = typeof PLAN_OPTIONS[number];
@@ -509,8 +513,8 @@ export default function Users() {
             <h3 style={{margin:'0 0 6px'}}>Créditer / débiter des Free</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. Rien ne part avant que tu valides sur la fenêtre de confirmation.</div>
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
-              <input type="number" value={creditAmount} onChange={(e)=>setCreditAmount(e.target.value)} placeholder="Ex : 10 ou -5" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
-              <input value={creditReason} onChange={(e)=>setCreditReason(e.target.value)} placeholder="Raison affichée à l’utilisateur (facultatif)" style={{flex:'1 1 260px',background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <PresetPicker label="Free à créditer" value={creditAmount.trim()===''?null:Number(creditAmount)} presets={PRESETS.creditAdjust} allowNegative allowUnlimited unlimitedLabel="Montant…" format={(v)=>`${v>0?'+':''}${v} FREE`} onChange={(v)=>setCreditAmount(v==null?'':String(Math.trunc(v)))} width={150}/>
+              <TextChoicePicker label="Raison" value={creditReason} choices={CREDIT_REASONS} onChange={setCreditReason} width={240}/>
               <button onClick={()=>void grantCredits(Math.trunc(Number(creditAmount)))} disabled={busy!==null || !creditAmount.trim()} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null||!creditAmount.trim()?0.6:1}}>{busy==='credits'?'Envoi…':'Valider'}</button>
             </div>
             {/* Adel (04/09/2026) : "je mets 5 Free et ça part automatiquement
@@ -519,10 +523,7 @@ export default function Users() {
                 contente maintenant de remplir le montant, pour laisser le
                 temps d'écrire la raison puis de valider via le seul bouton
                 qui envoie réellement (avec confirmation en plus). */}
-            <div style={{color:'var(--text-muted)',fontSize:11,marginTop:10}}>Raccourcis (remplissent juste le montant, n’envoient rien) :</div>
-            <div style={{display:'flex',gap:8,marginTop:6,flexWrap:'wrap'}}>
-              {[5,10,20,50].map((preset)=><button key={preset} onClick={()=>setCreditAmount(String(preset))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 14px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>+{preset} Free</button>)}
-            </div>
+            {/* Raccourcis 5/10/20/50 retirés (07/10/2026) : la liste de montants ci-dessus les contient déjà (aucun doublon). */}
           </div>
 
           {/* Adel (04/09/2026) : "je veux pouvoir le débloquer à un
@@ -537,7 +538,7 @@ export default function Users() {
             <h3 style={{margin:'0 0 6px'}}>Test : forcer le nombre d’abonnés</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Débloque « Créer un événement » et les paliers de croissance (Découvertes, Essais Vibes, Audience Pro) sans attendre de vrais abonnés. N’affecte que ce compte, jamais ses vrais abonnés ni les autres utilisateurs. Laisse vide pour revenir au nombre réel.</div>
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
-              <input type="number" min="0" value={followerOverride} onChange={(e)=>setFollowerOverride(e.target.value)} placeholder="Ex : 500" style={{width:140,background:'var(--bg)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 10px'}}/>
+              <PresetPicker label="Abonnés de test" value={followerOverride.trim()===''?null:Number(followerOverride)} presets={PRESETS.followers} allowUnlimited unlimitedLabel="Réel (aucun)" onChange={(v)=>setFollowerOverride(v==null?'':String(Math.trunc(v)))} width={150}/>
               <button onClick={()=>void saveFollowerOverride(followerOverride.trim()==='' ? null : Math.max(0,Math.trunc(Number(followerOverride))))} disabled={busy!==null} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>{busy==='followerOverride'?'Enregistrement…':'Appliquer'}</button>
               {snapshot.profile.follower_count_override != null && <button onClick={()=>void saveFollowerOverride(null)} disabled={busy!==null} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'9px 16px',fontWeight:700,cursor:busy!==null?'wait':'pointer',opacity:busy!==null?0.6:1}}>Revenir au réel</button>}
             </div>

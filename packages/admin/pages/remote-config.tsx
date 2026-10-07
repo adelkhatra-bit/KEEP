@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import PresetPicker, { PRESETS } from '../components/PresetPicker';
 import { supabase } from '../lib/supabaseClient';
 
 interface RemoteConfigRow {
@@ -165,9 +166,9 @@ export default function RemoteConfig() {
             const numeric = typeof row.value === 'number';
             return <div key={row.key} style={{ background: '#110d19', border: '1px solid #302742', borderRadius: 14, padding: 14 }}>
               <div style={{ fontWeight: 900, marginBottom: 3 }}>{FRIENDLY_LABELS[row.key] ?? row.key.replace(/_/g, ' ')}</div>
-              <div style={{ fontFamily: 'monospace', color: '#716879', fontSize: 10, marginBottom: 8 }}>{row.key}</div>
-              {longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
-              {row.description && <div style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.45, marginTop: 7 }}>{row.description}</div>}
+              <div style={{ fontFamily: 'monospace', color: '#aaa5c4', fontSize: 10, marginBottom: 8 }}>{row.key}</div>
+              {numeric ? <PresetPicker label={FRIENDLY_LABELS[row.key] ?? row.key} value={Number(draftFor(row)) || 0} presets={PRESETS.limit} onChange={(v) => setDrafts((d) => ({ ...d, [row.key]: String(v ?? 0) }))} width={160} /> : longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
+              {row.description && <details style={{ color: 'var(--text-muted)', fontSize: 11, lineHeight: 1.45, marginTop: 7 }}><summary style={{ cursor: 'pointer', color: '#b79cff', fontWeight: 800 }}>En savoir plus</summary>{row.description}</details>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                 <button onClick={() => void save(row)} disabled={savingKey === row.key} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 800, cursor: savingKey === row.key ? 'wait' : 'pointer' }}>{savingKey === row.key ? '…' : 'Enregistrer'}</button>
                 {savedNote[row.key] && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{savedNote[row.key]}</span>}

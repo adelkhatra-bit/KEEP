@@ -469,7 +469,7 @@ export default function Integrations() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
           <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(98,196,111,.14)', color: '#62c46f' }}>Automatique : clés internes Loki Music</span>
           <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(240,180,41,.12)', color: '#f0b429' }}>Guidé : clés fournisseurs</span>
-          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(224,82,82,.12)', color: '#e05252' }}>Révocation distante jamais simulée</span>
+          <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(224,82,82,.12)', color: '#ff7a7a' }}>Révocation distante jamais simulée</span>
         </div>
       </div>
 

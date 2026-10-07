@@ -141,4 +141,4 @@ const eyeButton={width:50,alignSelf:'stretch',border:0,borderLeft:'1px solid #3b
 const forgotButton={display:'block',margin:'10px 0 0 auto',padding:0,border:0,background:'transparent',color:'#b79cff',fontSize:12,fontWeight:900,cursor:'pointer'} as const;
 const recoveryHelp={marginTop:10,padding:12,border:'1px solid #5b4a78',borderRadius:12,background:'#100c18',color:'#d8cfe2',fontSize:12,lineHeight:1.45} as const;
 const button={width:'100%',marginTop:20,padding:14,border:0,borderRadius:999,background:'#7c3aed',color:'#fff',fontSize:16,fontWeight:800,cursor:'pointer'} as const;
-const hint={margin:'14px 0 0',color:'#7f768c',fontSize:12,lineHeight:1.5} as const;
+const hint={margin:'14px 0 0',color:'#aaa5c4',fontSize:12,lineHeight:1.5} as const;
