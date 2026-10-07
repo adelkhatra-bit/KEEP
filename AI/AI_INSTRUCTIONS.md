@@ -910,3 +910,13 @@ Adel valide (05/10 04:00) : objectif viralité + revenus. Proposition de périm�
 Ordre conseillé : n°8 → n°1 → n°5 → n°9.1-9.2 → n°6 → n°9.3-9.7.
 
 **[VALIDÉ-PAR-CLAUDE]** (n°9.1-9.2 seulement, exécuté le 05/10/2026) — Écran Offres : 3 cartes (Gratuit · Premium · Recharger FREE), textes longs repliés dans « En savoir plus » (rien supprimé), contrat jest. Migration `20261005060000_premium_price_4_99.sql` commitée, **non appliquée en production**; le prix réellement débité reste celui d'App Store Connect. Abonnements annuels / badge −33 % **non faits** : il n'existe pas de produits annuels App Store Connect (le code ne lit que `MONTHLY`). 9.3-9.7 non traités.
+
+## RÈGLES PERMANENTES D'ADEL (07/10/2026) — à appliquer sans qu'il le redise, à chaque modification
+1. **Contraste** : jamais de texte foncé (noir, violet foncé, gris foncé) sur fond foncé. Texte clair sur fond sombre (contraste ≥ 4,5:1). Garde-fous : `packages/admin/scripts/check-contrast.js` (bloque le build Super Admin) et `packages/mobile/src/theme/__tests__/textContrast.test.ts`. Toute erreur de ce type vue en passant est corrigée immédiatement.
+2. **Zéro clavier** : Adel n'écrit jamais. Tout est pré-rempli : listes, cases, modèles, « Autre… » en dernier recours (composant unique `packages/admin/components/PresetPicker.tsx`).
+3. **2 mots par texte visible**, le reste dans « En savoir plus » ou expliqué par le robot.
+4. **Robot** : chaque bouton du robot mène à une destination vérifiée automatiquement (`check-robot-links.js`) ; il parle en envies (« Tu veux… ? »), propose 3 choix + Autre, et sa bulle se pousse sur le côté.
+5. **Nom** : on écrit « Loki Music », jamais « Keep » dans un texte visible.
+6. **Design ordinateur ≠ design téléphone** : chaque écran validé en 390 px et 1440 px.
+7. **Compte neuf = vierge** ; payants et offerts jamais mélangés ; pays et devises jamais mélangés.
+8. **Chaque nouvelle idée d'Adel** est notée dans le plan et rangée dans la tâche concernée, sans arrêter le chantier en cours ; chaque rapport finit par « Ce qui reste à faire ».
