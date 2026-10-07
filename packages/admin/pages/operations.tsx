@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { openProviderPopup } from '../lib/providerWindow';
@@ -146,8 +147,7 @@ export default function Operations() {
         : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
   return (
     <AdminLayout>
-      <div className="page-title">Santé Loki Music & Support abonnés</div>
-      <div className="page-subtitle">Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</div>
+      <div className="page-title">Santé <Hint title="Santé" text={<>Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</>}/></div>
 
       <ReleaseEvidence />
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
@@ -156,14 +156,14 @@ export default function Operations() {
       </button>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Réparation automatique Loki Music</h3>
+        <h3 style={{ marginTop: 0 }}>Réparation <Hint title="Réparation" text="Réparation automatique Loki Music."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>Le Guardian serveur contrôle chaque minute les états réparables sans risque : invitations Battle expirées et manches bloquées après leur délai. Les clés externes manquantes restent signalées et ne sont jamais inventées.</p>
         <strong style={{ color: autoRepair.length ? '#86efac' : '#f59e0b' }}>{autoRepair.length ? 'ACTIF · contrôle automatique chaque minute' : 'À CONTRÔLER'}</strong>
         {autoRepair[0] ? <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>Dernier passage : {new Date(autoRepair[0].ran_at).toLocaleString()} · défis expirés {autoRepair[0].stale_challenges_expired} · manches finalisées {autoRepair[0].battle_rounds_finalized} · manches avancées {autoRepair[0].battle_rounds_advanced}</div> : null}
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — ordre réel de secours</h3>
+        <h3 style={{ marginTop: 0 }}>Secours <Hint title="Secours" text="Ordre réel de secours des moteurs de reconnaissance musicale."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Loki Music ne dépend plus d’une seule API. Sur iPhone, ShazamKit est tenté avant les fournisseurs payants. Un partage TikTok / Instagram / Snapchat / YouTube / Facebook peut aussi être résolu sans clé via les métadonnées publiques et un recoupement de catalogues. ACRCloud est le moteur serveur principal lorsqu’il est configuré. AudD reste un moteur complémentaire optionnel et n’est utilisé que si une clé valide est réellement connectée.
         </p>
@@ -205,7 +205,7 @@ export default function Operations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Services / clés pouvant générer un coût</h3>
+        <h3 style={{ marginTop: 0 }}>Coûts <Hint title="Coûts" text="Services et clés pouvant générer un coût."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Une clé épuisée, un quota atteint ou un paiement requis remonte en rouge dès que le moteur enregistre l’erreur fournisseur. Le bouton ouvre directement le site officiel du fournisseur pour recharger ou gérer l’offre.
         </p>
@@ -230,7 +230,7 @@ export default function Operations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Notifications push — livraison réelle</h3>
+        <h3 style={{ marginTop: 0 }}>Push <Hint title="Push" text="Livraison réelle des notifications push."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Loki Music distingue maintenant la création, l’acceptation par Expo et le reçu final. Un appareil désinscrit est retiré automatiquement quand Expo renvoie <strong>DeviceNotRegistered</strong>.
         </p>
@@ -270,7 +270,7 @@ export default function Operations() {
           tableau utilisateurs) dupliquait exactement la page Utilisateurs
           (meme donnee admin_user_directory). Un seul endroit desormais. */}
       <div className="card">
-        <h3 style={{ marginTop: 0 }}>Recherche d’un utilisateur (numéro support, pseudo, e-mail)</h3>
+        <h3 style={{ marginTop: 0 }}>Recherche <Hint title="Recherche" text="Par numéro support, pseudo ou e-mail."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 12 }}>
           La recherche et la fiche complète d’un utilisateur (plan, actions, numéro support) vivent dans « Utilisateurs », pour ne pas avoir deux annuaires à maintenir.
         </p>

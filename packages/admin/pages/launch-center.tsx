@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 import { openProviderPopup } from '../lib/providerWindow';
@@ -128,8 +129,7 @@ export default function LaunchCenter() {
   const ready = totalReady === totalChecks;
 
   return <AdminLayout>
-    <div className="page-title">Centre de lancement Loki Music</div>
-    <div className="page-subtitle">Un seul endroit pour choisir les abonnements, ouvrir les comptes officiels et savoir exactement ce qui bloque l’App Store.</div>
+    <div className="page-title">Lancement <Hint title="Lancement" text={<>Un seul endroit pour choisir les abonnements, ouvrir les comptes officiels et savoir exactement ce qui bloque l’App Store.</>}/></div>
 
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     <div className="card" style={{ marginBottom: 20, borderColor: ready ? '#2de1c2' : '#7c5cfc' }}>
@@ -141,7 +141,7 @@ export default function LaunchCenter() {
     </div>
 
     <div className="card" style={{ marginBottom: 20 }}>
-      <h3 style={{ marginTop: 0 }}>Abonnements à sélectionner</h3>
+      <h3 style={{ marginTop: 0 }}>Abonnements</h3>
       <p style={{ color: 'var(--text-muted)' }}>Chaque bouton ouvre le compte officiel sur le bon écran. Loki Music ne collecte jamais ta carte bancaire et ne revend aucun abonnement.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(245px,1fr))', gap: 12 }}>
         {PROVIDERS.map((provider) => <div key={provider.name} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--bg-elevated)' }}>
@@ -166,7 +166,7 @@ export default function LaunchCenter() {
         endroit pour lancer le vrai test desormais ; celui-ci reste un
         etat lu (Cles detectees automatiquement + alerte d'erreur ci-dessous). */}
     <div className="card" style={{ marginBottom: 20 }}>
-      <h3 style={{ marginTop: 0 }}>Écoute multi-moteurs</h3>
+      <h3 style={{ marginTop: 0 }}>Moteurs</h3>
       <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Ordre Loki Music : ShazamKit sur iPhone → ACRCloud côté serveur → AudD uniquement s’il est explicitement connecté. Pour un lien partagé : métadonnées de la page → catalogues publics → moteur audio si nécessaire. Un échec isolé ne coupe jamais toute l’écoute.</p>
       <a href="/integrations" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
         Tester les moteurs dans « Intégrations »
@@ -174,13 +174,13 @@ export default function LaunchCenter() {
     </div>
 
     <div className="card" style={{ marginBottom: 20 }}>
-      <h3 style={{ marginTop: 0 }}>Clés détectées automatiquement</h3>
+      <h3 style={{ marginTop: 0 }}>Clés <Hint title="Clés" text="Clés détectées automatiquement."/></h3>
       <table><thead><tr><th>Paramètre</th><th>État</th></tr></thead><tbody>{REQUIRED_SECRETS.map((key) => <tr key={key}><td>{key}</td><td><strong style={{ color: configured.has(key) ? '#86efac' : '#fb7185' }}>{configured.has(key) ? 'CONFIGURÉ' : 'MANQUANT'}</strong></td></tr>)}</tbody></table>
       {runtimeFailures.length > 0 && <div className="demo-banner" style={{ marginTop: 14, borderColor: '#fb7185' }}>{runtimeFailures.length} intégration(s) en erreur ou quota épuisé. Voir « API payantes & Support ».</div>}
     </div>
 
     <div className="card">
-      <h3 style={{ marginTop: 0 }}>Validations nécessitant ton compte</h3>
+      <h3 style={{ marginTop: 0 }}>Validations <Hint title="Validations" text="Ce qui demande ton compte (Apple, Google…)."/></h3>
       {MANUAL.map((item) => <label key={item.key} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
         <input type="checkbox" checked={manual[item.key]} onChange={(event) => void setManualState(item.key, event.target.checked)} style={{ width: 18, height: 18, marginTop: 2 }} />
         <span><strong>{item.label}</strong><span style={{ display: 'block', color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>{item.detail}</span></span>

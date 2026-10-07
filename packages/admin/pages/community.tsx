@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type QueueRow = {
@@ -111,8 +112,7 @@ function ModerationLibrary() {
   const selectStyle={padding:'7px 8px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'inherit',fontWeight:700} as const;
 
   return <section style={{marginBottom:28}}>
-    <div className="page-title" style={{fontSize:18,marginTop:8}}>Bibliothèque de modération</div>
-    <div className="page-subtitle">Un seul filtre pour La Place, les messages privés et les groupes (accents, majuscules et « c0nnard » compris ; mots entiers uniquement). Les mots des messages signalés arrivent ici : INTERDIRE les bloque partout, REFUSER ne les reproposera plus.</div>
+    <div className="page-title" style={{fontSize:18,marginTop:8}}>Mots <Hint title="Mots" text={<>Un seul filtre pour La Place, les messages privés et les groupes (accents, majuscules et « c0nnard » compris ; mots entiers uniquement). Les mots des messages signalés arrivent ici : INTERDIRE les bloque partout, REFUSER ne les reproposera plus.</>}/></div>
     {unavailable?<div className="card" style={{marginBottom:12}}><p style={{margin:0,color:'var(--text-muted)'}}>Bibliothèque pas encore activée sur la base (migration 20261003001500 en attente de mise en production).</p></div>:null}
     {libError?<div className="demo-banner" style={{borderColor:'#b42318'}}>Erreur : {libError}</div>:null}
     {!unavailable?<>
@@ -204,13 +204,11 @@ export default function CommunityModeration() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Communauté</div>
-    <div className="page-subtitle">La Place · messages signalés ou masqués automatiquement. Les insultes évidentes sont bloquées avant publication ; 3 signalements indépendants retirent automatiquement le message de la lecture publique jusqu’à décision.</div>
+    <div className="page-title">Communauté <Hint title="Communauté" text={<>La Place · messages signalés ou masqués automatiquement. Les insultes évidentes sont bloquées avant publication ; 3 signalements indépendants retirent automatiquement le message de la lecture publique jusqu’à décision.</>}/></div>
     {error?<div className="demo-banner" style={{borderColor:'#b42318'}}>Erreur : {error}</div>:null}
     {loading?<p style={{color:'var(--text-muted)'}}>Chargement…</p>:null}
     <ModerationLibrary />
-    <div className="page-title" style={{fontSize:18,marginTop:8}}>Signalements utilisateurs</div>
-    <div className="page-subtitle">Groupes privés, messages privés, La Place et profils. Chaque signalement t’envoie une notification. Pour sanctionner, ouvre le compte et retire des Free (montant négatif + raison : l’utilisateur est notifié).</div>
+    <div className="page-title" style={{fontSize:18,marginTop:8}}>Signalements <Hint title="Signalements" text={<>Groupes privés, messages privés, La Place et profils. Chaque signalement t’envoie une notification. Pour sanctionner, ouvre le compte et retire des Free (montant négatif + raison : l’utilisateur est notifié).</>}/></div>
     {!loading&&!reports.length?<div className="card" style={{marginBottom:16}}><p style={{margin:0,color:'var(--text-muted)'}}>Aucun signalement en attente.</p></div>:null}
     <div style={{display:'grid',gap:12,marginBottom:24}}>
       {reports.map((r)=><div className="card" key={r.report_id}>
@@ -228,7 +226,7 @@ export default function CommunityModeration() {
         </div>
       </div>)}
     </div>
-    <div className="page-title" style={{fontSize:18}}>La Place · messages signalés</div>
+    <div className="page-title" style={{fontSize:18}}>La Place</div>
     {!loading&&!rows.length?<div className="card"><p style={{margin:0,color:'var(--text-muted)'}}>Aucun message à modérer.</p></div>:null}
     <div style={{display:'grid',gap:12}}>
       {rows.map((row)=><div className="card" key={row.message_id}>

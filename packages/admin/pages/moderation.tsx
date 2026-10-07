@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type FieldStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -98,8 +99,7 @@ export default function Moderation() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Approuver</div>
-      <div className="page-subtitle">Photo et texte de chaque évènement sont validés séparément avant d’être visibles aux utilisateurs. Un refus envoie une notification à l’organisateur avec ta note ; une fois les deux approuvés, l’invitation part automatiquement à sa communauté.</div>
+      <div className="page-title">Approuver <Hint title="Approuver" text={<>Photo et texte de chaque évènement sont validés séparément avant d’être visibles aux utilisateurs. Un refus envoie une notification à l’organisateur avec ta note ; une fois les deux approuvés, l’invitation part automatiquement à sa communauté.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {loading ? <p style={{ color: 'var(--text-muted)' }}>Chargement…</p> : null}

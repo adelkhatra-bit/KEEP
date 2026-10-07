@@ -1,5 +1,6 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
@@ -172,14 +173,13 @@ export default function TeamPage() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Loki Super Admin</div>
-      <div className="page-subtitle">Accès nominatifs, rôles séparés et désactivation sans supprimer les comptes Loki Music.</div>
+      <div className="page-title">Équipe <Hint title="Équipe" text={<>Accès nominatifs, rôles séparés et désactivation sans supprimer les comptes Loki Music.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Ajouter un collaborateur</h3>
+        <h3 style={{ marginTop: 0 }}>Ajouter</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>
           Aucun lien magique n’est envoyé. Si l’adresse n’a pas encore de compte Loki Music, un compte est créé avec un mot de passe temporaire affiché une seule fois. Si elle a déjà un compte Loki Music, son compte utilisateur est conservé et seul le rôle d’administration est ajouté.
         </p>
@@ -200,7 +200,7 @@ export default function TeamPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Membres autorisés</h3>
+        <h3 style={{ marginTop: 0 }}>Membres</h3>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr><th style={th}>E-mail</th><th style={th}>Rôle</th><th style={th}>État</th><th style={th}>Action</th></tr></thead>
@@ -231,7 +231,7 @@ export default function TeamPage() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }} id="recovery-security">
-        <h3 style={{ marginTop: 0 }}>Code de secours sans e-mail</h3>
+        <h3 style={{ marginTop: 0 }}>Secours <Hint title="Secours" text="Code de secours pour te connecter sans e-mail."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>
           À utiliser uniquement si tu oublies ton mot de passe et que les e-mails sont indisponibles. Le code est généré depuis ta session SUPER_ADMIN, stocké uniquement sous forme de hash, valable 7 jours et consommé à la première utilisation.
         </p>
@@ -253,7 +253,7 @@ export default function TeamPage() {
       </div>
 
       <div className="card" id="password-security">
-        <h3 style={{ marginTop: 0 }}>Sécurité · Modifier mon mot de passe</h3>
+        <h3 style={{ marginTop: 0 }}>Mot de passe</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Modification directe du mot de passe de la session Super Admin actuelle, sans e-mail.</p>
         <div style={{ display:'flex', gap:10, flexWrap:'wrap', margin:'12px 0' }}>
           <button type="button" onClick={generateStrongPassword}>Générer un mot de passe fort</button>

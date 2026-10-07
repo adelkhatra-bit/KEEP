@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { commitLink, LEDGER_URL, testLink, validSha, validTestPath } from '../lib/releaseEvidence';
 
@@ -82,12 +83,9 @@ export default function ProblemReports() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Signalements</div>
-      <div className="page-subtitle">Secousses et erreurs de l’app</div>
-      <details style={{ marginBottom: 14 }}><summary>En savoir plus</summary>
-        <p>Liste limitée aux 300 signalements les plus récents du filtre. Corrigé signifie SHA et test associés, jamais livraison ou test réussi. Les anciennes lignes sans preuves restent à documenter.</p>
-        <a href={LEDGER_URL} target="_blank" rel="noopener noreferrer">Registre anti-régression</a>
-      </details>
+      <div className="page-title">Bugs <Hint title="Bugs" text={<>Secousses et erreurs de l’app</>}/></div>
+      <div style={{ marginBottom: 14 }}><Hint title="Liste" text={<><p>Liste limitée aux 300 signalements les plus récents du filtre. Corrigé signifie SHA et test associés, jamais livraison ou test réussi. Les anciennes lignes sans preuves restent à documenter.</p>
+        <a href={LEDGER_URL} target="_blank" rel="noopener noreferrer">Registre anti-régression</a></>}/></div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 14 }}>
         {FILTERS.map((f) => (

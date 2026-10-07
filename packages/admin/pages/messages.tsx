@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
@@ -77,8 +78,7 @@ export default function Messages() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Messages</div>
-      <div className="page-subtitle">Envoyer une notification Loki Music à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</div>
+      <div className="page-title">Messages <Hint title="Messages" text={<>Envoyer une notification Loki Music à tous les utilisateurs ou à une sélection — apparaît dans l'app et en push, comme n'importe quelle autre notification.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}

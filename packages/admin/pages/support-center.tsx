@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type Ticket = {
@@ -117,9 +118,8 @@ export default function SupportCenterAdmin() {
   };
 
   return <AdminLayout>
-    <div className="page-title">Support utilisateurs</div>
-    <div className="page-subtitle">Conversation directe Loki Music ↔ utilisateurs · données Supabase réelles</div>
-    <div className="demo-banner">● MODE RÉEL — les demandes viennent de l’application et les réponses repartent dans Réglages avancés.</div>
+    <div className="page-title">Support <Hint title="Support" text={<>Conversation directe Loki Music ↔ utilisateurs · données Supabase réelles</>}/></div>
+    <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Les demandes viennent de l’application et les réponses repartent dans Réglages avancés."/></span></div>
 
     <div style={{ display:'flex', gap:8, margin:'14px 0' }}>
       <button onClick={() => setFilter('ACTIVE')} style={{ opacity: filter === 'ACTIVE' ? 1 : .55 }}>Actifs</button>

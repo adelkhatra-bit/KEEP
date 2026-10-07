@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import PresetPicker, { PRESETS, PeriodButtons, TextChoicePicker, formatEur } from '../components/PresetPicker';
 
 // Super Admin zéro clavier (Adel, 07/10/2026) : catégories de coûts prêtes à choisir.
@@ -91,8 +92,7 @@ export default function Costs() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Comptabilité & Rentabilité</div>
-      <div className="page-subtitle">Transactions, remboursements et coûts réels — jamais de mélange entre devises</div>
+      <div className="page-title">Comptabilité <Hint title="Comptabilité" text={<>Transactions, remboursements et coûts réels — jamais de mélange entre devises</>}/></div>
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
@@ -108,12 +108,12 @@ export default function Costs() {
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
-      {!error && report && <div className="demo-banner">● MODE RÉEL — écritures lues dans Supabase. Les montants restent séparés par devise et pays.</div>}
+      {!error && report && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Écritures lues dans Supabase. Les montants restent séparés par devise et pays."/></span></div>}
 
       {report && (
         <>
           <div className="card" style={{ marginBottom: 22 }}>
-            <h3 style={{ marginTop: 0 }}>Synthèse financière</h3>
+            <h3 style={{ marginTop: 0 }}>Synthèse</h3>
             <table><thead><tr><th>Type</th><th>Devise</th><th>Montant</th><th>Écritures</th></tr></thead><tbody>
               {report.revenueByCurrency.map(r => <tr key={`rev-${r.currency}`}><td>Revenus encaissés</td><td>{r.currency}</td><td>{money(r.gross, r.currency)}</td><td>{r.transactions ?? 0}</td></tr>)}
               {report.refundsByCurrency.map(r => <tr key={`ref-${r.currency}`}><td>Remboursements</td><td>{r.currency}</td><td>{money(r.amount, r.currency)}</td><td>{r.refunds ?? 0}</td></tr>)}
@@ -123,8 +123,8 @@ export default function Costs() {
           </div>
 
           <div className="card" style={{ marginBottom: 22 }}>
-            <h3 style={{ marginTop: 0 }}>Ajouter un coût</h3>
-            <details style={{ color: 'var(--text-muted)' }}><summary style={{ cursor: 'pointer', color: '#b79cff', fontWeight: 800 }}>En savoir plus</summary>Choisis le service et le montant. Pays « Global » = coût commun à tous les pays.</details>
+            <h3 style={{ marginTop: 0 }}>Coût</h3>
+            <Hint text={<>Choisis le service et le montant. Pays « Global » = coût commun à tous les pays.</>}/>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}>
               <TextChoicePicker label="Catégorie" value={category} choices={COST_CATEGORIES} onChange={(v) => { setCategory(v); if (!label.trim() || label === category) setLabel(v); }} width={180} />
               <TextChoicePicker label="Libellé" value={label} choices={COST_CATEGORIES} onChange={setLabel} width={180} />
@@ -138,14 +138,14 @@ export default function Costs() {
           </div>
 
           <div className="card" style={{ marginBottom: 22 }}>
-            <h3 style={{ marginTop: 0 }}>Transactions récentes</h3>
+            <h3 style={{ marginTop: 0 }}>Transactions</h3>
             <table><thead><tr><th>Date</th><th>Pays</th><th>Canal</th><th>Statut</th><th>Montant</th></tr></thead><tbody>
               {report.recentTransactions.length ? report.recentTransactions.map(t => <tr key={t.id}><td>{new Date(t.date).toLocaleString('fr-FR')}</td><td>{t.country ?? '—'}</td><td>{t.channel}</td><td>{t.status}</td><td>{money(t.amount, t.currency)}</td></tr>) : <tr><td colSpan={5}>Aucune transaction réelle.</td></tr>}
             </tbody></table>
           </div>
 
           <div className="card">
-            <h3 style={{ marginTop: 0 }}>Coûts enregistrés</h3>
+            <h3 style={{ marginTop: 0 }}>Coûts</h3>
             <table><thead><tr><th>Date</th><th>Pays</th><th>Catégorie</th><th>Libellé</th><th>Montant</th><th /></tr></thead><tbody>
               {report.recentCosts.length ? report.recentCosts.map(c => <tr key={c.id}><td>{new Date(c.date).toLocaleDateString('fr-FR')}</td><td>{c.country ?? 'Global'}</td><td>{c.category}</td><td>{c.label}</td><td>{money(c.amount,c.currency)}</td><td><button onClick={() => void deleteCost(c.id)}>Supprimer</button></td></tr>) : <tr><td colSpan={6}>Aucun coût enregistré.</td></tr>}
             </tbody></table>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type BrainStats = {
@@ -156,11 +157,10 @@ export default function MusicBrain() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Loki Music Brain</div>
-      <div className="page-subtitle">Classement automatique propriétaire : Vibes, styles et collections Loki Music. Aucune clé API externe n’est requise pour le moteur de rangement.</div>
+      <div className="page-title">Musique <Hint title="Musique" text={<>Classement automatique propriétaire : Vibes, styles et collections Loki Music. Aucune clé API externe n’est requise pour le moteur de rangement.</>}/></div>
 
       {error ? <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div> : null}
-      {!error && !loading ? <div className="demo-banner">● MODE RÉEL — paramètres distants, statistiques Supabase et journalisation Admin.</div> : null}
+      {!error && !loading ? <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Paramètres distants, statistiques Supabase et journalisation Admin."/></span></div> : null}
 
       <div className="cards" style={{ marginTop: 16 }}>
         <Metric label="Titres connus" value={stats.tracks_total ?? 0} />
@@ -172,7 +172,7 @@ export default function MusicBrain() {
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
-        <h2 style={{ marginTop: 0 }}>Pilotage automatique</h2>
+        <h2 style={{ marginTop: 0 }}>Pilotage</h2>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>Le moteur crée des Vibes Loki Music à partir des styles déjà connus, les met à jour après les morceaux gardés et laisse toujours l’utilisateur renommer et choisir Public/Privé.</p>
         <div style={grid}>
           <Toggle label="Music Brain actif" value={config.enabled} onClick={() => toggle('enabled')} />
@@ -202,7 +202,7 @@ export default function MusicBrain() {
             return <Toggle key={cat.key} label={cat.name} value={active} onClick={() => toggleCategory(cat.key)} />;
           })}
         </div>
-        <h3 style={{ margin: '16px 0 8px', fontSize: 14 }}>Genres personnalisés</h3>
+        <h3 style={{ margin: '16px 0 8px', fontSize: 14 }}>Personnalisés</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
           {(config.custom_categories ?? []).length ? (config.custom_categories ?? []).map((genre) => (
             <span key={genre} style={chip}>{genre}<button type="button" onClick={() => removeCustomGenre(genre)} style={chipRemove} aria-label={`Retirer ${genre}`}>×</button></span>
@@ -217,7 +217,7 @@ export default function MusicBrain() {
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
-        <h2 style={{ marginTop: 0 }}>Styles dominants détectés</h2>
+        <h2 style={{ marginTop: 0 }}>Styles <Hint title="Styles" text="Styles dominants détectés automatiquement."/></h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {(stats.top_genres ?? []).length ? (stats.top_genres ?? []).map((item) => (
             <span key={item.genre} style={chip}>{item.genre} · {item.count}</span>

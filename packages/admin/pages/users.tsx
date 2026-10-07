@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 import PresetPicker, { PRESETS, TextChoicePicker } from '../components/PresetPicker';
@@ -417,8 +418,7 @@ export default function Users() {
   const canDestruct = adminRole === 'SUPER_ADMIN';
 
   return <AdminLayout>
-    <div className="page-title">Utilisateurs</div>
-    <div className="page-subtitle">{users.length} compte(s) réels · écoute, FREE, profil, certification, abonnement et récupération au même endroit</div>
+    <div className="page-title">Comptes <Hint title="Comptes" text={<>{users.length} compte(s) réels · écoute, FREE, profil, certification, abonnement et récupération au même endroit</>}/></div>
     {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
     {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
 
@@ -510,7 +510,7 @@ export default function Users() {
               Ledger audité (admin_credit_grants) + notification automatique,
               jamais un UPDATE muet d'un compteur. */}
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
-            <h3 style={{margin:'0 0 6px'}}>Créditer / débiter des Free</h3>
+            <h3 style={{margin:'0 0 6px'}}>Crédits <Hint title="Crédits" text="Ajouter ou retirer des FREE à ce compte. L’utilisateur reçoit une notification."/></h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Un nombre positif ajoute des Free (ex : bonus surprise, geste commercial suite à un bug). Un nombre négatif corrige le solde à la baisse. Rien ne part avant que tu valides sur la fenêtre de confirmation.</div>
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
               <PresetPicker label="Free à créditer" value={creditAmount.trim()===''?null:Number(creditAmount)} presets={PRESETS.creditAdjust} allowNegative allowUnlimited unlimitedLabel="Montant…" format={(v)=>`${v>0?'+':''}${v} FREE`} onChange={(v)=>setCreditAmount(v==null?'':String(Math.trunc(v)))} width={150}/>
@@ -535,7 +535,7 @@ export default function Users() {
               compte uniquement (n'écrit jamais dans `follows`, ne touche à
               aucun autre utilisateur) ; vide = comportement réel normal. */}
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
-            <h3 style={{margin:'0 0 6px'}}>Test : forcer le nombre d’abonnés</h3>
+            <h3 style={{margin:'0 0 6px'}}>Abonnés <Hint title="Abonnés" text="Test uniquement : forcer le nombre d’abonnés affiché."/></h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Débloque « Créer un événement » et les paliers de croissance (Découvertes, Essais Vibes, Audience Pro) sans attendre de vrais abonnés. N’affecte que ce compte, jamais ses vrais abonnés ni les autres utilisateurs. Laisse vide pour revenir au nombre réel.</div>
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
               <PresetPicker label="Abonnés de test" value={followerOverride.trim()===''?null:Number(followerOverride)} presets={PRESETS.followers} allowUnlimited unlimitedLabel="Réel (aucun)" onChange={(v)=>setFollowerOverride(v==null?'':String(Math.trunc(v)))} width={150}/>
@@ -551,7 +551,7 @@ export default function Users() {
               coupe la fonction pour tout le monde). Ce bypass débloque UN
               compte de test indépendamment du flag global. */}
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canBlock?'block':'none'}}>
-            <h3 style={{margin:'0 0 6px'}}>Test : accès marketplace même flag désactivé</h3>
+            <h3 style={{margin:'0 0 6px'}}>Marketplace <Hint title="Marketplace" text="Test uniquement : accès à la marketplace même si la fonction est désactivée."/></h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Quand le flag global « playlist_marketplace » est désactivé (ex. le temps d’une validation Apple), plus personne ne voit VENDRE ni la sélection multiple -- y compris les comptes de test avec des abonnés forcés ci-dessus. Ce réglage rend la fonction visible pour CE compte uniquement, sans jamais réactiver le flag pour tout le monde.</div>
             <div style={{display:'flex',gap:8,marginTop:10,alignItems:'center'}}>
               <button onClick={()=>void toggleMarketplaceTestBypass(true)} disabled={busy!==null || marketplaceTestBypass===true} style={{background:'var(--primary)',color:'#fff',border:'none',borderRadius:8,padding:'9px 16px',fontWeight:800,cursor:busy!==null?'wait':'pointer',opacity:(busy!==null||marketplaceTestBypass===true)?0.6:1}}>{busy==='marketplaceBypass'?'…':'Activer pour ce compte'}</button>
@@ -561,7 +561,7 @@ export default function Users() {
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canDestruct?'block':'none'}}>
-            <h3 style={{margin:'0 0 6px'}}>Adresse e-mail du compte</h3>
+            <h3 style={{margin:'0 0 6px'}}>E-mail</h3>
             <div style={{color:'var(--text-muted)',fontSize:12}}>Ajoute ou modifie l’adresse de connexion. La régénération du mot de passe est maintenant disponible tout en haut de cette fiche.</div>
 
             <div style={{marginTop:12}}>
@@ -592,7 +592,7 @@ export default function Users() {
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canRequirements?'block':'none'}}>
-            <h3 style={{margin:'0 0 4px'}}>À imposer à cet utilisateur</h3>
+            <h3 style={{margin:'0 0 4px'}}>Imposer</h3>
             <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Coche uniquement ce que Loki Music devra lui demander de compléter.</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:7}}>
               {REQUIREMENTS.map(([key,label])=><label key={key} style={{display:'flex',gap:8,alignItems:'center',border:'1px solid var(--border)',borderRadius:9,padding:'9px 10px',cursor:'pointer'}}><input type="checkbox" checked={requirements.includes(key)} onChange={()=>toggleRequirement(key)}/><span>{label}</span></label>)}
@@ -601,7 +601,7 @@ export default function Users() {
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canGrant?'block':'none'}}>
-            <h3 style={{margin:'0 0 10px'}}>Abonnement offert</h3>
+            <h3 style={{margin:'0 0 10px'}}>Offert <Hint title="Offert" text="Abonnement offert par toi : compté à part, jamais dans les payants."/></h3>
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:8}}>
               <select value={plan} onChange={(e)=>setPlan(e.target.value as PaidPlan)} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value="PREMIUM">Premium · 2,99 €</option><option value="CREATOR_PRO">Creator Pro · 9,99 €</option><option value="VENUE_PRO">Venue Pro · 29,99 €</option></select>
               <select value={months} onChange={(e)=>setMonths(Number(e.target.value))} style={{background:'var(--bg-card)',border:'1px solid var(--border)',color:'var(--text)',borderRadius:8,padding:'10px 12px'}}><option value={1}>1 mois</option><option value={3}>3 mois</option><option value={6}>6 mois</option><option value={12}>1 an</option><option value={24}>2 ans</option><option value={0}>Illimité</option></select>
@@ -628,7 +628,7 @@ export default function Users() {
           </div>
 
           <div style={{marginTop:18,borderTop:'1px solid var(--border)',paddingTop:16,display:canModerateDiscovery?'block':'none'}}>
-            <h3 style={{margin:'0 0 5px'}}>Visibilité Découvertes</h3>
+            <h3 style={{margin:'0 0 5px'}}>Visibilité <Hint title="Visibilité" text="Visibilité de ce compte dans Découvertes."/></h3>
             <div style={{color:'var(--text-muted)',fontSize:12,marginBottom:10}}>Masquer retire uniquement ce profil de l’onglet Découvertes. Son compte, ses données et son lien de profil restent intacts.</div>
             <button onClick={()=>void toggleDiscoveryHidden()} disabled={busy!==null} style={{background:snapshot.profile.discovery_hidden?'#2e7d32':'#5b3f7f'}}>{busy==='discovery'?'Enregistrement…':snapshot.profile.discovery_hidden?'Rendre visible dans Découvertes':'Masquer de Découvertes'}</button>
           </div>

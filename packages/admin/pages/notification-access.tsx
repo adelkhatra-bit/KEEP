@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 
 type PlanCode = 'FREE' | 'PREMIUM' | 'CREATOR_PRO' | 'VENUE_PRO';
@@ -94,10 +95,7 @@ export default function NotificationAccessPage() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Accès aux notifications</div>
-      <div className="page-subtitle">
-        Verrouille chaque type de notification et choisis la formule minimale. L’utilisateur voit un cadenas et une explication, sans révéler le contenu privé.
-      </div>
+      <div className="page-title">Notifications <Hint title="Notifications" text={<>Verrouille chaque type de notification et choisis la formule minimale. L’utilisateur voit un cadenas et une explication, sans révéler le contenu privé.</>}/></div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 22 }}>
         <div className="kpi-card" style={{ minWidth: 150 }}>

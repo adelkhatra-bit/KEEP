@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
+import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { invokeAdminFunction } from '../lib/invokeFunction';
@@ -440,12 +441,11 @@ export default function Integrations() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Intégrations</div>
-      <div className="page-subtitle">Clés et connexions externes de Loki Music — stockées chiffrées dans Supabase Vault.</div>
+      <div className="page-title">Clés <Hint title="Clés" text={<>Clés et connexions externes de Loki Music — stockées chiffrées dans Supabase Vault.</>}/></div>
 
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       {message && <div className="demo-banner" style={{ borderColor: '#2e7d32' }}>{message}</div>}
-      {!error && !loading && <div className="demo-banner">● MODE RÉEL — aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché.</div>}
+      {!error && !loading && <div className="demo-banner"><span className="real-pill">● Réel <Hint title="Mode réel" text="Aucune clé secrète n’est renvoyée au navigateur. Seul un indice masqué est affiché."/></span></div>}
 
       {!loading && (
         <div className="card" style={{ marginBottom: 22, border: attentionRows.length ? '1px solid #f0b429' : '1px solid #62c46f' }}>
@@ -462,7 +462,7 @@ export default function Integrations() {
       )}
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Renouvellement intelligent des clés</h3>
+        <h3 style={{ marginTop: 0 }}>Renouvellement</h3>
         <p style={{ color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
           Les clés internes Loki Music peuvent être générées ici. Pour une clé Spotify, Apple, Google, Brevo, Stripe ou autre fournisseur, le bouton ouvre directement sa page officielle de création/révocation : ces plateformes interdisent qu’une ancienne clé crée silencieusement sa remplaçante. Après remplacement, Loki Music conserve la nouvelle valeur dans le Vault et les tests disponibles s’exécutent avant activation.
         </p>
@@ -474,7 +474,7 @@ export default function Integrations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Reconnaissance musicale — santé réelle</h3>
+        <h3 style={{ marginTop: 0 }}>Reconnaissance <Hint title="Reconnaissance" text="Santé réelle des moteurs de reconnaissance musicale."/></h3>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, lineHeight: 1.55 }}>
           Loki Music fonctionne d’abord avec les capacités natives et sa mémoire musicale. Côté serveur, ACRCloud est le moteur actif dès qu’il est configuré. AudD est un moteur complémentaire optionnel : son absence ne doit jamais être affichée comme une panne si ACRCloud est actif.
         </p>
@@ -508,7 +508,7 @@ export default function Integrations() {
       </div>
 
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>E-mails Loki Music</h3>
+        <h3 style={{ marginTop: 0 }}>E-mails</h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
           Les comptes utilisateurs Loki Music utilisent <strong>identifiant Loki Music + mot de passe + e-mail vérifié</strong>. Les e-mails transactionnels essaient automatiquement <strong>Resend</strong>, puis <strong>Mailjet</strong>, puis <strong>Brevo</strong>. Si un fournisseur tombe, Loki utilise le suivant et conserve les messages non livrés dans sa file de retry.
         </p>
@@ -529,12 +529,9 @@ export default function Integrations() {
           gabarits signup/mot de passe oublie et le diagnostic de
           delivrabilite. */}
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Tester l’envoi e-mail</h3>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>
-          Priorité recommandée : RESEND_API_KEY + EMAIL_SENDER_ADDRESS. Mailjet et Brevo restent disponibles en secours automatique.
-        </p>
+        <h3 style={{ marginTop: 0 }}>Test<Hint title="Test e-mail" text="Priorité recommandée : RESEND_API_KEY + EMAIL_SENDER_ADDRESS. Mailjet et Brevo restent disponibles en secours automatique."/></h3>
         <a href="/email-test" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
-          Ouvrir « Test e-mail »
+          E-mail ›
         </a>
       </div>
 
