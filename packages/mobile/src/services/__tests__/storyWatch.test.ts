@@ -103,8 +103,12 @@ describe('profil : Playlists et Artistes = mêmes cartes premium que Styles (Ade
     const fs = require('fs'); const path = require('path');
     const src = fs.readFileSync(path.join(__dirname, '../../screens/ProfilePublicScreen.tsx'), 'utf8');
     expect(src).toContain('accessibilityLabel={`Écouter la playlist ${playlist.name}');
-    expect(src).toContain('accessibilityLabel={`Écouter ${item.label}, ${item.entries.length} morceaux en Swipe`}');
-    expect((src.match(/<ProfileStyleCard/g) || []).length).toBeGreaterThanOrEqual(3);
+    // Adel 07/10/2026 : la carte Artistes vit dans ProfileArtistFolderGrid, partagé avec le profil visité.
+    const grid = fs.readFileSync(path.join(__dirname, '../../components/ProfileArtistFolderGrid.tsx'), 'utf8');
+    expect(src).toContain('<ProfileArtistFolderGrid');
+    expect(grid).toContain('accessibilityLabel={`Écouter ${item.label}, ${item.entries.length} morceaux en Swipe`}');
+    expect(grid).toContain('<ProfileStyleCard');
+    expect((src.match(/<ProfileStyleCard/g) || []).length).toBeGreaterThanOrEqual(2);
   });
 });
 
