@@ -48,8 +48,11 @@ const DEFAULT_RULES: CommercialRules = {
 
 const PAID_PLAN_ORDER = ['PREMIUM', 'CREATOR_PRO', 'VENUE_PRO'] as const;
 
-function money(plan: KeepPlan) {
+// Un seul prix affiché (07/10/2026, capture d'Adel : « 4,99 € / mois » puis bouton « $3.99 / mois » sur la même carte) :
+// quand Apple renvoie le produit, SON prix (devise de l'utilisateur) fait foi partout ; sinon le prix de la base.
+function money(plan: KeepPlan, storeDisplayPrice?: string | null) {
   if (plan.monthlyAmount === 0) return 'Free';
+  if (storeDisplayPrice) return `${storeDisplayPrice} / mois`;
   return `${plan.monthlyAmount.toFixed(2).replace('.', ',')} € / mois`;
 }
 
@@ -405,7 +408,7 @@ export default function OffersScreen({ navigation, route }: any) {
         <TouchableOpacity style={s.backButton} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityRole="button" accessibilityLabel="Retour"><Text style={s.back}>‹</Text></TouchableOpacity>
         <View style={s.headerText}>
           <Text style={s.title}>Offre & crédits</Text>
-          <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${currentPlan}`}</Text>
+          <Text style={s.subtitle}>{isEventChoice ? 'Soirées : choisis ta formule' : isUpgradeChoice ? `À partir de ${planLabel(focusPlan)}` : focusPlan ? `Formule requise : ${planLabel(focusPlan)}` : `Ton plan actuel : ${planLabel(currentPlan)}`}</Text>
         </View>
         <View style={s.headerSpacer} />
       </View>
@@ -446,7 +449,7 @@ export default function OffersScreen({ navigation, route }: any) {
             >
               <Text style={s.quickChoiceTitle}>Premium</Text>
               <Text style={s.quickChoiceText}>Plus d’écoutes et de FREE chaque mois.</Text>
-              <Text style={s.quickChoicePrice}>{visiblePlans.find((plan) => plan.code === 'PREMIUM') ? money(visiblePlans.find((plan) => plan.code === 'PREMIUM') as KeepPlan) : 'Voir le prix'}</Text>
+              <Text style={s.quickChoicePrice}>{visiblePlans.find((plan) => plan.code === 'PREMIUM') ? money(visiblePlans.find((plan) => plan.code === 'PREMIUM') as KeepPlan, iapProducts[IAP_PRODUCT_IDS.PREMIUM]?.displayPrice) : 'Voir le prix'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.quickChoiceCard, s.quickChoiceCardSlim]}
@@ -502,7 +505,7 @@ export default function OffersScreen({ navigation, route }: any) {
                   <ProfileCertificationBadge tier={certificationTierForPlan(plan.code)} />
                   <View>
                     <Text style={s.planName}>{plan.name}</Text>
-                    <Text style={s.planPrice}>{money(plan)}</Text>
+                    <Text style={s.planPrice}>{money(plan, iapProducts[IAP_PRODUCT_IDS[plan.code as keyof typeof IAP_PRODUCT_IDS]]?.displayPrice)}</Text>
                   </View>
                 </View>
                 {active ? <View style={s.currentBadge}><Text style={s.currentBadgeText}>ACTUEL</Text></View> : venueUnlimited ? <View style={s.unlimitedBadge}><Text style={s.unlimitedBadgeText}>ILLIMITÉ</Text></View> : focused ? <View style={s.requiredBadge}><Text style={s.requiredBadgeText}>MINIMUM</Text></View> : null}

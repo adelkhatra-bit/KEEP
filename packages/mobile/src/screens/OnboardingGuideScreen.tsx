@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   tabName: {
     fontSize: 12,
-    color: colors.primary,
+    color: colors.primaryLight,
     fontWeight: '600',
     marginBottom: spacing.sm,
     textAlign: 'center',
