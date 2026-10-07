@@ -106,7 +106,8 @@ describe('PublicUserProfileScreen redesign (24/09/2026 : identité > collections
     expect(source).not.toContain('prefsSummaryLabel}>PAR ARTISTE');
     expect(source).not.toContain('artistModalOpen');
     expect(source).not.toContain('Parcourir par artiste');
-    expect(source).toContain("openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })");
+    // Adel 07/10/2026 : l'onglet Artistes passe en dossiers (ProfileArtistFolderGrid), même action Swipe filtré.
+    expect(source).toContain("openBrowseSwipe({ type: 'artist', value: folder.key, label: folder.label })");
   });
 
   it('keeps every icon-only touch target at the 44x44 accessibility minimum (back, moderation/share, social icons)', () => {
