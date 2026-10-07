@@ -2,6 +2,14 @@
 
 Date de référence : 24/09/2026
 
+## Revue parent — 07/10/2026
+- **ERR-ADMIN-EVIDENCE-BASEPATH-222 · LOCAL_ONLY** | Super Admin / Opérations → Signalements | Symptôme : le lien « Signalements & preuves » sort de `/KEEP/admin-preview` dans l’export Next canonique. Cause : `<a href="/problem-reports">` dans `packages/admin/components/ReleaseEvidence.tsx` contourne le `basePath` de Next, contrairement à AdminLayout. Fix : `next/link`, liens externes inchangés. Prévention : renforcer `scripts/admin-release-evidence-browser.cjs` pour un clic réel depuis Opérations, URL préfixée, chargement + reload puis formulaire aux viewports 390×844 / 1440×900 ; servir l’export sous le préfixe réel, jamais un fallback racine. Preuves locales du 07/10/2026 : typecheck admin exit0, 7/7 tests métier, export Next 22/22 avec `KEEP_ADMIN_BASE_PATH=/KEEP/admin-preview` et Supabase fixture ; Chromium 390×844 / 1440×900, href/URL préfixés, clic + reload HTTP200, aucun pageerror ni HTTP≥400 des pages/assets ; racine non préfixée HTTP404. Commandes et empreintes dans `AGENT_MESSAGES.md`. Aucun SHA de correctif (HEAD parent `08a116e747143d458bc1d0ef3782c6d2a0a832f0` seulement), aucune CI distante ni vérification production ; validation automatique bloquée par circuit breaker ; pas VERIFIED.
+
+## IDEA-189 — correctifs locaux du 06/10/2026 (non livrés)
+- **ERR-ADMIN-EVIDENCE-219 · LOCAL_ONLY** : le bouton « Corrigé » ne demandait ni SHA ni test ; le statut ne prouvait aucune livraison. Correctif : `fixed_in_sha` réutilisé, chemin anti-régression associé, RPC additive protégée et garde du setter historique ; aucune donnée effacée. Prévention : `/home/runner/work/KEEP/KEEP/scripts/problem-report-evidence.test.cjs` et `/home/runner/work/KEEP/KEEP/scripts/admin-release-evidence.test.cjs`. SHA parent/CI/livraison restent à renseigner, jamais VERIFIED à ce stade.
+- **ERR-ADMIN-RELEASE-VISIBILITY-220 · LOCAL_ONLY** : pas de vue unique des versions observées et des preuves ; compteurs absents/inaccessibles risquaient d'être interprétés comme zéro. Correctif : section Opérations lecture seule, version.json canonique validé, dernière app native signalée uniquement, RPC compteurs exacts avec erreurs explicites et correctifs bornés à 100. Prévention : `/home/runner/work/KEEP/KEEP/scripts/admin-release-evidence.test.cjs`, navigateur fixtures 390/1440 à exécuter. Migration non appliquée.
+- **ERR-ACTIONLINT-INHERITED-221 · OPEN** : actionlint 1.7.7 réel trouve 44 diagnostics hérités dans 12 workflows ; nouveau workflow valide, aucune suppression globale des contrôles. Prévention : `/home/runner/work/KEEP/KEEP/scripts/github-controls.test.cjs`. Corrections héritées hors périmètre ; CI distante non exécutée.
+
 ## Règle
 
 **Toute erreur réelle trouvée doit être inscrite ici.** Une erreur ne disparaît pas du registre quand elle est corrigée : elle passe à `VERIFIED` avec sa cause, son fix et la preuve qui empêchent sa réapparition.

@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import { supabase } from '../lib/supabaseClient';
+import { commitLink, LEDGER_URL, testLink, validSha, validTestPath } from '../lib/releaseEvidence';
 
 // Super Admin › Modération › Signalements (06/10/2026) : les « secousses » et diagnostics automatiques de l'app
 // (table app_problem_reports) étaient invisibles. Lecture via admin_problem_reports (rôles de modération uniquement).
 type Report = {
   id: string; created_at: string; kind: string | null; status: 'NEW' | 'SEEN' | 'FIXED'; message: string;
   screen: string | null; platform: string | null; app_version: string | null; username: string | null;
+  fixed_in_sha: string | null; regression_test_path: string | null;
 };
 type Filter = 'NEW' | 'SEEN' | 'FIXED' | 'ALL';
 
@@ -27,16 +29,22 @@ export default function ProblemReports() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [sha, setSha] = useState('');
+  const [testPath, setTestPath] = useState('');
 
   const load = useCallback(async () => {
-    if (!supabase) return;
     setLoading(true); setError('');
-    const { data, error: rpcError } = await supabase.rpc('admin_problem_reports', { p_status: filter, p_limit: 300 });
-    if (rpcError) {
-      setError(/admin_problem_reports/.test(rpcError.message) ? 'Mise à jour serveur en attente' : rpcError.message);
+    try {
+      if (!supabase) throw new Error('Supabase Super Admin non configuré.');
+      const { data, error: rpcError } = await supabase.rpc('admin_problem_reports_with_evidence', { p_status: filter, p_limit: 300 });
+      if (rpcError) throw new Error('Signalements indisponibles · droits ou migration serveur à vérifier');
+      if (!Array.isArray(data)) throw new Error('Réponse serveur invalide.');
+      setRows(data as Report[]);
+    } catch (e: any) {
+      setError(e.message ?? 'Lecture impossible.');
       setRows([]);
-    } else setRows((data ?? []) as Report[]);
-    setLoading(false);
+    } finally { setLoading(false); }
   }, [filter]);
 
   useEffect(() => { void load(); }, [load]);
@@ -44,10 +52,27 @@ export default function ProblemReports() {
   const setStatus = async (id: string, status: 'SEEN' | 'FIXED' | 'NEW') => {
     if (!supabase) return;
     setBusy(id);
-    const { error: rpcError } = await supabase.rpc('admin_problem_report_set_status', { p_id: id, p_status: status });
-    setBusy(null);
-    if (rpcError) { setError(rpcError.message); return; }
-    void load();
+    try {
+      const { data, error: rpcError } = await supabase.rpc('admin_problem_report_set_status', { p_id: id, p_status: status });
+      if (rpcError || data !== true) throw new Error('Statut non enregistré.');
+      void load();
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(null); }
+  };
+
+  const recordFix = async (id: string) => {
+    if (!supabase || !validSha(sha.trim()) || !validTestPath(testPath.trim())) {
+      setError('SHA complet et chemin de test du dépôt requis.'); return;
+    }
+    setBusy(id); setError('');
+    try {
+      const { data, error: rpcError } = await supabase.rpc('admin_problem_report_record_fix', {
+        p_id: id, p_sha: sha.trim(), p_test: testPath.trim(),
+      });
+      if (rpcError || data !== true) throw new Error('Correctif non enregistré · droits ou migration à vérifier');
+      setEditing(null); void load();
+    } catch (e: any) { setError(e.message); }
+    finally { setBusy(null); }
   };
 
   // Regroupement des diagnostics automatiques identiques (même code) pour voir les vraies causes d'un coup d'œil.
@@ -59,6 +84,10 @@ export default function ProblemReports() {
     <AdminLayout>
       <div className="page-title">Signalements</div>
       <div className="page-subtitle">Secousses et erreurs de l’app</div>
+      <details style={{ marginBottom: 14 }}><summary>En savoir plus</summary>
+        <p>Liste limitée aux 300 signalements les plus récents du filtre. Corrigé signifie SHA et test associés, jamais livraison ou test réussi. Les anciennes lignes sans preuves restent à documenter.</p>
+        <a href={LEDGER_URL} target="_blank" rel="noopener noreferrer">Registre anti-régression</a>
+      </details>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 14 }}>
         {FILTERS.map((f) => (
@@ -94,6 +123,11 @@ export default function ProblemReports() {
                 {r.username ? <span style={{ color: 'var(--text-muted)' }}>@{r.username}</span> : null}
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{short}</div>
+              <details style={{ overflowWrap: 'anywhere' }}><summary>Correctif & test</summary>
+                {commitLink(r.fixed_in_sha) ? <a href={commitLink(r.fixed_in_sha)!} target="_blank" rel="noopener noreferrer">Commit {r.fixed_in_sha}</a> : <span>SHA non associé</span>}
+                <div>{testLink(r.fixed_in_sha, r.regression_test_path) ? <a href={testLink(r.fixed_in_sha, r.regression_test_path)!} target="_blank" rel="noopener noreferrer">Test anti-régression</a> : 'Test non associé'}</div>
+                <div>Livraison et exécution du test à vérifier</div>
+              </details>
               {r.message.length > 110 ? (
                 <button className="btn" onClick={() => setOpen((p) => ({ ...p, [r.id]: !expanded }))} style={{ justifySelf: 'start', background: 'transparent', border: 'none', color: 'var(--primary-light)', fontWeight: 800, padding: 0 }}>
                   {expanded ? 'Réduire' : 'En savoir plus'}
@@ -101,9 +135,17 @@ export default function ProblemReports() {
               ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 8 }}>
                 {r.status !== 'SEEN' ? <button className="btn" disabled={busy === r.id} onClick={() => void setStatus(r.id, 'SEEN')} style={{ minHeight: 38 }}>👁 Vu</button> : null}
-                {r.status !== 'FIXED' ? <button className="btn" disabled={busy === r.id} onClick={() => void setStatus(r.id, 'FIXED')} style={{ minHeight: 38, background: '#38D990', color: '#0B1F16', border: 'none' }}>✓ Corrigé</button> : null}
+                <button className="btn" disabled={busy !== null} onClick={() => { setEditing(r.id); setSha(r.fixed_in_sha ?? ''); setTestPath(r.regression_test_path ?? ''); }} style={{ minHeight: 38, background: '#38D990', color: '#0B1F16', border: 'none' }}>{r.status === 'FIXED' ? 'Associer preuves' : '✓ Corrigé'}</button>
                 {r.status !== 'NEW' ? <button className="btn" disabled={busy === r.id} onClick={() => void setStatus(r.id, 'NEW')} style={{ minHeight: 38 }}>↺ À revoir</button> : null}
               </div>
+              {editing === r.id ? <form onSubmit={e => { e.preventDefault(); void recordFix(r.id); }} style={{ display: 'grid', gap: 10, minWidth: 0 }}>
+                <label>SHA complet<input aria-label="SHA du correctif" value={sha} onChange={e => setSha(e.target.value)} maxLength={40} required style={{ width: '100%', boxSizing: 'border-box' }} /></label>
+                <label>Chemin du test<input aria-label="Chemin du test anti-régression" value={testPath} onChange={e => setTestPath(e.target.value)} required style={{ width: '100%', boxSizing: 'border-box' }} /></label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn" type="submit" disabled={busy !== null || !validSha(sha.trim()) || !validTestPath(testPath.trim())}>Enregistrer preuves</button>
+                  <button className="btn" type="button" disabled={busy !== null} onClick={() => setEditing(null)}>Annuler</button>
+                </div>
+              </form> : null}
             </div>
           );
         })}

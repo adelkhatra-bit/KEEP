@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Demande du 06/10/2026 — gouvernance des livraisons
+- **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
+
 **Règle pour TOUTE IA (Claude Code, ChatGPT, Codex, autre) :** quand Adel exprime une idée, une demande ou une envie qui n'existe pas encore dans le produit, l'IA l'ajoute ici **dans la même réponse**, avant de coder, avec le statut `IDÉE`. Elle ne la range jamais ailleurs (commentaire de code, message de commit, conversation). Une idée ne quitte ce fichier que par un statut final, jamais par suppression.
 
 Pour savoir « ce qui reste à faire » : lire ce fichier, puis `docs/ERROR_LEDGER.md` (bugs) et `PROJECT_STATE.md` > Points ouverts.
