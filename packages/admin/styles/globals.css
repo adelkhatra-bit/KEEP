@@ -285,3 +285,56 @@ td :where(button, .btn, a.btn) { white-space: nowrap; padding: 8px 12px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* SUPER_ADMIN_REDEPLOY_20261003: force GitHub Pages to rebuild admin-preview only. */
+
+/* ===== Un mot + « ? » (règle Adel 07/10/2026) : explication et confirmation dans une seule fenêtre partagée ===== */
+.hint { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; min-width: 22px; padding: 0; margin-left: 6px;
+  border-radius: 11px; border: 1px solid #6d5a96; background: #241b35; color: #d9ccff; font: 800 13px/1 system-ui, sans-serif; cursor: pointer; vertical-align: middle; }
+.hint:hover, .hint:focus-visible { background: #3a2a5a; color: #fff; outline: none; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 300; background: rgba(5, 3, 10, 0.66); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.sheet { width: min(460px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; background: #1c1930; border: 1px solid #3c2d55;
+  border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.5); color: #f4f0ff; }
+.sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 8px; font-size: 17px; }
+.sheet-close { margin-left: auto; }
+.sheet-body { padding: 4px 16px 12px; overflow-y: auto; overscroll-behavior: contain; color: #e4defa; line-height: 1.5; font-size: 15px; }
+.sheet-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 12px 16px 16px; border-top: 1px solid #2d2440; }
+.sheet-actions .btn { min-height: 44px; min-width: 110px; }
+.btn-primary { background: var(--primary) !important; color: #fff !important; border-color: transparent !important; }
+.change-row { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 900; flex-wrap: wrap; }
+.change-old { color: #aaa5c4; text-decoration: line-through; }
+.change-new { color: #c4b5fd; }
+.muted-note { margin: 10px 0 0; color: #aaa5c4; font-size: 13px; }
+.change-list { margin: 0; padding-left: 18px; }
+.change-list li { margin: 4px 0; }
+.real-pill { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 640px) { .sheet-backdrop { align-items: flex-end; padding: 0; } .sheet { border-radius: 16px 16px 0 0; max-height: 88dvh; } }
+
+/* Bandeau « ● Réel » : une simple pastille, pas une barre pleine largeur. */
+.demo-banner:has(> .real-pill:only-child) { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 12px; margin: 6px 0 4px; }
+
+
+/* Blocs côte à côte, un par type d’utilisateur (Formules). Sur téléphone : on glisse d’un bloc à l’autre. */
+.plan-cards { display: flex; gap: 14px; overflow-x: auto; margin-top: 18px; padding: 2px 2px 12px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.plan-card { flex: 1 0 230px; max-width: 300px; scroll-snap-align: start; background: #151021; border: 1px solid #302742; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.plan-card-paid { border-color: #4b3a6e; }
+.plan-card-head { font-size: 18px; font-weight: 900; color: #f4f0ff; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.plan-card-sub { color: #aaa5c4; font-size: 12px; margin-bottom: 4px; }
+.plan-group { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a2140; color: #c4b5fd; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; }
+.plan-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; }
+.plan-row > span { color: #e4defa; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; white-space: nowrap; }
+@media (max-width: 640px) { .plan-card { flex: 0 0 86%; max-width: none; } }
+.plan-cards-nav { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.plan-cards-nav .btn { width: 40px; height: 40px; padding: 0; font-size: 20px; border-radius: 20px; }
+
+/* Accueil : chiffres d’un bloc, courbes, barres */
+.stat { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; }
+.stat b { font-size: 22px; font-weight: 900; color: #f4f0ff; font-variant-numeric: tabular-nums; }
+.stat span { color: #c9c2e6; font-size: 13px; }
+.stat.muted b { color: #aaa5c4; font-size: 16px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 13px; color: #e4defa; }
+.chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 6px; vertical-align: middle; }
+.bars { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.bar-label { color: #e4defa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 8px; border-radius: 4px; background: #2a2140; overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: 4px; }
+.bar-value { color: #f4f0ff; font-variant-numeric: tabular-nums; }
