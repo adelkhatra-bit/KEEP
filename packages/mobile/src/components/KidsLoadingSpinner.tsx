@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: 14,
-    color: colors.primary,
+    color: colors.primaryLight,
     fontWeight: '500',
   },
 });

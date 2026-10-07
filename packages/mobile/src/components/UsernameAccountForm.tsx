@@ -177,12 +177,15 @@ export default function UsernameAccountForm({ initialMode = 'create', followUser
       // - même compte => conserver ses sessions locales ;
       // - autre compte (même après une déconnexion) => effacer celles du précédent ;
       // - invité -> compte existant => ne jamais injecter les écoutes invitées ;
-      // - invité -> création de compte => conserver pour l'upgrade explicite.
+      // - création de compte => TOUJOURS vierge (Adel, 07/10/2026 : « un utilisateur arrive avec un profil vierge, playlist,
+      //   session, tout est vierge ») ; cause racine du cas @boss69250 : l'historique local (invité, démo ou ancien compte
+      //   sans propriétaire enregistré) était conservé et apparaissait dans le nouveau compte.
       if (expectedUserId) {
         const previousOwner = await AsyncStorage.getItem(SESSION_HISTORY_OWNER_KEY).catch(() => null);
         const switchingAccount = Boolean(previousOwner && previousOwner !== expectedUserId);
         const guestLoggingIntoExistingAccount = mode === 'login' && isLocalGuest;
-        if (switchingAccount || guestLoggingIntoExistingAccount) {
+        const newAccountStartsBlank = mode === 'create';
+        if (switchingAccount || guestLoggingIntoExistingAccount || newAccountStartsBlank) {
           useSessionHistoryStore.getState().clearSessions();
         }
         await AsyncStorage.setItem(SESSION_HISTORY_OWNER_KEY, expectedUserId).catch(() => {});
