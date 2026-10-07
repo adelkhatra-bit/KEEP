@@ -29,6 +29,8 @@ import ProfileCertificationBadge, { CERTIFICATION_META } from '../components/Pro
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import ProfileStyleCard from '../components/ProfileStyleCard';
+import ProfileArtistFolderGrid from '../components/ProfileArtistFolderGrid';
+import { clearConsumedShareParams } from '../components/SharedMusicHandoff';
 import MusicStyleBubbles from '../components/MusicStyleBubbles';
 import { buildMusicStyleBubbles } from '../services/musicStyleBubbles';
 import LoginPill from '../components/LoginPill';
@@ -846,6 +848,9 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   const freeStyleCardCount = genreOptions.length > 0 ? genreOptions.length : visiblePublicVibes.length;
   const totalStyleCardCount = freeStyleCardCount;
   const artistGroups = useMemo(() => groupTracksByArtist(swipeTracks), [swipeTracks]);
+  // Adel 07/10/2026 : entrées de l'onglet Artistes en dossiers (ProfileArtistFolderGrid, partagé avec le propre profil) --
+  // mêmes morceaux que ce profil visité (aucun appel réseau en plus), visibilité réelle conservée pour le badge.
+  const artistFolderEntries = useMemo(() => swipeTracks.map((track, index) => ({ track, visibility: tracks[index]?.visibility ?? 'PUBLIC' })), [swipeTracks, tracks]);
   // Adel (14/09/2026, audit) : "est-ce que le système fait la différence du
   // style musical ?" -- même enrichissement en tâche de fond que le propre
   // profil : les morceaux sans genre de CE profil visité sont enrichis et
@@ -1821,7 +1826,29 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
   };
 
   if (loading) return <SafeAreaView style={styles.container}><View style={styles.center}><ActivityIndicator color={colors.primaryLight} /></View></SafeAreaView>;
-  if (!profile || error) return <SafeAreaView style={styles.container}><View style={styles.topBar}><TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}><Text style={styles.back}>‹</Text></TouchableOpacity></View><View style={styles.center}><Text style={styles.muted}>{error ?? 'Profil introuvable.'}</Text></View></SafeAreaView>;
+  // Adel 07/10/2026 : « quand j'appuie sur la petite flèche pour revenir en arrière depuis le profil d'un utilisateur,
+  // je retombe sur un profil qui n'est pas le mien (autre design), il faut rafraîchir ».
+  // Cause racine : sur le web, un chargement direct, un rafraîchissement, « Mettre à jour » ou un retour navigateur sur
+  // /profile/<pseudo> reconstruit une pile qui ne contient QUE ce profil visité (getStateFromPath, aucun Main dessous).
+  // L'ancien repli navigation.navigate('Main') EMPILAIT alors Main (onglet Écouter par défaut) PAR-DESSUS ce profil, qui
+  // restait dessous (et dans l'historique du navigateur) : le retour suivant retombait sur le profil d'un autre
+  // utilisateur, avec le design visiteur, jusqu'au rafraîchissement.
+  // Correctif : on revient à l'écran d'où l'on vient s'il existe (jamais un autre profil visité resté dessous) ; sinon on
+  // REMPLACE toute la pile par Main > Profil (son propre profil, son propre design). Sur le web, ?u= / &share= (pseudo du
+  // profil visité) sont retirés de l'adresse en quittant.
+  const leaveVisitedProfile = () => {
+    clearConsumedShareParams();
+    const navState = navigation.getState?.();
+    const currentIndex = navState?.index ?? 0;
+    const previousRoute = currentIndex > 0 ? navState?.routes?.[currentIndex - 1] : undefined;
+    if (navigation.canGoBack() && previousRoute && previousRoute.name !== 'PublicProfile') {
+      navigation.goBack();
+      return;
+    }
+    navigation.reset({ index: 0, routes: [{ name: 'Main', params: { screen: 'Profile' } }] });
+  };
+
+  if (!profile || error) return <SafeAreaView style={styles.container}><View style={styles.topBar}><TouchableOpacity onPress={leaveVisitedProfile}><Text style={styles.back}>‹</Text></TouchableOpacity></View><View style={styles.center}><Text style={styles.muted}>{error ?? 'Profil introuvable.'}</Text></View></SafeAreaView>;
 
   const isOwner = Boolean(effectiveViewerId && effectiveViewerId === profile.id);
   const certificationTier: ProfileCertificationTier = publicSnapshot?.certificationTier ?? 'UNVERIFIED';
@@ -1845,7 +1872,7 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
       ) : null}
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
+          <TouchableOpacity onPress={leaveVisitedProfile} accessibilityLabel="Retour"><Text style={styles.back}>‹</Text></TouchableOpacity>
           <View style={styles.topSpacer} />
           {/* 29/09/2026 : arrivé par un lien partagé sans compte, on doit pouvoir se connecter tout de suite. */}
           {!effectiveViewerId ? <LoginPill /> : null}
@@ -2229,19 +2256,18 @@ export default function PublicUserProfileScreen({ route, navigation }: any) {
         ) : (
           <ProfileMotionReveal motionKey={`visitor-tab:${activeTab}`} compact style={styles.publicMusicSection}>
             {/* (21/09/2026) : onglet Artistes -- remplace le bouton "PAR
-                ARTISTE" + sa modale (même liste artistGroups, même action
-                Swipe filtré, pour ne pas dupliquer la fonction). */}
-            {artistGroups.length === 0 ? <View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun artiste public sur ce profil.</Text></View> : (
-              <View style={styles.musicList}>{artistGroups.map((group) => {
-                const groupTracks = swipeTracks.filter((t) => canonicalArtistIdentity(t) === group.key);
-                const artworkUrl = groupTracks.find((t) => t.artworkUrl)?.artworkUrl;
-                return <TouchableOpacity key={group.key} style={styles.musicRow} onPress={() => openBrowseSwipe({ type: 'artist', value: group.key, label: group.name })} accessibilityLabel={`Découvrir ${group.name} en Swipe`}>
-                  {artworkUrl ? <Image source={{ uri: artworkUrl }} style={styles.musicCover} /> : <View style={[styles.musicCover, styles.musicCoverFallback]}><Text style={styles.musicFallback}>♪</Text></View>}
-                  <View style={styles.trackInfo}><Text style={styles.trackTitle} numberOfLines={1}>{group.name}</Text><Text style={styles.trackArtist}>{group.trackCount} morceau{group.trackCount > 1 ? 'x' : ''}</Text></View>
-                  <Text style={styles.chevron}>›</Text>
-                </TouchableOpacity>;
-              })}</View>
-            )}
+                ARTISTE" + sa modale (même action Swipe filtré).
+                Adel 07/10/2026 : « la liste Artistes est en vrac, elle devrait
+                être dans des dossiers, comme les autres profils » -- même
+                composant que le propre profil (ProfileArtistFolderGrid : mêmes
+                dossiers, même carte premium), alimenté par les morceaux de CE
+                profil visité ; toucher un dossier ouvre le Swipe de cet artiste. */}
+            <ProfileArtistFolderGrid
+              entries={artistFolderEntries}
+              style={styles.styleGrid}
+              empty={<View style={styles.emptyMusic}><Text style={styles.emptyMusicIcon}>♪</Text><Text style={styles.muted}>Aucun artiste public sur ce profil.</Text></View>}
+              onOpenArtist={(folder) => openBrowseSwipe({ type: 'artist', value: folder.key, label: folder.label })}
+            />
           </ProfileMotionReveal>
         )}
 

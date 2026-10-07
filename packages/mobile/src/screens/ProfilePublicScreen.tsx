@@ -54,7 +54,7 @@ import BattleGlowButton from '../components/BattleGlowButton';
 import ProfileMotionReveal from '../components/ProfileMotionReveal';
 import MotionActionButton from '../components/MotionActionButton';
 import ProfileStyleCard from '../components/ProfileStyleCard';
-import { groupEntriesByArtist } from '../services/styleGroups';
+import ProfileArtistFolderGrid from '../components/ProfileArtistFolderGrid';
 import ProfileOpportunityRail from '../components/ProfileOpportunityRail';
 import LoginPill from '../components/LoginPill';
 import { useAccountGateStore } from '../store/useAccountGateStore';
@@ -1232,7 +1232,7 @@ export default function ProfilePublicScreen({ navigation }: any) {
   // principal (jamais un doublon "Artiste" + "Artiste feat. Invité").
   // Adel (05/10/2026) : « si c'est Jul, il n'y a que du Jul à l'intérieur » -- une carte par artiste PRINCIPAL (le « feat. » reste chez l'artiste principal),
   // avec UNIQUEMENT ses morceaux (publics ET privés, comme les Styles) ; même clé d'identité que groupTracksByArtist.
-  const artistFolders = useMemo(() => groupEntriesByArtist(profileKeptTracks), [profileKeptTracks]);
+  // (Adel 07/10/2026) regroupement fait par ProfileArtistFolderGrid (groupEntriesByArtist), partagé avec le profil visité.
   // Adel (14/09/2026) : "il faut qu'il puisse sélectionner par style ...
   // une autre brique" -- même filtre gratuit et instantané que côté profil
   // visiteur (PublicUserProfileScreen), ajouté SANS toucher à la liste
@@ -1751,26 +1751,13 @@ export default function ProfilePublicScreen({ navigation }: any) {
       })}</View></View>;
     }
 
-    const items = artistFolders;
-    if (!items.length) return <Empty text="Tes artistes apparaîtront ici." />;
-    // Même carte premium que les Styles (Adel 05/10/2026), un artiste = uniquement ses morceaux.
-    return <View style={s.ownerStyleGrid}>{items.map((item, index) => {
-      const publicCount = item.entries.filter((entry) => entry.visibility === 'PUBLIC').length;
-      const privateCount = item.entries.length - publicCount;
-      const badgeLabel = privateCount === 0 ? 'PUBLIC' : publicCount === 0 ? 'PRIVÉ' : `MIXTE · ${privateCount} PRIVÉ${privateCount > 1 ? 'S' : ''}`;
-      const artworkUrl = item.entries.map((entry) => entry.track.artworkUrl).find((value): value is string => Boolean(value));
-      return <ProfileStyleCard
-        key={item.key}
-        title={item.label}
-        subtitle={`${item.entries.length} morceau${item.entries.length > 1 ? 'x' : ''}`}
-        mode="PUBLIC"
-        badgeLabel={badgeLabel}
-        artworkUrl={artworkUrl}
-        fullWidth={items.length % 2 === 1 && index === items.length - 1}
-        onPress={() => openSelectionSwipe({ title: item.label, subtitle: `Tous les morceaux de ${item.label} dans ta collection.`, tracks: item.entries.map((entry) => entry.track) })}
-        accessibilityLabel={`Écouter ${item.label}, ${item.entries.length} morceaux en Swipe`}
-      />;
-    })}</View>;
+    // Adel 07/10/2026 : même composant partagé que le profil visité (ProfileArtistFolderGrid) -- une seule implémentation des dossiers Artistes.
+    return <ProfileArtistFolderGrid
+      entries={profileKeptTracks}
+      style={s.ownerStyleGrid}
+      empty={<Empty text="Tes artistes apparaîtront ici." />}
+      onOpenArtist={(item) => openSelectionSwipe({ title: item.label, subtitle: `Tous les morceaux de ${item.label} dans ta collection.`, tracks: item.entries.map((entry) => entry.track) })}
+    />;
   };
 
   // Adel (16-17/09/2026) : "il y a une explication, et il y a ce qu'on doit
