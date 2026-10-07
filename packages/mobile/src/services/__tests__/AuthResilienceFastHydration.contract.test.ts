@@ -22,7 +22,9 @@ describe('Loki resilient auth and fast profile hydration contract', () => {
     expect(form).toContain('profile_hydration_timeout');
     // e5640384 / e2ce13c5 : l'historique local n'est effacé qu'en cas de changement de compte
     // (ou invité -> compte existant), jamais lors d'une simple reconnexion au même compte.
-    expect(form).toContain('if (switchingAccount || guestLoggingIntoExistingAccount) {');
+    expect(form).toContain('if (switchingAccount || guestLoggingIntoExistingAccount || newAccountStartsBlank) {');
+    // Compte neuf = vierge (07/10/2026) : jamais l'historique local d'un invité, de la démo ou d'un autre compte.
+    expect(form).toContain("const newAccountStartsBlank = mode === 'create';");
   });
 
   it('retries profile hydration even after initial bootstrap already settled', () => {
