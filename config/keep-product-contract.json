@@ -1,5 +1,14 @@
 {
-  "version": "2026-10-02.07",
+  "version": "2026-10-07.01",
+  "adminReleaseEvidence": {
+    "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
+    "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
+    "fixedRequiresFullShaAndRegressionTest": true,
+    "documentedDoesNotMeanTestedOrDeployed": true,
+    "overviewFixesLimit": 100,
+    "unavailableCountersNeverDefaultToZero": true,
+    "githubControlsReadOnlyCanonicalHead": true
+  },
   "name": "Loki Music — contrat produit canonique",
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
@@ -978,6 +987,8 @@
     "sameStyleStoriesAllowed": false,
     "accountGate": "email_confirmed_and_not_anonymous",
     "neverInDemoOrLocalGuest": true,
+    "sharedLinkVisitorReadOnly": true,
+    "sharedLinkVisitorRequiresAccountForActions": true,
     "autoChainToNextUnseenStory": true,
     "styleFriendSuggestions": {
       "rpc": "keep_discovery_match_candidates",

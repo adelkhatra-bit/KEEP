@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { openProviderPopup } from '../lib/providerWindow';
 import { invokeAdminFunction } from '../lib/invokeFunction';
+import ReleaseEvidence from '../components/ReleaseEvidence';
 
 type IntegrationRow = {
   key: string;
@@ -90,10 +91,12 @@ export default function Operations() {
   const [keylessHealth, setKeylessHealth] = useState<KeylessHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pushLoaded, setPushLoaded] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
+    setPushLoaded(false);
     try {
       if (!supabase) throw new Error('Supabase Super Admin non configuré.');
       const [integrationResult, runtimeResult, pushSummaryResult, pushRecentResult, keylessResult, autoRepairResult] = await Promise.all([
@@ -111,6 +114,7 @@ export default function Operations() {
       setRuntime((runtimeResult.data ?? []) as RuntimeRow[]);
       setPushSummary((pushSummaryResult.data ?? []) as PushSummaryRow[]);
       setPushRecent((pushRecentResult.data ?? []) as PushRecentRow[]);
+      setPushLoaded(true);
       setKeylessHealth(!keylessResult.error && keylessResult.data?.ok ? keylessResult.data as KeylessHealth : null);
       setAutoRepair(!autoRepairResult.error ? (autoRepairResult.data ?? []) as AutoRepairRow[] : []);
     } catch (e: any) {
@@ -145,6 +149,7 @@ export default function Operations() {
       <div className="page-title">Santé Loki Music & Support abonnés</div>
       <div className="page-subtitle">Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</div>
 
+      <ReleaseEvidence />
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       <button onClick={() => void load()} disabled={loading} style={{ marginBottom: 18 }}>
         {loading ? 'Analyse…' : 'Actualiser l’analyse'}
@@ -232,12 +237,12 @@ export default function Operations() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginBottom: 16 }}>
           {['TOKENS_REGISTERED', 'CREATED', 'NO_DEVICE', 'SENT', 'DELIVERED', 'FAILED', 'ATTEMPTS_24H'].map((status) => (
             <div key={status} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-card)' }}>
-              <div style={{ color: PUSH_TONES[status], fontSize: 22, fontWeight: 900 }}>{pushByStatus.get(status) ?? 0}</div>
+              <div style={{ color: PUSH_TONES[status], fontSize: 22, fontWeight: 900 }}>{pushLoaded ? (pushByStatus.get(status) ?? 'Indisponible') : 'Indisponible'}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>{PUSH_LABELS[status]}</div>
             </div>
           ))}
         </div>
-        {!loading && (pushByStatus.get('TOKENS_REGISTERED') ?? 0) === 0 && (
+        {!loading && pushLoaded && pushByStatus.get('TOKENS_REGISTERED') === 0 && (
           <div className="demo-banner" style={{ borderColor: '#f59e0b', marginBottom: 14 }}>
             Aucun téléphone réel n’a encore enregistré de token Expo. Les notifications in-app existent, mais aucun push système ne peut être livré tant qu’un build iPhone/Android n’a pas enregistré son appareil.
           </div>
@@ -245,7 +250,7 @@ export default function Operations() {
         <table>
           <thead><tr><th>Utilisateur</th><th>Notification</th><th>État</th><th>Tentatives</th><th>Créée</th><th>Erreur / livraison</th></tr></thead>
           <tbody>
-            {!loading && pushRecent.length === 0 && <tr><td colSpan={6}>Aucune notification.</td></tr>}
+            {!loading && pushLoaded && pushRecent.length === 0 && <tr><td colSpan={6}>Aucune notification.</td></tr>}
             {pushRecent.slice(0, 25).map((row) => <tr key={row.notification_id}>
               <td>{row.username ? `@${row.username}` : '—'}</td>
               <td style={{ maxWidth: 240, whiteSpace: 'normal' }}>{row.title}</td>

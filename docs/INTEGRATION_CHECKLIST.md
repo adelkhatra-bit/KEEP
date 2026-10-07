@@ -17,6 +17,7 @@ Date : 01/10/2026
 
 1. Vérifier le repo : `adelkhatra-bit/KEEP`.
 2. Vérifier la branche : `reconcile/claude-main-20260825`.
+   Dans le cloud Copilot, une branche `copilot/*` est uniquement une branche de revue : récupérer la référence produit et intégrer son dernier arbre sans reprendre les anciennes versions. Le garde vérifie que `origin/reconcile/claude-main-20260825` est un ancêtre de `HEAD` ; une référence absente, une base de revue différente ou une branche périmée sont refusées. Cela n'autorise aucune publication depuis `copilot/*` : les workflows de production restent verrouillés sur la branche canonique.
 3. Lire `AGENTS.md`, `PROJECT_STATE.md`, `.context/activeContext.md`.
 4. Lire `docs/KEEP_MASTER_SPEC.md` et `docs/KEEP_CAHIER_DES_CHARGES_UI.md`.
 5. Vérifier qu'aucun module verrouillé par le cahier des charges n'est déplacé par la tâche en cours.

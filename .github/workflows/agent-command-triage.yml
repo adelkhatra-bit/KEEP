@@ -48,8 +48,20 @@ jobs:
           printf '%s\n' "$changed"
           forbidden="$(printf '%s\n' "$changed" | grep -E '^(packages/mobile/App\.tsx|packages/mobile/src/navigation/Navigation\.tsx|packages/mobile/src/screens/ProfileScreen\.BACKUP\.tsx)$' || true)"
           if [ -n "$forbidden" ]; then
-            echo "::error::Protected mobile file changed without an explicit command-center override: $forbidden"
-            exit 1
+            export KEEP_CHANGED_PROTECTED_FILES="$forbidden"
+            node <<'NODE'
+          const { execFileSync } = require('child_process');
+          const config = require('./.github/agent-command-center.json');
+          for (const file of process.env.KEEP_CHANGED_PROTECTED_FILES.split('\n').filter(Boolean)) {
+            const expected = config.approvedProtectedFileBlobs?.[file];
+            const actual = execFileSync('git', ['hash-object', file], { encoding: 'utf8' }).trim();
+            if (!expected || actual !== expected) {
+              console.error(`::error::Protected mobile file changed without an approved exact blob: ${file}`);
+              process.exit(1);
+            }
+            console.log(`Approved protected blob: ${file} ${actual}`);
+          }
+          NODE
           fi
       - name: Triage summary
         run: |

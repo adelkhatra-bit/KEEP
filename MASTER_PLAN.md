@@ -5,6 +5,15 @@
 
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
+### Plan validé par Adel — IDEA-189 (06/10/2026)
+1. Conserver et vérifier les gardes Stories/Navigation déjà corrigés sur la revue basée sur `0138b4e5`.
+2. Étendre `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` : version.json canonique, dernière app signalée (pas parc installé), compteurs explicitement bornés ou RPC exact, rapport de preuves lecture seule.
+3. Réutiliser `fixed_in_sha` et `/home/runner/work/KEEP/KEEP/docs/ERROR_LEDGER.md` ; distinguer statut corrigé, correctif documenté et livraison prouvée. Migration additive seulement si nécessaire, non appliquée.
+4. Agent spécialisé CI : actionlint épinglé avec intégrité, synthèse GitHub par SHA/date/liens et success/skipped/failure distincts ; aucun contrôle global masqué.
+5. Tests locaux réels admin, navigateur 390/1440 avec fixtures si nécessaire, contrats existants, actionlint et scan secrets ; journal et mémoire existants, libération du verrou. Tout reste LOCAL_ONLY sans déploiement.
+
+État au 07/10/2026 : implémentation locale réalisée, tests admin/mobile/SQL/Chromium fixtures réussis, règle documentée dans contrat/spec existants. Reste volontairement hors autorisation : commit/push, CI distante des nouveaux fichiers, application de migration et livraison. Actionlint global hérité non vert, version publique inaccessible DNS. Les anciens correctifs sans SHA/test restent à documenter ; aucune attribution automatique ni effacement.
+
 ### Mission 1 — Secousse → signalement → réparation → robot
 | Élément | Statut | Détail |
 |---|---|---|

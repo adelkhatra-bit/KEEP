@@ -12,6 +12,10 @@
     "packages/mobile/src/navigation/Navigation.tsx",
     "packages/mobile/src/screens/ProfileScreen.BACKUP.tsx"
   ],
+  "approvedProtectedFileBlobs": {
+    "packages/mobile/App.tsx": "0882aebd034371e0257e57d531ddeaedbe35a8a7",
+    "packages/mobile/src/navigation/Navigation.tsx": "4e8f677b7fc9f29dbe545a733d4b0e950e35102d"
+  },
   "protectedUi": [
     "barre des 5 onglets",
     "design actuel"

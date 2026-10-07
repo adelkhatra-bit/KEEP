@@ -222,6 +222,12 @@ Source : `packages/admin`.
 - secrets serveur ;
 - feature flags/intégrations dans les briques existantes.
 
+### Versions et preuves — IDEA-189, validé le 06/10/2026
+- Vue dans `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` uniquement : version.json canonique réellement observé, dernière app native signalée (jamais un état d’installation global), compteurs exacts serveur ou erreur explicite. Liste de correctifs bornée à 100, pas de zéro de repli.
+- `/home/runner/work/KEEP/KEEP/packages/admin/pages/problem-reports.tsx` conserve triage et réouverture ; « Corrigé » exige `fixed_in_sha` complet et chemin anti-régression. Un SHA/chemin est une preuve documentaire seulement : ni exécution réussie, ni livraison. Anciens signalements sans preuve conservés.
+- Aucune donnée privée de signalement ni jeton dans un export public. Collecte des contrôles GitHub côté script/workflow lecture seule, branche/SHA/date/liens explicites, succès et skipped/échecs/inconnus séparés.
+- Contrat existant `adminReleaseEvidence`, tests `/home/runner/work/KEEP/KEEP/scripts/admin-release-evidence.test.cjs` et `/home/runner/work/KEEP/KEEP/scripts/problem-report-evidence.test.cjs`.
+
 ### APIs publiques — toolbox agents
 
 - Catalogue de découverte : `public-apis/public-apis` via `npm run public-api:search -- <besoin>`.
