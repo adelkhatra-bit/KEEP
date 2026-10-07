@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
+import AdminRobot from './AdminRobot';
 
 type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
 
@@ -183,7 +184,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               type="button"
               onClick={() => setBellOpen((v) => !v)}
               aria-label={totalAlerts > 0 ? `${totalAlerts} alerte(s) Super Admin` : 'Aucune alerte'}
-              style={{ position: 'relative', background: 'transparent', border: '1px solid var(--border)', borderRadius: 10, width: 38, height: 38, fontSize: 18, cursor: 'pointer', color: 'var(--text)' }}
+              style={{ position: 'relative', background: 'transparent', border: '1px solid var(--border)', borderRadius: 10, width: 38, height: 38, padding: 0, fontSize: 18, cursor: 'pointer', color: 'var(--text)' }}
             >
               🔔
               {totalAlerts > 0 && (
@@ -223,6 +224,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <p style={{ color: 'var(--text-muted)' }}>Ton rôle {role || 'inconnu'} n’autorise pas cette section.</p>
           </div>
         )}
+        {/* Robot d'aide (07/10/2026) : son catalogue = ce menu, filtré par rôle (aucun lien vers une page interdite ou absente). */}
+        <AdminRobot currentPath={router.pathname} pages={visibleGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: g.title })))} />
       </main>
     </div>
   );
