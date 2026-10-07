@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Sheet } from './Hint';
 
 /**
  * Super Admin « zéro clavier » (Adel, 07/10/2026) : chaque valeur se choisit dans une liste déjà remplie.
@@ -37,6 +38,7 @@ export default function PresetPicker({
   unlimitedLabel = '∞ illimité',
   width = 110,
   label,
+  impact,
 }: {
   value: PresetValue;
   presets: readonly number[];
@@ -47,8 +49,27 @@ export default function PresetPicker({
   unlimitedLabel?: string;
   width?: number;
   label?: string;
+  /** Ce que le changement fait concrètement aux utilisateurs. Présent → fenêtre de confirmation avant/après (règle Adel 07/10/2026). */
+  impact?: string | ((next: PresetValue) => string);
 }) {
   const [other, setOther] = useState(false);
+  const [pending, setPending] = useState<{ next: PresetValue } | null>(null);
+  const show = (v: PresetValue) => (v == null ? unlimitedLabel : format(v));
+  const request = (next: PresetValue) => {
+    if (next === value) return;
+    if (impact) setPending({ next }); else onChange(next);
+  };
+  const confirmSheet = pending && (
+    <Sheet title={label ?? 'Modifier'} onClose={() => setPending(null)}
+      actions={<>
+        <button type="button" className="btn" onClick={() => setPending(null)}>Annuler</button>
+        <button type="button" className="btn btn-primary" onClick={() => { onChange(pending.next); setPending(null); }}>Valider</button>
+      </>}>
+      <div className="change-row"><span className="change-old">{show(value)}</span><span aria-hidden>→</span><span className="change-new">{show(pending.next)}</span></div>
+      <p style={{ margin: '12px 0 0' }}>{typeof impact === 'function' ? impact(pending.next) : impact}</p>
+      <p className="muted-note">Rien n’est envoyé aux utilisateurs tant que tu n’appuies pas sur « Enregistrer ».</p>
+    </Sheet>
+  );
   const inPresets = value == null ? allowUnlimited : presets.includes(value);
   const current = keyOf(value);
 
@@ -64,25 +85,26 @@ export default function PresetPicker({
           defaultValue={value == null ? '' : value}
           onBlur={(e) => {
             const raw = e.target.value.trim();
-            if (raw === '' && allowUnlimited) onChange(null);
-            else if (raw !== '' && Number.isFinite(Number(raw))) onChange(allowNegative ? Number(raw) : Math.max(0, Number(raw)));
+            if (raw === '' && allowUnlimited) request(null);
+            else if (raw !== '' && Number.isFinite(Number(raw))) request(allowNegative ? Number(raw) : Math.max(0, Number(raw)));
             setOther(false);
           }}
           style={{ width }}
         />
         <button type="button" className="btn" onClick={() => setOther(false)} aria-label="Revenir à la liste">✓</button>
+        {confirmSheet}
       </span>
     );
   }
 
-  return (
+  return (<>
     <select
       aria-label={label}
       value={current}
       onChange={(e) => {
         const v = e.target.value;
         if (v === OTHER) { setOther(true); return; }
-        onChange(v === UNLIMITED ? null : Number(v));
+        request(v === UNLIMITED ? null : Number(v));
       }}
       style={{ width, padding: '6px 8px', borderRadius: 8, background: '#1b1422', color: '#fff', border: '1px solid #3c2d55' }}
     >
@@ -91,7 +113,8 @@ export default function PresetPicker({
       {presets.map((p) => <option key={p} value={String(p)}>{format(p)}</option>)}
       <option value={OTHER}>Autre…</option>
     </select>
-  );
+    {confirmSheet}
+  </>);
 }
 
 export const formatEur = (v: number) => (v === 0 ? 'Gratuit' : `${v.toFixed(2).replace('.', ',')} €`);

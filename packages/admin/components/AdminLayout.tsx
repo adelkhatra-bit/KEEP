@@ -14,40 +14,40 @@ const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'M
 // Menu en 8 rubriques (Adel, 06/10/2026) : mêmes écrans qu'avant, rien supprimé, une seule entrée par écran.
 // « Signalements » est nouveau (secousses et diagnostics de l'app, jusqu'ici invisibles).
 const NAV_GROUPS: NavGroup[] = [
-  { title: 'Tableau de bord', items: [
-    { href: '/', label: 'Vue d’ensemble', roles: ALL_ROLES },
+  { title: 'Accueil', items: [
+    { href: '/', label: 'Accueil', roles: ALL_ROLES },
   ] },
-  { title: 'Utilisateurs', items: [
+  { title: 'Comptes', items: [
     { href: '/users', label: 'Comptes', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
   ] },
   { title: 'Modération', items: [
     { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
     { href: '/community', label: 'Communauté', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
-    { href: '/problem-reports', label: 'Signalements', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'TECH'] },
+    { href: '/problem-reports', label: 'Bugs', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'TECH'] },
   ] },
-  { title: 'Support & messages', items: [
+  { title: 'Contact', items: [
     { href: '/support-center', label: 'Support', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
     { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
-    { href: '/notification-access', label: 'Accès notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { href: '/notification-access', label: 'Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
   ] },
   { title: 'Argent', items: [
-    { href: '/plans', label: 'Abonnements & prix', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/plans', label: 'Formules', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
     { href: '/costs', label: 'Comptabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-    { href: '/marketplace', label: 'Place de marché', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+    { href: '/marketplace', label: 'Ventes', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
   ] },
   { title: 'Musique', items: [
-    { href: '/music-brain', label: `${APP_NAME} Music Brain`, roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/music-brain', label: 'Musique', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
   ] },
-  { title: 'Réglages techniques', items: [
-    { href: '/integrations', label: 'Clés & intégrations', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/email-test', label: 'Test e-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/operations', label: 'API payantes', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/launch-center', label: 'Lancer Loki', roles: ['SUPER_ADMIN'] },
-    { href: '/feature-flags', label: 'Fonctions on/off', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/remote-config', label: 'Textes & quotas', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
+  { title: 'Technique', items: [
+    { href: '/integrations', label: 'Clés', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/email-test', label: 'E-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/operations', label: 'Santé', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/launch-center', label: 'Lancement', roles: ['SUPER_ADMIN'] },
+    { href: '/feature-flags', label: 'Fonctions', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
+    { href: '/remote-config', label: 'Réglages', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
   ] },
   { title: 'Sécurité', items: [
-    { href: '/team', label: 'Accès & mot de passe', roles: ['SUPER_ADMIN'] },
+    { href: '/team', label: 'Équipe', roles: ['SUPER_ADMIN'] },
   ] },
 ];
 const NAV: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
@@ -163,7 +163,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             lineHeight: 1.4,
           }}
         >
-          Accès par rôle, tout est tracé.
+          🔒 Tracé
         </div>
       </aside>
       <main className="main">
@@ -177,7 +177,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             ☰
           </button>
-          <span className="admin-toolbar-label">{sidebarOpen ? 'Masquer le menu' : 'Menu Super Admin'}</span>
+          <span className="admin-toolbar-label">Menu</span>
           {/* Doublon « 🔐 Mot de passe » retiré (06/10/2026) : une seule entrée, menu › Sécurité. */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
