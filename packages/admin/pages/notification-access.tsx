@@ -95,7 +95,7 @@ export default function NotificationAccessPage() {
 
   return (
     <AdminLayout>
-      <div className="page-title">Notifications <Hint title="Notifications" text={<>Verrouille chaque type de notification et choisis la formule minimale. L’utilisateur voit un cadenas et une explication, sans révéler le contenu privé.</>}/></div>
+      <div className="page-title">Notifications <Hint title="Accès aux notifications" text={<>Verrouille chaque type de notification et choisis la formule minimale. L’utilisateur voit un cadenas et une explication, sans révéler le contenu privé.</>}/></div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 22 }}>
         <div className="kpi-card" style={{ minWidth: 150 }}>

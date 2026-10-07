@@ -34,7 +34,7 @@ type QuotaResponse = { guestLimit?: number; signupBonus?: number; usageLimits?: 
 const LIMIT_COLUMNS: Array<{ key: LimitKey; label: string; help: string }> = [
   { key: 'discovery_profiles_lifetime', label: 'Découvertes', help: 'À vie, une seule fois. Profils uniques accessibles au total, jamais renouvelé. ∞ = illimité.' },
   { key: 'smart_sort_trials_lifetime', label: 'Vibes', help: 'À vie, une seule fois. Essais de rangement automatique au total, jamais renouvelé. ∞ = illimité.' },
-  { key: 'listens_per_day', label: 'Écoutes', help: 'Chaque jour. Reconnaissances réussies incluses ; au-delà, chaque nouveau morceau reconnu coûte 1 FREE. Une reconnaissance ratée ne coûte rien.' },
+  { key: 'listens_per_day', label: 'Écoutes', help: 'Écoutes reconnues (chaque jour) : reconnaissances réussies incluses ; au-delà, une reconnaissance réussie coûte 1 FREE. Une reconnaissance ratée ne coûte rien.' },
   { key: 'downloads_per_day', label: 'Téléch.', help: 'Chaque jour. Téléchargements autorisés, remis à zéro chaque jour. ∞ = illimité.' },
   { key: 'events_per_month', label: 'Soirées', help: 'Chaque mois. Créations de soirées autorisées, remis à zéro chaque mois. ∞ = illimité.' },
   { key: 'battle_matches_per_month', label: 'Battle', help: 'Chaque mois. Battle EN LIGNE (contre un autre joueur) par utilisateur. Le Battle solo reste gratuit et illimité.' },
