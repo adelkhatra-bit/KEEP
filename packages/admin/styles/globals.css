@@ -9,7 +9,7 @@
   --pass: #ff5c72;
   --text: #f5f3ff;
   --text-secondary: #b4afcb;
-  --text-muted: #7a7594;
+  --text-muted: #aaa5c4; /* règle Adel 07/10 : plus jamais de texte foncé sur fond foncé (avant #7a7594, contraste 3,9:1) */
 }
 
 * { box-sizing: border-box; }
@@ -202,5 +202,86 @@ td input {
   .page-title { font-size: 22px; }
   th, td { padding: 8px 6px; font-size: 11px; }
 }
+
+
+/* ===== Design pro Super Admin (07/10/2026) — inspiration grands tableaux de bord (Stripe, Linear, Vercel) =====
+   Une seule couche commune : espaces réguliers (multiples de 4 px), lecture confortable sur grand écran,
+   contrôles identiques partout, focus visible. Les styles en ligne existants restent prioritaires (rien n'est cassé). */
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  --radius: 12px;
+  --ring: 0 0 0 3px rgba(124, 92, 252, 0.35);
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.03) inset, 0 8px 24px rgba(0,0,0,0.25);
+}
+body { font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.main { padding: var(--space-6) var(--space-8) 96px; }
+.main > :not(.admin-toolbar) { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.admin-toolbar { border-bottom: 1px solid var(--border); margin: 0 calc(-1 * var(--space-8)) var(--space-6); padding: var(--space-2) var(--space-8);
+  background: rgba(11, 10, 18, 0.85); backdrop-filter: saturate(140%) blur(10px); }
+.page-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: var(--space-1); }
+.page-subtitle { font-size: 13px; margin-bottom: var(--space-6); }
+h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; margin: var(--space-8) 0 var(--space-3); }
+h3 { font-size: 15px; font-weight: 800; margin: 0 0 var(--space-3); }
+
+/* Menu latéral : rubrique claire, élément actif marqué d'un trait. */
+.sidebar { width: 240px; padding: var(--space-6) var(--space-3); }
+.sidebar .logo { letter-spacing: 0.5px; padding: 0 var(--space-3); }
+.sidebar .subtitle { padding: 0 var(--space-3); }
+.sidebar nav a { position: relative; padding: 8px 12px; font-size: 13.5px; margin-bottom: 2px; transition: background .12s, color .12s; }
+.sidebar nav a.active::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--primary-light); }
+.sidebar .nav-group { margin-bottom: var(--space-5); }
+
+/* Cartes et indicateurs */
+.card, .kpi-card { border-radius: var(--radius); padding: var(--space-5); box-shadow: var(--shadow-card); margin-bottom: var(--space-4); }
+.kpi-grid { gap: var(--space-4); margin-bottom: var(--space-8); }
+.kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi-label { font-size: 12px; font-weight: 600; margin-top: var(--space-1); }
+
+/* Contrôles identiques partout : listes, champs, boutons. */
+select, input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea {
+  font: inherit; font-size: 13.5px; color: var(--text); background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 10px; min-height: 38px; padding: 8px 12px; max-width: 100%; transition: border-color .12s, box-shadow .12s;
+}
+select { cursor: pointer; padding-right: 32px; appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+select:hover, input:hover, textarea:hover { border-color: #3d3760; }
+select:focus, input:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: var(--ring); }
+button { font: inherit; cursor: pointer; border-radius: 10px; }
+/* :where() = priorité zéro : tout style écrit dans la page (taille, fond, padding) reste prioritaire. */
+:where(button:not(.btn):not(.admin-menu-toggle)) { padding: 8px 14px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); font-size: 13px; font-weight: 700; line-height: 1.2; }
+:where(button:not(.btn):not(.admin-menu-toggle)):hover:not(:disabled) { border-color: var(--primary-light); }
+:where(button):disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: none; box-shadow: var(--ring); }
+.btn { transition: border-color .12s, background .12s; }
+
+/* « En savoir plus » : discret, aligné, flèche propre. */
+details > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; user-select: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: '›'; display: inline-block; transition: transform .15s; font-weight: 900; }
+details[open] > summary::before { transform: rotate(90deg); }
+details[open] > summary { margin-bottom: var(--space-2); }
+
+/* Tableaux : lignes aérées, survol, chiffres alignés. */
+table { border: 1px solid var(--border); box-shadow: var(--shadow-card); }
+th, td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
+th { font-size: 11px; letter-spacing: 0.04em; background: rgba(255,255,255,0.02); overflow-wrap: normal; hyphens: auto; -webkit-hyphens: auto; }
+tbody tr:hover td { background: rgba(124, 92, 252, 0.05); }
+tbody tr:last-child td { border-bottom: none; }
+td { font-variant-numeric: tabular-nums; }
+/* Un bouton dans un tableau ne se coupe jamais au milieu d'un mot (« Gér-er »). */
+td :where(button, .btn, a.btn) { white-space: nowrap; padding: 8px 12px; }
+
+.demo-banner { border-radius: 10px; padding: 10px 14px; }
+
+@media (max-width: 900px) {
+  .main { padding: var(--space-4) var(--space-4) 96px; }
+  .admin-toolbar { margin: 0 calc(-1 * var(--space-4)) var(--space-4); padding: var(--space-2) var(--space-4); }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .kpi-value { font-size: 22px; }
+  .card, .kpi-card { padding: var(--space-4); }
+  th, td { padding: 10px 10px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* SUPER_ADMIN_REDEPLOY_20261003: force GitHub Pages to rebuild admin-preview only. */
