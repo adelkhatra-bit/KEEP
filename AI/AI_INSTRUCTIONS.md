@@ -951,3 +951,25 @@ Vérification Codex : comportement ancien reproduit en échec ;5 cas exécutés 
 - App Store Connect : lire la soumission, son statut review et les accords éventuels ; un build TestFlight ne prouve pas l’acceptation App Store. Approbations contractuelles éventuelles par le titulaire.
 - ACRCloud : dernier état constaté refuse Access Key ; vérifier hôte/projet/clé dans l’espace autorisé et tester un vrai échantillon. Ne pas supposer que toutes les API manquent et ne pas exposer les secrets. AudD/Stripe sont à qualifier avant achat/configuration, pas bloquants universels.
 - Aucun accès humain requis pour le badge, les libellés ou la correction de logique ; leur blocage ici est uniquement l’environnement canonique de compilation/rendu.
+
+
+### Codex — 08/10/2026 — QR explicite, catalogue et Apple : preuves et reste
+
+**Nouveau code préparé, NON APPLIQUÉ / NON DÉPLOYÉ au produit**
+- Patch `docs/patches/2026-10-08-qr-confirmation.patch` (9dc018e0) : popup avant toute approve, Approuver/Annuler, action serveur cancel authentifiée + preuve QR + WAITING conditionnel, refus des états déjà connectés, approve vérifie la ligne réellement modifiée pour ne pas annoncer succès après annulation concurrente, ordinateur affiche refus et propose un nouveau QR.
+- Tests reproductibles : `docs/patches/2026-10-08-qr-server.test.cjs` et `2026-10-08-qr-popup.test.cjs`. Après application dans le poste canonique : `node docs/patches/2026-10-08-qr-server.test.cjs .` et `node docs/patches/2026-10-08-qr-popup.test.cjs .` (TypeScript installé au projet).
+- Avant patch :4 scénarios serveur échouent,1 passe ; scan natif approuve immédiatement (test échoue). Après patch :5 scénarios serveur +2 scénarios popup passent. Vrai handler/composant transpillé avec frontière DB/Auth/RN simulée, aucune personne connectée pour le test. Syntaxe TS0 erreur, application du diff vérifiée par index Git temporaire ; pas de typecheck complet ni essai matériel.
+- Ce patch ne couvre PAS encore le secret privé du navigateur initiateur, la notification persistante ouvrable dans l’application, la révocation Auth serveur ou l’anti-abus. Ne pas le présenter comme une sécurisation complète. Aucune notification envoyée ni session existante déconnectée. Déployer cancel côté serveur avant le client, tester compatibilité anciens clients et états expirés.
+- L’API Alert du projet accepte la signature mais n’exploite pas cancelable : utiliser son comportement réel et tester retour Android/fermeture de la popup. Une fermeture ne doit jamais approuver ; vérifier que l’utilisateur peut rescanner et que le refus serveur est bien transmis.
+- Continuer selon la demande d’Adel : demande retrouvable dans notifications, jamais de token/actionLink dans le push, approbation volontaire et refus/expiration atomiques. Réutiliser infrastructure notifications existante.
+
+**Catalogue — lecture production après réparation précédente**
+- Toujours0 titres classés avec preview pour LOFI, DRILL, GRIME, UK_GARAGE. MIX est un thème virtuel : son0 de mappings n’est PAS une panne catalogue.
+- AMAPIANO13, BAILE_FUNK14, DUBSTEP15, PAGODE16, GOSPEL16, DNB21, AFROHOUSE35. Ce sont des URLs d’extrait présentes, pas des écoutes certifiées.
+- Ne pas annoncer catalogue complet. Alimenter styles précis avec identité fournisseur vérifiée, mesurer disponibilité réelle des extraits et minimum d’artistes ; éviter fallback silencieux MIX et réinitialisation mémoire des utilisateurs.
+
+**Apple — résultat actuel et limite précise**
+- Accès App Store Connect tenté en lecture : redirection `/login?targetUrl=%2Fapps&authResult=FAILED`, aucun statut de l’app accessible ; pas de mot de passe/2FA manipulé. Clôturer avec Claude sur le compte autorisé (app6812393589).
+- Script existant `verify-app-store-readiness.cjs` exécuté contre les blobs du HEAD distant sans modifier le clone : **79/79 contrôles statiques passent**. Ses lignes WAIT sont imprimées systématiquement ; ce n’est PAS une vérification que les secrets/API manquent réellement.
+- Les mentions dans .context/PROJECT_STATE d’un ancien rejet lié à un achat externe et d’un build soumis TestFlight ne prouvent ni refus actuel ni acceptation publique.
+- Claude : lire la version commerciale dans App Store Connect, build attaché, statut App Review et dernier message Resolution Center, accords éventuels, metadata/privacy/age/content/DSA et produits IAP liés. Rapporter texte exact du blocage + date + version avant correction. Ne pas acheter de nouvelle API ni refaire des identifiants déjà présents sur la seule base d’un ancien document.
