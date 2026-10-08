@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import Hint from '../components/Hint';
 import { supabase } from '../lib/supabaseClient';
 import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 import { openProviderPopup } from '../lib/providerWindow';
+import { P8_KEY_IDS, readP8File, REQUIRED_INTEGRATION_KEYS, runtimeIntegrationKey, shortIntegrationReason } from '../lib/integrationKeys';
 
 type IntegrationStatus = 'UNKNOWN' | 'ACTIVE' | 'EXHAUSTED' | 'ERROR' | 'NOT_CONFIGURED';
 
@@ -70,11 +71,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<IntegrationStatus, string> = {
-  UNKNOWN: 'À tester',
-  ACTIVE: 'Actif',
-  EXHAUSTED: 'Quota épuisé',
-  ERROR: 'Refusée / erreur',
-  NOT_CONFIGURED: 'Clé manquante',
+  UNKNOWN: '❌ Refusée',
+  ACTIVE: '✅ OK',
+  EXHAUSTED: '❌ Refusée',
+  ERROR: '❌ Refusée',
+  NOT_CONFIGURED: '⚪ Manquante',
 };
 
 const STATUS_COLORS: Record<IntegrationStatus, string> = {
@@ -104,6 +105,8 @@ export default function Integrations() {
   const [keylessRuntime, setKeylessRuntime] = useState<RuntimeStatusRow | null>(null);
   const [lastRecognitionTest, setLastRecognitionTest] = useState<RecognitionProviderResult[]>([]);
   const [rowFeedback, setRowFeedback] = useState<Record<string, { kind: 'ok' | 'error'; text: string }>>({});
+  const [p8Files, setP8Files] = useState<Record<string, { fileName: string; keyId: string }>>({});
+  const opened = useRef(false);
 
   const load = async (keepPageStable = false) => {
     if (!keepPageStable) setLoading(true);
@@ -113,18 +116,26 @@ export default function Integrations() {
       const baseRows = (result?.data ?? []) as IntegrationRow[];
 
       let statusRows: RuntimeStatusRow[] = [];
+      try {
+        const checked = await invokeAdmin({ action: 'integrations.test' });
+        statusRows = (checked?.data ?? []) as RuntimeStatusRow[];
+      } catch {
+        // Ne pas présenter un ancien contrôle comme un test réussi à l’ouverture.
+        statusRows = baseRows.map((row) => ({
+          key: runtimeIntegrationKey(row.key), status: row.configured ? 'ERROR' : 'NOT_CONFIGURED',
+          last_checked_at: null, last_error: 'Contrôle fournisseur indisponible',
+        }));
+      }
       if (supabase) {
         const { data: runtime, error: runtimeError } = await supabase.rpc('admin_integration_runtime_status');
-        if (!runtimeError) statusRows = (runtime ?? []) as RuntimeStatusRow[];
+        if (!runtimeError) setKeylessRuntime(((runtime ?? []) as RuntimeStatusRow[]).find((item) => item.key === 'KEYLESS_SOURCE') ?? null);
       }
       const runtimeByKey = new Map(statusRows.map((item) => [item.key, item]));
-      setKeylessRuntime(runtimeByKey.get('KEYLESS_SOURCE') ?? null);
       setRows(baseRows.map((row) => {
-        const runtimeKey = row.key.startsWith('ACRCLOUD_') ? 'ACRCLOUD' : row.key;
-        const runtime = runtimeByKey.get(runtimeKey);
+        const runtime = runtimeByKey.get(row.key) ?? runtimeByKey.get(runtimeIntegrationKey(row.key));
         return {
           ...row,
-          runtimeStatus: runtime?.status ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED'),
+          runtimeStatus: !row.configured ? 'NOT_CONFIGURED' : runtime?.status ?? 'UNKNOWN',
           lastCheckedAt: runtime?.last_checked_at ?? null,
           lastError: runtime?.last_error ?? null,
         };
@@ -136,11 +147,12 @@ export default function Integrations() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { if (!opened.current) { opened.current = true; void load(); } }, []);
 
   const acrCloudActive = rows.some((row) => row.key.startsWith('ACRCLOUD_') && row.runtimeStatus === 'ACTIVE');
 
   const needsAttention = (row: IntegrationRow) => {
+    if (!REQUIRED_INTEGRATION_KEYS.some((key) => key === row.key) && row.key !== 'AUDD_API_KEY') return false;
     const status = row.runtimeStatus ?? (row.configured ? 'UNKNOWN' : 'NOT_CONFIGURED');
     // ACRCloud est le moteur serveur actif. AudD peut rester absent sans
     // rendre la reconnaissance indisponible : ne jamais le présenter comme
@@ -169,9 +181,22 @@ export default function Integrations() {
 
   const grouped = useMemo(() => {
     const map: Record<string, IntegrationRow[]> = {};
-    for (const row of rows.filter((item) => !needsAttention(item))) (map[row.category] ||= []).push(row);
+    for (const row of rows.filter((item) => !needsAttention(item) && REQUIRED_INTEGRATION_KEYS.some((key) => key === item.key))) (map[row.category] ||= []).push(row);
     return map;
   }, [rows]);
+
+  const optionalRows = rows.filter((row) => !REQUIRED_INTEGRATION_KEYS.some((key) => key === row.key) && !needsAttention(row));
+
+  const importP8 = async (row: IntegrationRow, file: File) => {
+    try {
+      const parsed = await readP8File(file, row.key);
+      setP8Files((prev) => ({ ...prev, [row.key]: { fileName: parsed.fileName, keyId: parsed.keyId } }));
+      setValues((prev) => ({ ...prev, [row.key]: parsed.value, [P8_KEY_IDS[row.key]]: parsed.keyId }));
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'ok', text: `Clé ${parsed.keyId} · fichier lu localement. Le fournisseur vérifie ensuite son usage.` } }));
+    } catch (e: any) {
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'error', text: e?.message || 'Fichier .p8 refusé.' } }));
+    }
+  };
 
   const keepRowVisible = (key: string) => {
     if (typeof document === 'undefined') return;
@@ -199,13 +224,16 @@ export default function Integrations() {
       keepRowVisible(row.key);
     };
     if (!value) return fail(`Renseigne une valeur pour ${row.label}.`);
+    const file = p8Files[row.key];
+    if (file && values[P8_KEY_IDS[row.key]] !== file.keyId) return fail('KEY_ID différent du fichier .p8.');
     if (!WHITESPACE_ALLOWED_KEYS.has(row.key) && /\s/.test(value)) return fail(`${row.label} : cette valeur contient un espace. Vérifie le copier-coller.`);
     if (/^(your_|xxx|changeme|todo|test123|placeholder)/i.test(value)) return fail(`${row.label} : cette valeur ressemble à un exemple, pas à une vraie clé fournisseur.`);
     setBusy(row.key); setError(null); setMessage(null);
     setRowFeedback((prev) => { const next = { ...prev }; delete next[row.key]; return next; });
     try {
-      const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value });
-      setValues((prev) => ({ ...prev, [row.key]: '' }));
+      const result = await invokeAdmin({ action: 'integrations.set', key: row.key, value, ...(file ? { fileName: file.fileName, keyId: values[P8_KEY_IDS[row.key]] } : {}) });
+      setValues((prev) => ({ ...prev, [row.key]: '', ...(file ? { [P8_KEY_IDS[row.key]]: '' } : {}) }));
+      setP8Files((prev) => { const next = { ...prev }; delete next[row.key]; return next; });
       const text =
         row.key === 'AUDD_API_KEY' && result?.validation?.valid
           ? `Clé AudD vérifiée par le fournisseur. État : ${result.validation.status}.`
@@ -230,7 +258,7 @@ export default function Integrations() {
     setBusy(row.key); setError(null); setMessage(null);
     try {
       await invokeAdmin({ action: 'integrations.delete', key: row.key });
-      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'ok', text: `${row.label} supprimé. Cette intégration remonte maintenant dans « À corriger maintenant ».` } }));
+      setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'ok', text: `${row.label} supprimé. Statut recalculé automatiquement.` } }));
       await load(true);
       keepRowVisible(row.key);
     } catch (e: any) {
@@ -267,8 +295,8 @@ export default function Integrations() {
       && !row.configured
       && acrCloudActive
       && (status === 'NOT_CONFIGURED' || status === 'UNKNOWN');
-    const displayedStatus = optionalAudd ? 'Optionnel · ACRCloud actif' : STATUS_LABELS[status];
-    const displayedStatusColor = optionalAudd ? '#c9c3d2' : STATUS_COLORS[status];
+    const displayedStatus = STATUS_LABELS[status];
+    const displayedStatusColor = STATUS_COLORS[status];
     return (
       <div
         key={row.key}
@@ -281,12 +309,12 @@ export default function Integrations() {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 8 }}>
-          <div>
+          <div style={{ minWidth: 0, flex: 1, overflowWrap: 'anywhere' }}>
             <strong style={{ color: '#fff' }}>{row.label}</strong>
             <div style={{ color: '#d9d5e2', fontSize: 12, marginTop: 3 }}>{row.key}</div>
           </div>
-          <div style={{ fontSize: 12, color: displayedStatusColor, fontWeight: 800 }}>
-            ● {displayedStatus}
+          <div style={{ fontSize: 12, color: displayedStatusColor, fontWeight: 800, flexShrink: 0 }}>
+            {displayedStatus}
           </div>
         </div>
 
@@ -297,9 +325,9 @@ export default function Integrations() {
         )}
         {optionalAudd ? (
           <div style={{ color: '#e7e2ec', fontSize: 12, marginBottom: 8, lineHeight: 1.45 }}>
-            La reconnaissance fonctionne déjà avec ACRCloud. Ajoute AudD ici uniquement si tu veux aussi utiliser ton abonnement AudD.
+            Optionnel · ACRCloud actif. Ajoute AudD uniquement pour utiliser ton abonnement AudD.
           </div>
-        ) : row.lastError && (status === 'ERROR' || status === 'EXHAUSTED' || status === 'NOT_CONFIGURED') ? (
+        ) : (status === 'UNKNOWN' || status === 'ERROR' || status === 'EXHAUSTED' || (row.lastError && status === 'NOT_CONFIGURED')) ? (
           <div
             role="status"
             style={{
@@ -310,8 +338,8 @@ export default function Integrations() {
               fontWeight: 700,
             }}
           >
-            {status === 'ERROR' ? 'Dernier essai refusé : ' : status === 'EXHAUSTED' ? 'Fournisseur reconnu : ' : 'État : '}
-            {row.lastError}
+            {status === 'UNKNOWN' || status === 'ERROR' || status === 'EXHAUSTED' ? 'Raison : ' : 'État : '}
+            {shortIntegrationReason(row.lastError)}
           </div>
         ) : null}
 
@@ -352,15 +380,26 @@ export default function Integrations() {
         ) : null}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: '1 1 360px' }}>
+          <div
+            style={{ position: 'relative', flex: '1 1 100%', minWidth: 0 }}
+            onDragOver={P8_KEY_IDS[row.key] ? (event) => event.preventDefault() : undefined}
+            onDrop={P8_KEY_IDS[row.key] ? (event) => {
+              event.preventDefault();
+              if (event.dataTransfer.files.length === 1) void importP8(row, event.dataTransfer.files[0]);
+              else setRowFeedback((prev) => ({ ...prev, [row.key]: { kind: 'error', text: 'Choisis un seul fichier .p8.' } }));
+            } : undefined}
+          >
             {MULTILINE_KEYS.has(row.key) ? (
               <textarea
-                rows={6}
+                rows={3}
                 placeholder={row.configured ? 'Nouvelle valeur complète pour remplacer…' : 'Colle la valeur complète ici…'}
                 value={values[row.key] ?? ''}
-                onChange={(e) => setValues((prev) => ({ ...prev, [row.key]: e.target.value }))}
+                onChange={(e) => {
+                  setValues((prev) => ({ ...prev, [row.key]: e.target.value }));
+                  setP8Files((prev) => { const next = { ...prev }; delete next[row.key]; return next; });
+                }}
                 spellCheck={false}
-                style={{ width: '100%', minHeight: 132, resize: 'vertical', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#fff', borderRadius: 8, padding: '10px 40px 10px 14px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
+                style={{ width: '100%', resize: 'none', boxSizing: 'border-box', background: 'var(--bg-card)', border: '1px solid var(--border)', color: '#fff', borderRadius: 8, padding: '10px 14px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12 }}
               />
             ) : (
               <input
@@ -389,6 +428,27 @@ export default function Integrations() {
               </button>
             )}
           </div>
+          {P8_KEY_IDS[row.key] && (
+            <div style={{ flexBasis: '100%', minWidth: 0 }}>
+              <input
+                id={`p8-${row.key}`} type="file" accept=".p8" hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void importP8(row, file);
+                  event.target.value = '';
+                }}
+              />
+              <button type="button" onClick={() => document.getElementById(`p8-${row.key}`)?.click()}>
+                📂 Choisir le fichier .p8
+              </button>
+              <div style={{ color: '#e9e3f2', marginTop: 8, fontSize: 12 }}>
+                {p8Files[row.key] ? `Clé ${p8Files[row.key].keyId}` : row.hint?.startsWith('Clé ') ? row.hint : 'Glisse le fichier ici'}
+              </div>
+              {p8Files[row.key] && values[P8_KEY_IDS[row.key]] !== p8Files[row.key].keyId && (
+                <div role="alert" style={{ color: '#ff7a7a', marginTop: 8 }}>KEY_ID différent du fichier .p8.</div>
+              )}
+            </div>
+          )}
           {GENERATABLE_KEYS.has(row.key) && (
             <button
               type="button"
@@ -529,13 +589,20 @@ export default function Integrations() {
           gabarits signup/mot de passe oublie et le diagnostic de
           delivrabilite. */}
       <div className="card" style={{ marginBottom: 22 }}>
-        <h3 style={{ marginTop: 0 }}>Test<Hint title="Test e-mail" text="Priorité recommandée : RESEND_API_KEY + EMAIL_SENDER_ADDRESS. Mailjet et Brevo restent disponibles en secours automatique."/></h3>
+        <h3 style={{ marginTop: 0 }}>Test<Hint title="Test e-mail" text="Brevo configuré ; Resend et Mailjet disponibles en secours optionnels."/></h3>
         <a href="/email-test" style={{ display: 'inline-block', padding: '10px 14px', borderRadius: 8, background: 'var(--primary)', color: '#fff', textDecoration: 'none', fontWeight: 800 }}>
           E-mail ›
         </a>
       </div>
 
       {loading && <div className="card">Chargement des intégrations…</div>}
+
+      {!loading && optionalRows.length > 0 && (
+        <details className="card" style={{ marginBottom: 22 }}>
+          <summary style={{ cursor: 'pointer', color: '#fff', fontWeight: 800 }}>Optionnel / plus tard</summary>
+          <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>{optionalRows.map((row) => renderIntegrationRow(row))}</div>
+        </details>
+      )}
 
       {!loading && Object.entries(grouped).map(([category, items]) => (
         <div className="card" key={category} style={{ marginBottom: 22 }}>

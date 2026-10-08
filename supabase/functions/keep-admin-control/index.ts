@@ -3,6 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import bcrypt from "npm:bcryptjs@2.4.3";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
+import { validateAppleMusicCredentials } from "../_shared/appleMusicToken.ts";
+import { validateSpotifyCredentials } from "../_shared/spotifyCatalog.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -135,7 +137,7 @@ async function validateAuddToken(value: string): Promise<AuddValidation> {
   form.append("api_token", value);
   let response: Response;
   try {
-    response = await fetch("https://api.audd.io/", { method: "POST", body: form });
+    response = await fetch("https://api.audd.io/", { method: "POST", body: form, signal: AbortSignal.timeout(10000) });
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre AudD pour valider la clé. Réessaie sans enregistrer une clé non vérifiée." };
   }
@@ -154,7 +156,7 @@ async function validateAuddToken(value: string): Promise<AuddValidation> {
   if (code === 700 || payload?.status === "success") {
     return { valid: true, status: "ACTIVE", message: "Token AudD vérifié par le fournisseur." };
   }
-  return { valid: false, status: "ERROR", message: `AudD n'a pas confirmé le token (${providerMessage.slice(0, 160)}). Rien n'a été enregistré.` };
+  return { valid: false, status: "ERROR", message: `AudD n'a pas confirmé le token (HTTP ${response.status}, code ${code}). Rien n'a été enregistré.` };
 }
 
 async function validateMusicApiClientId(value: string) {
@@ -184,7 +186,7 @@ async function validateMusicApiClientId(value: string) {
   }
 }
 
-type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR"; message: string };
+type GenericIntegrationValidation = { valid: boolean; status: "ACTIVE" | "EXHAUSTED" | "ERROR" | "UNKNOWN" | "NOT_CONFIGURED"; message: string };
 
 function validateStructuredIntegrationValue(key: string, value: string): GenericIntegrationValidation | null {
   const clean = value.trim();
@@ -197,14 +199,14 @@ function validateStructuredIntegrationValue(key: string, value: string): Generic
 
   if (key === "APPLE_MUSICKIT_TEAM_ID" || key === "APPLE_MUSICKIT_KEY_ID" || key === "APPLE_IAP_KEY_ID") {
     return /^[A-Z0-9]{10}$/.test(clean)
-      ? { valid: true, status: "ACTIVE", message: "Identifiant Apple au format attendu." }
+      ? { valid: true, status: "UNKNOWN", message: "Identifiant Apple au format attendu ; service à vérifier." }
       : { valid: false, status: "ERROR", message: "Identifiant Apple invalide : 10 caractères alphanumériques majuscules attendus." };
   }
 
   if (key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY") {
-    const looksLikePem = /^-----BEGIN (?:EC |)PRIVATE KEY-----[\s\S]+-----END (?:EC |)PRIVATE KEY-----$/.test(clean);
+    const looksLikePem = /^-----BEGIN PRIVATE KEY-----[\s\S]+-----END PRIVATE KEY-----$/.test(clean);
     return looksLikePem && clean.length > 120
-      ? { valid: true, status: "ACTIVE", message: "Clé privée Apple PEM reconnue." }
+      ? { valid: true, status: "UNKNOWN", message: "Format PEM reconnu ; il ne prouve ni le service ni le type de clé Apple." }
       : { valid: false, status: "ERROR", message: "Clé privée Apple invalide : colle le fichier .p8 complet, BEGIN/END inclus." };
   }
 
@@ -268,7 +270,7 @@ async function validateYouTubeApiKey(value: string): Promise<GenericIntegrationV
     if (/accessNotConfigured|serviceDisabled/i.test(reason)) {
       return { valid: true, status: "ERROR", message: "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet." };
     }
-    return { valid: false, status: "ERROR", message: `YouTube refuse cette clé (${reason || "HTTP " + response.status}). Rien n'a été enregistré.` };
+    return { valid: false, status: "ERROR", message: `YouTube refuse cette clé (HTTP ${response.status}). Rien n'a été enregistré.` };
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre YouTube pour vérifier la clé. Rien n'a été enregistré." };
   }
@@ -390,7 +392,6 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
 
   const payload = await response.json().catch(() => null);
   const code = Number(payload?.status?.code ?? -1);
-  const providerMessage = String(payload?.status?.msg || `ACRCloud HTTP ${response.status}`);
 
   // Documentation ACRCloud : 0=succès, 1001=aucun résultat ; ces réponses
   // prouvent que Host + Access Key + signature sont acceptés. Un petit WAV
@@ -404,7 +405,7 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
   if (code === 3001) return { valid: false, status: "ERROR", message: "ACRCloud refuse l'Access Key. Rien n'a été activé.", providerCode: code };
   if (code === 3014) return { valid: false, status: "ERROR", message: "ACRCloud refuse la signature : vérifie l'Access Secret. Rien n'a été activé.", providerCode: code };
   if (code === 3000) return { valid: false, status: "ERROR", message: "ACRCloud signale un hôte/service incorrect. Rien n'a été activé.", providerCode: code };
-  return { valid: false, status: "ERROR", message: `ACRCloud n'a pas confirmé les credentials (${code}: ${providerMessage.slice(0, 140)}). Rien n'a été activé.`, providerCode: code };
+  return { valid: false, status: "ERROR", message: `ACRCloud n'a pas confirmé les credentials (HTTP ${response.status}, code ${code}). Rien n'a été activé.`, providerCode: code };
 }
 
 async function setRecognitionRuntimeStatus(key: string, status: string, message: string | null) {
@@ -486,15 +487,228 @@ async function audit(actorId: string, action: string, targetType: string, target
 }
 
 async function getSecret(key: string): Promise<string | null> {
-  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
-  if (error) throw error;
-  if (typeof data === "string" && data.trim()) return data.trim();
-  return existingEdgeSecret(key);
+  try {
+    const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key }).abortSignal(AbortSignal.timeout(5000));
+    if (error) throw error;
+    if (typeof data === "string" && data.trim()) return data.trim();
+    return existingEdgeSecret(key);
+  } catch (error) {
+    const fallback = existingEdgeSecret(key);
+    if (fallback) return fallback;
+    throw error;
+  }
+}
+
+async function getAppleKeyId(key: string) {
+  const value = await getSecret(key);
+  return value && /^[A-Z0-9]{10}$/.test(value) ? value : null;
+}
+
+const INTEGRATION_GROUPS: Record<string, string[]> = {
+  BREVO: ["BREVO_API_KEY", "BREVO_SENDER_EMAIL", "BREVO_SENDER_NAME"],
+  APPLE_MUSICKIT: ["APPLE_MUSICKIT_TEAM_ID", "APPLE_MUSICKIT_KEY_ID", "APPLE_MUSICKIT_PRIVATE_KEY"],
+  SPOTIFY: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"],
+  PIPEDREAM_CONNECT: ["PIPEDREAM_CLIENT_ID", "PIPEDREAM_CLIENT_SECRET", "PIPEDREAM_PROJECT_ID", "PIPEDREAM_ENVIRONMENT"],
+  ACRCLOUD: ["ACRCLOUD_HOST", "ACRCLOUD_ACCESS_KEY", "ACRCLOUD_ACCESS_SECRET"],
+  APPLE_IAP: ["APPLE_IAP_ISSUER_ID", "APPLE_IAP_KEY_ID", "APPLE_IAP_PRIVATE_KEY"],
+};
+
+function integrationRuntimeKey(key: string) {
+  return Object.entries(INTEGRATION_GROUPS).find(([, keys]) => keys.includes(key))?.[0] ?? key;
+}
+
+class ApplePrivateKeyValidationError extends Error {}
+
+async function validateApplePrivateKey(key: string, value: string, fileName?: unknown, pendingKeyId?: unknown) {
+  let keyId: string | null = null;
+  if (fileName !== undefined && fileName !== null && fileName !== "") {
+    const prefix = key === "APPLE_MUSICKIT_PRIVATE_KEY" ? "AuthKey" : "SubscriptionKey";
+    const match = typeof fileName === "string" ? new RegExp(`^${prefix}_([A-Z0-9]{10})\\.p8$`).exec(fileName) : null;
+    if (!match) throw new ApplePrivateKeyValidationError(`Fichier attendu : ${prefix}_XXXXXXXXXX.p8. Choisis la clé du service Apple correspondant.`);
+    keyId = match[1];
+    if (pendingKeyId !== undefined && pendingKeyId !== keyId) {
+      throw new ApplePrivateKeyValidationError("La Clé ID fournie ne correspond pas au nom du fichier .p8.");
+    }
+  }
+  if (!/^-----BEGIN PRIVATE KEY-----[\s\S]+-----END PRIVATE KEY-----$/.test(value)) {
+    throw new ApplePrivateKeyValidationError("Clé Apple invalide : fichier .p8 PKCS8 complet requis.");
+  }
+  try {
+    const base64 = value.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    await crypto.subtle.importKey("pkcs8", bytes, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  } catch {
+    throw new ApplePrivateKeyValidationError("Clé Apple invalide : structure PKCS8 ECDSA P-256 attendue.");
+  }
+  const idKey = key.replace("PRIVATE_KEY", "KEY_ID");
+  return { keyId, idKey };
+}
+
+function applePrivateKeyIdFromHint(value: string | null | undefined) {
+  return value?.match(/(?:Clé ID\s*:\s*|Clé\s+|(?:AuthKey|SubscriptionKey)_)([A-Z0-9]{10})(?:\b|\.p8)/)?.[1] ?? null;
+}
+
+function applePrivateKeyListHint(savedId: string | null, valueHint: string | null | undefined) {
+  const id = applePrivateKeyIdFromHint(valueHint) ?? savedId;
+  return id ? `Clé ${id}` : "Clé ID non renseignée";
+}
+
+function appleKeyPairIssue(currentId: string | null, valueHint: string | null | undefined) {
+  const fileId = applePrivateKeyIdFromHint(valueHint);
+  return fileId && currentId && fileId !== currentId
+    ? "La Clé ID enregistrée diffère de celle du fichier .p8 sauvegardé. Réimporte la paire correspondante."
+    : null;
+}
+
+async function validateGoogleTranslateApiKey(value: string): Promise<GenericIntegrationValidation> {
+  try {
+    const response = await fetch("https://translation.googleapis.com/language/translate/v2", {
+      method: "POST",
+      headers: { "content-type": "application/json", "X-Goog-Api-Key": value },
+      body: JSON.stringify({ q: "Bonjour", source: "fr", target: "en", format: "text" }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && payload?.data?.translations?.[0]?.translatedText) {
+      return { valid: true, status: "ACTIVE", message: "Google Translate vérifié par une traduction réelle." };
+    }
+    const reason = String(payload?.error?.errors?.[0]?.reason ?? "");
+    if (response.status === 429 || /quota|dailyLimit/i.test(reason)) {
+      return { valid: true, status: "EXHAUSTED", message: "Google Translate : quota fournisseur atteint." };
+    }
+    return { valid: false, status: "ERROR", message: `Google Translate n'a pas confirmé la clé (HTTP ${response.status}).` };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de joindre Google Translate." };
+  }
+}
+
+async function validateBrevoCredentials(apiKey: string, email: string, name: string, accountValidation?: GenericIntegrationValidation): Promise<GenericIntegrationValidation> {
+  if (!/^\S+@\S+\.\S+$/.test(email) || !name.trim() || name.length > 200 || /[\r\n\x00-\x1f]/.test(name)) {
+    return { valid: false, status: "ERROR", message: "Brevo : adresse expéditeur valide et nom non vide requis." };
+  }
+  const account = accountValidation ?? await validateBrevoApiKey(apiKey);
+  if (!account.valid) return account;
+  try {
+    const response = await fetch("https://api.brevo.com/v3/senders", {
+      headers: { "api-key": apiKey, accept: "application/json" },
+      signal: AbortSignal.timeout(10000), redirect: "error",
+    });
+    const payload = await response.json().catch(() => null);
+    if (response.ok && Array.isArray(payload?.senders) && payload.senders.some((sender: any) =>
+      typeof sender?.email === "string" && sender.email.trim().toLowerCase() === email.toLowerCase() && sender.active === true)) {
+      return { valid: true, status: "ACTIVE", message: "Compte Brevo et expéditeur actif vérifiés, sans envoi d'e-mail." };
+    }
+    return { valid: false, status: response.status === 429 ? "EXHAUSTED" : "ERROR", message: "Brevo : expéditeur non confirmé actif ou liste des expéditeurs indisponible." };
+  } catch {
+    return { valid: false, status: "ERROR", message: "Impossible de vérifier les expéditeurs Brevo." };
+  }
+}
+
+function validateInternalIntegrationSecret(value: string): GenericIntegrationValidation {
+  const bytes = new TextEncoder().encode(value).length;
+  const placeholder = /(?:placeholder|change[-_ ]?me|replace[-_ ]?me|your[-_ ]?(?:key|secret|token)|example|dummy|demo|todo)/i.test(value)
+    || /^(.)\1+$/.test(value) || /^(?:test|fake|secret|password|12345678|abcdefgh)+$/i.test(value);
+  return bytes >= 32 && bytes <= 4096 && !placeholder
+    ? { valid: true, status: "ACTIVE", message: "Configuration interne valide ; aucune connexion externe au relais n'est prétendue." }
+    : { valid: false, status: "ERROR", message: "Secret interne invalide : au moins 32 octets non-placeholder sont requis." };
+}
+
+async function testIntegration(key: string, override: Record<string, string> = {}, readSecret = getSecret, privateKeyHint?: string | null, brevoAccount?: GenericIntegrationValidation): Promise<GenericIntegrationValidation> {
+  const keys = INTEGRATION_GROUPS[key] ?? [key];
+  const values = await Promise.all(keys.map((name) => override[name] ?? readSecret(name)));
+  const required = key === "PIPEDREAM_CONNECT" ? values.slice(0, 3) : values;
+  if (!required.every(Boolean)) {
+    const missing = keys.filter((name, index) => index < required.length && !values[index]);
+    return { valid: false, status: "NOT_CONFIGURED", message: `Configuration incomplète : ${missing.join(", ")} non renseigné(s).` };
+  }
+  const [first, second, third] = values.map((value) => value ?? "");
+  if (key === "APPLE_MUSICKIT" || key === "APPLE_IAP") {
+    const issue = appleKeyPairIssue(second, privateKeyHint);
+    if (issue) return { valid: false, status: "ERROR", message: issue };
+  }
+  if (key === "APPLE_MUSICKIT") return validateAppleMusicCredentials(first, second, third);
+  if (key === "SPOTIFY") return validateSpotifyCredentials(first, second);
+  if (key === "PIPEDREAM_CONNECT") {
+    if (values[3] && !["development", "production"].includes(values[3])) {
+      return { valid: false, status: "ERROR", message: "Environnement Pipedream invalide." };
+    }
+    return validatePipedreamCredentials(first, second, third);
+  }
+  if (key === "ACRCLOUD") return validateAcrCloudCredentials(first, second, third);
+  if (key === "BREVO") return validateBrevoCredentials(first, second, third, brevoAccount);
+  if (key === "ACCOUNT_EMAIL_CODE_SECRET" || key === "AI_RELAY_API_KEY") return validateInternalIntegrationSecret(first);
+  if (key === "AUDD_API_KEY") return validateAuddToken(first);
+  if (key === "MUSICAPI_CLIENT_ID") return validateMusicApiClientId(first);
+  if (key === "BREVO_API_KEY") return validateBrevoApiKey(first);
+  if (key === "YOUTUBE_API_KEY") return validateYouTubeApiKey(first);
+  if (key === "STRIPE_SECRET_KEY") return validateStripeSecretKey(first);
+  if (key === "GOOGLE_TRANSLATE_API_KEY") return validateGoogleTranslateApiKey(first);
+  if (key === "APPLE_IAP") {
+    return { valid: true, status: "UNKNOWN", message: "Optionnel : aucun runtime Loki Music n'utilise Apple IAP. Le format .p8 ne prouve pas l'accès au service." };
+  }
+  if (key === "RESEND_API_KEY" || key === "MAILJET_API_KEY" || key === "PADDLE_API_KEY") {
+    const mailjetSecret = key === "MAILJET_API_KEY" ? await readSecret("MAILJET_SECRET_KEY") : null;
+    if (key === "MAILJET_API_KEY" && !mailjetSecret) return { valid: false, status: "NOT_CONFIGURED", message: "Mailjet : API Key et Secret Key requis." };
+    try {
+      const url = key === "RESEND_API_KEY" ? "https://api.resend.com/domains"
+        : key === "MAILJET_API_KEY" ? "https://api.mailjet.com/v3/REST/myprofile"
+        : "https://api.paddle.com/event-types";
+      const authorization = key === "MAILJET_API_KEY" ? `Basic ${btoa(`${first}:${mailjetSecret}`)}` : "Bearer " + first;
+      const response = await fetch(url, { headers: { Authorization: authorization }, signal: AbortSignal.timeout(10000) });
+      return response.ok ? { valid: true, status: "ACTIVE", message: "Accès fournisseur vérifié sans envoi d'e-mail." }
+        : { valid: false, status: response.status === 429 ? "EXHAUSTED" : "ERROR", message: `Accès fournisseur non confirmé (HTTP ${response.status}).` };
+    } catch {
+      return { valid: false, status: "ERROR", message: "Impossible de joindre le fournisseur." };
+    }
+  }
+  return { valid: true, status: "UNKNOWN", message: "Configuré ; aucun test fournisseur automatique disponible pour cette valeur." };
+}
+
+async function testSavedIntegrations() {
+  const keys = [...new Set(Object.keys(CATALOG).map(integrationRuntimeKey))];
+  const results: { key: string; status: string; last_error: string | null; last_checked_at: string }[] = [];
+  const secrets = new Map<string, Promise<string | null>>();
+  const readSaved = (key: string) => {
+    if (!secrets.has(key)) secrets.set(key, getSecret(key));
+    return secrets.get(key)!;
+  };
+  const { data: metadata, error: metadataError } = await admin.from("integration_secrets").select("key,value_hint").abortSignal(AbortSignal.timeout(5000));
+  if (metadataError) throw metadataError;
+  const savedHints = new Map((metadata ?? []).map((row: any) => [row.key, row.value_hint]));
+  let cursor = 0;
+  await Promise.all(Array.from({ length: 3 }, async () => {
+    while (cursor < keys.length) {
+      const key = keys[cursor++];
+      let validation: GenericIntegrationValidation;
+      try {
+        const privateKey = key === "APPLE_MUSICKIT" ? "APPLE_MUSICKIT_PRIVATE_KEY" : key === "APPLE_IAP" ? "APPLE_IAP_PRIVATE_KEY" : "";
+        validation = await testIntegration(key, {}, readSaved, privateKey ? savedHints.get(privateKey) as string | null : null);
+      } catch {
+        validation = { valid: false, status: "ERROR", message: "Impossible de lire ou vérifier la configuration serveur." };
+      }
+      results.push({ key, status: validation.status, last_error: validation.status === "ACTIVE" ? null : validation.message, last_checked_at: new Date().toISOString() });
+      for (const member of INTEGRATION_GROUPS[key] ?? []) {
+        let status = validation.status;
+        let message = validation.message;
+        try {
+          if (!await readSaved(member)) {
+            status = "NOT_CONFIGURED";
+            message = `${member} non renseigné.`;
+          }
+        } catch {
+          status = "ERROR";
+          message = "Impossible de lire la configuration serveur.";
+        }
+        results.push({ key: member, status, last_error: status === "ACTIVE" ? null : message, last_checked_at: new Date().toISOString() });
+      }
+    }
+  }));
+  return results.sort((a, b) => keys.indexOf(integrationRuntimeKey(a.key)) - keys.indexOf(integrationRuntimeKey(b.key)));
 }
 
 async function resetIntegrationRuntimeStatus(key: string, configured: boolean) {
-  const runtimeKey = key.startsWith("ACRCLOUD_") ? "ACRCLOUD" : key;
-  const tracked = new Set(["AUDD_API_KEY", "ACRCLOUD", "BREVO_API_KEY", "YOUTUBE_API_KEY", "STRIPE_SECRET_KEY", "MUSICAPI_CLIENT_ID", "PIPEDREAM_CONNECT"]);
+  const runtimeKey = integrationRuntimeKey(key);
+  const tracked = new Set(["AUDD_API_KEY", "ACRCLOUD", "BREVO", "YOUTUBE_API_KEY", "GOOGLE_TRANSLATE_API_KEY", "STRIPE_SECRET_KEY", "MUSICAPI_CLIENT_ID", "PIPEDREAM_CONNECT", "APPLE_MUSICKIT", "SPOTIFY", "APPLE_IAP"]);
   if (!tracked.has(runtimeKey)) return;
   const now = new Date().toISOString();
   await admin.from("integration_runtime_status").upsert({
@@ -542,10 +756,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
 
+  let action = "";
   try {
     const actor = await requireAdmin(req);
     const body = await req.json().catch(() => ({}));
-    const action = String(body?.action ?? "");
+    action = String(body?.action ?? "");
 
     if (action === "plans.list") {
       assertRole(actor, ["SUPER_ADMIN", "ADMIN", "FINANCE"]);
@@ -608,6 +823,11 @@ Deno.serve(async (req) => {
         .order("category")
         .order("key");
       if (error) throw error;
+      // Ces identifiants ne sont pas secrets ; le PEM ne quitte jamais le serveur.
+      const [musicKitKeyId, iapKeyId] = await Promise.all([
+        getAppleKeyId("APPLE_MUSICKIT_KEY_ID"),
+        getAppleKeyId("APPLE_IAP_KEY_ID"),
+      ]);
       const indexed = new Map((data ?? []).map((row: any) => [row.key, row]));
       return json(200, {
         data: Object.entries(CATALOG).map(([key, meta]) => {
@@ -618,13 +838,22 @@ Deno.serve(async (req) => {
             key,
             ...meta,
             configured: vaultConfigured || edgeConfigured,
-            hint: row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
+            hint: key === "APPLE_MUSICKIT_PRIVATE_KEY" ? applePrivateKeyListHint(musicKitKeyId, row?.value_hint)
+              : key === "APPLE_IAP_PRIVATE_KEY" ? applePrivateKeyListHint(iapKeyId, row?.value_hint)
+              : row?.value_hint ?? (edgeConfigured ? "configuré côté serveur" : null),
             updatedAt: row?.updated_at ?? null,
             source: vaultConfigured ? "VAULT" : edgeConfigured ? "EDGE_SECRET" : null,
-            configurationIssue: integrationConfigurationIssue(key, row?.value_hint ?? null),
+            configurationIssue: key === "APPLE_MUSICKIT_PRIVATE_KEY" ? appleKeyPairIssue(musicKitKeyId, row?.value_hint)
+              : key === "APPLE_IAP_PRIVATE_KEY" ? appleKeyPairIssue(iapKeyId, row?.value_hint)
+              : integrationConfigurationIssue(key, row?.value_hint ?? null),
           };
         }),
       });
+    }
+
+    if (action === "integrations.test") {
+      assertRole(actor, ["SUPER_ADMIN", "ADMIN", "TECH"]);
+      return json(200, { data: await testSavedIntegrations() });
     }
 
     if (action === "integrations.set") {
@@ -634,6 +863,16 @@ Deno.serve(async (req) => {
       const meta = CATALOG[key];
       if (!meta) return json(400, { error: "integration_key_not_allowed" });
       if (!value) return json(400, { error: "value_required" });
+      let appleFile: Awaited<ReturnType<typeof validateApplePrivateKey>> | null = null;
+      if (key === "APPLE_MUSICKIT_PRIVATE_KEY" || key === "APPLE_IAP_PRIVATE_KEY") {
+        try {
+          appleFile = await validateApplePrivateKey(key, value, body.fileName, body.keyId);
+        } catch (error) {
+          const message = error instanceof ApplePrivateKeyValidationError
+            ? error.message : "Impossible de vérifier la Clé ID côté serveur.";
+          return json(400, { error: "invalid_apple_private_key", message });
+        }
+      }
       if (key === "STRIPE_SECRET_KEY" && !/^sk_(test_|live_)/.test(value)) {
         const message = "Stripe Secret Key doit commencer par sk_test_ ou sk_live_. Une clé pk_ est publique et va dans STRIPE_PUBLISHABLE_KEY.";
         await setRecognitionRuntimeStatus(key, "ERROR", message);
@@ -647,10 +886,15 @@ Deno.serve(async (req) => {
       if (structuredValidation && !structuredValidation.valid) {
         return json(400, { error: "invalid_integration_value", message: structuredValidation.message, validation: structuredValidation });
       }
+      const internalValidation = key === "ACCOUNT_EMAIL_CODE_SECRET" || key === "AI_RELAY_API_KEY" ? validateInternalIntegrationSecret(value) : null;
+      if (internalValidation && !internalValidation.valid) {
+        return json(400, { error: "invalid_internal_secret", message: internalValidation.message, validation: internalValidation });
+      }
 
       const directProviderValidation =
         key === "BREVO_API_KEY" ? await validateBrevoApiKey(value) :
         key === "YOUTUBE_API_KEY" ? await validateYouTubeApiKey(value) :
+        key === "GOOGLE_TRANSLATE_API_KEY" ? await validateGoogleTranslateApiKey(value) :
         key === "STRIPE_SECRET_KEY" ? await validateStripeSecretKey(value) :
         null;
       if (directProviderValidation && !directProviderValidation.valid) {
@@ -711,7 +955,25 @@ Deno.serve(async (req) => {
           }
         }
       }
-      const valueHint = hint(value);
+      let catalogueValidation: GenericIntegrationValidation | null = null;
+      if (key.startsWith("APPLE_MUSICKIT_") || key.startsWith("SPOTIFY_") || INTEGRATION_GROUPS.BREVO.includes(key)) {
+        const override: Record<string, string> = { [key]: value };
+        if (appleFile?.keyId) override[appleFile.idKey] = appleFile.keyId;
+        catalogueValidation = await testIntegration(integrationRuntimeKey(key), override, getSecret, null, key === "BREVO_API_KEY" ? directProviderValidation ?? undefined : undefined);
+        if (catalogueValidation.status === "ERROR" && !catalogueValidation.valid) {
+          await setRecognitionRuntimeStatus(integrationRuntimeKey(key), "ERROR", catalogueValidation.message);
+          return json(400, { error: "provider_rejected_credentials", message: catalogueValidation.message, validation: catalogueValidation });
+        }
+      }
+      const appleId = appleFile ? appleFile.keyId ?? await getAppleKeyId(appleFile.idKey) : null;
+      const valueHint = appleFile ? (appleId ? `Clé ${appleId}` : "Clé ID non renseignée") : hint(value);
+      if (appleFile?.keyId) {
+        const { error: idError } = await admin.rpc("service_set_integration_secret", {
+          p_key: appleFile.idKey, p_category: meta.category, p_value: appleFile.keyId,
+          p_hint: `Clé ${appleFile.keyId}`, p_updated_by: actor.id,
+        });
+        if (idError) throw idError;
+      }
       const { error } = await admin.rpc("service_set_integration_secret", {
         p_key: key,
         p_category: meta.category,
@@ -720,7 +982,9 @@ Deno.serve(async (req) => {
         p_updated_by: actor.id,
       });
       if (error) throw error;
-      if (key === "AUDD_API_KEY" && providerValidation) {
+      if (catalogueValidation) {
+        await setRecognitionRuntimeStatus(integrationRuntimeKey(key), catalogueValidation.status, catalogueValidation.message);
+      } else if (key === "AUDD_API_KEY" && providerValidation) {
         await setRecognitionRuntimeStatus("AUDD_API_KEY", providerValidation.status, providerValidation.message);
       } else if (directProviderValidation) {
         await setRecognitionRuntimeStatus(key, directProviderValidation.status, directProviderValidation.message);
@@ -737,7 +1001,7 @@ Deno.serve(async (req) => {
       } else {
         await resetIntegrationRuntimeStatus(key, true);
       }
-      const validation = providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation ?? directProviderValidation ?? structuredValidation;
+      const validation = catalogueValidation ?? internalValidation ?? providerValidation ?? acrValidation ?? musicApiValidation ?? pipedreamValidation ?? directProviderValidation ?? structuredValidation;
       await audit(actor.id, "integration_secret.updated", "integration_secret", key, { key, category: meta.category, hint: valueHint, validation });
       return json(200, { ok: true, key, configured: true, hint: valueHint, validation, recognitionReady: key.startsWith("ACRCLOUD_") ? Boolean(acrValidation?.valid) : undefined });
     }
@@ -1177,6 +1441,6 @@ Deno.serve(async (req) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const status = message === "unauthorized" ? 401 : message === "admin_required" || message === "role_forbidden" ? 403 : 500;
-    return json(status, { error: message });
+    return json(status, { error: status === 500 && action.startsWith("integrations.") ? "integration_server_error" : message });
   }
 });

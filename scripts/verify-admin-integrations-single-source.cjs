@@ -19,5 +19,33 @@ must(backend.includes('ACRCLOUD_ACCESS_KEY') && backend.includes('ACRCLOUD_ACCES
 must(backend.includes('Pipedream Connect vérifié et prêt') && backend.includes('status: "ACTIVE" as const'), 'Pipedream success must persist as ACTIVE, never unsupported OK');
 must(backend.includes('if (error) throw error;'), 'runtime integration status writes must not fail silently');
 
+const keysSource = fs.readFileSync(path.join(root, 'packages/admin/lib/integrationKeys.ts'), 'utf8');
+const urgentList = keysSource.match(/REQUIRED_INTEGRATION_KEYS\s*=\s*\[([\s\S]*?)\]\s*as const/);
+must(Boolean(urgentList), 'urgent keys must come from the shared editor contract');
+const urgentKeys = [...urgentList[1].matchAll(/'([A-Z0-9_]+)'/g)].map((match) => match[1]);
+const functionRoot = path.join(root, 'supabase/functions');
+const consumers = fs.readdirSync(functionRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name !== 'keep-admin-control' && entry.name !== '_shared')
+  .flatMap((entry) => fs.readdirSync(path.join(functionRoot, entry.name))
+    .filter((file) => file.endsWith('.ts')).map((file) => path.join(functionRoot, entry.name, file)));
+function runtimeCode(file, visited = new Set()) {
+  if (visited.has(file)) return '';
+  visited.add(file);
+  const code = fs.readFileSync(file, 'utf8');
+  return code + [...code.matchAll(/from\s+["'](\.\.?\/[^"']+\.ts)["']/g)].map((match) => {
+    const dependency = path.resolve(path.dirname(file), match[1]);
+    return fs.existsSync(dependency) ? runtimeCode(dependency, visited) : '';
+  }).join('\n');
+}
+const runtimeSources = consumers.map((file) => runtimeCode(file));
+for (const key of urgentKeys) {
+  must(runtimeSources.some((code) => code.includes('service_get_integration_secret') &&
+    new RegExp(`(?:integrationSecret|readIntegrationSecret|getSecret|secret)\\([^\\n]*["']${key}["']`).test(code)),
+  `${key}: urgent key has no runtime RPC consumer outside admin-control`);
+}
+must(!page.includes('À tester'), 'only OK, Refusée and Manquante states may be displayed');
+must(page.includes("action: 'integrations.test'"), 'automatic provider check on opening is required');
+must(page.includes('Optionnel / plus tard'), 'optional keys must remain in a collapsed section');
+
 console.log('KEEP Super Admin integrations: PASS');
 console.log('single provider editor; ACRCloud active path; AudD optional when absent; inline validation locked');
