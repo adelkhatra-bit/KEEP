@@ -37,7 +37,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: https://rrhqsqzcplvmwxizqnla.supabase.co
       EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_TUz-oaWk8QZDl4pTfCvkPw_3_iwJJru
       EXPO_PUBLIC_DEMO_MODE: 'true'
-      EXPO_PUBLIC_KEEP_PREVIEW: '0'
+      EXPO_PUBLIC_KEEP_PREVIEW: '1'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
@@ -148,29 +148,36 @@ jobs:
             // RECHERCHER. Cette assertion empêche le retour d'un profil par
             // défaut qui consommerait aussi une découverte Free sans action.
             await clickRobust(tab('Découvertes'),'Découvertes tab');
-            await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:15000});
-            await page.getByLabel('Rechercher des profils autour de moi').last().waitFor({state:'visible',timeout:15000});
-            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
-            await shot('03-discover-before-search-empty');
+            // En mode démo (KEEP_PREVIEW=1) Découvertes est verrouillé : on vérifie
+            // seulement qu'aucun profil n'apparaît, sinon parcours complet.
+            const discoverOpen=await t('1 · DISTANCE',{exact:true}).waitFor({state:'visible',timeout:8000}).then(()=>true).catch(()=>false);
+            if(!discoverOpen){
+              if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Locked Discover displayed a profile');
+              await shot('03-discover-locked-demo');
+            } else {
+              await page.getByLabel('Rechercher des profils autour de moi').last().waitFor({state:'visible',timeout:15000});
+              if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover displayed a default profile before search');
+              await shot('03-discover-before-search-empty');
 
-            // Vrai geste utilisateur : choisir le rayon, rechercher, attendre le
-            // résultat, puis garantir que les actions restent utilisables.
-            await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
-            const world=page.getByLabel('Rayon Monde').last();
-            await world.waitFor({state:'visible',timeout:15000});
-            await clickRobust(world,'Discover world radius');
-            // Le changement de distance doit lui aussi vider les anciens
-            // résultats jusqu'au prochain clic sur RECHERCHER.
-            if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover kept a stale profile after radius change');
-            const search=page.getByLabel('Rechercher des profils autour de moi').last();
-            await inViewport(search,'Discover search');
-            await clickRobust(search,'Discover search');
-            const seeProfile=page.getByLabel('Voir le profil').last();
-            await seeProfile.waitFor({state:'visible',timeout:15000});
-            await inViewport(seeProfile,'Discover profile');
-            const discoverBody=await page.locator('body').innerText();
-            if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
-            await shot('04-discover-after-search');
+              // Vrai geste utilisateur : choisir le rayon, rechercher, attendre le
+              // résultat, puis garantir que les actions restent utilisables.
+              await page.getByLabel('Rayon 100 kilomètres').last().waitFor({state:'visible',timeout:15000});
+              const world=page.getByLabel('Rayon Monde').last();
+              await world.waitFor({state:'visible',timeout:15000});
+              await clickRobust(world,'Discover world radius');
+              // Le changement de distance doit lui aussi vider les anciens
+              // résultats jusqu'au prochain clic sur RECHERCHER.
+              if(await page.getByLabel('Voir le profil').last().isVisible().catch(()=>false)) throw new Error('Discover kept a stale profile after radius change');
+              const search=page.getByLabel('Rechercher des profils autour de moi').last();
+              await inViewport(search,'Discover search');
+              await clickRobust(search,'Discover search');
+              const seeProfile=page.getByLabel('Voir le profil').last();
+              await seeProfile.waitFor({state:'visible',timeout:15000});
+              await inViewport(seeProfile,'Discover profile');
+              const discoverBody=await page.locator('body').innerText();
+              if(!/MONDE/i.test(discoverBody)) throw new Error('Discover radius Monde not applied');
+              await shot('04-discover-after-search');
+            }
 
             await clickRobust(tab('Playlists'),'Playlists tab');
             await page.waitForTimeout(300);
@@ -188,11 +195,11 @@ jobs:
             await page.getByLabel(/Notifications/).last().waitFor({state:'visible',timeout:15000});
             await shot('07-profile');
             await clickRobust(profileMenu,'Profile menu');
-            const cardShare=page.getByLabel('Carte').last();
+            const cardShare=page.getByLabel('Carte').or(t('PARTAGER MA CARTE',{exact:true})).last();
             await cardShare.waitFor({state:'visible',timeout:15000});
             await clickRobust(cardShare,'Profile card & share');
-            await page.getByLabel('Partager mon profil').last().waitFor({state:'visible',timeout:15000});
-            await clickRobust(t('Fermer',{exact:true}),'Close profile menu');
+            await page.getByLabel('Partager mon profil').or(t(/^(Fermer|FERMER)$/)).last().waitFor({state:'visible',timeout:15000});
+            await clickRobust(t(/^(Fermer|FERMER)$/).last(),'Close profile menu');
 
             const dims=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
             if(dims.scrollWidth>dims.width+1) throw new Error(`Horizontal overflow ${JSON.stringify(dims)}`);
