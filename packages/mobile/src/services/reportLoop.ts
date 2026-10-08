@@ -30,7 +30,7 @@ export const screenLabel = (screen: string) => SCREEN_LABELS[screen] ?? `l’éc
 export function composeReportUpdateLine(update: ReportUpdate, seed = 0): string {
   const where = screenLabel(update.screen);
   const pick = (list: string[]) => list[Math.abs(seed) % list.length];
-  if (update.status === 'FIXED') return pick([`Ton souci sur ${where} a été localisé et réparé ✅ Tu peux réessayer.`, `C’est réglé : le bug sur ${where} a été nettoyé ✅ Merci de l’avoir signalé !`]);
+  if (update.status === 'FIXED') return pick([`Merci, c’est réparé ✅ Ton souci sur ${where} a été localisé. Tu peux réessayer.`, `C’est réglé : le bug sur ${where} a été nettoyé ✅ Merci de l’avoir signalé !`]);
   if (update.status === 'NEEDS_UPDATE') return pick([`Le bug sur ${where} est réparé ✅ Fais ta mise à jour de l’app pour en profiter.`, `Correction prête pour ${where} ✅ Mets l’app à jour (ou relance-la) pour la recevoir.`]);
   return pick([`J’ai regardé ton signalement sur ${where} : tout fonctionne de notre côté. Réessaie, et secoue de nouveau si ça persiste.`, `Pas de bug détecté sur ${where} pour l’instant. Si ça recommence, secoue ton téléphone et décris-le.`]);
 }

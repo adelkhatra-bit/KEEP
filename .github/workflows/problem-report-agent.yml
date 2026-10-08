@@ -1,0 +1,63 @@
+name: KEEP — Agent Signalements
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  pull_request:
+    branches: [reconcile/claude-main-20260825]
+    paths:
+      - 'scripts/problem-report-agent*'
+      - '.github/workflows/problem-report-agent.yml'
+      - 'supabase/migrations/*problem_report*'
+      - 'packages/admin/pages/problem-reports.tsx'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-problem-report-agent-${{ github.event_name == 'pull_request' && github.ref || 'canonical' }}
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.ref || 'reconcile/claude-main-20260825' }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: node --test scripts/problem-report-agent.test.cjs scripts/problem-report-evidence.test.cjs
+
+  reports:
+    if: github.repository == 'adelkhatra-bit/KEEP' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/reconcile/claude-main-20260825'))
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      actions: read
+    steps:
+      # GitHub ne planifie que les workflows présents sur sa branche par défaut.
+      # Adel doit activer la planification depuis la source canonique ; aucun code main n'est exécuté.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: reconcile/claude-main-20260825
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Analyser et suivre les signalements réels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COPILOT_ASSIGNMENT_TOKEN: ${{ secrets.COPILOT_ASSIGNMENT_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/problem-report-agent.cjs

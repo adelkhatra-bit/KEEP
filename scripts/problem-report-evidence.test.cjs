@@ -332,6 +332,29 @@ test('SQL local isolé : idempotence, RLS, guards, formes JSON, preuves et persi
     query(sql); // Réapplication avec données : aucune preuve/donnée perdue.
     assert.deepEqual(value(queryRow()), before);
     assert.deepEqual(value(asAdmin('select public.admin_problem_report_overview();')), summary);
+    const agentSql = fs.readFileSync(path.join(migrations, '20261008110000_problem_report_agent.sql'), 'utf8');
+    query(agentSql);
+    query(agentSql); // Idempotent, aucune mutation de rapport.
+    assert.deepEqual(value(queryRow()), before);
+    fails('set role anon; select public.keep_my_report_updates();', 'permission denied');
+    fails(`set role authenticated; set request.jwt.claim.sub = '${other}'; select public.admin_problem_reports_with_evidence();`, 'unauthorized');
+    query(`update public.app_problem_reports set ai_note = 'Cause probable : fixture privée',
+      fixed_in_sha = '${'a'.repeat(40)}', regression_test_path = 'scripts/a.test.cjs',
+      status = 'FIXED', resolved_at = now(), notified_at = null where id = '${id}';`);
+    assert.deepEqual(value(asAdmin('select coalesce(jsonb_agg(r), \'[]\'::jsonb) from public.keep_my_report_updates() r;')), [],
+      'un correctif documentaire seul ne déclenche pas une annonce');
+    const listed = value(asAdmin('select public.admin_problem_reports_with_evidence(\'FIXED\', 500);')).find(r => r.id === id);
+    assert.equal(listed.ai_note, 'Cause probable : fixture privée');
+    assert.ok(Object.hasOwn(listed, 'device'));
+    assert.ok(Object.hasOwn(listed, 'os_version'));
+    query(`update public.app_problem_reports set ai_note = 'Publié <!-- keep-published:${'a'.repeat(40)} -->' where id = '${id}';`);
+    const announced = value(asAdmin('select coalesce(jsonb_agg(r), \'[]\'::jsonb) from public.keep_my_report_updates() r;'));
+    assert.deepEqual(announced.map(r => r.id), [id]);
+    query(asAdmin(`select public.keep_report_ack(array['${id}']::uuid[]);`));
+    assert.deepEqual(value(asAdmin('select coalesce(jsonb_agg(r), \'[]\'::jsonb) from public.keep_my_report_updates() r;')), [],
+      'pas de notification répétée après accusé');
+    query(`update public.app_problem_reports set status = 'IN_PROGRESS', ai_note = 'Analyse privée' where id = '${id}';`);
+    assert.equal(value(asAdmin('select public.admin_problem_reports_with_evidence(\'IN_PROGRESS\', 500);'))[0].ai_note, 'Analyse privée');
   } finally {
     try {
       if (started) run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']);

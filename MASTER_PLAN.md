@@ -1,5 +1,8 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## Issue #68 — plan demandé par Adel, 08/10/2026
+Compléter IDEA-181/125 et le tri existant : workflow 15 min/manuellement sur reconcile, regroupement code + écran, notes françaises, une issue de réparation Copilot par groupe, écritures limitées aux sept colonnes de suivi. Conserver les couches de secousse existantes et le design. Tester regroupement, ancêtres Git, permissions d'écriture, statuts et publication avant notification. Validation réelle des 90 lignes et secrets Actions à confirmer, jamais supposée.
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 

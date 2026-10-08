@@ -18,7 +18,9 @@ async function scenario(browser, width, height) {
   let unavailable = false;
   let stored = { id: '00000000-0000-0000-0000-000000000001', created_at: '2026-10-06T23:00:00Z',
     kind: 'MANUAL', status: 'NEW', message: 'Signalement de fixture uniquement', screen: 'Profil',
-    platform: 'ios', app_version: '1.0.0', username: 'fixture', fixed_in_sha: null, regression_test_path: null };
+    platform: 'ios', app_version: '1.0.0', username: 'fixture', fixed_in_sha: null, regression_test_path: null,
+    ai_note: 'Cause probable : fixture. Module : Son. Fichiers : audioPreviewService.ts.',
+    build_sha: sha, device: 'Fixture iPhone', os_version: '15.1' };
   const exp = Math.floor(Date.now() / 1000) + 3600;
   const token = [Buffer.from('{"alg":"none"}').toString('base64url'), Buffer.from(JSON.stringify({ exp, sub: stored.id })).toString('base64url'), 'fixture'].join('.');
   await context.addInitScript(({ token, exp, id }) => {
@@ -103,6 +105,17 @@ async function scenario(browser, width, height) {
   const reportsResponse = await page.reload();
   assert.equal(reportsResponse.status(), 200, 'Signalements accessible aussi sans routeur client');
   assert.equal(page.url(), reportsUrl, 'Reload conserve le basePath');
+  await page.getByText('Analyse & contexte', { exact: true }).click();
+  await page.getByText(stored.ai_note, { exact: true }).waitFor();
+  for (const [status, button, label] of [
+    ['SEEN', 'Analysés', 'ANALYSÉ'], ['IN_PROGRESS', 'En cours', 'EN COURS'],
+    ['NEEDS_UPDATE', 'Déjà corrigés', 'DÉJÀ CORRIGÉ'],
+  ]) {
+    stored.status = status;
+    await page.getByRole('button', { name: button, exact: true }).click();
+    await page.getByText(label, { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Débordement ${status} ${width}`);
+  }
   await page.getByRole('button', { name: '✓ Corrigé', exact: true }).click();
   const save = page.getByRole('button', { name: 'Enregistrer preuves' });
   assert.ok(await save.isDisabled());
