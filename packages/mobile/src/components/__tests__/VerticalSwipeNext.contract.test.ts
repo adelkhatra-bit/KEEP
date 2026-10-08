@@ -26,7 +26,7 @@ describe('TikTok-style upward swipe contract', () => {
   it('maps swipe up to next detected track in Listen too', () => {
     expect(home).toContain('onSwipeUp={canGoOlder ? goOlder : undefined}');
     expect(home).toContain('upLabel="SUIVANT"');
-    expect(home).toContain('Swipe facultatif : ↑ suivant');
+    expect(home).toContain('hint="↑ suivant · ← passer · fiche →"');
   });
 
   it('never makes the gesture mandatory: PASSER, GARDER and ARRÊTER remain visible', () => {

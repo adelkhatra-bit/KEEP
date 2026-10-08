@@ -1,5 +1,11 @@
 import { supabase } from './supabaseClient';
 import { isFeatureEnabled } from './featureFlagService';
+import { useUserStore } from '../store/useUserStore';
+
+export function canWriteBattleState(): boolean {
+  const { user, isDemoMode, isLocalGuest } = useUserStore.getState();
+  return Boolean(user?.id && !isDemoMode && !isLocalGuest);
+}
 
 export type KeepBattleArenaRules = {
   stakeFree: number;
@@ -33,6 +39,7 @@ export type KeepBattleSoloRound = {
 };
 
 export type KeepBattleSoloPack = {
+  reportToken?: string;
   mode: 'SOLO_TRAINING';
   themeCode: string;
   roundCount: number;
@@ -40,6 +47,36 @@ export type KeepBattleSoloPack = {
   rewardFree: 0;
   rounds: KeepBattleSoloRound[];
 };
+
+export function battlePreviewPositionMillis(value: unknown, lateByMs = 0): number {
+  const seconds = typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(20, value)) : 12;
+  return seconds * 1000 + Math.max(0, lateByMs);
+}
+
+export async function loadBattlePreviewStartSec(): Promise<number> {
+  if (!supabase) return 12;
+  try {
+    const { data, error } = await supabase.from('remote_config').select('value').eq('key', 'battle_preview_start_sec').maybeSingle();
+    return battlePreviewPositionMillis(error ? undefined : data?.value) / 1000;
+  } catch { return 12; }
+}
+
+export async function reportBattleNoVoice(params: { arenaId?: string; matchNo?: number; position: number; startedAt?: string | null; reportToken?: string; trackId?: string }): Promise<any> {
+  if (!canWriteBattleState()) return null;
+  const { data, error } = await client().rpc('keep_battle_report_no_voice', {
+    p_arena_id: params.arenaId || null, p_match_no: params.matchNo || null,
+    p_position: params.position, p_started_at: params.startedAt || null,
+    p_solo_token: params.reportToken || null, p_track_id: params.trackId || null,
+  });
+  if (error) throw new Error(error.message || 'BATTLE_NO_VOICE_FAILED');
+  return data;
+}
+
+export async function activateBattleSoloRound(token: string | undefined, position: number, trackId: string): Promise<void> {
+  if (!canWriteBattleState() || !token) return;
+  const { error } = await client().rpc('keep_battle_solo_round_active', { p_token: token, p_position: position, p_track_id: trackId });
+  if (error) throw new Error(error.message || 'BATTLE_SOLO_ROUND_INVALID');
+}
 
 const FALLBACK_RULES: KeepBattleArenaRules = {
   stakeFree: 3,
@@ -156,6 +193,7 @@ export async function loadKeepBattleSoloPacks(): Promise<KeepBattleSoloPacks | n
   };
 }
 export async function buyKeepBattleSoloPack(code: 'SMALL' | 'LARGE'): Promise<{ solosAdded: number; freeSpent: number; balance: number }> {
+  if (!canWriteBattleState()) throw new Error('BATTLE_AUTH_REQUIRED');
   const { data, error } = await client().rpc('keep_battle_solo_buy_pack', { p_code: code });
   if (error) throw new Error(String(error.message || 'BATTLE_SOLO_PACK_FAILED'));
   const raw = (data ?? {}) as any;
@@ -177,6 +215,7 @@ export async function loadMyFreeRechargeInfo(profileId: string, planCode: string
 }
 
 export async function consumeKeepBattleSoloDailyStart(sessionToken: string): Promise<KeepBattleSoloDailyStatus> {
+  if (!canWriteBattleState()) return { plan: 'DEMO', used: 0, limit: null, remaining: null, unlimited: true, resetsAt: null, dailyIncluded: null, purchasedRemaining: null };
   const token = String(sessionToken || '').trim();
   if (token.length < 8) throw new Error('BATTLE_SOLO_SESSION_TOKEN_INVALID');
   const { data, error } = await client().rpc('keep_battle_solo_consume_daily_start', { p_session_token: token, p_timezone: deviceTimeZone() });
@@ -208,11 +247,29 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== 'MIX'))).slice(0, 3);
-  const { data, error } = await client().rpc('keep_battle_solo_pack', {
+  let data: any;
+  let error: any;
+  if (!canWriteBattleState()) {
+    const response = await client().from('keep_battle_voice_eligible_tracks').select('id,title,artist,preview_url,artwork_url').not('preview_url', 'is', null).limit(100);
+    error = response.error;
+    const artists = new Set<string>();
+    const tracks = (response.data || []).filter((track: any) => {
+      if (!track.preview_url || !track.artist || artists.has(track.artist.toLowerCase())) return false;
+      artists.add(track.artist.toLowerCase()); return true;
+    });
+    data = { themeCode: 'MIX', rounds: tracks.slice(0, roundCount).map((track: any, index: number) => ({
+      position: index + 1, trackId: track.id, title: track.title, artist: track.artist,
+      previewUrl: track.preview_url, artworkUrl: track.artwork_url,
+      correctAnswer: track.artist, choices: [track.artist, ...tracks.filter((other: any) => other.id !== track.id).slice(0, 3).map((other: any) => other.artist)],
+    })) };
+  } else {
+    const response = await client().rpc('keep_battle_solo_pack', {
     p_theme_code: selectedThemes[0] || themeCode.toUpperCase(),
     p_round_count: Math.max(5, Math.min(roundCount, 30)),
     p_theme_codes: selectedThemes.length ? selectedThemes : null,
   });
+    data = response.data; error = response.error;
+  }
   if (error || !data || typeof data !== 'object') throw new Error(String(error?.message || 'BATTLE_SOLO_UNAVAILABLE'));
   const raw = data as any;
   // Adel (18/09/2026, audit) : simplifyArtistCredit retourne un format
@@ -275,6 +332,7 @@ export async function loadKeepBattleSoloPack(themeCode = 'MIX', roundCount = 8, 
     round.choices = unique.slice(0, 4);
   });
   return {
+    reportToken: raw.reportToken,
     mode: 'SOLO_TRAINING',
     themeCode: String(raw.themeCode || themeCode).toUpperCase(),
     roundCount: rounds.length,

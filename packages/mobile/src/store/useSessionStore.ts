@@ -4,7 +4,7 @@ import { CanonicalTrack, RecognitionResult } from '@keep/music';
 import { KeepSession, KeepVisibility, SessionTrackEntry, SessionTrackStatus } from '../types';
 import { musicEngine } from '../services/musicEngine';
 import { commitKeep } from '../services/keepTrackAction';
-import { authorizeNextPaidListenWithFree, clearNextPaidListenFreeAuthorization, markDirectRediscovery, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
+import { authorizeNextPaidListenWithFree, clearNextPaidListenFreeAuthorization, recordRecognitionCorrection, searchTrackByText, updateKeepDecisionVisibility } from '../services/keepMusicCoreRecognition';
 import { getDownloadCreditStatus } from '../services/creditService';
 import { cancelAudioCapture, captureAudioSample, MicCaptureCancelledError, MicPermissionDeniedError, prepareAudioCaptureFromUserGesture } from '../services/micCapture';
 import { Alert } from '../utils/keepAlert';
@@ -42,6 +42,8 @@ export const SILENCE_PROMPT_GRACE_MS = 30 * 1000;
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
+
+const keepInFlight = new Set<string>();
 
 function normalize(value: string | undefined): string {
   return (value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ');
@@ -203,6 +205,10 @@ interface SessionStore {
   setSilenceTimeoutMin: (minutes: number) => void;
   attachLocation: (label: string, lat?: number, lng?: number) => void;
   submitManualSearch: (query: string) => Promise<'added' | 'duplicate' | 'not_found'>;
+  addSearchRecognition: (recognition: RecognitionResult) => Promise<void>;
+  rejectRecognition: (entryId: string) => Promise<void>;
+  correctRecognition: (entryId: string, recognition: RecognitionResult) => Promise<boolean>;
+  openStoppedSession: (open: (sessionId: string | null) => void) => Promise<void>;
 }
 
 function persistLiveSession(state: SessionStore) {
@@ -222,10 +228,11 @@ function persistLiveSession(state: SessionStore) {
 function applyTrackEnrichment(
   sessionId: string,
   entryId: string,
+  trackId: string,
   patch: Pick<SessionTrackEntry, 'recommendations' | 'status' | 'existingMatch'>,
 ) {
   const enrich = (entry: SessionTrackEntry): SessionTrackEntry => {
-    if (entry.id !== entryId) return entry;
+    if (entry.id !== entryId || entry.track.id !== trackId) return entry;
     if (entry.status !== 'pending') {
       return { ...entry, recommendations: patch.recommendations };
     }
@@ -258,11 +265,12 @@ async function applyDetectedTrack(
   recognition: RecognitionResult,
   source: 'listen' | 'manual-search',
 ): Promise<'added' | 'duplicate' | 'inactive'> {
-  const track = musicEngine.trackResolver.resolveFromRecognition(recognition);
+  const track = musicEngine.trackResolver.resolveFromRecognition(recognition, undefined, { exactMetadata: source === 'manual-search' });
   // Anti-doublon session complet : A → B → A ne doit jamais recréer A.
   // Le même comparateur canonique est utilisé sur Mobile et Web (ISRC d'abord,
   // puis titre + artiste normalisés si l'ISRC manque).
-  const duplicate = get().tracks.find((entry) => sameTrack(entry.track, track));
+  const duplicate = get().tracks.find((entry) => sameTrack(entry.track, track)
+    || entry.rejectedRecognitions?.some((rejected) => sameTrack(rejected, track)));
   if (duplicate) {
     lastDetectionAt = Date.now();
     lastMatchAt = lastDetectionAt;
@@ -286,6 +294,9 @@ async function applyDetectedTrack(
     recommendations: [],
     status: 'pending',
     detectedAt: new Date().toISOString(),
+    recognitionEngine: recognition.engine ?? musicEngine.recognitionProvider.providerId,
+    recognitionAlternatives: (recognition.alternatives ?? []).slice(0, 3),
+    recognitionPending: source === 'listen',
   };
 
   // ECONOMIE FREE 04/10 : une écoute n'est comptée qu'après une vraie
@@ -356,16 +367,8 @@ async function applyDetectedTrack(
   void (async () => {
     try {
       const { session, playlists, match } = await findExistingTrack(track);
-      const sharedSource = await getSharedMusicSource().catch(() => null);
-      if (!sharedSource && match?.decisionId && match?.trackId) {
-        await markDirectRediscovery(match.trackId, {
-          source,
-          sessionId: sessionIdAtDetection,
-          detectedAt: entry.detectedAt,
-        }).catch(() => false);
-      }
       const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
-      applyTrackEnrichment(sessionIdAtDetection, entry.id, {
+      applyTrackEnrichment(sessionIdAtDetection, entry.id, track.id, {
         recommendations,
         status: match ? 'already_saved' : 'pending',
         existingMatch: match,
@@ -387,6 +390,7 @@ let consecutiveNoMatches = 0;
 let consecutiveWeakSamples = 0;
 let presenceGate = createMusicPresenceGateState();
 let listenFreeAuthorizedForNextSuccess = false;
+let captureStopPromise: Promise<void> = Promise.resolve();
 // Seuil sur le pic linéaire pré-gain (même échelle que le garde-fou silence
 // à 0.004 dans micCapture.ts) : sous cette valeur, même après amplification
 // x10, le signal est trop faible pour qu'une empreinte fiable en sorte --
@@ -644,12 +648,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   requestEndSession: (title) => {
     clearTimers();
-    void cancelAudioCapture();
+    captureStopPromise = cancelAudioCapture();
     void clearSharedMusicSource();
     const s = get();
     if (!s.sessionId || !s.startedAt) return null;
-    const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks };
-    if (session.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
+    const session: KeepSession = { id: s.sessionId, startedAt: s.startedAt, endedAt: new Date().toISOString(), title: title ?? null, locationLabel: s.locationLabel, lat: s.lat, lng: s.lng, tracks: s.tracks.filter((entry) => !entry.recognitionCorrectionKey) };
+    if (s.tracks.length > 0) useSessionHistoryStore.getState().upsertSession(session);
     presenceGate = createMusicPresenceGateState();
     listenFreeAuthorizedForNextSuccess = false;
     clearNextPaidListenFreeAuthorization();
@@ -657,9 +661,62 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     return session.tracks.length > 0 ? session.id : null;
   },
 
+  openStoppedSession: async (open) => {
+    const sessionId = get().requestEndSession();
+    await captureStopPromise;
+    open(sessionId);
+  },
+
+  rejectRecognition: async (entryId) => {
+    if (keepInFlight.has(entryId)) throw new Error('Ce titre est en cours de rangement.');
+    const entry = get().tracks.find((t) => t.id === entryId);
+    if (!entry || !['pending', 'already_saved'].includes(entry.status)) return;
+    const key = newId();
+    set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, recognitionCorrectionKey: key } : t) }));
+    persistLiveSession(get());
+    if (!musicEngine.isDemoMode) {
+      await recordRecognitionCorrection(key, entry.track, null, entry.recognitionEngine ?? 'unknown');
+    }
+  },
+
+  correctRecognition: async (entryId, recognition) => {
+    if (keepInFlight.has(entryId)) return false;
+    const entry = get().tracks.find((t) => t.id === entryId);
+    const sessionId = get().sessionId;
+    if (!entry || !sessionId || !entry.recognitionCorrectionKey || !['pending', 'already_saved'].includes(entry.status)) return false;
+    const track = musicEngine.trackResolver.resolveFromRecognition(recognition, undefined, { exactMetadata: true });
+    if (sameTrack(track, entry.track)) return false;
+    if (!musicEngine.isDemoMode) {
+      await recordRecognitionCorrection(entry.recognitionCorrectionKey, entry.track, track, entry.recognitionEngine ?? 'unknown');
+    }
+    // Un arrêt/changement pendant l'écriture ne doit pas ressusciter la carte.
+    const live = get();
+    if (!live.isActive || live.sessionId !== sessionId || live.tracks.find((t) => t.id === entryId)?.track.id !== entry.track.id) return false;
+    const duplicate = live.tracks.find((t) => t.id !== entryId && sameTrack(t.track, track));
+    set((s) => ({
+      tracks: s.tracks.filter((t) => t.id === entryId || t.id !== duplicate?.id).map((t) => t.id === entryId ? {
+        ...t, ...(duplicate ?? {}), id: entryId, track: duplicate?.track ?? track,
+        status: duplicate?.status ?? 'pending', recommendations: duplicate?.recommendations ?? [], existingMatch: duplicate?.existingMatch,
+        recognitionAlternatives: [], recognitionCorrectionKey: undefined, recognitionPending: false,
+        rejectedRecognitions: [...(entry.rejectedRecognitions ?? []), entry.track],
+      } : t),
+    }));
+    persistLiveSession(get());
+    if (duplicate) return true;
+    void (async () => {
+      try {
+        const { session, playlists, match } = await findExistingTrack(track);
+        const recommendations = match ? [] : await musicEngine.router.recommend(session.userId, track, playlists);
+        applyTrackEnrichment(sessionId, entryId, track.id, { recommendations, status: match ? 'already_saved' : 'pending', existingMatch: match });
+      } catch { /* La correction locale reste disponible sans enrichissement. */ }
+    })();
+    return true;
+  },
+
   keepTrack: async (entryId, playlistId, visibility = 'PRIVATE') => {
     const entry = get().tracks.find((t) => t.id === entryId);
-    if (!entry || entry.status === 'already_saved' || entry.status !== 'pending') return;
+    if (!entry || keepInFlight.has(entryId) || entry.recognitionCorrectionKey || entry.status === 'already_saved' || entry.status !== 'pending') return;
+    keepInFlight.add(entryId);
     try {
       const sharedSource = await getSharedMusicSource();
       const sourceContext = sharedSource ? {
@@ -673,7 +730,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         visibility,
         context: { sessionId: get().sessionId, detectedAt: entry.detectedAt, ...sourceContext },
       });
-      set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId, creditLocked: false } : t), error: profileSyncFailed ? 'Morceau gardé. La visibilité du profil sera resynchronisée à la prochaine connexion.' : null }));
+      set((s) => ({ tracks: s.tracks.map((t) => t.id === entryId ? { ...t, status: 'kept' as SessionTrackStatus, recognitionPending: false, keptPlaylistId: targetPlaylistId, visibility, keepDecisionId, creditLocked: false } : t), error: profileSyncFailed ? 'Morceau gardé. La visibilité du profil sera resynchronisée à la prochaine connexion.' : null }));
       persistLiveSession(get());
     } catch (e: any) {
       if (isCreditsExhausted(e)) {
@@ -682,6 +739,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         return;
       }
       set({ error: e?.message ?? 'Erreur lors du rangement' });
+    } finally {
+      keepInFlight.delete(entryId);
     }
   },
 
@@ -723,5 +782,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     if (!recognition) return 'not_found';
     const outcome = await applyDetectedTrack(set, get, recognition, 'manual-search');
     return outcome === 'inactive' ? 'not_found' : outcome;
+  },
+  addSearchRecognition: async (recognition) => {
+    if (get().isActive) await applyDetectedTrack(set, get, recognition, 'manual-search');
   },
 }));

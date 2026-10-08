@@ -25,7 +25,7 @@ describe('Loki Music Battle — compact current UX', () => {
 
   it('queues incoming Battle invitations during an active Solo without pausing music, timer or answers', () => {
     expect(source).toContain("Les invitations restent en file d'attente pendant le Solo");
-    expect(source).toContain('if (!solo || !audioReady || soloAnswer) return;');
+    expect(source).toContain('if (!solo || !audioReady || soloAnswer || noVoiceInFlight.current) return;');
     expect(source).not.toContain('disabled={!audioReady || answered || Boolean(incoming[0])');
     expect(source).not.toContain('pausedSoloRemaining');
     expect(source).toContain('if (!round) return undefined;');
@@ -67,7 +67,7 @@ describe('Loki Music Battle — compact current UX', () => {
   });
 
   it('catches late multiplayer audio up to the shared server position', () => {
-    expect(source).toContain('9000 + lateByMs');
+    expect(source).toContain('battlePreviewPositionMillis(previewStartSec, lateByMs)');
     expect(source).toContain('round.startedAt');
     expect(source).toContain('arena-fallback:');
     expect(source).toContain('arena-safety:');

@@ -1,5 +1,8 @@
 # IDEAS INBOX — boîte à idées d'Adel (source unique)
 
+## Demande du 08/10/2026 — issue #50
+- **ISSUE-50 · IDÉE — implémentation demandée** : « Pas la bonne » corrige la reconnaissance avec trois candidats moteur et recherche sans clavier ; SESSION coupe le micro avant d'ouvrir les titres ; Battle/Solo commence à 12 s (réglable 0–20), « Pas de voix » annule sans FREE/point et exclut après deux signalements ; bandeau fixe deux mots + ⓘ, pastille lisible et bulle robot entière. Mode démo sans écriture serveur. Tests Jest et navigateur 390/1440 requis.
+
 ## Demande du 06/10/2026 — gouvernance des livraisons
 - **IDEA-189 · EN COURS — LOCAL_ONLY, plan validé par Adel** : vérifier les améliorations prêtes sans affaiblir les gardes ; tableau simple dans le Super Admin existant (version site réellement observée, dernière app signalée, problèmes ouverts, correctifs et tests), traçabilité bug → SHA → anti-régression, actionlint gratuit épinglé et synthèse des contrôles GitHub en lecture seule. Aucun commit, push, déploiement ni écriture production pendant cette passe.
 

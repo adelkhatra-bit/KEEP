@@ -79,14 +79,14 @@ export class TrackResolver {
   }
 
   /** Résout une correspondance existante sans en créer une nouvelle. Utilisé par le Compare. */
-  findExisting(query: { isrc?: string; provider?: string; providerId?: string; title?: string; artist?: string }): CanonicalTrack | null {
+  findExisting(query: { isrc?: string; provider?: string; providerId?: string; title?: string; artist?: string; exactMetadata?: boolean }): CanonicalTrack | null {
     if (query.isrc && this.byIsrc.has(query.isrc)) return this.byIsrc.get(query.isrc)!;
     if (query.provider && query.providerId) {
       const hit = this.byProviderId.get(`${query.provider}:${query.providerId}`);
       if (hit) return hit;
     }
     if (query.title && query.artist) {
-      const FUZZY_THRESHOLD = 0.85;
+      const FUZZY_THRESHOLD = query.exactMetadata ? 1 : 0.85;
       let best: { track: CanonicalTrack; score: number } | null = null;
       for (const t of this.all) {
         const titleSim = similarity(t.title, query.title);
@@ -102,9 +102,9 @@ export class TrackResolver {
   }
 
   /** Résout à partir d'un résultat de reconnaissance, en créant un morceau canonique si besoin. */
-  resolveFromRecognition(result: RecognitionResult, idFactory: () => string = () => cryptoRandomId()): CanonicalTrack {
+  resolveFromRecognition(result: RecognitionResult, idFactory: () => string = () => cryptoRandomId(), options: { exactMetadata?: boolean } = {}): CanonicalTrack {
     const links = { ...discoveryLinks(result.title, result.artist), ...(result.externalUrls ?? {}) };
-    const existing = this.findExisting({ isrc: result.isrc, title: result.title, artist: result.artist });
+    const existing = this.findExisting({ isrc: result.isrc, title: result.title, artist: result.artist, ...options });
     if (existing) {
       // Enrichir un morceau déjà connu sans perdre son identité canonique.
       if (!existing.artworkUrl && result.artworkUrl) existing.artworkUrl = result.artworkUrl;

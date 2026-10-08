@@ -318,7 +318,8 @@ async function recognize(req: Request) {
   }
 
   await setRuntimeStatus("ACTIVE");
-  const recognition = await normalizeResult(payload?.result);
+  const normalized = await normalizeResult(payload?.result);
+  const recognition = normalized ? { ...normalized, engine: "AudD" } : null;
   if (recognition) {
     const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
     if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);

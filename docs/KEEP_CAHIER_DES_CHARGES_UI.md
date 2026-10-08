@@ -2,7 +2,7 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
-Version : **2026-10-01.4**  
+Version : **2026-10-08.1**
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
 
@@ -153,9 +153,11 @@ Contrat machine : `config/keep-product-contract.json` > `storiesExperience`. Con
 
 ## 15. Bandelettes communicatives (décision d'Adel, 05/10/2026 — valable partout)
 
-Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jamais des listes de phrases figées**. Elles viennent de la bibliothèque composée `packages/mobile/src/services/tickerMessageLibrary.ts` (plus d'un million de combinaisons : ornement + introduction + règle/défi/communauté/match + clôture) et de la mémoire `tickerMemory.ts` qui évite de réafficher les derniers messages (jamais les mêmes à chaque connexion ni à chaque passage). Les **règles importantes du système** (FREE, GARDER public/privé, story 24 h, découvreur crédité, ventes 24 h, anti-pillage, quota, QR ordinateur…) y sont expliquées une par une. Pour ajouter une idée : ajouter une phrase dans la liste du type voulu (jamais un message complet en dur dans un écran). Aucun gros titre sur l'accueil au repos ; la bandelette n'est affichée que si l'écran fait au moins 700 px de haut.
+Les bandelettes lumineuses de l'accueil au repos **ne sont jamais des listes de phrases figées**. Elles viennent de la bibliothèque composée `packages/mobile/src/services/tickerMessageLibrary.ts` (plus d'un million de combinaisons : ornement + introduction + règle/défi/communauté/match + clôture) et de la mémoire `tickerMemory.ts` qui évite de réafficher les derniers messages (jamais les mêmes à chaque connexion ni à chaque passage). Les **règles importantes du système** (FREE, GARDER public/privé, story 24 h, découvreur crédité, ventes 24 h, anti-pillage, quota, QR ordinateur…) y sont expliquées une par une. Pour ajouter une idée : ajouter une phrase dans la liste du type voulu (jamais un message complet en dur dans un écran). Aucun gros titre sur l'accueil au repos ; la bandelette n'est affichée que si l'écran fait au moins 700 px de haut.
 
 ## 16. Bulles de stories, robot et bandelette — compléments (décision d'Adel, 05/10/2026)
+
+Exception validée le 08/10/2026 (issue #50) : pendant l'écoute active, le bandeau défilant devient **Écoute active + ⓘ**. L'aide s'ouvre en surimpression, sans clavier ni déplacement des actions. La pastille voix/ambiance a un fond plein, du texte clair ≥ 11 px et reste au-dessus de l'animation ; la bulle robot est bornée à la largeur disponible. La carte propose **Pas la bonne**, GARDER reste sur sa fiche ; **SESSION** se trouve à côté de Couper le micro.
 
 - **Un appui sur une bulle** : story d'abord (même déjà vue, pour la revoir) ; **sans story**, une **fiche rapide** s'ouvre par-dessus (suivre, voir le profil complet) — jamais une page de profil qui s'ouvre d'office. Dans le lecteur de story, toucher « Story de @x › » ouvre la même fiche.
 - **Le robot du Tchat parle** (bulle à côté de lui, jamais une notification) : sessions en attente (+ vibration courte et son discret) ; plus de FREE / plus de Solo (au plus 2 fois par jour, 6 h d'écart, phrases variées) avec un appui qui mène aux sessions ou aux offres. Code : `robotCoachMessages.ts`, `robotCoachService.ts`, `useRobotMessageStore.ts`, `GlobalChatDock.tsx`.

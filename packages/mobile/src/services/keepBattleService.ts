@@ -1,5 +1,11 @@
 import { coalesced } from './coalesce';
 import { supabase } from './supabaseClient';
+import { useUserStore } from '../store/useUserStore';
+
+function requireBattleIdentity(): void {
+  const state = useUserStore.getState();
+  if (!state.user?.id || state.isDemoMode || state.isLocalGuest) throw new Error('BATTLE_AUTH_REQUIRED');
+}
 
 export type KeepBattleDecision = 'KEEP' | 'PASS';
 export type KeepBattleStatus = 'WAITING' | 'ACTIVE' | 'COMPLETED' | 'EXPIRED';
@@ -561,6 +567,8 @@ export function loadMyKeepBattleCreditStatus(): Promise<KeepBattleCreditStatus> 
 // joueurs quel style musical l'utilisateur joue en solo. Envoie aussi une
 // notification aux joueurs disponibles qu'une partie solo vient de démarrer.
 export async function updateSoloPresenceTheme(themeCode = 'MIX', roundIndex = 0, roundTotal = 1): Promise<void> {
+  const state = useUserStore.getState();
+  if (state.isDemoMode || state.isLocalGuest || !state.user?.id) return;
   const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode, p_round_index: roundIndex, p_round_total: roundTotal });
   if (error) throw new Error(String(error?.message || error?.code || 'KEEP_BATTLE_PRESENCE_FAILED'));
 }
@@ -592,6 +600,7 @@ export function subscribeKeepBattle(battleId: string, onChange: () => void) {
 // réelle pour que le serveur mixe l'UNION exacte de ces styles au lieu de
 // n'utiliser que le premier, exactement comme loadKeepBattleSoloPack.
 export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, themeCodes?: string[]): Promise<KeepBattleArenaCreated> {
+  requireBattleIdentity();
   const selectedThemes = Array.from(new Set((themeCodes || [])
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code && code !== 'MIX'))).slice(0, 3);
@@ -604,6 +613,7 @@ export async function createKeepBattleArena(themeCode = 'MIX', roundCount = 8, t
 }
 
 export async function joinKeepBattleArena(arenaCode: string): Promise<KeepBattleArenaCreated & { myStatus?: string }> {
+  requireBattleIdentity();
   const code = arenaCode.trim().toUpperCase();
   if (!code) throw new Error('BATTLE_ARENA_CODE_REQUIRED');
   const { data, error } = await client().rpc('keep_battle_arena_join', { p_arena_code: code });
@@ -674,36 +684,43 @@ export async function loadKeepBattleArenaWinnerHistory(arenaId: string, limit = 
 }
 
 export async function startKeepBattleArena(arenaId: string): Promise<KeepBattleArenaState> {
+  requireBattleIdentity();
   const { data, error } = await client().rpc('keep_battle_arena_start', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
 export async function submitKeepBattleArenaQuizAnswer(arenaId: string, selectedAnswer: string): Promise<KeepBattleArenaState> {
+  requireBattleIdentity();
   const { data, error } = await client().rpc('keep_battle_arena_submit_quiz', { p_arena_id: arenaId, p_selected_answer: selectedAnswer.trim() });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
 export async function acknowledgeKeepBattleArenaPresence(arenaId: string): Promise<void> {
+  requireBattleIdentity();
   const { error } = await client().rpc('keep_battle_arena_presence_ack', { p_arena_id: arenaId });
   if (error) throw error;
 }
 
 export async function proposeKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  requireBattleIdentity();
   const { data, error } = await client().rpc('keep_battle_arena_propose_rematch', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
 export async function cancelKeepBattleArenaRematch(arenaId: string): Promise<KeepBattleArenaState> {
+  requireBattleIdentity();
   const { data, error } = await client().rpc('keep_battle_arena_cancel_rematch', { p_arena_id: arenaId });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
 export async function respondKeepBattleArenaRematch(arenaId: string, ready: boolean): Promise<KeepBattleArenaState> {
+  requireBattleIdentity();
   const { data, error } = await client().rpc('keep_battle_arena_rematch_respond', { p_arena_id: arenaId, p_ready: ready });
   return unwrap(data as KeepBattleArenaState | null, error);
 }
 
 export async function leaveKeepBattleArena(arenaId: string): Promise<void> {
+  requireBattleIdentity();
   const { error } = await client().rpc('keep_battle_arena_leave', { p_arena_id: arenaId });
   if (error) throw error;
 }

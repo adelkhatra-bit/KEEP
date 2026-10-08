@@ -459,16 +459,17 @@ function sourceVerifiedRecognition(input: { url: string; title: string; artist: 
   };
 }
 
-async function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null) {
+async function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null, resolveYoutube = true) {
   const providerIds: Record<string, string> = {};
   const externalUrls: Record<string, string> = { source: sourceUrl };
   for (const item of [track, corroborating].filter(Boolean) as CatalogTrack[]) {
     if (item.source === "apple") { providerIds.appleMusic = item.id; if (item.externalUrl) externalUrls.appleMusic = item.externalUrl; }
     if (item.source === "deezer") { providerIds.deezer = item.id; if (item.externalUrl) externalUrls.deezer = item.externalUrl; }
   }
-  const preciseYoutubeLink = await resolveYoutubeVideoLink(track.artist, track.title);
+  const preciseYoutubeLink = resolveYoutube ? await resolveYoutubeVideoLink(track.artist, track.title) : null;
   externalUrls.youtubeSearch = preciseYoutubeLink || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
   return {
+    engine: "KEYLESS_SOURCE",
     confidence: Math.max(0.55, Math.min(0.99, confidence)), title: track.title, artist: track.artist, album: track.album,
     artworkUrl: track.artworkUrl || corroborating?.artworkUrl, previewUrl: track.previewUrl || corroborating?.previewUrl,
     genres: track.genres?.length ? track.genres : (corroborating?.genres ?? []),
@@ -496,6 +497,18 @@ Deno.serve(async (req) => {
     const suppliedTitle = cleanMusicText(body?.title ?? "").slice(0, 500);
     const platform = String(body?.platform ?? "UNKNOWN").toUpperCase();
     if (!sourceUrl && !rawText && !suppliedTitle) return json(200, { ok: true, provider: "KEYLESS_SOURCE", recognition: null });
+
+    // Navigation du catalogue par choix prédéfinis : aucun morceau n'est
+    // reconnu/semé tant que l'utilisateur n'a pas sélectionné son résultat.
+    if (body?.browse === true && !sourceUrl && suppliedTitle) {
+      const [apple, deezer] = await Promise.all([searchApple(suppliedTitle), searchDeezer(suppliedTitle)]);
+      const distinct: CatalogTrack[] = [];
+      for (const track of [...apple, ...deezer]) {
+        if (!distinct.some((item) => sameSong(item, track))) distinct.push(track);
+      }
+      const candidates = await Promise.all(distinct.slice(0, 18).map((track) => recognition(track, 0.55, "", null, false)));
+      return json(200, { ok: true, candidates });
+    }
 
     if (sourceUrl?.hostname.toLowerCase().includes("music.apple.com")) {
       const pathId = sourceUrl.pathname.split("/").filter(Boolean).reverse().find((part) => /^\d+$/.test(part));
@@ -591,6 +604,12 @@ Deno.serve(async (req) => {
     if (confidence < threshold) return sourceVerifiedFallback();
 
     const finalRecognition = await recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
+    const alternatives: CatalogTrack[] = [];
+    for (const item of scored) {
+      if (!sameSong(best.track, item.track) && !alternatives.some((track) => sameSong(track, item.track))) alternatives.push(item.track);
+      if (alternatives.length === 3) break;
+    }
+    (finalRecognition as any).alternatives = await Promise.all(alternatives.map((track) => recognition(track, 0.55, "", null, false)));
     seedInBackground(finalRecognition);
     return respond({
       ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",

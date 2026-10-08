@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.5**  
+Version : **2026-10-08.1**
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -68,6 +68,10 @@ Source : `HomeScreenCompact.tsx`.
 - PASSER, GARDER, ARRÊTER et morceau courant accessibles sans swipe obligatoire.
 - L'accueil Écouter affiche Loki Pulse directement avec les bulles musicales de l'utilisateur ; le bloc « Loki Music DNA » n'y apparaît plus.
 - Le bloc Loki Pulse d'accueil ne redirige pas vers le profil : les bulles sont visibles directement sur place, tout en conservant Loki Pulse sur le profil.
+- Décision du 08/10/2026, issue #50 : carte détectée → **Pas la bonne** ; feuille du bas avec jusqu'à trois autres correspondances réellement fournies par le moteur (aucun résultat inventé), puis recherche catalogue par choix d'artiste/style, sans clavier. Le choix remplace la carte et son entrée de session ; aucun signal de goût/redécouverte pour le titre refusé. Les propositions non confirmées ne préremplissent pas les goûts.
+- Chaque refus et son choix éventuel sont journalisés dans `keep_recognition_corrections`, auteur uniquement et lecture admin ; aucune écriture en Mode Démo. GARDER reste sur la fiche du titre.
+- **SESSION**, à côté de Couper le micro, attend la libération réelle du micro puis ouvre le récapitulatif existant ; revenir ne relance jamais l'écoute.
+- Pendant l'écoute : bandeau fixe **Écoute active + ⓘ**, pastille voix sur fond plein clair au-dessus de l'animation, bulle robot entièrement dans la fenêtre. Le bandeau animé de l'accueil au repos reste inchangé.
 
 ## 6. Découvertes
 
@@ -101,6 +105,8 @@ Source : `PartiesScreen.tsx`.
 - un Solo quotidien n'est consommé qu'au premier extrait audio réellement lancé, jamais à la simple préparation du pack ;
 - après ce premier démarrage, quitter en cours de partie conserve le Solo comme consommé ;
 - la consommation du quota Solo est idempotente : retry réseau/double effet React = une seule partie ;
+- Décision du 08/10/2026, issue #50 : position de départ des extraits **12 s**, configurable `battle_preview_start_sec` (0–20 s) dans le Super Admin ; ce n'est pas un délai avant lecture. Synchronisation/fallback ajoutent cette position à l'horloge du serveur.
+- **Pas de voix** annule le tour sans point ni perte de FREE ; le tour annulé ne pénalise pas le score Solo. `keep_battle_excluded_tracks.reports` reçoit les signalements ; à deux, le titre est exclu des tirages. Le Mode Démo ne signale rien en base.
 - classement Battle séparé/repliable ;
 - événements, RSVP, participants, playlist et lobby restent dans la même architecture.
 

@@ -343,7 +343,7 @@ export const useSessionHistoryStore = create<SessionHistoryStore>()(
       keepTrackInSession: async (sessionId, entryId, playlistId, visibility = 'PRIVATE') => {
         const session = get().sessions.find((s) => s.id === sessionId);
         const entry = session?.tracks.find((t) => t.id === entryId);
-        if (!session || !entry || entry.status !== 'pending') return;
+        if (!session || !entry || entry.recognitionCorrectionKey || entry.status !== 'pending') return;
         try {
           const { targetPlaylistId, keepDecisionId } = await commitKeep(entry.track, entry.recommendations, playlistId, {
             visibility,

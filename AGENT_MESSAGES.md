@@ -2677,3 +2677,11 @@ Diagnostic publication (lecture seule) : Web 37487709888 et OTA 37487709780 ont 
 - Portée exacte : fonctions déployées et smoke tests SQL réussis ; pas de validation du parcours navigateur connecté ou iPhone, pas de déclaration globale « tout fonctionne ». Aucun déploiement frontend/OTA déclenché volontairement. Aucun contrat Apple ni intégration Convex modifié.
 - RESTE OUVERT : admin_dashboard_v2 absente et repli trompeur des blocs Réels/Argent/Offert ; formulaire de preuves encore au clavier ; contrat Stories serveur/client et suivi temporel à aligner ; tests réels de bout en bout. Constats détaillés : https://github.com/adelkhatra-bit/KEEP/pull/47#issuecomment-6042158896 . Réutiliser composants existants, préserver design/auth. Ces corrections ne sont pas réalisées par cette migration.
 - À reprendre sur le poste canonique : reporter cette preuve de déploiement dans ERROR_LEDGER et PROJECT_STATE avec la validation UI quand disponible, sans qualifier un SHA/test saisi de test exécuté ni de correctif livré.
+## [2026-10-08T01:53:49.162Z] codex
+
+Issue #50 : audit ciblé écoute/session et Battle sur la branche de revue basée sur fa193cc (reconcile). Corrections et tests mobile/web ; aucune écriture ni déploiement production.
+
+## [2026-10-08T02:35:05.807Z] codex
+
+Issue #50 : correction privée + SESSION et Battle/Solo préparés en revue, 1417 tests mobile + 19 music, typechecks mobile/admin/music et export final réussis. PostgreSQL16 isolé corrections/Battle. Dernier parcours écoute 390/1440 en cours, aucune migration/fonction appliquée en production. Revue ciblée sans bug significatif après corrections des courses ; CI héritée chat directe non verte (37711629482).
+

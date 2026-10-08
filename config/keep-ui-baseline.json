@@ -1,5 +1,12 @@
 {
-  "version": "2026-10-01.5",
+  "version": "2026-10-08.1",
+  "listenRecognition": {
+    "activeBanner": "Écoute active",
+    "helpTrigger": "ⓘ",
+    "correctionLabel": "Pas la bonne",
+    "sessionBesideStopMicro": true,
+    "speechStatusAboveAnimation": true
+  },
   "repository": "adelkhatra-bit/KEEP",
   "canonicalBranch": "reconcile/claude-main-20260825",
   "profileOwner": {

@@ -19,7 +19,7 @@ describe('Web expo-av isolation', () => {
 
   it('keeps the real web microphone path on getUserMedia/Web Audio', () => {
     expect(mic).toContain('navigator.mediaDevices.getUserMedia');
-    expect(mic).toContain("return Platform.OS === 'web' ? captureAudioSampleWeb");
+    expect(mic).toContain("const capture = Platform.OS === 'web' ? captureAudioSampleWeb");
   });
 
   it('keeps web previews on the shared HTMLAudioElement', () => {

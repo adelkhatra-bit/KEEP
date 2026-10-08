@@ -58,6 +58,8 @@ let cancellationVersion = 0;
 let activeDelayCancel: (() => void) | null = null;
 let nativeRecordingModeDesired = false;
 let nativeAudioModeQueue: Promise<void> = Promise.resolve();
+const pendingCaptures = new Set<Promise<Blob>>();
+let captureGeneration = 0;
 
 // Audit runtime Adel (22/09/2026, "jeu solo + musique") : audioPreviewService.ts
 // (Battle solo, Swipe, aperçus) appelle Audio.setAudioModeAsync de façon
@@ -216,16 +218,15 @@ async function captureAudioSampleNative(onLevel?: (level: number) => void, durat
     } : undefined,
     40
   );
-  activeRecording = recording;
 
   // ARRÊTER peut être pressé pendant `Audio.Recording.createAsync`. Dans cette
   // fenêtre l'ancien code ne voyait pas encore `activeRecording` et pouvait
   // laisser le nouvel enregistrement vivant jusqu'au prochain cycle.
   if (versionAtStart !== cancellationVersion) {
-    activeRecording = null;
     await stopRecordingQuietly(recording);
     throw new MicCaptureCancelledError();
   }
+  activeRecording = recording;
 
   await waitForSampleOrCancel(safeSampleDuration(durationMs), versionAtStart);
 
@@ -283,7 +284,7 @@ export function prepareAudioCaptureFromUserGesture(): void {
   }
 }
 
-async function ensureWebStream(): Promise<MediaStream> {
+async function ensureWebStream(versionAtStart: number): Promise<MediaStream> {
   if (webStream && webStream.active) return webStream;
   try {
     // autoGainControl reste desactive comme echoCancellation/noiseSuppression
@@ -296,9 +297,14 @@ async function ensureWebStream(): Promise<MediaStream> {
     // dont un moteur d'empreinte (ACRCloud/AudD) a besoin. Meme raisonnement
     // que pour les deux autres options : du son brut, pas du son "telephonie"
     // deja retouche par le navigateur.
-    webStream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
     });
+    if (versionAtStart !== cancellationVersion) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new MicCaptureCancelledError();
+    }
+    webStream = stream;
   } catch (e: any) {
     if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') throw new MicPermissionDeniedError();
     throw e;
@@ -450,19 +456,23 @@ async function captureStreamToWav(
 
 async function captureAudioSampleWeb(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS, onPeak?: (peak: number) => void): Promise<Blob> {
   const versionAtStart = cancellationVersion;
-  const stream = await ensureWebStream();
+  const stream = await ensureWebStream(versionAtStart);
 
   // Même garde-fou que sur natif : si ARRÊTER est pressé pendant la demande
   // getUserMedia, le flux qui arrive ensuite est fermé immédiatement.
   if (versionAtStart !== cancellationVersion) {
-    releaseCaptureResources();
+    stream.getTracks().forEach((track) => track.stop());
+    if (webStream === stream) webStream = null;
     throw new MicCaptureCancelledError();
   }
 
   try {
     return await captureStreamToWav(stream, versionAtStart, onLevel, durationMs, onPeak);
   } catch (e) {
-    if (versionAtStart !== cancellationVersion) releaseCaptureResources();
+    if (versionAtStart !== cancellationVersion) {
+      stream.getTracks().forEach((track) => track.stop());
+      if (webStream === stream) webStream = null;
+    }
     throw e;
   }
 }
@@ -498,6 +508,8 @@ export function releaseCaptureResources(): void {
 
 /** Interrompt immédiatement le micro ET l'attente d'échantillonnage. */
 export async function cancelAudioCapture(): Promise<void> {
+  const generationAtStop = captureGeneration;
+  const capturesToStop = [...pendingCaptures];
   cancellationVersion += 1;
   activeDelayCancel?.();
   // BUG RÉEL TestFlight (Adel, 05/10/2026 : "j'appuie sur Play sur mon profil,
@@ -516,9 +528,12 @@ export async function cancelAudioCapture(): Promise<void> {
 
   if (Platform.OS === 'web') {
     releaseCaptureResources();
+    await Promise.allSettled(capturesToStop);
     return;
   }
 
+  await Promise.allSettled(capturesToStop);
+  if (generationAtStop !== captureGeneration) return;
   if (Platform.OS === 'android') {
     await stopBackgroundListeningService();
   }
@@ -527,6 +542,7 @@ export async function cancelAudioCapture(): Promise<void> {
   // rester en mode enregistrement. La file de mode audio garantit qu'un ancien
   // ARRÊTER ne peut pas désactiver un nouveau démarrage concurrent.
   try {
+    if (generationAtStop !== captureGeneration) return;
     await setNativeRecordingMode(false);
   } catch {
     // Le micro est déjà arrêté : une erreur de changement de mode ne doit pas
@@ -535,6 +551,13 @@ export async function cancelAudioCapture(): Promise<void> {
 }
 
 export async function captureAudioSample(onLevel?: (level: number) => void, durationMs = DEFAULT_SAMPLE_DURATION_MS, onPeak?: (peak: number) => void): Promise<Blob> {
+  captureGeneration += 1;
   const duration = safeSampleDuration(durationMs);
-  return Platform.OS === 'web' ? captureAudioSampleWeb(onLevel, duration, onPeak) : captureAudioSampleNative(onLevel, duration);
+  const capture = Platform.OS === 'web' ? captureAudioSampleWeb(onLevel, duration, onPeak) : captureAudioSampleNative(onLevel, duration);
+  pendingCaptures.add(capture);
+  try {
+    return await capture;
+  } finally {
+    pendingCaptures.delete(capture);
+  }
 }

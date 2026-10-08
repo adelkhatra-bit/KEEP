@@ -3,7 +3,8 @@ import { composeTickerBatch } from '../services/tickerMessageLibrary';
 import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import type { RecognitionResult } from '@keep/music';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from '../utils/keepAlert';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,7 @@ import KeepVisibilityChoiceModal from '../components/KeepVisibilityChoiceModal';
 import { preloadTrackPreview, preloadTrackPreviewSegment, stopTrackPreview, stopTrackPreviewFast, unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import KeepModal from '../components/KeepModal';
+import { browseRecognitionTracks } from '../services/keepMusicCoreRecognition';
 
 // Adel (05/10/2026) : les bandelettes (accueil + écoute) ne sont plus des listes fixes : elles viennent de la bibliothèque composée
 // `tickerMessageLibrary` (plus d'un million de messages, règles du système, défis, communauté, matchs) et ne se répètent pas d'une connexion à l'autre.
@@ -117,13 +119,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   // La bandelette de l'accueil n'est affichée que si l'écran a la place (jamais au détriment du bouton ou du compteur).
   const roomForHomeTicker = useWindowDimensions().height >= 700;
   const homeTicker = useTickerMessages('home');
-  const listenTicker = useTickerMessages('listen');
   const { t } = useTranslation();
   const {
     isActive, tracks, showEndPrompt, startedAt, error, signalHint, recognizing, micLevel, musicPresence, micPaused, silenceTimeoutMin, noMusicSince,
     listenEconomyStatus, listenFreeRequired, listenFreeInsufficient, refreshListenEconomyStatus,
     useFreeForNextListen, dismissListenFreePrompt,
-    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility, submitManualSearch,
+    startSession, requestEndSession, dismissEndPrompt, keepTrack, passTrack, setTrackVisibility,
+    rejectRecognition, correctRecognition, addSearchRecognition, openStoppedSession,
   } = useSessionStore();
   const { playlists, refresh } = usePlaylistStore();
   const user = useUserStore((s) => s.user);
@@ -176,6 +178,13 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => () => { if (snackTimer.current) clearTimeout(snackTimer.current); }, []);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
+  const [correctionEntryId, setCorrectionEntryId] = useState<string | null>(null);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [trackDetailsOpen, setTrackDetailsOpen] = useState(false);
+  const [listenHelpOpen, setListenHelpOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<RecognitionResult[]>([]);
+  const [correctionResults, setCorrectionResults] = useState<RecognitionResult[]>([]);
+  const [sessionOpening, setSessionOpening] = useState(false);
   const [demoListenLimit, setDemoListenLimit] = useState(3);
   const [demoListenUsed, setDemoListenUsed] = useState(0);
   const demoListenUsedRef = useRef(0);
@@ -381,22 +390,21 @@ export default function HomeScreenCompact({ navigation }: any) {
       release();
     };
   }, [isActive]);
-  const [manualSearchQuery, setManualSearchQuery] = useState('');
   const [manualSearchBusy, setManualSearchBusy] = useState(false);
   const [manualSearchNotFound, setManualSearchNotFound] = useState(false);
 
-  const runManualSearch = async () => {
-    if (manualSearchBusy || !manualSearchQuery.trim()) return;
+  const browseTracks = async (query: string) => {
+    if (manualSearchBusy) return;
     setManualSearchBusy(true);
     setManualSearchNotFound(false);
     try {
-      const outcome = await submitManualSearch(manualSearchQuery);
-      if (outcome === 'not_found') {
-        setManualSearchNotFound(true);
-        return;
-      }
-      setManualSearchOpen(false);
-      setManualSearchQuery('');
+      const results = isDemoMode || musicEngine.isDemoMode
+        ? [...correctionResults, ...tracks.map((entry) => ({ ...entry.track, confidence: 1 }))]
+        : await browseRecognitionTracks(query);
+      setSearchResults(results);
+      setManualSearchNotFound(!results.length);
+    } catch {
+      setManualSearchNotFound(true);
     } finally {
       setManualSearchBusy(false);
     }
@@ -517,6 +525,53 @@ export default function HomeScreenCompact({ navigation }: any) {
   useEffect(() => { if (!isActive) setViewedTrackId(null); }, [isActive]);
   const current = (viewedTrackId ? tracks.find((tr) => tr.id === viewedTrackId) : undefined) ?? tracks[0];
   const currentIndex = current ? tracks.findIndex((tr) => tr.id === current.id) : -1;
+  const searchChoices = [...new Set([current?.track.artist, ...(user?.favoriteGenres ?? []), 'Pop', 'Rock', 'Rap', 'Jazz', 'Soul'].filter(Boolean))] as string[];
+  const chooseRecognition = async (result: RecognitionResult) => {
+    if (manualSearchBusy) return;
+    setManualSearchBusy(true);
+    try {
+      if (correctionEntryId) {
+        if (!await correctRecognition(correctionEntryId, result)) return;
+        setViewedTrackId(correctionEntryId);
+        await stopTrackPreview(`current:${correctionEntryId}`);
+      } else {
+        await addSearchRecognition(result);
+      }
+      setCorrectionOpen(false);
+      setManualSearchOpen(false);
+      setCorrectionEntryId(null);
+    } catch {
+      Alert.alert('Correction indisponible', 'Réessaie : le titre reste inchangé tant que la correction ne peut pas être enregistrée.');
+    } finally {
+      setManualSearchBusy(false);
+    }
+  };
+  const openCorrection = async () => {
+    if (!current || manualSearchBusy || keepBusy) return;
+    setCorrectionEntryId(current.id);
+    setViewedTrackId(current.id);
+    setCorrectionResults((current.recognitionAlternatives ?? []).slice(0, 3));
+    setCorrectionOpen(true);
+    setManualSearchBusy(true);
+    try {
+      await rejectRecognition(current.id);
+    } catch {
+      Alert.alert('Recherche indisponible', 'Les choix déjà reçus restent disponibles. Réessaie si la correction ne peut pas être enregistrée.');
+    } finally {
+      setManualSearchBusy(false);
+    }
+  };
+  const openSession = async () => {
+    if (sessionOpening) return;
+    setSessionOpening(true);
+    try {
+      await openStoppedSession((sessionId) => navigation.navigate(
+        sessionId ? 'SessionRecap' : 'SessionHistory', sessionId ? { sessionId } : undefined,
+      ));
+    } finally {
+      setSessionOpening(false);
+    }
+  };
   const canGoNewer = currentIndex > 0;
   const canGoOlder = currentIndex >= 0 && currentIndex < tracks.length - 1;
   const goNewer = () => { if (canGoNewer) setViewedTrackId(tracks[currentIndex - 1].id); };
@@ -663,7 +718,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="En savoir plus sur Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.idleLearnMoreText}>ⓘ</Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (
@@ -754,8 +809,12 @@ export default function HomeScreenCompact({ navigation }: any) {
             navigateur pouvait refuser la permission (bannière rouge juste en
             dessous) pendant que ça affichait quand même "MICRO · ACTIF" --
             deux signaux contradictoires à l'écran en même temps. */}
-        {/* Adel (05/10/2026) : bande lumineuse défilante -- slogans qui encouragent à identifier, partager et être crédité. */}
-        <LedTicker messages={listenTicker} />
+        <View style={s.listenBanner} testID="listen-fixed-banner">
+          <Text style={s.listenBannerText}>Écoute active</Text>
+          <TouchableOpacity style={s.infoButton} onPress={() => setListenHelpOpen(true)} accessibilityRole="button" accessibilityLabel="Informations sur l’écoute">
+            <Text style={s.listenBannerText}>ⓘ</Text>
+          </TouchableOpacity>
+        </View>
         <View style={s.livePanel}>
           {/* Refonte écran d'écoute (maquette validée docs/mockups/EcouteRedesign.html,
               23/09/2026) : pastille micro en "pill" + puce de veille auto, onde sonore
@@ -790,7 +849,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <Text style={[s.autoStopText, s.musicPresentText]}>♫ MUSIQUE PRÉSENTE</Text>
               </View>
             ) : musicPresence === 'speech' ? (
-              <View style={s.autoStopChip}><Text style={s.autoStopText}>Voix / ambiance · vérification</Text></View>
+              <View style={s.autoStopChip} testID="listen-speech-status"><Text style={s.autoStopText}>Voix / ambiance · vérification</Text></View>
             ) : musicPresence === 'silence' ? (
               <View style={s.autoStopChip}><Text style={s.autoStopText}>Silence · confirmation</Text></View>
             ) : (
@@ -835,22 +894,22 @@ export default function HomeScreenCompact({ navigation }: any) {
             resetKey={current.id}
             enabled={Boolean(!keepBusy && (pending || canGoOlder))}
             onSwipeLeft={pending ? passCurrentAndAdvance : undefined}
-            onSwipeRight={pending ? openKeepChooser : undefined}
+            onSwipeRight={pending ? () => { setViewedTrackId(current.id); setTrackDetailsOpen(true); } : undefined}
             onSwipeUp={canGoOlder ? goOlder : undefined}
             leftLabel="PASSER"
-            rightLabel="GARDER"
+            rightLabel="FICHE"
             upLabel="SUIVANT"
-            hint="Swipe facultatif : ↑ suivant · ← passer · garder →"
+            hint="↑ suivant · ← passer · fiche →"
           >
             <View style={s.trackCard}>
-              <View style={s.trackHead}>
+              <TouchableOpacity style={s.trackHead} onPress={() => { setViewedTrackId(current.id); setTrackDetailsOpen(true); }} accessibilityRole="button" accessibilityLabel="Ouvrir la fiche du titre">
                 {current.track.artworkUrl ? <Image source={{ uri: current.track.artworkUrl }} style={s.cover} /> : <View style={[s.cover, s.coverFallback]}><Text style={s.coverK}>K</Text></View>}
                 <View style={s.trackText}>
                   <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
                   <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
               <TrackListenControls track={current.track} previewKey={`current:${current.id}`} onPreviewFinished={canGoOlder ? goOlder : undefined} autoPlay />
               {alreadySaved ? (
                 <View style={s.saved}><Text style={s.savedText}>✓ Déjà dans ta playlist</Text></View>
@@ -874,11 +933,11 @@ export default function HomeScreenCompact({ navigation }: any) {
                   {insufficientCredit ? <Text style={s.lockedHint}>🔒 Free insuffisant pour garder ce morceau</Text> : null}
                   <View style={s.actions}>
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel="Passer ce morceau" style={[s.action, s.pass, !pending && s.disabled]} onPress={passCurrentAndAdvance} disabled={!pending || keepBusy}><Text style={s.passText}>✕  {t('listen.pass')}</Text></TouchableOpacity>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Garder ce morceau" accessibilityHint="Choisir Public ou Privé avant de garder" style={[s.action, s.keep, insufficientCredit && s.keepLocked, (!pending || keepBusy) && s.disabled]} onPress={openKeepChooser} disabled={!pending || keepBusy}><Text style={[s.keepText, insufficientCredit && s.keepLockedText]}>{keepBusy ? '…' : insufficientCredit ? '🔒 Free insuffisant' : `♡  ${t('listen.keep')}`}</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Pas la bonne" style={[s.action, s.correctionAction]} onPress={() => { void openCorrection(); }} disabled={manualSearchBusy || keepBusy}><Text style={s.correctionText}>Pas la bonne</Text></TouchableOpacity>
                   </View>
-                  {!insufficientCredit ? <Text style={s.keepHint}>Choisis Public ou Privé avant chaque ajout.</Text> : null}
                 </>
               )}
+              {alreadySaved ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Pas la bonne" style={[s.action, s.correctionAction]} onPress={() => { void openCorrection(); }} disabled={manualSearchBusy || keepBusy}><Text style={s.correctionText}>Pas la bonne</Text></TouchableOpacity> : null}
             </View>
           </SwipeDeck>
         ) : (
@@ -888,11 +947,11 @@ export default function HomeScreenCompact({ navigation }: any) {
         <MotionActionButton
           variant="ghost"
           size="medium"
-          onPress={() => { setManualSearchNotFound(false); setManualSearchOpen(true); }}
-          accessibilityLabel="Chercher un morceau par son titre"
-          accessibilityHint="Ouvre un formulaire de recherche par titre"
+          onPress={() => { setCorrectionEntryId(null); setSearchResults([]); setManualSearchNotFound(false); setManualSearchOpen(true); }}
+          accessibilityLabel="Chercher moi-même"
+          accessibilityHint="Choisir un artiste ou un style sans clavier"
         >
-          Tu connais le titre ? Cherche-le toi-même
+          Chercher moi-même
         </MotionActionButton>
       </ScrollView>
 
@@ -909,6 +968,7 @@ export default function HomeScreenCompact({ navigation }: any) {
 
       <View style={s.footerActions}>
         <TouchableOpacity style={s.secondary} onPress={finishSession} accessibilityRole="button" accessibilityLabel="Couper le micro"><Text style={s.secondaryText}>■  COUPER LE MICRO</Text></TouchableOpacity>
+        <TouchableOpacity style={s.secondary} onPress={() => { void openSession(); }} disabled={sessionOpening} accessibilityRole="button" accessibilityLabel="SESSION"><Text style={s.secondaryText}>SESSION</Text></TouchableOpacity>
       </View>
 
       <KeepVisibilityChoiceModal
@@ -935,28 +995,42 @@ export default function HomeScreenCompact({ navigation }: any) {
         }}
       />
 
-      <KeepModal visible={manualSearchOpen} transparent animationType="fade" onRequestClose={() => !manualSearchBusy && setManualSearchOpen(false)}>
+      <KeepModal visible={correctionOpen || manualSearchOpen} transparent animationType="slide" onRequestClose={() => { setCorrectionOpen(false); setManualSearchOpen(false); }}>
+        <View style={s.sheetOverlay}><View style={s.recognitionSheet} testID="recognition-sheet">
+          <Text style={s.modalTitle}>{manualSearchOpen ? 'Recherche musicale' : 'Autres résultats'}</Text>
+          <ScrollView style={s.sheetScroll}>
+            {manualSearchOpen ? (
+              <View style={s.searchChoices}>
+                {searchChoices.map((choice) => <TouchableOpacity key={choice} style={s.searchChoice} onPress={() => { void browseTracks(choice); }} disabled={manualSearchBusy} accessibilityRole="button" accessibilityLabel={`Chercher ${choice}`}><Text style={s.correctionText}>{choice}</Text></TouchableOpacity>)}
+                {[...new Set(searchResults.map((result) => result.artist))].filter((artist) => !searchChoices.includes(artist)).map((artist) =>
+                  <TouchableOpacity key={artist} style={s.searchChoice} onPress={() => { void browseTracks(artist); }} disabled={manualSearchBusy} accessibilityRole="button" accessibilityLabel={`Chercher ${artist}`}><Text style={s.correctionText}>{artist}</Text></TouchableOpacity>)}
+              </View>
+            ) : null}
+            {(manualSearchOpen ? searchResults : correctionResults).map((result, index) => (
+              <TouchableOpacity key={`${result.artist}:${result.title}:${index}`} style={s.recognitionResult} onPress={() => { void chooseRecognition(result); }} disabled={manualSearchBusy} accessibilityRole="button" accessibilityLabel={`Choisir ${result.title} — ${result.artist}`}>
+                <Text style={s.correctionText}>{result.title}</Text><Text style={s.resultArtist}>{result.artist}</Text>
+              </TouchableOpacity>
+            ))}
+            {manualSearchBusy ? <Text style={s.correctionText}>Patiente…</Text> : !(manualSearchOpen ? searchResults : correctionResults).length ? <Text style={s.resultArtist}>{manualSearchOpen ? 'Choisis un style' : 'Aucun autre résultat'}</Text> : null}
+            {manualSearchNotFound ? <Text style={s.resultArtist}>Aucun résultat</Text> : null}
+          </ScrollView>
+          {!manualSearchOpen ? <TouchableOpacity style={s.searchChoice} onPress={() => { setSearchResults(correctionResults); setManualSearchOpen(true); }} accessibilityRole="button" accessibilityLabel="Chercher moi-même"><Text style={s.correctionText}>Chercher moi-même</Text></TouchableOpacity> : null}
+          <TouchableOpacity style={s.searchChoice} onPress={() => { setCorrectionOpen(false); setManualSearchOpen(false); }} accessibilityRole="button" accessibilityLabel="Fermer les résultats"><Text style={s.correctionText}>Fermer</Text></TouchableOpacity>
+        </View></View>
+      </KeepModal>
+      <KeepModal visible={trackDetailsOpen} transparent animationType="fade" onRequestClose={() => setTrackDetailsOpen(false)}>
         <View style={s.modalOverlay}><View style={s.modalCard}>
-          <Text style={s.modalTitle}>Chercher un morceau</Text>
-          <Text style={s.modalBody}>Tape le titre et l'artiste (ex. « Artiste - Titre »). Tu peux aussi coller un lien, mais uniquement depuis la plateforme musicale où le morceau est disponible (Spotify, Deezer, Apple Music) -- pas depuis YouTube ou un réseau social, Loki Music ne peut pas lire ces pages-là.</Text>
-          <TextInput
-            style={s.manualSearchInput}
-            value={manualSearchQuery}
-            onChangeText={(v) => { setManualSearchQuery(v); setManualSearchNotFound(false); }}
-            placeholder="Artiste - Titre, ou lien Spotify/Deezer/Apple Music…"
-            placeholderTextColor={C.muted}
-            editable={!manualSearchBusy}
-            autoFocus
-            returnKeyType="search"
-            onSubmitEditing={runManualSearch}
-          />
-          {manualSearchNotFound ? <Text style={s.manualSearchNotFound}>Rien trouvé -- ce morceau n'est peut-être disponible sur aucune plateforme officielle, ou réessaie avec un intitulé plus précis.</Text> : null}
-          <View style={s.modalActions}>
-            <TouchableOpacity style={s.modalBtn} onPress={() => setManualSearchOpen(false)} disabled={manualSearchBusy}><Text style={s.modalBtnText}>Annuler</Text></TouchableOpacity>
-            <TouchableOpacity style={[s.modalBtn, s.modalEnd]} onPress={runManualSearch} disabled={manualSearchBusy || !manualSearchQuery.trim()}>
-              <Text style={s.modalEndText}>{manualSearchBusy ? 'Recherche…' : 'Chercher'}</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={s.modalTitle}>{current?.track.title}</Text>
+          <Text style={s.resultArtist}>{current?.track.artist}</Text>
+          <TouchableOpacity style={[s.action, s.keep]} onPress={() => { setTrackDetailsOpen(false); openKeepChooser(); }} disabled={!pending || keepBusy} accessibilityRole="button" accessibilityLabel="Garder ce morceau"><Text style={s.keepText}>GARDER</Text></TouchableOpacity>
+          <TouchableOpacity style={s.searchChoice} onPress={() => setTrackDetailsOpen(false)} accessibilityRole="button"><Text style={s.correctionText}>Fermer</Text></TouchableOpacity>
+        </View></View>
+      </KeepModal>
+      <KeepModal visible={listenHelpOpen} transparent animationType="fade" onRequestClose={() => setListenHelpOpen(false)}>
+        <View style={s.modalOverlay}><View style={s.modalCard}>
+          <Text style={s.modalTitle}>Écoute active</Text>
+          <Text style={s.modalBody}>Loki Music identifie les morceaux autour de toi. « Pas la bonne » corrige un titre ; SESSION coupe le micro et ouvre tes trouvailles. Écouter et reconnaître : 0 FREE, hors dépassement du quota déjà accepté.</Text>
+          <TouchableOpacity style={s.searchChoice} onPress={() => setListenHelpOpen(false)} accessibilityRole="button"><Text style={s.correctionText}>Fermer</Text></TouchableOpacity>
         </View></View>
       </KeepModal>
 
@@ -1208,11 +1282,11 @@ const s = StyleSheet.create({
   blob1: { width: 320, height: 320, backgroundColor: C.purple, top: -60, left: -80, opacity: 0.20 },
   blob2: { width: 280, height: 280, backgroundColor: C.green, top: 170, right: -90, opacity: 0.12 },
   blob3: { width: 260, height: 260, backgroundColor: colors.primaryDark, bottom: 120, left: -50, opacity: 0.16 },
-  liveTopbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6, marginBottom: 4 },
+  liveTopbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 6, marginBottom: 4, zIndex: 10 },
   micPill: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(45,225,194,0.12)', borderWidth: 1, borderColor: 'rgba(45,225,194,0.4)' },
   micPillIdle: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.4)' },
-  autoStopChip: { flex: 1, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124,92,252,0.14)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.4)' },
-  autoStopText: { color: C.purpleLight, fontSize: 11, fontWeight: '800' },
+  autoStopChip: { flexGrow: 1, flexShrink: 1, minWidth: 0, minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primaryLight },
+  autoStopText: { color: C.text, fontSize: 11, lineHeight: 16, flexShrink: 1, textAlign: 'center', fontWeight: '800' },
   autoStopChipCounting: { backgroundColor: 'rgba(255,92,114,0.12)', borderColor: 'rgba(255,92,114,0.45)' },
   autoStopTextCounting: { color: C.pink },
   musicPresentChip: { backgroundColor: 'rgba(45,225,194,0.12)', borderColor: 'rgba(45,225,194,0.45)' },
@@ -1339,7 +1413,19 @@ const s = StyleSheet.create({
   manualSearchInput: { marginTop: 14, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: C.line, backgroundColor: colors.background, color: C.text, fontSize: 14, paddingHorizontal: 12 },
   manualSearchNotFound: { color: C.pink, fontSize: 11, marginTop: 8 },
   footerActions: { width: '100%', maxWidth: 720, alignSelf: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: C.line },
-  secondary: { flex: 1, minHeight: 44, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
+  secondary: { flex: 1, minHeight: 48, borderRadius: 11, borderWidth: 1, borderColor: C.purple, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
+  listenBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 16, paddingLeft: 16, backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: C.line },
+  listenBannerText: { color: C.text, fontSize: 14, fontWeight: '800' },
+  infoButton: { minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  correctionAction: { backgroundColor: colors.backgroundCard, borderWidth: 1, borderColor: colors.primaryLight },
+  correctionText: { color: C.text, fontSize: 14, lineHeight: 20, fontWeight: '800' },
+  resultArtist: { color: C.text, fontSize: 13, lineHeight: 19 },
+  sheetOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end', alignItems: 'center' },
+  recognitionSheet: { width: '100%', maxWidth: 720, maxHeight: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: C.card, padding: 20, paddingBottom: 32, gap: 12 },
+  sheetScroll: { flexShrink: 1 },
+  recognitionResult: { minHeight: 64, padding: 12, borderBottomWidth: 1, borderColor: C.line },
+  searchChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  searchChoice: { minHeight: 48, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.primaryLight, borderRadius: 12 },
   secondaryText: { color: C.text, fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 360, borderRadius: 18, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, padding: 20 },
