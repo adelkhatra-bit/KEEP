@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { seedInBackground as seedFingerprintInBackground } from "../_shared/fingerprintSeed.ts";
+import { readIntegrationSecret } from "../_shared/musicProviderCredentials.ts";
+import { searchAppleMusicCatalog, searchSpotifyCatalog, lookupAppleMusicCatalog, lookupSpotifyCatalog, type ProviderCatalogTrack } from "../_shared/musicProviderCatalog.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -11,9 +13,7 @@ function seedInBackground(rec: unknown) {
 }
 
 async function integrationSecret(key: string): Promise<string> {
-  const { data, error } = await admin.rpc("service_get_integration_secret", { p_key: key });
-  if (!error && typeof data === "string" && data.trim()) return data.trim();
-  return String(Deno.env.get(key) ?? "").trim();
+  return readIntegrationSecret(admin, key);
 }
 
 // Lien de secours YouTube plus précis (31/08/2026) : par défaut on ne propose
@@ -339,18 +339,7 @@ async function oEmbed(platform: string, url: string) {
   return endpoint ? fetchJson(endpoint) : null;
 }
 
-type CatalogTrack = {
-  source: "apple" | "deezer";
-  id: string;
-  title: string;
-  artist: string;
-  album?: string;
-  artworkUrl?: string;
-  previewUrl?: string;
-  externalUrl?: string;
-  genres?: string[];
-  releaseYear?: number;
-};
+type CatalogTrack = ProviderCatalogTrack;
 
 function appleTrack(row: any): CatalogTrack | null {
   if (!row?.trackName || !row?.artistName || !row?.trackId) return null;
@@ -377,19 +366,42 @@ function deezerTrack(row: any): CatalogTrack | null {
 }
 
 async function appleLookup(id: string) {
-  const payload = await fetchJson(`https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&entity=song&country=FR`);
+  const [authenticated, payload] = await Promise.all([
+    lookupAppleMusicCatalog(admin, id),
+    fetchJson(`https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&entity=song&country=FR`),
+  ]);
   const row = Array.isArray(payload?.results) ? payload.results.find((item: any) => item?.wrapperType === "track") : null;
-  return row ? appleTrack(row) : null;
+  const legacy = row ? appleTrack(row) : null;
+  return authenticated ? enrichAppleTrack(authenticated, legacy) : legacy;
 }
 
 async function deezerLookup(id: string) {
   return deezerTrack(await fetchJson(`https://api.deezer.com/track/${encodeURIComponent(id)}`));
 }
 
+function enrichAppleTrack(track: CatalogTrack, legacy?: CatalogTrack | null): CatalogTrack {
+  return {
+    ...track,
+    album: track.album || legacy?.album,
+    artworkUrl: track.artworkUrl || legacy?.artworkUrl,
+    previewUrl: track.previewUrl || legacy?.previewUrl,
+    externalUrl: track.externalUrl || legacy?.externalUrl,
+    genres: track.genres?.length ? track.genres : legacy?.genres,
+    releaseYear: track.releaseYear ?? legacy?.releaseYear,
+  };
+}
+
 async function searchApple(query: string): Promise<CatalogTrack[]> {
   if (!query.trim()) return [];
-  const payload = await fetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(query.slice(0, 220))}&entity=song&limit=18&country=FR`);
-  return (Array.isArray(payload?.results) ? payload.results : []).flatMap((row: any) => { const track = appleTrack(row); return track ? [track] : []; });
+  const [authenticated, payload] = await Promise.all([
+    searchAppleMusicCatalog(admin, query),
+    fetchJson(`https://itunes.apple.com/search?term=${encodeURIComponent(query.slice(0, 220))}&entity=song&limit=18&country=FR`),
+  ]);
+  const publicTracks = (Array.isArray(payload?.results) ? payload.results : []).flatMap((row: any) => { const track = appleTrack(row); return track ? [track] : []; });
+  const publicById = new Map<string, CatalogTrack>(publicTracks.map((track: CatalogTrack) => [track.id, track]));
+  const enriched = authenticated.map((track) => enrichAppleTrack(track, publicById.get(track.id)));
+  const ids = new Set(authenticated.map((track) => track.id));
+  return [...enriched, ...publicTracks.filter((track: CatalogTrack) => !ids.has(track.id))];
 }
 
 async function searchDeezer(query: string): Promise<CatalogTrack[]> {
@@ -431,6 +443,7 @@ function scoreTrackAgainstCandidates(track: CatalogTrack, evidence: string, cand
 }
 
 function sameSong(a: CatalogTrack, b: CatalogTrack) {
+  if (a.isrc && b.isrc) return a.isrc.toUpperCase() === b.isrc.toUpperCase();
   return tokenCoverage(a.title, b.title) >= 0.8 && tokenCoverage(a.artist, b.artist) >= 0.8;
 }
 
@@ -459,21 +472,24 @@ function sourceVerifiedRecognition(input: { url: string; title: string; artist: 
   };
 }
 
-async function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating?: CatalogTrack | null) {
+async function recognition(track: CatalogTrack, confidence: number, sourceUrl: string, corroborating: CatalogTrack[] = []) {
   const providerIds: Record<string, string> = {};
   const externalUrls: Record<string, string> = { source: sourceUrl };
-  for (const item of [track, corroborating].filter(Boolean) as CatalogTrack[]) {
+  for (const item of [track, ...corroborating]) {
     if (item.source === "apple") { providerIds.appleMusic = item.id; if (item.externalUrl) externalUrls.appleMusic = item.externalUrl; }
     if (item.source === "deezer") { providerIds.deezer = item.id; if (item.externalUrl) externalUrls.deezer = item.externalUrl; }
+    if (item.source === "spotify") { providerIds.spotify = item.id; if (item.externalUrl) externalUrls.spotify = item.externalUrl; }
   }
   const preciseYoutubeLink = await resolveYoutubeVideoLink(track.artist, track.title);
   externalUrls.youtubeSearch = preciseYoutubeLink || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
   return {
     confidence: Math.max(0.55, Math.min(0.99, confidence)), title: track.title, artist: track.artist, album: track.album,
-    artworkUrl: track.artworkUrl || corroborating?.artworkUrl, previewUrl: track.previewUrl || corroborating?.previewUrl,
-    genres: track.genres?.length ? track.genres : (corroborating?.genres ?? []),
-    releaseYear: track.releaseYear ?? corroborating?.releaseYear,
-    availableOn: [providerIds.appleMusic ? "Apple Music" : null, providerIds.deezer ? "Deezer" : null].filter(Boolean),
+    artworkUrl: track.artworkUrl || corroborating.find((item) => item.artworkUrl)?.artworkUrl,
+    previewUrl: track.previewUrl || corroborating.find((item) => item.previewUrl)?.previewUrl,
+    genres: track.genres?.length ? track.genres : (corroborating.find((item) => item.genres?.length)?.genres ?? []),
+    releaseYear: track.releaseYear ?? corroborating.find((item) => item.releaseYear)?.releaseYear,
+    isrc: track.isrc || corroborating.find((item) => item.isrc)?.isrc,
+    availableOn: [providerIds.appleMusic ? "Apple Music" : null, providerIds.deezer ? "Deezer" : null, providerIds.spotify ? "Spotify" : null].filter(Boolean),
     externalUrls, providerIds, recognitionProviderTrackId: `keyless:${track.source}:${track.id}`,
   };
 }
@@ -484,7 +500,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     if (String(body?.action ?? "") === "health") {
-      return json(200, { ok: true, service: "keep-music-keyless-source", provider: "KEYLESS_SOURCE", apiKeyRequired: false, catalogs: ["APPLE_ITUNES_SEARCH", "DEEZER_PUBLIC_SEARCH"], crossCatalogValidation: true, secretExposed: false });
+      return json(200, { ok: true, service: "keep-music-keyless-source", provider: "KEYLESS_SOURCE", apiKeyRequired: false, catalogs: ["APPLE_MUSIC", "SPOTIFY", "APPLE_ITUNES_SEARCH", "DEEZER_PUBLIC_SEARCH"], crossCatalogValidation: true, secretExposed: false });
     }
 
     const userId = await optionalUserId(req);
@@ -518,6 +534,18 @@ Deno.serve(async (req) => {
           const rec = await recognition(exact, 0.99, sourceUrl.toString());
           seedInBackground(rec);
           return json(200, { ok: true, provider: "KEYLESS_SOURCE", strategy: "deezer-direct", recognition: rec, evidence: { direct: true, crossCatalogConfirmed: false } });
+        }
+      }
+    }
+
+    if (sourceUrl?.hostname.toLowerCase() === "open.spotify.com") {
+      const id = sourceUrl.pathname.match(/\/track\/([A-Za-z0-9]{22})(?:\/|$)/)?.[1];
+      if (id) {
+        const exact = await lookupSpotifyCatalog(admin, id);
+        if (exact) {
+          const rec = await recognition(exact, 0.99, sourceUrl.toString());
+          seedInBackground(rec);
+          return json(200, { ok: true, provider: "KEYLESS_SOURCE", strategy: "spotify-direct", recognition: rec, evidence: { direct: true, crossCatalogConfirmed: false } });
         }
       }
     }
@@ -573,15 +601,21 @@ Deno.serve(async (req) => {
 
     const candidateTracks: CatalogTrack[] = [];
     for (const query of Array.from(queries).filter(Boolean).slice(0, 6)) {
-      const [apple, deezer] = await Promise.all([searchApple(query), searchDeezer(query)]);
-      candidateTracks.push(...apple, ...deezer);
+      const [apple, deezer, spotify] = await Promise.all([searchApple(query), searchDeezer(query), searchSpotifyCatalog(admin, query)]);
+      candidateTracks.push(...apple, ...deezer, ...spotify);
     }
     if (!candidateTracks.length) return sourceVerifiedFallback();
 
     const scored = candidateTracks.map((track) => ({ track, ...scoreTrackAgainstCandidates(track, evidence, artistTitleCandidates) })).sort((a, b) => b.score - a.score);
     const best = scored[0];
-    const corroborating = scored.find((item) => item.track.source !== best.track.source && sameSong(best.track, item.track))?.track ?? null;
-    let confidence = best.score + (corroborating ? 0.12 : 0);
+    const corroboratingBySource = new Map<CatalogTrack["source"], CatalogTrack>();
+    for (const item of scored) {
+      if (item.track.source !== best.track.source && !corroboratingBySource.has(item.track.source) && sameSong(best.track, item.track)) {
+        corroboratingBySource.set(item.track.source, item.track);
+      }
+    }
+    const corroborating = Array.from(corroboratingBySource.values());
+    let confidence = best.score + (corroborating.length ? 0.12 : 0);
     if (best.matchedCandidate && best.matchedCandidate.weight >= 0.9 && confidence >= 0.6) confidence = Math.max(confidence, 0.86);
     const directMusicHost = Boolean(page.url && MUSIC_HOSTS.some((host) => page.url!.hostname.toLowerCase().replace(/^www\./, "") === host || page.url!.hostname.toLowerCase().endsWith(`.${host}`)));
     // AJOUT P0 : le seuil global n'est jamais abaisse -- meme valeur qu'avant
@@ -593,12 +627,12 @@ Deno.serve(async (req) => {
     const finalRecognition = await recognition(best.track, confidence, page.url?.toString() || rawUrl, corroborating);
     seedInBackground(finalRecognition);
     return respond({
-      ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",
+      ok: true, provider: "KEYLESS_SOURCE", strategy: corroborating.length ? "cross-catalog" : explicit ? "explicit-music-metadata" : "public-metadata",
       recognition: finalRecognition,
-      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: Boolean(corroborating), directMusicHost },
+      evidence: { platform, explicitMusicMetadata: Boolean(explicit), candidateCount: artistTitleCandidates.length, crossCatalogConfirmed: corroborating.length > 0, directMusicHost },
     });
-  } catch (error) {
-    console.error("[keep-music-keyless-source]", error);
+  } catch {
+    console.error("[keep-music-keyless-source] resolver_unavailable");
     return json(200, { ok: false, provider: "KEYLESS_SOURCE", recognition: null, reason: "resolver_unavailable" });
   }
 });

@@ -118,3 +118,6 @@ Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon 
 4. **Mots de passe testeurs** (P, IDEA-175) : migration chiffrée (pgcrypto, clé hors base), lecture SUPER_ADMIN via RPC auditée, expiration 30 j, « Effacer » = effacement de la copie seulement. ⚠ Décision d'Adel notée : un mot de passe réversible est un risque ; garde-fous proposés : comptes TESTEURS uniquement (jamais les vrais utilisateurs), journal de chaque lecture, purge automatique à 30 j.
 5. **Zéro clavier + cartes** (O, Q) : Clés & intégrations en une carte par service, Copier/Coller.
 6. **Règle > 5 mots** (S, IDEA-178) : composant commun de repli + garde CI en mode *avertissement* d'abord (liste des écrans), puis blocage écran par écran ; ne jamais casser le design validé. Conflit à trancher : l'écran Offres est à ~23 mots (IDEA-160) ; la règle 5 mots le remplacerait.
+# Issue #55 — plan demandé par Adel le 08/10/2026
+
+Étendre les services catalogue et l’éditeur Clés existants, sans doublon : token Apple ES256/cache ≤12 h, client credentials Spotify, import .p8 et contrôles automatiques. Tests unitaires/contrat, typechecks, build et navigateur 390/1440 avant commit. Le test Apple réel reste distinct des fixtures ; aucun déploiement ni accès secret de production sans autorisation.

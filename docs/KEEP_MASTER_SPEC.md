@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.5**  
+Version : **2026-10-08.1**
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -227,6 +227,15 @@ Source : `packages/admin`.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/problem-reports.tsx` conserve triage et réouverture ; « Corrigé » exige `fixed_in_sha` complet et chemin anti-régression. Un SHA/chemin est une preuve documentaire seulement : ni exécution réussie, ni livraison. Anciens signalements sans preuve conservés.
 - Aucune donnée privée de signalement ni jeton dans un export public. Collecte des contrôles GitHub côté script/workflow lecture seule, branche/SHA/date/liens explicites, succès et skipped/échecs/inconnus séparés.
 - Contrat existant `adminReleaseEvidence`, tests `/home/runner/work/KEEP/KEEP/scripts/admin-release-evidence.test.cjs` et `/home/runner/work/KEEP/KEEP/scripts/problem-report-evidence.test.cjs`.
+
+### Clés Super Admin — issue #55, décision du 08/10/2026
+
+- Étendre l’éditeur unique et le catalogue existant : secrets lus par RPC puis environnement serveur, jamais exposés au client.
+- Apple Music : ES256, `kid`/`iss` configurés, cache lié aux identifiants, durée ≤12 h ; Spotify : client credentials pour le catalogue, pas un compte utilisateur.
+- Import .p8 local par bouton/glisser-déposer, Key ID du nom Apple, contrôle du type et incohérence signalée ; un PEM ne prouve pas l’autorisation fournisseur.
+- Contrôle à l’ouverture et après sauvegarde ; états **OK / Refusée / Manquante**, motif ≤5 mots. Pas de succès déduit du seul format.
+- « À corriger » contient seulement des clés consommées par une fonction ; autres cartes sous « Optionnel / plus tard », replié. Deezer public n’exige aucune clé.
+- Tests locaux et fixtures ne remplacent jamais la preuve d’un appel Apple réel autorisé. Endpoint token prêt ne signifie pas SDK ShazamKit Android installé.
 
 ### APIs publiques — toolbox agents
 

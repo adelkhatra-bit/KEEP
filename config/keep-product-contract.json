@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-07.01",
+  "version": "2026-10-08.01",
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
@@ -10,6 +10,20 @@
     "githubControlsReadOnlyCanonicalHead": true
   },
   "name": "Loki Music — contrat produit canonique",
+  "adminIntegrationKeys": {
+    "secretReadOrder": ["service_get_integration_secret", "server-environment"],
+    "automaticChecks": ["page-open", "after-save"],
+    "displayStates": ["OK", "Refusée", "Manquante"],
+    "refusalReasonMaxWords": 5,
+    "p8MaxVisibleLines": 3,
+    "p8ImportLocalOnlyUntilSave": true,
+    "p8KeyIdFromFilename": true,
+    "appleDeveloperTokenMaxSeconds": 43200,
+    "activeRequiresProviderConfirmation": true,
+    "urgentKeysRequireRuntimeConsumer": true,
+    "optionalSectionCollapsed": true,
+    "deezerPublicCatalogRequiresKey": false
+  },
   "productName": "Loki Music",
   "technicalRepositoryName": "KEEP",
   "productNamingRule": "Loki Music est le seul nom produit utilisateur. KEEP désigne uniquement le dépôt technique historique.",

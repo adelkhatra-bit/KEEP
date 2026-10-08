@@ -13,3 +13,6 @@ verify_jwt = false
 
 # keep-account-email is intentionally NOT public: the deployed function currently
 # requires an authenticated account and must keep verify_jwt=true.
+
+[functions.keep-apple-music-token]
+verify_jwt = true

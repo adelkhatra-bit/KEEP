@@ -10,15 +10,13 @@ import {
   AppleMusicProvider,
   DemoMusicProvider,
   DemoRecognitionProvider,
-  DeveloperTokenProvider,
   InMemoryRoutingWeightsStore,
   MusicProviderAdapter,
   MusicRecognitionProvider,
   SmartPlaylistRouter,
   TrackResolver,
 } from '@keep/music';
-import { getSupabaseAccessToken } from './supabaseClient';
-import { APP_NAME } from '../config/brand';
+import { fetchAppleMusicDeveloperToken } from './appleMusicAuth';
 import { KeepMusicCoreRecognitionProvider, isSecureRecognitionConfigured } from './keepMusicCoreRecognition';
 import { NativeFirstRecognitionProvider } from './nativeFirstRecognitionProvider';
 import { NotifyingRecognitionProvider } from './notifyingRecognitionProvider';
@@ -26,48 +24,12 @@ import { isSmartAlbumUiId, loadSmartAlbumTracks } from './smartAlbumService';
 
 const USE_DEMO_MUSIC_PROVIDER = process.env.EXPO_PUBLIC_DEMO_MODE !== 'false';
 const USE_REAL_RECOGNITION = isSecureRecognitionConfigured && process.env.EXPO_PUBLIC_KEEP_REAL_RECOGNITION !== 'false';
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-function isPlaceholder(value: string | undefined): boolean {
-  return !value || value.startsWith('your_') || value === 'undefined';
-}
-
-async function fetchAppleMusicDeveloperToken(apiUrl: string): Promise<string> {
-  const accessToken = await getSupabaseAccessToken();
-  if (!accessToken) {
-    throw new Error(
-      `Apple Music : aucune session ${APP_NAME} active. Connecte-toi avant de pouvoir récupérer un developer token.`
-    );
-  }
-  const res = await fetch(`${apiUrl}/api/music/apple/developer-token`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(`Apple Music : ${json?.message ?? `échec récupération developer token (HTTP ${res.status})`}`);
-  }
-  return json.token as string;
-}
-
-function createBackendDeveloperTokenProvider(apiUrl: string): DeveloperTokenProvider {
-  return { getDeveloperToken: () => fetchAppleMusicDeveloperToken(apiUrl) };
-}
-
 export async function getAppleMusicDeveloperToken(): Promise<string> {
-  if (isPlaceholder(API_URL)) {
-    throw new Error(`EXPO_PUBLIC_API_URL manquant -- impossible de joindre le backend ${APP_NAME}.`);
-  }
-  return fetchAppleMusicDeveloperToken(API_URL!);
+  return fetchAppleMusicDeveloperToken();
 }
 
 function createRealMusicProvider(): MusicProviderAdapter {
-  if (isPlaceholder(API_URL)) {
-    throw new Error(
-      `${APP_NAME} est en Mode Réel mais EXPO_PUBLIC_API_URL est manquant. ` +
-        `Renseigne l’URL du backend ${APP_NAME} déployé.`
-    );
-  }
-  return new AppleMusicProvider(createBackendDeveloperTokenProvider(API_URL!));
+  return new AppleMusicProvider({ getDeveloperToken: fetchAppleMusicDeveloperToken });
 }
 
 class MusicEngine {

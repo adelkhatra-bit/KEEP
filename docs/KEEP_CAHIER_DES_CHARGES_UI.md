@@ -2,7 +2,7 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
-Version : **2026-10-01.4**  
+Version : **2026-10-08.1**
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
 
@@ -71,6 +71,10 @@ Avant chaque push qui modifie l'UI :
 - vérifier le rendu 390×844 ;
 - vérifier un rendu desktop ;
 - ne pas corriger un test obsolète en restaurant un ancien design contraire à ce document.
+
+### Clés Super Admin — issue #55 (08/10/2026)
+
+Une ligne pour les clés courtes, trois lignes maximum pour les .p8, bouton « 📂 Choisir le fichier .p8 » sous le champ et glisser-déposer. Indice « Clé KEY_ID », alerte rouge en cas d’incohérence avec le fichier ; chemins fournisseur exacts. Trois états seulement : ✅ OK · ❌ Refusée (motif ≤5 mots) · ⚪ Manquante. Section optionnelle repliée, aucune carte dupliquée et aucun débordement à 390/1440. Contrat `adminIntegrationKeys`, tests `scripts/admin-integration-keys.test.cjs` et `scripts/admin-integration-keys-browser.cjs`.
 
 ## 7. Fichiers de contrôle
 

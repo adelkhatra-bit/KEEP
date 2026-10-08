@@ -2781,3 +2781,6 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08] copilot — issue #55, début
+
+Base canonique 639f499 vérifiée ; branche de revue copilot/super-admin-cles-tout-brancher. Verrou codex acquis. Périmètre : éditeur Clés Super Admin et fonctions catalogue/secrets existantes, tests et preuves. Aucun changement d’auth utilisateur, de design mobile ni de données de production.

@@ -1,5 +1,10 @@
 # KEEP — Contexte actif
 
+## Issue #55 — Clés Super Admin (08/10/2026)
+- Base canonique `639f499db992d6d01fcaff1282d56eee04760e20` vérifiée par fetch, revue `copilot/super-admin-cles-tout-brancher`, pas `main`. Éditeur unique, import .p8 local, Key ID associé, alerte mismatch, aides fournisseur, tests ouverture/sauvegarde et section optionnelle.
+- Preuves UI locales : 7/7 tests `scripts/admin-integration-keys.test.cjs`, tsc admin, build 22 pages avec préfixe canonique, `scripts/admin-integration-keys-browser.cjs` en Chromium 390×844 et 1440×900, direct/reload HTTP200, aucun débordement/erreur de page, import bouton/drop et refus du mauvais type. Captures sans PEM dans `/tmp/keep-admin-keys-captures` ; CI existante étendue pour produire les artefacts.
+- **TEST MODE RÉEL Apple : NON EXÉCUTÉ** (aucun secret Apple ni service_role/session admin disponible), pas de déploiement Supabase ni de données utilisateur modifiées. Token prêt pour un adaptateur Android ne prouve pas un SDK ShazamKit Android natif installé. Ne pas annoncer CI globale verte : ancien run Real Browser `37711629482` en échec sur un autre SHA/module.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.

@@ -61,6 +61,15 @@ jobs:
         run: npm run type-check
       - name: Unit tests
         run: npm test -- --runInBand
+      - name: Super Admin keys contract and file import
+        run: node --test scripts/admin-integration-keys.test.cjs
+      - name: Catalog tokens and Super Admin provider checks — isolated fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/keep-edge-tools" --no-save --package-lock=false jose@5.9.6
+          KEEP_JOSE_TEST_MODULE="$RUNNER_TEMP/keep-edge-tools/node_modules/jose" \
+            node --test supabase/functions/_shared/musicProviders.test.cjs scripts/admin-integrations-runtime.test.cjs
       - name: Live keyless recognition smoke — text + shared YouTube URL, no private API key
         env:
           KEEP_SUPABASE_URL: 'https://rrhqsqzcplvmwxizqnla.supabase.co'
@@ -108,7 +117,36 @@ jobs:
       - name: Build backend
         run: npm --workspace packages/backend run build
       - name: Build Super Admin
+        env:
+          KEEP_ADMIN_BASE_PATH: /KEEP/admin-preview
+          NEXT_PUBLIC_SUPABASE_URL: https://fixture.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-public
         run: npm --workspace packages/admin run build
+      - name: Super Admin keys — real browser, isolated fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/keep-browser-tools" --no-save --package-lock=false playwright@1.55.1
+          "$RUNNER_TEMP/keep-browser-tools/node_modules/.bin/playwright" install chromium --with-deps
+          mkdir -p "$RUNNER_TEMP/keep-admin-site/KEEP"
+          ln -s "$GITHUB_WORKSPACE/packages/admin/out" "$RUNNER_TEMP/keep-admin-site/KEEP/admin-preview"
+          python3 -m http.server 3090 --bind 127.0.0.1 --directory "$RUNNER_TEMP/keep-admin-site" >"$RUNNER_TEMP/admin-http.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3090/KEEP/admin-preview/integrations/ >/dev/null; then break; fi
+            sleep 1
+          done
+          NODE_PATH="$RUNNER_TEMP/keep-browser-tools/node_modules" \
+          KEEP_ADMIN_SCREENSHOTS="$RUNNER_TEMP/keep-admin-keys-captures" \
+            node scripts/admin-integration-keys-browser.cjs
+      - name: Super Admin keys screenshots 390/1440
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: admin-keys-390-1440
+          path: ${{ runner.temp }}/keep-admin-keys-captures/*.png
+          if-no-files-found: warn
       - name: Export web preview
         env:
           EXPO_PUBLIC_DEMO_MODE: 'true'
