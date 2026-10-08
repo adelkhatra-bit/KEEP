@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '../components/AdminLayout';
 import Hint from '../components/Hint';
+import InfoToggleIcon from '../../mobile/src/components/InfoToggleIcon';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 
 type FieldStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -151,10 +152,13 @@ export default function Moderation() {
                     </p>
                     {item.description.length > 180 ? (
                       <button
+                        type="button"
+                        aria-expanded={Boolean(expanded[item.id])}
+                        aria-label={expanded[item.id] ? 'Réduire la description' : 'En savoir plus sur l’événement'}
                         onClick={() => setExpanded((e) => ({ ...e, [item.id]: !e[item.id] }))}
-                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: 12, fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                        style={{ marginTop: 4, background: 'transparent', border: 'none', color: 'var(--primary-light)', fontSize: 18, fontWeight: 800, cursor: 'pointer', padding: 0, minHeight: 48, minWidth: 48 }}
                       >
-                        {expanded[item.id] ? '‹ Replier' : 'En savoir plus ›'}
+                        <InfoToggleIcon expanded={Boolean(expanded[item.id])} />
                       </button>
                     ) : null}
                   </div>

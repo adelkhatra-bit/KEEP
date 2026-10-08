@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -1156,7 +1157,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                     <Text style={styles.cardBody} numberOfLines={expandedNotificationIds.has(item.id) ? undefined : 2}>{notificationBody}</Text>
                     {String(notificationBody || '').length > 78 ? (
                       <TouchableOpacity onPress={() => toggleNotificationExpanded(item.id)} accessibilityRole="button" accessibilityLabel={expandedNotificationIds.has(item.id) ? 'Réduire la notification' : 'En savoir plus sur la notification'}>
-                        <Text style={styles.cardMoreLink}>{expandedNotificationIds.has(item.id) ? 'Réduire ‹' : 'En savoir plus ›'}</Text>
+                        <Text style={styles.cardMoreLink}><InfoToggleIcon expanded={expandedNotificationIds.has(item.id)} /></Text>
                       </TouchableOpacity>
                     ) : null}
                   </View>
@@ -1169,7 +1170,7 @@ export default function NotificationsScreen({ navigation, route }: any) {
                   </View>
                 ) : null}
                 {isBattleInvite(item) ? <View style={styles.battleTheme}><Text style={styles.battleThemeLabel}>STYLE DU MATCH</Text><Text style={styles.battleThemeValue}>{battleTheme(item)}</Text></View> : null}
-                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)}><Text style={styles.cardMoreLink}>En savoir plus ›</Text></TouchableOpacity> : null}
+                {(item.type === 'EVENT_INVITE' || item.type === 'EVENT_REMINDER') && eventIdOf(item) ? <TouchableOpacity onPress={() => void openEventDetail(item)} accessibilityRole="button" accessibilityLabel="En savoir plus sur l’événement"><Text style={styles.cardMoreLink}><InfoToggleIcon /></Text></TouchableOpacity> : null}
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardDate}>{new Date(item.createdAt).toLocaleString('fr-FR')}</Text>
                   {profileUsername ? <Text style={styles.cardProfileLink}>Actions avec @{profileUsername} ›</Text> : null}

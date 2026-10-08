@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 import { ActivityIndicator, Linking, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Alert } from '../utils/keepAlert';
 import { useUserStore } from '../store/useUserStore';
@@ -518,8 +519,7 @@ export default function OffersScreen({ navigation, route }: any) {
                 accessibilityLabel={`En savoir plus sur ${planLabel(plan.code)}`}
                 accessibilityState={{ expanded: expandedPlanCode === plan.code }}
               >
-                <Text style={s.disclosureText}>{expandedPlanCode === plan.code ? 'Réduire' : 'En savoir plus'}</Text>
-                <Text style={s.disclosureChevron}>{expandedPlanCode === plan.code ? '⌃' : '⌄'}</Text>
+                <Text style={s.disclosureText}><InfoToggleIcon expanded={expandedPlanCode === plan.code} /></Text>
               </TouchableOpacity>
               {expandedPlanCode === plan.code ? <View style={s.planDetails}>
                 {!!plan.description && <Text style={s.planDescription}>{plan.description}</Text>}
@@ -580,8 +580,7 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur les règles"
             accessibilityState={{ expanded: rulesExpanded }}
           >
-            <Text style={s.disclosureText}>{rulesExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-            <Text style={s.disclosureChevron}>{rulesExpanded ? '⌃' : '⌄'}</Text>
+            <Text style={s.disclosureText}><InfoToggleIcon expanded={rulesExpanded} /></Text>
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <ClampedText style={s.subscriptionText} text="• Écouter et PASSER restent inclus. Une reconnaissance réussie au-delà du quota quotidien de ta formule coûte 1 FREE." />
@@ -599,8 +598,7 @@ export default function OffersScreen({ navigation, route }: any) {
             accessibilityLabel="En savoir plus sur le fonctionnement de Loki Music"
             accessibilityState={{ expanded: introExpanded }}
           >
-            <Text style={s.disclosureText}>{introExpanded ? 'Réduire' : 'En savoir plus : comment Loki Music grandit avec toi'}</Text>
-            <Text style={s.disclosureChevron}>{introExpanded ? '⌃' : '⌄'}</Text>
+            <Text style={s.disclosureText}><InfoToggleIcon expanded={introExpanded} /></Text>
           </TouchableOpacity>
           {introExpanded ? <>
           <View style={s.promiseCard}>
@@ -634,8 +632,7 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur l'attribution des découvertes"
               accessibilityState={{ expanded: discoveryExpanded }}
             >
-              <Text style={s.disclosureText}>{discoveryExpanded ? 'Réduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{discoveryExpanded ? '⌃' : '⌄'}</Text>
+              <Text style={s.disclosureText}><InfoToggleIcon expanded={discoveryExpanded} /></Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui identifie ce titre avec Écouter et le garde devient son premier découvreur Loki Music.</Text></View>
@@ -757,8 +754,7 @@ export default function OffersScreen({ navigation, route }: any) {
               accessibilityLabel="En savoir plus sur les Loki Music Battles"
               accessibilityState={{ expanded: battleExpanded }}
             >
-              <Text style={s.disclosureText}>{battleExpanded ? 'Reduire' : 'En savoir plus'}</Text>
-              <Text style={s.disclosureChevron}>{battleExpanded ? 'v' : '>'}</Text>
+              <Text style={s.disclosureText}><InfoToggleIcon expanded={battleExpanded} /></Text>
             </TouchableOpacity>
             {/* Adel (04/09/2026) : "oublie pas de rajouter aussi dans les
                 offres de bien expliquer les règles pour les Battle" -- le
@@ -847,7 +843,7 @@ const s = StyleSheet.create({
   freePillText: { color: colors.keep, fontSize: 9, fontWeight: '900' },
   creditText: { color: colors.textPrimary, fontSize: 12, lineHeight: 18, marginTop: 4, fontWeight: '700' },
   creditRule: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 7, fontWeight: '700' },
-  disclosureButton: { minHeight: 44, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  disclosureButton: { minHeight: 48, minWidth: 48, marginTop: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   disclosureText: { color: colors.textPrimary, fontSize: 12, fontWeight: '900' },
   disclosureChevron: { color: colors.primaryLight, fontSize: 18, fontWeight: '900' },
   growthGrid: { flexDirection: 'row', gap: 7, marginTop: 12 },

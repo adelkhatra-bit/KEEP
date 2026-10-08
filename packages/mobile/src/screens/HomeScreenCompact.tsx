@@ -1,4 +1,5 @@
 import LedTicker from '../components/LedTicker';
+import InfoToggleIcon from '../components/InfoToggleIcon';
 import { composeTickerBatch } from '../services/tickerMessageLibrary';
 import { robotSay } from '../services/robotCoachService';
 import { nextTickerBatch } from '../services/tickerMemory';
@@ -663,7 +664,7 @@ export default function HomeScreenCompact({ navigation }: any) {
               accessibilityLabel="En savoir plus sur Loki Music"
               accessibilityState={{ expanded: homeAboutOpen }}
             >
-              <Text style={s.idleLearnMoreText}>{homeAboutOpen ? 'Réduire' : 'En savoir plus'}</Text>
+              <Text style={s.idleLearnMoreText}><InfoToggleIcon expanded={homeAboutOpen} /></Text>
             </TouchableOpacity>
             <View style={s.idleLearnMoreSlot}>
               {homeAboutOpen ? (
