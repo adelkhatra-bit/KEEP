@@ -248,3 +248,9 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 
 - **IDÉE / décision :** languette/badge du hamburger visible tant qu’au moins une session contient des titres pending, indépendamment de la fermeture du message du robot. Afficher le nombre de sessions en attente (distinguer du nombre de morceaux) ; actualiser après garder/passer et après réouverture. Un simple passage sur l’écran ne marque pas les titres traités.
 - **IDÉE / décision confirmée :** retirer GARDER de la reconnaissance active et proposer « Ma session ». Arrêter la boucle de reconnaissance et attendre la libération matérielle du micro avant navigation/lecture ; conserver les titres détectés. Le message intelligent peut disparaître, pas le badge tant que l’attente subsiste.
+
+## Complément Adel — 08/10/2026 — approbation explicite QR
+
+- **IDÉE / décision :** après scan, afficher dans l’application une demande « Connecter cet ordinateur ? » avec Approuver / Annuler. Aucun scan ne vaut approbation. Refus = annulation serveur, l’ordinateur ne se connecte pas. Demande retrouvable dans l’application via notification, puis approbation volontaire. Ne jamais mettre de secret ou lien de connexion dans une notification publique.
+- **IDÉE / garde-fous :** demande liée au navigateur initiateur, expiration cinq minutes, refus/expiration non réactivables, double clic idempotent ; notification dédupliquée. La notification seule n’autorise rien. Préserver les connexions actuelles.
+- **IDÉE / poursuivre :** mesurer catalogue utilisable par style après correction des règles et identifier la preuve exacte du statut App Store. Conserver les tâches nécessitant accès humain dans le handoff Claude Code.
