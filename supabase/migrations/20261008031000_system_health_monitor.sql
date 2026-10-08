@@ -103,6 +103,9 @@ declare
   j record;
   q record;
   v_no_device bigint;
+  v_incident boolean;
+  v_last_failure timestamptz;
+  v_can_recover boolean;
   v_results jsonb := '[]'::jsonb;
   v_since timestamptz := now()-interval '24 hours';
 begin
@@ -119,26 +122,33 @@ begin
   where coalesce(metadata->>'source','') <> 'system_health'
     and not (email_type='admin' and coalesce(metadata,'{}'::jsonb) ? 'incidentId'
       and coalesce(metadata,'{}'::jsonb) ? 'provider');
+  select incident_open,last_failure_at into v_incident,v_last_failure
+    from public.provider_health where provider='EMAIL_QUEUE' for update;
+  -- Lock the incident fence while evaluating recovery: a success preceding
+  -- the most recent failure observation cannot prove that delivery recovered.
+  v_can_recover := not coalesce(v_incident,false) or q.last_delivery > v_last_failure;
   v_results := v_results || jsonb_build_array(jsonb_build_object(
     'provider','EMAIL_QUEUE',
     'status',case when q.failed>0 or q.oldest_pending < now()-interval '15 minutes' then 'ERROR'
-      when q.delivered>0 then 'OK' else 'UNKNOWN' end,
+      when q.delivered>0 and v_can_recover then 'OK' else 'UNKNOWN' end,
     'last_checked_at',now(),
     'last_error',case when q.failed>0 then 'EMAIL_QUEUE_FAILED'
       when q.oldest_pending < now()-interval '15 minutes' then 'EMAIL_QUEUE_LAG'
       when q.activity=0 and q.pending=0 then 'NO_RECENT_ACTIVITY'
-      when q.delivered=0 then 'EMAIL_DELIVERY_NOT_OBSERVED' else null end,
+      when q.delivered=0 or not coalesce(v_can_recover,false) then 'EMAIL_DELIVERY_NOT_OBSERVED' else null end,
     'metadata',jsonb_build_object('kind','queue','pending',q.pending,'failed',q.failed,
       'delivered_24h',q.delivered,'oldest_pending_at',q.oldest_pending,
       'lag_seconds',ceil(extract(epoch from now()-q.oldest_pending)),
-      'last_delivery_at',q.last_delivery,'activity_24h',q.activity,'health_alerts_excluded',true)
+      'last_delivery_at',q.last_delivery,'recovery_requires_delivery_after',v_last_failure,
+      'activity_24h',q.activity,'health_alerts_excluded',true)
   ));
   select count(*) filter(where push_delivery_status='FAILED') as failed,
-    count(*) filter(where push_delivery_status='CREATED') as pending,
-    count(*) filter(where push_delivery_status in ('SENT','DELIVERED')
-      and coalesce(push_delivered_at,pushed_at) >= v_since) as delivered,
-    min(created_at) filter(where push_delivery_status='CREATED') as oldest_pending,
-    max(coalesce(push_delivered_at,pushed_at)) filter(where push_delivery_status in ('SENT','DELIVERED')) as last_delivery,
+    count(*) filter(where push_delivery_status in ('CREATED','SENT')) as pending,
+    count(*) filter(where push_delivery_status='SENT') as unverified_tickets,
+    count(*) filter(where push_delivery_status='DELIVERED' and push_delivered_at >= v_since) as delivered,
+    min(case when push_delivery_status='SENT' then coalesce(pushed_at,created_at) else created_at end)
+      filter(where push_delivery_status in ('CREATED','SENT')) as oldest_pending,
+    max(push_delivered_at) filter(where push_delivery_status='DELIVERED') as last_delivery,
     count(*) filter(where created_at >= v_since or pushed_at >= v_since or push_delivered_at >= v_since) as activity
   into q from public.notifications where type <> 'ADMIN_SYSTEM_HEALTH';
   -- Match the delivery diagnostic source, not the denormalized notification
@@ -147,21 +157,27 @@ begin
   select count(*) into v_no_device from public.push_delivery_attempts a
     join public.notifications n on n.id=a.notification_id
     where a.status='NO_DEVICE' and a.last_attempt_at >= v_since and n.type <> 'ADMIN_SYSTEM_HEALTH';
+  select incident_open,last_failure_at into v_incident,v_last_failure
+    from public.provider_health where provider='PUSH_QUEUE' for update;
+  v_can_recover := not coalesce(v_incident,false) or q.last_delivery > v_last_failure;
+  -- SENT is only an accepted Expo ticket. Only a confirmed delivery timestamp
+  -- can close a push incident; never substitute the ticket's pushed_at.
   v_results := v_results || jsonb_build_array(jsonb_build_object(
     'provider','PUSH_QUEUE',
     'status',case when q.failed>0 or q.oldest_pending < now()-interval '15 minutes' then 'ERROR'
-      when q.delivered>0 then 'OK' else 'UNKNOWN' end,
+      when q.delivered>0 and v_can_recover then 'OK' else 'UNKNOWN' end,
     'last_checked_at',now(),
     'last_error',case when q.failed>0 then 'PUSH_QUEUE_FAILED'
       when q.oldest_pending < now()-interval '15 minutes' then 'PUSH_QUEUE_LAG'
       when v_no_device>0 and q.delivered=0 then 'PUSH_NO_DEVICE'
       when q.activity=0 and q.pending=0 then 'NO_RECENT_ACTIVITY'
-      when q.delivered=0 then 'PUSH_DELIVERY_NOT_OBSERVED' else null end,
-    'metadata',jsonb_build_object('kind','queue','pending',q.pending,'failed',q.failed,
+      when q.delivered=0 or not coalesce(v_can_recover,false) then 'PUSH_DELIVERY_NOT_OBSERVED' else null end,
+    'metadata',jsonb_build_object('kind','queue','pending',q.pending,'failed',q.failed,'unverified_tickets',q.unverified_tickets,
       'no_device_24h',v_no_device,'no_device_source','push_delivery_attempts.status + last_attempt_at',
       'delivered_24h',q.delivered,'oldest_pending_at',q.oldest_pending,
       'lag_seconds',ceil(extract(epoch from now()-q.oldest_pending)),
-      'last_delivery_at',q.last_delivery,'activity_24h',q.activity,'health_alerts_excluded',true,
+      'last_delivery_at',q.last_delivery,'recovery_requires_delivery_after',v_last_failure,
+      'activity_24h',q.activity,'health_alerts_excluded',true,
       'no_device_semantics','No registered device is not proof of provider outage')
   ));
   for j in

@@ -97,7 +97,7 @@ test('signature ES256 réelle + réponse catalogue Apple simulée, sans sortir l
   let checked = false;
   try {
     global.fetch = async (url, options) => {
-      if (url.includes('music.apple.com')) {
+      if (new URL(url).hostname === 'api.music.apple.com') {
         const token = options.headers.get('Authorization').substring(7);
         const [header, claims, signature] = token.split('.');
         assert.equal(JSON.parse(Buffer.from(header, 'base64url')).alg, 'ES256');
@@ -222,7 +222,7 @@ test('email_type admin rejoint le retry existant et envoie réellement la requê
 });
 
 // Real PostgreSQL, isolated database; Vault/pg_cron shims match the existing migration test runner.
-test('migration PostgreSQL réelle : rôles, atomique, incidents concurrentiels, cron, compteurs', async () => {
+test('migration PostgreSQL réelle : rôles, atomique, incidents concurrentiels, cron, compteurs', async (t) => {
   const database = `keep_health_test_${process.pid}`;
   const args = ['-n', '-u', 'postgres', 'psql', '-X', '-q', '-v', 'ON_ERROR_STOP=1'];
   const pg = (sql, db = database) => execFileSync('sudo', [...args, '-d', db], { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
@@ -429,5 +429,92 @@ test('migration PostgreSQL réelle : rôles, atomique, incidents concurrentiels,
       end $$;
       reset role;
     `);
+    await t.test('SQL : ancien succès + lag puis skip ne referment pas les incidents et ne renotifient pas', () => {
+      pg(`
+        update email_queue set status='skipped',sent_at=null
+          where coalesce(metadata->>'source','') <> 'system_health';
+        update notifications set push_delivery_status='IN_APP_ONLY',pushed_at=null,push_delivered_at=null
+          where type<>'ADMIN_SYSTEM_HEALTH';
+        select set_config('health_test.email_alert_count',
+          (select count(*)::text from notifications where data->>'provider'='EMAIL_QUEUE'),false);
+        select set_config('health_test.push_alert_count',
+          (select count(*)::text from notifications where data->>'provider'='PUSH_QUEUE'),false);
+        insert into email_queue(recipient_email,email_type,status,created_at,metadata,sent_at) values
+          ('user@example.invalid','RECOVERY_FIXTURE','sent',now()-interval '1 hour','{}',now()-interval '1 hour'),
+          ('user@example.invalid','RECOVERY_FIXTURE','pending',now()-interval '20 minutes','{}',null);
+        insert into notifications(profile_id,type,title,push_delivery_status,created_at,push_delivered_at) values
+          ('00000000-0000-0000-0000-000000000001','RECOVERY_FIXTURE','fixture','DELIVERED',now()-interval '1 hour',now()-interval '1 hour'),
+          ('00000000-0000-0000-0000-000000000001','RECOVERY_FIXTURE','fixture','CREATED',now()-interval '20 minutes',null);
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if exists(select 1 from provider_health where provider in ('EMAIL_QUEUE','PUSH_QUEUE')
+            and (status<>'ERROR' or not incident_open)) then raise exception 'lag did not open incidents'; end if;
+        end $$;
+        update email_queue set status='skipped' where email_type='RECOVERY_FIXTURE' and status='pending';
+        update notifications set push_delivery_status='IN_APP_ONLY' where type='RECOVERY_FIXTURE' and push_delivery_status='CREATED';
+        set role service_role; select service_collect_system_health(); select service_collect_system_health(); reset role;
+        do $$ begin
+          if exists(select 1 from provider_health where provider in ('EMAIL_QUEUE','PUSH_QUEUE')
+            and (status<>'UNKNOWN' or not incident_open or (metadata->>'delivered_24h')::int<>1)) then
+            raise exception 'old 24h success falsely recovered an incident';
+          end if;
+          if (select count(*) from notifications where data->>'provider'='EMAIL_QUEUE')
+            <>current_setting('health_test.email_alert_count')::int+2
+            or (select count(*) from notifications where data->>'provider'='PUSH_QUEUE')
+            <>current_setting('health_test.push_alert_count')::int+2 then raise exception 'incident notified again'; end if;
+        end $$;
+        set request.jwt.claim.sub='00000000-0000-0000-0000-000000000001';
+        set role authenticated;
+        do $$ declare h jsonb; begin
+          h:=admin_system_health();
+          if (select count(*) from jsonb_array_elements(h->'services') s
+            where s->>'provider' in ('EMAIL_QUEUE','PUSH_QUEUE') and s->>'status'='ERROR')<>2 then
+            raise exception 'open incidents hidden from admin';
+          end if;
+        end $$;
+        reset role;
+        insert into email_queue(recipient_email,email_type,status,created_at,metadata,sent_at)
+          values('user@example.invalid','RECOVERY_FIXTURE','sent',now(),'{}',now());
+        insert into notifications(profile_id,type,title,push_delivery_status,push_delivered_at)
+          values('00000000-0000-0000-0000-000000000001','RECOVERY_FIXTURE','fixture','DELIVERED',now());
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if exists(select 1 from provider_health where provider in ('EMAIL_QUEUE','PUSH_QUEUE')
+            and (status<>'OK' or incident_open)) then raise exception 'new delivery did not recover'; end if;
+        end $$;
+      `);
+    });
+    await t.test('SQL : ticket SENT seul jamais vert ; seul DELIVERED post-échec referme l’incident', () => {
+      pg(`
+        update notifications set push_delivery_status='IN_APP_ONLY',pushed_at=null,push_delivered_at=null
+          where type<>'ADMIN_SYSTEM_HEALTH';
+        insert into notifications(profile_id,type,title,push_delivery_status,pushed_at)
+          values('00000000-0000-0000-0000-000000000001','TICKET_FIXTURE','fixture','SENT',now());
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if not exists(select 1 from provider_health where provider='PUSH_QUEUE' and status='UNKNOWN'
+            and (metadata->>'delivered_24h')::int=0 and (metadata->>'unverified_tickets')::int=1
+            and (metadata->>'pending')::int=1) then raise exception 'SENT ticket reported delivery'; end if;
+        end $$;
+        update notifications set pushed_at=now()-interval '20 minutes' where type='TICKET_FIXTURE';
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if not exists(select 1 from provider_health where provider='PUSH_QUEUE' and status='ERROR'
+            and incident_open and last_error='PUSH_QUEUE_LAG') then raise exception 'unverified ticket lag not observed'; end if;
+        end $$;
+        update notifications set pushed_at=now() where type='TICKET_FIXTURE';
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if not exists(select 1 from provider_health where provider='PUSH_QUEUE' and status='UNKNOWN'
+            and incident_open) then raise exception 'fresh accepted ticket closed incident'; end if;
+        end $$;
+        update notifications set push_delivery_status='DELIVERED',push_delivered_at=now() where type='TICKET_FIXTURE';
+        set role service_role; select service_collect_system_health(); reset role;
+        do $$ begin
+          if not exists(select 1 from provider_health where provider='PUSH_QUEUE' and status='OK'
+            and not incident_open and (metadata->>'delivered_24h')::int=1) then raise exception 'confirmed post-error delivery did not recover'; end if;
+        end $$;
+      `);
+    });
   } finally { pg(`drop database ${database};`, 'postgres'); }
 });

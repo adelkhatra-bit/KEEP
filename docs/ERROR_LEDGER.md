@@ -3,6 +3,7 @@
 Date de référence : 24/09/2026
 
 ## Issue #57 — 08/10/2026, correctif en revue, non déployé
+- **ERR-ADMIN-HEALTH-224 · LOCAL_ONLY** : revue du SHA `d6dfca99d518284e8413e7281ffba446964a077d` : les files pouvaient refermer un incident grâce à une livraison antérieure à la panne ; PUSH_QUEUE comptait aussi SENT (ticket Expo accepté) comme livraison. Correction locale : succès postérieur à la dernière observation d’échec et reçu DELIVERED obligatoire ; 11/11 tests santé incluant ces cas SQL dans `scripts/system-health.test.cjs`. Aucun incident ni donnée de production modifié ; pas VERIFIED.
 - **ERR-ADMIN-HEALTH-223 · LOCAL_ONLY** : absence de surveillance persistée et de triage groupé ; constat production fourni par Adel (provider_health vide, 90 NEW), non revérifié depuis ce clone sans accès admin Supabase. Correction : moniteur unique 5 min, tests fournisseurs, historique cron/files et Edge inconnue sans logs, incidents dédupliqués notification/file e-mail, bandeau Accueil/Santé/cloche, groupes calculés sur app_problem_reports et guards SHA/test existants. Prévention : scripts/system-health.test.cjs, scripts/problem-report-evidence.test.cjs, scripts/admin-system-health.test.cjs et scripts/admin-release-evidence-browser.cjs. Tests locaux réels PostgreSQL isolé et export/browser fixtures 390/1440 ; aucune migration appliquée, livraison/e-mail reçu en production non prouvés. Rapport dans docs/SUPERADMIN_AUDIT.md, pas VERIFIED.
 
 ## Revue parent — 07/10/2026
