@@ -246,3 +246,10 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - **Retour direct** : quitter une rubrique (autre écran ou fenêtre : Carte, Goûts, Mon oreille) puis revenir rouvre le menu ☰ à la même position de défilement ; l'état survit à un remontage de l'écran.
 - **Secousse = signalement localisé** : écran exact + fil des 25 dernières actions + appareil/version → `app_problem_reports` ; le robot répond « Reçu 📍 localisé sur … », puis annonce une seule fois « réparé ✅ / fais ta mise à jour / rien détecté » (`keep_my_report_updates`, `keep_report_ack`). Conseil discret « un souci ? secoue ton téléphone » au plus tous les 3 jours. Insultes : message non transmis, ligne « signalé » pour le Super Admin (aucune sanction automatique). Voir `docs/REPAIR_AGENT.md`.
 - **Visiteur sans compte arrivé par un lien** : le petit robot le nomme l'invitant et propose « Créer mon compte » (jamais bloquant, disparaît d'un appui) ; `VisitorInviteRobot`.
+
+## 15. Super Admin — issue #54 (08/10/2026)
+
+- Menu : huit rubriques d'un mot — Accueil, Utilisateurs, Musique, Communauté, Signalements, Argent, Réglages, Clés. Pages existantes réutilisées en onglets internes, aucune fonction retirée ; anciennes URL redirigées vers rubrique + onglet en conservant paramètres et fragments.
+- Aide : ⓘ, jamais « En savoir plus ». Nouveau rangement et vue Musique sans champ à saisir ; palette et contrastes existants conservés, texte minimum 11 px. Scroll interne du panneau, pas du document ; aucun débordement en 390×844 / 1440×900.
+- Vue Musique : compteurs et classements en lecture seule décrits dans le maître §18 ; aucun faux zéro sur erreur ou mesure absente. Comptes test exclus des agrégats utilisateur. La télémétrie serveur Pulse est globale, sans identité utilisateur, et se distingue du taux de répétition hors tests.
+- Les montants restent dans leurs vues existantes avec leurs pays/devises distincts : aucun total multidevise ajouté.

@@ -4,53 +4,8 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabaseClient';
 import { APP_NAME } from '../lib/brand';
 import AdminRobot from './AdminRobot';
-
-type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'MARKETING' | 'MODERATOR' | 'TECH';
-
-type NavItem = { href: string; label: string; roles?: AdminRole[] };
-type NavGroup = { title: string; items: NavItem[] };
-
-const ALL_ROLES: AdminRole[] = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'MARKETING', 'MODERATOR', 'TECH'];
-// Menu en 8 rubriques (Adel, 06/10/2026) : mêmes écrans qu'avant, rien supprimé, une seule entrée par écran.
-// « Signalements » est nouveau (secousses et diagnostics de l'app, jusqu'ici invisibles).
-const NAV_GROUPS: NavGroup[] = [
-  { title: 'Accueil', items: [
-    { href: '/', label: 'Accueil', roles: ALL_ROLES },
-  ] },
-  { title: 'Comptes', items: [
-    { href: '/users', label: 'Comptes', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-  ] },
-  { title: 'Modération', items: [
-    { href: '/moderation', label: 'Approuver', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
-    { href: '/community', label: 'Communauté', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] },
-    { href: '/problem-reports', label: 'Bugs', roles: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'SUPPORT', 'TECH'] },
-  ] },
-  { title: 'Contact', items: [
-    { href: '/support-center', label: 'Support', roles: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'MODERATOR'] },
-    { href: '/messages', label: 'Messages', roles: ['SUPER_ADMIN', 'ADMIN', 'MARKETING'] },
-    { href: '/notification-access', label: 'Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
-  ] },
-  { title: 'Argent', items: [
-    { href: '/plans', label: 'Formules', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-    { href: '/costs', label: 'Comptabilité', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-    { href: '/marketplace', label: 'Ventes', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
-  ] },
-  { title: 'Musique', items: [
-    { href: '/music-brain', label: 'Musique', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-  ] },
-  { title: 'Technique', items: [
-    { href: '/integrations', label: 'Clés', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/email-test', label: 'E-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/operations', label: 'Santé', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/launch-center', label: 'Lancement', roles: ['SUPER_ADMIN'] },
-    { href: '/feature-flags', label: 'Fonctions', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH'] },
-    { href: '/remote-config', label: 'Réglages', roles: ['SUPER_ADMIN', 'ADMIN', 'TECH', 'MARKETING'] },
-  ] },
-  { title: 'Sécurité', items: [
-    { href: '/team', label: 'Équipe', roles: ['SUPER_ADMIN'] },
-  ] },
-];
-const NAV: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
+import Hint from './Hint';
+import { AdminRole, ALL_ROLES, NAV, NAV_GROUPS, currentTab, tabHref } from '../lib/adminNavigation';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -124,8 +79,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .filter((group) => group.items.length > 0),
     [role],
   );
-  const currentItem = NAV.find((item) => item.href === router.pathname);
-  const routeAllowed = !currentItem || !currentItem.roles || (role ? currentItem.roles.includes(role) : false);
+  const currentItem = currentTab(router.pathname, router.query.section, router.query.tab);
+  const currentGroup = visibleGroups.find((group) => group.items.some((item) => item.href === currentItem?.href));
+  const routeAllowed = Boolean(currentItem && role && currentItem.roles.includes(role));
+
+  useEffect(() => {
+    if (!router.isReady || router.pathname !== '/[section]' || router.query.tab !== undefined || !role) return;
+    const group = visibleGroups.find((entry) => entry.slug === router.query.section);
+    if (!group) return;
+    const { section: _section, ...query } = router.query;
+    const hash = router.asPath.includes('#') ? router.asPath.slice(router.asPath.indexOf('#')) : '';
+    const item = group.items[0];
+    void router.replace({ pathname: `/${group.slug}`, query: { ...query, tab: item.href === '/' ? 'index' : item.href.slice(1) }, hash });
+  }, [router.isReady, router.pathname, router.query.tab, router.query.section, role, visibleGroups]);
+
+  useEffect(() => {
+    if (!router.isReady || router.pathname === '/[section]') return;
+    const item = NAV.find((entry) => entry.href === router.pathname);
+    const group = NAV_GROUPS.find((entry) => entry.items.includes(item!));
+    if (!item || !group) return;
+    const { tab: _tab, section: _section, ...query } = router.query;
+    const hash = router.asPath.includes('#') ? router.asPath.slice(router.asPath.indexOf('#')) : '';
+    void router.replace({ pathname: `/${group.slug}`, query: { ...query, tab: item.href === '/' ? 'index' : item.href.slice(1) }, hash });
+  }, [router.isReady, router.pathname]);
 
   return (
     <div className="layout">
@@ -139,15 +115,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
         <div className="logo">{APP_NAME}</div>
         <div className="subtitle">Super Admin{role ? ` · ${role}` : ''}</div>
-        <nav>
+        <nav aria-label="Rubriques">
           {visibleGroups.map((group) => (
             <div key={group.title} className="nav-group">
-              <div className="nav-group-title">{group.title}</div>
-              {group.items.map((item) => (
-                <Link key={item.href} href={item.href} className={router.pathname === item.href ? 'active' : ''}>
-                  {item.label}
-                </Link>
-              ))}
+              <Link href={tabHref(group, group.items[0])}
+                onClick={() => { if (isMobile) setSidebarOpen(false); }}
+                className={currentGroup?.slug === group.slug ? 'active' : ''}
+                aria-current={currentGroup?.slug === group.slug ? 'page' : undefined}>
+                {group.title}
+              </Link>
             </div>
           ))}
         </nav>
@@ -178,7 +154,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ☰
           </button>
           <span className="admin-toolbar-label">Menu</span>
-          {/* Doublon « 🔐 Mot de passe » retiré (06/10/2026) : une seule entrée, menu › Sécurité. */}
+          {/* Une seule entrée mot de passe : Utilisateurs › Équipe. */}
           <div style={{ marginLeft: 'auto', position: 'relative' }}>
             <button
               type="button"
@@ -188,7 +164,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               🔔
               {totalAlerts > 0 && (
-                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, background: '#e05252', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, background: '#e05252', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                   {totalAlerts > 99 ? '99+' : totalAlerts}
                 </span>
               )}
@@ -218,6 +194,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             )}
           </div>
         </div>
+        {currentGroup && <div className="admin-section">
+          <h1>{currentGroup.title}<Hint title={currentGroup.title} text={currentGroup.items.map((item) => item.label).join(' · ')} /></h1>
+          <nav className="admin-tabs" aria-label={`Onglets ${currentGroup.title}`}>
+            {currentGroup.items.map((item) => <Link key={item.href} href={tabHref(currentGroup, item)}
+              aria-current={item.href === currentItem?.href ? 'page' : undefined}
+              className={item.href === currentItem?.href ? 'active' : ''}>{item.label}</Link>)}
+          </nav>
+        </div>}
         {routeAllowed ? children : (
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Accès limité</h2>
@@ -225,7 +209,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
         {/* Robot d'aide (07/10/2026) : son catalogue = ce menu, filtré par rôle (aucun lien vers une page interdite ou absente). */}
-        <AdminRobot currentPath={router.pathname} pages={visibleGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: g.title })))} />
+        <AdminRobot currentPath={currentItem?.href || router.pathname} pages={visibleGroups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: g.title })))} />
       </main>
     </div>
   );

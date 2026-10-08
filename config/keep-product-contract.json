@@ -1,5 +1,15 @@
 {
   "version": "2026-10-07.01",
+  "adminNavigation": {
+    "sections": ["Accueil", "Utilisateurs", "Musique", "Communauté", "Signalements", "Argent", "Réglages", "Clés"],
+    "singleWordLabels": true,
+    "helpTrigger": "ⓘ",
+    "legacyPagesPreservedAsTabs": true,
+    "musicOverviewReadOnly": true,
+    "testProfileFilter": "keep_is_test_profile",
+    "unavailableMetricsNeverDefaultToZero": true,
+    "enforcedBy": "packages/admin/scripts/check-robot-links.js"
+  },
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",

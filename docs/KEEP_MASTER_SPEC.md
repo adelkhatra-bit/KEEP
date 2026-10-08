@@ -222,6 +222,12 @@ Source : `packages/admin`.
 - secrets serveur ;
 - feature flags/intégrations dans les briques existantes.
 
+### Rangement — issue #54, 08/10/2026
+- Huit entrées : Accueil, Utilisateurs, Musique, Communauté, Signalements, Argent, Réglages, Clés. Les 19 pages restent intactes, accessibles par onglets internes ; les anciennes URL redirigent avec conservation des paramètres et fragments.
+- Musique ajoute une synthèse en lecture seule : catalogue `tracks` (total, ajouts 24 h / 7 j), file cron `keep_world_catalog_expansion_queue`, top 10 styles `profile_music_taste_scores`, top 10 premiers découvreurs `keep_track_first_discoveries`, plateformes actives `music_library_items`, répétition des couples de `profile_loki_pulse_events`. Les agrégats utilisateur excluent les comptes test avec `keep_is_test_profile`.
+- Le temps Pulse est la moyenne serveur de `keep_loki_pulse` observée par `pg_stat_statements`, depuis le dernier reset. Cette télémétrie globale ne permet pas l'exclusion des sessions test par profil ; aucune sonde ne doit appeler cette RPC mutante pour fabriquer une mesure. Absence de télémétrie = « Indisponible », jamais zéro. Pas de nouvelle table ni mutation de données.
+- Libellés d'un mot, aide ⓘ, contrôles sans saisie ajoutée, contraste actuel conservé, minimum 11 px ; scroll dans le panneau, preuves 390/1440. Les vues monétaires existantes restent séparées par pays et devise.
+
 ### Versions et preuves — IDEA-189, validé le 06/10/2026
 - Vue dans `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` uniquement : version.json canonique réellement observé, dernière app native signalée (jamais un état d’installation global), compteurs exacts serveur ou erreur explicite. Liste de correctifs bornée à 100, pas de zéro de repli.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/problem-reports.tsx` conserve triage et réouverture ; « Corrigé » exige `fixed_in_sha` complet et chemin anti-régression. Un SHA/chemin est une preuve documentaire seulement : ni exécution réussie, ni livraison. Anciens signalements sans preuve conservés.

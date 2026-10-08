@@ -110,10 +110,14 @@ Une checklist unique `docs/TEST_PLAN.md` : parcours utilisateur (inscription →
 - **L (IDEA-171)** clés manquantes + pistes gratuites. **M (IDEA-172)** SPF/DKIM/DMARC.
 - **Constat règle I (IDEA-168)** : `keep-apple-notifications` écrit déjà `EXPIRED`/`CANCELLED` et `loadCurrentPlanCode` ignore les abonnements non ACTIVE/TRIALING → retour FREE automatique côté lecture ; MANQUE : trace datée `subscription_history`, délai de grâce (`GRACE_PERIOD`), relance « reviens », et distinction annulation (reste actif jusqu'à la fin) vs expiration.
 
-## Plan Super Admin « niveau Apple » (06/10/2026) — À VALIDER PAR ADEL AVANT CODE
+## Issue #54 — rangement Super Admin (08/10/2026, demandé par Adel)
+
+Plan validé par la demande d'implémentation de l'issue : huit entrées d'un mot, onglets internes réutilisant les 19 pages, redirections des anciens liens avec conservation des paramètres. Ajouter uniquement une vue Musique en lecture seule et une RPC d'agrégation protégée, sans nouvelle table ni écriture en production. Vérifier les rôles, les liens du robot, les métriques et le rendu 390/1440 ; publier les preuves dans la PR. Aucun changement d'authentification ou de runtime mobile.
+
+## Plan Super Admin « niveau Apple » (06/10/2026) — hors rangement validé dans #54, À VALIDER PAR ADEL AVANT CODE
 Ordre proposé, une étape = une preuve 390/1440, rien supprimé, aucun doublon :
 1. **Audit lecture seule** (R) : rapport page par page du Super Admin (marche / vide / doublons / textes > 5 mots) → `docs/SUPERADMIN_AUDIT.md`.
-2. **Menu 8 rubriques** (N, IDEA-173) : regroupement des 18 entrées existantes (mêmes écrans, aucune réécriture), une seule entrée Sécurité, état vide « Rien à approuver » + historique.
+2. **Menu 8 rubriques** (N, IDEA-173) : le rangement exact est désormais celui de l'issue #54 ci-dessus ; mêmes écrans, aucune réécriture. État vide « Rien à approuver » + historique conservés.
 3. **Fiche utilisateur** : vérification e-mail + « Relancer les non vérifiés » (lié à IDEA-169), signalements « secousse » dans Modération.
 4. **Mots de passe testeurs** (P, IDEA-175) : migration chiffrée (pgcrypto, clé hors base), lecture SUPER_ADMIN via RPC auditée, expiration 30 j, « Effacer » = effacement de la copie seulement. ⚠ Décision d'Adel notée : un mot de passe réversible est un risque ; garde-fous proposés : comptes TESTEURS uniquement (jamais les vrais utilisateurs), journal de chaque lecture, purge automatique à 30 j.
 5. **Zéro clavier + cartes** (O, Q) : Clés & intégrations en une carte par service, Copier/Coller.

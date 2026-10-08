@@ -75,14 +75,18 @@ async function scenario(browser, width, height) {
   });
   const operationsResponse = await page.goto(`${base}/operations/`);
   assert.equal(operationsResponse.status(), 200, 'Export statique Opérations accessible');
+  await page.waitForURL(`${base}/accueil/?tab=operations`);
   const evidence = page.getByRole('region', { name: 'Versions et preuves' });
   await evidence.waitFor();
-  await page.waitForFunction(() => document.querySelector('section[aria-label="Versions et preuves"]')?.textContent.includes('aaaaaaaa'));
+  await page.waitForFunction(() => {
+    const text = document.querySelector('section[aria-label="Versions et preuves"]')?.textContent || '';
+    return text.includes('aaaaaaaa') && /Problèmes ouverts\s*12/.test(text);
+  });
   assert.match(await evidence.innerText(), /Problèmes ouverts\s*12/);
   assert.match(await evidence.innerText(), /Preuve incomplète/);
   assert.match(await evidence.innerText(), /SHA du site · test à vérifier/);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `Débordement operations ${width}`);
-  await evidence.getByText('En savoir plus', { exact: true }).click();
+  await evidence.getByLabel('Explication : versions', { exact: true }).click();
   assert.match(await evidence.innerText(), /pas une version installée partout/);
   await page.reload();
   await evidence.waitFor();
@@ -93,7 +97,7 @@ async function scenario(browser, width, height) {
   assert.match(await evidence.innerText(), /Problèmes ouverts\s*Indisponible/);
   assert.doesNotMatch(await evidence.innerText(), /Problèmes ouverts\s*0/);
   unavailable = false;
-  const reportsUrl = `${base}/problem-reports/`;
+  const reportsUrl = `${base}/signalements/?tab=problem-reports`;
   const reportsLink = evidence.getByRole('link', { name: 'Signalements & preuves', exact: true });
   assert.equal(await reportsLink.getAttribute('href'), `${url.pathname}/problem-reports/`);
   await reportsLink.click();

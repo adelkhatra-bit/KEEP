@@ -1,5 +1,7 @@
 # STATE — Loki Music (ce qui est FAIT)
 
+- 08/10/2026 · revue `copilot/reconcile-claude-main-20260825-again`, base canonique `639f499db992d6d01fcaff1282d56eee04760e20` · avant commit · issue #54 : huit rubriques et vingt onglets, URLs conservées, Musique lecture seule · preuves locales : 11 tests Node, 18 contrôles SQL PostgreSQL isolés, typecheck/build/robot/contraste/postflight, Chromium 390/1440 (direct + reload + rôles) ; aucune migration appliquée ni livraison, CI distante `action_required`.
+
 > **Point d'entrée court pour toute IA / tout développeur.** Il n'y a **pas de deuxième mémoire** : ce fichier renvoie aux fichiers existants et tient le **journal daté des actions** (une ligne par action : date · branche · commit · fonction · preuve). Règle : à la fin de chaque action, ajouter une ligne ici (jamais d'effacement).
 
 ## Où lire (ordre)

@@ -1,5 +1,10 @@
 # KEEP — Contexte actif
 
+## Issue #54 — Super Admin, 08/10/2026 (revue Copilot, pas déployé)
+- Base canonique `639f499db992d6d01fcaff1282d56eee04760e20` vérifiée ; PR #65, branche de revue `copilot/reconcile-claude-main-20260825-again`. Huit rubriques exactes via `packages/admin/lib/adminNavigation.json`, onglets réutilisant les 19 pages, anciennes URL/query/hash préservées ; nouvelle Musique lecture seule. Aucun runtime mobile ni auth modifié.
+- RPC `admin_music_overview` sur les tables existantes uniquement, rôle SUPER_ADMIN/ADMIN/TECH actif, comptes test exclus des agrégats utilisateur. Migration `20261008110000_admin_music_overview.sql` **NON APPLIQUÉE** : sans application autorisée, les données sont indisponibles. Télémétrie Pulse globale via pg_stat_statements, non attribuable aux profils/testeurs ; pas de sonde mutante.
+- Preuves locales : 11 tests Node navigation/preuves, 18 contrôles SQL PostgreSQL 16 isolés, typecheck/export Admin, contrôles de source/liens/contraste/postflight, Chromium 390×844 / 1440×900 sur toutes les anciennes URL + reload + onglets, rôle FINANCE, preuves/formulaire existants. Captures de fixtures dans `docs/screenshots/issue54/`. CI distante `action_required` (aucun job), pas de PASS CI ni de livraison. Revue/sécurité automatiques restent à consigner après commit.
+
 ## IDEA-189 — versions / preuves / contrôles (07/10/2026, LOCAL_ONLY)
 - Branche de revue conservée, HEAD `08a116e7`, base canonique `0138b4e5f93e8271735857fe3f9b885802e6ee61` confirmée après fetch + approfondissement de l’historique superficiel. Aucun commit/push/deploiement/report_progress ni écriture production. Aucun changement mobile App/Navigation/Stories, dépendances du dépôt inchangées.
 - `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` étendu par `/home/runner/work/KEEP/KEEP/packages/admin/components/ReleaseEvidence.tsx` : version.json canonique observé, dernière app native signalée, compteurs exacts ou indisponibles, correctifs bornés à 100 avec liens SHA/test et registre existant. Aucun export public de signalements. Les compteurs push existants ne retombent plus à zéro sur erreur.
