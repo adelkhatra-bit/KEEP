@@ -8,6 +8,8 @@ import { KeepSession } from '../types';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import ContextHelpSheet from '../components/ContextHelpSheet';
+import { lokiText } from '../theme/lokiText';
+
 
 function autoTitle(session: KeepSession): string {
   if (session.title) return session.title;
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
   lockedHint: { color: colors.primaryLight, fontSize: 11, lineHeight: 16, marginTop: 5, fontWeight: '800' },
   cardFooter: { minHeight: 48, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'stretch' },
   sortButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRightWidth: 1, borderRightColor: colors.border },
-  sortText: { color: colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .4 },
+  sortText: { color: colors.white, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .4 },
   // BUG RÉEL (Adel, 01/09/2026, capture à l'appui) : ce bouton n'avait ni
   // fond ni contour -- juste du texte rouge posé dans le pied de carte, donc
   // rien n'indiquait visuellement qu'on pouvait appuyer dessus à côté du

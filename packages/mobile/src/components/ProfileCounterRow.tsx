@@ -3,6 +3,8 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'r
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import { formatCompactNumber } from '../utils/formatCompactNumber';
+import { lokiText } from '../theme/lokiText';
+
 
 // Source de vérité visuelle commune aux compteurs de profil propriétaire, visité et partagé.
 export type ProfileCounterItem = {
@@ -92,5 +94,5 @@ const styles = StyleSheet.create({
   // on a du mal à voir" -- 11px illisible pour Abonnés/Reprises/Morceaux/
   // Abonnements sur un vrai écran de téléphone, remonté à 13px partout où
   // ce composant est utilisé (profil propriétaire, visité, partagé, Discover).
-  label: { color: colors.textMuted, fontSize: 10, width: '100%', lineHeight: 13, marginTop: 2, textAlign: 'center', fontWeight: '800' },
+  label: { color: colors.textMuted, fontSize: lokiText.label.fontSize, width: '100%', lineHeight: lokiText.label.lineHeight, marginTop: 2, textAlign: 'center', fontWeight: '800' },
 });

@@ -8,6 +8,8 @@ import { spacing, radius, typography } from '../theme/spacing';
 import TrackListenControls from './TrackListenControls';
 import KeepVisibilityChoiceModal, { KeepSuccessModal } from './KeepVisibilityChoiceModal';
 import { getCommercialRules } from '../services/growthAccessService';
+import { lokiText } from '../theme/lokiText';
+
 
 const IMPORT_SOURCE_LABEL: Record<string, string> = {
   spotify: 'Depuis Spotify',
@@ -148,10 +150,10 @@ const styles = StyleSheet.create({
   title: { ...typography.bodyBold, color: colors.textPrimary },
   artist: { fontSize: 13, color: colors.textSecondary, marginTop: 1 },
   album: { fontSize: 11, color: colors.textMuted, marginTop: 1, fontStyle: 'italic' },
-  platforms: { fontSize: 10, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
+  platforms: { fontSize: lokiText.label.fontSize, color: colors.primaryLight, marginTop: 3, fontWeight: '700' },
   importedPill: { alignSelf: 'flex-start', minHeight: 20, paddingHorizontal: 8, borderRadius: radius.pill, backgroundColor: 'rgba(139,92,246,.14)', borderWidth: 1, borderColor: colors.primaryLight, marginTop: 3, justifyContent: 'center' },
-  importedPillText: { color: colors.primaryLight, fontSize: 9, fontWeight: '900' },
-  lockedText: { color: colors.primaryLight, fontSize: 9, fontWeight: '800', marginTop: 6 },
+  importedPillText: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900' },
+  lockedText: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '800', marginTop: 6 },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: 8 },
   passBtn: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.pass, alignItems: 'center', justifyContent: 'center' },
   passBtnText: { color: colors.white, fontWeight: '700', fontSize: 15 },
@@ -168,26 +170,26 @@ const styles = StyleSheet.create({
   visibilityPill: { minHeight: 24, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   visibilityPublic: { backgroundColor: 'rgba(104,242,177,0.12)', borderColor: '#68F2B1' },
   visibilityPrivate: { backgroundColor: colors.backgroundCard, borderColor: colors.border },
-  visibilityPublicText: { color: '#68F2B1', fontSize: 10, fontWeight: '800' },
-  visibilityPrivateText: { color: colors.textMuted, fontSize: 10, fontWeight: '800' },
+  visibilityPublicText: { color: '#68F2B1', fontSize: lokiText.label.fontSize, fontWeight: '800' },
+  visibilityPrivateText: { color: colors.textMuted, fontSize: lokiText.label.fontSize, fontWeight: '800' },
 
   keepOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   keepPromptCard: { width: '100%', maxWidth: 380, borderRadius: 22, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 18 },
-  keepPromptEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.25 },
+  keepPromptEyebrow: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.25 },
   keepPromptTitle: { color: '#F8F6FC', fontSize: 21, fontWeight: '900', marginTop: 4 },
   keepPromptTrack: { color:'#FFFFFF', fontSize: 12, fontWeight: '800', marginTop: 7 },
   keepCostNotice:{marginTop:12,minHeight:58,borderRadius:16,borderWidth:1,borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.10)',paddingHorizontal:13,paddingVertical:10,flexDirection:'row',alignItems:'center',gap:11},
   keepCostNoticeValue:{minWidth:38,color:colors.keep,fontSize:26,fontWeight:'900',textAlign:'center'},
-  keepCostNoticeCopy:{flex:1,minWidth:0},keepCostNoticeTitle:{color:colors.keep,fontSize:10,fontWeight:'900',letterSpacing:.8},keepCostNoticeText:{color:colors.textSecondary,fontSize:10,lineHeight:14,marginTop:2},
+  keepCostNoticeCopy:{flex:1,minWidth:0},keepCostNoticeTitle:{color:colors.keep,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.8},keepCostNoticeText:{color:colors.textSecondary,fontSize:lokiText.label.fontSize,lineHeight:14,marginTop:2},
   keepSuccessCard:{width:'100%',maxWidth:390,borderRadius:24,borderWidth:1,borderColor:colors.keep,backgroundColor:colors.backgroundCard,padding:20,alignItems:'center',shadowColor:'#000',shadowOpacity:.35,shadowRadius:16,shadowOffset:{width:0,height:8},elevation:12},
   keepSuccessOrb:{width:58,height:58,borderRadius:29,backgroundColor:'rgba(45,225,194,.14)',borderWidth:1,borderColor:colors.keep,alignItems:'center',justifyContent:'center',marginBottom:12},
-  keepSuccessOrbText:{color:colors.keep,fontSize:28,fontWeight:'900'},keepSuccessEyebrow:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.4},keepSuccessTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:4,textAlign:'center'},
+  keepSuccessOrbText:{color:colors.keep,fontSize:28,fontWeight:'900'},keepSuccessEyebrow:{color:colors.keep,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:1.4},keepSuccessTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:4,textAlign:'center'},
   keepSuccessTrack:{color:colors.textSecondary,fontSize:12,fontWeight:'800',marginTop:7,textAlign:'center'},keepSuccessDebit:{color:colors.keep,fontSize:15,fontWeight:'900',marginTop:12},
   keepSuccessBody:{color:colors.textMuted,fontSize:11,lineHeight:16,textAlign:'center',marginTop:5},keepSuccessButton:{width:'100%',minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:16},
   keepSuccessButtonText:{color:'#FFF',fontSize:12,fontWeight:'900',letterSpacing:.7},
   keepPromptBody: { color:'#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 8 },
   destinationBlock: { marginTop: 14 },
-  destinationLabel: { color:'#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 7 },
+  destinationLabel: { color:'#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.1, marginBottom: 7 },
   destinationWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   destinationPill: { minHeight: 32, maxWidth: '100%', paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#312348', backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
   destinationPillOn: { borderColor: colors.primaryLight, backgroundColor: 'rgba(139,92,246,0.18)' },

@@ -145,7 +145,7 @@ export default function LaunchCenter() {
       <p style={{ color: 'var(--text-muted)' }}>Chaque bouton ouvre le compte officiel sur le bon écran. Loki Music ne collecte jamais ta carte bancaire et ne revend aucun abonnement.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(245px,1fr))', gap: 12 }}>
         {PROVIDERS.map((provider) => <div key={provider.name} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--bg-elevated)' }}>
-          <div style={{ color: provider.required ? '#ffb454' : '#86efac', fontSize: 10, fontWeight: 900 }}>{provider.required ? 'NÉCESSAIRE AU LANCEMENT' : 'GRATUIT / OPTIONNEL'}</div>
+          <div style={{ color: provider.required ? '#ffb454' : '#86efac', fontSize: 11, fontWeight: 900 }}>{provider.required ? 'NÉCESSAIRE AU LANCEMENT' : 'GRATUIT / OPTIONNEL'}</div>
           <h3 style={{ marginBottom: 4 }}>{provider.name}</h3><strong style={{ color: '#c4b5fd' }}>{provider.plan}</strong><div style={{ fontSize: 20, fontWeight: 900, margin: '10px 0' }}>{provider.price}</div>
           <p style={{ minHeight: 54, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>{provider.detail}</p>
           <button

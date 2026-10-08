@@ -221,7 +221,7 @@ export default function RemoteConfig() {
               {!ECONOMY[row.key] && row.description && <Hint text={<>{row.description}</>}/>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                 <button onClick={() => void save(row)} disabled={savingKey === row.key} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 800, cursor: savingKey === row.key ? 'wait' : 'pointer' }}>{savingKey === row.key ? '…' : 'Enregistrer'}</button>
-                {savedNote[row.key] && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{savedNote[row.key]}</span>}
+                {savedNote[row.key] && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{savedNote[row.key]}</span>}
               </div>
             </div>;
           })}

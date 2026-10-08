@@ -3,6 +3,7 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const contract = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-product-contract.json'), 'utf8'));
+const lokiText = fs.readFileSync(path.join(root, 'packages/mobile/src/theme/lokiText.ts'), 'utf8');
 const master = fs.readFileSync(path.join(root, 'docs/KEEP_MASTER_SPEC.md'), 'utf8');
 const uiBaseline = JSON.parse(fs.readFileSync(path.join(root, 'config/keep-ui-baseline.json'), 'utf8'));
 const profile = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/ProfilePublicScreen.tsx'), 'utf8');
@@ -34,6 +35,11 @@ must(contract.creditRules.listen === 0, 'listen credit changed');
 must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
+must(contract.typography?.minimumFontSizePx === 11, 'minimum text size must stay at 11px');
+must(JSON.stringify(Object.keys(contract.typography?.mobileTextStyles ?? {})) === JSON.stringify(['screenTitle','blockTitle','body','secondary','label','button']), 'the six canonical mobile text styles changed');
+for (const [name, size] of Object.entries(contract.typography.mobileTextStyles)) {
+  must(new RegExp(`${name}:\\s*\\{[^}]*fontSize:\\s*${size}(?:\\D|$)`).test(lokiText), `lokiText.${name} must stay at ${size}px`);
+}
 
 must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
 must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must stay out of profile type row');

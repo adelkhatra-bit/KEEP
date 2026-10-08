@@ -1,6 +1,8 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
+import { lokiText } from '../theme/lokiText';
+
 
 /**
  * Mission C (23/09/2026) — Ligne d'un morceau VERROUILLÉ (en vente) sur un
@@ -100,9 +102,9 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   title: { flexShrink: 1, color: colors.textMutedGrey, fontSize: 13, fontWeight: '800' },
   badge: { flexShrink: 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger },
-  badgeText: { color: colors.danger, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  badgeText: { color: colors.danger, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 0.5 },
   artist: { color: colors.textMutedGrey, fontSize: 11, marginTop: 2 },
   unlockButton: { flexShrink: 0, minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   unlockButtonLabel: { color: colors.white, fontSize: 11, fontWeight: '900' },
-  unlockButtonPrice: { color: colors.white, fontSize: 10, fontWeight: '800', marginTop: 1 },
+  unlockButtonPrice: { color: colors.white, fontSize: lokiText.label.fontSize, fontWeight: '800', marginTop: 1 },
 });

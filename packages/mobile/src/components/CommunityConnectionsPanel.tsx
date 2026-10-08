@@ -4,6 +4,8 @@ import { supabase } from '../services/supabaseClient';
 import { colors } from '../theme/colors';
 import ProfileCertificationBadge, { CERTIFICATION_META } from './ProfileCertificationBadge';
 import type { ProfileCertificationTier } from '../services/publicProfileStateService';
+import { lokiText } from '../theme/lokiText';
+
 
 type CommunityProfile = {
   id: string;
@@ -181,25 +183,25 @@ const s=StyleSheet.create({
   shell:{marginTop:4,padding:12,borderRadius:18,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border,gap:10},
   head:{flexDirection:'row',alignItems:'flex-start',gap:10},
   title:{color:colors.textPrimary,fontSize:15,fontWeight:'900'},
-  subtitle:{color:colors.textMuted,fontSize:10,lineHeight:14,marginTop:2},
+  subtitle:{color:colors.textMuted,fontSize:lokiText.label.fontSize,lineHeight:14,marginTop:2},
   expandButton:{minHeight:34,paddingHorizontal:11,borderRadius:17,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
-  expandButtonText:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.5},
+  expandButtonText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.5},
   previewRail:{gap:8,paddingRight:4},
   previewCard:{width:116,minHeight:142,padding:9,borderRadius:16,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border,justifyContent:'space-between'},
   previewIdentity:{alignItems:'center',minWidth:0},
   previewAvatar:{width:46,height:46,borderRadius:23,backgroundColor:colors.backgroundElevated},
   previewNameRow:{maxWidth:'100%',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:3,marginTop:7},
-  previewName:{maxWidth:76,color:colors.textPrimary,fontSize:10,fontWeight:'900'},
-  previewGenre:{maxWidth:'100%',color:colors.textMuted,fontSize:9,fontWeight:'800',marginTop:3},
+  previewName:{maxWidth:76,color:colors.textPrimary,fontSize:lokiText.label.fontSize,fontWeight:'900'},
+  previewGenre:{maxWidth:'100%',color:colors.textMuted,fontSize:lokiText.label.fontSize,fontWeight:'800',marginTop:3},
   previewAction:{minHeight:30,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',paddingHorizontal:6,marginTop:8},
   previewActionOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.07)'},
-  previewActionText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  previewActionText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   previewActionTextOn:{color:colors.keep},
   expandedArea:{gap:9,paddingTop:2,borderTopWidth:1,borderTopColor:colors.border},
   searchRow:{flexDirection:'row',alignItems:'center',gap:6,paddingTop:9},
   search:{flex:1,minWidth:0,minHeight:42,borderRadius:14,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,color:colors.textPrimary,paddingHorizontal:12,fontSize:12},
   searchButton:{minHeight:42,paddingHorizontal:11,borderRadius:14,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
-  searchButtonText:{color:colors.white,fontSize:9,fontWeight:'900'},
+  searchButtonText:{color:colors.white,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   clear:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   clearText:{color:colors.textMuted,fontSize:18},
   loading:{alignItems:'center',paddingVertical:8},
@@ -212,17 +214,17 @@ const s=StyleSheet.create({
   copy:{flex:1,minWidth:0,marginLeft:9},
   nameRow:{flexDirection:'row',alignItems:'center',gap:5},
   username:{flexShrink:1,color:colors.textPrimary,fontSize:12,fontWeight:'900'},
-  kind:{color:colors.textMuted,fontSize:9,marginTop:2},
+  kind:{color:colors.textMuted,fontSize:lokiText.label.fontSize,marginTop:2},
   genreRow:{flexDirection:'row',gap:4,marginTop:4},
   genreChip:{paddingHorizontal:5,paddingVertical:2,borderRadius:8,borderWidth:1},
-  genreText:{fontSize:7,fontWeight:'800'},
+  genreText:{fontSize:lokiText.label.fontSize,fontWeight:'800'},
   action:{minHeight:32,paddingHorizontal:10,borderRadius:16,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   actionOn:{backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.keep},
-  actionText:{color:colors.white,fontSize:8,fontWeight:'900'},
+  actionText:{color:colors.white,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   actionTextOn:{color:colors.keep},
   view:{minHeight:32,paddingHorizontal:11,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
-  viewText:{color:colors.primaryLight,fontSize:8,fontWeight:'900'},
+  viewText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   empty:{color:colors.textMuted,fontSize:11,textAlign:'center',paddingVertical:14},
   more:{minHeight:42,borderRadius:15,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center'},
-  moreText:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.7},
+  moreText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.7},
 });

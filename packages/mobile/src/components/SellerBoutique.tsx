@@ -6,6 +6,8 @@ import { unlockWebAudioForGesture } from '../services/audioPreviewService';
 import { colors } from '../theme/colors';
 import type { PlaylistSaleOverlap, PublicPlaylistSaleOffer } from '../services/playlistSaleService';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 // Adel (02/10/2026) : « boutique vendeur » validée (maquette Boutique Pépites
 // Loki). La Boutique musicale met en avant 3 collections « à la une » ;
@@ -444,10 +446,10 @@ const s = StyleSheet.create({
   dropPlay: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: 'rgba(255,255,255,.55)', backgroundColor: 'rgba(255,255,255,.13)', alignItems: 'center', justifyContent: 'center' },
   dropPlayText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginLeft: 2 },
   dropListenStrip: { minHeight: 34, marginTop: 12, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,.28)', backgroundColor: 'rgba(0,0,0,.18)', flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dropListenText: { flex: 1, color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: .45 },
+  dropListenText: { flex: 1, color: '#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .45 },
   dropListenArrow: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', lineHeight: 23 },
-  dropKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
-  dropFeatured: { color: GOLD, fontSize: 10, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
+  dropKicker: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.2 },
+  dropFeatured: { color: GOLD, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .8, marginTop: 6 },
   dropTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '900', marginTop: 4 },
   dropMeta: { color: colors.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 4 },
   dropFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
@@ -466,15 +468,15 @@ const s = StyleSheet.create({
   bundleCopy: { minWidth: 0 },
   bundleTitle: { color: colors.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: .55 },
   bundleTotal: { color: GOLD, fontSize: 17, fontWeight: '900', marginTop: 3 },
-  bundleHint: { color: colors.textSecondary, fontSize: 9, fontWeight: '700', marginTop: 3 },
+  bundleHint: { color: colors.textSecondary, fontSize: lokiText.label.fontSize, fontWeight: '700', marginTop: 3 },
   bundleButton: { minHeight: 44, borderRadius: 14, backgroundColor: GOLD, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },
   bundleButtonDisabled: { opacity: .55 },
   bundleButtonText: { color: GOLD_DARK, fontSize: 12, fontWeight: '900', letterSpacing: .5 },
   card: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, padding: 8, gap: 5 },
   cover: { height: 112, borderRadius: 12, padding: 8, justifyContent: 'space-between' },
-  coverGenre: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: .8, alignSelf: 'flex-start' },
-  coverNew: { alignSelf: 'flex-end', color: '#FFFFFF', fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.35)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
-  coverOwned: { alignSelf: 'flex-end', color: colors.keep, fontSize: 10, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.45)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
+  coverGenre: { color: '#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .8, alignSelf: 'flex-start' },
+  coverNew: { alignSelf: 'flex-end', color: '#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.35)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
+  coverOwned: { alignSelf: 'flex-end', color: colors.keep, fontSize: lokiText.label.fontSize, fontWeight: '900', backgroundColor: 'rgba(0,0,0,.45)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
   cardTitle: { color: colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '900', minHeight: 34 },
   cardMeta: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   token: { alignSelf: 'flex-start', minHeight: 26, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -489,7 +491,7 @@ const s = StyleSheet.create({
   storeBackdrop: { flex: 1, backgroundColor: 'rgba(3,2,7,.86)', justifyContent: 'flex-end', alignItems: 'center' },
   store: { width: '100%', maxWidth: 640, maxHeight: '92%', flexShrink: 1, backgroundColor: colors.backgroundElevated, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
   storeHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  storeKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.2 },
+  storeKicker: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.2 },
   storeTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginTop: 2 },
   storeClose: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.backgroundCard },
   storeCloseText: { color: colors.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 24 },

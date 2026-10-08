@@ -4,6 +4,8 @@ import { Alert } from '../utils/keepAlert';
 import { clearMyPayoutQrUrl, pickAndUploadPayoutQr } from '../services/payoutLinkService';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 type Props = {
   profileId: string;
@@ -108,15 +110,15 @@ export default function PayPalQrPayoutControl({ profileId, qrUrl, onChange, disa
 const s = StyleSheet.create({
   box:{borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,padding:11,marginTop:9},
   header:{flexDirection:'row',alignItems:'flex-start',gap:8},
-  eyebrow:{color:colors.primaryLight,fontSize:8,fontWeight:'900',letterSpacing:.9},
+  eyebrow:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.9},
   title:{color:colors.textPrimary,fontSize:13,fontWeight:'900',marginTop:3},
-  hint:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14,marginTop:4},
+  hint:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,lineHeight:14,marginTop:4},
   editHelpToggle:{alignSelf:'flex-start',minHeight:28,justifyContent:'center',marginTop:3},
-  editHelpToggleText:{color:colors.primaryLight,fontSize:8.5,fontWeight:'900',letterSpacing:.5},
-  editHelpText:{color:colors.textSecondary,fontSize:9,lineHeight:14,marginTop:1},
+  editHelpToggleText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.5},
+  editHelpText:{color:colors.textSecondary,fontSize:lokiText.label.fontSize,lineHeight:14,marginTop:1},
   previewRow:{flexDirection:'row',alignItems:'center',gap:10,marginTop:10},
   qr:{width:88,height:88,borderRadius:12,backgroundColor:'#FFF'},
-  qrTap:{color:colors.primaryLight,fontSize:8,fontWeight:'900',textAlign:'center',marginTop:4},
+  qrTap:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',textAlign:'center',marginTop:4},
   qrFullscreenBackdrop:{flex:1,backgroundColor:'rgba(3,2,7,.96)',alignItems:'center',justifyContent:'center',padding:18},
   qrFullscreenCard:{width:'100%',maxWidth:430,borderRadius:24,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,alignItems:'center'},
   qrFullscreenBack:{alignSelf:'flex-start',minHeight:42,justifyContent:'center'},
@@ -124,11 +126,11 @@ const s = StyleSheet.create({
   qrFullscreenImage:{width:'100%',maxWidth:360,aspectRatio:1,marginTop:8,borderRadius:18,backgroundColor:'#FFF'},
   actions:{flex:1,gap:7},
   helpToggle:{width:'100%',minHeight:34,marginTop:10,borderRadius:11,borderWidth:1,borderColor:colors.border,backgroundColor:'rgba(255,255,255,.03)',alignItems:'center',justifyContent:'center',paddingHorizontal:10},
-  helpToggleText:{color:colors.primaryLight,fontSize:8.5,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
+  helpToggleText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
   helpBox:{marginTop:7,borderRadius:12,backgroundColor:'rgba(124,92,252,.08)',paddingHorizontal:10,paddingVertical:9,gap:5},
-  helpText:{color:colors.textMutedGrey,fontSize:9.5,lineHeight:14},
+  helpText:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,lineHeight:14},
   primary:{minHeight:42,borderRadius:13,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',paddingHorizontal:10,marginTop:10},
-  primaryText:{color:'#FFF',fontSize:9,fontWeight:'900',textAlign:'center'},
+  primaryText:{color:'#FFF',fontSize:lokiText.label.fontSize,fontWeight:'900',textAlign:'center'},
   secondary:{minHeight:38,borderRadius:12,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:10},
-  secondaryText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
+  secondaryText:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'900'},
 });

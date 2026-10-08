@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
+import { lokiText } from '../theme/lokiText';
+
 
 type Mode = 'PUBLIC' | 'LOCKED' | 'UNLOCKED' | 'VIBE';
 
@@ -293,12 +295,12 @@ const s = StyleSheet.create({
   },
   badgeLocked: { borderColor: colors.primaryLight },
   badgeUnlocked: { borderColor: colors.keep },
-  badgeText: { color: colors.success, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  badgeText: { color: colors.success, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 0.5 },
   badgeTextLocked: { color: colors.primaryLight },
   badgeTextUnlocked: { color: colors.keep },
   topRight: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   sourceBadgeBottom: { position:'absolute', left:0, bottom:0, maxWidth:'68%', minHeight:24, paddingHorizontal:8, borderRadius:12, backgroundColor:'rgba(4,3,10,.72)', borderWidth:1, borderColor:colors.keep, alignItems:'center', justifyContent:'center' },
-  sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:9, lineHeight:12, fontWeight:'900', letterSpacing:.35 },
+  sourceBadgeBottomText: { color:colors.keep, maxWidth:'100%', fontSize:lokiText.label.fontSize, lineHeight:lokiText.label.lineHeight, fontWeight:'900', letterSpacing:.35 },
   cardAction: {
     position: 'absolute',
     right: 10,
@@ -313,7 +315,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardActionText: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  cardActionText: { color: colors.keep, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 0.5 },
   price: {
     color: colors.textPrimary,
     fontSize: 11,
@@ -327,7 +329,7 @@ const s = StyleSheet.create({
   bottom: { minHeight: 72, justifyContent: 'flex-end', paddingRight: 38, paddingBottom: 38, position:'relative' },
   playSpacer: { width: 34, height: 34 },
   title: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', letterSpacing: 0.2 },
-  subtitle: { color: colors.textPrimary, opacity: 0.88, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  subtitle: { color: colors.textPrimary, opacity: 0.88, fontSize: lokiText.label.fontSize, lineHeight: 14, marginTop: 3 },
   play: {
     position: 'absolute',
     right: 12,
@@ -351,7 +353,7 @@ const s = StyleSheet.create({
   signalOrb: { position:'absolute', width:170, height:170, borderRadius:85, backgroundColor:'rgba(124,92,255,.34)', alignSelf:'center', top:-8 },
   signalSweep: { position:'absolute', width:90, height:240, top:-40, backgroundColor:'rgba(255,255,255,.08)' },
   signalLabel: { position:'absolute', left:12, bottom:10, paddingHorizontal:8, paddingVertical:4, borderRadius:10, backgroundColor:'rgba(4,3,10,.36)', borderWidth:1, borderColor:'rgba(255,255,255,.16)' },
-  signalLabelText:{color:'rgba(255,255,255,.76)',fontSize:7,fontWeight:'900',letterSpacing:1.1},
+  signalLabelText:{color:'rgba(255,255,255,.76)',fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:1.1},
   wave: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',

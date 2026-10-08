@@ -14,6 +14,8 @@ import MusicSwipeDeckModal from '../components/MusicSwipeDeckModal';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
 import { getDownloadCreditStatus } from '../services/creditService';
+import { lokiText } from '../theme/lokiText';
+
 
 export default function SessionRecapScreen({ route, navigation }: any) {
   const { t } = useTranslation();
@@ -394,24 +396,24 @@ const styles = StyleSheet.create({
   backButton:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border},
   backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight:26, fontWeight:'800' },
   headerCopy:{flex:1,minWidth:0},
-  headerEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:1},
+  headerEyebrow:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:1},
   title: { ...typography.h2, color: colors.textPrimary, marginTop:1 },
   shareBtn: { width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.border },
   shareBtnText: { fontSize: 18 },
-  nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
+  nameLabel: { marginHorizontal: spacing.xl, marginTop: spacing.xs, color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .8 },
   titleEditRow: { marginHorizontal: spacing.xl, marginTop: spacing.xs, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   titleInput: { flex: 1, minHeight: 48, color: colors.textPrimary, fontSize: 15, fontWeight: '700', borderWidth: 1, borderColor: colors.border, backgroundColor:colors.backgroundElevated, borderRadius:14, paddingHorizontal:12, paddingVertical: spacing.sm },
   validateTitleButton: { minHeight: 48, paddingHorizontal: 14, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   validateTitleText: { color: colors.white, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
-  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: 9 },
-  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: 9, fontWeight: '800' },
+  titleHint: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.textMuted, fontSize: lokiText.label.fontSize },
+  titleSaved: { marginHorizontal: spacing.xl, marginTop: 4, color: colors.keep, fontSize: lokiText.label.fontSize, fontWeight: '800' },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.xl, marginTop: spacing.lg },
   statsCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   statsText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
   statsKept: { color: colors.keep },
   statsDot: { color: colors.textMuted },
   pendingPill: { minHeight: 44, paddingHorizontal: 12, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keep, borderWidth: 1, borderColor: colors.keep },
-  pendingPillText: { color: colors.black, fontSize: 9, fontWeight: '900', letterSpacing: .35 },
+  pendingPillText: { color: colors.black, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .35 },
   lockedBanner: { marginHorizontal: spacing.xl, marginTop: spacing.md, minHeight:64, padding: spacing.md, borderRadius: 18, backgroundColor: colors.backgroundElevated, borderWidth: 1, borderColor: colors.primaryLight, justifyContent:'center' },
   lockedBannerTitle: { color: colors.primaryLight, fontSize: 12, fontWeight: '900' },
   lockedBannerText: { color: colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 4 },

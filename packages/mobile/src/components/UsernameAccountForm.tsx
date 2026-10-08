@@ -15,6 +15,8 @@ import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
+import { lokiText } from '../theme/lokiText';
+
 
 // Source-of-truth auth Loki (Adel, 24/08/2026) : pseudo + mot de passe +
 // e-mail vérifié sont tous les trois obligatoires à la création, pour que
@@ -483,7 +485,7 @@ const s = StyleSheet.create({
   labelRow:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8,marginBottom:1},
   label:{color:colors.textMutedGrey ?? colors.textSecondary,fontSize:12,fontWeight:'800',textTransform:'uppercase',letterSpacing:.8},
   info:{width:18,height:18,borderRadius:9,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundElevated,alignItems:'center',justifyContent:'center'},
-  infoText:{color:colors.primaryLight,fontSize:10,fontWeight:'900'},
+  infoText:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   tooltip:{color:colors.textSecondary,fontSize:12,lineHeight:17,backgroundColor:colors.backgroundElevated,borderWidth:1,borderColor:colors.primaryLight,borderRadius:12,paddingHorizontal:12,paddingVertical:10,marginTop:1},
   passwordRow:{minHeight:52,borderRadius:12,borderWidth:1,borderColor:AUTH_INPUT_BORDER,backgroundColor:AUTH_INPUT_BACKGROUND,flexDirection:'row',alignItems:'center'},
   passwordInput:{flex:1,height:50,paddingHorizontal:16,color:AUTH_INPUT_TEXT,fontSize:16},
@@ -496,7 +498,7 @@ const s = StyleSheet.create({
   strengthBar:{flex:1,height:5,borderRadius:3,backgroundColor:colors.border},
   strengthWeak:{backgroundColor:colors.warning},
   strengthGood:{backgroundColor:colors.success},
-  strengthText:{fontSize:10,fontWeight:'800',textAlign:'right'},
+  strengthText:{fontSize:lokiText.label.fontSize,fontWeight:'800',textAlign:'right'},
   strengthTextWeak:{color:colors.warning},
   strengthTextGood:{color:colors.success},
   error:{color:colors.danger,fontSize:12,lineHeight:17,textAlign:'center',paddingHorizontal:8,marginTop:2},

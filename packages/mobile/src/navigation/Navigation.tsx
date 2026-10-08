@@ -26,6 +26,8 @@ import PlaylistSalePanel from '../components/PlaylistSalePanel';
 import PlaylistSaleHistoryScreen from '../screens/PlaylistSaleHistoryScreen';
 import { useGameSessionStore } from '../store/useGameSessionStore';
 import { confirmLeaveGame } from '../services/gameExitGuard';
+import { lokiText } from '../theme/lokiText';
+
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -134,7 +136,7 @@ function MainTabs() {
           paddingTop: 7,
           display: 'flex',
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarLabelStyle: { fontSize: lokiText.label.fontSize, fontWeight: '700' },
         headerShown: false,
       }}
     >
@@ -200,7 +202,7 @@ function PersistentTabBar() {
           }}
         >
           <TabIcon icon={item.icon} color={TAB.inactive} />
-          <Text style={{ fontSize: 10, fontWeight: '700', color: TAB.inactive }}>{item.label}</Text>
+          <Text style={{ fontSize: lokiText.label.fontSize, fontWeight: '700', color: TAB.inactive }}>{item.label}</Text>
         </TouchableOpacity>
       ))}
     </View>

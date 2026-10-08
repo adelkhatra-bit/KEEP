@@ -8,6 +8,8 @@ import {
   postMusicAgoraMessage,
   saveMusicAgoraSettings,
 } from '../services/musicAgoraService';
+import { lokiText } from '../theme/lokiText';
+
 
 export default function CommunityChatHomeWidget({ onOpenProfile }: { onOpenProfile?: (username: string) => void }) {
   const [homeEnabled, setHomeEnabled] = useState(false);
@@ -107,18 +109,18 @@ const s=StyleSheet.create({
   shell:{width:'100%',maxWidth:520,marginTop:14,padding:10,borderRadius:17,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundElevated},
   head:{flexDirection:'row',alignItems:'center',gap:8},
   headCopy:{flex:1,minWidth:0},
-  kicker:{color:colors.info,fontSize:8,fontWeight:'900',letterSpacing:1.1},
+  kicker:{color:colors.info,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:1.1},
   title:{color:colors.textPrimary,fontSize:12,fontWeight:'900',marginTop:2},
   hide:{width:28,height:28,borderRadius:14,borderWidth:1,borderColor:colors.border,alignItems:'center',justifyContent:'center'},
   hideText:{color:colors.textMutedGrey,fontSize:17,fontWeight:'900'},
   feed:{gap:6,marginTop:8},
   message:{padding:7,borderRadius:10,backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
-  author:{color:colors.primaryLight,fontSize:9,fontWeight:'900'},
-  body:{color:colors.textPrimary,fontSize:10,lineHeight:14,marginTop:2},
-  empty:{color:colors.textMutedGrey,fontSize:10,textAlign:'center',paddingVertical:8},
+  author:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900'},
+  body:{color:colors.textPrimary,fontSize:lokiText.label.fontSize,lineHeight:14,marginTop:2},
+  empty:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,textAlign:'center',paddingVertical:8},
   composer:{flexDirection:'row',alignItems:'center',gap:7,marginTop:8},
   input:{flex:1,minHeight:36,borderRadius:18,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,paddingHorizontal:11,color:colors.textPrimary,fontSize:11},
   send:{minHeight:36,paddingHorizontal:11,borderRadius:18,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center'},
   sendOff:{opacity:.4},
-  sendText:{color:colors.white,fontSize:8,fontWeight:'900'},
+  sendText:{color:colors.white,fontSize:lokiText.label.fontSize,fontWeight:'900'},
 });

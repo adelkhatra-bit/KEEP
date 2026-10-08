@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { lokiText } from '../lokiText';
+import { DEFAULT_ROOTS, findFontSizeViolations, findFontSizeViolationsInSource } from '../../../../../scripts/verify-min-font-size.cjs';
 
 // Règle d'Adel (07/10/2026, définitive) : jamais de texte foncé (noir, violet foncé, gris foncé) sur fond foncé.
 // Refuse le retour des couleurs de texte violettes/grises foncées, sauf texte posé sur un fond clair du même style.
@@ -28,5 +30,16 @@ describe('Règle contraste : jamais de texte foncé sur fond foncé', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('garde les six styles Loki et leurs tailles au-dessus du minimum', () => {
+    expect(Object.keys(lokiText)).toEqual(['screenTitle', 'blockTitle', 'body', 'secondary', 'label', 'button']);
+    expect(Object.values(lokiText).every(({ fontSize, lineHeight }) => fontSize >= 11 && lineHeight >= fontSize)).toBe(true);
+    expect(lokiText.label.fontSize).toBe(11);
+  });
+
+  it('refuse les tailles inférieures à 11 px dans mobile et Super Admin', () => {
+    expect(findFontSizeViolations(DEFAULT_ROOTS)).toEqual([]);
+    expect(findFontSizeViolationsInSource(`const style = { ${'font' + 'Size: 10'} };`)).toHaveLength(1);
   });
 });

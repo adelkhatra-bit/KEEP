@@ -3,6 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeepBattleSoloHistoryEntry, loadKeepBattleSoloHistory } from '../services/keepBattleHistoryService';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 interface KeepBattleSoloHistoryModalProps {
   visible: boolean;
@@ -131,7 +133,7 @@ const s = StyleSheet.create({
   historyLeft: { flex: 1, minWidth: 0 },
   historyTheme: { color: '#E5F266', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
   historyScore: { color: '#F8F6FC', fontSize: 13, fontWeight: '800', marginTop: 2 },
-  historyDate: { color: '#8F879D', fontSize: 10, fontWeight: '700', marginTop: 3 },
+  historyDate: { color: '#8F879D', fontSize: lokiText.label.fontSize, fontWeight: '700', marginTop: 3 },
   historyRight: { marginLeft: 12, alignItems: 'flex-end' },
   historyCredits: { fontSize: 12, fontWeight: '700' },
   creditBefore: { color: '#B79CFF', fontWeight: '800' },

@@ -8,6 +8,8 @@ import { useUserStore } from '../store/useUserStore';
 import { GenderOption, SocialLink, User } from '../types';
 import { colors } from '../theme/colors';
 import { radius, spacing } from '../theme/spacing';
+import { lokiText } from '../theme/lokiText';
+
 
 type Requirement = 'BIRTH_DATE' | 'GENDER' | 'AVATAR' | 'CITY' | 'COUNTRY' | 'BIO' | 'SOCIAL_LINK' | 'WEBSITE';
 
@@ -226,5 +228,5 @@ const s = StyleSheet.create({
   chipTextOn:{color:'#FFF'},
   primary:{minHeight:52,borderRadius:26,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:24},
   primaryText:{color:'#FFF',fontSize:13,fontWeight:'900'},
-  lockHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center',marginTop:10},
+  lockHint:{color:colors.textMuted,fontSize:lokiText.label.fontSize,lineHeight:15,textAlign:'center',marginTop:10},
 });

@@ -167,7 +167,7 @@ a { color: inherit; text-decoration: none; }
 
 table { width: 100%; max-width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 12px; overflow: hidden; table-layout: fixed; }
 th, td { text-align: left; padding: 10px 10px; font-size: 12px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
-th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 10px; }
+th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 11px; }
 td input {
   background: var(--bg-elevated);
   border: 1px solid var(--border);

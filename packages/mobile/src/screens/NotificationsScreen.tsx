@@ -35,6 +35,8 @@ import NewKeepNotificationActions from '../components/NewKeepNotificationActions
 import { getPushPermissionState, type PushPermissionState } from '../services/pushNotificationService';
 import { isNewKeepNotification, maskedNewKeepCopy } from '../services/newKeepNotification';
 import KeepModal from '../components/KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 // Demande d'Adel (31/08/2026) : pouvoir taper une notification (nouvel
 // abonné, désabonnement, morceau repris, nouveau morceau d'un abonnement)
@@ -1530,7 +1532,7 @@ const styles = StyleSheet.create({
   noticeText: { color: colors.textPrimary, fontSize: 12, lineHeight: 16, fontWeight: '800', textAlign: 'center' },
   visibilityCard: { minHeight: 92, marginBottom: spacing.xl, paddingHorizontal: spacing.md, paddingVertical: 13, borderRadius: 18, borderWidth: 1, borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,.10)', flexDirection: 'row', alignItems: 'center', gap: 12 },
   visibilityCopy: { flex: 1, minWidth: 0 },
-  visibilityEyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  visibilityEyebrow: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1 },
   visibilityTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '900', marginTop: 4 },
   visibilityHint: { color: colors.white, fontSize: 11, lineHeight: 16, marginTop: 3 },
   chatControlCard: { marginTop: -8, borderColor: colors.keep, backgroundColor: 'rgba(45,225,194,.07)' },
@@ -1543,7 +1545,7 @@ const styles = StyleSheet.create({
   chatChooseButtonText:{color:colors.info,fontSize:11,fontWeight:'900',letterSpacing:.5},
   chatSurfacePanel:{marginTop:-14,marginBottom:spacing.xl,padding:12,borderRadius:16,borderWidth:1,borderColor:colors.info,backgroundColor:'rgba(41,194,255,.06)'},
   chatSurfaceTitle:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
-  chatSurfaceHint:{color:colors.white,fontSize:10,lineHeight:15,marginTop:3},
+  chatSurfaceHint:{color:colors.white,fontSize:lokiText.label.fontSize,lineHeight:15,marginTop:3},
   chatSurfaceGrid:{flexDirection:'row',flexWrap:'wrap',gap:7,marginTop:10},
   chatSurfaceChip:{minHeight:44,paddingHorizontal:12,borderRadius:18,borderWidth:1,borderColor:colors.info,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   chatSurfaceChipOn:{backgroundColor:'rgba(41,194,255,.18)',borderColor:colors.primaryLight},
@@ -1569,15 +1571,15 @@ const styles = StyleSheet.create({
   cardUnread: { borderColor: colors.primary, backgroundColor: 'rgba(124,92,252,0.14)' },
   cardGifted: { borderColor: '#D6B36A', backgroundColor: 'rgba(214,179,106,.10)' },
   giftBox: { marginTop: 10, borderRadius: 13, borderWidth: 1, borderColor: '#D6B36A', backgroundColor: 'rgba(214,179,106,.08)', paddingHorizontal: 11, paddingVertical: 10 },
-  giftEyebrow: { color: '#FFF4D0', fontSize: 10, fontWeight: '900', letterSpacing: .8, marginBottom: 6 },
+  giftEyebrow: { color: '#FFF4D0', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .8, marginBottom: 6 },
   giftBenefit: { color: colors.textPrimary, fontSize: 11, lineHeight: 17, fontWeight: '700' },
-  giftHint: { color: '#F1E7C7', fontSize: 10, lineHeight: 15, marginTop: 6 },
+  giftHint: { color: '#F1E7C7', fontSize: lokiText.label.fontSize, lineHeight: 15, marginTop: 6 },
   cardMain: { padding: spacing.md, paddingBottom: spacing.sm },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardType: { color: colors.primaryLight, fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   readState: { minWidth: 24, alignItems: 'flex-end' },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.keep },
-  readText: { color:colors.white, fontSize: 10, fontWeight: '900', letterSpacing: .8 },
+  readText: { color:colors.white, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .8 },
   cardTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '900', marginTop: 7 },
   cardBody: { color:colors.white, fontSize: 16, lineHeight: 24, marginTop: 4 },
   cardBodyRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },

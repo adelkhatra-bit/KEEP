@@ -51,6 +51,8 @@ Tailles de contrôle minimales : 390×844, 430×932, 768×700, 900×700, 1440×9
 - `html`, `body` et `#root` gardent une hauteur viewport valide.
 - Les 5 onglets restent visibles.
 - Aucun débordement horizontal critique.
+- Tout texte reste à **11 px minimum**. Mobile et Web partagent les six styles `lokiText` ; chaque `lineHeight` reste au moins égal à `fontSize`.
+- Agrandir une étiquette ou une pastille ne déplace jamais les boutons principaux : agrandir son conteneur si nécessaire.
 - Les mises à jour Web/OTA sont automatiques et silencieuses : aucun bandeau, bouton « Actualiser / Mettre à jour » ou carte de version n'est montré à l'utilisateur.
 - Un reload automatique attend obligatoirement la fin du bootstrap Auth Supabase ; il ne peut jamais partir pendant la restauration de session.
 - La restauration de session concurrente est dédupliquée : `getCurrentSession()` et `onAuthStateChange()` ne doivent pas hydrater deux fois le même compte en parallèle.

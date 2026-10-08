@@ -5,6 +5,8 @@ import AppleMusicAuthScreen from './auth/AppleMusicAuthScreen';
 import { getAppleMusicDeveloperToken, musicEngine } from '../services/musicEngine';
 import { colors } from '../theme/colors';
 import { spacing, radius, typography } from '../theme/spacing';
+import { lokiText } from '../theme/lokiText';
+
 
 type State = { kind: 'loadingToken' } | { kind: 'ready'; developerToken: string } | { kind: 'error'; message: string } | { kind: 'success' };
 
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
   backArrow: { color: colors.textPrimary, fontSize: 24, lineHeight: 26, fontWeight: '800' },
   headerCopy: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm },
   headerSpacer: { width: 44, height: 44 },
-  eyebrow: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
+  eyebrow: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.1 },
   title: { ...typography.h2, color: colors.textPrimary, marginTop: 2 },
   centered: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   stateCard: {
@@ -189,7 +191,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: spacing.md,
   },
-  introKicker: { color: colors.primaryLight, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  introKicker: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1 },
   introTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '900', marginTop: 3 },
   introText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 6 },
   authArea: { flex: 1, minHeight: 0, overflow: 'hidden', borderRadius: radius.lg },

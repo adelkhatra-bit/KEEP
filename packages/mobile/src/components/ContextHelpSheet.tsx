@@ -2,6 +2,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 export type ContextHelpStep = {
   title: string;
@@ -69,7 +71,7 @@ const s = StyleSheet.create({
   no:{width:28,height:28,borderRadius:14,backgroundColor:colors.primary,color:'#FFF',fontSize:12,fontWeight:'900',textAlign:'center',lineHeight:28},
   copy:{flex:1,minWidth:0},
   stepTitle:{color:colors.textPrimary,fontSize:12,fontWeight:'900'},
-  stepText:{color:colors.textMuted,fontSize:10,lineHeight:15,marginTop:2},
+  stepText:{color:colors.textMuted,fontSize:lokiText.label.fontSize,lineHeight:15,marginTop:2},
   footer:{color:colors.primaryLight,fontSize:11,lineHeight:16,fontWeight:'900',marginTop:4},
   done:{minHeight:46,borderRadius:23,backgroundColor:colors.primary,alignItems:'center',justifyContent:'center',marginTop:14},
   doneText:{color:'#FFF',fontSize:11,fontWeight:'900'},

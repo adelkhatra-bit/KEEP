@@ -159,6 +159,18 @@
     "sameRulesMobileAndWeb": true,
     "childUnderstandable": true
   },
+  "typography": {
+    "minimumFontSizePx": 11,
+    "mobileTextStyles": {
+      "screenTitle": 28,
+      "blockTitle": 18,
+      "body": 15,
+      "secondary": 13,
+      "label": 11,
+      "button": 15
+    },
+    "guard": "scripts/verify-min-font-size.cjs"
+  },
   "responsive": {
     "requiredViewports": [
       "390x844",

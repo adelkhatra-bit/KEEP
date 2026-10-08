@@ -21,6 +21,8 @@ import { supabase } from '../services/supabaseClient';
 import { buildChatUnreadMap, chatUnreadKey, isChatNotification } from '../services/chatUnread';
 import { useGameSessionStore } from '../store/useGameSessionStore';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 
 function chatNotificationSender(item: KeepNotification): string {
@@ -1046,34 +1048,34 @@ const styles = StyleSheet.create({
   settingsSheet:{width:'100%',maxWidth:360,borderRadius:22,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.backgroundElevated,padding:16,shadowColor:'#000',shadowOpacity:.42,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:30},
   settingsHeader:{flexDirection:'row',alignItems:'center',gap:10,marginBottom:10},
   settingsHeaderCopy:{flex:1,minWidth:0},
-  settingsKicker:{color:colors.keep,fontSize:9,fontWeight:'900',letterSpacing:1.2},
+  settingsKicker:{color:colors.keep,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:1.2},
   settingsTitle:{color:colors.textPrimary,fontSize:20,fontWeight:'900',marginTop:2},
   settingsClose:{width:36,height:36,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,alignItems:'center',justifyContent:'center',backgroundColor:colors.backgroundCard},
   settingsCloseText:{color:colors.textPrimary,fontSize:22,lineHeight:24,fontWeight:'900'},
   settingsRow:{minHeight:52,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderTopWidth:1,borderTopColor:colors.border},
-  settingsHelp:{color:colors.textMutedGrey,fontSize:9,lineHeight:13,marginTop:3},settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
+  settingsHelp:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,lineHeight:lokiText.label.lineHeight,marginTop:3},settingsLabel:{color:colors.textPrimary,fontSize:13,fontWeight:'900'},
   settingsScreens:{borderTopWidth:1,borderTopColor:colors.border,paddingTop:10},
-  settingsScreenTitle:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900',letterSpacing:.8,marginBottom:7},
+  settingsScreenTitle:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.8,marginBottom:7},
   settingsScreenGrid:{flexDirection:'row',flexWrap:'wrap',gap:7},
   screenChip:{minHeight:34,paddingHorizontal:10,borderRadius:17,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   screenChipOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
-  screenChipText:{color:colors.textMutedGrey,fontSize:9,fontWeight:'900'},
+  screenChipText:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'900'},
   screenChipTextOn:{color:colors.primaryLight},
   anchorRow:{gap:7,marginTop:2,marginBottom:10},
   anchorChoice:{minHeight:48,borderRadius:16,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,paddingHorizontal:10,flexDirection:'row',alignItems:'center',gap:9},
   anchorIcon:{fontSize:18},
-  anchorTitle:{color:colors.textPrimary,fontSize:10.5,fontWeight:'900'},
-  anchorHint:{color:colors.textMutedGrey,fontSize:8.5,fontWeight:'700',marginTop:2},
+  anchorTitle:{color:colors.textPrimary,fontSize:lokiText.label.fontSize,fontWeight:'900'},
+  anchorHint:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'700',marginTop:2},
   positionRow:{flexDirection:'row',gap:7,marginTop:4,marginBottom:2},
   positionChoice:{flex:1,minHeight:54,borderRadius:16,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center',paddingHorizontal:5},
   positionChoiceOn:{borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint},
-  positionChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.6},
+  positionChoiceText:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.6},
   positionChoiceTextOn:{color:colors.primaryLight},
-  positionChoiceHint:{color:colors.textMutedGrey,fontSize:7.5,fontWeight:'700',marginTop:2,textAlign:'center'},
+  positionChoiceHint:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'700',marginTop:2,textAlign:'center'},
   sideRow:{flexDirection:'row',gap:8,marginTop:10},
   sideChoice:{flex:1,minHeight:40,borderRadius:20,borderWidth:1,borderColor:colors.border,backgroundColor:colors.backgroundCard,alignItems:'center',justifyContent:'center'},
   sideChoiceOn:{borderColor:colors.keep,backgroundColor:'rgba(45,225,194,.12)'},
-  sideChoiceText:{color:colors.textMutedGrey,fontSize:10,fontWeight:'900',letterSpacing:.7},
+  sideChoiceText:{color:colors.textMutedGrey,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.7},
   sideChoiceTextOn:{color:colors.keep},
 
   chatNudge:{position:'absolute',zIndex:88,minHeight:40,paddingVertical:4,borderRadius:20,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:'rgba(20,14,31,.98)',justifyContent:'center',overflow:'hidden',shadowColor:'#000',shadowOpacity:.32,shadowRadius:10,shadowOffset:{width:0,height:5},elevation:16},
@@ -1086,7 +1088,7 @@ const styles = StyleSheet.create({
   robotSaysText:{color:colors.textPrimary,fontSize:16,lineHeight:22,fontWeight:'800'},
   chatNudgeLeft:{left:70},
   chatNudgeRight:{right:70},
-  chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:10,fontWeight:'900',letterSpacing:.15},
+  chatNudgeText:{minWidth:168,maxWidth:232,paddingHorizontal:12,color:colors.textPrimary,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.15},
 
   fabWrap:{position:'absolute',zIndex:90,elevation:30},
   fabLeft:{left:0},
@@ -1107,8 +1109,8 @@ const styles = StyleSheet.create({
   robotEye:{width:4,height:4,borderRadius:2,backgroundColor:colors.primaryLight},
   robotMouth:{width:9,height:2,borderRadius:1,backgroundColor:colors.keep,marginTop:3},
   drawerCopy:{minWidth:29,maxWidth:34},
-  drawerLabel:{color:colors.textPrimary,fontSize:8,fontWeight:'900',letterSpacing:.7},
-  drawerSub:{color:colors.primaryLight,fontSize:6.5,fontWeight:'900',letterSpacing:.5,marginTop:1},
+  drawerLabel:{color:colors.textPrimary,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.7},
+  drawerSub:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.5,marginTop:1},
   drawerChevron:{color:colors.primaryLight,fontSize:17,fontWeight:'900',marginLeft:'auto'},
   presenceDot:{position:'absolute',left:5,bottom:4,width:8,height:8,borderRadius:4,borderWidth:2,borderColor:colors.background},
   presenceOn:{backgroundColor:colors.keep},
@@ -1121,5 +1123,5 @@ const styles = StyleSheet.create({
   unreadGlow:{position:'absolute',left:-4,top:-4,width:78,height:60,borderWidth:3,borderColor:'#FF5CB4',shadowColor:'#FF5CB4',shadowOpacity:.9,shadowRadius:14,shadowOffset:{width:0,height:0}},
   badgePing:{position:'absolute',right:-5,top:-7,width:20,height:20,borderRadius:10,backgroundColor:'#FF5CB4'},
   badge:{position:'absolute',right:-5,top:-7,minWidth:20,height:20,borderRadius:10,paddingHorizontal:4,backgroundColor:colors.danger,borderWidth:2,borderColor:colors.background,alignItems:'center',justifyContent:'center'},
-  badgeText:{color:'#FFF',fontSize:9,fontWeight:'900'},
+  badgeText:{color:'#FFF',fontSize:lokiText.label.fontSize,fontWeight:'900'},
 });

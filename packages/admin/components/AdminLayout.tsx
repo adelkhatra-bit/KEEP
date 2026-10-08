@@ -188,7 +188,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               🔔
               {totalAlerts > 0 && (
-                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, background: '#e05252', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, background: '#e05252', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                   {totalAlerts > 99 ? '99+' : totalAlerts}
                 </span>
               )}

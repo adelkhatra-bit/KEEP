@@ -8,6 +8,8 @@ import type { ProfileCertificationTier } from '../services/publicProfileStateSer
 import KeepModal from './KeepModal';
 import { formatLastShared, formatSince } from '../services/storyActivity';
 import { loadLastShared, loadProfilesActivity, type LastShared } from '../services/musicStoriesService';
+import { lokiText } from '../theme/lokiText';
+
 
 const KIND_LABELS: Record<string, string> = {
   USER: 'Fan', CREATOR: 'Créateur', DJ: 'DJ', ARTIST: 'Artiste', PRODUCER: 'Producteur', VENUE: 'Lieu',
@@ -190,7 +192,7 @@ const s = StyleSheet.create({
   avatarFallback:{alignItems:'center',justifyContent:'center'},avatarText:{color:colors.primaryLight,fontSize:27,fontWeight:'900'},
   usernameRow:{flexDirection:'row',alignItems:'center',gap:8,marginTop:10},
   username:{color:colors.textPrimary,fontSize:21,fontWeight:'900'},
-  meta:{color:colors.primaryLight,fontSize:10,fontWeight:'800',marginTop:4,textAlign:'center'},
+  meta:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'800',marginTop:4,textAlign:'center'},
   noStoryBox:{alignSelf:'stretch',marginTop:10,paddingVertical:8,paddingHorizontal:12,borderRadius:14,backgroundColor:'#21182F',borderWidth:1,borderColor:'#40354E',alignItems:'center',gap:2},
   noStoryTitle:{color:'#FFFFFF',fontSize:13,fontWeight:'900'},
   noStoryTrack:{color:'#FFFFFF',fontSize:12,fontWeight:'800',maxWidth:'100%'},
@@ -203,6 +205,6 @@ const s = StyleSheet.create({
   followText:{color:'#FFF',fontSize:11,fontWeight:'900'},
   followTextOn:{color:'#76E3AE'},
   secondary:{width:'100%',minHeight:42,borderRadius:21,borderWidth:1,borderColor:'#6E4BA5',backgroundColor:'#21182F',alignItems:'center',justifyContent:'center',marginTop:8},
-  secondaryText:{color:'#D9C7FF',fontSize:10,fontWeight:'900'},
+  secondaryText:{color:'#D9C7FF',fontSize:lokiText.label.fontSize,fontWeight:'900'},
   close:{minHeight:38,alignItems:'center',justifyContent:'center',marginTop:5},closeText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
 });

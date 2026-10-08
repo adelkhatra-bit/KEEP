@@ -4,6 +4,8 @@ import { Alert } from '../utils/keepAlert';
 import { colors } from '../theme/colors';
 import SupportCenterPanel from './SupportCenterPanel';
 import { BlockedUserSummary, listBlockedUsers, unblockUser } from '../services/moderationService';
+import { lokiText } from '../theme/lokiText';
+
 
 const LEGAL_URLS = {
   privacy: 'https://adelkhatra-bit.github.io/KEEP/privacy/',
@@ -100,8 +102,8 @@ const s = StyleSheet.create({
   howItWorksCard:{marginTop:14,borderRadius:20,borderWidth:1.5,borderColor:colors.primaryLight,backgroundColor:'#171024',overflow:'hidden'},
   howItWorksHeader:{minHeight:78,flexDirection:'row',alignItems:'center',gap:10,padding:12},
   howItWorksIcon:{width:42,height:42,borderRadius:15,alignItems:'center',justifyContent:'center',backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight,shadowColor:colors.primaryLight,shadowOpacity:.5,shadowRadius:8,shadowOffset:{width:0,height:0},elevation:5},
-  howItWorksIconText:{color:'#FFF',fontSize:19,fontWeight:'900'},howItWorksCopy:{flex:1,minWidth:0},howItWorksEyebrow:{color:colors.primaryLight,fontSize:9,fontWeight:'900',letterSpacing:.8},howItWorksTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},howItWorksLead:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},howItWorksChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
-  howItWorksSteps:{paddingHorizontal:12,paddingBottom:14,gap:9,borderTopWidth:1,borderTopColor:colors.border},howStep:{flexDirection:'row',gap:9,paddingTop:9},howStepNo:{width:24,height:24,lineHeight:24,borderRadius:12,textAlign:'center',overflow:'hidden',backgroundColor:colors.primary,color:'#FFF',fontSize:11,fontWeight:'900'},howStepText:{flex:1,color:colors.textMutedGrey,fontSize:12,lineHeight:17},howStepStrong:{color:colors.textPrimary,fontWeight:'900'},howItWorksNote:{color:colors.keep,fontSize:10,lineHeight:15,fontWeight:'800',marginTop:3},
+  howItWorksIconText:{color:'#FFF',fontSize:19,fontWeight:'900'},howItWorksCopy:{flex:1,minWidth:0},howItWorksEyebrow:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.8},howItWorksTitle:{color:colors.textPrimary,fontSize:15,fontWeight:'900',marginTop:2},howItWorksLead:{color:colors.textMuted,fontSize:11,lineHeight:15,marginTop:2},howItWorksChevron:{color:colors.primaryLight,fontSize:20,fontWeight:'900'},
+  howItWorksSteps:{paddingHorizontal:12,paddingBottom:14,gap:9,borderTopWidth:1,borderTopColor:colors.border},howStep:{flexDirection:'row',gap:9,paddingTop:9},howStepNo:{width:24,height:24,lineHeight:24,borderRadius:12,textAlign:'center',overflow:'hidden',backgroundColor:colors.primary,color:'#FFF',fontSize:11,fontWeight:'900'},howStepText:{flex:1,color:colors.textMutedGrey,fontSize:12,lineHeight:17},howStepStrong:{color:colors.textPrimary,fontWeight:'900'},howItWorksNote:{color:colors.keep,fontSize:lokiText.label.fontSize,lineHeight:15,fontWeight:'800',marginTop:3},
   help: { color: colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 4 },
   action: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.border },
   actionText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' }, actionArrow: { color: colors.primaryLight, fontSize: 20 },

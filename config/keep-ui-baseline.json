@@ -49,6 +49,17 @@
     "desktopAndMobileMustUseSameProductSource": true,
     "resizeMustNotBlankApplication": true
   },
+  "typography": {
+    "minimumFontSizePx": 11,
+    "mobileTextStyles": {
+      "screenTitle": 28,
+      "blockTitle": 18,
+      "body": 15,
+      "secondary": 13,
+      "label": 11,
+      "button": 15
+    }
+  },
   "accessibilityTouchTargets": {
     "sharedMinimum": 48,
     "visualMayBeSmallerIfHitTargetIsExpanded": true

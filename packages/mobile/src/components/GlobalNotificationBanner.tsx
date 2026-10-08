@@ -20,6 +20,8 @@ import NewKeepNotificationActions from './NewKeepNotificationActions';
 import { maskedNewKeepCopy } from '../services/newKeepNotification';
 import { loadCurrentPlanCode } from '../services/planService';
 import { isNotificationAccessLocked, loadNotificationAccessRules, normalizeNotificationPlanCode, notificationAccessRequiredPlan, notificationPlanLabel, type NotificationAccessRule, type NotificationPlanCode } from '../services/notificationAccessService';
+import { lokiText } from '../theme/lokiText';
+
 
 const VISIBLE_MS = 4600;
 const BATTLE_VISIBLE_MS = 20000;
@@ -991,7 +993,7 @@ const styles = StyleSheet.create({
   battleInviteYes: { flex: 1, minHeight: 36, borderRadius: 14, backgroundColor: '#E5F266', alignItems: 'center', justifyContent: 'center' },
   battleInviteYesText: { color: '#17130B', fontSize: 11, fontWeight: '900' },
   battleLockCard: { width: '100%', maxWidth: 420, borderRadius: 24, borderWidth: 2, borderColor: '#7C5CFC', backgroundColor: '#15101F', paddingHorizontal: 18, paddingVertical: 20, shadowColor: '#000', shadowOpacity: 0.48, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 40 },
-  battleLockEyebrow: { color: '#68F2B1', fontSize: 10, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center' },
+  battleLockEyebrow: { color: '#68F2B1', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center' },
   battleLockTitle: { color: '#FFF', fontSize: 22, lineHeight: 28, fontWeight: '900', textAlign: 'center', marginTop: 8 },
   battleLockBody: { color: '#FFF', fontSize: 15, lineHeight: 21, fontWeight: '800', textAlign: 'center', marginTop: 10 },
   battleLockHint: { color: '#FFF', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 10 },
@@ -1054,7 +1056,7 @@ const styles = StyleSheet.create({
   battleDisabled: { opacity: 0.62 },
   eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   eyebrow: { color: '#68F2B1', fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  closeHint: { color:'#FFFFFF', fontSize: 8, fontWeight: '700' },
+  closeHint: { color:'#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '700' },
   title: { color: '#F8F6FC', fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 2 },
   body: { color:'#FFFFFF', fontSize: 13, lineHeight: 18, marginTop: 2 },
 });

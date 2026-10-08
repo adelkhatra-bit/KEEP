@@ -19,6 +19,9 @@ must(baseline.profileOwner?.freeMustAppearExactlyOnce === true, 'machine baselin
 must(baseline.profileOwner?.certificationMustAppearBesideUsername === true, 'machine baseline must keep certification beside username');
 must(baseline.profileOwner.freePlacement === productContract.profileOwner.freePlacement, 'UI baseline disagrees with canonical product contract');
 must(JSON.stringify(baseline.profileOwner.metricsBarOrder) === JSON.stringify(productContract.profileOwner.metricsBarOrder), 'metrics order disagrees with canonical product contract');
+must(baseline.typography?.minimumFontSizePx === productContract.typography?.minimumFontSizePx, 'UI baseline typography minimum disagrees with product contract');
+must(baseline.typography?.minimumFontSizePx === 11, 'all UI text must stay at least 11px');
+must(JSON.stringify(baseline.typography?.mobileTextStyles) === JSON.stringify(productContract.typography?.mobileTextStyles), 'UI baseline Loki text styles disagree with product contract');
 
 const touchRule = baseline.accessibilityTouchTargets || {};
 must(touchRule.sharedMinimum === 48, 'shared touch target minimum must stay at 48');

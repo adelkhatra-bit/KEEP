@@ -1,6 +1,7 @@
 // Règle d'Adel (07/10/2026, définitive) : jamais de texte foncé sur fond foncé (violet foncé, gris foncé, noir).
 // Tout texte doit avoir un contraste d'au moins 4,5:1 sur le fond de carte le plus clair (#1c1930). Bloque le build sinon.
 const fs = require('fs'); const path = require('path');
+const { findFontSizeViolations } = require('../../../scripts/verify-min-font-size.cjs');
 const root = path.join(__dirname, '..');
 const files = [];
 for (const dir of ['pages', 'components', 'styles']) for (const f of fs.readdirSync(path.join(root, dir))) if (/\.(tsx|css)$/.test(f)) files.push(path.join(dir, f));
@@ -27,4 +28,6 @@ for (const f of files) {
   }
 }
 if (bad.length) { console.error('Texte trop foncé sur fond foncé (règle Adel) :\n' + bad.join('\n')); process.exit(1); }
+const smallText = findFontSizeViolations([root]);
+if (smallText.length) { console.error('Texte inférieur à 11px interdit :\n' + smallText.join('\n')); process.exit(1); }
 console.log('OK : aucun texte foncé sur fond foncé.');
