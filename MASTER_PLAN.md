@@ -3,6 +3,13 @@
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 
+## Reprise autorisée par Adel — 08/10/2026
+- Tester chaque correction avant intégration ; transmettre à Claude Code fichiers, preuves et retour arrière dans les mémoires existantes. Source de revue alignée sur `98fabe08`, aucune autorisation de publier depuis la branche Copilot.
+- Première passe : défaut de rafraîchissement Pulse vide et lien Utilisateurs hors basePath ; corrections et tests locaux réalisés (ERR-223/224), livraison à confirmer séparément.
+- Choix musical : vérifier en lecture les volumes jouables et artistes distincts par thème, exclu/non exclu pour le compte, état cron/expansion et erreurs fournisseur. Aucun résultat live actuellement disponible ; ne pas déduire la profondeur réelle d'une constante de limite.
+- Les autres points de l'audit restent à revalider contre le code et les derniers messages : migrations Signalements déjà annoncées appliquées dans AGENT_MESSAGES le 07/10, ne pas les réappliquer sur la seule base d'une ancienne note. Audio/QR/paiements/push nécessitent des preuves réelles ; design et règles économiques conservés dans cette passe.
+- Preuves acquises : exports admin/web/iOS, tests et Chromium web PC/tablette/Android avec fixtures. Le QR est validé visuellement, pas comme connexion entre deux appareils réels. Restent Firefox/WebKit, appareils physiques, comptages live et intégration canonique. CodeQL garde 11 alertes héritées hors diff ; Swift non analysé. Commits de rollback ciblés dans le contexte actif, aucune migration à annuler.
+
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
