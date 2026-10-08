@@ -79,8 +79,8 @@ export async function announceReportUpdates(): Promise<number> {
     const rows = data as any[];
     const first: ReportUpdate = { id: String(rows[0].id), screen: String(rows[0].screen ?? 'inconnu'), status: rows[0].status, note: rows[0].ai_note };
     const spoke = await robotSay('REPORT_UPDATE', { text: composeReportUpdateLine(first, Date.now()) });
-    if (spoke) await supabase.rpc('keep_report_ack', { p_ids: rows.map((r) => String(r.id)) });
-    return spoke ? rows.length : 0;
+    if (spoke) await supabase.rpc('keep_report_ack', { p_ids: [first.id] });
+    return spoke ? 1 : 0;
   } catch { return 0; }
 }
 

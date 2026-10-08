@@ -7,19 +7,23 @@ import { commitLink, LEDGER_URL, testLink, validSha, validTestPath } from '../li
 // Super Admin › Modération › Signalements (06/10/2026) : les « secousses » et diagnostics automatiques de l'app
 // (table app_problem_reports) étaient invisibles. Lecture via admin_problem_reports (rôles de modération uniquement).
 type Report = {
-  id: string; created_at: string; kind: string | null; status: 'NEW' | 'SEEN' | 'FIXED'; message: string;
+  id: string; created_at: string; kind: string | null; status: 'NEW' | 'SEEN' | 'IN_PROGRESS' | 'FIXED' | 'NEEDS_UPDATE' | 'NOT_A_BUG'; message: string;
   screen: string | null; platform: string | null; app_version: string | null; username: string | null;
   fixed_in_sha: string | null; regression_test_path: string | null;
+  ai_note: string | null; build_sha: string | null; device: string | null; os_version: string | null;
 };
-type Filter = 'NEW' | 'SEEN' | 'FIXED' | 'ALL';
+type Filter = Report['status'] | 'ALL';
 
 const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'NEW', label: 'À voir' },
-  { key: 'SEEN', label: 'Vus' },
+  { key: 'SEEN', label: 'Analysés' },
+  { key: 'IN_PROGRESS', label: 'En cours' },
   { key: 'FIXED', label: 'Corrigés' },
+  { key: 'NEEDS_UPDATE', label: 'Déjà corrigés' },
   { key: 'ALL', label: 'Tous' },
 ];
 const KIND_LABEL: Record<string, string> = { SHAKE: '📳 Secousse', MANUAL: '✍️ Signalé' };
+const STATUS_LABEL: Record<Report['status'], string> = { NEW: 'NEW', SEEN: 'ANALYSÉ', IN_PROGRESS: 'EN COURS', FIXED: 'CORRIGÉ', NEEDS_UPDATE: 'DÉJÀ CORRIGÉ', NOT_A_BUG: 'Sans bug confirmé' };
 const isAuto = (message: string) => message.startsWith('[AUTO]');
 const autoCode = (message: string) => message.replace(/^\[AUTO\]\s*/, '').split(' — ')[0];
 
@@ -76,9 +80,9 @@ export default function ProblemReports() {
     finally { setBusy(null); }
   };
 
-  // Regroupement des diagnostics automatiques identiques (même code) pour voir les vraies causes d'un coup d'œil.
+  // Même code ET même écran : deux modules distincts ne sont pas un seul bug.
   const autoGroups = rows.filter((r) => isAuto(r.message)).reduce<Record<string, number>>((acc, r) => {
-    const code = autoCode(r.message); acc[code] = (acc[code] ?? 0) + 1; return acc;
+    const code = `${autoCode(r.message)} · ${r.screen ?? 'inconnu'}`; acc[code] = (acc[code] ?? 0) + 1; return acc;
   }, {});
 
   return (
@@ -116,11 +120,17 @@ export default function ProblemReports() {
             <div key={r.id} className="card" style={{ display: 'grid', gap: 8, marginBottom: 0 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', fontSize: 12, fontWeight: 800 }}>
                 <span>{isAuto(r.message) ? '🤖 Auto' : (KIND_LABEL[String(r.kind)] ?? r.kind ?? 'Signalé')}</span>
+                <span>{STATUS_LABEL[r.status] ?? r.status}</span>
                 <span style={{ color: 'var(--text-muted)' }}>{new Date(r.created_at).toLocaleString('fr-FR')}</span>
                 <span style={{ color: 'var(--text-muted)' }}>{r.platform ?? '—'}{r.app_version ? ` · ${r.app_version}` : ''}</span>
                 {r.username ? <span style={{ color: 'var(--text-muted)' }}>@{r.username}</span> : null}
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{short}</div>
+              <details><summary>Analyse & contexte</summary>
+                <div>{r.screen ?? 'Écran inconnu'} · {r.device ?? 'Appareil inconnu'} · {r.os_version ?? 'Système inconnu'}</div>
+                <div>Build : {r.build_sha ?? 'inconnu'}</div>
+                <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.ai_note?.replace(/<!-- keep-published:[a-f0-9]{40} -->/g, '') || 'Analyse en attente'}</div>
+              </details>
               <details style={{ overflowWrap: 'anywhere' }}><summary>Correctif & test</summary>
                 {commitLink(r.fixed_in_sha) ? <a href={commitLink(r.fixed_in_sha)!} target="_blank" rel="noopener noreferrer">Commit {r.fixed_in_sha}</a> : <span>SHA non associé</span>}
                 <div>{testLink(r.fixed_in_sha, r.regression_test_path) ? <a href={testLink(r.fixed_in_sha, r.regression_test_path)!} target="_blank" rel="noopener noreferrer">Test anti-régression</a> : 'Test non associé'}</div>

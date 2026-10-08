@@ -1,5 +1,8 @@
 # ERROR LEDGER — mémoire anti-régression Loki Music
 
+## Issue #68 — 08/10/2026
+- **ERR-REPORT-AGENT-223 · LOCAL_ONLY** : les signalements NEW n'ont aucun lecteur automatisé ni `ai_note` ; le circuit utilisateur pouvait annoncer FIXED sur simple preuve documentaire. Complément du circuit existant : agent toutes les 15 min, issue unique code/écran, suivi limité, publication vérifiée avant notification. Prévention : `scripts/problem-report-agent.test.cjs`, tests SQL et navigateur Signalements existants. Les 90 lignes citées par l'issue ne sont pas encore vérifiées depuis ce clone ; aucun changement de donnée utilisateur, aucun déploiement de migration.
+
 Date de référence : 24/09/2026
 
 ## Revue parent — 07/10/2026
