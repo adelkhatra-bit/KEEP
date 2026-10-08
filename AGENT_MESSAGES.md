@@ -2781,3 +2781,102 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+
+## Codex — 08/10/2026 — catalogue corrigé, audit QR/multi-comptes/sessions (aucun verrou)
+
+### Travail réellement effectué
+- Source produit distante vérifiée : fa193cc5 ; commits suivants examinés sont des notes d’audit. Aucun nouveau travail local non poussé de Claude n’est visible : Desktop Commander répond « No devices connected ». Ne pas prétendre avoir inspecté C:\\Users\\97156\\keep.
+- Autorisation Adel : « fais le maximum », « attaque », sans verrou ni déconnexion.
+- **DEPLOYED (données de configuration serveur uniquement)** : règles EXACT ajoutées à keep_battle_theme_rules pour 9 styles, associations manquantes ajoutées à keep_battle_track_themes. Aucun UPDATE/DELETE ; ON CONFLICT DO NOTHING préserve les mappings existants. Aucun profil, solde FREE, contenu ni session de connexion modifié.
+- Prétest transactionnel puis ROLLBACK : deux exécutions, idempotence, aucun compte de mappings en baisse, zéro correspondance exacte manquante, appel du classificateur existant sur un représentant réel par style. PASS après correction d’un alias de variable dans le harnais de test (premier essai annulé).
+- Application transactionnelle COMMIT puis lecture indépendante : AFROHOUSE 35, AMAPIANO 13, DANCEHALL 96, DNB 21, DUBSTEP 14, GOSPEL 15, HOUSE 403, TECHNO 88, TRANCE 144 correspondances ; missing=0 partout. Le catalogue évolue en parallèle : ces 829 correspondances ne signifient pas 829 nouveaux titres ni 829 lectures audio testées.
+- Trigger déjà présent : AFTER INSERT OR UPDATE OF genres, release_year ON tracks → keep_tracks_auto_theme_trigger → keep_apply_battle_theme_rules_for_track. Pas de second automate créé.
+- Genres ambigus Garage et styles sans preuve LOFI/DRILL/GRIME non forcés. Ne pas reclasser tous les homonymes Maes en rap.
+- Pas de nouveau fichier de migration généré, car CLI/copie canonique non accessibles. SQL exact ci-dessous à conserver et intégrer au suivi des migrations canonique ; déjà appliqué, réexécutable sans doublon.
+
+### SQL exact appliqué
+```sql
+WITH wanted(theme_code,genre_pattern) AS (VALUES ('HOUSE','House'),
+('AFROHOUSE','Afro House'),
+('AFROHOUSE','Afro house'),
+('AFROHOUSE','Afro-house'),
+('AMAPIANO','Amapiano'),
+('DANCEHALL','Modern Dancehall'),
+('DANCEHALL','Dancehall'),
+('DANCEHALL','African Dancehall'),
+('DANCEHALL','Dancehall africain'),
+('TRANCE','Trance'),
+('TECHNO','Techno'),
+('DNB','Jungle/Drum''n''bass'),
+('DUBSTEP','Dubstep'),
+('GOSPEL','Gospel'),
+('GOSPEL','Contemporary Gospel'))
+INSERT INTO public.keep_battle_theme_rules(theme_code,genre_pattern,match_mode,confidence)
+SELECT w.theme_code,w.genre_pattern,'EXACT',0.95 FROM wanted w
+WHERE NOT EXISTS (SELECT 1 FROM public.keep_battle_theme_rules r
+WHERE r.theme_code=w.theme_code AND r.match_mode='EXACT'
+AND lower(trim(r.genre_pattern))=lower(trim(w.genre_pattern))
+AND r.release_year_min IS NULL AND r.release_year_max IS NULL);
+WITH wanted(theme_code,genre_pattern) AS (VALUES ('HOUSE','House'),
+('AFROHOUSE','Afro House'),
+('AFROHOUSE','Afro house'),
+('AFROHOUSE','Afro-house'),
+('AMAPIANO','Amapiano'),
+('DANCEHALL','Modern Dancehall'),
+('DANCEHALL','Dancehall'),
+('DANCEHALL','African Dancehall'),
+('DANCEHALL','Dancehall africain'),
+('TRANCE','Trance'),
+('TECHNO','Techno'),
+('DNB','Jungle/Drum''n''bass'),
+('DUBSTEP','Dubstep'),
+('GOSPEL','Gospel'),
+('GOSPEL','Contemporary Gospel'))
+INSERT INTO public.keep_battle_track_themes(track_id,theme_code,source,confidence)
+SELECT DISTINCT tr.id,w.theme_code,'AUTO_RULE',0.95
+FROM public.tracks tr JOIN wanted w ON EXISTS (
+SELECT 1 FROM unnest(coalesce(tr.genres,ARRAY[]::text[])) g
+WHERE lower(trim(g))=lower(trim(w.genre_pattern)))
+ON CONFLICT(track_id,theme_code) DO NOTHING;
+```
+
+### QR — priorité sécurité avant ouverture large
+- Fonction déployée keep-web-pairing ACTIVE version 1 relue, mêmes chemins sensibles que le dépôt.
+- QR créé sur ordinateur, validité 5 minutes, token aléatoire 32 octets hashé dans la base. Tables web_pairings et web_companion_sessions : RLS activée, SELECT direct anon/authenticated refusé.
+- **Pas de code e-mail envoyé dans ce parcours** : generateLink fabrique le lien ; il est renvoyé au demandeur de claim. Ne pas confondre générer un lien et envoyer un e-mail.
+- WebPairingLifecycle approuve AUTOMATIQUEMENT après ouverture du deeplink sur téléphone connecté. Pas de confirmation préalable du navigateur destinataire.
+- Le même token présent dans le QR autorise claim à récupérer actionLink après approbation ; aucune preuve privée distincte liée au navigateur initiateur. Risque de récupération par un tiers possédant le QR pendant cette fenêtre. Aucun test d’intrusion sur un utilisateur réel effectué.
+- register accepte CLAIMED et réécrit revoked_at=null : réactivation possible avec preuve et compte autorisé ; l’expiration exempte CLAIMED. revoke ne révoque pas la session Auth serveur, le client vérifie le drapeau toutes les 10 s. Ne pas appeler cela une révocation serveur complète.
+- Le check « verified_email_required » ne teste que la présence d’email, pas email_confirmed_at.
+- create/claim : pas de limite de débit explicite dans cette fonction. Polling QR 2,5 s : 10 000 écrans en attente représenteraient environ 4 000 appels/s hors latence. Calcul théorique, pas test de charge.
+- Action à préparer dans le moteur existant : confirmation native avant approve, preuve navigateur distincte du token QR, consommation atomique, refus de réactivation révoquée, révocation serveur ciblée, limites de débit et tests concurrentiels. Préserver toutes les connexions existantes ; aucune déconnexion effectuée.
+- Menu existant : AccountActionsPanel > Ordinateurs connectés (liste, actualiser, révoquer). Pas de bouton « Connecter mon PC » retrouvé. Ajouter ce libellé court avec guidage, pas un partage public du QR de connexion.
+- Lien public : webShareVisitor attend ?u=<pseudo>&share=… ; sans ces paramètres, le Web affiche volontairement QR. URL exacte cliquée par Adel non fournie : ne pas attribuer sa panne à une cause certaine.
+
+### Différences entre utilisateurs / montée en charge
+- Lecture prod feature_flags : playlist_marketplace=false/0 %, **2 exceptions de test** ; côté client transactions Web uniquement. keep_dna=true/0 %. Autres flags lus activés à100 %.
+- keep_feature_flag_enabled_for_me traite tout rollout_percent>0 comme activation générale, pas comme un vrai pourcentage. Ne pas promettre un déploiement progressif fiable sans corriger/tester cette sémantique.
+- RLS lue : playlists écriture propriétaire + lecture propre/public ; profiles écriture propriétaire et lecture public/admin ; story_watch_sessions lecture owner/viewer. Ces contrôles partiels ne constituent pas un audit exhaustif de tous les RPC.
+- Sessions pending/PASS stockées localement (keep-session-history AsyncStorage), récupération cloud des GARDER seulement. Même compte sur téléphone/PC peut donc avoir un historique différent.
+- Vérifications nécessaires : matrice même build/plateforme/plan/flags, A/B utilisateurs isolés, RPC sans autorité, charge progressive en environnement dédié. Aucun million d’utilisateurs ni test matériel certifié.
+
+### Sessions — cause exacte du badge et du micro
+- HomeScreenCompact: detected=tracks.length ; TopBar reçoit readyCount=detected. Ce compteur compte les titres courants, même traités, pas les sessions pending.
+- requestEndSession archive puis met tracks=[] : badge disparaît même si historique pending persiste.
+- Les deux boutons TopBar naviguent directement vers SessionHistory sans requestEndSession. SessionHistory conserve explicitement l’écoute active.
+- requestEndSession appelle void cancelAudioCapture() : arrêt demandé mais libération non attendue avant lecture/navigation.
+- Correction attendue : sélecteur unique nombre de sessions ayant au moins un pending, historique + session active dédupliqués par sessionId ; badge persistant, rappel robot temporaire séparé ; accès « Ma session » désactive reconnaissance, archive une fois, attend libération micro puis navigue. Tous les points d’entrée session/lecture doivent partager cette barrière ; ne pas seulement masquer GARDER.
+- Tests à exécuter : arrêt/rechargement conserve badge, ouvrir sans traiter ne l’efface pas, dernière décision l’éteint, garder/passer double appui idempotent, capture lente/erreur/retour arrière-plan, appareil sans accessoire/filaire/Bluetooth. NON IMPLÉMENTÉ côté client ici.
+
+### Textes / événement
+- DiscoverScreen affiche eventDetail.description intégralement (bloc Text). PartiesScreen limite sa carte à3 lignes, puis lien En savoir plus.
+- ClampedText existe déjà : réutiliser pour description Découverte et changer son libellé visible Plus/Moins ; conserver description complète et accessibilité explicite.
+- Autres libellés visibles retrouvés : Home, Offers, Notifications, ProfilePublic, Parties, PlaylistSalePanel, PlaylistSaleImmersivePreview, PayPalQrPayoutControl, PayoutCheckoutSheet. Remplacer seulement les libellés visibles, garder les labels accessibles descriptifs, actualiser les assertions de copie sans affaiblir les gardes.
+- Aucun correctif UI poussé faute de copie canonique et de cycle tsc/export/rendu 390×844 +1440×900 exigé par AGENTS.md. Ne pas déclarer « Plus » déjà en ligne.
+
+### Suite ordonnée
+1. QR sécurité/autorisation avant diffusion large ; sessions badge/micro (priorité utilisateur).
+2. Texte Plus/événements et bot unique ; reprise des lots stories24h/audio réel et identité artistes.
+3. Mesure Solo/Battle clic→son après correction catalogue ; profondeur des styles restants.
+4. Soirées stories/repartage/Pulse, MP3, statistiques et promotion : décisions désormais dans IDEAS_INBOX, pas fonctionnalités livrées.
+5. App Store Connect, iPhone/capteurs et versions testeurs : accès non disponibles ; aucune acceptation Apple confirmée.
