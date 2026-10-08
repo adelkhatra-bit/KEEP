@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-08T02:38:36.441Z
+- Régénéré le : 2026-10-08T02:42:20.886Z
 - Branche : `copilot/coute-pas-la-bonne-bouton-session`
-- Dernier commit : `91a8dcd` (91a8dcdb19c4a86ea8f3b9594d728afff6607175) — Initial plan
-- Date du dernier commit : 2026-10-08T01:51:16Z
+- Dernier commit : `015aa96` (015aa964fa672b0b15ea324fd7607457f83745a2) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
+- Date du dernier commit : 2026-10-08T02:38:58Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,6 +124,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `015aa96` (2026-10-08, copilot-swe-agent[bot]) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
 - `91a8dcd` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
 - `fa193cc` (2026-10-08, adelkhatra-bit) — ci: repare les 2 robots (Human Guardian + diagnostic tchat)
 <!-- AUTO:RECENT-COMMITS:END -->

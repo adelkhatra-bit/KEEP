@@ -1,6 +1,7 @@
 # KEEP — Contexte actif
 
 ## Issue #50 — écoute / SESSION / Battle (08/10/2026, revue non livrée)
+- Correctif committé en revue : `015aa964fa672b0b15ea324fd7607457f83745a2` sur `copilot/coute-pas-la-bonne-bouton-session`, HEAD distant vérifié ; **non intégré à la branche canonique, non livré**. Scan des 49 fichiers sans secret. Revue ciblée en lecture seule sans problème significatif après corrections ; outil de revue automatique indisponible. CodeQL : workflows sans alerte, expiration avant fin des autres langages ; **analyse complète non validée**, aucun PASS global.
 - Branche de revue `copilot/coute-pas-la-bonne-bouton-session`, base canonique `fa193cc537d47132053163cc842a98756b2a1fff` ; aucun changement App/Navigation/onglets, données utilisateur ou stories.
 - Correction avec alternatives moteur réelles, catalogue sans clavier, journal privé/admin ; goûts/redécouverte des propositions non confirmées filtrés. SESSION attend l'arrêt réel. Bandeau actif fixe + ⓘ, pastille opaque et bulle bornée.
 - Battle/Solo : position 12 s configurable (pas un délai), annulation « Pas de voix » sans point/FREE, exclusion du titre au deuxième signalement.

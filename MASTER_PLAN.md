@@ -12,6 +12,8 @@
 
 État local : implémentation et validations ciblées terminées (1417 tests mobile, 19 music, typechecks, export, PostgreSQL isolé, Chromium 390/1440). Revue ciblée sans bug haute confiance après durcissement ; publication de revue et analyse automatique finales en cours. Migrations/fonctions, intégration canonique, CI produit et validation iPhone restent séparées ; détails et limites héritées dans `.context/activeContext.md`.
 
+Clôture : commit de revue `015aa964fa672b0b15ea324fd7607457f83745a2`, sans secret ; revue automatique indisponible et CodeQL incomplet (workflows zéro alerte, autres analyses expirées). Pas de nouvelle tâche lancée ; application SQL/Edge, intégration et livraison restent à autoriser/valider.
+
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
 1. Conserver et vérifier les gardes Stories/Navigation déjà corrigés sur la revue basée sur `0138b4e5`.
 2. Étendre `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` : version.json canonique, dernière app signalée (pas parc installé), compteurs explicitement bornés ou RPC exact, rapport de preuves lecture seule.
