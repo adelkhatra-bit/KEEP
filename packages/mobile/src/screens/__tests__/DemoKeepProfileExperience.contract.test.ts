@@ -197,7 +197,7 @@ describe('Demo keep confirmation + visited profile premium design', () => {
     expect(swipe).toContain("setPrefilterRemovedCount(0)");
     expect(swipe).toContain(": (loop ? shuffle(inputTracks) : inputTracks);");
     expect(swipe).not.toContain("preparedTracksRef.current = result.tracks");
-    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}");
+    expect(swipe).toContain("rightLabel={currentAlreadyKept ? 'DÉJÀ GARDÉE' : 'GARDER'}");
   });
 
   it('waits for the Swipe deck to be ready before starting audio, preventing the first-preview cut', () => {

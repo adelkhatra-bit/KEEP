@@ -11,7 +11,7 @@ import { ActivityIndicator, Animated, Image, Linking, Platform, SafeAreaView, St
 import { Alert } from '../utils/keepAlert';
 import type { CanonicalTrack } from '@keep/music';
 import SwipeDeck from './SwipeDeck';
-import { loadFirstDiscoveryOrigins, type TrackOrigin } from '../services/trackOriginService';
+import { firstDiscoveryFreeLabel, useFirstDiscoveryOrigins } from '../services/trackOriginService';
 import MysteryArtwork from './MysteryArtwork';
 import { isSaleStoryTrack, loadMyStoryTrackIds, loadOtherStoryHolders, notifyOwnStoryChanged, pinSharedStoryTrack, pinFreeStoryTrack, pinStoryTrack, type StoryHolder } from '../services/musicStoriesService';
 import { loadMyOfferedTrackIds } from '../services/playlistSaleService';
@@ -75,7 +75,7 @@ type Props = {
   backLabel?: string;
   /** Affiche « Ajouter à ma story » même dans un aperçu de profil (previewOnly). */
   allowStoryAdd?: boolean;
-  /** Musiques de cette story mises SANS propriétaire connu : étiquette « Gratuit · non certifié » (Adel, 06/10/2026). */
+  /** Métadonnée historique d’épingle ; le badge Libre dépend désormais de l’origine serveur. */
   uncertifiedTrackIds?: string[];
   /** Ligne sous le sous-titre (ex. compteur de vues de la story). */
   headerExtra?: React.ReactNode;
@@ -125,7 +125,6 @@ export default function MusicSwipeDeckModal({
   saleInfoByTrackId,
   backLabel,
   allowStoryAdd = false,
-  uncertifiedTrackIds,
   headerExtra,
   likeMode = 'auto',
   overlay,
@@ -200,20 +199,12 @@ export default function MusicSwipeDeckModal({
     return () => clearTimeout(timer);
   }, [visible, preparingDeck, current, deckTracks.length, round]);
   // ERR-FIRST-DISCOVERER-097 : « Découvert par » = toujours le PREMIER découvreur (serveur), jamais le propriétaire du profil ouvert.
-  const [firstOrigins, setFirstOrigins] = useState<Record<string, TrackOrigin>>({});
-  const deckTrackIdsKey = deckTracks.map((track) => track.id).join(',');
-  useEffect(() => {
-    let live = true;
-    if (!visible || !deckTracks.length) return undefined;
-    void loadFirstDiscoveryOrigins(deckTracks.map((track) => track.id)).then((origins) => { if (live) setFirstOrigins(origins); }).catch(() => {});
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, deckTrackIdsKey]);
+  const { origins: firstOrigins, confirmed: originsConfirmed } = useFirstDiscoveryOrigins(deckTracks.map((track) => track.id), visible);
   const canonicalOrigin = current ? firstOrigins[current.id] : undefined;
   const currentSource = canonicalOrigin
     ? { ...(current ? sourceByTrack?.[current.id] : undefined), profileId: canonicalOrigin.profileId, username: canonicalOrigin.username }
     : (current ? sourceByTrack?.[current.id] : undefined);
-  const currentSourceUsername = currentSource?.username || sourceUsername;
+  const currentSourceUsername = trackAddedAt ? canonicalOrigin?.username : currentSource?.username || sourceUsername;
   const currentSourceProfileId = currentSource?.profileId || sourceProfileId;
   const shownTrackId = visible ? current?.id : undefined;
   useEffect(() => {
@@ -300,12 +291,12 @@ export default function MusicSwipeDeckModal({
       // Décision d'Adel (05/10/2026) : partager la musique d'un autre dans MA story est GRATUIT et ne demande pas de la garder
       // (pub pour son créateur, qui reste identifié). Aucun FREE débité.
       const toShare = current;
-      const fromId = currentSourceProfileId;
+      const fromId = sourceProfileId || currentSourceProfileId;
       if (!fromId) {
-        // Musique sans propriétaire connu (session, reconnaissance…) : gratuite, aucun GARDER requis, marquée « Gratuit · non certifié ».
+        // Le partage est gratuit ; seule l’attribution serveur décide si le titre est encore libre.
         Alert.alert(
           'Mettre en story ?',
-          `« ${toShare.title} » sera visible 24 h dans ta story, marquée « Gratuit · non certifié » (aucun propriétaire connu). C’est gratuit et ça n’est pas un GARDER. Garde-la ensuite pour être identifié comme premier découvreur.`,
+          `« ${toShare.title} » sera visible 24 h dans ta story. Sans premier découvreur : « Libre · à découvrir par toi ». Le partage est gratuit ; GARDER coûte des FREE.`,
           [
             { text: 'Annuler', style: 'cancel' },
             { text: 'Oui, mettre en story', onPress: () => { void shareFreeToStory(toShare); } },
@@ -767,6 +758,7 @@ export default function MusicSwipeDeckModal({
       const result = await onKeep?.(keptTrack, visibility);
       if (result === false && !isSaleStoryTrack(keptTrack)) reportAutoDiagnostic('KEEP_NOT_CONFIRMED', visibility);
       if (result !== false) {
+        setAlreadyKeptState('yes');
         // GARDER en Public = nouvelle musique dans ma story : le cercle de ma photo doit s'allumer tout de suite.
         if (visibility === 'PUBLIC') {
           notifyOwnStoryChanged();
@@ -954,7 +946,8 @@ export default function MusicSwipeDeckModal({
 
   const controlsLocked = processing || preparingDeck || keepPromptOpen || !!keepSuccess || previewInfoOpen || alreadyKeepInfoOpen;
   // Musique d'une story d'un autre : EN VENTE (payante) ou GRATUITE (disponible pour ton profil, FREE annoncés dans l'indication). Jamais sur ma propre story.
-  const priceBadge: { label: string; paid: boolean } | null = !current || previewOnly || !trackAddedAt
+  const freeDiscoveryLabel = current ? firstDiscoveryFreeLabel(current.id, originsConfirmed, firstOrigins) : null;
+  const priceBadge: { label: string; paid: boolean } | null = !current
     ? null
     : isSaleStoryTrack(current)
       ? (() => {
@@ -964,11 +957,11 @@ export default function MusicSwipeDeckModal({
           // Gratuit en FREE seulement : pas de PayPal ; sinon « PAYANT » + nombre de titres + prix (PayPal en €).
           return info.mode === 'FREE' ? { label: `🪙 ${info.priceLabel} · ${titles}`, paid: true } : { label: `💳 PAYANT · ${titles} · ${info.priceLabel}`, paid: true };
         })()
-      : currentAlreadyKept
-        ? null
-        : uncertifiedTrackIds?.includes(current.id)
-          ? { label: '🎁 GRATUIT · NON CERTIFIÉ · PRENDS-LA VITE', paid: false }
-          : { label: '🎁 GRATUIT · POUR TON PROFIL', paid: false };
+      : freeDiscoveryLabel && !currentAlreadyKept
+        ? { label: freeDiscoveryLabel, paid: false }
+        : previewOnly || !trackAddedAt || currentAlreadyKept
+          ? null
+          : { label: keepDebitAmount ? `GARDER · ${keepDebitAmount} FREE` : 'GARDER · POUR TON PROFIL', paid: false };
   // J'aime partout (Adel 05/10/2026) : table unique `track_likes`, état optimiste avec retour arrière (useTrackLikes).
   const likeMeId = useUserStore((state) => state.user?.id);
   // Langage de jeunes selon le genre + ton qui monte quand on swipe sans donner d'avis (Adel, 06/10/2026).
@@ -1097,7 +1090,7 @@ export default function MusicSwipeDeckModal({
                 void advance().finally(() => { actionInFlight.current = false; });
               }}
               leftLabel="PASSER"
-              rightLabel={currentAlreadyKept ? 'DÉJÀ' : 'GARDER'}
+              rightLabel={currentAlreadyKept ? 'DÉJÀ GARDÉE' : 'GARDER'}
               upLabel="SUIVANT"
               hint={swipeHint}
               fill
@@ -1137,9 +1130,9 @@ export default function MusicSwipeDeckModal({
                 style={[s.decisionButton, s.keepButton, currentAlreadyKept && s.keepButtonAlready]}
                 onPress={() => { void requestKeep(); }}
                 disabled={controlsLocked}
-                accessibilityLabel={currentAlreadyKept ? 'Déjà dans ta collection' : 'Garder cette musique'}
+                accessibilityLabel={currentAlreadyKept ? 'Déjà gardée' : 'Garder cette musique'}
               >
-                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{currentAlreadyKept ? '✓ DÉJÀ' : '♡ GARDER'}</Text>}
+                {processing ? <ActivityIndicator color={currentAlreadyKept ? '#B9B0C3' : colors.black} size="small" /> : <Text style={[s.keepButtonText, currentAlreadyKept && s.keepButtonTextAlready]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{currentAlreadyKept ? '✓ DÉJÀ GARDÉE' : '♡ GARDER'}</Text>}
               </TouchableOpacity>
             </View>
           </View>

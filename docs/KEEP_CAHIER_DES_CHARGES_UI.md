@@ -2,7 +2,7 @@
 
 Sous-spécification du cahier des charges maître : `docs/KEEP_MASTER_SPEC.md`. En cas d'évolution validée, les deux fichiers doivent rester cohérents.
 
-Version : **2026-10-01.4**  
+Version : **2026-10-08.1**
 Branche produit unique : **`reconcile/claude-main-20260825`**  
 Ce document est la référence à relire avant toute modification d'interface.
 
@@ -104,7 +104,7 @@ Décision d'Adel (02/10/2026, capture « Tes parties Solo du jour sont terminée
 Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web :
 
 - Sur fond sombre, tout texte fonctionnel ou important est blanc/très clair. Un gris faible n’est autorisé que pour une information réellement secondaire.
-- Une explication longue lue une seule fois ne reste pas affichée en permanence. Elle passe derrière **En savoir plus**, `?` ou une aide compacte.
+- Une explication longue lue une seule fois ne reste pas affichée en permanence. Les anciens boutons visibles **En savoir plus / Réduire** deviennent **ⓘ / ✕** (issue #63, 08/10/2026), avec le libellé accessible conservé, via `InfoToggleIcon` partagé par l'app et le Super Admin. Les aides de contexte `?` déjà validées restent disponibles.
 - Ouvrir une aide ne doit pas déplacer les boutons principaux ni faire sauter la mise en page : l’espace est réservé ou le détail s’ouvre en surimpression.
 - **1 clic maximum** pour atteindre une action ou afficher sa réponse.
 - Un **2e clic** est réservé à la confirmation d’une action sensible : paiement, suppression, déconnexion, dépense de FREE, publication ou changement destructif de confidentialité.
@@ -116,7 +116,7 @@ Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web
 ## 11. Règles permanentes de lisibilité (décision d'Adel, 05/10/2026 — valable partout)
 
 1. **Jamais de texte sombre sur fond sombre**, ni de noir sur gris. Sur fond sombre : texte blanc ou très clair. Le texte noir n'est autorisé que sur un fond clair ou une couleur vive (ex. bouton vert/jaune).
-2. **Jamais plus de 2 lignes de texte affichées.** Au-delà : « En savoir plus ». Cette règle protège le design : un bloc ne grandit pas à cause d'un long texte.
+2. **Jamais plus de 2 lignes de texte affichées.** Au-delà : ⓘ (libellé accessible « En savoir plus »). Cette règle protège le design : un bloc ne grandit pas à cause d'un long texte.
 3. **L'écriture ne doit pas être trop petite.** Notifications : titre ≥ 16, texte ≥ 14, liens et boutons ≥ 13, étiquettes ≥ 11. Une ligne de hauteur (`lineHeight`) n'est jamais plus petite que la taille du texte.
 4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-mobile-text-contrast.cjs`.
 5. À étendre au reste de l'interface écran par écran, sans casser le design validé.
@@ -172,8 +172,8 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 - La liste « Vues de ta story » conserve l'accès au profil, sans badge « Abonné ». Depuis le 06/10/2026 (ERR-210), ses bulles ouvrent le détail avec le bouton court **Profil ›**, nommé **Voir le profil de @pseudo** pour l'accessibilité.
 
 ### §14 quater — Lecteur de story : règles de lecture (Adel, 05/10/2026)
-- **Ancienneté** (décision d'Adel du 05/10, remplace « reste 24 h ») : une seule ligne verte « ⏱ il y a 29 min » / « il y a 2 h », SEULEMENT depuis quand la musique est en ligne ; jamais la durée restante (l'utilisateur sait qu'une story dure 24 h) ; rien d'autre en vert.
-- **Étiquettes obligatoires** sur chaque musique d'une story d'un autre : « 💳 PAYANT · PAYPAL » (musique en vente) ou « 🎁 GRATUIT · POUR TON PROFIL » (musique publique à garder ; le coût en FREE reste dit dans l'indication « → garder · 3 FREE »). Jamais d'ambiguïté sur ce qui est payant.
+- **Ancienneté** : le chronomètre de durée de vie de la musique reste distinct des statistiques des spectateurs. La ligne « touché X fois · il y a X min » (issue #63, 08/10/2026) concerne uniquement le spectateur et ne remplace pas le chronomètre.
+- **Étiquettes obligatoires** : les offres payantes restent masquées et indiquent leur prix ; une musique sans premier découvreur confirmé porte « Libre · à découvrir par toi ». Dans une story, GARDER utilise le tarif FREE serveur, annoncé avant confirmation ; « Déjà gardée » ne débite rien. La mise en story reste gratuite et n'attribue jamais une découverte (issue #63, 08/10/2026).
 - **Aucune phrase d'accroche** sur la story d'un autre ; le créateur crédité est le découvreur d'origine.
 - **Bulles inactives** : un membre sans activité depuis plus de **7 jours** voit sa bulle (sans story) disparaître de la rangée, et revenir dès qu'il se reconnecte. Un membre avec une story n'est jamais masqué.
 - Contrôle bloquant : `scripts/verify-product-contract.cjs` (contrat `storiesExperience`).
@@ -181,7 +181,7 @@ Les bandelettes lumineuses (accueil au repos et écran d'écoute) **ne sont jama
 ### §14 quinquies — Vues de story façon Instagram (Adel, 05/10/2026)
 - Une vue ne compte qu'après 2 s de présence réelle ; ouverture/fermeture immédiate = aucune vue.
 - Suivi : secondes passées, musiques vues (x/y), écoute démarrée, instant du départ (ping 10 s, fermeture, arrière-plan).
-- Propriétaire : liste « Vues de ta story » = `@pseudo`, `● regarde maintenant` ou `parti il y a …`, `N s · x/y musiques · écouté/pas écouté`, « Voir le profil ›». Alerte latérale : « 👁 @x regarde ta story » puis « @x est parti · N s ».
+- Propriétaire : liste « Vues de ta story » = `@pseudo`, « touché X fois · il y a X min » (X = sessions de cet autre utilisateur), `● regarde maintenant` ou `parti il y a …`, détails par musique, « Voir le profil ›». Sa propre ouverture ne compte jamais. Une ouverture automatique ne simule pas une nouvelle touche (issue #63, 08/10/2026). Alerte latérale : « 👁 @x regarde ta story » puis « @x est parti · N s ».
 
 ### §14 sexies — Classement sur les bulles (Adel, 05/10/2026)
 - Classement de la semaine (7 jours glissants) : 1 pt par partage en story, 3 pts par reprise de sa musique par un autre membre, 2 pts par nouvel abonné ; top 50 des profils publics (RPC lecture seule `keep_story_ranking`).

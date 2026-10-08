@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-07.01",
+  "version": "2026-10-08.01",
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
@@ -42,12 +42,27 @@
     "cancelKeepMustNeverDebit": true,
     "keepAppliesToSources": [
       "listen",
-      "loki_pulse"
+      "loki_pulse",
+      "story"
     ],
+    "storyKeep": {
+      "decidedBy": "Adel, issue #63 du 08/10/2026",
+      "charge": 3,
+      "alreadyOwnedDuplicate": 0,
+      "serverDebitRequired": true,
+      "previewOnlyWithoutKeepForbidden": true
+    },
+    "firstDiscoveryReward": {
+      "defaultFreePerKeep": 3,
+      "defaultMonthlyCap": 20,
+      "remoteConfigAmount": "first_discovery_free_per_keep",
+      "remoteConfigCap": "first_discovery_monthly_free_cap",
+      "immutableAttribution": true
+    },
     "socialFreeKeep": {
       "decidedBy": "Adel 05/10/2026",
       "charge": 0,
-      "sources": ["story", "public_profile", "public_profile_swipe", "follow_notification"],
+      "sources": ["public_profile", "public_profile_swipe", "follow_notification"],
       "requires": "musique PUBLIQUE chez un autre membre (GARDER public ou épingle claire < 24 h) et PAS en vente (SALE_PROTECTED)",
       "attribution": "marquée du nom du PREMIER découvreur ; l'utilisateur la garde en public ou en privé",
       "serverRpc": "keep_commit_social_free_decision",
@@ -142,7 +157,10 @@
     "darkBackgroundPrimaryText": "textPrimary-or-equivalent-high-contrast",
     "functionalGreyTextOnDarkForbidden": true,
     "permanentLongExplanationsForbidden": true,
-    "secondaryExplanationPattern": "inline-help-or-En-savoir-plus-with-stable-layout",
+    "secondaryExplanationPattern": "inline-help-or-info-icon-with-stable-layout",
+    "infoToggleComponent": "packages/mobile/src/components/InfoToggleIcon.tsx",
+    "infoToggleSymbols": ["ⓘ", "✕"],
+    "infoToggleKeepsAccessibleLabels": true,
     "helpExpansionMustNotShiftPrimaryControls": true,
     "primaryActionAccessMaxClicks": 1,
     "secondClickReservedForSensitiveConfirmation": true,
@@ -966,7 +984,10 @@
   "storiesExperience": {
     "unfollowOnlyFromProfilePage": true,
     "storyAgeLineFormat": "Chronomètre 24 h « ⏱ HH:MM:SS » (temps de vie restant de la musique de story, avance chaque seconde, une seule ligne courte) — demande d'Adel du 05/10/2026 qui remplace « il y a N min ».",
-    "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "🎁 GRATUIT · POUR TON PROFIL (musique publique à garder)"],
+    "storyPriceBadgesRequired": ["💳 PAYANT · N titres · prix (PayPal en €) ou 🪙 N FREE · N titres (musique en vente ; on n'achète pas les titres mais la sélection/le savoir-faire d'écoute du membre)", "GARDER · N FREE (tarif serveur)", "Libre · à découvrir par toi (absence de premier découvreur confirmée)"],
+    "viewerTouchSummary": "touché X fois · il y a X min",
+    "viewerTouchCountSource": "story_watch_sessions",
+    "ownerAndAutomaticOpeningsNeverCountAsTouches": true,
     "storyReaderHasNoTeaserSentenceForOthers": true,
     "viewersListShowsViewProfileNotFollowBadge": true,
     "badgeUnlockRule": "Badge/classement des stories : offert 30 jours (comptes existants : à partir du 05/10/2026), ensuite 1 parrainage validé OU une formule payante active ; appliqué au badge et au classement UNIQUEMENT, jamais au droit de poster une story (Adel 05/10/2026, IDEA-104). Fonction serveur keep_story_badge_eligible.",

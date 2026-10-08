@@ -13,7 +13,7 @@ describe('Loki FREE debit contract', () => {
   const dailySpend = read(__dirname, '..', '..', '..', '..', '..', 'supabase', 'migrations', '20261001211000_free_spent_today_ledger_source.sql');
   const contract = JSON.parse(read(__dirname, '..', '..', '..', '..', '..', 'config', 'keep-product-contract.json'));
 
-  it('charges every new manual KEEP, including a keep copied from another profile', () => {
+  it('charges new manual KEEP through the default server-authoritative path', () => {
     expect(core).toContain('if (decision === "KEPT") {');
     expect(core).toContain("scoped.rpc(\"keep_commit_paid_decision\"");
     expect(core).not.toContain('if (decision === "KEPT" && !socialSource)');
@@ -49,10 +49,12 @@ describe('Loki FREE debit contract', () => {
 
   it('locks the final product rule in the canonical contract', () => {
     expect(contract.creditRules.KEEP).toBe(-3);
-    expect(contract.creditRules.keepAppliesToSources).toEqual(expect.arrayContaining(['listen', 'loki_pulse']));
-    // Décision d'Adel du 05/10/2026 : reprendre une musique PUBLIQUE d'un autre membre est gratuit (créateur identifié) ; partager en story aussi.
+    expect(contract.creditRules.keepAppliesToSources).toEqual(expect.arrayContaining(['listen', 'loki_pulse', 'story']));
+    // Issue 63 (08/10/2026) : GARDER depuis une story est débité ; profil public et partage en story restent gratuits.
     expect(contract.creditRules.socialFreeKeep.charge).toBe(0);
-    expect(contract.creditRules.socialFreeKeep.sources).toEqual(expect.arrayContaining(['story', 'public_profile', 'public_profile_swipe']));
+    expect(contract.creditRules.socialFreeKeep.sources).toEqual(expect.arrayContaining(['public_profile', 'public_profile_swipe']));
+    expect(contract.creditRules.socialFreeKeep.sources).not.toContain('story');
+    expect(contract.creditRules.storyKeep.charge).toBe(3);
     expect(contract.creditRules.shareToOwnStoryIsFree.charge).toBe(0);
     expect(contract.creditRules.alreadyOwnedDuplicate).toBe(0);
     expect(contract.profileOwner.freeDetailsPanel.socialProfileKeepsAlsoDebit).toBe(false);

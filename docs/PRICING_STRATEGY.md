@@ -156,7 +156,7 @@ actifs paient (TechCrunch 03/05/2021).
 | Série quotidienne (ouvrir Loki + 1 action) | +1 / jour, +5 au 7ᵉ jour | cycle de 7 jours |
 | Victoire Battle | existant (`battle_win_free_credits`) | existant |
 | Parrainage (lien d'affiliation perso) | +2 par inscrit validé | 20 / mois (avant 40) |
-| Premier découvreur : ta découverte est GARDÉE par quelqu'un | +1 | 20 / mois |
+| Premier découvreur : ta découverte est GARDÉE par quelqu'un | +3 (issue #63, 08/10/2026) | 20 / mois |
 | Paliers d'abonnés | existant (`growth_followers_reward_*`) | existant |
 
 - **Gel de série** (protège la série un jour manqué) : réservé aux abonnés,
@@ -167,6 +167,7 @@ actifs paient (TechCrunch 03/05/2021).
 ### 3. Dépenser des FREE
 
 - GARDER : −3 (inchangé, `creditRules.KEEP`).
+- Depuis une story : même débit serveur que Loki Pulse (issue #63, 08/10/2026), doublon déjà gardé = 0. Le premier découvreur garde sa provenance et reçoit le gain configuré ; montant et plafond mensuel réglables dans le Super Admin, sans réinitialiser l'historique.
 - Écoute au-delà du quota du jour : −1.
 - Packs de solos Battle : existants (`battle_solo_pack_small_free` /
   `battle_solo_pack_large_free`).
@@ -206,7 +207,9 @@ Respecter `uxInteractionRules` (contraste, 1 clic, aide compacte).
 
 ### 6. Accès ordinateur — QR uniquement (décision 04/10/2026)
 
-Loki est une app d'abord. **Pas de connexion directe sur ordinateur** : l'écran
+Loki est une app d'abord. **Pas de connexion directe sur ordinateur** : le bouton
+☰ › Ordinateur › « M'envoyer le lien » envoie par Brevo le lien d'accès au QR
+(issue #63, 08/10/2026), sans authentifier directement le navigateur. L'écran
 ordinateur s'ouvre uniquement par QR code scanné et approuvé depuis l'app
 (`keep-web-pairing`, tables `web_pairings` / `web_companion_sessions`). Pas de
 nom de domaine à acheter (GitHub Pages). Conséquences à implémenter :

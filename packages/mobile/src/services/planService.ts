@@ -25,6 +25,8 @@ export type CreditFunnel = {
   monthlyBonusPremium: number;
   monthlyBonusCreatorPro: number;
   monthlyBonusVenuePro: number;
+  firstDiscoveryFreePerKeep: number;
+  firstDiscoveryMonthlyFreeCap: number;
 };
 
 export async function loadPlans(): Promise<KeepPlan[]> {
@@ -76,6 +78,8 @@ export const CREDIT_FUNNEL_DEFAULTS: CreditFunnel = {
   monthlyBonusPremium: 30,
   monthlyBonusCreatorPro: 40,
   monthlyBonusVenuePro: 100,
+  firstDiscoveryFreePerKeep: 3,
+  firstDiscoveryMonthlyFreeCap: 20,
 };
 
 export async function loadCreditFunnel(): Promise<CreditFunnel> {
@@ -83,6 +87,7 @@ export async function loadCreditFunnel(): Promise<CreditFunnel> {
   const { data, error } = await supabase.from('remote_config').select('key,value').in('key', [
     'guest_recognition_limit', 'guest_success_limit', 'signup_bonus_recognitions', 'signup_bonus_successes',
     'free_monthly_bonus_free', 'free_monthly_bonus_premium', 'free_monthly_bonus_creator_pro', 'free_monthly_bonus_venue_pro',
+    'first_discovery_free_per_keep', 'first_discovery_monthly_free_cap',
   ]);
   if (error) throw error;
   const map = Object.fromEntries((data ?? []).map((row: any) => [row.key, Number(row.value)]));
@@ -94,6 +99,8 @@ export async function loadCreditFunnel(): Promise<CreditFunnel> {
     monthlyBonusPremium: pick('free_monthly_bonus_premium', CREDIT_FUNNEL_DEFAULTS.monthlyBonusPremium),
     monthlyBonusCreatorPro: pick('free_monthly_bonus_creator_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusCreatorPro),
     monthlyBonusVenuePro: pick('free_monthly_bonus_venue_pro', CREDIT_FUNNEL_DEFAULTS.monthlyBonusVenuePro),
+    firstDiscoveryFreePerKeep: Math.max(0, Math.floor(pick('first_discovery_free_per_keep', CREDIT_FUNNEL_DEFAULTS.firstDiscoveryFreePerKeep))),
+    firstDiscoveryMonthlyFreeCap: Math.max(0, Math.floor(pick('first_discovery_monthly_free_cap', CREDIT_FUNNEL_DEFAULTS.firstDiscoveryMonthlyFreeCap))),
   };
 }
 

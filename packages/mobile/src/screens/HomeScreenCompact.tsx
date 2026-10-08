@@ -14,6 +14,7 @@ import { usePlaylistStore } from '../store/usePlaylistStore';
 import { useUserStore } from '../store/useUserStore';
 import { useAccountGateStore } from '../store/useAccountGateStore';
 import { musicEngine } from '../services/musicEngine';
+import { firstDiscoveryFreeLabel, useFirstDiscoveryOrigins } from '../services/trackOriginService';
 import SwipeDeck from '../components/SwipeDeck';
 import TrackListenControls from '../components/TrackListenControls';
 import ListenEnergyAura from '../components/ListenEnergyAura';
@@ -517,6 +518,8 @@ export default function HomeScreenCompact({ navigation }: any) {
   const [viewedTrackId, setViewedTrackId] = useState<string | null>(null);
   useEffect(() => { if (!isActive) setViewedTrackId(null); }, [isActive]);
   const current = (viewedTrackId ? tracks.find((tr) => tr.id === viewedTrackId) : undefined) ?? tracks[0];
+  const { origins: currentOrigins, confirmed: currentOriginConfirmed } = useFirstDiscoveryOrigins([current?.track.id ?? ''], true, current?.status ?? '');
+  const freeDiscoveryLabel = current ? firstDiscoveryFreeLabel(current.track.id, currentOriginConfirmed, currentOrigins) : null;
   const currentIndex = current ? tracks.findIndex((tr) => tr.id === current.id) : -1;
   const canGoNewer = currentIndex > 0;
   const canGoOlder = currentIndex >= 0 && currentIndex < tracks.length - 1;
@@ -849,6 +852,7 @@ export default function HomeScreenCompact({ navigation }: any) {
                 <View style={s.trackText}>
                   <Text style={s.trackTitle} numberOfLines={1}>{current.track.title}</Text>
                   <Text style={s.trackArtist} numberOfLines={1}>{current.track.artist}</Text>
+                  {freeDiscoveryLabel ? <Text style={[s.trackArtist, { color: colors.white }]} numberOfLines={1} testID="listen-free-discovery-badge">{freeDiscoveryLabel}</Text> : null}
                   <Text style={s.destination} numberOfLines={1}>→ {destination}</Text>
                 </View>
               </View>

@@ -36,6 +36,7 @@ import {
   loadMyStoryStats,
   type MyStoryStats,
   type StoryViewer,
+  formatStoryTouches,
   enrichStoriesWithSales,
   isSaleStoryTrack,
   loadMusicStories,
@@ -293,7 +294,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
     return () => { sub.remove(); stopWatch(); };
   }, [stopWatch]);
 
-  const open = useCallback(async (story: MusicStory) => {
+  const open = useCallback(async (story: MusicStory, intentional = true) => {
     stopTrackPreviewFast();
     // Suggestion « a repris ta musique » : pas de story à lire, on va sur son profil.
     // Suggestion ou ami sans story du jour : pas de story à lire, on va sur son profil.
@@ -313,7 +314,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
       loadMyStoryViewers().then(setViewers).catch(() => setViewers([]));
     } else {
       // Façon Instagram : la vue ne compte qu'après quelques secondes de présence réelle ; durée, musiques vues, écoute et départ sont suivis.
-      watchRef.current = watchStoryOf(story.profileId, ordered.length);
+      watchRef.current = watchStoryOf(story.profileId, ordered.length, intentional);
     }
     setSeen(await markStorySeen(viewer.id, story));
   }, [viewer.id, seen]);
@@ -562,6 +563,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         <View style={[styles.bubbleBadge, full ? styles.bubbleBadgeFull : null, v.watching ? styles.bubbleBadgeLive : null]}><Text style={styles.bubbleBadgeText}>{v.watching ? '●' : full ? '✓' : `${seenN}/${total}`}</Text></View>
                       </View>
                       <Text style={styles.bubbleName} numberOfLines={1}>{v.username}</Text>
+                      <Text style={styles.detailMeta} numberOfLines={1}>{formatStoryTouches(v)}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -578,6 +580,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
                         <Text style={styles.detailProfileText}>Profil ›</Text>
                       </TouchableOpacity>
                     </View>
+                    <Text style={styles.detailMeta}>{formatStoryTouches(v)}</Text>
                     <ScrollView style={{ maxHeight: 260 }}>
                       {detail.rows.length === 0 ? <Text style={styles.detailMeta}>Rien vu</Text> : null}
                       {detail.rows.map((r) => (
@@ -600,7 +603,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
           // Enchaînement façon Instagram : la story finie, on passe tout de suite à la prochaine NON vue (la plus récente d'abord).
           if (!openStory) return;
           const upcoming = orderStoriesForBar(stories.filter((story) => !story.suggestion && story.tracks.length > 0 && story.profileId !== openStory.profileId && story.profileId !== viewer.id && (seen[story.profileId] || '') < story.latestAt), seen)[0];
-          if (upcoming) void open(upcoming);
+          if (upcoming) void open(upcoming, false);
         }}
         endExtra={nextStory ? (
           <View style={styles.nextBox}>
@@ -623,7 +626,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         ) : null}
         title={isOwnOpen ? 'Ta story' : `Story de @${openStory?.username ?? ''}`}
         subtitle={isOwnOpen ? 'Tes musiques partagées ou en vente' : undefined}
-        previewOnly={isOwnOpen}
+        allowStoryAdd
         sourceUsername={isOwnOpen ? undefined : openStory?.username}
         sourceAvatarUrl={isOwnOpen ? null : openStory?.avatarUrl ?? null}
         sourceProfileId={isOwnOpen ? undefined : openStory?.profileId}
@@ -631,9 +634,7 @@ export default function ProfileStoryBar({ viewer, freeCost, onOpenProfile, size,
         backLabel="REVENIR AU PROFIL"
         loop={false}
         askVisibilityOnKeep
-        // Décision d'Adel (05/10/2026) : garder une musique publique d'un autre membre est GRATUIT (créateur identifié) -> aucun débit ni avertissement de coût.
-        keepCostNotice={undefined}
-        keepDebitAmount={0}
+        keepDebitAmount={freeCost}
         optimisticPass
         onKeep={async (track, visibility) => {
           // Musique en vente : jamais de GARDER direct, on ouvre la boutique du vendeur.

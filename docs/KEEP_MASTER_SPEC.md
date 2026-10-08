@@ -1,6 +1,6 @@
 # KEEP / Loki Music — Cahier des charges maître
 
-Version : **2026-10-01.5**  
+Version : **2026-10-08.1**
 Statut : **SOURCE DE VÉRITÉ PRODUIT**  
 Repository : `adelkhatra-bit/KEEP`  
 Branche produit unique : `reconcile/claude-main-20260825`
@@ -28,6 +28,8 @@ Chaque décision UI verrouillée doit rester cohérente dans quatre couches dans
 - recognize = 0
 - PASS = 0
 - KEEP = -3
+- Story : même débit serveur −3 (issue #63, 08/10/2026) ; doublon = 0, affiché « Déjà gardée », jamais de lecteur sans GARDER pour un titre disponible.
+- Premier découvreur : attribution immuable au premier GARDER d'une musique libre ; gain par reprise = 3 FREE par défaut, plafond 20 FREE/mois, deux valeurs réglables dans le Super Admin.
 
 Une refonte UI n'a jamais le droit de modifier ces valeurs.
 
@@ -149,6 +151,7 @@ Le hamburger donne accès aux fonctions profil, communauté, musique et aide.
 - La rubrique est **Réseaux & site web** : elle gère les réseaux et le site, pas la visibilité globale.
 - Le réglage global **Profil visible / privé** est placé tout en haut du centre Notifications.
 - Il ne contient pas de second chemin Compte / connexion / déconnexion. La session est gérée dans `ProfileSettingsMobileScreen.tsx`.
+- Exception explicitement demandée par l’issue #63 : **Ordinateur** envoie un lien Brevo vers le QR canonique, puis scan et confirmation « Autoriser cet ordinateur ? » dans l’app ; appareils connectés révocables. L’e-mail seul ne connecte jamais l’ordinateur.
 
 ## 11. Profil persistant
 
@@ -221,6 +224,10 @@ Source : `packages/admin`.
 - Remote Config UTF-8 ;
 - secrets serveur ;
 - feature flags/intégrations dans les briques existantes.
+
+### Aides compactes — issue #63, décision du 08/10/2026
+- Le texte visible « En savoir plus » / « Réduire » est remplacé par ⓘ / ✕, source commune `InfoToggleIcon` consommée par l'app et le Super Admin.
+- Les boutons conservent un libellé accessible descriptif et leur action réelle ; aucune explication n'est supprimée.
 
 ### Versions et preuves — IDEA-189, validé le 06/10/2026
 - Vue dans `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` uniquement : version.json canonique réellement observé, dernière app native signalée (jamais un état d’installation global), compteurs exacts serveur ou erreur explicite. Liste de correctifs bornée à 100, pas de zéro de repli.

@@ -34,9 +34,10 @@ describe('intégration : ta story dans la barre du profil', () => {
     expect(rail).toContain('seenBadgeText');
     expect(rail).toContain('horizontal\n        showsHorizontalScrollIndicator={false}');
   });
-  it('the profile bar opens the existing Swipe in preview-only mode for your own story', () => {
+  it('la story personnelle ouvre le Swipe avec GARDER pour les épingles encore libres (issue 63)', () => {
     const bar = src('components', 'ProfileStoryBar.tsx');
-    expect(bar).toContain('previewOnly={isOwnOpen}');
+    expect(bar).not.toContain('previewOnly={isOwnOpen}');
+    expect(bar).toContain('keepDebitAmount={freeCost}');
     expect(bar).toContain('loadOwnStory(');
   });
   it('there is a single story-rail component (no duplicate)', () => {
@@ -176,7 +177,8 @@ describe('Découvert par = premier découvreur partout (BUG-005) et pourquoi « 
   const read = (...p: string[]) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
   it('the swipe deck always resolves the origin from the server first-discovery, never from the profile owner', () => {
     const modal = read('components', 'MusicSwipeDeckModal.tsx');
-    expect(modal).toContain('loadFirstDiscoveryOrigins(deckTracks.map((track) => track.id))');
+    expect(modal).toContain('useFirstDiscoveryOrigins(deckTracks.map((track) => track.id), visible)');
+    expect(read('services', 'trackOriginService.ts')).toContain("loadFirstDiscoveryOrigins(key.split(','), { requireConfirmed: true })");
     expect(modal).toContain('const canonicalOrigin = current ? firstOrigins[current.id] : undefined;');
     expect(read('services', 'trackOriginService.ts')).toContain("keep_track_first_discoveries");
   });

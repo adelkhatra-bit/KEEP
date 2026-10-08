@@ -584,7 +584,7 @@ export default function OffersScreen({ navigation, route }: any) {
           </TouchableOpacity>
           {rulesExpanded ? <View style={s.rulesDetails}>
             <ClampedText style={s.subscriptionText} text="• Écouter et PASSER restent inclus. Une reconnaissance réussie au-delà du quota quotidien de ta formule coûte 1 FREE." />
-            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music utilise {rules.freeCostPerKeep} Free. Le récupérer depuis le profil d'un autre membre utilise 0 Free.</Text>
+            <Text style={s.subscriptionText}>• GARDER un morceau découvert avec Loki Music ou depuis une story utilise {rules.freeCostPerKeep} FREE. Le récupérer depuis le profil d'un autre membre utilise 0 FREE. Déjà gardé : aucun nouveau débit.</Text>
             <ClampedText style={s.subscriptionText} text="• Les bonus gagnés avec les partages, les abonnés et les Battles s'ajoutent à ta formule." />
             <ClampedText style={s.subscriptionText} text="• La provenance d'une découverte reste rattachée au membre qui l'a reconnue avec Loki Music." />
           </View> : null}
@@ -624,7 +624,7 @@ export default function OffersScreen({ navigation, route }: any) {
           <View style={s.discoveryCard}>
             <Text style={s.discoveryEyebrow}>DÉCOUVERTE Loki Music</Text>
             <Text style={s.discoveryTitle}>Tes découvertes peuvent faire grandir ton profil.</Text>
-            <ClampedText style={s.discoveryBody} text="Quand tu reconnais un morceau avec Loki Music puis que tu le gardes, Loki Music associe cette découverte à ton profil. Si d'autres membres récupèrent ensuite ce titre depuis la communauté, ils ne dépensent aucun Free et ton pseudo reste affiché comme découvreur, avec un accès direct à ton profil." />
+            <ClampedText style={s.discoveryBody} text="Le premier GARDER d'un morceau libre associe sa découverte à ton profil. Une reprise depuis ton profil est gratuite ; depuis une story, le tarif FREE est annoncé avant GARDER. Ton pseudo reste affiché comme premier découvreur." />
             <TouchableOpacity
               style={s.disclosureButton}
               onPress={() => setDiscoveryExpanded((value) => !value)}
@@ -635,7 +635,7 @@ export default function OffersScreen({ navigation, route }: any) {
               <Text style={s.disclosureText}><InfoToggleIcon expanded={discoveryExpanded} /></Text>
             </TouchableOpacity>
             {discoveryExpanded ? <View style={s.discoveryDetails}>
-              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui identifie ce titre avec Écouter et le garde devient son premier découvreur Loki Music.</Text></View>
+              <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>1</Text><Text style={s.discoveryStepText}>Le premier membre qui garde ce titre libre devient son premier découvreur Loki Music. Partager sans GARDER ne suffit pas.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>2</Text><Text style={s.discoveryStepText}>Un membre récupère ce titre depuis ton profil : 0 Free débité pour lui, et le morceau est identifié comme un morceau issu de la communauté.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>3</Text><Text style={s.discoveryStepText}>Le titre peut circuler de profil en profil : s'il est repris 20 fois depuis cette chaîne, ton pseudo reste visible et cliquable sur les 20 copies. Chaque reprise peut donc amener de nouveaux visiteurs et abonnés vers ton profil.</Text></View>
               <View style={s.discoveryStep}><Text style={s.discoveryStepNumber}>4</Text><Text style={s.discoveryStepText}>Même si le titre est ensuite repris ou redécouvert, le premier découvreur enregistré pour ce titre reste la référence d’origine.</Text></View>
@@ -778,7 +778,7 @@ export default function OffersScreen({ navigation, route }: any) {
             <Text style={s.paidSectionTitle}>GAGNER OU RECHARGER TES FREE</Text>
             <Text style={s.battleDetailText}>📣 Parrainage : +2 FREE par inscrit validé, jusqu’à 20 FREE par mois.</Text>
             <Text style={s.battleDetailText}>⚡ Battle et série quotidienne : gagne des FREE en jouant et en revenant.</Text>
-            <Text style={s.battleDetailText}>💎 Premier découvreur : +1 FREE quand un autre membre garde ta découverte, jusqu’à 20 par mois.</Text>
+            <Text style={s.battleDetailText}>💎 Premier découvreur : +{funnel.firstDiscoveryFreePerKeep} FREE quand un autre membre garde ta découverte, jusqu’à {funnel.firstDiscoveryMonthlyFreeCap} FREE par mois.</Text>
             <Text style={s.battleDetailText}>📅 Bonus mensuel automatique selon ta formule.</Text>
           </View>
         </> : null}
