@@ -210,3 +210,31 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 | IDEA-188 | 06/10/2026 | **Swipe : bouton ⭕ Story toujours au même endroit** (gratuit, crédité au 1er découvreur, une seule étiquette) ; **fenêtre après GARDER** : débit en gros « −1 FREE » + solde restant, « Gratuit » quand c'est offert (constat : une seule fenêtre `KeepSuccessModal`, mais sur le profil visité elle n'affiche rien car le GARDER social est gratuit côté serveur). | PROPOSITION |
 | IDEA-191 | 08/10/2026 | **Issue #48** : partager un titre de toute plateforme vers le profil Loki, résolution Odesli gratuite, ajout de lien sans clavier, liens interplateformes et statistiques « Mon style », sans nouvelle table ni écriture en Démo. | IDÉE — implémentation demandée par Adel |
 | IDEA-192 | 08/10/2026 | **Décision option A** : branches de revue `copilot/*` autorisées uniquement pour une PR vers `reconcile/claude-main-20260825`, jamais comme source de publication ni vers `main` ; contrat, contrôle et tests alignés. | IDÉE — validée par Adel |
+
+
+## Complément Adel — 08/10/2026 — audit et plan de fiabilisation
+
+- **IDÉE / décision confirmée : un seul assistant utilisateur déclenché par secousse.** Retirer le déclencheur par tapotements (`RobotSummonWrapper`, actuellement 5 taps), conserver le moteur commun, l’aide et les signalements. Sur ordinateur, conserver un accès explicite au même assistant (la secousse native n’y existe pas). Ne pas supprimer le robot Super Admin par confusion de périmètre.
+- **IDÉE / préciser IDEA-179 :** historique des visiteurs visible pendant la validité 24 h de chaque publication, une ligne par visiteur, détail par morceau (passé, écoute réelle complète, arrêt), résumé de la story et chronomètre compact restant. Une nouvelle musique ne doit pas effacer les visites des publications précédentes encore actives.
+- **IDÉE / préciser IDEA-185 :** aide contextuelle sur l’écran réellement ouvert, guidage Profil/burger/Solo/Battle ; pas seulement les mêmes boutons fixes, pas d’explication d’une destination après une navigation échouée.
+- **IDÉE / problème à diagnostiquer :** Maes : confusion possible de morceaux/artistes/styles ; audit confirme des homonymes sous la même clé textuelle. Conserver l’identité fournisseur de l’artiste, ne pas forcer tous les morceaux nommés Maes en rap.
+- **IDÉE / performance :** réduire les attentes Solo/Battle et entre extraits à partir de mesures clic→son, chargement questions, préchargement et réseau ; préserver quotas, FREE, synchronisation et contrôles serveur.
+- **IDÉE / préciser IDEA-181 :** chaîne signalement→diagnostic→correctif→tests→publication→invitation à retester→retour utilisateur, traçable par build/SHA et fichier concerné. Aucun message « réparé » sur simple changement de statut.
+
+## Complément Adel — 08/10/2026 — catalogue, statistiques et Loki Pulse
+
+- **IDÉE / décision :** styles Solo/Battle séparés des goûts musicaux du profil ; enrichir les catalogues sans remplacement silencieux par un autre style.
+- **IDÉE :** réunir les événements existants (j’aime, refus, écoutes réelles, parties, partages et reprises) pour personnaliser les recommandations. Conserver leurs contextes ; un style de partie ne réécrit pas les goûts du profil. Dédupliquer et exclure répétitions artificielles du classement.
+- **IDÉE :** promotion automatique dans Loki Pulse selon critères contrôlables par le Super Admin. Message uniquement après diffusion réelle : « Ta découverte passe dans Loki Pulse 🎉 » avec « Voir » ; une seule notification par promotion. Respecter visibilité, premier découvreur et offres en vente.
+- **IDÉE / libellé proposé :** « À découvrir » pour un titre sans premier découvreur Loki ; « Découvert par @… » sinon. Ne pas suggérer une propriété des droits musicaux.
+- **IDÉE / décision explicite :** partager dans sa story coûte 0 FREE ; ajouter ensuite ce titre depuis sa propre story à son profil coûte 3 FREE, annoncés avant confirmation. Aucun nouveau débit si déjà gardé ; annulation et requête répétée ne débitent pas. La reprise sociale publique d’un autre membre garde son régime distinct existant.
+- **IDÉE / exécution autorisée :** réaliser le maximum des corrections testables, conserver les travaux de Claude Code, documenter précisément le reste et les accès/API nécessaires. Aucun verrou d’agent demandé par Adel.
+
+## Complément Adel — 08/10/2026 — soirées, MP3 et session d’écoute
+
+- **IDÉE :** publier/repartager une soirée en story avec attribution à l’organisateur ; proposer une musique associée en réutilisant le lecteur et les droits/visibilités existants. Vérifier d’abord le système événement existant pour ne pas créer de doublon.
+- **IDÉE :** automatiser la story d’un événement approuvé et sa mise en avant Loki Pulse selon classement, avec déduplication, expiration/annulation et réglages Super Admin. Ne pas publier un événement privé, refusé ou annulé ; respecter les préférences de publication.
+- **IDÉE :** avantage pour formule Pro évoquée à 29,90 : mise en story et republication d’événements. Vérifier le plan réel, la périodicité et les droits avant toute modification de prix ou facturation ; plafonner les répétitions pour ne pas saturer les stories.
+- **IDÉE :** importer des MP3 personnels dans Loki Music ; auditer d’abord les possibilités existantes, stockage, formats, limites et séparation privé/public. Un import personnel n’autorise pas automatiquement sa diffusion publique ou sa vente.
+- **IDÉE / décision :** pendant la reconnaissance au micro, remplacer l’action GARDER par « Ma session » ; arrêter et libérer la capture audio avant d’ouvrir les titres de session, où l’utilisateur peut choisir de les garder. Éviter capture et lecture simultanées et double débit ; préserver les résultats déjà détectés.
+- **IDÉE / test matériel demandé :** vérifier sur iPhone/Android les routes audio sans accessoire, écouteurs filaires et Bluetooth, interruptions et retour arrière-plan. Le choix du micro dépend de la plateforme et des accessoires ; ne pas annoncer un test matériel sans appareil réellement disponible.

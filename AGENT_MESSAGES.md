@@ -2680,3 +2680,107 @@ Diagnostic publication (lecture seule) : Web 37487709888 et OTA 37487709780 ont 
 ## [2026-10-08T10:21:29.990Z] codex
 
 Décision Adel option A : alignement contrat/contrôle copilot vers base canonique uniquement, puis issue 48. Réutilisation partage système ; aucun déploiement ni écriture production. Périmètres serveur et profil distincts.
+
+
+## [2026-10-08] codex — audit actuel et plan d’action de fiabilisation
+
+# Loki — Implementation Plan / audit Super Admin et utilisateur
+
+> For agentic workers: utiliser superpowers:executing-plans pour exécuter les lots ci-dessous. Aucun agent supplémentaire ni verrou n’est créé dans cette passe, conformément à la dernière demande d’Adel.
+
+**Goal:** fiabiliser les Stories, l’identité des artistes, Solo/Battle et l’assistant utilisateur sans changer la connexion ni refaire le design.
+
+**Architecture:** conserver les composants partagés, le moteur audio existant et le relais IA existant. Corriger les contrats client/serveur et la preuve de livraison avant d’annoncer un succès.
+**Tech Stack:** Expo/React Native, Next.js Super Admin, Supabase/PostgreSQL, CI GitHub existante.
+**Spec:** docs/IDEAS_INBOX.md, compléments Adel du 08/10 ; contrat produit et cahier maître existants. Les nouvelles décisions : bot utilisateur par secousse uniquement ; historique de visite et statistiques pendant 24 h ; audit Maes ; accélérer Solo/Battle.
+
+### Portée et preuves de cette passe
+
+Source lue : reconcile/claude-main-20260825 @ fa193cc537d47132053163cc842a98756b2a1fff. Aucun code produit ni donnée utilisateur modifié pendant cette passe. Notes seulement ; pas de verrou créé/supprimé, aucune déconnexion.
+
+- Base réelle : admin_dashboard_v2 existe désormais et un appel SQL transactionnel en contexte SUPER_ADMIN retourne people objet, money.byCurrency tableau et les clés attendues. Le blocage « RPC absente » signalé hier est levé par des changements ultérieurs. Les cinq fonctions de signalements installées lors de notre précédente passe restent présentes.
+- Profils : ProfileArtistFolderGrid est effectivement utilisé par ProfilePublicScreen ET PublicUserProfileScreen ; tri alphabétique et dédoublonnage des titres par ID dans groupEntriesByArtist. Le clic visiteur filtre sur canonicalArtistIdentity. Ceci prouve le partage du code, pas le rendu iPhone installé.
+- Maes : 29 titres dont artist exact=Maes en base, dont 12 de Road to Nowhere ; aucun de ces 29 provider_ids n’a les clés artistId/appleArtistId/appleMusicArtist recherchées. Plusieurs homonymes existent chez Apple : Maes rap (1363899746), Maes/Road to Nowhere (1611796712), autre Maes (328402934). Sources : https://music.apple.com/fr/artist/maes/1363899746 ; https://music.apple.com/us/artist/maes/1611796712 ; https://music.apple.com/fr/artist/maes/328402934 . Le morceau précis entendu par Adel reste non identifié. canonicalArtistIdentity ne prend que le nom normalisé : collision structurelle confirmée. Ne PAS retagger tous les Maes en rap ou supprimer leurs titres.
+- Genres : keylessGenreService accepte results[0] quand aucune correspondance nom/titre n’existe, et conserve le résultat 30 jours. keep-pulse-catalog-expand ingère les résultats sans conserver artistId. Risque de confusion reproductible par construction, distinct du rangement visuel.
+- Stories : 66 sessions des dernières 24 h lors du relevé, 65 terminées, 66 avec chapitres, 63 avec last_track_id, ZERO playback_progress renseigné. Le client appelle encore keep_story_watch_chapters_ping, pas keep_story_watch_progress_ping. Le serveur élimine le champ t des chapitres et v4 ne retourne pas track_views/last_track_id, pourtant lus par le client. Le détail ne peut donc pas être réputé fiable par titre.
+- Conservation : v4 filtre désormais depuis MIN(pinned_at) parmi les publications actives, correction du problème « nouvelle publication efface tout ». Il conserve toutefois la dernière session par visiteur (DISTINCT ON) et non un cumul ; la borne de première publication active avance quand celle-ci expire. started_at >= borne peut masquer une visite ayant commencé avant la publication suivante mais l’ayant ensuite écoutée. Pas de preuve de suppression physique des vues.
+- Chronomètre : useStoryCountdown est branché à MusicSwipeDeckModal, rafraîchissement local 1 s, format HH:MM:SS. Trois tests exécutés sur la vraie fonction : 24:00:00 initial, 23:31:00 après 29 min, 00:00:00 après expiration, tous réussis.
+- Détail Stories : test exécuté sur buildViewerDetail réel : chapitre 26 s sans preuve audio => FULL ; lastTrackId absent => aucun titre d’arrêt. Le seuil actuel 25 s mesure la présence, pas une lecture intégrale. tracksSeen=maxIndex+1 ne représente pas des morceaux réellement parcourus si saut de position.
+- Bot : un moteur commun useRobotMessageStore, deux déclencheurs actifs : RobotSummonWrapper (5 taps, pas 3 dans ce SHA) et secousse ProblemReportHost. SHAKE_ACTIONS a 7 boutons dont Solo/Un souci, aucun Battle direct. Menu fixe sans contexte d’écran. Explication après délai fixe 1500 ms, même si navigation échoue. Dans une modale la secousse ouvre directement le signalement ; en partie le moteur bloque la parole puis peut ouvrir le signalement. À rendre explicite dans les tests de contexte.
+- Retour bug : announceReportUpdates affiche rows[0] puis accuse réception de TOUS les rows (jusqu’à 5 côté SQL). Cela peut perdre 4 annonces. REPORT_UPDATE n’a pas d’action de retest ; annonce vérifiée au montage après 9 s, pas boucle continue démontrée. FIXED signifie preuve SHA/chemin saisie, pas exécution CI ni livraison vérifiée.
+- Signalement : écran/surface/morceau/contexte/25 dernières traces/version/SHA sont transmis ; pas de branche Git explicite, pas de garantie SHA non nul, pas d’ID build natif/OTA complet. Ne pas inférer une branche à partir du seul écran.
+- Performances : préchargement Solo N+1 déjà présent web/natif. Démarrage client en étapes successives : précheck 6 s max, préférences 5 s max, pack 8 s max puis préparation audio ; ces plafonds ne sont PAS une mesure de durée habituelle. Le timeout Promise.race n’annule pas lui-même la requête sous-jacente. pg_stat_statements depuis reset 22/08/2026 : un groupe solo_pack 1001 appels moyenne 705,25 ms/max 6756,13 ms ; arena_start groupe 63 appels moyenne 76,02 ms/max 1412,49 ms et autre entrée unique 21337,57 ms. Mesures historiques agrégées, non percentiles ni chronométrage du dernier essai d’Adel.
+- Design : texte 9 px badges/action et 10 px sous-titre dans ProfileStyleCard, exemples 10 px Super Admin (launch-center, remote-config, badge menu). En dessous de la règle utilisateur >=11. Le garde contraste admin analyse des regex et un fond supposé, pas le style réellement composé/transparence/états. Hint/Compris ferme localement sans changer de page ; focus trap/retour focus absent du Sheet examiné.
+- Navigateur public réellement ouvert : page utilisateur derrière QR ordinateur ; admin-preview derrière formulaire de connexion avec mot de passe oublié. L’écran de connexion admin expose encore longs paragraphes techniques, textes mesurés 12–16 px (icône 20 px). Aucune session admin/utilisateur/iPhone accessible pour valider tous les clics, aucune connexion forcée.
+- Intégrations : statut stocké ACRCloud ERROR, dernier contrôle 08/10 02:43 UTC, « refuse l’Access Key » ; AudD et Stripe NOT_CONFIGURED. Brevo/Pipedream/Keyless/YouTube ACTIVE avec dates différentes : statut mémorisé, pas nouvel essai complet de chaque fournisseur. Ne pas dire « toutes les API branchées et validées ».
+- Automatisations cron présentes : catalogue */3 et */5, reset hebdomadaire, retry mails */5. Aucun job au nom report/bug trouvé dans la recherche ciblée ; absence de nom ne prouve pas absence globale. Aucun cycle autonome correction/tests/livraison/retour utilisateur démontré. Gardes CI présents ; statut combiné HEAD : Vercel success, DeepScan failure. Ne pas en déduire CI totale verte ni installation TestFlight.
+- App Store : accès authentifié non disponible ; acceptation, contrats, fiscalité/RIB et review NON vérifiés. Anciennes checklists du dépôt contradictoires (« 100% prêt »/cases ouvertes), insuffisantes pour conclure aujourd’hui.
+
+### Contraintes globales
+- Auth, sessions, FREE, contenus et design conservés ; aucun reset de données.
+- Aucune correction de catalogue par nom seul ; aucune publication d’un correctif sans preuve.
+- Même implémentation mobile/web ; validations 390×844 et 1440×900 plus vrai iPhone pour capteur/audio.
+- Un seul assistant utilisateur ; Super Admin conserve son aide propre. Sur desktop, bouton explicite vers le même menu car aucune secousse native.
+- Suivre les gardes existants ; ne pas les affaiblir pour obtenir vert.
+
+### Review Focus
+Réseau lent/déconnecté ; publications qui expirent entre deux morceaux ; homonymes/artistes invités ; double tap/retry produisant double débit ; correction présente sur serveur mais absente du build installé. Ces cinq cas doivent être inclus dans les lots concernés.
+
+### Lot 1 — Identité musicale (priorité haute)
+Fichiers : MusicCollectionIdentity.ts, styleGroups.ts, keylessGenreService.ts, keep-pulse-catalog-expand/index.ts, RPC service_music_catalog_ingest et tests MusicCollectionIdentity/styleGroups existants.
+- [ ] Écrire cas Maes ID1363899746 vs ID1611796712 : deux dossiers distincts, jamais fusion sur nom ; même artiste avec featuring = comportement conservé.
+- [ ] Conserver l’identité artiste fournisseur à l’ingestion puis dans CanonicalTrack ; sélectionner par identifiant artiste vérifié. ISRC identifie l’enregistrement, pas l’artiste.
+- [ ] Supprimer le repli aveugle results[0] pour les genres ; résultat incertain => genre inconnu, aucune écriture arbitraire ; invalider seulement le cache erroné.
+- [ ] Préparer un aperçu des lignes à corriger ; préserver achats/GARDER/provenance et titres des homonymes. Tester de nouveau import, profil propre, profil visité et sélection Solo/Battle.
+- [ ] Validation : tests music/mobile ciblés puis tsc ; concordance fournisseur sur les 29 lignes avant correction de données ; SHA/CI/preuve dans ERROR_LEDGER.
+
+### Lot 2 — Stories fidèles et persistantes (priorité haute)
+Fichiers : storyWatchService.ts, musicStoriesService.ts, storyViewerDetail.ts, MusicSwipeDeckModal.tsx ; migrations story_watch_progress/v4 ; tests storyWatch, storyViewerDetail, storySeenSync.
+- [ ] Tests rouges : visite 2 s puis sortie/rechargement ; ajout d’un morceau ; première publication expire ; retour du même visiteur ; saut de dix morceaux ; audio en pause/échec ; événement reçu hors ordre.
+- [ ] Contrat unique de publication : identifiant stable + publié/expire ; une entrée visiteur agrégée pour les publications encore valides, détail par morceau identifié, aucune dépendance à l’ordre actuel des morceaux.
+- [ ] Brancher les événements audio réels au suivi : started/progress/completed/skipped/left, position/durée et revision monotone ; réutiliser keep_story_watch_progress_ping plutôt que doublon. Une présence 26 s sans son ne doit jamais devenir FULL.
+- [ ] Renvoyer/mapper les mêmes champs côté serveur/client ; affichage « inconnu » pour historiques incomplets. Synthèse demandée : 10 passées / 1 entière / arrêt au morceau X.
+- [ ] Conserver le chronomètre compact déjà branché ; vérifier expiration/décalage horloge et largeur mobile.
+- [ ] Validation : tests unité/SQL + deux comptes QA réels, pause/arrière-plan/coupure, puis relecture indépendante après fermeture et réouverture. Comparer base et UI jusqu’à expiration, sans attendre 24 h en continu : horloge contrôlée en environnement de test, contrôle réel de persistance séparé.
+
+### Lot 3 — Solo/Battle rapides (priorité haute)
+Fichiers : KeepBattleMobileGameV3.tsx, keepBattleExperienceService.ts, keepBattleService.ts, audioPreviewService.ts ; tests audio/solo existants.
+- [ ] Mesurer clic→précheck→pack→audio prêt→premier son ; 20 essais froid/chaud par plateforme et réseau contrôlé. Aucun P95 inventé depuis une moyenne SQL.
+- [ ] Réutiliser/préparer les préférences et pack sans consommer le quota ; paralléliser uniquement les lectures indépendantes, contrôle serveur atomique au vrai démarrage conservé.
+- [ ] Examiner plans SQL du pack/arène en environnement sûr, index et répétitions ; annuler/dédupliquer les requêtes obsolètes.
+- [ ] Vérifier que N+1 précharge sans bloquer la file de contrôle audio ; garder le temps de réponse/résultat du jeu séparé de la latence.
+- [ ] Cibles proposées à mesurer, non promesses actuelles : clic→son P95 <=2 s chaud / <=4 s froid sur réseau défini ; transition technique <=500 ms hors pause de résultat prévue. Test réseau dégradé : feedback et annulation, zéro débit indu, équité Battle.
+
+### Lot 4 — Assistant utilisateur unique et contextuel
+Fichiers : packages/mobile/index.js, RobotSummonWrapper.tsx, robotHelp.ts, robotCoachService.ts, ProblemReportHost.tsx, GlobalChatDock.tsx ; tests robotHelp/shakeMenu.
+- [ ] Test : taps répétés n’ouvrent plus l’assistant ; secousse = un seul menu ; répétitions rapides = une seule instance.
+- [ ] Retirer montage du déclencheur par taps, conserver moteur commun et fonctions réutilisées ailleurs.
+- [ ] Construire les choix selon route/surface réelle : Profil/burger, Solo, Battle, Stories ; ouvrir l’aide une fois destination confirmée, pas après délai arbitraire.
+- [ ] Préserver accès signalement sur modale et règle de non-interruption en partie ; définir aide volontaire sans modifier les scores.
+- [ ] Valider vrai iPhone (expo-sensors) et bouton desktop ; tests de fermeture/reprise, jamais deux bulles.
+
+### Lot 5 — Bug jusqu’au retest, sans faux « réparé »
+Fichiers : problemReportService.ts, reportLoop.ts, ProblemReportHost.tsx, pages/problem-reports.tsx, ReleaseEvidence.tsx, scripts/workflows/relais existants.
+- [ ] Test trois réponses en attente : aucune ne passe annoncée sans avoir été présentée ; ne confirmer que les identifiants effectivement montrés.
+- [ ] Attacher version native/OTA/SHA, écran et action ; résoudre le propriétaire du fichier via CODE_GPS, sans inventer une branche par bug.
+- [ ] Réutiliser le relais officiel ; statut distinct diagnostiqué/corrigé/testé/livré/à retester/confirmé ; preuve CI + cible déployée avant message utilisateur.
+- [ ] Bouton « Tester » vers contexte adéquat, puis « Réglé »/« Toujours là » ; rouvrir le même ticket sans doublon.
+- [ ] Test complet automatisé en environnement de test : ticket→correctif simulé non livré (aucun message réparé)→tests échoués (publication bloquée)→version livrée→retour utilisateur. Ne pas créer une automatisation de correction production aveugle.
+
+### Lot 6 — Super Admin et design
+Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.tsx, ProfileStyleCard.tsx, styles et tests navigateur existants.
+- [ ] Panne admin_dashboard_v2 => indisponible, jamais v1 sous « Réels/Argent » ni zéro offert arbitraire ; fixtures réels/tests/offerts/payants/devises.
+- [ ] Remplacer saisie SHA/chemin par sélection de preuves CI vérifiées ; aucune preuve supprimée pour satisfaire zéro clavier.
+- [ ] Corriger textes fonctionnels <11 px, contrastes réels sur fonds composés, focus modal ; conserver cartes/couleurs/structure validées.
+- [ ] Vérifier boutons, clavier, scroll, labels et fermeture en 390/1440 ; visualiser les états vide/chargement/erreur/permission.
+- [ ] Étendre contrôle fonctionnel par feature flag existant ; segmentation utilisateurs/formules/quotas uniquement si réellement appliquée côté serveur, pas simple bouton de façade.
+
+### Lot 7 — Intégrations et release
+- [ ] ACRCloud : contrôler correspondance hôte/projet/clé sans publier les secrets puis vrai échantillon audio ; ne pas activer un statut vert sur simple format de clé. AudD/Stripe : confirmer requis ou optionnel avant toute configuration.
+- [ ] Tests réels ciblés e-mail, push iOS, reconnaissance, achat sandbox ; pas de transaction réelle ni modification de mot de passe.
+- [ ] App Store Connect : lire version soumise, review, accords et éléments manquants dans le compte autorisé ; aucune acceptation Apple supposée à partir de TestFlight.
+- [ ] Gardes tsc/tests/contrat/SQL/contrastes/viewport, build/OTA compatibles et vérification SHA effectivement publié. Déploiement contrôlé, procédure de retour arrière du code sans destruction de données.
+- [ ] Critère de clôture : chaque ligne du registre a SHA + test + preuve cible. Les zones sans accès restent NON VÉRIFIÉES ; aucune formule « plateforme parfaite » ou « zéro bug garanti ».
+
+### État final de cette passe
+Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
