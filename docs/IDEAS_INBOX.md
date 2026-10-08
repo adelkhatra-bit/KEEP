@@ -254,3 +254,11 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 - **IDÉE / décision :** après scan, afficher dans l’application une demande « Connecter cet ordinateur ? » avec Approuver / Annuler. Aucun scan ne vaut approbation. Refus = annulation serveur, l’ordinateur ne se connecte pas. Demande retrouvable dans l’application via notification, puis approbation volontaire. Ne jamais mettre de secret ou lien de connexion dans une notification publique.
 - **IDÉE / garde-fous :** demande liée au navigateur initiateur, expiration cinq minutes, refus/expiration non réactivables, double clic idempotent ; notification dédupliquée. La notification seule n’autorise rien. Préserver les connexions actuelles.
 - **IDÉE / poursuivre :** mesurer catalogue utilisable par style après correction des règles et identifier la preuve exacte du statut App Store. Conserver les tâches nécessitant accès humain dans le handoff Claude Code.
+
+## Complément Adel — 08/10/2026 — Pulse, attribution et messages
+
+- **IDÉE / décision confirmée :** Pulse → story gratuit ; depuis sa propre story partagée, proposer Ajouter à mon profil · 3 FREE, avant confirmation, sans double débit si déjà gardé.
+- **IDÉE :** toutes les cartes musicales doivent préciser leur état : À découvrir (pas de premier découvreur Loki), Découvert par @… ; action Ajouter à mon profil · Offert pour une reprise publique éligible, ou coût réel / offre en vente selon le serveur. Ne jamais assimiler découverte à propriété des droits.
+- **IDÉE :** mise en avant Pulse automatique des contributions (partages utiles, scores/challenges, écoutes et reprises réelles), contrôlable en Super Admin ; préserver diversité, limites anti-spam et provenance. Auditer/réutiliser le moteur existant.
+- **IDÉE / décision :** messages d’encouragement Story/Pulse du bot dismissibles par swipe latéral ou tap sur le message. Conserver les actions explicites séparées, ne pas déclencher une navigation en voulant fermer.
+- **IDÉE / règle de compte rendu :** terminer par état vérifié puis ce qui reste à faire ; distinguer GitHub, Web publié, OTA/TestFlight et App Store commercial. Aucune promesse de zéro régression sans preuve.
