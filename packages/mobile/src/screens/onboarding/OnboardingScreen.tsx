@@ -12,6 +12,8 @@ import { isWebShareVisit } from '../../services/webShareVisitor';
 import { useAccountGateStore } from '../../store/useAccountGateStore';
 import { colors } from '../../theme/colors';
 import { radius, spacing, typography } from '../../theme/spacing';
+import { lokiText } from '../../theme/lokiText';
+
 
 const LOCAL_GUEST_ID_KEY = '@keep/local-guest-id-v1';
 
@@ -281,7 +283,7 @@ const styles = StyleSheet.create({
   button:{minHeight:52,borderRadius:radius.pill,justifyContent:'center',alignItems:'center'},
   trialButton:{minHeight:58,backgroundColor:colors.primary,borderWidth:1,borderColor:colors.primaryLight},
   trialButtonText:{...typography.button,color:colors.white,fontWeight:'900'},
-  trialHint:{color:colors.white,fontSize:10,opacity:.82,marginTop:2},
+  trialHint:{color:colors.white,fontSize:lokiText.label.fontSize,opacity:.82,marginTop:2},
   accountButton:{backgroundColor:colors.backgroundCard,borderWidth:1,borderColor:colors.border},
   accountButtonText:{...typography.button,color:colors.textPrimary,fontWeight:'800'},
   // Maquette validée (22/09/2026, architecture B) : un seul CTA dominant sur
@@ -298,7 +300,7 @@ const styles = StyleSheet.create({
   backChoice:{minHeight:40,alignSelf:'flex-start',justifyContent:'center',paddingHorizontal:spacing.xs},
   backChoiceText:{color:colors.primaryLight,fontSize:13,fontWeight:'800'},
   continueTrialButton:{marginTop:spacing.xs},
-  continueTrialHint:{color:colors.textMuted,fontSize:10,lineHeight:15,textAlign:'center'},
+  continueTrialHint:{color:colors.textMuted,fontSize:lokiText.label.fontSize,lineHeight:15,textAlign:'center'},
   demoButton:{minHeight:38,alignItems:'center',justifyContent:'center'},
   demoButtonText:{color:colors.textMuted,fontSize:11,fontWeight:'700'},
   legal:{marginTop:spacing.sm,fontSize:11,color:colors.textMuted,textAlign:'center'},

@@ -5,6 +5,8 @@ import { MusicServiceKey } from '../services/keylessMusicBridge';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/spacing';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 type Props = {
   visible: boolean;
@@ -93,21 +95,21 @@ const s = StyleSheet.create({
   hero: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { width: 54, height: 54, borderRadius: 17, borderWidth: 1, backgroundColor: '#0E0A14', alignItems: 'center', justifyContent: 'center' },
   heroText: { flex: 1 },
-  eyebrow: { color: '#BFA9FF', fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  eyebrow: { color: '#BFA9FF', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1 },
   title: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', marginTop: 3 },
   subtitle: { color: '#E2DAEA', fontSize: 11, lineHeight: 16, marginTop: 4 },
   infoBox: { marginTop: 16, padding: 13, borderRadius: radius.lg, backgroundColor: '#171020', borderWidth: 1, borderColor: '#493369' },
   infoTitle: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', marginBottom: 7 },
   step: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 8 },
   stepNumber: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#5B3F8C', borderWidth: 1, borderColor: '#A884FA', alignItems: 'center', justifyContent: 'center' },
-  stepNumberText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900' },
+  stepNumberText: { color: '#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900' },
   stepText: { flex: 1, color: '#FFFFFF', fontSize: 12, lineHeight: 17 },
   safeBox: { marginTop: 11, padding: 12, borderRadius: radius.lg, backgroundColor: '#10251B', borderWidth: 1, borderColor: '#38D990' },
   safeTitle: { color: '#8AF3BF', fontSize: 11, fontWeight: '900' },
-  safeText: { color: '#FFFFFF', fontSize: 9, lineHeight: 14, marginTop: 5 },
+  safeText: { color: '#FFFFFF', fontSize: lokiText.label.fontSize, lineHeight: 14, marginTop: 5 },
   slotRow: { minHeight: 42, marginTop: 11, paddingHorizontal: 12, borderRadius: 13, backgroundColor: '#0E0A14', borderWidth: 1, borderColor: '#3F3154', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  slotLabel: { color: '#E2DAEA', fontSize: 9, fontWeight: '800' },
-  slotValue: { color: '#BFA9FF', fontSize: 10, fontWeight: '900', textAlign: 'right' },
+  slotLabel: { color: '#E2DAEA', fontSize: lokiText.label.fontSize, fontWeight: '800' },
+  slotValue: { color: '#BFA9FF', fontSize: lokiText.label.fontSize, fontWeight: '900', textAlign: 'right' },
   actions: { flexDirection: 'row', gap: 8, marginTop: 14 },
   cancelButton: { flex: 0.8, minHeight: 44, borderRadius: 22, borderWidth: 1, borderColor: '#493369', backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },

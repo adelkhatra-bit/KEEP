@@ -3,6 +3,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'packages', 'mobile', 'src');
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
+const { findFontSizeViolations } = require('./verify-min-font-size.cjs');
 const AUDITED_LEGACY_TEXT_COLORS = new Map([
   [
     'packages/mobile/src/screens/DiscoverScreen.tsx',
@@ -92,6 +93,13 @@ if (findings.length) {
   console.error('\nKEEP MOBILE TEXT CONTRAST CHECK FAILED');
   console.error('Les couleurs de texte gris codées en dur doivent utiliser le thème global blanc ou une couleur de marque explicite.\n');
   findings.forEach((item) => console.error(`- ${item}`));
+  process.exit(1);
+}
+
+const smallText = findFontSizeViolations();
+if (smallText.length) {
+  console.error('\nKEEP MINIMUM TEXT SIZE CHECK FAILED');
+  smallText.forEach((item) => console.error(`- ${item}`));
   process.exit(1);
 }
 

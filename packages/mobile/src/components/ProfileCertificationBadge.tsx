@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
+import { lokiText } from '../theme/lokiText';
+
 
 type Props = {
   tier: ProfileCertificationTier;
@@ -47,8 +49,8 @@ const styles = StyleSheet.create({
   ring: { borderWidth: 1.5, padding: 1.5, alignItems: 'center', justifyContent: 'center' },
   medallion: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   check: { fontSize: 13, lineHeight: 15, fontWeight: '900' },
-  checkCompact: { fontSize: 10, lineHeight: 12 },
+  checkCompact: { fontSize: lokiText.label.fontSize, lineHeight: lokiText.label.lineHeight },
   goldGlint: { position: 'absolute', left: 3, top: 2, width: '46%', height: 3, borderRadius: 3, backgroundColor: 'rgba(255,255,255,.72)', transform: [{ rotate: '-22deg' }] },
-  label: { fontSize: 9, fontWeight: '900', letterSpacing: .35 },
-  labelCompact: { fontSize: 8 },
+  label: { fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: .35 },
+  labelCompact: { fontSize: lokiText.label.fontSize },
 });

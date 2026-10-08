@@ -1,6 +1,8 @@
 import React from 'react';
 import { Image, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
+import { lokiText } from '../theme/lokiText';
+
 
 /**
  * Adel (21/09/2026) : "Grille à colonnes fixes, largeurs fixes, alignement
@@ -164,16 +166,16 @@ const styles = StyleSheet.create({
   originBadge: { maxWidth: '58%', flexShrink: 1, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 7, borderWidth: 1 },
   originBadgeListen: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.keep },
   originBadgeSocial: { backgroundColor: 'rgba(124,92,252,0.12)', borderColor: colors.primaryLight },
-  originBadgeText: { fontSize: 8, fontWeight: '900' },
+  originBadgeText: { fontSize: lokiText.label.fontSize, fontWeight: '900' },
   originBadgeTextListen: { color: colors.keep },
   originBadgeTextSocial: { color: colors.primaryLight },
   badge: { flexShrink: 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: `${colors.success}22`, borderWidth: 1, borderColor: colors.success },
-  badgeText: { color: colors.success, fontSize: 9, fontWeight: '900' },
+  badgeText: { color: colors.success, fontSize: lokiText.label.fontSize, fontWeight: '900' },
   lock: { fontSize: 13 },
   lockTouch: { minWidth: 32, minHeight: 32, alignItems: 'center', justifyContent: 'center' },
   square: { width: SQUARE, height: SQUARE, flexShrink: 0, borderRadius: 10, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
   squareIcon: { color: colors.textPrimary, fontSize: 15, fontWeight: '900' },
-  squareCounter: { color: colors.textMuted, fontSize: 8, fontWeight: '800', marginTop: 1 },
+  squareCounter: { color: colors.textMuted, fontSize: lokiText.label.fontSize, fontWeight: '800', marginTop: 1 },
   chevron: { width: CHEVRON, height: CHEVRON, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
   chevronText: { color: colors.textMuted, fontSize: 13, fontWeight: '900' },
   panel: { paddingHorizontal: 8, paddingBottom: 10, paddingTop: 8, gap: 6, borderTopWidth: 1, borderTopColor: colors.border },

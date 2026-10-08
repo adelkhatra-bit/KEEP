@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 type PlaylistChoice = { id: string; name: string };
 
@@ -169,7 +171,7 @@ const s = StyleSheet.create({
   successCard: { width: '100%', maxWidth: 390, borderRadius: 24, borderWidth: 1, borderColor: colors.keep, backgroundColor: '#151020', padding: 20, alignItems: 'center', shadowColor: '#000', shadowOpacity: .35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 12 },
   successOrb: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(45,225,194,.14)', borderWidth: 1, borderColor: colors.keep, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   successOrbText: { color: colors.keep, fontSize: 28, fontWeight: '900' },
-  successEyebrow: { color: colors.keep, fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  successEyebrow: { color: colors.keep, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.4 },
   successTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 4, textAlign: 'center' },
   successTrack: { color: '#D8CFE3', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'center' },
   successDebit: { color: colors.keep, fontSize: 15, fontWeight: '900', marginTop: 12 },
@@ -204,7 +206,7 @@ const s = StyleSheet.create({
   },
   eyebrow: {
     color: '#B79CFF',
-    fontSize: 10,
+    fontSize: lokiText.label.fontSize,
     fontWeight: '900',
     letterSpacing: 1.2,
     textAlign: 'center',
@@ -244,7 +246,7 @@ const s = StyleSheet.create({
   },
   costCaption: {
     color: '#FFF',
-    fontSize: 10,
+    fontSize: lokiText.label.fontSize,
     fontWeight: '800',
     marginTop: 2,
   },
@@ -257,7 +259,7 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   playlists: { marginTop: 12 },
-  label: { color: colors.textSecondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
+  label: { color: colors.textSecondary, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.2, marginBottom: 7 },
   playlistWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   playlist: {
     minHeight: 32,

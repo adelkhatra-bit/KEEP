@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { lokiText } from '../theme/lokiText';
+
 
 type Props = {
   genres: string[];
@@ -73,7 +75,7 @@ export default function MusicStyleBubbles({
 const s = StyleSheet.create({
   wrap:{width:'100%',marginTop:9},
   wrapCompact:{marginTop:7},
-  title:{color:colors.primaryLight,fontSize:10,fontWeight:'900',letterSpacing:.75,marginBottom:6},
+  title:{color:colors.primaryLight,fontSize:lokiText.label.fontSize,fontWeight:'900',letterSpacing:.75,marginBottom:6},
   rail:{gap:7,paddingRight:18},
   bubble:{minHeight:34,maxWidth:170,paddingHorizontal:11,borderRadius:18,borderWidth:1,borderColor:colors.primaryLight,backgroundColor:colors.primaryFaint,flexDirection:'row',alignItems:'center',gap:7},
   bubbleCompact:{minHeight:30,paddingHorizontal:9,borderRadius:15},

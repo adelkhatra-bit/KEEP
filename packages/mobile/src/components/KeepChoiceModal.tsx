@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 export type KeepChoiceVisibility = 'PUBLIC' | 'PRIVATE';
 
@@ -115,7 +117,7 @@ export default function KeepChoiceModal({
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 18 },
   card: { width: '100%', maxWidth: 390, borderRadius: 24, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 18 },
-  eyebrow: { color: colors.primaryLight, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  eyebrow: { color: colors.primaryLight, fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.2 },
   title: { color: '#F8F6FC', fontSize: 20, lineHeight: 25, fontWeight: '900', marginTop: 5 },
   track: { color: '#FFFFFF', fontSize: 13, lineHeight: 18, fontWeight: '800', marginTop: 7 },
   body: { color: '#FFFFFF', fontSize: 11, lineHeight: 16, marginTop: 8 },
@@ -123,9 +125,9 @@ const s = StyleSheet.create({
   costValue: { color: colors.success, fontSize: 34, lineHeight: 38, fontWeight: '900', minWidth: 44, textAlign: 'center' },
   costCopy: { flex: 1, minWidth: 0 },
   costTitle: { color: colors.success, fontSize: 11, fontWeight: '900', letterSpacing: .4 },
-  costText: { color: '#FFFFFF', fontSize: 10, lineHeight: 14, fontWeight: '700', marginTop: 2 },
+  costText: { color: '#FFFFFF', fontSize: lokiText.label.fontSize, lineHeight: 14, fontWeight: '700', marginTop: 2 },
   destinationBlock: { marginTop: 14 },
-  destinationLabel: { color: '#FFFFFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginBottom: 7 },
+  destinationLabel: { color: '#FFFFFF', fontSize: lokiText.label.fontSize, fontWeight: '900', letterSpacing: 1.1, marginBottom: 7 },
   destinationWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   destinationPill: { minHeight: 32, maxWidth: '100%', paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: '#312348', backgroundColor: '#120D1B', alignItems: 'center', justifyContent: 'center' },
   destinationPillOn: { borderColor: colors.primaryLight, backgroundColor: 'rgba(139,92,246,0.18)' },

@@ -117,9 +117,9 @@ Décision d’Adel (04/10/2026), valable sur toute l’application Mobile et Web
 
 1. **Jamais de texte sombre sur fond sombre**, ni de noir sur gris. Sur fond sombre : texte blanc ou très clair. Le texte noir n'est autorisé que sur un fond clair ou une couleur vive (ex. bouton vert/jaune).
 2. **Jamais plus de 2 lignes de texte affichées.** Au-delà : « En savoir plus ». Cette règle protège le design : un bloc ne grandit pas à cause d'un long texte.
-3. **L'écriture ne doit pas être trop petite.** Notifications : titre ≥ 16, texte ≥ 14, liens et boutons ≥ 13, étiquettes ≥ 11. Une ligne de hauteur (`lineHeight`) n'est jamais plus petite que la taille du texte.
-4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-mobile-text-contrast.cjs`.
-5. À étendre au reste de l'interface écran par écran, sans casser le design validé.
+3. **L'écriture ne doit pas être trop petite.** Partout, y compris Super Admin, aucune taille sous 11 px. Mobile et Web utilisent les six styles `lokiText` ; une ligne de hauteur (`lineHeight`) n'est jamais plus petite que la taille du texte.
+4. Ces règles se contrôlent par test de contrat (ex. `NotificationsReadableActions.contract.test.ts`) et par `scripts/verify-min-font-size.cjs`, exécuté par les gardes de lisibilité.
+5. Agrandir le conteneur d'un badge/pastille si le texte l'exige ; ne jamais déplacer un bouton principal.
 
 ## 12. Règle permanente des espaces (décision d'Adel, 05/10/2026 — valable partout)
 

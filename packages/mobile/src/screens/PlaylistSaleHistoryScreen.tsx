@@ -3,6 +3,8 @@ import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, Text, Toucha
 import { colors } from '../theme/colors';
 import { radius, spacing, typography } from '../theme/spacing';
 import { loadMySalesHistory, PlaylistSaleHistoryEntry } from '../services/playlistSaleService';
+import { lokiText } from '../theme/lokiText';
+
 
 /**
  * Adel (21/09/2026, mission 3/3) : "Écran historique des ventes : liste
@@ -123,9 +125,9 @@ const s = StyleSheet.create({
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm, borderWidth: 1 },
   statusBadgeCompleted: { backgroundColor: 'rgba(45,225,194,0.10)', borderColor: colors.success },
   statusBadgePending: { backgroundColor: colors.backgroundElevated, borderColor: colors.border },
-  statusBadgeText: { fontSize: 10, fontWeight: '900' },
+  statusBadgeText: { fontSize: lokiText.label.fontSize, fontWeight: '900' },
   statusBadgeTextCompleted: { color: colors.success },
   statusBadgeTextPending: { color: colors.textMuted },
   rowDate: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
-  rowMeta: { color: colors.textMuted, fontSize: 10, fontWeight: '600', marginTop: 4 },
+  rowMeta: { color: colors.textMuted, fontSize: lokiText.label.fontSize, fontWeight: '600', marginTop: 4 },
 });

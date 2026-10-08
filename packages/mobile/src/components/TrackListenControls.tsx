@@ -10,6 +10,8 @@ import { resolveTrackPreviewUrl } from '../services/trackPreviewResolver';
 import { useSessionStore } from '../store/useSessionStore';
 import { resolveTrackExternalDestination } from '../services/trackExternalLinkService';
 import KeepModal from './KeepModal';
+import { lokiText } from '../theme/lokiText';
+
 
 interface Props {
   track: CanonicalTrack;
@@ -241,8 +243,8 @@ const styles = StyleSheet.create({
   previewPill: { flex: 1, minHeight: minTouchTarget, minWidth: 0, paddingHorizontal: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.backgroundCard, alignItems: 'center', justifyContent: 'center' },
   previewText: { color: colors.textSecondary, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   youtubePill: { minHeight: minTouchTarget, paddingHorizontal: 12, borderRadius: radius.pill, backgroundColor: '#211018', borderWidth: 1, borderColor: '#7A2035', alignItems: 'center', justifyContent: 'center' },
-  youtubeText: { color: '#FF6B86', fontSize: 9, fontWeight: '900' },
-  audioUnavailable: { color: colors.textMuted, fontSize: 9, marginTop: 5 },
+  youtubeText: { color: '#FF6B86', fontSize: lokiText.label.fontSize, fontWeight: '900' },
+  audioUnavailable: { color: colors.textMuted, fontSize: lokiText.label.fontSize, marginTop: 5 },
   embedOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', alignItems: 'center', justifyContent: 'center', padding: 22 },
   embedCard: { width: '100%', maxWidth: 380, borderRadius: 18, backgroundColor: '#151020', borderWidth: 1, borderColor: '#493369', padding: 14 },
   embedHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 10 },

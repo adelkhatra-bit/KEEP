@@ -220,7 +220,7 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
 
     const brand = document.createElement('div');
     brand.textContent = APP_NAME;
-    Object.assign(brand.style, { color: '#B79CFF', fontSize: '10px', fontWeight: '1000', letterSpacing: '3px', textAlign: 'center' });
+    Object.assign(brand.style, { color: '#B79CFF', fontSize: '11px', fontWeight: '1000', letterSpacing: '3px', textAlign: 'center' });
 
     const heading = document.createElement('div');
     heading.textContent = copy.heading;
@@ -232,10 +232,10 @@ function showWebShareSheet(copy: ShareCopy): Promise<void> {
 
     const link = document.createElement('div');
     link.textContent = copy.link;
-    Object.assign(link.style, { marginTop: '13px', padding: '10px', borderRadius: '12px', background: '#0E0A14', border: '1px solid #342641', color: '#B79CFF', fontSize: '10px', lineHeight: '14px', wordBreak: 'break-all' });
+    Object.assign(link.style, { marginTop: '13px', padding: '10px', borderRadius: '12px', background: '#0E0A14', border: '1px solid #342641', color: '#B79CFF', fontSize: '11px', lineHeight: '14px', wordBreak: 'break-all' });
 
     const status = document.createElement('div');
-    Object.assign(status.style, { minHeight: '16px', marginTop: '8px', color: '#68F2B1', fontSize: '10px', fontWeight: '850', textAlign: 'center' });
+    Object.assign(status.style, { minHeight: '16px', marginTop: '8px', color: '#68F2B1', fontSize: '11px', fontWeight: '850', textAlign: 'center' });
 
     const finish = () => { overlay.remove(); resolve(); };
     const makeButton = (label: string, primary: boolean, action: () => Promise<void>) => {
