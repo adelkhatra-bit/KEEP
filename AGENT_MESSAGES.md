@@ -1200,3 +1200,6 @@ Issue 55 : audit puis branchement Apple Music/Spotify, import p8 et vérificatio
 ## [2026-10-08T03:34:34.360Z] codex
 
 Issue 55 : clés Apple/Spotify catalogue et client Supabase, import p8 partagé, tests fournisseur automatiques et contrat CI ajoutés. Validations locales ciblées, typechecks admin/mobile/music, exports et rendu Chrome 390/1440 avec reload vérifiés. Captures docs/screenshots/super-admin-keys-390.png et -1440.png, fournisseurs simulés seulement. TEST MODE RÉEL Apple bloqué par DNS Supabase (HTTP 000). PR #56 automatiquement basée sur main : recibler reconcile/claude-main-20260825 puis revalider avant fusion. Aucun déploiement. SDK Shazam Android absent : endpoint/helper prêts uniquement.
+## [2026-10-08T03:49:50.769Z] codex
+
+Complément revue #55 : rotation Apple désormais via un RPC transactionnel sérialisé, migration 20261008033000 à appliquer AVANT keep-admin-control. Assertions rollback/verrou/permissions vérifiées contre PostgreSQL 16 réel avec setter Vault simulé ; suite SQL globale bloquée par pg_cron absent (préexistant). Enrichissement direct du catalogue borné à 2 s conservant le résultat primaire (9 tests pipeline validés par l’agent). Hôtes des mocks comparés exactement après les alertes CodeQL de tests. Deux problèmes de revue relus et résolus.

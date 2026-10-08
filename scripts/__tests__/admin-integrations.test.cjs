@@ -40,9 +40,9 @@ function setup({ rows = [], saved = {}, role = 'SUPER_ADMIN', failKeyId = false 
       return query;
     },
     rpc(name, args) {
-      if (name === 'service_set_integration_secret') {
+      if (name === 'service_set_integration_secret' || name === 'service_set_apple_integration_secret') {
         writes.push(args);
-        return Promise.resolve({ error: failKeyId && args.p_key.endsWith('_KEY_ID') ? new Error('fixture') : null });
+        return Promise.resolve({ error: failKeyId && name === 'service_set_apple_integration_secret' ? new Error('fixture') : null });
       }
       const request = Promise.resolve({ data: saved[args.p_key] ?? null, error: null });
       request.abortSignal = () => request;
@@ -92,9 +92,9 @@ test('le fichier .p8 enregistre aussi son identifiant, sans indice privé', asyn
   });
   assert.equal(result.status, 200);
   assert.equal(result.body.hint, 'Clé MWL46J72TM');
-  assert.equal(app.writes.length, 2);
-  assert.equal(app.writes[1].p_key, 'APPLE_MUSICKIT_KEY_ID');
-  assert.equal(app.writes[1].p_value, 'MWL46J72TM');
+  assert.equal(app.writes.length, 1);
+  assert.equal(app.writes[0].p_key, 'APPLE_MUSICKIT_PRIVATE_KEY');
+  assert.equal(app.writes[0].p_key_id, 'MWL46J72TM');
   assert.ok(!JSON.stringify(result.body).includes(pem.trim()));
   assert.ok(!JSON.stringify(result.body).includes(pem.split('\n')[1]));
 });
@@ -144,6 +144,15 @@ test('un échec de sauvegarde KEY_ID ne renvoie pas de faux succès', async () =
   });
   assert.notEqual(result.status, 200);
   assert.ok(!result.body.ok);
+});
+
+test('la rotation Apple est transactionnelle, sérialisée et réservée au service', () => {
+  const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261008033000_atomic_apple_integration_secrets.sql'), 'utf8');
+  assert.ok(migration.includes('pg_advisory_xact_lock'));
+  assert.ok(migration.includes("pg_catalog.hashtextextended('keep-apple-integration|' || p_key"));
+  assert.equal((migration.match(/perform public\.service_set_integration_secret\(/g) || []).length, 2);
+  assert.ok(migration.includes('from public, anon, authenticated'));
+  assert.ok(migration.includes('to service_role'));
 });
 
 test('la traduction exige authentification, paramètres bornés et quota serveur', async () => {

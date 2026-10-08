@@ -76,6 +76,59 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
   pg -d "$DB" -f "$f" >/dev/null
 done
 
+echo "== Rotation Apple atomique (setter Vault simulé, transaction PostgreSQL réelle) =="
+pg -d "$DB" <<'SQL'
+begin;
+create temporary table apple_secret_fixture (key text primary key, value text);
+insert into apple_secret_fixture values
+  ('APPLE_MUSICKIT_PRIVATE_KEY', 'ancienne-cle'),
+  ('APPLE_MUSICKIT_KEY_ID', 'ABCDEFGHIJ');
+create or replace function public.service_set_integration_secret(
+  p_key text, p_category text, p_value text, p_hint text, p_updated_by uuid default null
+)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if current_setting('keep.test_fail_apple_id', true) = 'on' and p_key = 'APPLE_MUSICKIT_KEY_ID' then
+    raise exception 'forced_key_id_failure';
+  end if;
+  insert into pg_temp.apple_secret_fixture values (p_key, p_value)
+  on conflict (key) do update set value = excluded.value;
+end;
+$$;
+do $$
+begin
+  perform set_config('keep.test_fail_apple_id', 'on', true);
+  begin
+    perform public.service_set_apple_integration_secret('APPLE_MUSICKIT_PRIVATE_KEY', 'nouvelle-cle', 'MWL46J72TM');
+    raise exception 'FAIL la rotation aurait dû échouer';
+  exception when raise_exception then
+    if sqlerrm <> 'forced_key_id_failure' then raise; end if;
+  end;
+  if (select value from pg_temp.apple_secret_fixture where key = 'APPLE_MUSICKIT_PRIVATE_KEY') <> 'ancienne-cle'
+     or (select value from pg_temp.apple_secret_fixture where key = 'APPLE_MUSICKIT_KEY_ID') <> 'ABCDEFGHIJ' then
+    raise exception 'FAIL rotation partielle après échec';
+  end if;
+  raise notice 'OK échec KEY_ID : ancienne configuration intégralement conservée';
+  perform set_config('keep.test_fail_apple_id', 'off', true);
+  perform public.service_set_apple_integration_secret('APPLE_MUSICKIT_PRIVATE_KEY', 'nouvelle-cle', 'MWL46J72TM');
+  if (select value from pg_temp.apple_secret_fixture where key = 'APPLE_MUSICKIT_PRIVATE_KEY') <> 'nouvelle-cle'
+     or (select value from pg_temp.apple_secret_fixture where key = 'APPLE_MUSICKIT_KEY_ID') <> 'MWL46J72TM' then
+    raise exception 'FAIL configuration Apple incohérente';
+  end if;
+  if not exists (select 1 from pg_locks where pid = pg_backend_pid() and locktype = 'advisory' and granted) then
+    raise exception 'FAIL verrou de rotation absent';
+  end if;
+  if has_function_privilege('anon', 'public.service_set_apple_integration_secret(text,text,text,uuid)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.service_set_apple_integration_secret(text,text,text,uuid)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.service_set_apple_integration_secret(text,text,text,uuid)', 'EXECUTE') then
+    raise exception 'FAIL permissions de rotation Apple';
+  end if;
+  raise notice 'OK rotation complète, verrou transactionnel et permissions service uniquement';
+end;
+$$;
+rollback;
+SQL
+
 echo "== Droits applicatifs (équivalent du rôle 'authenticated' Supabase) =="
 pg -d "$DB" <<'SQL' >/dev/null
 grant usage on schema public to app_user;

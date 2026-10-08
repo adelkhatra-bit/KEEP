@@ -134,9 +134,13 @@ test("endpoint exige utilisateur réel et ne renvoie que jeton public/expiration
   assert.deepEqual(await failed.json(), { error: "apple_music_token_unavailable" });
 });
 
+function hasHostname(url, expected) {
+  return new URL(url).hostname === expected;
+}
+
 function catalogs(url, { appleStatus = 200, noApplePreview = false } = {}) {
-  if (url.includes("accounts.spotify.com")) return Response.json({ access_token: "spotify-test-token", expires_in: 3600 });
-  if (url.includes("api.music.apple.com")) {
+  if (hasHostname(url, "accounts.spotify.com")) return Response.json({ access_token: "spotify-test-token", expires_in: 3600 });
+  if (hasHostname(url, "api.music.apple.com")) {
     if (appleStatus !== 200) return Response.json({ errors: [{ detail: "do-not-expose" }] }, { status: appleStatus });
     const songs = [{
       id: "123", attributes: {
@@ -147,7 +151,7 @@ function catalogs(url, { appleStatus = 200, noApplePreview = false } = {}) {
     }];
     return Response.json(url.includes("/songs/") ? { data: songs } : { results: { songs: { data: songs } } });
   }
-  if (url.includes("api.spotify.com")) {
+  if (hasHostname(url, "api.spotify.com")) {
     const track = {
       id: "1234567890123456789012", name: "Test Song", artists: [{ name: "Test Artist" }],
       album: { name: "Album", images: [{ url: "https://art.test/spotify.jpg" }] }, preview_url: null,
@@ -155,12 +159,12 @@ function catalogs(url, { appleStatus = 200, noApplePreview = false } = {}) {
     };
     return Response.json(url.includes("/tracks/") ? track : { tracks: { items: [track] } });
   }
-  if (url.includes("itunes.apple.com")) return Response.json({ results: [{
+  if (hasHostname(url, "itunes.apple.com")) return Response.json({ results: [{
     trackId: 123, trackName: "Test Song", artistName: "Test Artist",
     artworkUrl100: "https://art.test/100x100bb.jpg", previewUrl: "https://audio.test/itunes.m4a",
     trackViewUrl: "https://music.apple.com/fr/song/123",
   }] });
-  if (url.includes("api.deezer.com")) return Response.json({ data: [{
+  if (hasHostname(url, "api.deezer.com")) return Response.json({ data: [{
     id: 456, title: "Test Song", artist: { name: "Test Artist" },
     album: { title: "Album", cover_xl: "https://art.test/deezer.jpg" }, preview: "https://audio.test/deezer.mp3",
   }] });
@@ -183,12 +187,12 @@ test("pipeline existant réunit Apple Music, Spotify et Deezer avec ISRC/preview
   assert.equal(body.recognition.artworkUrl, "https://art.test/600x600.jpg");
   assert.ok(body.recognition.availableOn.includes("Spotify"));
   assert.ok(!JSON.stringify(body).includes("spotify-secret"));
-  const appleCall = f.calls.find((call) => call.url.includes("api.music.apple.com"));
+  const appleCall = f.calls.find((call) => hasHostname(call.url, "api.music.apple.com"));
   assert.ok(appleCall.init.headers.Authorization.startsWith("Bearer "));
-  const spotifyTokenCall = f.calls.find((call) => call.url.includes("accounts.spotify.com"));
+  const spotifyTokenCall = f.calls.find((call) => hasHostname(call.url, "accounts.spotify.com"));
   assert.equal(spotifyTokenCall.init.body, "grant_type=client_credentials");
   assert.equal(spotifyTokenCall.init.headers.Authorization, `Basic ${btoa("spotify-id:spotify-secret")}`);
-  assert.equal(f.calls.filter((call) => call.url.includes("accounts.spotify.com")).length, 1);
+  assert.equal(f.calls.filter((call) => hasHostname(call.url, "accounts.spotify.com")).length, 1);
 });
 
 test("Spotify rotation invalide son cache et ISRC contradictoire refuse une corroboration", async () => {
@@ -196,10 +200,10 @@ test("Spotify rotation invalide son cache et ISRC contradictoire refuse une corr
   const catalog = f.loadCatalog();
   await catalog.searchSpotify("Test Song");
   await catalog.searchSpotify("Test Song");
-  assert.equal(f.calls.filter((call) => call.url.includes("accounts.spotify.com")).length, 1);
+  assert.equal(f.calls.filter((call) => hasHostname(call.url, "accounts.spotify.com")).length, 1);
   f.secrets.SPOTIFY_CLIENT_SECRET = "rotated";
   await catalog.searchSpotify("Test Song");
-  assert.equal(f.calls.filter((call) => call.url.includes("accounts.spotify.com")).length, 2);
+  assert.equal(f.calls.filter((call) => hasHostname(call.url, "accounts.spotify.com")).length, 2);
   assert.equal(catalog.sameSong({ title: "Test Song", artist: "Test Artist", isrc: "ONE" }, {
     title: "Test Song", artist: "Test Artist", isrc: "TWO",
   }), false);
@@ -213,7 +217,8 @@ test("lien Apple direct ajoute le match Spotify par ISRC", async () => {
   const body = await (await f.request({ url: "https://music.apple.com/fr/song/test-song/123" })).json();
   assert.equal(body.strategy, "apple-direct");
   assert.equal(body.recognition.providerIds.spotify, "1234567890123456789012");
-  assert.ok(f.calls.some((call) => call.url.includes("api.spotify.com/v1/search") && call.url.includes("isrc%3AFRTEST000001")));
+  assert.ok(f.calls.some((call) => hasHostname(call.url, "api.spotify.com") &&
+    new URL(call.url).pathname === "/v1/search" && call.url.includes("isrc%3AFRTEST000001")));
 });
 
 test("fallback public préservé sans clés, erreurs API ou preview Apple absente", async () => {
@@ -244,4 +249,33 @@ test("timeouts réseau restent best-effort et réponse Spotify directe utilise p
   assert.equal(failed.recognition, null);
   assert.equal(failed.reason, "catalog_no_match");
   assert.ok(!JSON.stringify(failed).includes("upstream-private-data"));
+});
+
+test("Deezer exact conserve la reconnaissance primaire si Apple secondaire ne répond jamais", {
+  timeout: 4000,
+}, async () => {
+  const f = fixture({
+    secrets: configured(keyPair().privateKey),
+    fetchImpl: (url) => {
+      if (hasHostname(url, "api.music.apple.com")) return new Promise(() => {});
+      if (hasHostname(url, "api.deezer.com")) return Response.json({
+        id: 456, title: "Test Song", artist: { name: "Test Artist" },
+        album: { title: "Album", cover_xl: "https://art.test/deezer.jpg" },
+        preview: "https://audio.test/deezer.mp3", link: "https://www.deezer.com/track/456",
+      });
+      return new Response("{}", { status: 404 });
+    },
+  });
+  f.loadCatalog();
+  const start = performance.now();
+  const body = await (await f.request({ url: "https://www.deezer.com/track/456" })).json();
+  assert.ok(performance.now() - start < 3000, "le budget secondaire doit rester inférieur au timeout client");
+  assert.equal(body.ok, true);
+  assert.equal(body.strategy, "deezer-direct");
+  assert.equal(body.recognition.title, "Test Song");
+  assert.equal(body.recognition.providerIds.deezer, "456");
+  assert.equal(body.recognition.previewUrl, "https://audio.test/deezer.mp3");
+  assert.equal(body.recognition.artworkUrl, "https://art.test/deezer.jpg");
+  assert.equal(body.evidence.crossCatalogConfirmed, false);
+  assert.ok(f.calls.some((call) => hasHostname(call.url, "api.music.apple.com")));
 });

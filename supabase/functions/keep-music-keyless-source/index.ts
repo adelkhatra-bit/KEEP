@@ -498,13 +498,27 @@ function sameSong(a: CatalogTrack, b: CatalogTrack) {
 }
 
 async function findCatalogMatches(track: CatalogTrack): Promise<CatalogTrack[]> {
-  const query = `${track.artist} ${track.title}`;
-  const [apple, deezer, spotify] = await Promise.all([
-    track.source === "apple" ? [] : searchApple(query),
-    track.source === "deezer" ? [] : searchDeezer(query),
-    track.source === "spotify" ? [] : searchSpotify(track.isrc ? `isrc:${track.isrc}` : query),
-  ]);
-  return [...apple, ...deezer, ...spotify].filter((item) => sameSong(track, item));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const query = `${track.artist} ${track.title}`;
+    const matches = Promise.all([
+      track.source === "apple" ? [] : searchApple(query),
+      track.source === "deezer" ? [] : searchDeezer(query),
+      track.source === "spotify" ? [] : searchSpotify(track.isrc ? `isrc:${track.isrc}` : query),
+    ]).then(([apple, deezer, spotify]) =>
+      [...apple, ...deezer, ...spotify].filter((item) => sameSong(track, item)));
+    // Une identité exacte ne doit pas attendre les catalogues secondaires.
+    return await Promise.race([
+      matches,
+      new Promise<CatalogTrack[]>((resolve) => {
+        timer = setTimeout(() => resolve([]), 2000);
+      }),
+    ]);
+  } catch {
+    return [];
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 // AJOUT P0 (coordination 31/08/2026) : quand l'URL fournisseur est valide et

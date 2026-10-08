@@ -618,23 +618,23 @@ Deno.serve(async (req) => {
         }
       }
       const valueHint = importedKeyId ? `Clé ${importedKeyId}` : hint(value);
-      const { error } = await admin.rpc("service_set_integration_secret", {
-        p_key: key,
-        p_category: meta.category,
-        p_value: value,
-        p_hint: valueHint,
-        p_updated_by: actor.id,
-      });
-      if (error) throw error;
       if (applePrivateKey && importedKeyId) {
-        const { error: keyIdError } = await admin.rpc("service_set_integration_secret", {
-          p_key: keyIdField,
-          p_category: CATALOG[keyIdField].category,
-          p_value: importedKeyId,
-          p_hint: hint(importedKeyId),
+        const { error } = await admin.rpc("service_set_apple_integration_secret", {
+          p_key: key,
+          p_value: value,
+          p_key_id: importedKeyId,
           p_updated_by: actor.id,
         });
-        if (keyIdError) throw new Error("Clé enregistrée, KEY_ID non enregistré");
+        if (error) throw new Error("Clé et KEY_ID non enregistrés");
+      } else {
+        const { error } = await admin.rpc("service_set_integration_secret", {
+          p_key: key,
+          p_category: meta.category,
+          p_value: value,
+          p_hint: valueHint,
+          p_updated_by: actor.id,
+        });
+        if (error) throw error;
       }
       if (key === "AUDD_API_KEY" && providerValidation) {
         await setRecognitionRuntimeStatus("AUDD_API_KEY", providerValidation.status, providerValidation.message);

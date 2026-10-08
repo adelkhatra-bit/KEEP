@@ -25,8 +25,9 @@ test("les appels catalogue, traduction et expéditeur doivent réellement réuss
   globalThis.fetch = async (input) => {
     const url = String(input);
     urls.push(url);
-    if (url.includes("brevo.com")) return Response.json({ senders: [{ email: "fixture", active: true }] });
-    if (url.includes("translation.googleapis.com")) return Response.json({ data: { translations: [{ translatedText: "Hello" }] } });
+    const host = new URL(url).hostname;
+    if (host === "api.brevo.com") return Response.json({ senders: [{ email: "fixture", active: true }] });
+    if (host === "translation.googleapis.com") return Response.json({ data: { translations: [{ translatedText: "Hello" }] } });
     return Response.json({});
   };
   const result = await checkIntegrations(deps);

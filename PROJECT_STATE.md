@@ -31,10 +31,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-08T03:34:34.324Z
+- Régénéré le : 2026-10-08T03:48:48.895Z
 - Branche : `copilot/super-admin-cls-bouton-fichier-p8`
-- Dernier commit : `5d61920` (5d61920b1c0267d5ca07b01bb6757b9b26bc3e34) — Initial plan
-- Date du dernier commit : 2026-10-08T03:05:25Z
+- Dernier commit : `509fc7f` (509fc7fa4903706ed44443c335dd5ce56c7d2fa0) — Brancher les catalogues et automatiser la gestion des clés p8
+- Date du dernier commit : 2026-10-08T03:35:06Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -122,6 +122,7 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
+- `509fc7f` (2026-10-08, copilot-swe-agent[bot]) — Brancher les catalogues et automatiser la gestion des clés p8
 - `5d61920` (2026-10-08, copilot-swe-agent[bot]) — Initial plan
 - `d7b0910` (2026-10-05, adelkhatra-bit) — Update checkout action reference in workflow
 <!-- AUTO:RECENT-COMMITS:END -->
@@ -135,6 +136,7 @@ agent) et messages des sessions de chat (non versionnés).
 
 - **Issue #55 — Clés Super Admin (08/10/2026)** : Apple Music/Spotify branchés au catalogue existant via le Vault, import `.p8` local et contrôles automatiques ajoutés. Déploiement des fonctions modifiées/nouvelles puis test Apple `/v1/catalog/fr/search` HTTP 200 à confirmer avec une session autorisée. Dans ce sandbox, le domaine Supabase ne se résout pas ; aucun succès fournisseur réel revendiqué. `BRANCH_SOURCE_OF_TRUTH.json` absent ; le garde de branche refuse la branche PR, les invariants du contenu passent hors variable CI de branche.
 - **Base PR #56 incorrecte** : GitHub confirme `main` comme base automatique, alors que #55 exige `reconcile/claude-main-20260825`. Recibler puis revalider sur la branche produit avant intégration ; ne pas fusionner vers `main`.
+- **Déploiement #55** : appliquer `20261008033000_atomic_apple_integration_secrets.sql` avant les fonctions et le client. Assertions ciblées PostgreSQL 16 validées (rollback complet, verrou transactionnel, accès service uniquement ; setter Vault simulé), mais suite SQL globale bloquée par l’extension locale `pg_cron` absente dans une migration préexistante. Aucune application sur Supabase depuis cette session.
 - **Test device en attente (Adel)** : préchargement audio Battle (latence),
   correctif micro/preview, anti-Shazam (« lance Shazam pendant la preview »).
   Aucun de ces tests n'a pu être fait depuis cet environnement (pas de

@@ -274,7 +274,7 @@ export default function Integrations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Renouvellement intelligent des clés</h3>
         <p style={{ color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.6 }}>
-          Les clés internes Loki Music peuvent être générées ici. Pour une clé Spotify, Apple, Google, Brevo, Stripe ou autre fournisseur, le bouton ouvre directement sa page officielle de création/révocation : ces plateformes interdisent qu’une ancienne clé crée silencieusement sa remplaçante. Après remplacement, Loki Music conserve la nouvelle valeur dans le Vault et les tests disponibles s’exécutent avant activation.
+          Les clés internes Loki Music peuvent être générées ici. Pour une clé Spotify, Apple, Google, Brevo, Stripe ou autre fournisseur, le bouton ouvre directement sa page officielle de création/révocation : ces plateformes interdisent qu’une ancienne clé crée silencieusement sa remplaçante. Après remplacement, Loki Music conserve la nouvelle valeur dans le Vault et les tests disponibles s’exécutent après chaque enregistrement.
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
           <span style={{ padding: '6px 10px', borderRadius: 999, background: 'rgba(98,196,111,.14)', color: '#62c46f' }}>Automatique : clés internes Loki Music</span>
