@@ -1,5 +1,10 @@
 # MASTER PLAN — Loki Music (ce qui RESTE à faire)
 
+## Issue #57 — plan demandé par Adel, 08/10/2026
+1. Étendre les tables et fonctions existantes pour une surveillance unique toutes les 5 minutes ; notification/e-mail par incident, inconnus jamais verts.
+2. Étendre Accueil/Santé/cloche et Signalements : résumé du jour, groupes écran/message, triage atomique avec SHA/test, brouillon d’issue sans données privées.
+3. Tests serveur isolés et navigateur 390/1440 ; rapport distinguant production observée, constat fourni et fixtures. Aucun déploiement ni écriture en production.
+
 > Complète `STATE.md` (ce qui est fait). **Règle de travail : plan écrit → validation d'Adel → code.** Une étape à la fois. Aucune IA ne touche `main`, ni au design validé sans accord. Chaque étape finit par : tests + 7 gardes + preuve mobile 390 / ordinateur 1440 + ligne dans `STATE.md`. Audit **ciblé** (seulement le module touché).
 > Statuts : ✅ fait · 🟡 partiel · ⛔ pas fait · ❓ cause non établie. Tout ce qui n'est pas vérifié sur iPhone est marqué « non vérifié iPhone ».
 

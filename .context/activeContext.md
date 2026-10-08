@@ -424,3 +424,7 @@ Ce fichier résume l'état de travail à court terme. Il doit être actualisé �
 - Toute nouvelle décision durable doit mettre à jour contrat + spec + guards dans le même changement, sinon le CI bloque.
 
 ## 06/10/2026 (fin) — « Découvert par » = fiche rapide dans le Swipe; Vues de ta story alignées; robot argot (voir ERR-195/196/197). Reste : Pulse bulle « Test » non cliquable (IDEA-158), même bibliothèque pour Pulse, e-mails, notifications mobiles.
+## 08/10/2026 — issue #57, Santé / triage Super Admin
+- Branche de revue `copilot/reconcile-claude-main-20260825`, base `fa193cc537d47132053163cc842a98756b2a1fff` récupérée et garde canonique réussi.
+- Réutilisation `provider_health`, `notifications`, `email_queue`, `app_problem_reports` et pages admin. Cron 5 min, vrais probes bornés, inconnus jamais verts ; alertes transactionnelles par incident ; triage groupes avec guards SHA/test.
+- Preuves locales uniquement : PostgreSQL isolé, typecheck/export Next 22 pages, navigateur fixtures 390/1440 et captures. Rapport `docs/SUPERADMIN_AUDIT.md` ; aucune preuve de production nouvelle, aucun déploiement ni modification des données réelles.

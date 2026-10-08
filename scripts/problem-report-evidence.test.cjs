@@ -332,6 +332,47 @@ test('SQL local isolé : idempotence, RLS, guards, formes JSON, preuves et persi
     query(sql); // Réapplication avec données : aucune preuve/donnée perdue.
     assert.deepEqual(value(queryRow()), before);
     assert.deepEqual(value(asAdmin('select public.admin_problem_report_overview();')), summary);
+    const groupSql = fs.readFileSync(path.join(migrations, '20261008031500_problem_report_groups.sql'), 'utf8');
+    query(groupSql);
+    query(groupSql);
+    query(asAdmin(`insert into public.app_problem_reports(message, screen) values
+      ('Le profil ne charge pas !', 'Profil'),
+      ('le profil ne charge pas', 'Profil'),
+      ('LE PROFIL NE CHARGE PAS.', 'Profil'),
+      ('le profil ne charge pas', 'Écouter'),
+      ('Erreur HTTP 401', 'Profil'),
+      ('Erreur HTTP 403', 'Profil');`));
+    const groups = value(asAdmin("select public.admin_problem_report_groups('ALL');"));
+    const group = groups.find(g => g.report_count === 3 && g.screen === 'Profil');
+    assert.ok(group, '3 messages identiques/similaires donnent exactement 1 groupe de 3');
+    assert.equal(groups.filter(g => g.screen === 'Écouter').length, 1, 'Écrans distincts non fusionnés');
+    assert.equal(groups.filter(g => g.message.startsWith('Erreur HTTP')).length, 2, 'Codes HTTP distincts non fusionnés');
+    for (const call of [
+      'admin_problem_report_groups()',
+      `admin_problem_report_group_set_status('${group.group_key}', 'SEEN')`,
+    ]) {
+      fails(`set role anon; select public.${call};`, 'permission denied');
+      fails(`set role authenticated; set request.jwt.claim.sub = '${other}'; select public.${call};`, 'unauthorized');
+      fails(`set role authenticated; select public.${call};`, 'unauthorized');
+    }
+    fails(asAdmin(`select public.admin_problem_report_group_set_status('${group.group_key}', null);`), 'INVALID_STATUS');
+    fails(asAdmin(`select public.admin_problem_report_group_set_status('${group.group_key}', 'FIXED', 'short', 'scripts/a.test.cjs');`), 'INVALID_FIX_SHA');
+    assert.equal(value(asAdmin("select public.admin_problem_report_groups('NEW');")).find(g => g.group_key === group.group_key).status, 'NEW');
+    assert.equal(query(asAdmin(`select public.admin_problem_report_group_set_status('${group.group_key}', 'SEEN');`)), '3');
+    assert.equal(value(asAdmin("select public.admin_problem_report_groups('SEEN');")).find(g => g.group_key === group.group_key).report_count, 3);
+    assert.equal(query(asAdmin(`select public.admin_problem_report_group_set_status('${group.group_key}', 'FIXED',
+      '${'a'.repeat(40)}', 'scripts/problem-report-evidence.test.cjs');`)), '3');
+    const fixedGroup = value(asAdmin("select public.admin_problem_report_groups('FIXED');")).find(g => g.group_key === group.group_key);
+    assert.equal(fixedGroup.fixed_in_sha, 'a'.repeat(40));
+    assert.equal(fixedGroup.regression_test_path, 'scripts/problem-report-evidence.test.cjs');
+    assert.equal(query(`select count(*) from public.app_problem_reports
+      where screen = 'Profil' and status = 'FIXED' and resolved_at is not null;`), '3');
+    assert.equal(query(asAdmin(`select public.admin_problem_report_group_set_status('${group.group_key}', 'NEW');`)), '3');
+    assert.equal(query(`select count(*) from public.app_problem_reports
+      where screen = 'Profil' and status = 'NEW' and fixed_in_sha = '${'a'.repeat(40)}';`), '3', 'Réouverture conserve les preuves');
+    const groupedBefore = value(asAdmin("select public.admin_problem_report_groups('ALL');"));
+    query(groupSql);
+    assert.deepEqual(value(asAdmin("select public.admin_problem_report_groups('ALL');")), groupedBefore);
   } finally {
     try {
       if (started) run('pg_ctl', ['-D', data, '-m', 'fast', '-w', 'stop']);

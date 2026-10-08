@@ -230,6 +230,13 @@ Source : `packages/admin`.
 
 ### APIs publiques — toolbox agents
 
+### Santé et triage — issue #57, décision du 08/10/2026
+- Un seul moniteur serveur toutes les 5 minutes, `provider_health` existante ; fournisseurs testés réellement, cron et files observés, Edge explicitement inconnue si les logs ne sont pas accessibles.
+- Accueil et Santé réutilisent le même bandeau : aucun vert sans succès récent, incidents accessibles avec clé/tâche concernée ; résumé quotidien UTC, compteurs inconnus jamais remplacés par zéro.
+- Un passage en erreur ouvre un incident et crée une notification admin + une entrée de la file Brevo ; aucune répétition avant un vrai rétablissement.
+- Les signalements existants se regroupent par écran et message normalisé, sans copie des données. NEW → SEEN (« EN COURS ») → FIXED (« CORRIGÉ ») avec SHA complet et test ; réouverture possible. Le brouillon d’issue contient uniquement l’identifiant technique et le compteur, pas le contenu privé.
+- Accueil : un pays sélectionné et une devise sélectionnée par affichage, jamais addition de devises. Contrat `adminSystemHealth`, tests SQL/UI et navigateur 390/1440.
+
 - Catalogue de découverte : `public-apis/public-apis` via `npm run public-api:search -- <besoin>`.
 - Ce catalogue n'est jamais une dépendance runtime automatique.
 - ChatGPT/Claude doivent vérifier CGU, quota, HTTPS, confidentialité et disponibilité avant toute intégration.

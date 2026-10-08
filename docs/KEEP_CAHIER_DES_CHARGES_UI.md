@@ -8,6 +8,8 @@ Ce document est la référence à relire avant toute modification d'interface.
 
 ## 1. Règle d'intégration
 
+Super Admin — issue #57 (08/10/2026) : bandeau Santé en haut de l’Accueil, détails dépliables et raccourci clé/tâche, inconnus non verts ; résumé quotidien compact et cloche d’incidents. Signalements : une carte par groupe écran/message, compteur, En cours/Corrigé avec preuves, brouillon Copilot sans données privées. Pays et devise uniques sélectionnés. Pages et design existants conservés, même export 390/1440.
+
 Toute modification doit conserver les modules déjà validés. Une IA ne doit pas déplacer, dupliquer, renommer ou supprimer un module existant simplement parce qu'elle intervient sur une autre fonction. Si un changement touche une zone voisine, elle doit d'abord vérifier ce cahier des charges et les contrats automatiques.
 
 La CI exécute `scripts/verify-ui-layout-baseline.cjs`. Si une règle ci-dessous est cassée, l'intégration doit échouer.

@@ -47,3 +47,6 @@ pnpm-workspace.yaml
 # meme confusion pnpm/EAS que B1 si un `eas build` est lance depuis ce
 # dossier. Ignore, jamais touche a son contenu.
 deepseek-harness/
+
+# Export statique Super Admin généré par Next, jamais une source produit.
+/packages/admin/out/

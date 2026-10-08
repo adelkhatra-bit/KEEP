@@ -5,6 +5,7 @@ import { PeriodButtons } from '../components/PresetPicker';
 import { supabase } from '../lib/supabaseClient';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 import { Bars, LineChart } from '../components/MiniChart';
+import SystemHealth from '../components/SystemHealth';
 
 type Country = { code: string; name: string };
 type CountRow = { plan?: string; channel?: string; country?: string; count: number };
@@ -87,7 +88,8 @@ export default function Dashboard() {
   monthAgo.setDate(today.getDate() - 29);
   const [from, setFrom] = useState(isoDate(monthAgo));
   const [to, setTo] = useState(isoDate(today));
-  const [country, setCountry] = useState('');
+  const [country, setCountry] = useState('FR');
+  const [currency, setCurrency] = useState('EUR');
   const [countries, setCountries] = useState<Country[]>([]);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -160,6 +162,7 @@ export default function Dashboard() {
   return (
     <AdminLayout>
       <div className="page-title">Accueil <Hint title="Accueil" text={<>Statistiques réelles Loki Music — filtres par période et pays</>}/></div>
+      <SystemHealth />
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
@@ -169,11 +172,14 @@ export default function Dashboard() {
             <label>Au<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
           </details>
           <label>Pays<br />
-            <select value={country} onChange={(e) => setCountry(e.target.value)}>
-              <option value="">Tous les pays</option>
+            <select aria-label="Pays" value={country} onChange={(e) => setCountry(e.target.value)}>
+              {!countries.some(c => c.code === country) ? <option value={country}>{country}</option> : null}
               {countries.map((c) => <option key={c.code} value={c.code}>{c.name} ({c.code})</option>)}
             </select>
           </label>
+          <label>Devise<br /><select aria-label="Devise" value={currency} onChange={e => setCurrency(e.target.value)}>
+            {Array.from(new Set(['EUR', ...(v2?.money.byCurrency ?? []).map(m => m.currency), ...(v2?.money.marketByCurrency ?? []).map(m => m.currency)])).map(code => <option key={code} value={code}>{code}</option>)}
+          </select></label>
           {loading ? <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Chargement…</span> : null}
         </div>
       </div>
@@ -201,9 +207,9 @@ export default function Dashboard() {
             <section className="plan-card plan-card-paid">
               <header className="plan-card-head">💶 Argent<Hint title="Argent réel" text="Uniquement l’argent réellement payé par de vrais utilisateurs, devise par devise (jamais additionnées). Les abonnements offerts n’y sont jamais."/></header>
               <div className="stat"><b>{v2 ? v2.money.paidSubscribers : data.activePaid}</b><span>abonnés payants</span></div>
-              {v2 && (v2.money.byCurrency.length ? v2.money.byCurrency.map((m) => <div key={m.currency} className="stat"><b>{money(m.net, m.currency)}</b><span>net {m.currency} · {m.count} paiement(s)</span></div>) : <div className="stat"><b>0 €</b><span>encaissé</span></div>)}
+              {v2 && (v2.money.byCurrency.some(m => m.currency === currency) ? v2.money.byCurrency.filter(m => m.currency === currency).map((m) => <div key={m.currency} className="stat"><b>{money(m.net, m.currency)}</b><span>net {m.currency} · {m.count} paiement(s)</span></div>) : <div className="stat"><b>{money(0, currency)}</b><span>encaissé</span></div>)}
               {v2 && <div className="stat"><b>{v2.money.freePacksBought.count}</b><span>packs FREE achetés</span></div>}
-              {v2 && v2.money.marketByCurrency.map((m) => <div key={m.currency} className="stat"><b>{money(m.cents / 100, m.currency)}</b><span>ventes marketplace</span></div>)}
+              {v2 && v2.money.marketByCurrency.filter(m => m.currency === currency).map((m) => <div key={m.currency} className="stat"><b>{money(m.cents / 100, m.currency)}</b><span>ventes marketplace</span></div>)}
             </section>
             <section className="plan-card">
               <header className="plan-card-head">🎁 Offert<Hint title="Offert par Loki" text="Ce que Loki donne sans paiement : abonnements offerts et FREE donnés. Jamais compté comme de l’argent."/></header>
@@ -242,7 +248,7 @@ export default function Dashboard() {
             </section>
             <section className="plan-card" style={{ flexBasis: 260, maxWidth: 'none' }}>
               <header className="plan-card-head">🌍 Pays<Hint title="Pays" text="Comptes réels par pays. « Non renseigné » = aucun pays choisi ou détecté."/></header>
-              <Bars rows={data.countryMix.map((r) => ({ label: r.country === '--' ? 'Non renseigné' : String(r.country), value: r.count }))} color="#60a5fa" />
+              <Bars rows={data.countryMix.filter(r => r.country === country).map((r) => ({ label: String(r.country), value: r.count }))} color="#60a5fa" />
             </section>
           </div>
 

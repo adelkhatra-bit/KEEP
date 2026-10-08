@@ -1,5 +1,19 @@
 {
   "version": "2026-10-07.01",
+  "adminSystemHealth": {
+    "decision": "Adel — issue #57, 08/10/2026",
+    "healthTable": "provider_health",
+    "intervalMinutes": 5,
+    "unknownNeverGreen": true,
+    "freshSuccessRequired": true,
+    "oneAlertPerIncident": true,
+    "reportSource": "app_problem_reports",
+    "reportGrouping": "screen-and-normalized-message",
+    "reportStatusLabels": { "NEW": "NOUVEAU", "SEEN": "EN COURS", "FIXED": "CORRIGÉ" },
+    "fixedRequiresExistingShaAndTestGuard": true,
+    "issueDraftExcludesPrivatePayload": true,
+    "singleCountryAndCurrencyPerDisplay": true
+  },
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",

@@ -6,6 +6,7 @@ import { INTEGRATION_PROVIDER_LINKS } from '../lib/integrationLinks';
 import { openProviderPopup } from '../lib/providerWindow';
 import { invokeAdminFunction } from '../lib/invokeFunction';
 import ReleaseEvidence from '../components/ReleaseEvidence';
+import SystemHealth from '../components/SystemHealth';
 
 type IntegrationRow = {
   key: string;
@@ -79,7 +80,7 @@ function statusInfo(integration: IntegrationRow, runtime?: RuntimeRow) {
   if (/ERROR|FAILED|INVALID|REVOKED|UNAUTHORIZED|403|401/.test(raw)) {
     return { text: 'ERREUR / ACTION REQUISE', tone: '#f59e0b' };
   }
-  if (/OK|HEALTHY|ACTIVE|READY/.test(raw)) return { text: 'OPÉRATIONNELLE', tone: '#86efac' };
+  if (/OK|HEALTHY|ACTIVE|READY/.test(raw)) return { text: 'CLÉ ACCEPTÉE · VOIR SANTÉ', tone: '#93c5fd' };
   return { text: 'CONFIGURÉE · À CONTRÔLER', tone: '#a78bfa' };
 }
 
@@ -143,12 +144,13 @@ export default function Operations() {
     : /ERROR|FAILED|INVALID|REVOKED|UNAUTHORIZED|403|401/.test(acrRaw)
       ? { text: 'ERREUR / ACTION REQUISE', tone: '#f59e0b' }
       : /OK|HEALTHY|ACTIVE|READY/.test(acrRaw)
-        ? { text: 'OPÉRATIONNEL', tone: '#86efac' }
+        ? { text: 'CLÉS ACCEPTÉES · VOIR SANTÉ', tone: '#93c5fd' }
         : { text: 'CONFIGURÉ · À CONTRÔLER', tone: '#a78bfa' };
   return (
     <AdminLayout>
       <div className="page-title">Santé <Hint title="Santé" text={<>Reconnaissance musicale, services externes, livraison push réelle et support utilisateurs dans une vue unique.</>}/></div>
 
+      <SystemHealth />
       <ReleaseEvidence />
       {error && <div className="demo-banner" style={{ borderColor: '#b42318' }}>Erreur : {error}</div>}
       <button onClick={() => void load()} disabled={loading} style={{ marginBottom: 18 }}>
@@ -158,7 +160,7 @@ export default function Operations() {
       <div className="card" style={{ marginBottom: 22 }}>
         <h3 style={{ marginTop: 0 }}>Réparation <Hint title="Réparation" text="Réparation automatique Loki Music."/></h3>
         <p style={{ color: 'var(--text-muted)', lineHeight: 1.55 }}>Le Guardian serveur contrôle chaque minute les états réparables sans risque : invitations Battle expirées et manches bloquées après leur délai. Les clés externes manquantes restent signalées et ne sont jamais inventées.</p>
-        <strong style={{ color: autoRepair.length ? '#86efac' : '#f59e0b' }}>{autoRepair.length ? 'ACTIF · contrôle automatique chaque minute' : 'À CONTRÔLER'}</strong>
+        <strong style={{ color: autoRepair.length ? '#93c5fd' : '#f59e0b' }}>{autoRepair.length ? 'PASSAGE OBSERVÉ · VOIR SANTÉ CRON' : 'À CONTRÔLER'}</strong>
         {autoRepair[0] ? <div style={{ marginTop: 8, color: 'var(--text-muted)' }}>Dernier passage : {new Date(autoRepair[0].ran_at).toLocaleString()} · défis expirés {autoRepair[0].stale_challenges_expired} · manches finalisées {autoRepair[0].battle_rounds_finalized} · manches avancées {autoRepair[0].battle_rounds_advanced}</div> : null}
       </div>
 
@@ -172,9 +174,9 @@ export default function Operations() {
           <tbody>
             <tr>
               <td><strong>Fallback social Loki Music</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>TikTok · Instagram · Snapchat · YouTube · Facebook</div></td>
-              <td><strong style={{ color: keylessHealth?.ok ? '#86efac' : '#f59e0b' }}>{keylessHealth?.ok ? 'OPÉRATIONNEL' : 'INJOIGNABLE / À CONTRÔLER'}</strong></td>
+              <td><strong style={{ color: keylessHealth?.ok ? '#93c5fd' : '#f59e0b' }}>{keylessHealth?.ok ? 'SERVICE JOIGNABLE · CATALOGUE À TESTER' : 'INJOIGNABLE / À CONTRÔLER'}</strong></td>
               <td>Non</td>
-              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{keylessHealth?.ok ? `Supabase actif · Apple Search + Deezer public · confiance mini ${Math.round((keylessHealth.minimumConfidence ?? 0.72) * 100)} %` : 'Le health Supabase ne répond pas encore.'}</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'normal' }}>{keylessHealth?.ok ? `Endpoint joignable ; catalogues non testés · confiance configurée ${Math.round((keylessHealth.minimumConfidence ?? 0.72) * 100)} %` : 'Le health Supabase ne répond pas encore.'}</td>
             </tr>
             <tr>
               <td><strong>ShazamKit iOS</strong><div style={{ color: 'var(--text-muted)', fontSize: 11 }}>empreinte audio native Apple</div></td>

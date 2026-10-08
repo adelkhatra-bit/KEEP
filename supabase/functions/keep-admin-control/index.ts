@@ -3,6 +3,11 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import bcrypt from "npm:bcryptjs@2.4.3";
 import { lokiEmailCtaShell, lokiEmailShell } from "../_shared/lokiEmailShell.ts";
 import { sendTransactionalEmail } from "../_shared/lokiEmailSend.ts";
+import {
+  validateAcrCloudCredentials as probeAcrCloud,
+  validateBrevoApiKey as probeBrevo,
+  validateYouTubeApiKey as probeYouTube,
+} from "../_shared/providerHealth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -241,15 +246,7 @@ function validateStructuredIntegrationValue(key: string, value: string): Generic
 
 async function validateBrevoApiKey(value: string): Promise<GenericIntegrationValidation> {
   try {
-    const response = await fetch("https://api.brevo.com/v3/account", {
-      headers: { "api-key": value.trim(), accept: "application/json" },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé Brevo vérifiée par le fournisseur." };
-    if (response.status === 401 || response.status === 403) {
-      return { valid: false, status: "ERROR", message: "Brevo refuse cette clé API. Rien n'a été enregistré." };
-    }
-    return { valid: false, status: "ERROR", message: `Brevo n'a pas confirmé la clé (HTTP ${response.status}). Rien n'a été enregistré.` };
+    return await probeBrevo(value.trim()) as GenericIntegrationValidation;
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre Brevo pour vérifier la clé. Rien n'a été enregistré." };
   }
@@ -257,18 +254,7 @@ async function validateBrevoApiKey(value: string): Promise<GenericIntegrationVal
 
 async function validateYouTubeApiKey(value: string): Promise<GenericIntegrationValidation> {
   try {
-    const url = "https://www.googleapis.com/youtube/v3/videos?part=id&id=dQw4w9WgXcQ&key=" + encodeURIComponent(value.trim());
-    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    const payload = await response.json().catch(() => null);
-    if (response.ok) return { valid: true, status: "ACTIVE", message: "Clé YouTube Data API vérifiée." };
-    const reason = String(payload?.error?.errors?.[0]?.reason || "");
-    if (/quota|dailyLimit|rateLimit/i.test(reason)) {
-      return { valid: true, status: "EXHAUSTED", message: "Clé YouTube reconnue, mais quota fournisseur épuisé ou limité." };
-    }
-    if (/accessNotConfigured|serviceDisabled/i.test(reason)) {
-      return { valid: true, status: "ERROR", message: "Clé Google reconnue, mais YouTube Data API n'est pas activée sur ce projet." };
-    }
-    return { valid: false, status: "ERROR", message: `YouTube refuse cette clé (${reason || "HTTP " + response.status}). Rien n'a été enregistré.` };
+    return await probeYouTube(value.trim()) as GenericIntegrationValidation;
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre YouTube pour vérifier la clé. Rien n'a été enregistré." };
   }
@@ -321,42 +307,7 @@ function plausibleAcrCloudHost(value: string) {
   return /^[a-z0-9.-]+\.acrcloud\.com$/.test(host) && !host.includes("..") && host.length <= 180;
 }
 
-async function hmacSha1Base64(secret: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
-  const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  const bytes = new Uint8Array(signed);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
-
-function silentWavBytes(durationMs = 650, sampleRate = 8000) {
-  const samples = Math.max(1, Math.floor(sampleRate * durationMs / 1000));
-  const dataSize = samples * 2;
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-  const writeAscii = (offset: number, value: string) => {
-    for (let i = 0; i < value.length; i += 1) view.setUint8(offset + i, value.charCodeAt(i));
-  };
-  writeAscii(0, "RIFF");
-  view.setUint32(4, 36 + dataSize, true);
-  writeAscii(8, "WAVE");
-  writeAscii(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(36, "data");
-  view.setUint32(40, dataSize, true);
-  return new Uint8Array(buffer);
-}
-
 async function validateAcrCloudCredentials(hostValue: string, accessKey: string, accessSecret: string): Promise<AcrCloudValidation> {
-  const host = normalizeAcrCloudHost(hostValue);
   if (!plausibleAcrCloudHost(hostValue)) {
     return { valid: false, status: "ERROR", message: "Hôte ACRCloud invalide. Utilise le host identify-….acrcloud.com fourni par ton projet ACRCloud." };
   }
@@ -364,47 +315,11 @@ async function validateAcrCloudCredentials(hostValue: string, accessKey: string,
     return { valid: false, status: "ERROR", message: "Access Key ou Access Secret ACRCloud invalide ou incomplet." };
   }
 
-  const httpMethod = "POST";
-  const httpUri = "/v1/identify";
-  const dataType = "audio";
-  const signatureVersion = "1";
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const stringToSign = [httpMethod, httpUri, accessKey.trim(), dataType, signatureVersion, timestamp].join("\n");
-  const signature = await hmacSha1Base64(accessSecret.trim(), stringToSign);
-  const wav = silentWavBytes();
-  const form = new FormData();
-  form.append("sample", new Blob([wav], { type: "audio/wav" }), "keep-credential-check.wav");
-  form.append("access_key", accessKey.trim());
-  form.append("sample_bytes", String(wav.byteLength));
-  form.append("timestamp", timestamp);
-  form.append("signature", signature);
-  form.append("data_type", dataType);
-  form.append("signature_version", signatureVersion);
-
-  let response: Response;
   try {
-    response = await fetch(`https://${host}${httpUri}`, { method: "POST", body: form, signal: AbortSignal.timeout(10000) });
+    return await probeAcrCloud(hostValue, accessKey, accessSecret) as AcrCloudValidation;
   } catch {
     return { valid: false, status: "ERROR", message: "Impossible de joindre l'hôte ACRCloud. Vérifie le Host avant sauvegarde." };
   }
-
-  const payload = await response.json().catch(() => null);
-  const code = Number(payload?.status?.code ?? -1);
-  const providerMessage = String(payload?.status?.msg || `ACRCloud HTTP ${response.status}`);
-
-  // Documentation ACRCloud : 0=succès, 1001=aucun résultat ; ces réponses
-  // prouvent que Host + Access Key + signature sont acceptés. Un petit WAV
-  // silencieux peut aussi retourner 2004 (empreinte impossible), après auth.
-  if (code === 0 || code === 1001 || code === 2004) {
-    return { valid: true, status: "ACTIVE", message: "Credentials ACRCloud vérifiés par le fournisseur.", providerCode: code };
-  }
-  if (code === 3003 || code === 3015) {
-    return { valid: true, status: "EXHAUSTED", message: `Credentials ACRCloud authentifiés, mais quota/limite fournisseur atteint (${code}).`, providerCode: code };
-  }
-  if (code === 3001) return { valid: false, status: "ERROR", message: "ACRCloud refuse l'Access Key. Rien n'a été activé.", providerCode: code };
-  if (code === 3014) return { valid: false, status: "ERROR", message: "ACRCloud refuse la signature : vérifie l'Access Secret. Rien n'a été activé.", providerCode: code };
-  if (code === 3000) return { valid: false, status: "ERROR", message: "ACRCloud signale un hôte/service incorrect. Rien n'a été activé.", providerCode: code };
-  return { valid: false, status: "ERROR", message: `ACRCloud n'a pas confirmé les credentials (${code}: ${providerMessage.slice(0, 140)}). Rien n'a été activé.`, providerCode: code };
 }
 
 async function setRecognitionRuntimeStatus(key: string, status: string, message: string | null) {
