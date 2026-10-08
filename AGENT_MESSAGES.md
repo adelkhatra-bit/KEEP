@@ -2880,3 +2880,34 @@ ON CONFLICT(track_id,theme_code) DO NOTHING;
 3. Mesure Solo/Battle clic→son après correction catalogue ; profondeur des styles restants.
 4. Soirées stories/repartage/Pulse, MP3, statistiques et promotion : décisions désormais dans IDEAS_INBOX, pas fonctionnalités livrées.
 5. App Store Connect, iPhone/capteurs et versions testeurs : accès non disponibles ; aucune acceptation Apple confirmée.
+
+
+### 08/10/2026 — Codex → Claude Code — correctif préparé, intégration et accès restants
+Statut : NOTE DÉPOSÉE, pas d’accusé de lecture ni de déclenchement automatique de Claude.
+
+Adel autorise toutes les réparations faisables et demande de laisser ici les actions nécessitant son ordinateur ou un humain. Respecter ses sessions, aucun logout, aucun verrou qui bloque l’autre agent.
+
+**Code fourni :** `docs/patches/2026-10-08-sessions-plus.patch`, commit `35b230e9f8a4d7f21afd7158e36984c93562e9be`. Patch NON APPLIQUÉ au produit ; relu distant byte-for-byte. Basé sur les fichiers produit de fa193cc5 (HEAD documentaire689d50c9). Ne pas écraser les travaux locaux : examiner le diff, puis appliquer uniquement si le contexte correspond.
+
+Contenu :
+- compteur basé sur toutes les sessions pending, pas tracks.length de l’écoute en cours ;
+- session active prioritaire sur son ancien instantané, sans double comptage ;
+- nombre de sessions dans badge, nombre de morceaux conservé pour les messages du robot ;
+- ClampedText réutilisé dans Découverte pour la description de soirée, Plus/Moins visible, accessibilité descriptive conservée ;
+-5 tests Jest joints (archive, résolus, snapshot périmé, session active, non-mutation).
+Vérification Codex : comportement ancien reproduit en échec ;5 cas exécutés avec le vrai helper transpillé,2 rendus React serveur de ClampedText,0 diagnostic syntaxique TypeScript. Premier harnais avait une cible ES5 inadéquate pour Map ; relancé en ES2020. Cela ne remplace PAS tsc du projet, Jest complet, export Expo et viewport.
+
+**À exécuter sur le poste, sans intervention humaine si l’environnement est prêt :**
+1. Lire état local/git et travaux Claude avant application. Actualiser contrat/spec et assertions de copie devenues obsolètes dans le même lot, sans réduire les gardes. Compléter les autres libellés En savoir plus visibles par Plus (inventaire dans journal ea955e81).
+2. Exécuter tests ciblés puis suite/typechecks requis, export et rendu390×844/1440×900. Patch UI à intégrer/publier uniquement après ces preuves. Aucun besoin d’une nouvelle API pour ces corrections.
+3. Micro : implémenter UNE barrière asynchrone commune arrêt reconnaissance → archivage idempotent → libération effective capture → navigation/lecture. Couvrir TopBar, robot, accès directs SessionHistory/SessionRecap. Retirer GARDER et la lecture automatique de la reconnaissance active, proposer Ma session ; garder les fonctions de tri dans les sessions. Ne pas faire simplement deux cancelAudioCapture successifs : le premier prend activeRecording et le second peut terminer avant son stopAndUnloadAsync.
+4. QR : priorité sécurité, faits dans journal ea955e81. Confirmation téléphone, secret navigateur distinct, claim atomique, register non réactivable après révocation, révocation ciblée serveur. Ne pas couper les sessions existantes et ne pas confondre generateLink avec envoi e-mail.
+5. Continuer les lots stories24h/audio réel, identité artistes Maes, performances Solo/Battle, bot secousse unique, statistiques/Pulse et soirées/MP3 selon IDEAS_INBOX. Ces lots ne sont PAS couverts par ce patch.
+6. Catalogue serveur déjà corrigé en production : SQL exact/résultats dans journal ea955e81. Générer le miroir migration depuis la CLI canonique ; ne pas rejouer aveuglément d’anciennes migrations ni écraser données utilisateur.
+
+**Humain / accès réellement nécessaires à la clôture :**
+- Poste Windows/copie canonique : non connecté à Desktop Commander côté Codex. Claude local pourra tester et intégrer sans demander de nouvelle clé.
+- iPhone/Android réel : routes micro/haut-parleur/écouteurs/Bluetooth, secousse, reprise arrière-plan, push, version réellement installée chez chaque testeur.
+- App Store Connect : lire la soumission, son statut review et les accords éventuels ; un build TestFlight ne prouve pas l’acceptation App Store. Approbations contractuelles éventuelles par le titulaire.
+- ACRCloud : dernier état constaté refuse Access Key ; vérifier hôte/projet/clé dans l’espace autorisé et tester un vrai échantillon. Ne pas supposer que toutes les API manquent et ne pas exposer les secrets. AudD/Stripe sont à qualifier avant achat/configuration, pas bloquants universels.
+- Aucun accès humain requis pour le badge, les libellés ou la correction de logique ; leur blocage ici est uniquement l’environnement canonique de compilation/rendu.
