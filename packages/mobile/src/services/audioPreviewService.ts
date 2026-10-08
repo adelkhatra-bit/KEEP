@@ -871,6 +871,7 @@ export async function preloadTrackPreviewSegment(
   key: string,
   previewUrl: string,
   positionMillis: number,
+  explicitPosition = false,
 ): Promise<void> {
   if (!previewUrl) return;
   if (canUseWebAudio()) {
@@ -894,7 +895,7 @@ export async function preloadTrackPreviewSegment(
       } catch {}
     }
     await discardPreloaded();
-    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    const effectivePosition = explicitPosition ? Math.max(0, positionMillis) : (positionMillis > 0 ? positionMillis : 9000);
     try {
       if (!activePlaying) await configurePreviewAudio();
       const sound = await createSoundWithRetry(previewUrl, effectivePosition, () => {}, false, !activePlaying);
@@ -920,6 +921,7 @@ export async function scheduleTrackPreviewSegment(
   durationMillis: number,
   startAtEpochMs: number,
   onStateChange?: (playing: boolean) => void,
+  explicitPosition = false,
 ): Promise<void> {
   const requestEpoch = ++playbackRequestEpoch;
   return serialize(async () => {
@@ -958,7 +960,7 @@ export async function scheduleTrackPreviewSegment(
             durationMillis,
             onStateChange,
             undefined,
-            true,
+            !explicitPosition,
             startAtEpochMs,
           );
         });
@@ -967,7 +969,7 @@ export async function scheduleTrackPreviewSegment(
     }
 
     await unloadActive();
-    const effectivePosition = positionMillis > 0 ? positionMillis : 9000;
+    const effectivePosition = explicitPosition ? Math.max(0, positionMillis) : (positionMillis > 0 ? positionMillis : 9000);
     const createdSound = await createSoundWithRetry(previewUrl, effectivePosition, (status, sound) => {
       if (!status.isLoaded) return;
       if (activeSound === sound) activeStateListener?.(status.isPlaying);

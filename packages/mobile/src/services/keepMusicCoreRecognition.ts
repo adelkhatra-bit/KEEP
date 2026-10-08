@@ -7,6 +7,7 @@ import { getSupabaseAccessToken, supabase } from './supabaseClient';
 import { getSharedMusicSource } from './sharedMusicSourceService';
 import { APP_NAME } from '../config/brand';
 import { updateRecognitionConsensus, type RecognitionConsensusState } from './recognitionConsensus';
+import { useUserStore } from '../store/useUserStore';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -539,6 +540,38 @@ export async function searchTrackByText(query: string): Promise<RecognitionResul
   } catch {
     return null;
   }
+
+}
+
+export async function browseRecognitionTracks(query: string): Promise<RecognitionResult[]> {
+  if (musicDemoMode() || !query.trim() || !configured(SUPABASE_URL) || !configured(SUPABASE_ANON_KEY)) return [];
+  const accessToken = await getSupabaseAccessToken();
+  const response = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/keep-music-keyless-source`, {
+    method: 'POST',
+    headers: { ...baseHeaders(accessToken), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: query.trim(), browse: true }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error('Recherche indisponible');
+  return Array.isArray(payload.candidates) ? payload.candidates : [];
+}
+
+export async function recordRecognitionCorrection(
+  correctionKey: string, proposed: CanonicalTrack, chosen: CanonicalTrack | null, engine: string,
+): Promise<void> {
+  if (!supabase || musicDemoMode()) return;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  if (!user || user.is_anonymous) return;
+  const { error } = await supabase.from('keep_recognition_corrections').upsert({
+    profile_id: user.id, correction_key: correctionKey,
+    proposed_track: proposed, chosen_track: chosen, engine,
+  }, { onConflict: 'profile_id,correction_key' });
+  if (error) throw error;
+}
+
+function musicDemoMode(): boolean {
+  return useUserStore.getState().isDemoMode || process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 }
 
 function fallbackKnownUnavailable() {

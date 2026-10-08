@@ -35,6 +35,9 @@ export interface CanonicalTrack {
 }
 
 export interface RecognitionResult {
+  /** Moteur et autres correspondances réellement proposées pour cet extrait. */
+  engine?: string;
+  alternatives?: RecognitionResult[];
   /** Confiance de reconnaissance, 0-1. */
   confidence: number;
   title: string;

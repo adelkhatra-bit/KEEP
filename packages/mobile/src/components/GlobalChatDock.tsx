@@ -913,7 +913,7 @@ export default function GlobalChatDock() {
         <Animated.View
           pointerEvents="box-none"
           {...robotSwipe.panHandlers}
-          style={[styles.robotSays, robotMessage.actions?.length ? styles.robotSaysWide : null, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -40 : 40, 0] }) }, { rotate: robotShake.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) }] }]}
+          style={[styles.robotSays, robotMessage.actions?.length ? styles.robotSaysWide : null, side === 'left' ? styles.chatNudgeLeft : styles.chatNudgeRight, { maxWidth: Math.max(0, Math.min(290, width - 96)), bottom: dockBottom + (unreadCount > 0 ? 58 : 7), opacity: robotBubble, transform: [{ translateX: robotBubble.interpolate({ inputRange: [0, 1], outputRange: [side === 'left' ? -12 : 12, 0] }) }] }]}
         >
           <TouchableOpacity
             testID="robot-says"

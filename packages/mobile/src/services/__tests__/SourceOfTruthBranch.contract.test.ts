@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '../../../../..');
 const guard = fs.readFileSync(path.join(root, 'scripts/verify-source-of-truth.cjs'), 'utf8');
 const canonical = 'reconcile/claude-main-20260825';
 
-function check(branch: string, containsProduct: boolean, env: Record<string, string> = {}) {
+function check(branch: string, commonHistory: boolean, env: Record<string, string> = {}) {
   const errors: string[] = [];
   vm.runInNewContext(guard, {
     __dirname: path.join(root, 'scripts'),
@@ -15,9 +15,9 @@ function check(branch: string, containsProduct: boolean, env: Record<string, str
       execFileSync: (command: string, args: string[]) => {
         if (command !== 'git') return '';
         if (args[0] === 'branch') return branch;
-        expect(args).toEqual(['merge-base', '--is-ancestor', `refs/remotes/origin/${canonical}`, 'HEAD']);
-        if (!containsProduct) throw new Error('Référence produit absente ou non intégrée');
-        return '';
+        expect(args).toEqual(['merge-base', `refs/remotes/origin/${canonical}`, 'HEAD']);
+        if (!commonHistory) throw new Error('Référence produit absente ou sans histoire commune');
+        return 'a'.repeat(40);
       },
     } : require(name),
     process: { env, execPath: process.execPath, exit: () => {} },
@@ -63,11 +63,11 @@ describe('source unique et branches de revue Copilot', () => {
   it('accepte toujours la branche produit', () => {
     expect(check(canonical, false, { GITHUB_REF_NAME: canonical })).toBe('');
   });
-  it('accepte uniquement une branche Copilot contenant le produit récupéré', () => {
+  it('accepte une branche Copilot avec une histoire canonique commune (option A)', () => {
     expect(check('copilot/fix-stories', true, { GITHUB_REF_NAME: 'copilot/fix-stories', GITHUB_BASE_REF: canonical })).toBe('');
   });
-  it('refuse une branche Copilot périmée ou sans référence canonique', () => {
-    expect(check('copilot/fix-stories', false)).toContain('AGENT BRANCH MUST CONTAIN');
+  it('refuse une branche Copilot sans référence ou histoire canonique commune', () => {
+    expect(check('copilot/fix-stories', false)).toContain('AGENT BRANCH MUST SHARE FETCHED CANONICAL HISTORY');
   });
   it('refuse main et les branches de preview, même si elles contiennent le produit', () => {
     for (const branch of ['main', 'web-preview', 'admin-preview', 'backup/test']) {

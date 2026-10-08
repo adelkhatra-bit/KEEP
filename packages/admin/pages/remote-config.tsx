@@ -42,6 +42,7 @@ const ECONOMY: Record<string, { group: 'GAINS' | 'SPEND' | 'BATTLE'; label: stri
   battle_solo_pack_small_free: { group: 'BATTLE', label: 'Prix petit', help: 'Prix du petit pack en FREE, retiré du solde à l’achat.' },
   battle_solo_pack_large_solos: { group: 'BATTLE', label: 'Grand pack', help: 'Nombre de parties SOLO ajoutées par le grand pack.' },
   battle_solo_pack_large_free: { group: 'BATTLE', label: 'Prix grand', help: 'Prix du grand pack en FREE, retiré du solde à l’achat.' },
+  battle_preview_start_sec: { group: 'BATTLE', label: 'Début extrait', help: 'Position dans le fichier audio, en secondes (0 à 20, défaut 12). Ce n’est pas un délai avant lecture. Même position en SOLO et en ligne.' },
 };
 
 /**
@@ -70,6 +71,7 @@ const FRIENDLY_LABELS: Record<string, string> = {
   battle_solo_pack_small_free: 'Battle SOLO · petit pack : prix en Free (retiré du solde du joueur à l’achat)',
   battle_solo_pack_large_solos: 'Battle SOLO · grand pack : nombre de Solos vendus',
   battle_solo_pack_large_free: 'Battle SOLO · grand pack : prix en Free (retiré du solde du joueur à l’achat)',
+  battle_preview_start_sec: 'Début extrait',
   growth_share_daily_cap: 'Partages comptés maximum / jour',
   growth_share_tier1_threshold: 'Partages · palier 1',
   growth_share_tier2_threshold: 'Partages · palier 2',
@@ -191,6 +193,7 @@ export default function RemoteConfig() {
         try { value = JSON.parse(raw); }
         catch { throw new Error('Valeur JSON invalide.'); }
       }
+      if (row.key === 'battle_preview_start_sec' && (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 20)) throw new Error('Position autorisée : 0 à 20 secondes.');
       const { error: rpcError } = await supabase.rpc('admin_remote_config_set', { p_key: row.key, p_value: value, p_description: row.description });
       if (rpcError) throw rpcError;
       setSavedNote((notes) => ({ ...notes, [row.key]: `Enregistré à ${new Date().toLocaleTimeString('fr-FR')}` }));
@@ -217,7 +220,7 @@ export default function RemoteConfig() {
             const numeric = typeof row.value === 'number';
             return <div key={row.key} style={{ background: '#110d19', border: '1px solid #302742', borderRadius: 14, padding: 14 }}>
               <div style={{ fontWeight: 900, marginBottom: 8, display: 'flex', alignItems: 'center' }}>{ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key.replace(/_/g, ' ')}{ECONOMY[row.key] && <Hint title={ECONOMY[row.key].label} text={ECONOMY[row.key].help}/>}</div>
-              {numeric ? <PresetPicker label={ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} value={Number(draftFor(row)) || 0} presets={PRESETS.limit} onChange={(v) => setDrafts((d) => ({ ...d, [row.key]: String(v ?? 0) }))} width={160} impact={(v) => `${ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} passera à ${v ?? 0} pour tous les utilisateurs, sans mise à jour de l’app. ${ECONOMY[row.key]?.help ?? row.description ?? ''}`} /> : longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
+              {numeric ? <PresetPicker label={ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} value={Number(draftFor(row)) || 0} presets={row.key === 'battle_preview_start_sec' ? [0, 5, 9, 12, 15, 20] : PRESETS.limit} onChange={(v) => setDrafts((d) => ({ ...d, [row.key]: String(v ?? 0) }))} width={160} impact={(v) => `${ECONOMY[row.key]?.label ?? FRIENDLY_LABELS[row.key] ?? row.key} passera à ${v ?? 0} pour tous les utilisateurs, sans mise à jour de l’app. ${ECONOMY[row.key]?.help ?? row.description ?? ''}`} /> : longText ? <textarea value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} rows={3} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} /> : <input type={numeric ? 'number' : 'text'} value={draftFor(row)} onChange={(e) => setDrafts((d) => ({ ...d, [row.key]: e.target.value }))} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }} />}
               {!ECONOMY[row.key] && row.description && <Hint text={<>{row.description}</>}/>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
                 <button onClick={() => void save(row)} disabled={savingKey === row.key} style={{ background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 800, cursor: savingKey === row.key ? 'wait' : 'pointer' }}>{savingKey === row.key ? '…' : 'Enregistrer'}</button>

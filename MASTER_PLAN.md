@@ -5,6 +5,18 @@
 
 ## Les 5 missions de gouvernance — état réel au 06/10/2026
 
+### Issue #50 — plan demandé le 08/10/2026
+Suivi autorisé par Adel (commentaire `6057745740`, option A) : aligner contrat/garde/nettoyage pour les PR Copilot vers reconcile uniquement, vérifier les contrôles locaux et distants, rapport « TEST MODE RÉEL ». Aucun nouveau module produit ni déploiement ; les contrôles `action_required` exigent l'autorisation GitHub.
+
+Suivi terminé en revue (`0c8413a`, fusion `fd2bbb8`, tests `f1ff0da`) : 1417 tests mobile + 19 music, typechecks et export/Chromium 390/1440 MODE RÉEL isolé réussis ; CodeQL Actions/JS zéro alerte. Reste l'approbation des runs GitHub (`37764066006`, etc.), puis leur exécution réelle et l'intégration/livraison autorisées. Revue automatique indisponible ; relecture ciblée sans problème significatif. Ne pas appeler les contrôles `action_required` une CI verte.
+1. Réutiliser reconnaissance/session : candidats réels, remplacement sans signal de goût du titre refusé, migration additive privée ; arrêt micro avant ouverture.
+2. Réutiliser Battle/Solo et Remote Config : départ 12 s borné 0–20, tour annulé sans point/FREE, exclusion après deux signalements.
+3. Corriger uniquement bandeau/pastille/bulle signalés ; tests Jest ciblés, export et navigateur 390/1440, gardes et revue. Aucune migration appliquée ni déploiement.
+
+État local : implémentation et validations ciblées terminées (1417 tests mobile, 19 music, typechecks, export, PostgreSQL isolé, Chromium 390/1440). Revue ciblée sans bug haute confiance après durcissement ; publication de revue et analyse automatique finales en cours. Migrations/fonctions, intégration canonique, CI produit et validation iPhone restent séparées ; détails et limites héritées dans `.context/activeContext.md`.
+
+Clôture : commit de revue `015aa964fa672b0b15ea324fd7607457f83745a2`, sans secret ; revue automatique indisponible et CodeQL incomplet (workflows zéro alerte, autres analyses expirées). Pas de nouvelle tâche lancée ; application SQL/Edge, intégration et livraison restent à autoriser/valider.
+
 ### Plan validé par Adel — IDEA-189 (06/10/2026)
 1. Conserver et vérifier les gardes Stories/Navigation déjà corrigés sur la revue basée sur `0138b4e5`.
 2. Étendre `/home/runner/work/KEEP/KEEP/packages/admin/pages/operations.tsx` : version.json canonique, dernière app signalée (pas parc installé), compteurs explicitement bornés ou RPC exact, rapport de preuves lecture seule.

@@ -1,5 +1,18 @@
 {
-  "version": "2026-10-07.01",
+  "version": "2026-10-08.01",
+  "listenRecognition": {
+    "correctionLabel": "Pas la bonne",
+    "alternativeLimit": 3,
+    "neverInventEngineCandidates": true,
+    "manualSearchRequiresKeyboard": false,
+    "rejectedTrackMustNotInfluenceTasteOrRediscoveryStats": true,
+    "correctionsTable": "keep_recognition_corrections",
+    "demoServerWrites": false,
+    "sessionStopsMicroBeforeNavigation": true,
+    "sessionExitRestartsMicro": false,
+    "activeBanner": "Écoute active",
+    "helpTrigger": "ⓘ"
+  },
   "adminReleaseEvidence": {
     "siteVersionUrl": "https://adelkhatra-bit.github.io/KEEP/version.json",
     "appVersionSource": "Dernier signalement natif app_problem_reports, jamais parc installé global",
@@ -603,6 +616,11 @@
     "neverApplyDuringGameReason": "Adel 02/10/2026 : une mise à jour (web ou OTA) ne s'installe jamais pendant un Solo ou un Battle en ligne -- recharger en pleine partie fait manquer des questions (3 absences = mise perdue). Elle attend la fin de la partie (useGameSessionStore) puis s'installe seule."
   },
   "battleAudioFairness": {
+    "previewStartConfigKey": "battle_preview_start_sec",
+    "previewStartDefaultSec": 12,
+    "previewStartRangeSec": [0, 20],
+    "noVoiceCancelsRoundWithoutFreeOrPoints": true,
+    "excludeTrackAfterReports": 2,
     "serverClockSource": "round.startedAt",
     "allPlayersUseSamePreviewPosition": true,
     "lateClientMustCatchUpToServerElapsedMs": true,

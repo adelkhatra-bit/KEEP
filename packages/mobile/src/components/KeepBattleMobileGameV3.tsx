@@ -46,6 +46,7 @@ import { robotSay } from '../services/robotCoachService';
 import { ProfileCertificationTier } from '../services/publicProfileStateService';
 import { colors } from '../theme/colors';
 import KeepModal from './KeepModal';
+import { activateBattleSoloRound, battlePreviewPositionMillis, loadBattlePreviewStartSec, reportBattleNoVoice } from '../services/keepBattleExperienceService';
 
 const ROUND_MS = 10000;
 const SOLO_SHOW_LIVE_PLAYERS = false;
@@ -454,6 +455,10 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const [soloAnswer, setSoloAnswer] = React.useState<string | null>(null);
   const [soloSelectedAnswer, setSoloSelectedAnswer] = React.useState<string | null>(null);
   const [soloScore, setSoloScore] = React.useState(0);
+  const [previewStartSec, setPreviewStartSec] = React.useState(12);
+  const [noVoiceBusy, setNoVoiceBusy] = React.useState(false);
+  const noVoiceInFlight = React.useRef(false);
+  const previewPosition = battlePreviewPositionMillis(previewStartSec);
   const [soloFinished, setSoloFinished] = React.useState(false);
   const [soloStartedAt, setSoloStartedAt] = React.useState(0);
   const [soloBefore, setSoloBefore] = React.useState<number | null>(null);
@@ -1004,7 +1009,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       // forcer un chargement frais.
       const attemptKey = attempt === 0 ? key : `${key}:retry${attempt}`;
       try {
-        await playTrackPreviewSegment(attemptKey, url, positionMillis, duration);
+        await playTrackPreviewSegment(attemptKey, url, positionMillis, duration, undefined, undefined, true);
         return true;
       } catch {
         await wait(220 + attempt * 180);
@@ -1295,13 +1300,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       await cancelAudioCapture().catch(() => {});
       if (!alive) return;
 
+      void activateBattleSoloRound(solo?.reportToken, soloIndex + 1, round.trackId).catch(() => {});
       // TestFlight : ne jamais multiplier les retries natifs. Un premier essai,
       // puis une ré-résolution de l'URL ; si les deux échouent, on remplace le
       // morceau au lieu de laisser les quatre réponses désactivées.
       let url = round.previewUrl;
       for (let cycle = 0; alive && cycle < 2; cycle += 1) {
         const cycleKey = cycle === 0 ? soloRoundPreviewKey(round.trackId, soloIndex) : `solo:${round.trackId}:${soloIndex}:fresh`;
-        const ok = await playVerified(cycleKey, url, ROUND_MS + 800, 0, 1);
+        const ok = await playVerified(cycleKey, url, ROUND_MS + 800, previewPosition, 1);
         if (!alive) return;
         if (ok) {
           if (soloIndex === 0 && !soloDailyConsumedRef.current) {
@@ -1340,7 +1346,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       if (!alive) return;
 
       const replacementKey = `${soloDailySessionTokenRef.current}:${soloIndex}`;
-      if (!soloAudioReplacementRef.current.has(replacementKey)) {
+      if (!solo?.reportToken && !soloAudioReplacementRef.current.has(replacementKey)) {
         soloAudioReplacementRef.current.add(replacementKey);
         try {
           const replacementPack = await loadKeepBattleSoloPack('MIX', roundCount, myPreferredThemes);
@@ -1370,7 +1376,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     };
     void start();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, soloAudioRetryNonce, playVerified, recordSoloAnswer, animateResult, roundCount, myPreferredThemes]);
+  }, [solo?.themeCode, soloIndex, solo?.rounds[soloIndex]?.trackId, solo?.rounds[soloIndex]?.previewUrl, soloAudioRetryNonce, playVerified, recordSoloAnswer, animateResult, roundCount, myPreferredThemes, previewPosition]);
 
   const soloRemaining = soloStartedAt ? Math.max(0, ROUND_MS - (now - soloStartedAt)) : ROUND_MS;
   const displayedSoloRemaining = soloRemaining;
@@ -1397,7 +1403,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   // mettent plus en pause la musique, le chrono ou les réponses.
 
   React.useEffect(() => {
-    if (!solo || !audioReady || soloAnswer) return;
+    if (!solo || !audioReady || soloAnswer || noVoiceInFlight.current) return;
     // Adel (02/09/2026) : lit soloStartedAtRef (toujours à jour de façon
     // synchrone) plutôt que displayedSoloRemaining -- ce dernier peut encore
     // porter la valeur figée du rendu PRÉCÉDENT au moment précis où la manche
@@ -1419,14 +1425,14 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     // Première manche : l'extrait se télécharge pendant la préparation de la partie.
     if (!audioReady && soloIndex === 0 && !soloAnswer) {
       const first = solo.rounds[0];
-      if (first?.previewUrl) void preloadTrackPreviewSegment(soloRoundPreviewKey(first.trackId, 0), first.previewUrl, 0).catch(() => {});
+      if (first?.previewUrl) void preloadTrackPreviewSegment(soloRoundPreviewKey(first.trackId, 0), first.previewUrl, previewPosition, true).catch(() => {});
       return;
     }
     if (!audioReady || soloAnswer) return;
     const nextRound = solo.rounds[soloIndex + 1];
     if (!nextRound?.previewUrl) return;
-    void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, 0).catch(() => {});
-  }, [solo, audioReady, soloIndex]);
+    void preloadTrackPreviewSegment(soloRoundPreviewKey(nextRound.trackId, soloIndex + 1), nextRound.previewUrl, previewPosition, true).catch(() => {});
+  }, [solo, audioReady, soloIndex, previewPosition]);
   React.useEffect(() => {
     if (!solo || !soloAnswer) return undefined;
     // Une réponse coupe immédiatement l'extrait courant et préchauffe N+1
@@ -1439,7 +1445,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         void preloadTrackPreviewSegment(
           soloRoundPreviewKey(nextRound.trackId, soloIndex + 1),
           nextRound.previewUrl,
-          0,
+          previewPosition,
+          true,
         ).catch(() => {});
       }
     }
@@ -1473,6 +1480,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         // a déjà été appelé. Solution: enregistrer l'historique AVANT de créditer.
         // (19/09/2026) AUDIT: Ne jamais avaler les erreurs - elles doivent être visibles.
         (async () => {
+          if (!canLoadAuthenticatedBattleCredit()) return;
           const freeEarned = freeEarnedForSoloScore(soloScore, solo.rounds.length);
           if (soloBefore !== null && supabase) {
             // Étape 1: enregistrer d'abord la ligne d'historique (le RPC de crédit la cherchera)
@@ -1731,7 +1739,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
         await scheduleTrackPreviewSegment(
           `arena:${arena.id}:${arena.matchNo}:${round.position}`,
           previewUrl,
-          0,
+          previewPosition,
           duration,
           localTargetStart,
           (playing) => {
@@ -1740,6 +1748,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
               setAudioReady(true);
             }
           },
+          true,
         );
       } catch {
         if (!alive) return;
@@ -1748,7 +1757,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           `arena-fallback:${arena.id}:${arena.matchNo}:${round.position}`,
           previewUrl,
           Math.max(700, closesAt - serverNow() + 500),
-          9000 + lateByMs,
+          battlePreviewPositionMillis(previewStartSec, lateByMs),
         );
         if (alive && ok) {
           confirmed = true;
@@ -1768,7 +1777,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
           `arena-safety:${arena.id}:${arena.matchNo}:${round.position}`,
           previewUrl,
           Math.max(700, closesAt - serverNow() + 500),
-          9000 + lateByMs,
+          battlePreviewPositionMillis(previewStartSec, lateByMs),
         );
         if (alive && ok) {
           confirmed = true;
@@ -1779,7 +1788,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
     void run();
     return () => { alive = false; void stopTrackPreview(); };
-  }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.previewUrl, arena?.round?.startedAt, arena?.round?.closesAt, playVerified]);
+  }, [arena?.id, arena?.status, arena?.matchNo, arena?.round?.position, arena?.round?.previewUrl, arena?.round?.startedAt, arena?.round?.closesAt, playVerified, previewPosition, previewStartSec]);
   React.useEffect(() => {
     if (!arena?.round?.revealed) return;
     void stopTrackPreview(); animateResult();
@@ -2628,7 +2637,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
 
   const answerSolo = (choice: string) => {
     const round = solo?.rounds[soloIndex];
-    if (!round || !audioReady || !soloStartedAt || soloAnswer) return;
+    if (!round || !audioReady || !soloStartedAt || soloAnswer || noVoiceInFlight.current) return;
     // Temps réel exact au moment de l'appui, pas le `now` d'état qui ne se
     // rafraîchit que toutes les 100ms -- une réponse tapée en vrai avant
     // l'échéance ne doit jamais être refusée à cause de ce retard d'affichage.
@@ -2645,6 +2654,44 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
     recordSoloAnswer(isCorrect ? 'CORRECT' : 'INCORRECT');
     if (isCorrect) setSoloScore((v) => v + 1);
     animateResult();
+  };
+
+  const reportNoVoice = async () => {
+    if (noVoiceInFlight.current) return;
+    const currentSolo = solo?.rounds[soloIndex];
+    const currentArena = arena?.round;
+    if (solo ? (!currentSolo || soloAnswer || !audioReady) : (!arena || arena.status !== 'ACTIVE' || !currentArena || currentArena.revealed || currentArena.answered || pending)) return;
+    noVoiceInFlight.current = true;
+    setNoVoiceBusy(true);
+    try {
+      if (!canLoadAuthenticatedBattleCredit()) {
+        // Démo : remplacer localement, sans signalement ni écriture serveur.
+        if (solo && currentSolo) {
+          const replacement = solo.rounds.find((item, index) => index > soloIndex && item.trackId !== currentSolo.trackId);
+          if (replacement) {
+            stopTrackPreviewFast();
+            setSolo((previous) => previous ? { ...previous, rounds: previous.rounds.map((item, index) => index === soloIndex ? replacement : item) } : previous);
+          }
+        }
+        return;
+      }
+      if (solo && currentSolo) await activateBattleSoloRound(solo.reportToken, soloIndex + 1, currentSolo.trackId);
+      const result = await reportBattleNoVoice(solo && currentSolo ? {
+        position: soloIndex + 1, reportToken: solo.reportToken, trackId: currentSolo.trackId,
+      } : {
+        arenaId: arena!.id, matchNo: arena!.matchNo, position: currentArena!.position, startedAt: currentArena!.startedAt,
+      });
+      stopTrackPreviewFast();
+      if (solo && result?.round) {
+        discardPreloadedTrackPreview();
+        setSolo((previous) => previous ? { ...previous, rounds: previous.rounds.map((item, index) => index === soloIndex ? result.round : item) } : previous);
+      } else if (arena && result?.id) setArena(result);
+    } catch {
+      Alert.alert('Pas de voix', 'Signalement indisponible. Réessaie.');
+    } finally {
+      noVoiceInFlight.current = false;
+      setNoVoiceBusy(false);
+    }
   };
 
   // Adel (01/09/2026) : "même si l'utilisateur a mis non pour l'enregistrement
@@ -2777,7 +2824,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   }, [arena?.status, arena?.roundCount, closeBattleArenaNow]);
 
   const answerArena = async (choice: string) => {
-    if (!arena || arena.status !== 'ACTIVE' || !audioReady || arena.round?.answered || arena.round?.revealed || pending) return;
+    if (!arena || arena.status !== 'ACTIVE' || !audioReady || arena.round?.answered || arena.round?.revealed || pending || noVoiceInFlight.current) return;
     const startsAt = arena.round?.startedAt ? new Date(arena.round.startedAt).getTime() : 0;
     const closesAt = arena.round?.closesAt ? new Date(arena.round.closesAt).getTime() : 0;
     const sharedNow = keepBattleServerNowMs();
@@ -2803,6 +2850,15 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
   const Avatar = ({ name, url, size = 44 }: { name: string; url?: string | null; size?: number }) => url
     ? <Image source={{ uri: url }} style={{ width: size, height: size, borderRadius: size / 2 }} />
     : <View style={[s.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}><Text style={s.avatarLetter}>{initial(name)}</Text></View>;
+
+  React.useEffect(() => {
+    if (solo || arena) return undefined;
+    let alive = true;
+    void loadBattlePreviewStartSec().then((value) => { if (alive) setPreviewStartSec(value); });
+    return () => { alive = false; };
+  }, [Boolean(solo), Boolean(arena)]);
+
+  const noVoiceButton = <TouchableOpacity testID="battle-no-voice" accessibilityRole="button" accessibilityLabel="Pas de voix" disabled={noVoiceBusy} onPress={() => { void reportNoVoice(); }} style={[s.finishSecondary, { minHeight: 48 }]}><Text style={s.finishSecondaryText}>{noVoiceBusy ? '…' : 'Pas de voix'}</Text></TouchableOpacity>;
 
   if (solo) {
     const round = solo.rounds[soloIndex];
@@ -2939,6 +2995,7 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       <Animated.View style={[s.card, s.soloCardActive, { minHeight: soloRoundCardMinHeight }, { transform: [{ scale: pulse }] }]}>
         <View testID="battle-solo-artwork-square" style={[s.visual, s.soloVisual, { maxHeight: soloVisualMax, maxWidth: soloVisualMax }]}>{answered && round.artworkUrl ? <RevealArtwork uri={round.artworkUrl} /> : <EqualizerBars />}{!answered ? <><View pointerEvents="none" style={s.roundQuestionPillWrap}><Text style={s.roundQuestionPill}>QUI CHANTE ?</Text></View><View pointerEvents="none" style={s.roundEncouragementOverlay}><Text style={s.roundEncouragementText}>{soloIndex === 0 && !audioReady ? `🏁 Tu tentes l’aventure : trouve les ${solo.rounds.length} artistes pour gagner jusqu’à ${maxRewardForRounds(solo.rounds.length)} Free !` : soloEncouragement(soloIndex, solo.rounds.length)}</Text></View></> : null}{answered ? <View style={s.result}><Text style={correct ? s.good : s.bad}>{correct ? 'GAGNÉ !' : timeout ? 'OUPS · TROP TARD' : 'PERDU'}</Text><Text style={s.artist}>{round.artist}</Text></View> : null}</View>
         <View style={s.clockRow}><Text style={[s.clock, audioReady && soloRemaining < 2200 && s.clockHot]}>{audioReady ? `${(displayedSoloRemaining / 1000).toFixed(1)}s` : 'PRÊT'}</Text><Text style={s.clockHint}>{audioReady ? 'RÉPONDS VITE' : 'SON EN CHARGEMENT'}</Text></View>
+        {audioReady && !answered ? noVoiceButton : null}
         <View style={s.timeTrack}><View style={[s.timeFill, { width: `${pct}%` }]} /></View>
         {/* SOLO verrouillé : invitations et revanches restent en file serveur
             et sont proposées seulement après la partie. Aucun popup ne peut
@@ -3398,7 +3455,8 @@ export default function KeepBattleMobileGameV3({ enabled, onOpenProfile, onRequi
       {/* Adel (05/09/2026) : quatre réponses alignées en solo et en ligne.
           Le serveur complète chaque manche avec un quatrième artiste réel ;
           les quatre boutons conservent la grille 2 × 2 existante. */}
-      {!round.answered && arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount)) ? <Text style={s.arenaMissWarn} accessibilityRole="alert">{arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount))}</Text> : null}<View style={[s.answers, s.arenaAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.artist || '', (value) => value); if (answers.length < 4) console.warn(`[Battle ARENA] ${answers.length} < 4 réponses à la manche ${arena.currentRound}/${arena.roundCount}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.artist || '', round.myAnswer?.selectedAnswer ?? null, Boolean(round.myAnswer)); return <TouchableOpacity key={choice} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={Boolean(!ready || round.answered || round.revealed || pending || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>; }); })()}</View>
+      {ready && !round.answered && !round.revealed && left > 0 ? noVoiceButton : null}
+      {!round.answered && arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount)) ? <Text style={s.arenaMissWarn} accessibilityRole="alert">{arenaMissWarning(arenaMissStreak, stakeForRounds(arena.roundCount))}</Text> : null}<View style={[s.answers, s.arenaAnswersActive]}>{(() => { const answers = dedupeAnswerChoices(round.choices || [], round.artist || '', (value) => value); if (answers.length < 4) console.warn(`[Battle ARENA] ${answers.length} < 4 réponses à la manche ${arena.currentRound}/${arena.roundCount}`); return answers.map((choice, i) => { const label = answerChoiceLabel(choice, answers); const state = answerVisualState(choice, round.artist || '', round.myAnswer?.selectedAnswer ?? null, Boolean(round.myAnswer)); return <TouchableOpacity key={choice} accessibilityLabel={state === 'correct' ? `${label}, bonne réponse` : state === 'wrong' ? `${label}, mauvaise réponse` : label} disabled={Boolean(!ready || round.answered || round.revealed || pending || noVoiceBusy || left <= 0)} onPress={() => { void answerArena(choice); }} style={[s.answer, (round.myAnswer?.selectedAnswer === choice || pending === choice) && !round.myAnswer && s.answerSelected, state === 'correct' && s.answerCorrect, state === 'wrong' && s.answerWrong]}><Text style={[s.answerNo, state === 'correct' && s.answerNoCorrect, state === 'wrong' && s.answerNoWrong]}>{state === 'correct' ? '✓' : state === 'wrong' ? '✕' : i + 1}</Text><Text numberOfLines={1} ellipsizeMode="tail" style={[s.answerText, state === 'correct' && s.answerTextCorrect]}>{label}</Text>{choice === round.myAnswer?.selectedAnswer && round.myAnswer?.responseMs != null ? <Text style={s.answerTime}>{(round.myAnswer.responseMs / 1000).toFixed(1)}s</Text> : null}</TouchableOpacity>; }); })()}</View>
       {arena.status !== 'ACTIVE' && players.length > 2 ? <View style={s.groupStandings}><TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: groupStandingsOpen }} style={s.groupStandingsToggle} onPress={() => setGroupStandingsOpen((v) => !v)}><Text style={s.groupStandingsTitle}>{players.length} JOUEURS · PRÊT</Text><Text style={s.groupStandingsChevron}>{groupStandingsOpen ? '⌃' : '⌄'}</Text></TouchableOpacity>{groupStandingsOpen ? (() => { const top = players.slice(0, 5); const meId = arena.me?.profileId; const meVisible = !meId || top.some((p) => p.profileId === meId); const mePlayer = meId ? players.find((p) => p.profileId === meId) : null; const visible = meVisible || !mePlayer ? top : [...top, mePlayer]; const hidden = players.length - visible.length; return <>{visible.map((player) => { const rank = players.findIndex((p) => p.profileId === player.profileId); return <TouchableOpacity key={player.profileId} style={[s.groupStandingRow, rank === 0 && s.groupStandingRowLead]} onPress={() => onOpenProfile(player.username)}><Text style={s.groupStandingRank}>{rank === 0 ? '👑' : `#${rank + 1}`}</Text><Text style={s.groupStandingName} numberOfLines={1}>{player.username}</Text><Text style={s.groupStandingScore}>{Number(player?.score || 0)} pts</Text></TouchableOpacity>; })}{hidden > 0 ? <Text style={s.groupStandingsMore}>+{hidden} autre{hidden > 1 ? 's' : ''}</Text> : null}</> })() : null}</View> : null}
       </Animated.View></> : null}
       </ScrollView>

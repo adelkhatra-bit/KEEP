@@ -13,25 +13,43 @@ if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedR
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
 }
 // Une branche Copilot est une branche de revue, jamais une source de publication.
-// Elle doit contenir la référence produit récupérée avant toute validation.
+// Une revue peut être en retard sur la source canonique ; la CI teste aussi
+// le commit de fusion détaché d'une PR, sans référence distante dans le clone.
 let verifiedAgentBranch = '';
+let verifiedPullRequest = false;
+const isCopilotPullRequest = process.env.GITHUB_EVENT_NAME === 'pull_request'
+  && process.env.GITHUB_HEAD_REF?.startsWith('copilot/');
 try {
   const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
-  if (localBranch.startsWith('copilot/')) {
+  if (isCopilotPullRequest) {
+    const pr = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request;
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    verifiedPullRequest = Boolean(pr
+      && pr.base?.repo?.full_name === expectedRepository
+      && pr.head?.repo?.full_name === expectedRepository
+      && pr.base.ref === expectedBranch
+      && pr.head.ref.startsWith('copilot/')
+      && process.env.GITHUB_BASE_REF === pr.base.ref
+      && process.env.GITHUB_HEAD_REF === pr.head.ref
+      && (head === pr.head.sha || head === pr.merge_commit_sha));
+    if (!verifiedPullRequest) failures.push('INVALID AGENT REVIEW: canonical PR base and checked-out SHA required');
+    else verifiedAgentBranch = pr.head.ref;
+  } else if (localBranch.startsWith('copilot/')) {
     try {
-      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
+      execFileSync('git', ['merge-base', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
       verifiedAgentBranch = localBranch;
     } catch {
-      failures.push('AGENT BRANCH MUST CONTAIN FETCHED CANONICAL SOURCE');
+      failures.push('AGENT BRANCH MUST SHARE FETCHED CANONICAL HISTORY');
     }
   }
   if (localBranch && localBranch !== expectedBranch && localBranch !== verifiedAgentBranch) failures.push(`WRONG LOCAL BRANCH: ${localBranch}`);
 } catch {
+  if (isCopilotPullRequest) failures.push('INVALID AGENT REVIEW METADATA');
   // Source archives / CI environments without git metadata still use the explicit
   // repository + branch guards above.
 }
 
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
+if (!verifiedPullRequest && process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
 if (verifiedAgentBranch && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
@@ -99,6 +117,13 @@ for (const forbidden of [
 }
 
 const branchContract = JSON.parse(fs.readFileSync(path.join(root, 'BRANCH_SOURCE_OF_TRUTH.json'), 'utf8'));
+if (!branchContract.allowedRemoteBranches?.includes('copilot/*')
+  || branchContract.forbiddenRemoteBranches?.includes('copilot/*')
+  || branchContract.reviewBranchPolicy?.pattern !== 'copilot/*'
+  || branchContract.reviewBranchPolicy?.requiredBaseBranch !== expectedBranch
+  || branchContract.reviewBranchPolicy?.deploymentAllowed !== false) {
+  failures.push('COPILOT REVIEW POLICY MUST TARGET CANONICAL WITHOUT DEPLOYMENT');
+}
 for (const [key, expected] of Object.entries({
   repository: expectedRepository,
   canonicalBranch: expectedBranch,

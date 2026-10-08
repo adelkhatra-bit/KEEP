@@ -413,12 +413,16 @@ async function identify(req: Request) {
 
   await setFallbackRuntimeStatus("ACTIVE", null);
 
-  const music = Array.isArray(body?.metadata?.music) ? body.metadata.music[0] : null;
+  const matches = Array.isArray(body?.metadata?.music) ? body.metadata.music : [];
+  const music = matches[0] ?? null;
+  const alternatives = (await Promise.all(matches.slice(1, 4).map(normalizeAcrMusic))).filter(Boolean);
   const rawScore = Number(music?.score ?? 100);
   console.log("keep-music-fallback diag", JSON.stringify({ statusCode, hasMusic: Boolean(music), rawScore, title: music?.title ?? null, artist: first(music?.artists)?.name ?? music?.artist ?? null, minAcrScore: MIN_ACR_SCORE }));
   if (music && Number.isFinite(rawScore) && rawScore < MIN_ACR_SCORE) {
     const normalized = rawScore >= MIN_REPEAT_CANDIDATE_SCORE ? await normalizeAcrMusicWithEvidence(music) : null;
-    const candidateRecognition = normalized?.recognition ?? null;
+    const candidateRecognition = normalized?.recognition
+      ? { ...normalized.recognition, engine: "ACRCloud", alternatives }
+      : null;
     const catalogCorroborated = Boolean(
       candidateRecognition
       && normalized?.exactCatalogMatch
@@ -442,7 +446,8 @@ async function identify(req: Request) {
       recognitionEvidence: normalized?.exactCatalogMatch ? "catalog_exact_below_threshold" : "repeat_required",
     });
   }
-  const acrRecognition = await normalizeAcrMusic(music);
+  const normalizedRecognition = await normalizeAcrMusic(music);
+  const acrRecognition = normalizedRecognition ? { ...normalizedRecognition, engine: "ACRCloud", alternatives } : null;
   if (acrRecognition) {
     const listenRecord = await recordListenEconomy(req, userId, identityHash, listenSourceKey);
     if (listenRecord?.recorded === false) return economyBlocked(listenRecord?.reason);

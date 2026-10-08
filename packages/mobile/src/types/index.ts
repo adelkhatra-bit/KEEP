@@ -65,6 +65,11 @@ export interface SessionTrackEntry {
   recommendations: RoutingRecommendation[];
   status: SessionTrackStatus;
   detectedAt: string;
+  recognitionEngine?: string;
+  recognitionAlternatives?: import('@keep/music').RecognitionResult[];
+  recognitionCorrectionKey?: string;
+  recognitionPending?: boolean;
+  rejectedRecognitions?: CanonicalTrack[];
   keptPlaylistId?: string;
   /** PUBLIC = visible sur le profil partagé ; PRIVATE = gardé uniquement pour soi. */
   visibility?: KeepVisibility;

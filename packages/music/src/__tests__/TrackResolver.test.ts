@@ -51,3 +51,11 @@ describe('TrackResolver', () => {
     expect(found?.id).toBe(track.id);
   });
 });
+it('respecte le choix explicite sans fusionner deux titres similaires', () => {
+  const resolver = new TrackResolver();
+  const first = resolver.resolveFromRecognition({ title: 'Autre titre 1', artist: 'Autre artiste 1', confidence: 1 });
+  const chosen = resolver.resolveFromRecognition({ title: 'Autre titre 2', artist: 'Autre artiste 2', confidence: 1 }, undefined, { exactMetadata: true });
+  expect(chosen.id).not.toBe(first.id);
+  expect(chosen.title).toBe('Autre titre 2');
+  expect(resolver.resolveFromRecognition({ title: 'Autre titre 2', artist: 'Autre artiste 2', confidence: 1 }, undefined, { exactMetadata: true }).id).toBe(chosen.id);
+});

@@ -1,5 +1,11 @@
 import { coalesced, throttledBeat } from './coalesce';
 import { supabase } from './supabaseClient';
+import { useUserStore } from '../store/useUserStore';
+
+const localBattleOnly = () => {
+  const state = useUserStore.getState();
+  return Boolean(state.isDemoMode || state.isLocalGuest || !state.user?.id);
+};
 
 export type KeepBattleLivePlayer = {
   profileId: string;
@@ -64,6 +70,7 @@ function str(row: any, camel: string, snake: string, fallback = '') {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function heartbeatSoloBattle(themeCode: string, roundIndex?: number, roundTotal?: number): Promise<void> {
+  if (localBattleOnly()) return;
   const { error } = await client().rpc('keep_battle_solo_heartbeat', { p_theme_code: themeCode || 'MIX', p_round_index: roundIndex ?? null, p_round_total: roundTotal ?? null });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_HEARTBEAT_FAILED'));
 }
@@ -74,11 +81,13 @@ export async function heartbeatSoloBattle(themeCode: string, roundIndex?: number
 // keep_battle_set_manual_available). Utilisée globalement, pas seulement
 // depuis l'écran Battle.
 export async function setManualBattleAvailability(available: boolean, themeCode = 'MIX'): Promise<void> {
+  if (localBattleOnly()) return;
   const { error } = await client().rpc('keep_battle_set_manual_available', { p_available: available, p_theme_code: themeCode || 'MIX' });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_AVAILABILITY_FAILED'));
 }
 
 export async function pingManualBattleAvailability(): Promise<void> {
+  if (localBattleOnly()) return;
   // Un battement toutes les 15 s au plus, même si plusieurs écrans le demandent ensemble (8 envois mesurés à l'ouverture du profil).
   return throttledBeat('manual-availability-ping', 15000, async () => {
     const { error } = await client().rpc('keep_battle_manual_availability_ping');
@@ -98,6 +107,7 @@ export function getManualBattleAvailability(): Promise<boolean> {
 
 
 export async function leaveSoloBattle(): Promise<void> {
+  if (localBattleOnly()) return;
   const { error } = await client().rpc('keep_battle_solo_leave');
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_LEAVE_FAILED'));
 }
@@ -148,6 +158,7 @@ export async function loadMyMatchPreferences(): Promise<KeepBattleMatchPreferenc
 }
 
 export async function saveMyMatchPreferences(themeCodes: string[], roundCount: number): Promise<KeepBattleMatchPreferences> {
+  if (localBattleOnly()) return { themeCodes: normalizePreferredThemeCodes(themeCodes), roundCount };
   const normalizedThemes = normalizePreferredThemeCodes(themeCodes);
   const { data, error } = await client().rpc('keep_battle_save_match_preferences', { p_theme_codes: normalizedThemes, p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_PREFS_SAVE_FAILED'));
@@ -162,12 +173,14 @@ export async function saveMyMatchPreferences(themeCodes: string[], roundCount: n
 // alimenter le palier serveur (keep_battle_skill_tier) utilisé pour bloquer
 // un défi entre deux joueurs trop éloignés en niveau.
 export async function reportSoloBattleResult(correct: number, total: number): Promise<void> {
+  if (localBattleOnly()) return;
   if (!(total > 0)) return;
   const { error } = await client().rpc('keep_battle_solo_report_result', { p_correct: correct, p_total: total });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_SOLO_REPORT_FAILED'));
 }
 
 export async function sendBattleChallenge(targetId: string, themeCode: string, roundCount = 8): Promise<{ id: string; status: string; expiresAt?: string }> {
+  if (localBattleOnly()) throw new Error('BATTLE_AUTH_REQUIRED');
   const { data, error } = await client().rpc('keep_battle_challenge_send', { p_target_id: targetId, p_theme_code: themeCode || 'MIX', p_round_count: Math.max(5, Math.min(Math.round(roundCount) || 8, 30)) });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_FAILED'));
   return {
@@ -178,6 +191,7 @@ export async function sendBattleChallenge(targetId: string, themeCode: string, r
 }
 
 export async function sendBattleArenaChallenge(arenaId: string, targetId: string): Promise<{ id: string; status: string; arenaId?: string | null; arenaCode?: string | null; expiresAt?: string }> {
+  if (localBattleOnly()) throw new Error('BATTLE_AUTH_REQUIRED');
   const { data, error } = await client().rpc('keep_battle_arena_challenge_send', { p_arena_id: arenaId, p_target_id: targetId });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_ARENA_CHALLENGE_FAILED'));
   return {
@@ -221,6 +235,7 @@ export async function loadOutgoingBattleChallenges(): Promise<KeepBattleOutgoing
 }
 
 export async function cancelBattleChallenge(challengeId: string): Promise<{ status: 'CANCELLED'; targetId?: string | null }> {
+  if (localBattleOnly()) throw new Error('BATTLE_AUTH_REQUIRED');
   const { data, error } = await client().rpc('keep_battle_challenge_cancel', { p_challenge_id: challengeId });
   if (error) throw new Error(String(error.message || 'KEEP_BATTLE_CHALLENGE_CANCEL_FAILED'));
   return {
@@ -230,6 +245,7 @@ export async function cancelBattleChallenge(challengeId: string): Promise<{ stat
 }
 
 export async function respondBattleChallenge(challengeId: string, accept: boolean): Promise<{ status: string; arenaId?: string | null; arenaCode?: string | null; arenaState?: any | null }> {
+  if (localBattleOnly()) throw new Error('BATTLE_AUTH_REQUIRED');
   // Un refus est volontairement séparé de l'ancienne RPC générique.
   // Les anciennes builds qui envoient accidentellement p_accept=false ne
   // peuvent ainsi plus transformer une invitation PENDING en DECLINED.

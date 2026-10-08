@@ -18,6 +18,6 @@ export class DemoRecognitionProvider implements MusicRecognitionProvider {
 
   async recognize(_audioSample: ArrayBuffer | Blob): Promise<RecognitionResult | null> {
     const pick = DEMO_CATALOG[Math.floor(Math.random() * DEMO_CATALOG.length)];
-    return pick;
+    return { ...pick, engine: 'demo', alternatives: DEMO_CATALOG.filter((track) => track !== pick) };
   }
 }

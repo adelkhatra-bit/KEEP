@@ -35,6 +35,28 @@ must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
 
+const listen = fs.readFileSync(path.join(root, 'packages/mobile/src/screens/HomeScreenCompact.tsx'), 'utf8');
+const sessionStore = fs.readFileSync(path.join(root, 'packages/mobile/src/store/useSessionStore.ts'), 'utf8');
+const micCapture = fs.readFileSync(path.join(root, 'packages/mobile/src/services/micCapture.ts'), 'utf8');
+must(contract.listenRecognition?.alternativeLimit === 3, 'recognition alternative limit changed');
+must(contract.listenRecognition?.manualSearchRequiresKeyboard === false, 'recognition must not require keyboard');
+must(contract.listenRecognition?.demoServerWrites === false, 'demo correction writes forbidden');
+must(uiBaseline.listenRecognition?.activeBanner === contract.listenRecognition?.activeBanner
+  && uiBaseline.listenRecognition?.helpTrigger === contract.listenRecognition?.helpTrigger
+  && uiBaseline.listenRecognition?.correctionLabel === contract.listenRecognition?.correctionLabel, 'listen UI baseline disagrees with product contract');
+must(listen.includes('Pas la bonne') && listen.includes('listen-fixed-banner') && listen.includes('ⓘ'), 'listen correction/banner/help missing');
+must(!listen.includes('<TextInput'), 'listen search must use selections, not a keyboard');
+must(sessionStore.includes('await captureStopPromise;') && sessionStore.includes('open(sessionId);'), 'SESSION must wait for microphone release');
+must(micCapture.includes('await Promise.allSettled(capturesToStop);')
+  && micCapture.includes('generationAtStop !== captureGeneration'), 'microphone stop must drain pending acquisition without cancelling a newer start');
+must(sessionStore.includes('exactMetadata: true') && sessionStore.includes('keepInFlight.has(entryId)'), 'explicit correction must not merge fuzzy titles or race a KEEP');
+must(!sessionStore.includes('await markDirectRediscovery('), 'unconfirmed recognition must not create rediscovery stats');
+must(contract.battleAudioFairness?.previewStartConfigKey === 'battle_preview_start_sec'
+  && contract.battleAudioFairness?.previewStartDefaultSec === 12
+  && JSON.stringify(contract.battleAudioFairness?.previewStartRangeSec) === '[0,20]', 'Battle preview position contract changed');
+must(contract.battleAudioFairness?.excludeTrackAfterReports === 2
+  && contract.battleAudioFairness?.noVoiceCancelsRoundWithoutFreeOrPoints === true, 'Battle no-voice protection changed');
+
 must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
 must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must stay out of profile type row');
 must(contract.profileOwner.freeImmediatelyAfterReprises === true, 'FREE must stay immediately after Reprises');

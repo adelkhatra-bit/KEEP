@@ -23,7 +23,9 @@ describe('Loki vertical swipe contract', () => {
 
   it('maps upward swipe to the next detected track in Listen while keeping buttons', () => {
     expect(home).toContain('onSwipeUp={canGoOlder ? goOlder : undefined}');
-    expect(home).toContain('hint="Swipe facultatif : ↑ suivant · ← passer · garder →"');
+    expect(home).toContain('hint="↑ suivant · ← passer · fiche →"');
+    expect(home).toContain('rightLabel="FICHE"');
+    expect(home).toContain('accessibilityLabel="Pas la bonne"');
     expect(home).toContain('accessibilityLabel="Passer ce morceau"');
     expect(home).toContain('accessibilityLabel="Garder ce morceau"');
   });

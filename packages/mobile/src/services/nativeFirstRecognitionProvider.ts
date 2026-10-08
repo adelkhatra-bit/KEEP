@@ -47,9 +47,9 @@ export class NativeFirstRecognitionProvider implements MusicRecognitionProvider 
     // free fast paths. Start them together; the first trustworthy match wins.
     // Paid/server providers start only if every fast path returned no match.
     const fast = await firstRecognition([
-      recognizeWithNativeShazam(audioSample),
-      recognizeWithKeepMemoryFast(audioSample),
-      recognizeSharedSourceKeyless(),
+      recognizeWithNativeShazam(audioSample).then((result) => result ? { ...result, engine: 'ShazamKit' } : null),
+      recognizeWithKeepMemoryFast(audioSample).then((result) => result ? { ...result, engine: 'Loki Memory' } : null),
+      recognizeSharedSourceKeyless().then((result) => result ? { ...result, engine: 'KEYLESS_SOURCE' } : null),
     ]);
     if (fast) {
       noteSuccessfulRecognitionForPaidSuppression(fast);

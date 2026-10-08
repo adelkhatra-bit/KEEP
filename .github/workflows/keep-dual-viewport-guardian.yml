@@ -13,13 +13,20 @@ on:
       - 'packages/music/**'
       - 'config/platform-parity-contract.json'
       - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/source-of-truth-review.test.cjs'
+      - 'BRANCH_SOURCE_OF_TRUTH.json'
       - 'scripts/verify-platform-behavior-parity.cjs'
+      - 'scripts/listen-issue50-browser.cjs'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   pull_request:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - 'packages/mobile/**'
       - 'packages/music/**'
+      - 'scripts/listen-issue50-browser.cjs'
+      - 'scripts/verify-source-of-truth.cjs'
+      - 'scripts/source-of-truth-review.test.cjs'
+      - 'BRANCH_SOURCE_OF_TRUTH.json'
       - '.github/workflows/keep-dual-viewport-guardian.yml'
   workflow_dispatch:
   schedule:
@@ -46,6 +53,7 @@ jobs:
       EXPO_PUBLIC_KEEP_PREVIEW: '1'
       EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'false'
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
+      NODE_PATH: /tmp/keep-playwright/node_modules
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -54,15 +62,31 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify shared Mobile/Desktop source
-        run: node scripts/verify-source-of-truth.cjs
+        run: |
+          node --test scripts/source-of-truth-review.test.cjs
+          node scripts/verify-source-of-truth.cjs
       - name: Verify Mobile/Web behavior parity
         run: node scripts/verify-platform-behavior-parity.cjs
       - name: Typecheck
         run: npm run type-check
       - name: Install Chromium
         run: |
-          npm install --no-save playwright@1.55.0
-          npx playwright install chromium --with-deps
+          npm install --prefix /tmp/keep-playwright --no-save playwright@1.55.1
+          /tmp/keep-playwright/node_modules/.bin/playwright install chromium --with-deps
+      - name: Écouter — correction et SESSION, 390 px + 1440 px (serveur simulé)
+        env:
+          EXPO_PUBLIC_KEEP_REAL_RECOGNITION: 'true'
+          KEEP_LISTEN_EVIDENCE: artifacts/dual-viewport/listen
+        run: |
+          (cd packages/mobile && npx expo export --platform web --clear --output-dir /tmp/keep-listen-web)
+          python3 -m http.server 8082 --bind 127.0.0.1 --directory /tmp/keep-listen-web >/tmp/keep-listen-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8082 >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/listen-issue50-browser.cjs http://127.0.0.1:8082
       - name: Start KEEP Web runtime
         working-directory: packages/mobile
         run: |

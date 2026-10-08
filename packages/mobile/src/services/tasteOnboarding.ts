@@ -10,13 +10,13 @@ export function needsTasteOnboarding(state: Pick<PulsePreferenceState, 'complete
   return !state.completed && Number(state.dismissCount || 0) === 0;
 }
 
-type SessionLike = { tracks?: Array<{ status?: string; track?: { genres?: string[] } }> };
+type SessionLike = { tracks?: Array<{ status?: string; recognitionPending?: boolean; recognitionCorrectionKey?: string; track?: { genres?: string[] } }> };
 /** Styles les plus fréquents dans l'historique local (démo / invité) : cochés d'avance, 8 au plus. */
 export function topGenresFromSessions(sessions: SessionLike[] | undefined | null): string[] {
   const counts = new Map<string, { label: string; n: number }>();
   for (const session of sessions ?? []) {
     for (const entry of session.tracks ?? []) {
-      if (entry.status === 'passed') continue;
+      if (entry.status === 'passed' || (entry.recognitionPending && entry.status !== 'kept') || entry.recognitionCorrectionKey) continue;
       for (const raw of entry.track?.genres ?? []) {
         const label = String(raw ?? '').trim();
         if (!label) continue;

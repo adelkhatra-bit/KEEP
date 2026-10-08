@@ -34,10 +34,10 @@ significatif.
 ## 1. État actuel
 
 <!-- AUTO:GIT-STATE:START -->
-- Régénéré le : 2026-10-06T21:53:55.488Z
-- Branche : `copilot/reconcileclaude-main-20260825`
-- Dernier commit : `0f4775bd` (0f4775bd97085704d3a4984d1babfdec66086638) — Débloquer les gardes d’intégration des modules Stories validés
-- Date du dernier commit : 2026-10-06T21:50:17Z
+- Régénéré le : 2026-10-08T10:34:57.212Z
+- Branche : `copilot/coute-pas-la-bonne-bouton-session`
+- Dernier commit : `f1ff0da0` (f1ff0da06af1f651cbc628b3196e21a2fac8de04) — Adapter les assertions Jest à la politique de revue option A
+- Date du dernier commit : 2026-10-08T10:31:41Z
 - Working tree : ⚠️ modifications non commitées présentes
 <!-- AUTO:GIT-STATE:END -->
 
@@ -124,16 +124,16 @@ dernière refonte majeure et doit être traité comme « à confirmer ».
 ## 3. Dernières modifications (10 derniers commits)
 
 <!-- AUTO:RECENT-COMMITS:START -->
-- `0f4775bd` (2026-10-06, copilot-swe-agent[bot]) — Débloquer les gardes d’intégration des modules Stories validés
-- `88ffffe9` (2026-10-06, copilot-swe-agent[bot]) — chore: aligner la branche agent sur la source produit 0138b4e5
-- `0138b4e5` (2026-10-06, Claude) — Stories: anti-doublon entre membres (cadenas + « Déjà en story chez @x, repartage-la »)
-- `39a9fb06` (2026-10-06, Claude) — Ma story s'ouvre sans faux « terminée », secousse = menu du robot (directions + signaler)
-- `c7cb3e76` (2026-10-06, Claude) — Docs: idées 183-188 (proposition lien partagé, premiers pas, parrainage, barre d'onglets) en attente d'OK
-- `6da2753e` (2026-10-06, Claude) — Lien partagé: le visiteur écoute et voit les stories, toute action demande un compte sur place
-- `d61db043` (2026-10-06, Claude) — Lien partagé = vraie app en invité (stories visibles, fonctions bloquées), vues de story en bulles, Services musicaux jamais bloqués, règle 2 mots
-- `16f5c12e` (2026-10-06, Claude) — Lien de partage: même interface que le profil de l'app (styles + liste repliée), parrainage conservé à l'inscription depuis le lien
-- `f27b139e` (2026-10-06, Claude) — Story: vues façon Instagram (musique vue + écoutée/passée/arrêtée), secousse localisée et fenêtre ouverte sur place
-- `d6262cf8` (2026-10-06, Claude) — Super Admin: menu en 8 rubriques, page Signalements (secousses), styles communs carte/bouton
+- `f1ff0da0` (2026-10-08, copilot-swe-agent[bot]) — Adapter les assertions Jest à la politique de revue option A
+- `fd2bbb8c` (2026-10-08, copilot-swe-agent[bot]) — Intégrer les journaux canoniques sans modifier le produit
+- `0c8413a6` (2026-10-08, copilot-swe-agent[bot]) — Autoriser les PR Copilot vers reconcile sans publication (option A)
+- `639f499d` (2026-10-08, adelkhatra-bit) — docs: record confirmed missing game genre mappings [skip ci]
+- `748f845e` (2026-10-08, adelkhatra-bit) — docs: record events MP3 and listening session requirements [skip ci]
+- `39b68ff6` (2026-10-08, adelkhatra-bit) — docs: record Adel catalogue and Pulse decisions [skip ci]
+- `6b64e01a` (2026-10-08, adelkhatra-bit) — docs: audit vérifié et plan Loki stories artistes solo bot [skip ci]
+- `f64656ba` (2026-10-08, adelkhatra-bit) — docs: décisions audit stories bot unique et performance [skip ci]
+- `a384d2c7` (2026-10-08, copilot-swe-agent[bot]) — Consigner les preuves locales et limites de validation de l’issue #50
+- `015aa964` (2026-10-08, copilot-swe-agent[bot]) — Corriger la reconnaissance, SESSION et les tours Battle sans voix (#50)
 <!-- AUTO:RECENT-COMMITS:END -->
 
 Détail complet de chaque mission : `AGENT_MESSAGES.md` (journal narratif par
@@ -151,6 +151,10 @@ agent) et messages des sessions de chat (non versionnés).
 - Les builds iOS utilisent `--freeze-credentials` pour empêcher EAS d'essayer de réparer/créer des credentials pendant un job non interactif.
 
 ## 4. Points ouverts
+
+- **08/10/2026 — suivi PR #51, TEST MODE RÉEL local validé** : option A encodée (Copilot revue vers reconcile uniquement), conflit documentaire résolu sans perte ; commits `0c8413a`, `fd2bbb8`, `f1ff0da`. 1417 tests mobile + 19 music, trois typechecks, huit tests gouvernance, export et Chromium 390/1440 réussis. CodeQL Actions/JavaScript zéro alerte ; revue automatique indisponible, relecture ciblée propre. CI du SHA `f1ff0da` suspendue `action_required` (guardian `37764066006`) : autorisation GitHub nécessaire, pas de PASS distant. Aucune migration/fonction issue #50 déployée ; détails `.context/activeContext.md`.
+
+- **08/10/2026 — issue #50, revue non livrée** : correction « Pas la bonne », SESSION et trois défauts visuels, position Battle/Solo 12 s + « Pas de voix ». 1417 tests mobile + 19 music, typechecks des trois workspaces, export, RLS locale et Chromium fixtures 390/1440 réussis ; voir `.context/activeContext.md` pour les limites héritées exactes. Migrations/fonctions non appliquées ; CI produit et intégration canonique restent distinctes.
 
 - **07/10/2026 — IDEA-189, LOCAL_ONLY** : tableau versions/preuves dans Opérations existant, SHA/test obligatoires pour les nouveaux « Corrigé », compteurs exacts avec erreurs honnêtes, actionlint épinglé et synthèse GitHub lecture seule. Typechecks admin/mobile, build admin, 1377 tests mobile, PostgreSQL isolé et navigateur fixtures 390/1440 réussis. Migration `/home/runner/work/KEEP/KEEP/supabase/migrations/20261006235000_problem_report_evidence.sql` non appliquée ; intégration/CI/livraison restent à faire par le parent, sans PASS global. Actionlint global hérité rouge, version publique DNS indisponible, TestFlight inconnu. Détails dans `/home/runner/work/KEEP/KEEP/.context/activeContext.md` et `/home/runner/work/KEEP/KEEP/AGENT_MESSAGES.md`.
 

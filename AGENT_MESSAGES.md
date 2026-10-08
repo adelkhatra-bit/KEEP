@@ -2677,6 +2677,22 @@ Diagnostic publication (lecture seule) : Web 37487709888 et OTA 37487709780 ont 
 - Portée exacte : fonctions déployées et smoke tests SQL réussis ; pas de validation du parcours navigateur connecté ou iPhone, pas de déclaration globale « tout fonctionne ». Aucun déploiement frontend/OTA déclenché volontairement. Aucun contrat Apple ni intégration Convex modifié.
 - RESTE OUVERT : admin_dashboard_v2 absente et repli trompeur des blocs Réels/Argent/Offert ; formulaire de preuves encore au clavier ; contrat Stories serveur/client et suivi temporel à aligner ; tests réels de bout en bout. Constats détaillés : https://github.com/adelkhatra-bit/KEEP/pull/47#issuecomment-6042158896 . Réutiliser composants existants, préserver design/auth. Ces corrections ne sont pas réalisées par cette migration.
 - À reprendre sur le poste canonique : reporter cette preuve de déploiement dans ERROR_LEDGER et PROJECT_STATE avec la validation UI quand disponible, sans qualifier un SHA/test saisi de test exécuté ni de correctif livré.
+## [2026-10-08T01:53:49.162Z] codex
+
+Issue #50 : audit ciblé écoute/session et Battle sur la branche de revue basée sur fa193cc (reconcile). Corrections et tests mobile/web ; aucune écriture ni déploiement production.
+
+## [2026-10-08T02:35:05.807Z] codex
+
+Issue #50 : correction privée + SESSION et Battle/Solo préparés en revue, 1417 tests mobile + 19 music, typechecks mobile/admin/music et export final réussis. PostgreSQL16 isolé corrections/Battle. Dernier parcours écoute 390/1440 en cours, aucune migration/fonction appliquée en production. Revue ciblée sans bug significatif après corrections des courses ; CI héritée chat directe non verte (37711629482).
+
+## [2026-10-08T02:42:20.839Z] codex
+
+Clôture #50 : commit de revue 015aa964 distant confirmé, 1417 tests mobile + 19 music, trois typechecks, export et Chromium 390/1440 réussis ; RLS/annulation PostgreSQL isolés, aucun secret. Revue ciblée sans bug significatif ; revue automatique indisponible, CodeQL incomplet (workflows zéro alerte, expiration). Aucune migration/Edge déployée ni intégration canonique. Fin sans nouveau chantier demandée par Adel.
+
+## [2026-10-08T10:22:32.031Z] codex
+
+PR51 : décision Adel option A, mise en cohérence des branches copilot de revue uniquement vers reconcile ; vérification CI action_required sans jobs, pas de production.
+
 
 
 ## [2026-10-08] codex — audit actuel et plan d’action de fiabilisation
@@ -2781,3 +2797,6 @@ Fichiers : pages/index.tsx, pages/problem-reports.tsx, PresetPicker.tsx, Hint.ts
 
 ### État final de cette passe
 Audit et plan seulement, avec tests de fonctions pures et lectures de la base. Les nouvelles réparations des lots ci-dessus NE SONT PAS encore implémentées. Le correctif serveur Signalements d’hier reste appliqué ; l’absence de dashboard v2 est désormais levée. Aucune session utilisateur/admin authentifiée ni appareil iPhone contrôlable ici, donc pas de validation globale mensongère.
+## [2026-10-08T10:34:57.139Z] codex
+
+PR51 option A : 0c8413a contrat/garde/nettoyage, fd2bbb8 fusion documentaire des deux journaux, f1ff0da fixture Jest mise à jour. TEST MODE RÉEL local rejoué : 1417 mobile + 19 music, 3 typechecks, export Chromium390/1440, 8 cas Node ; aucune écriture production. CodeQL Actions/JS zéro alerte, revue ciblée propre ; revue automatique indisponible. Dix CI SHA f1ff0da action_required, guardian37764066006 : approbation GitHub nécessaire, pas de CI verte annoncée.

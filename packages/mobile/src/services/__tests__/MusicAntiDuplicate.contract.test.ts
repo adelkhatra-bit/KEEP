@@ -10,7 +10,8 @@ describe('Loki anti-doublon music contract', () => {
   const migration = read('..', '..', '..', '..', '..', 'supabase', 'migrations', '20261004030000_marketplace_no_duplicate_track_purchase.sql');
 
   it('deduplicates recognition against the complete active session', () => {
-    expect(sessionStore).toContain('get().tracks.find((entry) => sameTrack(entry.track, track))');
+    expect(sessionStore).toContain('get().tracks.find((entry) => sameTrack(entry.track, track)');
+    expect(sessionStore).toContain('entry.rejectedRecognitions?.some((rejected) => sameTrack(rejected, track))');
     expect(sessionStore).not.toContain('const last = get().tracks[0];\n  if (last && sameTrack(last.track, track))');
   });
 
