@@ -236,3 +236,10 @@ Statuts : `IDÉE` (notée) → `CADRÉE` (proposition validée) → `EN COURS` �
 - **IDÉE :** importer des MP3 personnels dans Loki Music ; auditer d’abord les possibilités existantes, stockage, formats, limites et séparation privé/public. Un import personnel n’autorise pas automatiquement sa diffusion publique ou sa vente.
 - **IDÉE / décision :** pendant la reconnaissance au micro, remplacer l’action GARDER par « Ma session » ; arrêter et libérer la capture audio avant d’ouvrir les titres de session, où l’utilisateur peut choisir de les garder. Éviter capture et lecture simultanées et double débit ; préserver les résultats déjà détectés.
 - **IDÉE / test matériel demandé :** vérifier sur iPhone/Android les routes audio sans accessoire, écouteurs filaires et Bluetooth, interruptions et retour arrière-plan. Le choix du micro dépend de la plateforme et des accessoires ; ne pas annoncer un test matériel sans appareil réellement disponible.
+
+## Complément Adel — 08/10/2026 — QR, multi-utilisateur, textes courts
+
+- **IDÉE / audit demandé :** contrôler les derniers changements de Claude Code et la parité des interfaces entre comptes, formules, versions et testeurs ; aucune correction réservée par identifiant à un compte réel. Tester isolation des données et charge avant toute promesse de millions d’utilisateurs.
+- **IDÉE / audit sécurité QR :** distinguer lien public du profil et QR de connexion ordinateur ; vérifier expiration, usage unique, validation du propriétaire, confirmation du navigateur destinataire et refus d’un tiers. Examiner si un code e-mail existe réellement, sans en inventer un.
+- **IDÉE / libellé proposé :** action du hamburger « Connecter mon PC », guidage court vers le vrai parcours existant ; ne pas afficher un QR de connexion comme un partage public.
+- **IDÉE / décision UI :** remplacer les libellés « En savoir plus » visibles dans le produit par « Plus », conserver une étiquette accessible précise. Événement visible dans Découverte chez Adel 4A : replier le texte long, ouvrir avec « Plus », refermer avec « Moins », sans masquer date, lieu et action principale.
