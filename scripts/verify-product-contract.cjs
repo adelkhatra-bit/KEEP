@@ -374,6 +374,12 @@ const storyService = fs.readFileSync(path.join(root, 'packages/mobile/src/servic
 const storyDeck = fs.readFileSync(path.join(root, 'packages/mobile/src/components/MusicSwipeDeckModal.tsx'), 'utf8');
 const storyEligibility = fs.readFileSync(path.join(root, 'packages/mobile/src/services/storyEligibility.ts'), 'utf8');
 const se = contract.storiesExperience;
+must(se?.approvedEventAutoPin === true && se?.eventPinUsesExistingRsvps === true && se?.eventPinUniqueByProfileAndEvent === true, 'stories: soirées approuvées automatiques, RSVP existant et épingle unique obligatoires');
+const pulseEvents = contract.eventDiscovery?.pulseEvents;
+must(pulseEvents?.minimumDistinctTracksBetweenCards === 10 && pulseEvents?.sameCountryAndCurrencyOnly === true
+  && pulseEvents?.requiresMusicTasteScoreOverlap === true && pulseEvents?.demoWritesForbidden === true
+  && pulseEvents?.label === 'Soirée' && pulseEvents?.organizerStatsCountrySource === 'event-country',
+  'Pulse: carte Soirée limitée à dix titres distincts, goût/pays/devise et Démo sans écriture obligatoires');
 // Règle d'Adel (05/10/2026) : on ne se désabonne QUE depuis la page profil de la personne ; la liste des vues propose « Voir le profil », pas un badge « Abonné ».
 const quickViewSrc = fs.readFileSync(path.join(root, 'packages/mobile/src/components/SourceProfileQuickView.tsx'), 'utf8');
 must(se && se.unfollowOnlyFromProfilePage === true && se.viewersListShowsViewProfileNotFollowBadge === true, 'storiesExperience: règle « désabonnement uniquement depuis le profil » absente du contrat');

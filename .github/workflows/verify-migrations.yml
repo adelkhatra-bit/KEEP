@@ -14,12 +14,14 @@ on:
       - "supabase/migrations/**"
       - "supabase/scripts/**"
       - ".github/workflows/verify-migrations.yml"
+      - "scripts/event-story-data.test.cjs"
   pull_request:
     branches: ['reconcile/claude-main-20260825']
     paths:
       - "supabase/migrations/**"
       - "supabase/scripts/**"
       - ".github/workflows/verify-migrations.yml"
+      - "scripts/event-story-data.test.cjs"
   workflow_dispatch:
 
 jobs:
@@ -45,6 +47,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Vérifier soirées story/Pulse dans PostgreSQL isolé
+        run: KEEP_EVENT_STORY_LOCAL_SQL=1 node --test scripts/event-story-data.test.cjs
 
       - name: Vérifier les migrations + triggers + RLS
         shell: bash

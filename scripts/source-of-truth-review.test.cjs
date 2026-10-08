@@ -57,3 +57,10 @@ test('PR metadata must identify the canonical repository and checked-out commit'
     assert.match(result.stdout + result.stderr, /AGENT BRANCH MUST SHARE FETCHED CANONICAL HISTORY/);
   }
 });
+
+test('Branch hygiene preserves review branches and rejects non-canonical PR bases', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/branch-hygiene.yml'), 'utf8');
+  assert.equal((workflow.match(/"\$canonical"\|main\|copilot\/\*\|dependabot\/\*\|archive\/\*/g) ?? []).length, 2);
+  assert.match(workflow, /select\(\.base\.ref != "reconcile\/claude-main-20260825"\)/);
+  assert.match(workflow, /test -z "\$wrong_review_base"/);
+});

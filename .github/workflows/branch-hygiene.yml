@@ -23,7 +23,7 @@ jobs:
           test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
           test "$GITHUB_REF_NAME" = 'reconcile/claude-main-20260825'
 
-      - name: Archive then delete every non-canonical human branch
+      - name: Archive legacy branches and preserve canonical review branches
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,7 +37,7 @@ jobs:
 
           for branch in "${branches[@]}"; do
             case "$branch" in
-              "$canonical"|main|dependabot/*|archive/*)
+              "$canonical"|main|copilot/*|dependabot/*|archive/*)
                 echo "KEEP: $branch"
                 continue
                 ;;
@@ -69,7 +69,7 @@ jobs:
 
           while IFS= read -r branch; do
             case "$branch" in
-              "$canonical"|main|dependabot/*|archive/*)
+              "$canonical"|main|copilot/*|dependabot/*|archive/*)
                 ;;
               *)
                 echo "ERROR: unexpected human branch still exists: $branch"
@@ -79,4 +79,7 @@ jobs:
           done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name')
 
           test "$unexpected" = 0
+          wrong_review_base="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+            --jq '.[] | select(.head.ref | startswith("copilot/")) | select(.base.ref != "reconcile/claude-main-20260825") | .number')"
+          test -z "$wrong_review_base"
           echo "Branch hygiene verified: ONE human product branch = $canonical"
