@@ -30,6 +30,7 @@
     "expo-application": "~7.0.8",
     "expo-av": "~16.0.8",
     "expo-build-properties": "~1.0.10",
+    "expo-clipboard": "~8.0.8",
     "expo-dev-client": "~6.0.21",
     "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.8",

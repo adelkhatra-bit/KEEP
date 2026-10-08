@@ -293,3 +293,10 @@ Le dernier cahier des charges validé remplace les anciennes consignes contradic
 - Elles sont indépendantes de l'accordéon Loki Music DNA : replier, désactiver ou modifier DNA ne doit jamais masquer Loki Pulse.
 - Sur l'accueil, Loki Pulse remplace visuellement l'ancien bloc Loki Music DNA et ne redirige pas vers le profil.
 - Les genres déclarés du profil servent de repli afin qu'un compte déjà renseigné ne perde pas ses bulles après refresh ou intégration.
+
+## Liens musicaux et Mon style — décision d'Adel du 08/10/2026, issue #48
+- Source unique des imports : `music_library_items`, `source_kind=shared_link`, aucune nouvelle table. Résolution gratuite par `keep-resolve-music-link` et Odesli ; dédoublonnage par ISRC puis identité normalisée titre/artiste, cache 30 jours.
+- Partager vers Loki ou Profil › Ma musique › « ＋ Ajouter un lien » (presse-papiers, aperçu puis AJOUTER, sans clavier) ajoute le titre au profil. Les liens « Ouvrir dans » reprennent toutes les plateformes résolues.
+- « Mon style » lit `keep_my_music_stats()` : cinq premiers styles et artistes, ❤️, 👎, GARDER et imports par plateforme. L'apprentissage reste dans `profile_music_taste_scores`, via le trigger existant, sans écriture client des goûts.
+- Démo/invité : aucune écriture. Import gratuit, jamais de débit FREE. Comptes fournisseurs : `provider_links` uniquement ; ne pas écrire dans les anciennes tables de connexions ou d'affinité.
+- Source mobile/web unique, texte clair ≥ 11 px, aide ⓘ. Aucun déplacement des modules validés ni modification de la barre d'onglets.

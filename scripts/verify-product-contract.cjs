@@ -35,6 +35,32 @@ must(contract.creditRules.recognize === 0, 'recognize credit changed');
 must(contract.creditRules.PASS === 0, 'PASS credit changed');
 must(contract.creditRules.KEEP === -3, 'KEEP credit changed');
 
+const musicImports = contract.musicLinkImports;
+must(musicImports?.libraryTable === 'music_library_items'
+  && musicImports?.tasteSource === 'profile_music_taste_scores'
+  && musicImports?.statsRpc === 'keep_my_music_stats'
+  && musicImports?.resolverFunction === 'keep-resolve-music-link'
+  && musicImports?.sourceKind === 'shared_link'
+  && musicImports?.providerConnectionsTable === 'provider_links',
+  'music imports must use canonical library, taste, connections and RPC');
+must(musicImports?.demoWritesAllowed === false && musicImports?.importFreeCost === 0,
+  'music imports must stay free and never write in demo');
+must(musicImports?.cacheDays === 30
+  && JSON.stringify(musicImports?.identityOrder) === JSON.stringify(['isrc', 'normalized-title-artist']),
+  'music imports must preserve 30-day cache and canonical identity');
+must(musicImports?.helpTrigger === 'ⓘ' && musicImports?.minimumFontSize === 11
+  && musicImports?.sharedMobileWebImplementation === true,
+  'music imports must preserve accessible shared UI');
+const musicImportService = fs.readFileSync(path.join(root, 'packages/mobile/src/services/sharedMusicImportService.ts'), 'utf8');
+must(musicImportService.includes('state.isLocalGuest') && musicImportService.includes('state.isDemoMode'),
+  'music import account guard missing');
+must(musicImportService.includes("rpc('keep_my_music_stats')")
+  && musicImportService.includes("invoke('keep-resolve-music-link'"),
+  'music import canonical services missing');
+for (const forbidden of ['music_provider_connections', 'profile_music_artist_affinity', 'profile_music_genre_affinity', 'keep_consume_download_credit']) {
+  must(!musicImportService.includes(forbidden), `music import forbidden source: ${forbidden}`);
+}
+
 must(contract.profileOwner.freePlacement === 'immediately-after-Reprises-in-owner-metrics-bar', 'FREE placement contract changed');
 must(contract.profileOwner.freeBesideProfileKind === false, 'FREE must stay out of profile type row');
 must(contract.profileOwner.freeImmediatelyAfterReprises === true, 'FREE must stay immediately after Reprises');

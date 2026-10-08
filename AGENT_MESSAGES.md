@@ -2677,6 +2677,9 @@ Diagnostic publication (lecture seule) : Web 37487709888 et OTA 37487709780 ont 
 - Portée exacte : fonctions déployées et smoke tests SQL réussis ; pas de validation du parcours navigateur connecté ou iPhone, pas de déclaration globale « tout fonctionne ». Aucun déploiement frontend/OTA déclenché volontairement. Aucun contrat Apple ni intégration Convex modifié.
 - RESTE OUVERT : admin_dashboard_v2 absente et repli trompeur des blocs Réels/Argent/Offert ; formulaire de preuves encore au clavier ; contrat Stories serveur/client et suivi temporel à aligner ; tests réels de bout en bout. Constats détaillés : https://github.com/adelkhatra-bit/KEEP/pull/47#issuecomment-6042158896 . Réutiliser composants existants, préserver design/auth. Ces corrections ne sont pas réalisées par cette migration.
 - À reprendre sur le poste canonique : reporter cette preuve de déploiement dans ERROR_LEDGER et PROJECT_STATE avec la validation UI quand disponible, sans qualifier un SHA/test saisi de test exécuté ni de correctif livré.
+## [2026-10-08T10:21:29.990Z] codex
+
+Décision Adel option A : alignement contrat/contrôle copilot vers base canonique uniquement, puis issue 48. Réutilisation partage système ; aucun déploiement ni écriture production. Périmètres serveur et profil distincts.
 
 
 ## [2026-10-08] codex — audit actuel et plan d’action de fiabilisation

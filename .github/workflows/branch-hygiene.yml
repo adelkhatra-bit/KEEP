@@ -7,12 +7,32 @@ on:
       - 'BRANCH_SOURCE_OF_TRUTH.json'
       - '.github/workflows/branch-hygiene.yml'
   workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
+  copilot-review-base:
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'copilot/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Refuser toute base de revue non canonique
+        env:
+          REVIEW_BASE: ${{ github.base_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = 'adelkhatra-bit/KEEP'
+          test "$REVIEW_BASE" = 'reconcile/claude-main-20260825'
+
   remove-misleading-legacy-branches:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,6 +63,16 @@ jobs:
                 ;;
             esac
 
+            if [[ "$branch" == copilot/* ]]; then
+              review="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+                -f state=open -f "head=${GITHUB_REPOSITORY%/*}:$branch" \
+                --jq '[.[] | .base.ref] | length > 0 and all(. == "'"$canonical"'")')"
+              if [[ "$review" == true ]]; then
+                echo "KEEP REVIEW ONLY: $branch -> $canonical"
+                continue
+              fi
+            fi
+
             sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')"
             safe="$(printf '%s' "$branch" | sed -E 's#[^A-Za-z0-9._-]+#--#g')"
             tag="archive/legacy-${safe}-${sha:0:8}"
@@ -70,6 +100,15 @@ jobs:
           while IFS= read -r branch; do
             case "$branch" in
               "$canonical"|main|dependabot/*|archive/*)
+                ;;
+              copilot/*)
+                review="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+                  -f state=open -f "head=${GITHUB_REPOSITORY%/*}:$branch" \
+                  --jq '[.[] | .base.ref] | length > 0 and all(. == "'"$canonical"'")')"
+                if [[ "$review" != true ]]; then
+                  echo "ERROR: Copilot branch without canonical review: $branch"
+                  unexpected=1
+                fi
                 ;;
               *)
                 echo "ERROR: unexpected human branch still exists: $branch"

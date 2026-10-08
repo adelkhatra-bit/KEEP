@@ -47,13 +47,15 @@ jobs:
     steps:
       - name: Checkout canonical KEEP source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
 
       - name: Verify canonical branch
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = "adelkhatra-bit/KEEP"
-          test "$GITHUB_REF_NAME" = "reconcile/claude-main-20260825"
+          test "${GITHUB_BASE_REF:-$GITHUB_REF_NAME}" = "reconcile/claude-main-20260825"
 
       - name: Verify UI master baseline
         run: node scripts/verify-ui-layout-baseline.cjs

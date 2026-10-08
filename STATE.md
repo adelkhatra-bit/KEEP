@@ -10,9 +10,12 @@ Rapport d'audit externe : `docs/AUDIT_EXTERNE_2026-10-06.md`. Notifications : `d
 - **Branche de travail unique : `reconcile/claude-main-20260825`** (toute IA travaille ici, jamais sur `main`).
 - `main` : figée (métadonnées GitHub seulement), 203 commits derrière, 2 074 devant par historique divergent — ne rien y pousser.
 - `claude/music-stories-20261005` : 136 commits derrière reconcile, 0 devant → archive, rien à récupérer.
-- `copilot/*`, `dependabot/*` : références d'audit et mises à jour automatiques, non sources produit.
+- `copilot/*` : branches de revue autorisées par Adel le 08/10/2026 uniquement pour une PR vers `reconcile/claude-main-20260825`, jamais sources de publication ; `dependabot/*` : mises à jour automatiques.
 
 ## Journal (récent d'abord)
+| 08/10/2026 | copilot/add-title-sharing-to-profile-loki | b81311ba26f720906084f0703b4226bfd7d72470 | Option A : contrat, contrôle et nettoyage des branches de revue alignés (ERR-223). | COMMITTED_LOCAL : 14 tests Jest ciblés ; PR #49 base canonique vérifiée ; contrôle source réussi |
+| 08/10/2026 | copilot/add-title-sharing-to-profile-loki | 5f3fbfd | Fusion des cinq commits documentaires canoniques, décisions conservées sans changement produit. | COMMITTED_LOCAL : fusion à deux parents, origin/639f499 ancêtre ; contrôle source revalidé |
+
 | Date | Branche | Commit | Fonction | Preuve |
 |---|---|---|---|---|
 | 07/10/2026 | copilot/reconcileclaude-main-20260825 (revue basée sur reconcile) | LOCAL_ONLY, HEAD parent 08a116e7 inchangé | ERR-ADMIN-EVIDENCE-BASEPATH-222 : lien Opérations → Signalements via next/link, test navigateur préfixé renforcé | tsc admin exit0, 7/7 tests, export Next 22/22 avec /KEEP/admin-preview, Chromium 390×844 / 1440×900 clic réel + reload HTTP200, racine HTTP404, preflight/postflight exit0 ; CI distante/production non exécutées, validation automatique bloquée |

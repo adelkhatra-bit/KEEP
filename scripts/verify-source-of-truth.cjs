@@ -8,6 +8,14 @@ const failures = [];
 const expectedRepository = 'adelkhatra-bit/KEEP';
 const expectedBranch = 'reconcile/claude-main-20260825';
 const expectedPublicRoot = 'https://adelkhatra-bit.github.io/KEEP';
+const branchContract = JSON.parse(read('BRANCH_SOURCE_OF_TRUTH.json'));
+const copilotReview = branchContract.reviewBranches?.['copilot/*'];
+if (!branchContract.allowedRemoteBranches?.includes('copilot/*')
+  || branchContract.forbiddenRemoteBranches?.includes('copilot/*')
+  || copilotReview?.pullRequestBase !== expectedBranch
+  || copilotReview?.publicationSource !== false) {
+  failures.push('BRANCH CONTRACT MUST ALLOW COPILOT REVIEW ONLY TOWARDS CANONICAL SOURCE');
+}
 
 if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedRepository) {
   failures.push(`WRONG REPOSITORY: ${process.env.GITHUB_REPOSITORY}`);
@@ -17,10 +25,21 @@ if (process.env.GITHUB_REPOSITORY && process.env.GITHUB_REPOSITORY !== expectedR
 let verifiedAgentBranch = '';
 try {
   const localBranch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
-  if (localBranch.startsWith('copilot/')) {
+  const reviewBranch = localBranch || process.env.GITHUB_HEAD_REF || '';
+  if (reviewBranch.startsWith('copilot/')) {
     try {
-      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, 'HEAD'], { cwd: root, stdio: 'pipe' });
-      verifiedAgentBranch = localBranch;
+      let reviewHead = 'HEAD';
+      if (process.env.GITHUB_EVENT_NAME === 'pull_request') {
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const pr = event.pull_request;
+        if (pr?.head?.ref !== reviewBranch || pr?.head?.repo?.full_name !== expectedRepository
+          || pr?.base?.ref !== expectedBranch || !/^[a-f0-9]{40}$/i.test(pr?.head?.sha || '')) {
+          throw new Error('Invalid review head');
+        }
+        reviewHead = pr.head.sha;
+      }
+      execFileSync('git', ['merge-base', '--is-ancestor', `refs/remotes/origin/${expectedBranch}`, reviewHead], { cwd: root, stdio: 'pipe' });
+      verifiedAgentBranch = reviewBranch;
     } catch {
       failures.push('AGENT BRANCH MUST CONTAIN FETCHED CANONICAL SOURCE');
     }
@@ -31,11 +50,15 @@ try {
   // repository + branch guards above.
 }
 
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch) {
+const verifiedPullRequestRef = verifiedAgentBranch
+  && process.env.GITHUB_EVENT_NAME === 'pull_request'
+  && process.env.GITHUB_HEAD_REF === verifiedAgentBranch
+  && /^\d+\/merge$/.test(process.env.GITHUB_REF_NAME || '');
+if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== expectedBranch && process.env.GITHUB_REF_NAME !== verifiedAgentBranch && !verifiedPullRequestRef) {
   failures.push(`WRONG BRANCH: ${process.env.GITHUB_REF_NAME}`);
 }
-if (verifiedAgentBranch && process.env.GITHUB_BASE_REF && process.env.GITHUB_BASE_REF !== expectedBranch) {
-  failures.push(`WRONG AGENT REVIEW BASE: ${process.env.GITHUB_BASE_REF}`);
+if (verifiedAgentBranch && process.env.GITHUB_BASE_REF !== copilotReview?.pullRequestBase) {
+  failures.push(`WRONG AGENT REVIEW BASE: ${process.env.GITHUB_BASE_REF || 'missing'}`);
 }
 
 const mustExist = [
@@ -98,7 +121,6 @@ for (const forbidden of [
   if (fs.existsSync(path.join(root, forbidden))) failures.push(`LEGACY PATH PRESENT: ${forbidden}`);
 }
 
-const branchContract = JSON.parse(fs.readFileSync(path.join(root, 'BRANCH_SOURCE_OF_TRUTH.json'), 'utf8'));
 for (const [key, expected] of Object.entries({
   repository: expectedRepository,
   canonicalBranch: expectedBranch,

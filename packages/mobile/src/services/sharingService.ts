@@ -156,6 +156,7 @@ async function copyShareText(copy: ShareCopy): Promise<boolean> {
       await navigator.clipboard.writeText(copy.message);
       return true;
     }
+
     if (typeof document !== 'undefined') {
       const textarea = document.createElement('textarea');
       textarea.value = copy.message;
@@ -181,6 +182,21 @@ async function copyShareText(copy: ShareCopy): Promise<boolean> {
 
   await Share.share({ title: copy.subject, message: copy.message });
   return false;
+}
+
+export async function readClipboardText(): Promise<string> {
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard?.readText) {
+    return navigator.clipboard.readText();
+  }
+  const clipboard = (NativeModules as any)?.Clipboard ?? (NativeModules as any)?.RNCClipboard;
+  if (clipboard?.getString) return String(await clipboard.getString());
+  try {
+    // Chargement à l’action : un ancien binaire sans ExpoClipboard garde une app fonctionnelle.
+    const expoClipboard = require('expo-clipboard') as typeof import('expo-clipboard');
+    return await expoClipboard.getStringAsync();
+  } catch {
+    throw new Error('Presse-papiers indisponible. Mets Loki Music à jour ou utilise Partager → Loki Music depuis ta plateforme musicale.');
+  }
 }
 
 async function openQrLanding(copy: ShareCopy): Promise<void> {

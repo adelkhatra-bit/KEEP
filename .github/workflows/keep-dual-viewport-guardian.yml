@@ -48,6 +48,8 @@ jobs:
       EXPO_PUBLIC_API_URL: http://127.0.0.1:3010
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -61,7 +63,7 @@ jobs:
         run: npm run type-check
       - name: Install Chromium
         run: |
-          npm install --no-save playwright@1.55.0
+          npm install --no-save --legacy-peer-deps playwright@1.55.1
           npx playwright install chromium --with-deps
       - name: Start KEEP Web runtime
         working-directory: packages/mobile
@@ -74,6 +76,11 @@ jobs:
           done
           cat /tmp/keep-dual-runtime.log
           exit 1
+
+      - name: Test import de lien et Mon style — 390/1440, transport isolé
+        env:
+          KEEP_MUSIC_LINK_ARTIFACTS: artifacts/dual-viewport
+        run: node scripts/music-link-profile-browser.cjs http://127.0.0.1:8081
 
       - name: Test KEEP critical loop — mobile 390x844 + desktop smoke 1440x900
         run: |

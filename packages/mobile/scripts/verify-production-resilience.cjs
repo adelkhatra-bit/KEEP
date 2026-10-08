@@ -32,8 +32,8 @@ pass('Resolver Supabase sans clé existe', exists('supabase/functions/keep-music
 pass('Resolver sans clé utilise Apple Search public', contains('supabase/functions/keep-music-keyless-source/index.ts', 'itunes.apple.com/search'));
 pass('Resolver sans clé utilise Deezer public en recoupement', contains('supabase/functions/keep-music-keyless-source/index.ts', 'api.deezer.com'));
 pass('Share intent global reste monté', contains('packages/mobile/index.js', 'SharedMusicHandoff'));
-pass('Share intent lance la résolution sans clé', contains('packages/mobile/src/components/SharedMusicHandoff.tsx', 'resolveKeylessSocialMusic'));
-pass('Share intent injecte le morceau résolu dans la session', contains('packages/mobile/src/components/SharedMusicHandoff.tsx', 'ingestExternalRecognition(recognition)'));
+pass('Share intent utilise le resolver partagé authentifié (issue #48)', contains('packages/mobile/src/components/SharedMusicHandoff.tsx', 'resolveSharedMusicLink(url)'));
+pass('Import partagé ne fabrique jamais une décision GARDER', !contains('packages/mobile/src/components/SharedMusicHandoff.tsx', 'ingestExternalRecognition(recognition)'));
 
 const recognition = 'packages/mobile/src/services/keepMusicCoreRecognition.ts';
 const sessionStore = 'packages/mobile/src/store/useSessionStore.ts';
